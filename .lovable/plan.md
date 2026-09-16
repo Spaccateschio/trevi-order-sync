@@ -16,7 +16,7 @@ Attivo Lovable Cloud (database, autenticazione, funzioni server). Nessun dato fi
 - **company_members** — appartenenza di una persona a un'azienda fornitrice. Una persona può stare in più aziende.
 - **company_member_roles** — ruoli della persona *dentro quella azienda*: amministratore, operatore, trasportatore. Tabella separata, mai un campo modificabile del profilo. Un amministratore è amministratore della sua azienda, non della piattaforma.
 - **customer_companies** — aziende clienti: ragione sociale, P.IVA/C.F., contatti, indirizzi. Entità autonoma, non appesa a un fornitore.
-- **customer_company_users** — persone autorizzate a operare per un'azienda cliente, con ruolo di riferimento (titolare/utente).
+- **customer_company_users** — persone autorizzate a operare per un'azienda cliente, con ruolo `owner` (titolare) o `member` (utente). Distinzione presente da subito; la gestione utenti da parte del titolare arriverà dopo.
 - **supplier_customer_relations** — il rapporto commerciale azienda cliente ↔ azienda fornitrice. Qui vivranno stato del rapporto (in attesa / attivo / sospeso / rifiutato), listino assegnato, condizioni, abilitazione ordini. In Fase 1 creo la tabella con stato e i campi strutturali; le condizioni commerciali arrivano dopo.
 - **audit_events** — chi, cosa, su quale azienda/oggetto, quando, con dettaglio essenziale. Solo eventi rilevanti, nessun tracciamento dei click.
 
