@@ -61,7 +61,8 @@ SEMPRE
 - Migrazione unica: nuova anagrafica unificata, capacità, membri, riscrittura rapporti e funzioni, RLS e grant completi; la riga Trevi Fruit esistente viene impostata come "vende".
 - Aggiornamento del punto di lettura dell'identità nel frontend: capacità dell'azienda oltre a ruoli e rapporti, con la stessa cache.
 - Nuove pagine: scelta profilo, dati azienda, impostazioni con attivazione della capacità mancante; le pagine attuali vengono riclassificate nei due gruppi.
-- Test di isolamento ripetuti come in Fase 1: azienda A non vede i dati di azienda B; un'azienda solo-acquisto non può creare collegamenti gestionali; un'azienda che compra e vende resta una sola riga.
+- Test di isolamento ripetuti come in Fase 1: azienda A non vede i dati di azienda B; un'azienda solo-acquisto non può creare collegamenti gestionali; un'azienda che compra e vende resta una sola riga; un acquirente con due fornitori vede solo i dati dei rapporti attivi.
+- Al termine: report completo con file toccati, esiti dei test e stato di quanto resta in attesa; nessuna funzione fuori ambito iniziata.
 
 ## Compatibilità con i ruoli avanzati (da progettare a parte)
 
