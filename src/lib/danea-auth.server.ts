@@ -4,7 +4,12 @@
  * password (HTTP Basic) e l'azienda viene ricavata dalla postazione lato server.
  */
 
-const PBKDF2_ITERATIONS = 120_000;
+/**
+ * Numero di iterazioni PBKDF2: il runtime serverless accetta al massimo 100.000.
+ * Questa costante è l'unica usata sia in creazione/rigenerazione password sia
+ * nella verifica HTTP Basic, così i parametri restano sempre identici.
+ */
+const PBKDF2_ITERATIONS = 100_000;
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes)
