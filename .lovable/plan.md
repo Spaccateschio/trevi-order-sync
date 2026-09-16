@@ -42,9 +42,22 @@ postazioni).
 
 ## Nuova pagina Prodotti (Vendite → Prodotti)
 
-Oggi la voce Prodotti non esiste ancora: la creo, con l'elenco dei prodotti (codice,
-descrizione, categoria, unità di misura, stato pubblicato/non pubblicato), ricerca e
-paginazione, e in alto il pulsante **Importa da Danea**.
+Oggi la voce Prodotti non esiste ancora: la creo come **unico** elenco prodotti. Tutto quello
+che arriva da Danea, sia dal collegamento diretto sia dall'importazione manuale, si vede qui:
+nessun catalogo separato.
+
+Elenco compatto, pensato per molti prodotti, con: codice, descrizione, categoria e
+sottocategoria, unità di misura, IVA, prezzo del listino principale e stato
+Pubblicato / Non pubblicato. Ricerca rapida per codice o descrizione, filtri per categoria e
+per stato, paginazione. In alto il pulsante **Importa da Danea**.
+
+Cliccando un prodotto si apre il dettaglio in sola consultazione dei dati ricevuti da Danea:
+identificativo interno, codice, descrizione, categoria e sottocategoria, unità di misura, IVA,
+i listini da 1 a 9 presenti con i rispettivi nomi, note, nome e cartella dell'immagine quando
+presenti, stato di pubblicazione e ultimo aggiornamento ricevuto da Danea. I dati e il costo
+del fornitore compaiono solo agli amministratori dell'azienda.
+
+Nessuna modifica dei prodotti da qui: Danea resta il gestionale dell'anagrafica.
 
 La finestra di importazione ha tre passaggi:
 
