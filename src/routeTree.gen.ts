@@ -13,7 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedAmministrazioneRouteImport } from './routes/_authenticated/amministrazione'
+import { Route as AuthenticatedClienteRouteImport } from './routes/_authenticated/cliente'
 import { Route as AuthenticatedConsegneRouteImport } from './routes/_authenticated/consegne'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedOperativoRouteImport } from './routes/_authenticated/operativo'
@@ -37,12 +39,22 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAmministrazioneRoute =
   AuthenticatedAmministrazioneRouteImport.update({
     id: '/amministrazione',
     path: '/amministrazione',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedClienteRoute = AuthenticatedClienteRouteImport.update({
+  id: '/cliente',
+  path: '/cliente',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedConsegneRoute = AuthenticatedConsegneRouteImport.update({
   id: '/consegne',
   path: '/consegne',
@@ -63,7 +75,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/account': typeof AuthenticatedAccountRoute
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
+  '/cliente': typeof AuthenticatedClienteRoute
   '/consegne': typeof AuthenticatedConsegneRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/operativo': typeof AuthenticatedOperativoRoute
@@ -72,7 +86,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/account': typeof AuthenticatedAccountRoute
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
+  '/cliente': typeof AuthenticatedClienteRoute
   '/consegne': typeof AuthenticatedConsegneRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/operativo': typeof AuthenticatedOperativoRoute
@@ -83,7 +99,9 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/amministrazione': typeof AuthenticatedAmministrazioneRoute
+  '/_authenticated/cliente': typeof AuthenticatedClienteRoute
   '/_authenticated/consegne': typeof AuthenticatedConsegneRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/operativo': typeof AuthenticatedOperativoRoute
@@ -94,7 +112,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/reset-password'
+    | '/account'
     | '/amministrazione'
+    | '/cliente'
     | '/consegne'
     | '/dashboard'
     | '/operativo'
@@ -103,7 +123,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/reset-password'
+    | '/account'
     | '/amministrazione'
+    | '/cliente'
     | '/consegne'
     | '/dashboard'
     | '/operativo'
@@ -113,7 +135,9 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/reset-password'
+    | '/_authenticated/account'
     | '/_authenticated/amministrazione'
+    | '/_authenticated/cliente'
     | '/_authenticated/consegne'
     | '/_authenticated/dashboard'
     | '/_authenticated/operativo'
@@ -156,11 +180,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/account': {
+      id: '/_authenticated/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthenticatedAccountRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/amministrazione': {
       id: '/_authenticated/amministrazione'
       path: '/amministrazione'
       fullPath: '/amministrazione'
       preLoaderRoute: typeof AuthenticatedAmministrazioneRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/cliente': {
+      id: '/_authenticated/cliente'
+      path: '/cliente'
+      fullPath: '/cliente'
+      preLoaderRoute: typeof AuthenticatedClienteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/consegne': {
@@ -188,14 +226,18 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedAmministrazioneRoute: typeof AuthenticatedAmministrazioneRoute
+  AuthenticatedClienteRoute: typeof AuthenticatedClienteRoute
   AuthenticatedConsegneRoute: typeof AuthenticatedConsegneRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedOperativoRoute: typeof AuthenticatedOperativoRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedAmministrazioneRoute: AuthenticatedAmministrazioneRoute,
+  AuthenticatedClienteRoute: AuthenticatedClienteRoute,
   AuthenticatedConsegneRoute: AuthenticatedConsegneRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedOperativoRoute: AuthenticatedOperativoRoute,
