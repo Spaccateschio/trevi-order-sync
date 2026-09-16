@@ -29,11 +29,11 @@ export type ImportResult = {
  * (company_id, code) come chiave alternativa e unica disponibile nei DeletedProducts.
  */
 export async function importDaneaCatalog(
-  connection: DaneaConnectionRow,
+  station: DaneaStationRow,
   xml: string,
 ): Promise<ImportResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const companyId = connection.company_id;
+  const companyId = station.company_id;
 
   const payloadHash = await sha256Hex(xml);
   const doc = parseDaneaProducts(xml);
@@ -51,7 +51,7 @@ export async function importDaneaCatalog(
     .from("danea_sync_runs")
     .insert({
       company_id: companyId,
-      connection_id: connection.id,
+      station_id: station.id,
       mode: doc.mode,
       app_version: doc.appVersion,
       creator: doc.creator,
@@ -69,7 +69,7 @@ export async function importDaneaCatalog(
 
   try {
     await supabaseAdmin
-      .from("danea_connections")
+      .from("danea_stations")
       .update({
         detected_app_version: doc.appVersion,
         detected_creator: doc.creator,
@@ -77,7 +77,7 @@ export async function importDaneaCatalog(
         detected_warehouse: doc.warehouse,
         detected_image_folder: doc.imageFolder,
       })
-      .eq("id", connection.id);
+      .eq("id", station.id);
 
     await syncPriceListNames(supabaseAdmin, companyId, doc);
 
