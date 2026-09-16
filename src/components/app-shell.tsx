@@ -5,6 +5,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  PlugZap,
   ShoppingBasket,
   Truck,
   UserRound,
@@ -28,6 +29,7 @@ const ALL_ITEMS: Record<string, NavItem> = {
     short: "Admin",
     icon: Building2,
   },
+  danea: { to: "/danea", label: "Gestionale", short: "Danea", icon: PlugZap },
   operativo: { to: "/operativo", label: "Operativo", short: "Lavoro", icon: ClipboardList },
   consegne: { to: "/consegne", label: "Consegne", short: "Consegne", icon: Truck },
   cliente: { to: "/cliente", label: "Area cliente", short: "Cliente", icon: ShoppingBasket },
@@ -50,6 +52,7 @@ export function AppShell({
 
   const items: NavItem[] = [ALL_ITEMS["dashboard"]!];
   if (hasRole(identity, "amministratore")) items.push(ALL_ITEMS["amministrazione"]!);
+  if (hasRole(identity, "amministratore")) items.push(ALL_ITEMS["danea"]!);
   if (hasRole(identity, "amministratore") || hasRole(identity, "operatore")) {
     items.push(ALL_ITEMS["operativo"]!);
   }

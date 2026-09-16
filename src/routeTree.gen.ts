@@ -17,6 +17,7 @@ import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAmministrazioneRouteImport } from './routes/_authenticated/amministrazione'
 import { Route as AuthenticatedClienteRouteImport } from './routes/_authenticated/cliente'
 import { Route as AuthenticatedConsegneRouteImport } from './routes/_authenticated/consegne'
+import { Route as AuthenticatedDaneaRouteImport } from './routes/_authenticated/danea'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedOperativoRouteImport } from './routes/_authenticated/operativo'
 import { Route as ApiPublicDaneaProductsTokenRouteImport } from './routes/api/public/danea/products/$token'
@@ -61,6 +62,11 @@ const AuthenticatedConsegneRoute = AuthenticatedConsegneRouteImport.update({
   path: '/consegne',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDaneaRoute = AuthenticatedDaneaRouteImport.update({
+  id: '/danea',
+  path: '/danea',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
   '/cliente': typeof AuthenticatedClienteRoute
   '/consegne': typeof AuthenticatedConsegneRoute
+  '/danea': typeof AuthenticatedDaneaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/operativo': typeof AuthenticatedOperativoRoute
   '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
   '/cliente': typeof AuthenticatedClienteRoute
   '/consegne': typeof AuthenticatedConsegneRoute
+  '/danea': typeof AuthenticatedDaneaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/operativo': typeof AuthenticatedOperativoRoute
   '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/_authenticated/amministrazione': typeof AuthenticatedAmministrazioneRoute
   '/_authenticated/cliente': typeof AuthenticatedClienteRoute
   '/_authenticated/consegne': typeof AuthenticatedConsegneRoute
+  '/_authenticated/danea': typeof AuthenticatedDaneaRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/operativo': typeof AuthenticatedOperativoRoute
   '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/amministrazione'
     | '/cliente'
     | '/consegne'
+    | '/danea'
     | '/dashboard'
     | '/operativo'
     | '/api/public/danea/products/$token'
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/amministrazione'
     | '/cliente'
     | '/consegne'
+    | '/danea'
     | '/dashboard'
     | '/operativo'
     | '/api/public/danea/products/$token'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/_authenticated/amministrazione'
     | '/_authenticated/cliente'
     | '/_authenticated/consegne'
+    | '/_authenticated/danea'
     | '/_authenticated/dashboard'
     | '/_authenticated/operativo'
     | '/api/public/danea/products/$token'
@@ -222,6 +234,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConsegneRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/danea': {
+      id: '/_authenticated/danea'
+      path: '/danea'
+      fullPath: '/danea'
+      preLoaderRoute: typeof AuthenticatedDaneaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -251,6 +270,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAmministrazioneRoute: typeof AuthenticatedAmministrazioneRoute
   AuthenticatedClienteRoute: typeof AuthenticatedClienteRoute
   AuthenticatedConsegneRoute: typeof AuthenticatedConsegneRoute
+  AuthenticatedDaneaRoute: typeof AuthenticatedDaneaRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedOperativoRoute: typeof AuthenticatedOperativoRoute
 }
@@ -260,6 +280,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAmministrazioneRoute: AuthenticatedAmministrazioneRoute,
   AuthenticatedClienteRoute: AuthenticatedClienteRoute,
   AuthenticatedConsegneRoute: AuthenticatedConsegneRoute,
+  AuthenticatedDaneaRoute: AuthenticatedDaneaRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedOperativoRoute: AuthenticatedOperativoRoute,
 }
