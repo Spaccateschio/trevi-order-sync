@@ -76,6 +76,66 @@ export const createDaneaConnection = createServerFn({ method: "POST" })
     return { id: created.id, token, path: `/api/public/danea/products/${token}` };
   });
 
+/**
+ * Aggiorna Login e Password del collegamento attivo SENZA generare un nuovo
+ * indirizzo: l'URL già inserito dentro Danea resta valido.
+ * Un campo non fornito (undefined) resta invariato: la password salvata non è
+ * mai mostrata di nuovo, quindi un campo vuoto non significa "cancella".
+ */
+export const updateDaneaCredentials = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      companyId: string;
+      connectionId: string;
+      basicLogin?: string | undefined;
+      basicPassword?: string | undefined;
+      clearCredentials?: boolean | undefined;
+    }) => {
+      if (!input?.companyId || !input?.connectionId) throw new Error("Dati mancanti");
+      return input;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    await assertCompanyAdmin(context.supabase, data.companyId);
+
+    const { sha256Hex } = await import("@/lib/danea-import.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const patch: { basic_login?: string | null; basic_password_hash?: string | null } = {};
+
+    if (data.clearCredentials) {
+      patch.basic_login = null;
+      patch.basic_password_hash = null;
+    } else {
+      const login = data.basicLogin?.trim();
+      const password = data.basicPassword?.trim();
+      if (login !== undefined) patch.basic_login = login.length ? login : null;
+      if (password && password.length) patch.basic_password_hash = await sha256Hex(password);
+      if (!Object.keys(patch).length) throw new Error("Nessuna modifica da salvare");
+    }
+
+    const { error } = await supabaseAdmin
+      .from("danea_connections")
+      .update(patch)
+      .eq("id", data.connectionId)
+      .eq("company_id", data.companyId)
+      .eq("status", "attivo");
+    if (error) throw new Error(error.message);
+
+    await supabaseAdmin.from("audit_events").insert({
+      company_id: data.companyId,
+      actor_user_id: context.userId,
+      action: data.clearCredentials
+        ? "danea_connection.credentials_cleared"
+        : "danea_connection.credentials_updated",
+      entity_type: "danea_connection",
+      entity_id: data.connectionId,
+    });
+
+    return { ok: true };
+  });
+
 export const revokeDaneaConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { companyId: string; connectionId: string }) => {

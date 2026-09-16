@@ -10,7 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { hasRole, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
-import { createDaneaConnection, revokeDaneaConnection } from "@/lib/danea.functions";
+import {
+  createDaneaConnection,
+  revokeDaneaConnection,
+  updateDaneaCredentials,
+} from "@/lib/danea.functions";
 
 export const Route = createFileRoute("/_authenticated/danea")({
   head: () => ({
@@ -38,6 +42,9 @@ const OUTCOME_LABEL: Record<string, string> = {
   fallito: "Fallito",
 };
 
+const CARD = "rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5";
+const CARD_TITLE = "font-display text-sm font-semibold sm:text-base";
+
 function DaneaPage() {
   const { data: identity } = useIdentity();
   const queryClient = useQueryClient();
@@ -47,10 +54,12 @@ function DaneaPage() {
 
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
+  const [loginTouched, setLoginTouched] = useState(false);
   const [freshUrl, setFreshUrl] = useState<string | null>(null);
 
   const create = useServerFn(createDaneaConnection);
   const revoke = useServerFn(revokeDaneaConnection);
+  const updateCredentials = useServerFn(updateDaneaCredentials);
 
   const connection = useQuery({
     queryKey: ["danea", "connection", companyId],
@@ -58,7 +67,7 @@ function DaneaPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("danea_connections")
-        .select("id, label, status, token_prefix, basic_login, detected_app_version, detected_creator, detected_default_price, detected_image_folder, last_success_at, created_at")
+        .select("id, label, status, token_prefix, basic_login, basic_password_hash, detected_app_version, detected_creator, detected_default_price, detected_image_folder, last_success_at, created_at")
         .eq("company_id", companyId!)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -133,7 +142,34 @@ function DaneaPage() {
     onSuccess: (result) => {
       setFreshUrl(`${window.location.origin}${result.path}`);
       setPassword("");
-      toast.success("Collegamento creato. Copia subito l'indirizzo: non sarà più visibile.");
+      setLoginTouched(false);
+      toast.success("Nuovo indirizzo creato. Copialo e incollalo dentro Danea.");
+      queryClient.invalidateQueries({ queryKey: ["danea", "connection", companyId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const credentialsMutation = useMutation({
+    mutationFn: async (input: { clear: boolean; connectionId: string }) =>
+      await updateCredentials({
+        data: input.clear
+          ? { companyId: companyId!, connectionId: input.connectionId, clearCredentials: true }
+          : {
+              companyId: companyId!,
+              connectionId: input.connectionId,
+              ...(loginTouched ? { basicLogin: login } : {}),
+              ...(password.trim() ? { basicPassword: password } : {}),
+            },
+      }),
+    onSuccess: (_result, input) => {
+      setPassword("");
+      setLoginTouched(false);
+      if (input.clear) setLogin("");
+      toast.success(
+        input.clear
+          ? "Login e password rimossi. L'indirizzo non è cambiato."
+          : "Login e password salvati. L'indirizzo non è cambiato.",
+      );
       queryClient.invalidateQueries({ queryKey: ["danea", "connection", companyId] });
     },
     onError: (error: Error) => toast.error(error.message),
@@ -161,19 +197,23 @@ function DaneaPage() {
   }
 
   const active = connection.data?.status === "attivo" ? connection.data : null;
+  const hasCredentials = Boolean(active?.basic_login || active?.basic_password_hash);
+  const canSaveCredentials = Boolean(active) && (loginTouched || password.trim().length > 0);
 
   return (
     <AppShell
       title="Collegamento gestionale"
       description="Ricezione dei prodotti dal gestionale Danea Easyfatt. Schermata tecnica di verifica."
     >
-      <div className="grid gap-4">
-        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="font-display text-base font-semibold">Indirizzo di ricezione</h2>
+      <div className="grid gap-3 sm:gap-4">
+        <section className={CARD}>
+          <h2 className={CARD_TITLE}>Indirizzo di ricezione</h2>
           {freshUrl ? (
             <div className="mt-3 rounded-lg border border-accent bg-accent/10 p-3">
               <p className="text-sm font-medium">Copia questo indirizzo dentro Danea Easyfatt:</p>
-              <p className="mt-2 break-all font-mono text-xs">{freshUrl}</p>
+              <p className="mt-2 break-all font-mono text-[11px] leading-snug sm:text-xs">
+                {freshUrl}
+              </p>
               <Button
                 variant="secondary"
                 size="sm"
@@ -189,11 +229,10 @@ function DaneaPage() {
           ) : null}
 
           {active ? (
-            <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+            <div className="mt-3 space-y-1.5 text-xs text-muted-foreground sm:text-sm">
               <p>
-                Collegamento attivo dal{" "}
-                {new Date(active.created_at).toLocaleString("it-IT")} — riferimento{" "}
-                <span className="font-mono">{active.token_prefix}…</span>
+                Collegamento attivo dal {new Date(active.created_at).toLocaleString("it-IT")} —
+                riferimento <span className="font-mono">{active.token_prefix}…</span>
               </p>
               <p>
                 Ultimo invio ricevuto:{" "}
@@ -208,27 +247,41 @@ function DaneaPage() {
                   {active.detected_default_price ?? "n.d."})
                 </p>
               ) : null}
-              {active.basic_login ? <p>Login richiesta: {active.basic_login}</p> : null}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => revokeMutation.mutate(active.id)}
-                disabled={revokeMutation.isPending}
-              >
-                Revoca collegamento
-              </Button>
+              <p>
+                {hasCredentials
+                  ? `Credenziali configurate${active.basic_login ? ` — login: ${active.basic_login}` : ""}`
+                  : "Nessuna credenziale richiesta: l'indirizzo funziona senza login e password."}
+              </p>
+              {!freshUrl ? (
+                <p>
+                  L'indirizzo completo si vede solo al momento della creazione. Se l'hai perso,
+                  rigenera il collegamento e reincolla il nuovo indirizzo dentro Danea.
+                </p>
+              ) : null}
             </div>
           ) : (
             <p className="mt-3 text-sm text-muted-foreground">Nessun collegamento attivo.</p>
           )}
+        </section>
 
-          <div className="mt-5 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
+        <section className={CARD}>
+          <h2 className={CARD_TITLE}>Login e password del collegamento</h2>
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+            {active
+              ? "Salvando le credenziali l'indirizzo resta lo stesso: non serve rifare nulla dentro Danea."
+              : "Puoi indicarle subito: verranno salvate con il nuovo collegamento."}
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor="danea-login">Login (facoltativa)</Label>
               <Input
                 id="danea-login"
                 value={login}
-                onChange={(e) => setLogin(e.target.value)}
+                onChange={(e) => {
+                  setLogin(e.target.value);
+                  setLoginTouched(true);
+                }}
+                placeholder={active?.basic_login ?? "nessuna"}
                 autoComplete="off"
               />
             </div>
@@ -239,27 +292,106 @@ function DaneaPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder={active?.basic_password_hash ? "già impostata" : "nessuna"}
                 autoComplete="new-password"
               />
-            </div>
-            <div className="sm:col-span-2">
-              <Button
-                onClick={() => createMutation.mutate()}
-                disabled={createMutation.isPending}
-              >
-                {active ? "Rigenera collegamento" : "Crea collegamento"}
-              </Button>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Rigenerando, il collegamento precedente viene revocato.
+              <p className="text-xs text-muted-foreground">
+                Lasciare vuoto non cancella la password salvata.
               </p>
             </div>
           </div>
+
+          {active ? (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => credentialsMutation.mutate({ clear: false, connectionId: active.id })}
+                disabled={!canSaveCredentials || credentialsMutation.isPending}
+              >
+                Salva login e password
+              </Button>
+              {hasCredentials ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={credentialsMutation.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Rimuovere login e password? Il collegamento resterà attivo senza credenziali.",
+                      )
+                    ) {
+                      credentialsMutation.mutate({ clear: true, connectionId: active.id });
+                    }
+                  }}
+                >
+                  Rimuovi credenziali
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <div className="mt-4">
+              <Button
+                size="sm"
+                onClick={() => createMutation.mutate()}
+                disabled={createMutation.isPending}
+              >
+                Crea collegamento
+              </Button>
+            </div>
+          )}
         </section>
 
-        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="font-display text-base font-semibold">Listini ricevuti da Danea</h2>
+        {active ? (
+          <section className={CARD}>
+            <h2 className={CARD_TITLE}>Rigenera o revoca il collegamento</h2>
+            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+              Rigenerando si ottiene un <strong>indirizzo nuovo</strong>: quello precedente viene
+              revocato e va sostituito dentro Danea Easyfatt, altrimenti gli invii falliscono con
+              l'errore «Collegamento Danea revocato». Usalo solo se hai perso l'indirizzo o vuoi
+              invalidarlo.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={createMutation.isPending}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Generare un nuovo indirizzo? Quello attuale smetterà di funzionare e dovrai aggiornarlo dentro Danea.",
+                    )
+                  ) {
+                    createMutation.mutate();
+                  }
+                }}
+              >
+                Rigenera collegamento
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={revokeMutation.isPending}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Revocare il collegamento? Danea non potrà più inviare prodotti finché non ne crei uno nuovo.",
+                    )
+                  ) {
+                    revokeMutation.mutate(active.id);
+                  }
+                }}
+              >
+                Revoca collegamento
+              </Button>
+            </div>
+          </section>
+        ) : null}
+
+        <section className={CARD}>
+          <h2 className={CARD_TITLE}>Listini ricevuti da Danea</h2>
           {priceLists.data?.length ? (
-            <ul className="mt-3 grid gap-1.5 text-sm sm:grid-cols-3">
+            <ul className="mt-3 grid gap-1.5 text-xs sm:grid-cols-3 sm:text-sm">
               {priceLists.data.map((list) => (
                 <li key={list.list_number} className="text-muted-foreground">
                   Listino {list.list_number}:{" "}
@@ -276,12 +408,12 @@ function DaneaPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="font-display text-base font-semibold">Invii ricevuti</h2>
+        <section className={CARD}>
+          <h2 className={CARD_TITLE}>Invii ricevuti</h2>
           {runs.data?.length ? (
-            <div className="mt-3 -mx-2 overflow-x-auto px-2">
-              <table className="w-full min-w-[36rem] text-left text-sm">
-                <thead className="text-xs uppercase text-muted-foreground">
+            <div className="mt-3 -mx-4 max-w-full overflow-x-auto px-4 sm:-mx-5 sm:px-5">
+              <table className="w-full min-w-[36rem] text-left text-xs sm:text-sm">
+                <thead className="text-[10px] uppercase text-muted-foreground sm:text-xs">
                   <tr>
                     <th className="py-2 pr-3">Data</th>
                     <th className="py-2 pr-3">Tipo</th>
@@ -296,7 +428,7 @@ function DaneaPage() {
                 <tbody>
                   {runs.data.map((run) => (
                     <tr key={run.id} className="border-t border-border">
-                      <td className="py-2 pr-3">
+                      <td className="py-2 pr-3 whitespace-nowrap">
                         {new Date(run.started_at).toLocaleString("it-IT")}
                       </td>
                       <td className="py-2 pr-3">
@@ -321,50 +453,55 @@ function DaneaPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="font-display text-base font-semibold">
+        <section className={CARD}>
+          <h2 className={CARD_TITLE}>
             Prodotti ricevuti{" "}
-            <span className="text-sm font-normal text-muted-foreground">
+            <span className="text-xs font-normal text-muted-foreground sm:text-sm">
               ({products.data?.published ?? 0} pubblicati)
             </span>
           </h2>
           {products.data?.sample.length ? (
-            <div className="mt-3 -mx-2 overflow-x-auto px-2">
-              <table className="w-full min-w-[34rem] text-left text-sm">
-                <thead className="text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="py-2 pr-3">Codice</th>
-                    <th className="py-2 pr-3">Descrizione</th>
-                    <th className="py-2 pr-3">U.M.</th>
-                    <th className="py-2 pr-3">Categoria</th>
-                    <th className="py-2 pr-3">IVA</th>
-                    <th className="py-2 pr-3">Stato</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.data.sample.map((product) => (
-                    <tr key={product.id} className="border-t border-border">
-                      <td className="py-2 pr-3 font-mono text-xs">{product.code}</td>
-                      <td className="py-2 pr-3">{product.description ?? "—"}</td>
-                      <td className="py-2 pr-3">{product.danea_um ?? "—"}</td>
-                      <td className="py-2 pr-3">
-                        {[product.category, product.subcategory].filter(Boolean).join(" › ") || "—"}
-                      </td>
-                      <td className="py-2 pr-3">
-                        {product.vat_perc !== null ? `${product.vat_perc}%` : "—"}
-                      </td>
-                      <td className="py-2 pr-3">
-                        {product.publish_status === "pubblicato" ? "Pubblicato" : "Non pubblicato"}
-                      </td>
+            <>
+              <div className="mt-3 -mx-4 max-w-full overflow-x-auto px-4 sm:-mx-5 sm:px-5">
+                <table className="w-full min-w-[34rem] text-left text-xs sm:text-sm">
+                  <thead className="text-[10px] uppercase text-muted-foreground sm:text-xs">
+                    <tr>
+                      <th className="py-2 pr-3">Codice</th>
+                      <th className="py-2 pr-3">Descrizione</th>
+                      <th className="py-2 pr-3">U.M.</th>
+                      <th className="py-2 pr-3">Categoria</th>
+                      <th className="py-2 pr-3">IVA</th>
+                      <th className="py-2 pr-3">Stato</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {products.data.sample.map((product) => (
+                      <tr key={product.id} className="border-t border-border">
+                        <td className="py-2 pr-3 font-mono text-[11px] sm:text-xs">
+                          {product.code}
+                        </td>
+                        <td className="py-2 pr-3">{product.description ?? "—"}</td>
+                        <td className="py-2 pr-3">{product.danea_um ?? "—"}</td>
+                        <td className="py-2 pr-3">
+                          {[product.category, product.subcategory].filter(Boolean).join(" › ") ||
+                            "—"}
+                        </td>
+                        <td className="py-2 pr-3">
+                          {product.vat_perc !== null ? `${product.vat_perc}%` : "—"}
+                        </td>
+                        <td className="py-2 pr-3">
+                          {product.publish_status === "pubblicato" ? "Pubblicato" : "Non pubblicato"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <p className="mt-3 text-xs text-muted-foreground">
                 Anteprima tecnica dei primi 20 prodotti. La pagina Prodotti definitiva arriverà dopo
                 la verifica dei dati reali.
               </p>
-            </div>
+            </>
           ) : (
             <p className="mt-3 text-sm text-muted-foreground">
               Nessun prodotto ricevuto: comparirà dopo il primo invio da Danea.

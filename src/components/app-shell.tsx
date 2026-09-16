@@ -152,11 +152,11 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-5 sm:px-6 lg:pb-10 lg:pt-8">
-          <div className="mb-5 lg:mb-7">
-            <h1 className="text-2xl font-semibold sm:text-3xl">{title}</h1>
+        <main className="mx-auto w-full max-w-6xl overflow-x-hidden px-3 pb-28 pt-4 sm:px-5 lg:pb-10 lg:pt-7">
+          <div className="mb-4 min-w-0 lg:mb-6">
+            <h1 className="text-xl font-semibold sm:text-2xl lg:text-3xl">{title}</h1>
             {description ? (
-              <p className="mt-1.5 text-sm text-muted-foreground sm:text-base">{description}</p>
+              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{description}</p>
             ) : null}
           </div>
           {children}
