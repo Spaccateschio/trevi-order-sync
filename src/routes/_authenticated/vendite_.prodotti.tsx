@@ -112,6 +112,10 @@ function ProdottiPage() {
   const productsQuery = useQuery({
     queryKey: ["prodotti", companyId],
     enabled: Boolean(companyId),
+    // Gli invii da Danea arrivano dal server: ricontrolliamo spesso così
+    // l'elenco riflette subito l'ultimo catalogo ricevuto.
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
