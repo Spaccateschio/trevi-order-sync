@@ -79,6 +79,7 @@ function Account() {
               <Label htmlFor="firstName">Nome</Label>
               <Input
                 id="firstName"
+                required
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 autoComplete="given-name"
@@ -88,6 +89,7 @@ function Account() {
               <Label htmlFor="lastName">Cognome</Label>
               <Input
                 id="lastName"
+                required
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 autoComplete="family-name"
