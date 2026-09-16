@@ -15,11 +15,14 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedAmministrazioneRouteImport } from './routes/_authenticated/amministrazione'
-import { Route as AuthenticatedClienteRouteImport } from './routes/_authenticated/cliente'
 import { Route as AuthenticatedConsegneRouteImport } from './routes/_authenticated/consegne'
 import { Route as AuthenticatedDaneaRouteImport } from './routes/_authenticated/danea'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedOperativoRouteImport } from './routes/_authenticated/operativo'
+import { Route as AuthenticatedVenditeRouteImport } from './routes/_authenticated/vendite'
+import { Route as AuthenticatedAcquistiIndexRouteImport } from './routes/_authenticated/acquisti.index'
+import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_authenticated/acquisti.fornitori'
 import { Route as ApiPublicDaneaProductsTokenRouteImport } from './routes/api/public/danea/products/$token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -52,11 +55,6 @@ const AuthenticatedAmministrazioneRoute =
     path: '/amministrazione',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedClienteRoute = AuthenticatedClienteRouteImport.update({
-  id: '/cliente',
-  path: '/cliente',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedConsegneRoute = AuthenticatedConsegneRouteImport.update({
   id: '/consegne',
   path: '/consegne',
@@ -72,11 +70,33 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedOperativoRoute = AuthenticatedOperativoRouteImport.update({
   id: '/operativo',
   path: '/operativo',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedVenditeRoute = AuthenticatedVenditeRouteImport.update({
+  id: '/vendite',
+  path: '/vendite',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAcquistiIndexRoute =
+  AuthenticatedAcquistiIndexRouteImport.update({
+    id: '/acquisti/',
+    path: '/acquisti/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAcquistiFornitoriRoute =
+  AuthenticatedAcquistiFornitoriRouteImport.update({
+    id: '/acquisti/fornitori',
+    path: '/acquisti/fornitori',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiPublicDaneaProductsTokenRoute =
   ApiPublicDaneaProductsTokenRouteImport.update({
     id: '/api/public/danea/products/$token',
@@ -90,11 +110,14 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
-  '/cliente': typeof AuthenticatedClienteRoute
   '/consegne': typeof AuthenticatedConsegneRoute
   '/danea': typeof AuthenticatedDaneaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/operativo': typeof AuthenticatedOperativoRoute
+  '/vendite': typeof AuthenticatedVenditeRoute
+  '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/acquisti/': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
 }
 export interface FileRoutesByTo {
@@ -103,11 +126,14 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
-  '/cliente': typeof AuthenticatedClienteRoute
   '/consegne': typeof AuthenticatedConsegneRoute
   '/danea': typeof AuthenticatedDaneaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/operativo': typeof AuthenticatedOperativoRoute
+  '/vendite': typeof AuthenticatedVenditeRoute
+  '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/acquisti': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
 }
 export interface FileRoutesById {
@@ -118,11 +144,14 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/amministrazione': typeof AuthenticatedAmministrazioneRoute
-  '/_authenticated/cliente': typeof AuthenticatedClienteRoute
   '/_authenticated/consegne': typeof AuthenticatedConsegneRoute
   '/_authenticated/danea': typeof AuthenticatedDaneaRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/operativo': typeof AuthenticatedOperativoRoute
+  '/_authenticated/vendite': typeof AuthenticatedVenditeRoute
+  '/_authenticated/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/_authenticated/acquisti/': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
 }
 export interface FileRouteTypes {
@@ -133,11 +162,14 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/account'
     | '/amministrazione'
-    | '/cliente'
     | '/consegne'
     | '/danea'
     | '/dashboard'
+    | '/onboarding'
     | '/operativo'
+    | '/vendite'
+    | '/acquisti/fornitori'
+    | '/acquisti/'
     | '/api/public/danea/products/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -146,11 +178,14 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/account'
     | '/amministrazione'
-    | '/cliente'
     | '/consegne'
     | '/danea'
     | '/dashboard'
+    | '/onboarding'
     | '/operativo'
+    | '/vendite'
+    | '/acquisti/fornitori'
+    | '/acquisti'
     | '/api/public/danea/products/$token'
   id:
     | '__root__'
@@ -160,11 +195,14 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/account'
     | '/_authenticated/amministrazione'
-    | '/_authenticated/cliente'
     | '/_authenticated/consegne'
     | '/_authenticated/danea'
     | '/_authenticated/dashboard'
+    | '/_authenticated/onboarding'
     | '/_authenticated/operativo'
+    | '/_authenticated/vendite'
+    | '/_authenticated/acquisti/fornitori'
+    | '/_authenticated/acquisti/'
     | '/api/public/danea/products/$token'
   fileRoutesById: FileRoutesById
 }
@@ -220,13 +258,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAmministrazioneRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/cliente': {
-      id: '/_authenticated/cliente'
-      path: '/cliente'
-      fullPath: '/cliente'
-      preLoaderRoute: typeof AuthenticatedClienteRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/consegne': {
       id: '/_authenticated/consegne'
       path: '/consegne'
@@ -248,11 +279,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/onboarding': {
+      id: '/_authenticated/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/operativo': {
       id: '/_authenticated/operativo'
       path: '/operativo'
       fullPath: '/operativo'
       preLoaderRoute: typeof AuthenticatedOperativoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/vendite': {
+      id: '/_authenticated/vendite'
+      path: '/vendite'
+      fullPath: '/vendite'
+      preLoaderRoute: typeof AuthenticatedVenditeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/acquisti/': {
+      id: '/_authenticated/acquisti/'
+      path: '/acquisti'
+      fullPath: '/acquisti/'
+      preLoaderRoute: typeof AuthenticatedAcquistiIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/acquisti/fornitori': {
+      id: '/_authenticated/acquisti/fornitori'
+      path: '/acquisti/fornitori'
+      fullPath: '/acquisti/fornitori'
+      preLoaderRoute: typeof AuthenticatedAcquistiFornitoriRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/public/danea/products/$token': {
@@ -268,21 +327,27 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedAmministrazioneRoute: typeof AuthenticatedAmministrazioneRoute
-  AuthenticatedClienteRoute: typeof AuthenticatedClienteRoute
   AuthenticatedConsegneRoute: typeof AuthenticatedConsegneRoute
   AuthenticatedDaneaRoute: typeof AuthenticatedDaneaRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedOperativoRoute: typeof AuthenticatedOperativoRoute
+  AuthenticatedVenditeRoute: typeof AuthenticatedVenditeRoute
+  AuthenticatedAcquistiFornitoriRoute: typeof AuthenticatedAcquistiFornitoriRoute
+  AuthenticatedAcquistiIndexRoute: typeof AuthenticatedAcquistiIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedAmministrazioneRoute: AuthenticatedAmministrazioneRoute,
-  AuthenticatedClienteRoute: AuthenticatedClienteRoute,
   AuthenticatedConsegneRoute: AuthenticatedConsegneRoute,
   AuthenticatedDaneaRoute: AuthenticatedDaneaRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedOperativoRoute: AuthenticatedOperativoRoute,
+  AuthenticatedVenditeRoute: AuthenticatedVenditeRoute,
+  AuthenticatedAcquistiFornitoriRoute: AuthenticatedAcquistiFornitoriRoute,
+  AuthenticatedAcquistiIndexRoute: AuthenticatedAcquistiIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

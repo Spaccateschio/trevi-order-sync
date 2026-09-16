@@ -40,6 +40,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
@@ -59,7 +60,7 @@ function AuthPage() {
           password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { first_name: firstName, last_name: lastName },
+            data: { first_name: firstName, last_name: lastName, phone },
           },
         });
         if (error) throw error;
@@ -162,6 +163,19 @@ function AuthPage() {
                         autoComplete="family-name"
                       />
                     </div>
+                  </div>
+                ) : null}
+
+                {mode === "registrazione" ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone">Telefono (facoltativo)</Label>
+                    <Input
+                      id="phone"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      autoComplete="tel"
+                      inputMode="tel"
+                    />
                   </div>
                 ) : null}
 

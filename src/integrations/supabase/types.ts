@@ -60,9 +60,17 @@ export type Database = {
           address_line: string | null
           brand_primary_color: string | null
           brand_secondary_color: string | null
+          can_buy: boolean
+          can_sell: boolean
           city: string | null
           country: string
           created_at: string
+          created_by: string | null
+          delivery_address_line: string | null
+          delivery_city: string | null
+          delivery_notes: string | null
+          delivery_postal_code: string | null
+          delivery_province: string | null
           email: string | null
           id: string
           legal_name: string
@@ -79,9 +87,17 @@ export type Database = {
           address_line?: string | null
           brand_primary_color?: string | null
           brand_secondary_color?: string | null
+          can_buy?: boolean
+          can_sell?: boolean
           city?: string | null
           country?: string
           created_at?: string
+          created_by?: string | null
+          delivery_address_line?: string | null
+          delivery_city?: string | null
+          delivery_notes?: string | null
+          delivery_postal_code?: string | null
+          delivery_province?: string | null
           email?: string | null
           id?: string
           legal_name: string
@@ -98,9 +114,17 @@ export type Database = {
           address_line?: string | null
           brand_primary_color?: string | null
           brand_secondary_color?: string | null
+          can_buy?: boolean
+          can_sell?: boolean
           city?: string | null
           country?: string
           created_at?: string
+          created_by?: string | null
+          delivery_address_line?: string | null
+          delivery_city?: string | null
+          delivery_notes?: string | null
+          delivery_postal_code?: string | null
+          delivery_province?: string | null
           email?: string | null
           id?: string
           legal_name?: string
@@ -223,113 +247,6 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: true
             referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      customer_companies: {
-        Row: {
-          address_line: string | null
-          city: string | null
-          country: string
-          created_at: string
-          created_by: string | null
-          delivery_address_line: string | null
-          delivery_city: string | null
-          delivery_notes: string | null
-          delivery_postal_code: string | null
-          delivery_province: string | null
-          email: string | null
-          id: string
-          legal_name: string
-          phone: string | null
-          postal_code: string | null
-          province: string | null
-          status: Database["public"]["Enums"]["entity_status"]
-          tax_code: string | null
-          updated_at: string
-          vat_number: string | null
-        }
-        Insert: {
-          address_line?: string | null
-          city?: string | null
-          country?: string
-          created_at?: string
-          created_by?: string | null
-          delivery_address_line?: string | null
-          delivery_city?: string | null
-          delivery_notes?: string | null
-          delivery_postal_code?: string | null
-          delivery_province?: string | null
-          email?: string | null
-          id?: string
-          legal_name: string
-          phone?: string | null
-          postal_code?: string | null
-          province?: string | null
-          status?: Database["public"]["Enums"]["entity_status"]
-          tax_code?: string | null
-          updated_at?: string
-          vat_number?: string | null
-        }
-        Update: {
-          address_line?: string | null
-          city?: string | null
-          country?: string
-          created_at?: string
-          created_by?: string | null
-          delivery_address_line?: string | null
-          delivery_city?: string | null
-          delivery_notes?: string | null
-          delivery_postal_code?: string | null
-          delivery_province?: string | null
-          email?: string | null
-          id?: string
-          legal_name?: string
-          phone?: string | null
-          postal_code?: string | null
-          province?: string | null
-          status?: Database["public"]["Enums"]["entity_status"]
-          tax_code?: string | null
-          updated_at?: string
-          vat_number?: string | null
-        }
-        Relationships: []
-      }
-      customer_company_users: {
-        Row: {
-          created_at: string
-          customer_company_id: string
-          id: string
-          role: Database["public"]["Enums"]["customer_user_role"]
-          status: Database["public"]["Enums"]["entity_status"]
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          customer_company_id: string
-          id?: string
-          role?: Database["public"]["Enums"]["customer_user_role"]
-          status?: Database["public"]["Enums"]["entity_status"]
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          customer_company_id?: string
-          id?: string
-          role?: Database["public"]["Enums"]["customer_user_role"]
-          status?: Database["public"]["Enums"]["entity_status"]
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "customer_company_users_customer_company_id_fkey"
-            columns: ["customer_company_id"]
-            isOneToOne: false
-            referencedRelation: "customer_companies"
             referencedColumns: ["id"]
           },
         ]
@@ -853,9 +770,8 @@ export type Database = {
       }
       supplier_customer_relations: {
         Row: {
-          company_id: string
+          buyer_company_id: string
           created_at: string
-          customer_company_id: string
           decided_at: string | null
           decided_by: string | null
           id: string
@@ -864,13 +780,13 @@ export type Database = {
           origin: Database["public"]["Enums"]["relation_origin"]
           requested_at: string
           requested_by: string | null
+          seller_company_id: string
           status: Database["public"]["Enums"]["relation_status"]
           updated_at: string
         }
         Insert: {
-          company_id: string
+          buyer_company_id: string
           created_at?: string
-          customer_company_id: string
           decided_at?: string | null
           decided_by?: string | null
           id?: string
@@ -879,13 +795,13 @@ export type Database = {
           origin?: Database["public"]["Enums"]["relation_origin"]
           requested_at?: string
           requested_by?: string | null
+          seller_company_id: string
           status?: Database["public"]["Enums"]["relation_status"]
           updated_at?: string
         }
         Update: {
-          company_id?: string
+          buyer_company_id?: string
           created_at?: string
-          customer_company_id?: string
           decided_at?: string | null
           decided_by?: string | null
           id?: string
@@ -894,22 +810,23 @@ export type Database = {
           origin?: Database["public"]["Enums"]["relation_origin"]
           requested_at?: string
           requested_by?: string | null
+          seller_company_id?: string
           status?: Database["public"]["Enums"]["relation_status"]
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "supplier_customer_relations_company_id_fkey"
-            columns: ["company_id"]
+            foreignKeyName: "relations_buyer_fkey"
+            columns: ["buyer_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "supplier_customer_relations_customer_company_id_fkey"
-            columns: ["customer_company_id"]
+            foreignKeyName: "supplier_customer_relations_company_id_fkey"
+            columns: ["seller_company_id"]
             isOneToOne: false
-            referencedRelation: "customer_companies"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -919,7 +836,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      customer_sees_company: { Args: { _company_id: string }; Returns: boolean }
+      available_suppliers: {
+        Args: never
+        Returns: {
+          city: string
+          id: string
+          legal_name: string
+          province: string
+        }[]
+      }
+      company_buys: { Args: { _company_id: string }; Returns: boolean }
+      company_sells: { Args: { _company_id: string }; Returns: boolean }
+      has_active_relation: {
+        Args: { _buyer_company_id: string; _seller_company_id: string }
+        Returns: boolean
+      }
       has_company_role: {
         Args: {
           _company_id: string
@@ -929,18 +860,17 @@ export type Database = {
       }
       is_company_admin: { Args: { _company_id: string }; Returns: boolean }
       is_company_member: { Args: { _company_id: string }; Returns: boolean }
-      is_customer_owner: {
-        Args: { _customer_company_id: string }
-        Returns: boolean
-      }
-      is_customer_user: {
-        Args: { _customer_company_id: string }
-        Returns: boolean
-      }
-      register_customer_company: {
+      register_company: {
         Args: {
           _address_line?: string
+          _can_buy: boolean
+          _can_sell: boolean
           _city?: string
+          _delivery_address_line?: string
+          _delivery_city?: string
+          _delivery_notes?: string
+          _delivery_postal_code?: string
+          _delivery_province?: string
           _email?: string
           _legal_name: string
           _phone?: string
@@ -951,19 +881,19 @@ export type Database = {
         }
         Returns: string
       }
+      request_supplier_relation: {
+        Args: { _buyer_company_id: string; _seller_company_id: string }
+        Returns: string
+      }
+      set_company_capabilities: {
+        Args: { _can_buy: boolean; _can_sell: boolean; _company_id: string }
+        Returns: undefined
+      }
       shares_company_with: { Args: { _user_id: string }; Returns: boolean }
-      supplier_admin_of_customer: {
-        Args: { _customer_company_id: string }
-        Returns: boolean
-      }
-      supplier_sees_customer: {
-        Args: { _customer_company_id: string }
-        Returns: boolean
-      }
+      shares_relation_with: { Args: { _company_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "amministratore" | "operatore" | "trasportatore"
-      customer_user_role: "owner" | "member"
       danea_connection_status: "attivo" | "revocato"
       danea_sync_mode: "full" | "incremental"
       danea_sync_outcome: "in_corso" | "completato" | "fallito"
@@ -1104,7 +1034,6 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["amministratore", "operatore", "trasportatore"],
-      customer_user_role: ["owner", "member"],
       danea_connection_status: ["attivo", "revocato"],
       danea_sync_mode: ["full", "incremental"],
       danea_sync_outcome: ["in_corso", "completato", "fallito"],
