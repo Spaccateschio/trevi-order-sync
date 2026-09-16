@@ -48,7 +48,10 @@ https://trevi-order-sync.lovable.app/api/public/danea/products
 - credenziali assenti, errate, postazione revocata o azienda che non vende: `401` con
   `WWW-Authenticate: Basic realm="Trevi Fruit Danea"`
 - successo: `200`, `text/plain; charset=utf-8`, corpo esattamente `OK`
-- registra sempre l'ultimo tentativo di connessione sulla postazione
+- registra il tentativo distinguendo i casi: se l'utente corrisponde a una postazione esistente,
+  l'esito (anche password errata o postazione revocata) viene scritto su quella postazione; se
+  l'utente non esiste, il tentativo finisce in un registro separato di accessi non riusciti, senza
+  mai memorizzare la password
 
 ### Lettura del file
 
@@ -89,6 +92,12 @@ codice come riferimento, invio completo e incrementale, prodotti aggiornati ed e
 i nove listini con i loro nomi, costi fornitore riservati, nome e cartella dell'immagine,
 reinvii senza duplicati, registro delle segnalazioni. Cambia solo chi si autentica.
 
+**Protezione sull'invio completo**: i prodotti assenti dal file vengono marcati non pubblicati
+soltanto se l'invio completo è stato letto ed elaborato interamente e senza errori. Se il file è
+parziale, corrotto, vuoto o presenta errori di lettura/validazione, la depubblicazione per assenza
+viene saltata e l'invio resta registrato con la relativa segnalazione: un file problematico non può
+rendere non pubblicati in massa prodotti validi.
+
 ## 7. Compatibilità futura
 
 La stessa postazione servirà anche per il flusso inverso (scarico ordini verso Danea): per questo
@@ -105,4 +114,6 @@ la postazione nasce con un elenco di usi consentiti, oggi solo la ricezione prod
 - due aziende con postazioni diverse: prodotti separati, nessuna visibilità incrociata
 - limite di 5 postazioni attive
 - rigenerazione password: la vecchia non funziona più, l'indirizzo resta identico
+- invio completo troncato o corrotto: nessuna depubblicazione in massa, segnalazione registrata
+- utente inesistente: tentativo nel registro accessi non riusciti, nessuna postazione toccata
 - pagina su telefono e desktop, dati di prova rimossi al termine

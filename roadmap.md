@@ -12,6 +12,7 @@
 - [x] Verifica con i 3 XML reali + FULL simulato (81 creati, reinvio idempotente, 80 depubblicati, aggiornamenti corretti); dati di prova rimossi
 - [x] Salvataggio credenziali collegamento senza rigenerare l'indirizzo + rimozione credenziali con conferma
 - [x] Pagine più compatte su telefono e desktop (tabelle scorribili, testi adattati)
+- [x] Sostituzione collegamento token → Postazioni Danea (URL fisso + Basic username/password, max 5 attive, 401 WWW-Authenticate, log accessi non riusciti, protezione FULL parziale)
 - [ ] Primo FULL reale da Danea (in attesa: account amministratore da abilitare)
 
 ## Profilo di utilizzo COMPRO / VENDO / ENTRAMBI (completato)
