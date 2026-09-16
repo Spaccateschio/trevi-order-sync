@@ -251,9 +251,9 @@ function ProdottiPage() {
               <SelectValue placeholder="Stato" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="tutti">Tutti gli stati</SelectItem>
-              <SelectItem value="pubblicato">Pubblicati</SelectItem>
-              <SelectItem value="non_pubblicato">Non pubblicati</SelectItem>
+              <SelectItem value="pubblicato">Catalogo Danea attuale</SelectItem>
+              <SelectItem value="non_pubblicato">Non più inviati da Danea</SelectItem>
+              <SelectItem value="tutti">Tutti</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -261,7 +261,9 @@ function ProdottiPage() {
         <p className="text-xs text-muted-foreground">
           {productsQuery.isLoading
             ? "Caricamento…"
-            : `${filtered.length} prodotti su ${allProducts.length} in archivio`}
+            : status === "pubblicato"
+              ? `${filtered.length} prodotti nell'ultimo catalogo ricevuto da Danea`
+              : `${filtered.length} prodotti su ${allProducts.length} in archivio`}
         </p>
 
         <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
