@@ -251,73 +251,29 @@ export type Database = {
           },
         ]
       }
-      danea_connections: {
+      danea_auth_failures: {
         Row: {
-          basic_login: string | null
-          basic_password_hash: string | null
-          company_id: string
+          attempted_username: string | null
           created_at: string
-          created_by: string | null
-          detected_app_version: string | null
-          detected_creator: string | null
-          detected_default_price: number | null
-          detected_image_folder: string | null
-          detected_warehouse: string | null
           id: string
-          label: string
-          last_success_at: string | null
-          status: Database["public"]["Enums"]["danea_connection_status"]
-          token_hash: string
-          token_prefix: string
-          updated_at: string
+          reason: string
+          remote_hint: string | null
         }
         Insert: {
-          basic_login?: string | null
-          basic_password_hash?: string | null
-          company_id: string
+          attempted_username?: string | null
           created_at?: string
-          created_by?: string | null
-          detected_app_version?: string | null
-          detected_creator?: string | null
-          detected_default_price?: number | null
-          detected_image_folder?: string | null
-          detected_warehouse?: string | null
           id?: string
-          label?: string
-          last_success_at?: string | null
-          status?: Database["public"]["Enums"]["danea_connection_status"]
-          token_hash: string
-          token_prefix: string
-          updated_at?: string
+          reason: string
+          remote_hint?: string | null
         }
         Update: {
-          basic_login?: string | null
-          basic_password_hash?: string | null
-          company_id?: string
+          attempted_username?: string | null
           created_at?: string
-          created_by?: string | null
-          detected_app_version?: string | null
-          detected_creator?: string | null
-          detected_default_price?: number | null
-          detected_image_folder?: string | null
-          detected_warehouse?: string | null
           id?: string
-          label?: string
-          last_success_at?: string | null
-          status?: Database["public"]["Enums"]["danea_connection_status"]
-          token_hash?: string
-          token_prefix?: string
-          updated_at?: string
+          reason?: string
+          remote_hint?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "danea_connections_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       danea_price_lists: {
         Row: {
@@ -353,6 +309,80 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "danea_price_lists_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      danea_stations: {
+        Row: {
+          allowed_uses: string[]
+          company_id: string
+          created_at: string
+          created_by: string | null
+          detected_app_version: string | null
+          detected_creator: string | null
+          detected_default_price: number | null
+          detected_image_folder: string | null
+          detected_warehouse: string | null
+          id: string
+          last_auth_at: string | null
+          last_auth_outcome: string | null
+          last_success_at: string | null
+          name: string
+          password_hash: string
+          password_salt: string
+          status: Database["public"]["Enums"]["danea_connection_status"]
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          allowed_uses?: string[]
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          detected_app_version?: string | null
+          detected_creator?: string | null
+          detected_default_price?: number | null
+          detected_image_folder?: string | null
+          detected_warehouse?: string | null
+          id?: string
+          last_auth_at?: string | null
+          last_auth_outcome?: string | null
+          last_success_at?: string | null
+          name: string
+          password_hash: string
+          password_salt: string
+          status?: Database["public"]["Enums"]["danea_connection_status"]
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          allowed_uses?: string[]
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          detected_app_version?: string | null
+          detected_creator?: string | null
+          detected_default_price?: number | null
+          detected_image_folder?: string | null
+          detected_warehouse?: string | null
+          id?: string
+          last_auth_at?: string | null
+          last_auth_outcome?: string | null
+          last_success_at?: string | null
+          name?: string
+          password_hash?: string
+          password_salt?: string
+          status?: Database["public"]["Enums"]["danea_connection_status"]
+          updated_at?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "danea_stations_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -409,7 +439,6 @@ export type Database = {
         Row: {
           app_version: string | null
           company_id: string
-          connection_id: string
           created_at: string
           created_count: number
           creator: string | null
@@ -424,6 +453,7 @@ export type Database = {
           received_count: number
           skipped_count: number
           started_at: string
+          station_id: string
           unpublished_count: number
           updated_at: string
           updated_count: number
@@ -432,7 +462,6 @@ export type Database = {
         Insert: {
           app_version?: string | null
           company_id: string
-          connection_id: string
           created_at?: string
           created_count?: number
           creator?: string | null
@@ -447,6 +476,7 @@ export type Database = {
           received_count?: number
           skipped_count?: number
           started_at?: string
+          station_id: string
           unpublished_count?: number
           updated_at?: string
           updated_count?: number
@@ -455,7 +485,6 @@ export type Database = {
         Update: {
           app_version?: string | null
           company_id?: string
-          connection_id?: string
           created_at?: string
           created_count?: number
           creator?: string | null
@@ -470,6 +499,7 @@ export type Database = {
           received_count?: number
           skipped_count?: number
           started_at?: string
+          station_id?: string
           unpublished_count?: number
           updated_at?: string
           updated_count?: number
@@ -484,10 +514,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "danea_sync_runs_connection_id_fkey"
-            columns: ["connection_id"]
+            foreignKeyName: "danea_sync_runs_station_id_fkey"
+            columns: ["station_id"]
             isOneToOne: false
-            referencedRelation: "danea_connections"
+            referencedRelation: "danea_stations"
             referencedColumns: ["id"]
           },
         ]

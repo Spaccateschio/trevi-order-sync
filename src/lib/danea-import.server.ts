@@ -1,11 +1,9 @@
 import { parseDaneaProducts, type DaneaDocument, type DaneaIssue } from "./danea-xml";
 
-export type DaneaConnectionRow = {
+/** La postazione autenticata: da qui deriva l'azienda, mai dal client. */
+export type DaneaStationRow = {
   id: string;
   company_id: string;
-  status: "attivo" | "revocato";
-  basic_login: string | null;
-  basic_password_hash: string | null;
 };
 
 export async function sha256Hex(value: string): Promise<string> {
@@ -31,11 +29,11 @@ export type ImportResult = {
  * (company_id, code) come chiave alternativa e unica disponibile nei DeletedProducts.
  */
 export async function importDaneaCatalog(
-  connection: DaneaConnectionRow,
+  station: DaneaStationRow,
   xml: string,
 ): Promise<ImportResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const companyId = connection.company_id;
+  const companyId = station.company_id;
 
   const payloadHash = await sha256Hex(xml);
   const doc = parseDaneaProducts(xml);
@@ -53,7 +51,7 @@ export async function importDaneaCatalog(
     .from("danea_sync_runs")
     .insert({
       company_id: companyId,
-      connection_id: connection.id,
+      station_id: station.id,
       mode: doc.mode,
       app_version: doc.appVersion,
       creator: doc.creator,
@@ -71,7 +69,7 @@ export async function importDaneaCatalog(
 
   try {
     await supabaseAdmin
-      .from("danea_connections")
+      .from("danea_stations")
       .update({
         detected_app_version: doc.appVersion,
         detected_creator: doc.creator,
@@ -79,7 +77,7 @@ export async function importDaneaCatalog(
         detected_warehouse: doc.warehouse,
         detected_image_folder: doc.imageFolder,
       })
-      .eq("id", connection.id);
+      .eq("id", station.id);
 
     await syncPriceListNames(supabaseAdmin, companyId, doc);
 
@@ -185,15 +183,30 @@ export async function importDaneaCatalog(
 
     let unpublished = 0;
     if (doc.mode === "full") {
-      const { data, error } = await supabaseAdmin
-        .from("products")
-        .update({ publish_status: "non_pubblicato", unpublished_at: now })
-        .eq("company_id", companyId)
-        .eq("publish_status", "pubblicato")
-        .neq("last_sync_run_id", runId)
-        .select("id");
-      if (error) throw new Error(`Depubblicazione: ${error.message}`);
-      unpublished = data?.length ?? 0;
+      // PROTEZIONE: la depubblicazione per assenza avviene solo se l'invio completo
+      // è stato letto ed elaborato integralmente e senza segnalazioni. Un file
+      // parziale, vuoto o con righe non valide non può depubblicare in massa.
+      const everyRowSaved = idByCode.size === rows.length;
+      const safeToReconcile = doc.products.length > 0 && issues.length === 0 && everyRowSaved;
+
+      if (safeToReconcile) {
+        const { data, error } = await supabaseAdmin
+          .from("products")
+          .update({ publish_status: "non_pubblicato", unpublished_at: now })
+          .eq("company_id", companyId)
+          .eq("publish_status", "pubblicato")
+          .neq("last_sync_run_id", runId)
+          .select("id");
+        if (error) throw new Error(`Depubblicazione: ${error.message}`);
+        unpublished = data?.length ?? 0;
+      } else {
+        issues.push({
+          productCode: null,
+          fieldName: "Products",
+          reason:
+            "Invio completo non considerato integro (file vuoto, parziale o con righe non valide): depubblicazione per assenza non eseguita",
+        });
+      }
     } else if (doc.deletedCodes.length) {
       const { data, error } = await supabaseAdmin
         .from("products")
@@ -229,9 +242,9 @@ export async function importDaneaCatalog(
       .eq("id", runId);
 
     await supabaseAdmin
-      .from("danea_connections")
+      .from("danea_stations")
       .update({ last_success_at: new Date().toISOString() })
-      .eq("id", connection.id);
+      .eq("id", station.id);
 
     return {
       runId,
