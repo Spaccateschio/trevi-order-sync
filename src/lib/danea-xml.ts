@@ -146,6 +146,13 @@ function asProductArray(list: unknown): Record<string, unknown>[] {
 }
 
 export function parseDaneaProducts(xml: string): DaneaDocument {
+  // Protezione contro trasmissioni interrotte: senza la chiusura dell'elemento
+  // radice il file è incompleto e non deve essere elaborato (un invio completo
+  // troncato depubblicherebbe per assenza prodotti in realtà validi).
+  if (!/<\/EasyfattProducts\s*>\s*$/i.test(xml.trimEnd())) {
+    throw new Error("Trasmissione incompleta: il file XML risulta troncato");
+  }
+
   const parsed = parser.parse(xml) as Record<string, unknown>;
   const root = parsed["EasyfattProducts"];
   if (!root || typeof root !== "object") {
