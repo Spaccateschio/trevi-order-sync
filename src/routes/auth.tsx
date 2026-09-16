@@ -238,6 +238,21 @@ function AuthPage() {
                   />
                 </div>
 
+                {mode === "registrazione" ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="passwordConfirm">Conferma password</Label>
+                    <Input
+                      id="passwordConfirm"
+                      type="password"
+                      required
+                      minLength={8}
+                      value={passwordConfirm}
+                      onChange={(e) => setPasswordConfirm(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                ) : null}
+
                 <Button type="submit" className="w-full" size="lg" disabled={busy}>
                   {mode === "accesso" ? "Accedi" : "Registrati"}
                 </Button>
