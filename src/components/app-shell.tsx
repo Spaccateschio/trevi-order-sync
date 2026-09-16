@@ -1,11 +1,11 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogOut } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
-import { companyBuys, companySells, useIdentity } from "@/hooks/use-identity";
+import { companyBuys, companySells, hasCompany, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import { visibleNavItems, type NavArea, type NavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
@@ -25,10 +25,17 @@ export function AppShell({
   description?: string;
   children: ReactNode;
 }) {
-  const { data: identity } = useIdentity();
+  const { data: identity, isSuccess } = useIdentity();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Chi non ha ancora un'azienda passa dalla scelta del profilo di utilizzo.
+  useEffect(() => {
+    if (isSuccess && identity && !hasCompany(identity)) {
+      navigate({ to: "/onboarding", replace: true });
+    }
+  }, [identity, isSuccess, navigate]);
 
   const items = visibleNavItems(identity);
   const buys = companyBuys(identity);
