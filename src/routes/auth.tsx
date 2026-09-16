@@ -54,6 +54,25 @@ function AuthPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+
+    let normalizedPhone = "";
+    if (mode === "registrazione") {
+      if (!firstName.trim() || !lastName.trim()) {
+        toast.error("Inserisci nome e cognome");
+        return;
+      }
+      const checked = validatePhone(phone);
+      if ("error" in checked) {
+        toast.error(checked.error);
+        return;
+      }
+      normalizedPhone = checked.value;
+      if (password !== passwordConfirm) {
+        toast.error("Le due password non coincidono");
+        return;
+      }
+    }
+
     setBusy(true);
     try {
       if (mode === "registrazione") {
@@ -62,7 +81,11 @@ function AuthPage() {
           password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { first_name: firstName, last_name: lastName, phone },
+            data: {
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+              phone: normalizedPhone,
+            },
           },
         });
         if (error) throw error;
