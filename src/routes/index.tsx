@@ -68,12 +68,13 @@ function Home() {
             <Button asChild size="lg">
               <Link to="/auth">Accedi al portale</Link>
             </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link
-                to="/auth"
-                search={{ modo: "registrazione" }}
-                className="border-sidebar-border text-sidebar-foreground"
-              >
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-sidebar-border bg-transparent text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <Link to="/auth" search={{ modo: "registrazione" }}>
                 Registra la tua attività
               </Link>
             </Button>
