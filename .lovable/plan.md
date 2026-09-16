@@ -70,8 +70,12 @@ Progettato dal telefono verso il desktop: su smartphone navigazione touch sempli
 
 Tabelle e loro funzione, relazioni e vincoli, tutte le policy di sicurezza, funzioni database, flusso autenticazione, gestione ruoli, struttura persona/azienda/rapporto, esiti dei test di isolamento A/B, pagine create, verifica sulle tre dimensioni schermo, decisioni aperte prima della Fase 2.
 
-## Da confermare prima di partire
+## Decisioni già confermate
 
-1. Registrazione autonoma con conferma via email (più sicuro, richiede click sul link) o accesso immediato dopo la registrazione?
-2. Aggiungo anche l'accesso con Google oltre a email e password?
-3. Le persone dell'azienda cliente hanno bisogno già ora di ruoli distinti (titolare/utente) o basta "utente autorizzato"?
+- Registrazione email + password con verifica email obbligatoria; la verifica non autorizza il rapporto commerciale.
+- Nessun accesso Google in questa fase, aggiungibile in seguito senza cambiare il modello account.
+- Azienda cliente con ruoli `owner` (titolare) e `member` (utente), senza sistema di permessi complesso adesso.
+- Nessuna cascata aggressiva: si usano stati attivo / disattivato / revocato.
+- `supplier_customer_relations` con sola struttura e stato del rapporto.
+
+Al termine della Fase 1 mi fermo e consegno il report. Nessun avvio automatico della Fase 2.
