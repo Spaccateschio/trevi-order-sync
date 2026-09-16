@@ -53,6 +53,9 @@ const AUTH_LABEL: Record<string, string> = {
 };
 
 const MAX_STATIONS = 5;
+const DANEA_PRODUCTS_URL = "https://trevi-order-sync.lovable.app/api/public/danea/products";
+const REGENERATE_WARNING =
+  "La password attuale smetterà immediatamente di funzionare. Dopo la rigenerazione dovrai inserire la nuova password anche in Danea Easyfatt. Continuare?";
 const CARD = "rounded-xl border border-border bg-card p-3 shadow-sm sm:p-4";
 const CARD_TITLE = "font-display text-sm font-semibold sm:text-base";
 
@@ -73,9 +76,6 @@ function DaneaPage() {
   const createStation = useServerFn(createDaneaStation);
   const regenerate = useServerFn(regenerateDaneaStationPassword);
   const revoke = useServerFn(revokeDaneaStation);
-
-  const productsUrl =
-    typeof window !== "undefined" ? `${window.location.origin}/api/public/danea/products` : "";
 
   const stations = useQuery({
     queryKey: ["danea", "stations", companyId],
@@ -196,6 +196,12 @@ function DaneaPage() {
     toast.success(`${label} copiato.`);
   };
 
+  const handleRegenerate = (stationId: string) => {
+    if (window.confirm(REGENERATE_WARNING)) {
+      regenerateMutation.mutate(stationId);
+    }
+  };
+
   const list = stations.data ?? [];
   const activeCount = list.filter((s) => s.status === "attivo").length;
 
@@ -213,9 +219,13 @@ function DaneaPage() {
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code className="min-w-0 flex-1 break-all rounded-md bg-muted px-2 py-1.5 font-mono text-[11px] leading-snug sm:text-xs">
-              {productsUrl}
+              {DANEA_PRODUCTS_URL}
             </code>
-            <Button size="sm" variant="secondary" onClick={() => copy(productsUrl, "Indirizzo")}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => copy(DANEA_PRODUCTS_URL, "Indirizzo")}
+            >
               Copia
             </Button>
           </div>
@@ -313,7 +323,7 @@ function DaneaPage() {
                           size="sm"
                           variant="outline"
                           disabled={regenerateMutation.isPending}
-                          onClick={() => regenerateMutation.mutate(station.id)}
+                          onClick={() => handleRegenerate(station.id)}
                         >
                           Rigenera password
                         </Button>
@@ -376,7 +386,7 @@ function DaneaPage() {
                                 size="sm"
                                 variant="outline"
                                 disabled={regenerateMutation.isPending}
-                                onClick={() => regenerateMutation.mutate(station.id)}
+                                onClick={() => handleRegenerate(station.id)}
                               >
                                 Rigenera password
                               </Button>
