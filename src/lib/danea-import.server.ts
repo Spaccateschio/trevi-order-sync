@@ -199,10 +199,12 @@ export async function importDaneaCatalog(
     let unpublished = 0;
     if (doc.mode === "full") {
       // PROTEZIONE: la depubblicazione per assenza avviene solo se l'invio completo
-      // è stato letto ed elaborato integralmente e senza segnalazioni. Un file
-      // parziale, vuoto o con righe non valide non può depubblicare in massa.
+      // è stato letto ed elaborato integralmente: ogni prodotto presente nel file
+      // deve essere stato salvato. Un file vuoto o parzialmente salvato non può
+      // depubblicare in massa. Le segnalazioni sui singoli campi non bloccano
+      // l'allineamento: l'invio completo resta la fotografia dell'archivio Danea.
       const everyRowSaved = idByCode.size === rows.length;
-      const safeToReconcile = doc.products.length > 0 && issues.length === 0 && everyRowSaved;
+      const safeToReconcile = doc.products.length > 0 && everyRowSaved;
 
       if (safeToReconcile) {
         const { data, error } = await supabaseAdmin
