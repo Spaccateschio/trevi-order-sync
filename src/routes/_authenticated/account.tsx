@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { identityQueryKey, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import { validatePhone } from "@/lib/phone";
 
 export const Route = createFileRoute("/_authenticated/account")({
   head: () => ({
@@ -39,10 +40,23 @@ function Account() {
   async function handleSave(event: React.FormEvent) {
     event.preventDefault();
     if (!identity?.userId) return;
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error("Inserisci nome e cognome");
+      return;
+    }
+    const checked = validatePhone(phone);
+    if ("error" in checked) {
+      toast.error(checked.error);
+      return;
+    }
     setBusy(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ first_name: firstName, last_name: lastName, phone })
+      .update({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone: checked.value,
+      })
       .eq("user_id", identity.userId);
     setBusy(false);
     if (error) {
