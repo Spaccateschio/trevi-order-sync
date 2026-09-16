@@ -15,7 +15,6 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedAmministrazioneRouteImport } from './routes/_authenticated/amministrazione'
-import { Route as AuthenticatedClienteRouteImport } from './routes/_authenticated/cliente'
 import { Route as AuthenticatedConsegneRouteImport } from './routes/_authenticated/consegne'
 import { Route as AuthenticatedDaneaRouteImport } from './routes/_authenticated/danea'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -56,11 +55,6 @@ const AuthenticatedAmministrazioneRoute =
     path: '/amministrazione',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedClienteRoute = AuthenticatedClienteRouteImport.update({
-  id: '/cliente',
-  path: '/cliente',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedConsegneRoute = AuthenticatedConsegneRouteImport.update({
   id: '/consegne',
   path: '/consegne',
@@ -116,7 +110,6 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
-  '/cliente': typeof AuthenticatedClienteRoute
   '/consegne': typeof AuthenticatedConsegneRoute
   '/danea': typeof AuthenticatedDaneaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -133,7 +126,6 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
-  '/cliente': typeof AuthenticatedClienteRoute
   '/consegne': typeof AuthenticatedConsegneRoute
   '/danea': typeof AuthenticatedDaneaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -152,7 +144,6 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/amministrazione': typeof AuthenticatedAmministrazioneRoute
-  '/_authenticated/cliente': typeof AuthenticatedClienteRoute
   '/_authenticated/consegne': typeof AuthenticatedConsegneRoute
   '/_authenticated/danea': typeof AuthenticatedDaneaRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -171,7 +162,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/account'
     | '/amministrazione'
-    | '/cliente'
     | '/consegne'
     | '/danea'
     | '/dashboard'
@@ -188,7 +178,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/account'
     | '/amministrazione'
-    | '/cliente'
     | '/consegne'
     | '/danea'
     | '/dashboard'
@@ -206,7 +195,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/account'
     | '/_authenticated/amministrazione'
-    | '/_authenticated/cliente'
     | '/_authenticated/consegne'
     | '/_authenticated/danea'
     | '/_authenticated/dashboard'
@@ -268,13 +256,6 @@ declare module '@tanstack/react-router' {
       path: '/amministrazione'
       fullPath: '/amministrazione'
       preLoaderRoute: typeof AuthenticatedAmministrazioneRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/cliente': {
-      id: '/_authenticated/cliente'
-      path: '/cliente'
-      fullPath: '/cliente'
-      preLoaderRoute: typeof AuthenticatedClienteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/consegne': {
@@ -346,7 +327,6 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedAmministrazioneRoute: typeof AuthenticatedAmministrazioneRoute
-  AuthenticatedClienteRoute: typeof AuthenticatedClienteRoute
   AuthenticatedConsegneRoute: typeof AuthenticatedConsegneRoute
   AuthenticatedDaneaRoute: typeof AuthenticatedDaneaRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -360,7 +340,6 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedAmministrazioneRoute: AuthenticatedAmministrazioneRoute,
-  AuthenticatedClienteRoute: AuthenticatedClienteRoute,
   AuthenticatedConsegneRoute: AuthenticatedConsegneRoute,
   AuthenticatedDaneaRoute: AuthenticatedDaneaRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
