@@ -60,7 +60,7 @@ async function fetchIdentity(): Promise<Identity | null> {
     supabase
       .from("supplier_customer_relations")
       .select(
-        "id, seller_company_id, buyer_company_id, status, seller:companies!relations_seller_fkey(legal_name)",
+        "id, seller_company_id, buyer_company_id, status, seller:companies!supplier_customer_relations_company_id_fkey(legal_name)",
       ),
   ]);
 
