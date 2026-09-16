@@ -95,14 +95,20 @@ function Account() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="phone">Telefono</Label>
+            <Label htmlFor="phone">Cellulare</Label>
             <Input
               id="phone"
+              required
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               inputMode="tel"
               autoComplete="tel"
+              placeholder="+39 333 1234567"
+              maxLength={24}
             />
+            <p className="text-xs text-muted-foreground">
+              È il numero della persona, diverso dal telefono dell'azienda.
+            </p>
           </div>
           <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={busy}>
             Salva
