@@ -1,39 +1,19 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Building2,
-  ClipboardList,
-  LayoutDashboard,
-  LogOut,
-  PlugZap,
-  ShoppingBasket,
-  Truck,
-  UserRound,
-  type LucideIcon,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
-import { hasRole, isCustomer, useIdentity } from "@/hooks/use-identity";
+import { companyBuys, companySells, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import { visibleNavItems, type NavArea, type NavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
-type NavItem = { to: string; label: string; short: string; icon: LucideIcon };
-
-const ALL_ITEMS: Record<string, NavItem> = {
-  dashboard: { to: "/dashboard", label: "Panoramica", short: "Home", icon: LayoutDashboard },
-  amministrazione: {
-    to: "/amministrazione",
-    label: "Amministrazione",
-    short: "Admin",
-    icon: Building2,
-  },
-  danea: { to: "/danea", label: "Gestionale", short: "Danea", icon: PlugZap },
-  operativo: { to: "/operativo", label: "Operativo", short: "Lavoro", icon: ClipboardList },
-  consegne: { to: "/consegne", label: "Consegne", short: "Consegne", icon: Truck },
-  cliente: { to: "/cliente", label: "Area cliente", short: "Cliente", icon: ShoppingBasket },
-  account: { to: "/account", label: "Account", short: "Account", icon: UserRound },
+const AREA_LABEL: Record<NavArea, string> = {
+  comune: "Azienda",
+  acquisti: "Acquisti",
+  vendite: "Vendite",
 };
 
 export function AppShell({
@@ -50,17 +30,38 @@ export function AppShell({
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const items: NavItem[] = [ALL_ITEMS["dashboard"]!];
-  if (hasRole(identity, "amministratore")) items.push(ALL_ITEMS["amministrazione"]!);
-  if (hasRole(identity, "amministratore")) items.push(ALL_ITEMS["danea"]!);
-  if (hasRole(identity, "amministratore") || hasRole(identity, "operatore")) {
-    items.push(ALL_ITEMS["operativo"]!);
-  }
-  if (hasRole(identity, "amministratore") || hasRole(identity, "trasportatore")) {
-    items.push(ALL_ITEMS["consegne"]!);
-  }
-  if (isCustomer(identity)) items.push(ALL_ITEMS["cliente"]!);
-  items.push(ALL_ITEMS["account"]!);
+  const items = visibleNavItems(identity);
+  const buys = companyBuys(identity);
+  const sells = companySells(identity);
+  const bothAreas = buys && sells;
+
+  const groups: { area: NavArea; items: NavItem[] }[] = (
+    ["comune", "acquisti", "vendite"] as NavArea[]
+  )
+    .map((area) => ({ area, items: items.filter((item) => item.area === area) }))
+    .filter((group) => group.items.length > 0);
+
+  // Su telefono si mostra una sola area alla volta, così gli ordini fatti ai
+  // fornitori non si mescolano con gli ordini ricevuti dai clienti.
+  const currentArea: NavArea = pathname.startsWith("/acquisti")
+    ? "acquisti"
+    : ["/vendite", "/operativo", "/consegne", "/danea"].some((p) => pathname.startsWith(p))
+      ? "vendite"
+      : "comune";
+
+  const mobileArea: NavArea = bothAreas
+    ? currentArea === "comune"
+      ? "acquisti"
+      : currentArea
+    : buys
+      ? "acquisti"
+      : sells
+        ? "vendite"
+        : "comune";
+
+  const mobileItems = items.filter(
+    (item) => item.area === "comune" || item.area === mobileArea,
+  );
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -72,29 +73,40 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-background">
       {/* Navigazione desktop */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col bg-sidebar px-3 py-5 lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col overflow-y-auto bg-sidebar px-3 py-5 lg:flex">
         <div className="px-2">
           <BrandMark tone="dark" />
         </div>
-        <nav className="mt-7 flex flex-1 flex-col gap-1">
-          {items.map((item) => {
-            const active = pathname === item.to;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="mt-7 flex flex-1 flex-col gap-4">
+          {groups.map((group) => (
+            <div key={group.area}>
+              {groups.length > 1 ? (
+                <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/50">
+                  {AREA_LABEL[group.area]}
+                </p>
+              ) : null}
+              <div className="flex flex-col gap-1">
+                {group.items.map((item) => {
+                  const active = pathname === item.to;
+                  return (
+                    <Link
+                      key={item.key}
+                      to={item.to}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      )}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
         <div className="border-t border-sidebar-border pt-3">
           <p className="truncate px-3 pb-2 text-xs text-sidebar-foreground/60">{identity?.email}</p>
@@ -112,15 +124,25 @@ export function AppShell({
         {/* Barra superiore mobile/tablet */}
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-sidebar px-4 py-3 lg:hidden">
           <BrandMark tone="dark" />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleSignOut}
-            aria-label="Esci"
-            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          >
-            <LogOut className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {bothAreas ? (
+              <Link
+                to={mobileArea === "acquisti" ? "/vendite" : "/acquisti"}
+                className="rounded-full bg-sidebar-accent px-3 py-1.5 text-xs font-semibold text-sidebar-accent-foreground"
+              >
+                {mobileArea === "acquisti" ? "Vai a Vendite" : "Vai ad Acquisti"}
+              </Link>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSignOut}
+              aria-label="Esci"
+              className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
         </header>
 
         <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-5 sm:px-6 lg:pb-10 lg:pt-8">
@@ -137,10 +159,10 @@ export function AppShell({
       {/* Navigazione mobile */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)] lg:hidden">
         <ul className="flex items-stretch">
-          {items.map((item) => {
+          {mobileItems.map((item) => {
             const active = pathname === item.to;
             return (
-              <li key={item.to} className="min-w-0 flex-1">
+              <li key={item.key} className="min-w-0 flex-1">
                 <Link
                   to={item.to}
                   className={cn(
