@@ -59,7 +59,9 @@ async function fetchIdentity(): Promise<Identity | null> {
       .eq("status", "attivo"),
     supabase
       .from("supplier_customer_relations")
-      .select("id, seller_company_id, buyer_company_id, status, companies(legal_name)"),
+      .select(
+        "id, seller_company_id, buyer_company_id, status, seller:companies!relations_seller_fkey(legal_name)",
+      ),
   ]);
 
   let profile = profileRes.data
@@ -134,7 +136,7 @@ async function fetchIdentity(): Promise<Identity | null> {
   const relations: Relation[] = (relationsRes.data ?? []).map((row) => ({
     id: row.id,
     sellerCompanyId: row.seller_company_id,
-    sellerCompanyName: (row.companies as { legal_name: string } | null)?.legal_name ?? null,
+    sellerCompanyName: (row.seller as { legal_name: string } | null)?.legal_name ?? null,
     buyerCompanyId: row.buyer_company_id,
     status: row.status as RelationStatus,
   }));
