@@ -1,0 +1,227 @@
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+import { BrandMark } from "@/components/brand-mark";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+
+type Modo = "accesso" | "registrazione";
+
+export const Route = createFileRoute("/auth")({
+  ssr: false,
+  validateSearch: (search: Record<string, unknown>): { modo?: Modo } => ({
+    modo: search.modo === "registrazione" ? "registrazione" : undefined,
+  }),
+  head: () => ({
+    meta: [
+      { title: "Accedi a Trevi Fruit" },
+      {
+        name: "description",
+        content: "Accedi o registrati per usare il portale Trevi Fruit.",
+      },
+      { property: "og:title", content: "Accedi a Trevi Fruit" },
+      {
+        property: "og:description",
+        content: "Accedi o registrati per usare il portale Trevi Fruit.",
+      },
+    ],
+  }),
+  component: AuthPage,
+});
+
+function AuthPage() {
+  const { modo } = Route.useSearch();
+  const navigate = useNavigate();
+  const [mode, setMode] = useState<Modo>(modo === "registrazione" ? "registrazione" : "accesso");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) navigate({ to: "/dashboard", replace: true });
+    });
+  }, [navigate]);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      if (mode === "registrazione") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: { first_name: firstName, last_name: lastName },
+          },
+        });
+        if (error) throw error;
+        setSentTo(email);
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        navigate({ to: "/dashboard", replace: true });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Operazione non riuscita";
+      toast.error(
+        message === "Invalid login credentials"
+          ? "Email o password non corretti"
+          : message === "Email not confirmed"
+            ? "Devi prima confermare l'email che ti abbiamo inviato"
+            : message,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email) {
+      toast.error("Inserisci la tua email, poi riprova");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Ti abbiamo inviato il link per reimpostare la password");
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col bg-sidebar px-4 py-6 sm:px-6">
+      <Link to="/" className="self-start">
+        <BrandMark tone="dark" />
+      </Link>
+
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-8">
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-lg sm:p-8">
+          {sentTo ? (
+            <div className="text-center">
+              <h1 className="font-display text-xl font-semibold">Controlla la tua email</h1>
+              <p className="mt-3 text-sm text-muted-foreground">
+                Abbiamo inviato un link di conferma a <strong>{sentTo}</strong>. Conferma
+                l'indirizzo per attivare l'accesso.
+              </p>
+              <p className="mt-3 text-sm text-muted-foreground">
+                La conferma dell'email attiva il tuo accesso personale. L'abilitazione a vedere
+                prezzi e ordinare viene autorizzata separatamente da Trevi Fruit.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-5 w-full"
+                onClick={() => {
+                  setSentTo(null);
+                  setMode("accesso");
+                }}
+              >
+                Torna all'accesso
+              </Button>
+            </div>
+          ) : (
+            <>
+              <h1 className="font-display text-xl font-semibold">
+                {mode === "accesso" ? "Accedi" : "Crea il tuo accesso"}
+              </h1>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                {mode === "accesso"
+                  ? "Entra con la tua email e password."
+                  : "Registri la persona che accede. I dati dell'attività si completano dopo."}
+              </p>
+
+              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                {mode === "registrazione" ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="firstName">Nome</Label>
+                      <Input
+                        id="firstName"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        autoComplete="given-name"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="lastName">Cognome</Label>
+                      <Input
+                        id="lastName"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        autoComplete="family-name"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    inputMode="email"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={mode === "accesso" ? "current-password" : "new-password"}
+                  />
+                </div>
+
+                <Button type="submit" className="w-full" size="lg" disabled={busy}>
+                  {mode === "accesso" ? "Accedi" : "Registrati"}
+                </Button>
+              </form>
+
+              <div className="mt-5 space-y-2 text-center text-sm">
+                {mode === "accesso" ? (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-muted-foreground underline-offset-4 hover:underline"
+                    disabled={busy}
+                  >
+                    Password dimenticata?
+                  </button>
+                ) : null}
+                <p className="text-muted-foreground">
+                  {mode === "accesso" ? "Non hai un accesso?" : "Hai già un accesso?"}{" "}
+                  <button
+                    type="button"
+                    onClick={() => setMode(mode === "accesso" ? "registrazione" : "accesso")}
+                    className="font-medium text-foreground underline-offset-4 hover:underline"
+                  >
+                    {mode === "accesso" ? "Registrati" : "Accedi"}
+                  </button>
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
