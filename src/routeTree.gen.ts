@@ -21,6 +21,9 @@ import { Route as AuthenticatedDaneaRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedOperativoRouteImport } from './routes/_authenticated/operativo'
+import { Route as AuthenticatedVenditeRouteImport } from './routes/_authenticated/vendite'
+import { Route as AuthenticatedAcquistiIndexRouteImport } from './routes/_authenticated/acquisti.index'
+import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_authenticated/acquisti.fornitori'
 import { Route as ApiPublicDaneaProductsTokenRouteImport } from './routes/api/public/danea/products/$token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -83,6 +86,23 @@ const AuthenticatedOperativoRoute = AuthenticatedOperativoRouteImport.update({
   path: '/operativo',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedVenditeRoute = AuthenticatedVenditeRouteImport.update({
+  id: '/vendite',
+  path: '/vendite',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAcquistiIndexRoute =
+  AuthenticatedAcquistiIndexRouteImport.update({
+    id: '/acquisti/',
+    path: '/acquisti/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAcquistiFornitoriRoute =
+  AuthenticatedAcquistiFornitoriRouteImport.update({
+    id: '/acquisti/fornitori',
+    path: '/acquisti/fornitori',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiPublicDaneaProductsTokenRoute =
   ApiPublicDaneaProductsTokenRouteImport.update({
     id: '/api/public/danea/products/$token',
@@ -102,6 +122,9 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/operativo': typeof AuthenticatedOperativoRoute
+  '/vendite': typeof AuthenticatedVenditeRoute
+  '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/acquisti/': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
 }
 export interface FileRoutesByTo {
@@ -116,6 +139,9 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/operativo': typeof AuthenticatedOperativoRoute
+  '/vendite': typeof AuthenticatedVenditeRoute
+  '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/acquisti': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
 }
 export interface FileRoutesById {
@@ -132,6 +158,9 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/operativo': typeof AuthenticatedOperativoRoute
+  '/_authenticated/vendite': typeof AuthenticatedVenditeRoute
+  '/_authenticated/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/_authenticated/acquisti/': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
 }
 export interface FileRouteTypes {
@@ -148,6 +177,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/onboarding'
     | '/operativo'
+    | '/vendite'
+    | '/acquisti/fornitori'
+    | '/acquisti/'
     | '/api/public/danea/products/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -162,6 +194,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/onboarding'
     | '/operativo'
+    | '/vendite'
+    | '/acquisti/fornitori'
+    | '/acquisti'
     | '/api/public/danea/products/$token'
   id:
     | '__root__'
@@ -177,6 +212,9 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/onboarding'
     | '/_authenticated/operativo'
+    | '/_authenticated/vendite'
+    | '/_authenticated/acquisti/fornitori'
+    | '/_authenticated/acquisti/'
     | '/api/public/danea/products/$token'
   fileRoutesById: FileRoutesById
 }
@@ -274,6 +312,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOperativoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/vendite': {
+      id: '/_authenticated/vendite'
+      path: '/vendite'
+      fullPath: '/vendite'
+      preLoaderRoute: typeof AuthenticatedVenditeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/acquisti/': {
+      id: '/_authenticated/acquisti/'
+      path: '/acquisti'
+      fullPath: '/acquisti/'
+      preLoaderRoute: typeof AuthenticatedAcquistiIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/acquisti/fornitori': {
+      id: '/_authenticated/acquisti/fornitori'
+      path: '/acquisti/fornitori'
+      fullPath: '/acquisti/fornitori'
+      preLoaderRoute: typeof AuthenticatedAcquistiFornitoriRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/danea/products/$token': {
       id: '/api/public/danea/products/$token'
       path: '/api/public/danea/products/$token'
@@ -293,6 +352,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedOperativoRoute: typeof AuthenticatedOperativoRoute
+  AuthenticatedVenditeRoute: typeof AuthenticatedVenditeRoute
+  AuthenticatedAcquistiFornitoriRoute: typeof AuthenticatedAcquistiFornitoriRoute
+  AuthenticatedAcquistiIndexRoute: typeof AuthenticatedAcquistiIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -304,6 +366,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedOperativoRoute: AuthenticatedOperativoRoute,
+  AuthenticatedVenditeRoute: AuthenticatedVenditeRoute,
+  AuthenticatedAcquistiFornitoriRoute: AuthenticatedAcquistiFornitoriRoute,
+  AuthenticatedAcquistiIndexRoute: AuthenticatedAcquistiIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
