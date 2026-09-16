@@ -19,6 +19,7 @@ import { Route as AuthenticatedClienteRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedConsegneRouteImport } from './routes/_authenticated/consegne'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedOperativoRouteImport } from './routes/_authenticated/operativo'
+import { Route as ApiPublicDaneaProductsTokenRouteImport } from './routes/api/public/danea/products/$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -70,6 +71,12 @@ const AuthenticatedOperativoRoute = AuthenticatedOperativoRouteImport.update({
   path: '/operativo',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicDaneaProductsTokenRoute =
+  ApiPublicDaneaProductsTokenRouteImport.update({
+    id: '/api/public/danea/products/$token',
+    path: '/api/public/danea/products/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -81,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/consegne': typeof AuthenticatedConsegneRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/operativo': typeof AuthenticatedOperativoRoute
+  '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -92,6 +100,7 @@ export interface FileRoutesByTo {
   '/consegne': typeof AuthenticatedConsegneRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/operativo': typeof AuthenticatedOperativoRoute
+  '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -105,6 +114,7 @@ export interface FileRoutesById {
   '/_authenticated/consegne': typeof AuthenticatedConsegneRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/operativo': typeof AuthenticatedOperativoRoute
+  '/api/public/danea/products/$token': typeof ApiPublicDaneaProductsTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/consegne'
     | '/dashboard'
     | '/operativo'
+    | '/api/public/danea/products/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/consegne'
     | '/dashboard'
     | '/operativo'
+    | '/api/public/danea/products/$token'
   id:
     | '__root__'
     | '/'
@@ -141,6 +153,7 @@ export interface FileRouteTypes {
     | '/_authenticated/consegne'
     | '/_authenticated/dashboard'
     | '/_authenticated/operativo'
+    | '/api/public/danea/products/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -148,6 +161,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApiPublicDaneaProductsTokenRoute: typeof ApiPublicDaneaProductsTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -222,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOperativoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/danea/products/$token': {
+      id: '/api/public/danea/products/$token'
+      path: '/api/public/danea/products/$token'
+      fullPath: '/api/public/danea/products/$token'
+      preLoaderRoute: typeof ApiPublicDaneaProductsTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -251,6 +272,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApiPublicDaneaProductsTokenRoute: ApiPublicDaneaProductsTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
