@@ -98,13 +98,17 @@ async function fetchIdentity(): Promise<Identity | null> {
         phone: created.data.phone,
       };
     }
-  } else if (!profile.firstName && !profile.lastName && (metaFirstName || metaLastName)) {
-    // Profilo già esistente ma vuoto: completa con i dati della registrazione.
+  } else if (
+    (!profile.firstName && metaFirstName) ||
+    (!profile.lastName && metaLastName) ||
+    (!profile.phone && metaPhone)
+  ) {
+    // Profilo già esistente ma incompleto: completa con i dati della registrazione.
     const patched = await supabase
       .from("profiles")
       .update({
-        first_name: metaFirstName,
-        last_name: metaLastName,
+        first_name: profile.firstName ?? metaFirstName,
+        last_name: profile.lastName ?? metaLastName,
         phone: profile.phone ?? metaPhone,
       })
       .eq("id", profile.id)

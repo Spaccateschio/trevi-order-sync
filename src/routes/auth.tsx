@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { validatePhone } from "@/lib/phone";
 
 type Modo = "accesso" | "registrazione";
 
@@ -41,6 +42,7 @@ function AuthPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
@@ -52,6 +54,25 @@ function AuthPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+
+    let normalizedPhone = "";
+    if (mode === "registrazione") {
+      if (!firstName.trim() || !lastName.trim()) {
+        toast.error("Inserisci nome e cognome");
+        return;
+      }
+      const checked = validatePhone(phone);
+      if ("error" in checked) {
+        toast.error(checked.error);
+        return;
+      }
+      normalizedPhone = checked.value;
+      if (password !== passwordConfirm) {
+        toast.error("Le due password non coincidono");
+        return;
+      }
+    }
+
     setBusy(true);
     try {
       if (mode === "registrazione") {
@@ -60,7 +81,11 @@ function AuthPage() {
           password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { first_name: firstName, last_name: lastName, phone },
+            data: {
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+              phone: normalizedPhone,
+            },
           },
         });
         if (error) throw error;
@@ -145,10 +170,11 @@ function AuthPage() {
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                 {mode === "registrazione" ? (
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
+                     <div className="space-y-1.5">
                       <Label htmlFor="firstName">Nome</Label>
                       <Input
                         id="firstName"
+                        required
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         autoComplete="given-name"
@@ -158,6 +184,7 @@ function AuthPage() {
                       <Label htmlFor="lastName">Cognome</Label>
                       <Input
                         id="lastName"
+                        required
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
                         autoComplete="family-name"
@@ -168,14 +195,20 @@ function AuthPage() {
 
                 {mode === "registrazione" ? (
                   <div className="space-y-1.5">
-                    <Label htmlFor="phone">Telefono (facoltativo)</Label>
+                    <Label htmlFor="phone">Cellulare</Label>
                     <Input
                       id="phone"
+                      required
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       autoComplete="tel"
                       inputMode="tel"
+                      placeholder="+39 333 1234567"
+                      maxLength={24}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Indica il prefisso internazionale se il numero non è italiano.
+                    </p>
                   </div>
                 ) : null}
 
@@ -204,6 +237,21 @@ function AuthPage() {
                     autoComplete={mode === "accesso" ? "current-password" : "new-password"}
                   />
                 </div>
+
+                {mode === "registrazione" ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="passwordConfirm">Conferma password</Label>
+                    <Input
+                      id="passwordConfirm"
+                      type="password"
+                      required
+                      minLength={8}
+                      value={passwordConfirm}
+                      onChange={(e) => setPasswordConfirm(e.target.value)}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                ) : null}
 
                 <Button type="submit" className="w-full" size="lg" disabled={busy}>
                   {mode === "accesso" ? "Accedi" : "Registrati"}

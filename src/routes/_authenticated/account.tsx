@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { identityQueryKey, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import { validatePhone } from "@/lib/phone";
 
 export const Route = createFileRoute("/_authenticated/account")({
   head: () => ({
@@ -39,10 +40,23 @@ function Account() {
   async function handleSave(event: React.FormEvent) {
     event.preventDefault();
     if (!identity?.userId) return;
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error("Inserisci nome e cognome");
+      return;
+    }
+    const checked = validatePhone(phone);
+    if ("error" in checked) {
+      toast.error(checked.error);
+      return;
+    }
     setBusy(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ first_name: firstName, last_name: lastName, phone })
+      .update({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone: checked.value,
+      })
       .eq("user_id", identity.userId);
     setBusy(false);
     if (error) {
@@ -65,6 +79,7 @@ function Account() {
               <Label htmlFor="firstName">Nome</Label>
               <Input
                 id="firstName"
+                required
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 autoComplete="given-name"
@@ -74,6 +89,7 @@ function Account() {
               <Label htmlFor="lastName">Cognome</Label>
               <Input
                 id="lastName"
+                required
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 autoComplete="family-name"
@@ -81,14 +97,20 @@ function Account() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="phone">Telefono</Label>
+            <Label htmlFor="phone">Cellulare</Label>
             <Input
               id="phone"
+              required
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               inputMode="tel"
               autoComplete="tel"
+              placeholder="+39 333 1234567"
+              maxLength={24}
             />
+            <p className="text-xs text-muted-foreground">
+              È il numero della persona, diverso dal telefono dell'azienda.
+            </p>
           </div>
           <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={busy}>
             Salva
