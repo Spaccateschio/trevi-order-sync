@@ -170,10 +170,11 @@ function AuthPage() {
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                 {mode === "registrazione" ? (
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
+                     <div className="space-y-1.5">
                       <Label htmlFor="firstName">Nome</Label>
                       <Input
                         id="firstName"
+                        required
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         autoComplete="given-name"
@@ -183,6 +184,7 @@ function AuthPage() {
                       <Label htmlFor="lastName">Cognome</Label>
                       <Input
                         id="lastName"
+                        required
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
                         autoComplete="family-name"
@@ -193,14 +195,20 @@ function AuthPage() {
 
                 {mode === "registrazione" ? (
                   <div className="space-y-1.5">
-                    <Label htmlFor="phone">Telefono (facoltativo)</Label>
+                    <Label htmlFor="phone">Cellulare</Label>
                     <Input
                       id="phone"
+                      required
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       autoComplete="tel"
                       inputMode="tel"
+                      placeholder="+39 333 1234567"
+                      maxLength={24}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Indica il prefisso internazionale se il numero non è italiano.
+                    </p>
                   </div>
                 ) : null}
 
