@@ -114,7 +114,7 @@ function DaneaPage() {
       const { data, error } = await supabase
         .from("danea_sync_runs")
         .select(
-          "id, mode, outcome, received_count, created_count, updated_count, unpublished_count, skipped_count, duplicate_payload, error_message, started_at",
+          "id, mode, source, outcome, received_count, created_count, updated_count, unpublished_count, skipped_count, duplicate_payload, error_message, started_at",
         )
         .eq("company_id", companyId!)
         .order("started_at", { ascending: false })
@@ -449,6 +449,7 @@ function DaneaPage() {
                   <tr>
                     <th className="py-1.5 pr-3">Data</th>
                     <th className="py-1.5 pr-3">Tipo</th>
+                    <th className="py-1.5 pr-3">Origine</th>
                     <th className="py-1.5 pr-3">Esito</th>
                     <th className="py-1.5 pr-3">Ricevuti</th>
                     <th className="py-1.5 pr-3">Nuovi</th>
@@ -463,6 +464,9 @@ function DaneaPage() {
                       <td className="py-1.5 pr-3 whitespace-nowrap">{when(run.started_at)}</td>
                       <td className="py-1.5 pr-3">
                         {run.mode === "full" ? "Completo" : "Incrementale"}
+                      </td>
+                      <td className="py-1.5 pr-3 whitespace-nowrap">
+                        {run.source === "manuale" ? "Importazione manuale" : "Postazione Danea"}
                       </td>
                       <td className="py-1.5 pr-3">
                         {OUTCOME_LABEL[run.outcome] ?? run.outcome}
