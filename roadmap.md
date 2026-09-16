@@ -10,6 +10,8 @@
 - [x] Parser XML Easyfatt (full + incremental + DeletedProducts con solo Code)
 - [x] Schermata tecnica di diagnostica: collegamento, token, esiti invii
 - [x] Verifica con i 3 XML reali + FULL simulato (81 creati, reinvio idempotente, 80 depubblicati, aggiornamenti corretti); dati di prova rimossi
+- [x] Salvataggio credenziali collegamento senza rigenerare l'indirizzo + rimozione credenziali con conferma
+- [x] Pagine più compatte su telefono e desktop (tabelle scorribili, testi adattati)
 - [ ] Primo FULL reale da Danea (in attesa: account amministratore da abilitare)
 
 ## Profilo di utilizzo COMPRO / VENDO / ENTRAMBI (completato)
