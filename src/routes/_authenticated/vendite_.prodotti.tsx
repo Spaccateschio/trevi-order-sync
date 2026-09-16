@@ -102,7 +102,9 @@ function ProdottiPage() {
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("tutte");
-  const [status, setStatus] = useState("tutti");
+  // Danea è il gestionale padrone: per default vediamo solo i prodotti
+  // presenti nell'ultimo catalogo inviato.
+  const [status, setStatus] = useState("pubblicato");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<ProductRow | null>(null);
   const [importOpen, setImportOpen] = useState(false);
