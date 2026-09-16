@@ -1,11 +1,9 @@
 import { parseDaneaProducts, type DaneaDocument, type DaneaIssue } from "./danea-xml";
 
-export type DaneaConnectionRow = {
+/** La postazione autenticata: da qui deriva l'azienda, mai dal client. */
+export type DaneaStationRow = {
   id: string;
   company_id: string;
-  status: "attivo" | "revocato";
-  basic_login: string | null;
-  basic_password_hash: string | null;
 };
 
 export async function sha256Hex(value: string): Promise<string> {
