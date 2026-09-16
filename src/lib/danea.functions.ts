@@ -21,7 +21,8 @@ function randomToken(): string {
 /** Crea o rigenera il collegamento Danea dell'azienda. Il token in chiaro si vede una volta sola. */
 export const createDaneaConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { companyId: string; basicLogin?: string; basicPassword?: string }) => {
+  .inputValidator(
+    (input: { companyId: string; basicLogin?: string | undefined; basicPassword?: string | undefined }) => {
     if (!input?.companyId) throw new Error("Azienda mancante");
     return input;
   })
