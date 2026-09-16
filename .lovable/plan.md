@@ -23,6 +23,16 @@ Fatti verificati direttamente nel file, non ipotesi:
 
 Nota importante: il file è `incremental`, quindi non dimostra nulla sul comportamento FULL. Il FULL lo verifichiamo con un invio dedicato.
 
+### Evidenze dei due test successivi (stesso prodotto InternalID 66 / Code 0263)
+
+- `InternalID` e `Code` restano **identici** anche cambiando l'unità di misura: confermano l'identità del prodotto.
+- U.M. modificata da `pz` a `kg` e ricevuta correttamente; sottocategoria aggiunta/aggiornata.
+- `DeletedProducts` popolato contiene **solo `<Code>`**: verificato sul campo, non solo da documentazione.
+- `SupplierCode` + `SupplierName` e `SupplierNetPrice` + `SupplierGrossPrice` arrivano valorizzati.
+- **Danea trasmette un solo fornitore/costo per prodotto**, anche quando in Danea ne sono configurati due. Quindi memorizziamo esclusivamente il fornitore e il costo effettivamente ricevuti, senza presumere un elenco fornitori.
+- `Notes` valorizzato quando compilato; `ImageFileName` presente sul prodotto e `ImageFolder` presente nella radice. Li **conserviamo** come dati ricevuti, ma la gestione delle immagini è rinviata a una fase successiva.
+- `PriceName2` è cambiato da "Listino 2" a "RISTORANTE": i nomi listino possono cambiare tra un invio e l'altro, quindi vengono aggiornati a ogni invio mantenendo l'eventuale nome scelto in Trevi Fruit.
+
 ## 2. Cosa cambia nel piano rispetto alla versione precedente
 
 1. **Nomi listino**: Danea trasmette già `PriceName1…9`. Li importiamo come nome iniziale (Listino 1 → BAR), con possibilità di sovrascriverli in Trevi Fruit. Il riferimento tecnico resta sempre il numero.
