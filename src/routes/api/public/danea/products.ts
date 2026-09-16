@@ -52,17 +52,17 @@ export const Route = createFileRoute("/api/public/danea/products")({
           if (!bytes) return plain("Trasmissione vuota", 400);
           if (bytes > MAX_PAYLOAD_BYTES) return plain("File troppo grande", 413);
 
-          const result = await importDaneaCatalog(
-            { id: auth.station.id, company_id: auth.station.company_id },
+          await importDaneaCatalog(
+            {
+              kind: "station",
+              station: { id: auth.station.id, company_id: auth.station.company_id },
+            },
             xml,
           );
 
-          // Easyfatt considera positiva esclusivamente la risposta "OK".
-          if (result.skipped > 0) {
-            return plain(
-              `Ricezione completata con ${result.skipped} segnalazioni (${result.received} prodotti). Controlla la diagnostica in Trevi Fruit.`,
-            );
-          }
+          // Easyfatt considera positiva esclusivamente la risposta "OK": se
+          // l'importazione è riuscita rispondiamo sempre OK. Le eventuali
+          // segnalazioni restano registrate nella diagnostica di Trevi Fruit.
           return plain("OK");
         } catch (error) {
           const message = error instanceof Error ? error.message : "Errore imprevisto";
