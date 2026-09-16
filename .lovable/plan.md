@@ -25,10 +25,10 @@ Rischio segnalato: mantenendo due anagrafiche, un'azienda che compra e vende sar
 
 ## Onboarding
 
-1. Registrazione e verifica email: invariate.
+1. Registrazione e verifica email: flusso invariato, ma nome, cognome e telefono inseriti alla registrazione finiscono nel profilo e riappaiono in Account (correzione del problema riscontrato).
 2. Primo accesso senza azienda: schermata "Come userai Trevi Fruit?" con tre scelte (COMPRO, VENDO, COMPRO E VENDO) e le descrizioni indicate.
 3. Passo successivo: dati dell'azienda (ragione sociale, P.IVA, contatti, indirizzo; per chi acquista anche l'indirizzo di consegna).
-4. Chi acquista: richiesta di collegamento al venditore in stato "in attesa"; prezzi e ordini appariranno solo con rapporto attivo.
+4. Chi acquista: elenco dei fornitori disponibili sulla piattaforma (con Trevi Fruit proposto per primo in questa installazione) e richiesta di collegamento in stato "in attesa", ripetibile per più fornitori; prezzi e ordini appariranno solo per i rapporti attivi.
 5. Chi vende: accesso immediato all'area di vendita e al collegamento gestionale.
 6. Utenti invitati in un'azienda già configurata non vedono la schermata di scelta: entrano con il ruolo assegnato.
 7. Nessun dato finto: le pagine non ancora sviluppate restano segnaposto.
