@@ -62,6 +62,17 @@ SEMPRE
 - Nuove pagine: scelta profilo, dati azienda, impostazioni con attivazione della capacità mancante; le pagine attuali vengono riclassificate nei due gruppi.
 - Test di isolamento ripetuti come in Fase 1: azienda A non vede i dati di azienda B; un'azienda solo-acquisto non può creare collegamenti gestionali; un'azienda che compra e vende resta una sola riga.
 
+## Compatibilità con i ruoli avanzati (da progettare a parte)
+
+In questa fase restano solo i ruoli attuali (amministratore, operatore, trasportatore) e nessuna pagina di gestione ruoli. L'architettura viene però predisposta così:
+
+- Le voci di menu e le pagine hanno ciascuna una chiave stabile di modulo (es. "vendite.ordini", "acquisti.cataloghi"): domani i permessi si agganciano a queste chiavi senza riscrivere il menu.
+- La visibilità viene calcolata in un unico punto (capacità dell'azienda + ruolo), così sarà sostituibile con i permessi personalizzati senza toccare le singole pagine.
+- Il legame utente–ruolo resta su una tabella dedicata: uno stesso ruolo potrà essere associato a più utenti e le modifiche al ruolo si propagheranno automaticamente.
+- Nessun permesso viene scritto sul singolo utente: si evita di dover migrare dati quando arriveranno i ruoli personalizzati.
+- Predisposti (non implementati ora): ruoli con nome libero per azienda, permessi per modulo con lettura/creazione/modifica/eliminazione e azioni operative, inviti tramite link interno con ruolo assegnabile all'invito o dopo.
+- COMPRO/VENDO/ENTRAMBI resta una capacità dell'azienda, tenuta separata da ruoli e permessi.
+
 ## Fuori ambito
 
-Ordini, prezzi ai clienti, assegnazione listini, immagini prodotto, unità di misura alternative, pagina Prodotti definitiva.
+Ordini, prezzi ai clienti, assegnazione listini, immagini prodotto, unità di misura alternative, pagina Prodotti definitiva, gestione avanzata di ruoli e permessi, inviti utente.
