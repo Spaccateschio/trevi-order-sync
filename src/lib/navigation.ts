@@ -2,14 +2,12 @@ import {
   Building2,
   ClipboardList,
   LayoutDashboard,
-  PackageSearch,
   PlugZap,
   ReceiptText,
   ShoppingBasket,
   Store,
   Truck,
   UserRound,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -139,5 +137,3 @@ export function canSeeModule(identity: Identity | null | undefined, item: NavIte
 export function visibleNavItems(identity: Identity | null | undefined) {
   return NAV_ITEMS.filter((item) => canSeeModule(identity, item));
 }
-
-export const UNUSED_ICONS = { PackageSearch, Users };
