@@ -22,10 +22,15 @@ function randomToken(): string {
 export const createDaneaConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (input: { companyId: string; basicLogin?: string | undefined; basicPassword?: string | undefined }) => {
-    if (!input?.companyId) throw new Error("Azienda mancante");
-    return input;
-  })
+    (input: {
+      companyId: string;
+      basicLogin?: string | undefined;
+      basicPassword?: string | undefined;
+    }) => {
+      if (!input?.companyId) throw new Error("Azienda mancante");
+      return input;
+    },
+  )
   .handler(async ({ data, context }) => {
     await assertCompanyAdmin(context.supabase, data.companyId);
 
