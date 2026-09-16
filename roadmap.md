@@ -13,6 +13,7 @@
 - [x] Salvataggio credenziali collegamento senza rigenerare l'indirizzo + rimozione credenziali con conferma
 - [x] Pagine più compatte su telefono e desktop (tabelle scorribili, testi adattati)
 - [x] Sostituzione collegamento token → Postazioni Danea (URL fisso + Basic username/password, max 5 attive, 401 WWW-Authenticate, log accessi non riusciti, protezione FULL parziale)
+- [x] Pagina Gestionale: endpoint pubblico stabile anche dall'anteprima, password visibile solo alla creazione/rigenerazione e conferma prima della rigenerazione
 - [ ] Primo FULL reale da Danea (in attesa: account amministratore da abilitare)
 
 ## Profilo di utilizzo COMPRO / VENDO / ENTRAMBI (completato)
