@@ -12,8 +12,8 @@ type Modo = "accesso" | "registrazione";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  validateSearch: (search: Record<string, unknown>): { modo?: Modo } => ({
-    modo: search.modo === "registrazione" ? "registrazione" : undefined,
+  validateSearch: (search: Record<string, unknown>): { modo: Modo } => ({
+    modo: search["modo"] === "registrazione" ? "registrazione" : "accesso",
   }),
   head: () => ({
     meta: [

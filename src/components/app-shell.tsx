@@ -48,16 +48,16 @@ export function AppShell({
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const items: NavItem[] = [ALL_ITEMS.dashboard!];
-  if (hasRole(identity, "amministratore")) items.push(ALL_ITEMS.amministrazione!);
+  const items: NavItem[] = [ALL_ITEMS["dashboard"]!];
+  if (hasRole(identity, "amministratore")) items.push(ALL_ITEMS["amministrazione"]!);
   if (hasRole(identity, "amministratore") || hasRole(identity, "operatore")) {
-    items.push(ALL_ITEMS.operativo!);
+    items.push(ALL_ITEMS["operativo"]!);
   }
   if (hasRole(identity, "amministratore") || hasRole(identity, "trasportatore")) {
-    items.push(ALL_ITEMS.consegne!);
+    items.push(ALL_ITEMS["consegne"]!);
   }
-  if (isCustomer(identity)) items.push(ALL_ITEMS.cliente!);
-  items.push(ALL_ITEMS.account!);
+  if (isCustomer(identity)) items.push(ALL_ITEMS["cliente"]!);
+  items.push(ALL_ITEMS["account"]!);
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
