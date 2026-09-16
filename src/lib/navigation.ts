@@ -2,6 +2,7 @@ import {
   Building2,
   ClipboardList,
   LayoutDashboard,
+  Package,
   PlugZap,
   ReceiptText,
   ShoppingBasket,
@@ -30,6 +31,7 @@ export type ModuleKey =
   | "acquisti.panoramica"
   | "acquisti.fornitori"
   | "vendite.panoramica"
+  | "vendite.prodotti"
   | "vendite.gestionale"
   | "vendite.preparazione"
   | "vendite.consegne";
@@ -79,6 +81,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Vendite",
     short: "Vendite",
     icon: ReceiptText,
+  },
+  {
+    key: "vendite.prodotti",
+    area: "vendite",
+    to: "/vendite/prodotti",
+    label: "Prodotti",
+    short: "Prodotti",
+    icon: Package,
   },
   {
     key: "vendite.preparazione",

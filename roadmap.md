@@ -1,10 +1,10 @@
 # Roadmap
 
 ## In corso
-- [ ] Importazione manuale file Danea (Opzione B) con stesso parser/motore
-- [ ] Nuova pagina Vendite → Prodotti: elenco unico compatto, ricerca, filtri, dettaglio consultazione
-- [ ] Endpoint diretto Danea: risposta sempre esattamente "OK" quando l'import riesce (segnalazioni solo in diagnostica)
-- [ ] Storico invii con origine "Importazione manuale" / postazione
+- [x] Importazione manuale file Danea (Opzione B) con stesso parser/motore
+- [x] Nuova pagina Vendite → Prodotti: elenco unico compatto, ricerca, filtri, dettaglio consultazione
+- [x] Endpoint diretto Danea: risposta sempre esattamente "OK" quando l'import riesce (segnalazioni solo in diagnostica)
+- [x] Storico invii con origine "Importazione manuale" / postazione
 
 ## Fuori scope per ora
 - Download ordini da Danea

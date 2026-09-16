@@ -152,3 +152,80 @@ export const revokeDaneaStation = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+const MAX_XML_CHARS = 25 * 1024 * 1024;
+
+/** Ricava l'azienda dall'utente autenticato: mai dal file, mai dal browser. */
+async function assertProductsManager(
+  supabase: {
+    rpc: (
+      fn: "is_company_admin" | "company_sells",
+      args: { _company_id: string },
+    ) => PromiseLike<{ data: unknown }>;
+  },
+  companyId: string,
+) {
+  const [{ data: isAdmin }, { data: sells }] = await Promise.all([
+    supabase.rpc("is_company_admin", { _company_id: companyId }),
+    supabase.rpc("company_sells", { _company_id: companyId }),
+  ]);
+  if (isAdmin !== true) throw new Error("Operazione riservata agli amministratori dell'azienda");
+  if (sells !== true) throw new Error("Il profilo di vendita non è attivo per la tua azienda");
+}
+
+function validateXmlInput(input: { companyId: string; xml: string }) {
+  if (!input?.companyId) throw new Error("Azienda mancante");
+  const xml = input.xml ?? "";
+  if (!xml.trim()) throw new Error("File vuoto");
+  if (xml.length > MAX_XML_CHARS) throw new Error("File troppo grande");
+  return { companyId: input.companyId, xml };
+}
+
+/**
+ * Anteprima dell'importazione manuale: stesso lettore XML del collegamento
+ * diretto, nessuna scrittura.
+ */
+export const analyzeDaneaFile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(validateXmlInput)
+  .handler(async ({ data, context }) => {
+    await assertProductsManager(context.supabase, data.companyId);
+    const { analyzeDaneaCatalog } = await import("@/lib/danea-import.server");
+    return analyzeDaneaCatalog(data.companyId, data.xml);
+  });
+
+/**
+ * Importazione manuale (Opzione B): stesso motore usato dall'endpoint Danea.
+ * Cambia solo l'origine registrata nello storico.
+ */
+export const importDaneaFile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(validateXmlInput)
+  .handler(async ({ data, context }) => {
+    await assertProductsManager(context.supabase, data.companyId);
+    const { importDaneaCatalog } = await import("@/lib/danea-import.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const result = await importDaneaCatalog(
+      { kind: "manual", companyId: data.companyId, userId: context.userId },
+      data.xml,
+    );
+
+    await supabaseAdmin.from("audit_events").insert({
+      company_id: data.companyId,
+      actor_user_id: context.userId,
+      action: "danea.manual_import",
+      entity_type: "danea_sync_run",
+      entity_id: result.runId,
+      detail: {
+        mode: result.mode,
+        received: result.received,
+        created: result.created,
+        updated: result.updated,
+        unpublished: result.unpublished,
+        skipped: result.skipped,
+      },
+    });
+
+    return result;
+  });

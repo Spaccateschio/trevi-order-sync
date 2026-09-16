@@ -446,14 +446,16 @@ export type Database = {
           error_message: string | null
           finished_at: string | null
           id: string
+          imported_by: string | null
           mode: Database["public"]["Enums"]["danea_sync_mode"]
           outcome: Database["public"]["Enums"]["danea_sync_outcome"]
           payload_bytes: number | null
           payload_hash: string | null
           received_count: number
           skipped_count: number
+          source: Database["public"]["Enums"]["danea_sync_source"]
           started_at: string
-          station_id: string
+          station_id: string | null
           unpublished_count: number
           updated_at: string
           updated_count: number
@@ -469,14 +471,16 @@ export type Database = {
           error_message?: string | null
           finished_at?: string | null
           id?: string
+          imported_by?: string | null
           mode: Database["public"]["Enums"]["danea_sync_mode"]
           outcome?: Database["public"]["Enums"]["danea_sync_outcome"]
           payload_bytes?: number | null
           payload_hash?: string | null
           received_count?: number
           skipped_count?: number
+          source?: Database["public"]["Enums"]["danea_sync_source"]
           started_at?: string
-          station_id: string
+          station_id?: string | null
           unpublished_count?: number
           updated_at?: string
           updated_count?: number
@@ -492,14 +496,16 @@ export type Database = {
           error_message?: string | null
           finished_at?: string | null
           id?: string
+          imported_by?: string | null
           mode?: Database["public"]["Enums"]["danea_sync_mode"]
           outcome?: Database["public"]["Enums"]["danea_sync_outcome"]
           payload_bytes?: number | null
           payload_hash?: string | null
           received_count?: number
           skipped_count?: number
+          source?: Database["public"]["Enums"]["danea_sync_source"]
           started_at?: string
-          station_id?: string
+          station_id?: string | null
           unpublished_count?: number
           updated_at?: string
           updated_count?: number
@@ -927,6 +933,7 @@ export type Database = {
       danea_connection_status: "attivo" | "revocato"
       danea_sync_mode: "full" | "incremental"
       danea_sync_outcome: "in_corso" | "completato" | "fallito"
+      danea_sync_source: "postazione" | "manuale"
       entity_status: "attivo" | "disattivato" | "revocato"
       product_publish_status: "pubblicato" | "non_pubblicato"
       relation_origin: "invito_fornitore" | "richiesta_cliente"
@@ -1067,6 +1074,7 @@ export const Constants = {
       danea_connection_status: ["attivo", "revocato"],
       danea_sync_mode: ["full", "incremental"],
       danea_sync_outcome: ["in_corso", "completato", "fallito"],
+      danea_sync_source: ["postazione", "manuale"],
       entity_status: ["attivo", "disattivato", "revocato"],
       product_publish_status: ["pubblicato", "non_pubblicato"],
       relation_origin: ["invito_fornitore", "richiesta_cliente"],

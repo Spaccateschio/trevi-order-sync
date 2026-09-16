@@ -6,6 +6,15 @@ export type DaneaStationRow = {
   company_id: string;
 };
 
+/**
+ * Origine dell'invio. Il motore di importazione è UNICO: cambia solo la porta
+ * d'ingresso (postazione Danea via HTTP, oppure file caricato a mano da un
+ * amministratore). In entrambi i casi l'azienda è ricavata sul server.
+ */
+export type DaneaImportOrigin =
+  | { kind: "station"; station: DaneaStationRow }
+  | { kind: "manual"; companyId: string; userId: string };
+
 export async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest))
@@ -29,11 +38,12 @@ export type ImportResult = {
  * (company_id, code) come chiave alternativa e unica disponibile nei DeletedProducts.
  */
 export async function importDaneaCatalog(
-  station: DaneaStationRow,
+  origin: DaneaImportOrigin,
   xml: string,
 ): Promise<ImportResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const companyId = station.company_id;
+  const station = origin.kind === "station" ? origin.station : null;
+  const companyId = origin.kind === "station" ? origin.station.company_id : origin.companyId;
 
   const payloadHash = await sha256Hex(xml);
   const doc = parseDaneaProducts(xml);
@@ -51,7 +61,9 @@ export async function importDaneaCatalog(
     .from("danea_sync_runs")
     .insert({
       company_id: companyId,
-      station_id: station.id,
+      station_id: station ? station.id : null,
+      source: station ? ("postazione" as const) : ("manuale" as const),
+      imported_by: origin.kind === "manual" ? origin.userId : null,
       mode: doc.mode,
       app_version: doc.appVersion,
       creator: doc.creator,
@@ -68,16 +80,19 @@ export async function importDaneaCatalog(
   const issues: DaneaIssue[] = [...doc.issues];
 
   try {
-    await supabaseAdmin
-      .from("danea_stations")
-      .update({
-        detected_app_version: doc.appVersion,
-        detected_creator: doc.creator,
-        detected_default_price: doc.defaultPrice,
-        detected_warehouse: doc.warehouse,
-        detected_image_folder: doc.imageFolder,
-      })
-      .eq("id", station.id);
+    // I dati rilevati appartengono alla postazione: l'import manuale non ne ha una.
+    if (station) {
+      await supabaseAdmin
+        .from("danea_stations")
+        .update({
+          detected_app_version: doc.appVersion,
+          detected_creator: doc.creator,
+          detected_default_price: doc.defaultPrice,
+          detected_warehouse: doc.warehouse,
+          detected_image_folder: doc.imageFolder,
+        })
+        .eq("id", station.id);
+    }
 
     await syncPriceListNames(supabaseAdmin, companyId, doc);
 
@@ -241,10 +256,12 @@ export async function importDaneaCatalog(
       })
       .eq("id", runId);
 
-    await supabaseAdmin
-      .from("danea_stations")
-      .update({ last_success_at: new Date().toISOString() })
-      .eq("id", station.id);
+    if (station) {
+      await supabaseAdmin
+        .from("danea_stations")
+        .update({ last_success_at: new Date().toISOString() })
+        .eq("id", station.id);
+    }
 
     return {
       runId,
@@ -265,6 +282,80 @@ export async function importDaneaCatalog(
     throw error;
   }
 }
+
+export type AnalyzeResult = {
+  mode: DaneaDocument["mode"];
+  received: number;
+  toCreate: number;
+  toUpdate: number;
+  toUnpublish: number;
+  priceLists: { listNumber: number; name: string }[];
+  issues: { productCode: string | null; fieldName: string | null; reason: string }[];
+  reconciliationBlocked: boolean;
+};
+
+/**
+ * Anteprima in SOLA LETTURA: usa lo stesso lettore XML del collegamento diretto,
+ * non scrive nulla e non registra alcun invio.
+ */
+export async function analyzeDaneaCatalog(companyId: string, xml: string): Promise<AnalyzeResult> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const doc = parseDaneaProducts(xml);
+
+  const { data: existingRows, error } = await supabaseAdmin
+    .from("products")
+    .select("id, code, danea_internal_id, publish_status, last_sync_run_id")
+    .eq("company_id", companyId);
+  if (error) throw new Error(error.message);
+
+  const byInternalId = new Set<string>();
+  const byCode = new Set<string>();
+  for (const row of existingRows ?? []) {
+    if (row.danea_internal_id) byInternalId.add(row.danea_internal_id);
+    byCode.add(row.code);
+  }
+
+  let toCreate = 0;
+  let toUpdate = 0;
+  const incomingCodes = new Set<string>();
+  for (const product of doc.products) {
+    incomingCodes.add(product.code);
+    const known =
+      (product.internalId && byInternalId.has(product.internalId)) || byCode.has(product.code);
+    if (known) toUpdate += 1;
+    else toCreate += 1;
+  }
+
+  const published = (existingRows ?? []).filter((r) => r.publish_status === "pubblicato");
+  const reconciliationBlocked = doc.mode === "full" && (doc.products.length === 0 || doc.issues.length > 0);
+
+  let toUnpublish = 0;
+  if (doc.mode === "full") {
+    toUnpublish = reconciliationBlocked
+      ? 0
+      : published.filter((r) => !incomingCodes.has(r.code)).length;
+  } else {
+    toUnpublish = published.filter((r) => doc.deletedCodes.includes(r.code)).length;
+  }
+
+  const priceLists: { listNumber: number; name: string }[] = [];
+  for (let i = 1; i <= 9; i += 1) {
+    const name = doc.priceNames[i];
+    if (name) priceLists.push({ listNumber: i, name });
+  }
+
+  return {
+    mode: doc.mode,
+    received: doc.products.length,
+    toCreate,
+    toUpdate,
+    toUnpublish,
+    priceLists,
+    issues: doc.issues.slice(0, 50),
+    reconciliationBlocked,
+  };
+}
+
 
 type AdminClient = Awaited<
   typeof import("@/integrations/supabase/client.server")
