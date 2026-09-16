@@ -102,7 +102,9 @@ function ProdottiPage() {
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("tutte");
-  const [status, setStatus] = useState("tutti");
+  // Danea è il gestionale padrone: per default vediamo solo i prodotti
+  // presenti nell'ultimo catalogo inviato.
+  const [status, setStatus] = useState("pubblicato");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<ProductRow | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -110,6 +112,10 @@ function ProdottiPage() {
   const productsQuery = useQuery({
     queryKey: ["prodotti", companyId],
     enabled: Boolean(companyId),
+    // Gli invii da Danea arrivano dal server: ricontrolliamo spesso così
+    // l'elenco riflette subito l'ultimo catalogo ricevuto.
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
@@ -245,9 +251,9 @@ function ProdottiPage() {
               <SelectValue placeholder="Stato" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="tutti">Tutti gli stati</SelectItem>
-              <SelectItem value="pubblicato">Pubblicati</SelectItem>
-              <SelectItem value="non_pubblicato">Non pubblicati</SelectItem>
+              <SelectItem value="pubblicato">Catalogo Danea attuale</SelectItem>
+              <SelectItem value="non_pubblicato">Non più inviati da Danea</SelectItem>
+              <SelectItem value="tutti">Tutti</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -255,7 +261,9 @@ function ProdottiPage() {
         <p className="text-xs text-muted-foreground">
           {productsQuery.isLoading
             ? "Caricamento…"
-            : `${filtered.length} prodotti su ${allProducts.length} in archivio`}
+            : status === "pubblicato"
+              ? `${filtered.length} prodotti nell'ultimo catalogo ricevuto da Danea`
+              : `${filtered.length} prodotti su ${allProducts.length} in archivio`}
         </p>
 
         <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
