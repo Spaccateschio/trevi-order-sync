@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
-import { RelationCard } from "@/components/companies/relation-card";
+import { ConnectionDetail } from "@/components/companies/connection-detail";
+import { ConnectionsTable, type ConnectionRow } from "@/components/companies/connections-table";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +23,7 @@ import {
   companySells,
   hasRole,
   identityQueryKey,
+  isRelationOperational,
   useIdentity,
   type Relation,
 } from "@/hooks/use-identity";
@@ -30,17 +32,17 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated/collegamenti")({
   head: () => ({
     meta: [
-      { title: "Collegamenti — Trevi Fruit" },
+      { title: "Collegamenti B2B — Trevi Fruit" },
       {
         name: "description",
         content:
-          "I rapporti tra la tua azienda e le altre aziende Trevi Fruit: clienti, fornitori, richieste, inviti e codici.",
+          "Gestisci i collegamenti tra la tua azienda e le altre aziende Trevi Fruit: connessioni, richieste, inviti e codici.",
       },
-      { property: "og:title", content: "Collegamenti — Trevi Fruit" },
+      { property: "og:title", content: "Collegamenti B2B — Trevi Fruit" },
       {
         property: "og:description",
         content:
-          "I rapporti tra la tua azienda e le altre aziende Trevi Fruit: clienti, fornitori, richieste, inviti e codici.",
+          "Gestisci i collegamenti tra la tua azienda e le altre aziende Trevi Fruit: connessioni, richieste, inviti e codici.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -66,41 +68,49 @@ type PendingInvitation = {
   customer_legal_name: string | null;
 };
 
-type Filter = "tutti" | "clienti" | "fornitori" | "attesa" | "sospesi";
+type View = "connessioni" | "ricerca" | "richieste" | "inviti";
+type Filter = "tutti" | "vendo" | "compro" | "attesa" | "sospesi";
 
 const filterLabels: Record<Filter, string> = {
   tutti: "Tutti",
-  clienti: "Clienti",
-  fornitori: "Fornitori",
+  vendo: "Io vendo",
+  compro: "Io compro",
   attesa: "In attesa",
   sospesi: "Sospesi",
 };
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          {title}
-        </h2>
-        {hint ? <p className="mt-1 text-sm text-muted-foreground">{hint}</p> : null}
-      </div>
-      {children}
-    </section>
-  );
+function statusOf(relation: Relation, side: "venditore" | "acquirente") {
+  if (relation.status === "in_attesa") {
+    const waitingOnMe =
+      (relation.origin === "richiesta_cliente" && side === "venditore") ||
+      (relation.origin === "invito_fornitore" && side === "acquirente");
+    return {
+      label: waitingOnMe ? "Da approvare" : "In attesa",
+      tone: "attesa" as const,
+    };
+  }
+  if (relation.status === "rifiutato") return { label: "Rifiutato", tone: "chiuso" as const };
+  if (relation.status === "revocato") return { label: "Chiuso", tone: "chiuso" as const };
+  if (relation.status === "sospeso") return { label: "Sospeso", tone: "sospeso" as const };
+  if (isRelationOperational(relation)) return { label: "Attivo", tone: "attivo" as const };
+  return { label: "Sospeso", tone: "sospeso" as const };
 }
 
 function Collegamenti() {
   const { data: identity, isLoading } = useIdentity();
   const queryClient = useQueryClient();
-  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const [view, setView] = useState<View>("connessioni");
   const [filter, setFilter] = useState<Filter>("tutti");
+  const [listSearch, setListSearch] = useState("");
+  const [openRow, setOpenRow] = useState<ConnectionRow | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const [searchRole, setSearchRole] = useState<"cliente" | "fornitore">("cliente");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [freeOpen, setFreeOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [freeEmail, setFreeEmail] = useState("");
   const [freeResult, setFreeResult] = useState<{ code: string; link: string } | null>(null);
   const [codeOpen, setCodeOpen] = useState(false);
@@ -134,28 +144,44 @@ function Collegamenti() {
       .map((r) => ({ r, side: "acquirente" as const })),
   ];
 
-  // Elenco unico: una riga per rapporto, con il ruolo del partner.
-  const partnerIdsAsBuyer = new Set(asBuyer.map((r) => r.sellerCompanyId));
-  const partnerIdsAsSeller = new Set(asSeller.map((r) => r.buyerCompanyId));
-  const linked = [
-    ...asSeller.map((r) => ({
-      r,
-      side: "venditore" as const,
-      bothWays: partnerIdsAsBuyer.has(r.buyerCompanyId),
-    })),
-    ...asBuyer.map((r) => ({
-      r,
-      side: "acquirente" as const,
-      bothWays: partnerIdsAsSeller.has(r.sellerCompanyId),
-    })),
-  ];
+  const rows = useMemo<ConnectionRow[]>(() => {
+    const buyerPartners = new Set(asBuyer.map((r) => r.sellerCompanyId));
+    const sellerPartners = new Set(asSeller.map((r) => r.buyerCompanyId));
+    const build = (relation: Relation, side: "venditore" | "acquirente") => {
+      const bothWays =
+        side === "venditore"
+          ? buyerPartners.has(relation.buyerCompanyId)
+          : sellerPartners.has(relation.sellerCompanyId);
+      const status = statusOf(relation, side);
+      const myEnabled = side === "venditore" ? relation.sellerEnabled : relation.buyerEnabled;
+      return {
+        key: `${relation.id}-${side}`,
+        relation,
+        side,
+        bothWays,
+        partnerName:
+          side === "venditore"
+            ? relation.buyerCompanyName ?? "Azienda cliente"
+            : relation.sellerCompanyName ?? "Azienda fornitrice",
+        relationshipLabel: bothWays ? "Entrambi" : side === "venditore" ? "Io vendo a" : "Io compro da",
+        statusLabel: status.label,
+        statusTone: status.tone,
+        mySideLabel: myEnabled ? "Attivo" : "Sospeso",
+      } satisfies ConnectionRow;
+    };
+    return [
+      ...asSeller.map((r) => build(r, "venditore")),
+      ...asBuyer.map((r) => build(r, "acquirente")),
+    ].sort((a, b) => a.partnerName.localeCompare(b.partnerName, "it"));
+  }, [asSeller, asBuyer]);
 
-  const visibleLinked = linked.filter(({ r, side }) => {
-    if (filter === "clienti") return side === "venditore";
-    if (filter === "fornitori") return side === "acquirente";
-    if (filter === "attesa") return r.status === "in_attesa";
-    if (filter === "sospesi")
-      return r.status === "sospeso" || (r.status === "attivo" && (!r.sellerEnabled || !r.buyerEnabled));
+  const visibleRows = rows.filter((row) => {
+    if (listSearch.trim() && !row.partnerName.toLowerCase().includes(listSearch.trim().toLowerCase()))
+      return false;
+    if (filter === "vendo") return row.side === "venditore";
+    if (filter === "compro") return row.side === "acquirente";
+    if (filter === "attesa") return row.relation.status === "in_attesa";
+    if (filter === "sospesi") return row.statusTone === "sospeso";
     return true;
   });
 
@@ -205,6 +231,9 @@ function Collegamenti() {
     return searchRole === "cliente" ? !linkedBuyerIds.has(c.id) : !linkedSellerIds.has(c.id);
   });
 
+  const pendingInvitations = invitationsQuery.data ?? [];
+  const requestCount = incoming.length + outgoing.length;
+
   async function refreshInvitations() {
     await queryClient.invalidateQueries({ queryKey: ["pending-invitations"] });
   }
@@ -222,7 +251,7 @@ function Collegamenti() {
       return;
     }
     await queryClient.invalidateQueries({ queryKey: identityQueryKey });
-    toast.success("Invito inviato. Attendi la risposta del cliente.");
+    toast.success("Richiesta inviata. Attendi la risposta dell'azienda.");
   }
 
   async function requestSupplier(sellerCompanyId: string) {
@@ -250,7 +279,7 @@ function Collegamenti() {
       return;
     }
     await refreshInvitations();
-    toast.success("Invito rinnovato: genera di nuovo il link dalla scheda cliente.");
+    toast.success("Invito rinnovato.");
   }
 
   async function cancelInvitation(invitationId: string) {
@@ -293,7 +322,7 @@ function Collegamenti() {
     if (!company) return;
     setBusy(true);
     const { error } = await supabase.rpc("accept_invitation_code", {
-      _code: code,
+      _code: code.trim(),
       _buyer_company_id: company.companyId,
     });
     setBusy(false);
@@ -307,169 +336,208 @@ function Collegamenti() {
     toast.success("Collegamento attivato.");
   }
 
-  const pendingInvitations = invitationsQuery.data ?? [];
+  const tabs: { key: View; label: string }[] = [
+    { key: "connessioni", label: "Le mie connessioni" },
+    { key: "ricerca", label: "Cerca azienda" },
+  ];
 
   return (
     <AppShell
-      title="Collegamenti"
-      description="I rapporti tra la tua azienda e le altre aziende Trevi Fruit. L'anagrafica dei clienti resta nella pagina Clienti."
+      title="Collegamenti B2B"
+      description="Gestisci i collegamenti con le aziende partner. L'anagrafica commerciale resta in Vendite → Clienti."
     >
-      <div className="space-y-8">
+      <div className="space-y-4">
         {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
 
-        <div className="flex flex-wrap gap-2">
+        {/* Barra compatta */}
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2">
+          {tabs.map((tab) => (
+            <Button
+              key={tab.key}
+              size="sm"
+              variant={view === tab.key ? "default" : "ghost"}
+              onClick={() => setView(tab.key)}
+            >
+              {tab.label}
+            </Button>
+          ))}
           {sells ? (
-            <Button size="sm" disabled={!isAdmin} onClick={() => setFreeOpen(true)}>
-              Invito rapido
+            <Button size="sm" variant="outline" disabled={!isAdmin} onClick={() => setInviteOpen(true)}>
+              Invita partner
             </Button>
           ) : null}
           {buys ? (
             <Button size="sm" variant="outline" disabled={!isAdmin} onClick={() => setCodeOpen(true)}>
-              Ho un codice invito
+              Ho un codice
             </Button>
           ) : null}
-        </div>
-
-        {incoming.length ? (
-          <Section title="Richieste da approvare" hint="Aspettano una tua decisione.">
-            {incoming.map(({ r, side }) => (
-              <RelationCard key={r.id} relation={r} side={side} isAdmin={isAdmin} />
-            ))}
-          </Section>
-        ) : null}
-
-        {outgoing.length ? (
-          <Section title="Richieste inviate" hint="In attesa della risposta dell'altra azienda.">
-            {outgoing.map(({ r, side }) => (
-              <RelationCard key={r.id} relation={r} side={side} isAdmin={isAdmin} />
-            ))}
-          </Section>
-        ) : null}
-
-        <Section title="Aziende collegate" hint="Ruolo, stato e interruttore del tuo lato.">
-          <div className="flex flex-wrap gap-2">
-            {(Object.keys(filterLabels) as Filter[]).map((key) => (
-              <Button
-                key={key}
-                size="sm"
-                variant={filter === key ? "default" : "outline"}
-                onClick={() => setFilter(key)}
-              >
-                {filterLabels[key]}
-              </Button>
-            ))}
-          </div>
-          {visibleLinked.length ? (
-            <div className="space-y-3">
-              {visibleLinked.map(({ r, side, bothWays }) => (
-                <RelationCard
-                  key={`${r.id}-${side}`}
-                  relation={r}
-                  side={side}
-                  isAdmin={isAdmin}
-                  bothWays={bothWays}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Nessuna azienda in questo elenco. Usa l'invito rapido o la ricerca qui sotto.
-            </p>
-          )}
-        </Section>
-
-        <Section
-          title="Cerca azienda"
-          hint="Cerca per ragione sociale o partita IVA e proponi il collegamento."
-        >
-          <div className="flex flex-wrap gap-2">
+          <span className="ml-auto flex gap-2">
+            <Button
+              size="sm"
+              variant={view === "richieste" ? "default" : "ghost"}
+              onClick={() => setView(view === "richieste" ? "connessioni" : "richieste")}
+            >
+              Richieste ({requestCount})
+            </Button>
             {sells ? (
               <Button
                 size="sm"
-                variant={searchRole === "cliente" ? "default" : "outline"}
-                onClick={() => setSearchRole("cliente")}
+                variant={view === "inviti" ? "default" : "ghost"}
+                onClick={() => setView(view === "inviti" ? "connessioni" : "inviti")}
               >
-                Vendo a loro
+                Inviti ({pendingInvitations.length})
               </Button>
             ) : null}
-            {buys ? (
-              <Button
-                size="sm"
-                variant={searchRole === "fornitore" ? "default" : "outline"}
-                onClick={() => setSearchRole("fornitore")}
-              >
-                Compro da loro
-              </Button>
-            ) : null}
-          </div>
-          <form
-            className="flex flex-wrap gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setSearchQuery(searchTerm.trim());
-            }}
-          >
-            <Input
-              className="max-w-sm"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Ragione sociale o partita IVA"
-              aria-label="Cerca azienda"
-            />
-            <Button type="submit" size="sm" variant="outline">
-              Cerca
-            </Button>
-          </form>
-          {searchQuery === "" ? (
-            <p className="text-sm text-muted-foreground">
-              Scrivi almeno una parola del nome o le prime cifre della partita IVA.
-            </p>
-          ) : searchResults.isLoading ? (
-            <p className="text-sm text-muted-foreground">Ricerca in corso…</p>
-          ) : foundCompanies.length ? (
-            <div className="space-y-3">
-              {foundCompanies.map((option) => (
-                <CompanyRow
-                  key={option.id}
-                  option={option}
-                  actionLabel={searchRole === "cliente" ? "Invita" : "Chiedi collegamento"}
-                  disabled={!isAdmin || busyId === option.id}
-                  onAction={() =>
-                    searchRole === "cliente" ? inviteBuyer(option.id) : requestSupplier(option.id)
-                  }
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Nessuna azienda trovata: se non è ancora su Trevi Fruit, usa l'invito rapido.
-            </p>
-          )}
-        </Section>
+          </span>
+        </div>
 
-        {sells ? (
-          <Section
-            title="Inviti in attesa"
-            hint="Link e codici già generati che nessuno ha ancora usato."
-          >
+        {view === "connessioni" ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                className="h-9 w-full max-w-xs"
+                value={listSearch}
+                onChange={(event) => setListSearch(event.target.value)}
+                placeholder="Cerca…"
+                aria-label="Cerca fra le connessioni"
+              />
+              {(Object.keys(filterLabels) as Filter[]).map((key) => (
+                <Button
+                  key={key}
+                  size="sm"
+                  variant={filter === key ? "default" : "outline"}
+                  onClick={() => setFilter(key)}
+                >
+                  {filterLabels[key]}
+                </Button>
+              ))}
+              <span className="ml-auto text-sm text-muted-foreground">
+                {visibleRows.length} di {rows.length}
+              </span>
+            </div>
+            <ConnectionsTable rows={visibleRows} onOpen={setOpenRow} />
+          </div>
+        ) : null}
+
+        {view === "ricerca" ? (
+          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+            <div className="flex flex-wrap gap-2">
+              {sells ? (
+                <Button
+                  size="sm"
+                  variant={searchRole === "cliente" ? "default" : "outline"}
+                  onClick={() => setSearchRole("cliente")}
+                >
+                  Voglio vendere a questa azienda
+                </Button>
+              ) : null}
+              {buys ? (
+                <Button
+                  size="sm"
+                  variant={searchRole === "fornitore" ? "default" : "outline"}
+                  onClick={() => setSearchRole("fornitore")}
+                >
+                  Voglio comprare da questa azienda
+                </Button>
+              ) : null}
+            </div>
+            <form
+              className="flex flex-wrap gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setSearchQuery(searchTerm.trim());
+              }}
+            >
+              <Input
+                className="h-9 max-w-sm"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Ragione sociale o partita IVA"
+                aria-label="Cerca azienda"
+              />
+              <Button type="submit" size="sm" variant="outline">
+                Cerca
+              </Button>
+            </form>
+            {searchQuery === "" ? (
+              <p className="text-sm text-muted-foreground">
+                Scrivi almeno una parola del nome o le prime cifre della partita IVA.
+              </p>
+            ) : searchResults.isLoading ? (
+              <p className="text-sm text-muted-foreground">Ricerca in corso…</p>
+            ) : foundCompanies.length ? (
+              <div className="divide-y divide-border">
+                {foundCompanies.map((option) => (
+                  <div
+                    key={option.id}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium">{option.legal_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {[option.city, option.province].filter(Boolean).join(" · ") ||
+                          "Sede non indicata"}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={!isAdmin || busyId === option.id}
+                      onClick={() =>
+                        searchRole === "cliente" ? inviteBuyer(option.id) : requestSupplier(option.id)
+                      }
+                    >
+                      Richiedi collegamento
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Nessuna azienda trovata: se non è ancora su Trevi Fruit, usa Invita partner.
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {view === "richieste" ? (
+          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Richieste
+            </h2>
+            {requestCount ? (
+              <ConnectionsTable
+                rows={rows.filter((row) => row.relation.status === "in_attesa")}
+                onOpen={setOpenRow}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">Nessuna richiesta in corso.</p>
+            )}
+          </div>
+        ) : null}
+
+        {view === "inviti" ? (
+          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Inviti in attesa
+            </h2>
             {invitationsQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">Caricamento…</p>
             ) : pendingInvitations.length ? (
-              <div className="space-y-3">
+              <div className="divide-y divide-border">
                 {pendingInvitations.map((invitation) => {
                   const expired = new Date(invitation.expires_at).getTime() < Date.now();
                   return (
-                    <section
+                    <div
                       key={invitation.id}
-                      className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-display text-base font-semibold">
+                          <p className="font-medium">
                             {invitation.customer_legal_name ??
                               invitation.email ??
                               "Invito rapido senza email"}
-                          </h3>
+                          </p>
                           {invitation.is_free_invite ? (
                             <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
                               Rapido
@@ -481,7 +549,7 @@ function Collegamenti() {
                             </span>
                           ) : null}
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground">
                           {[
                             invitation.email,
                             invitation.invite_code ? `codice ${invitation.invite_code}` : null,
@@ -524,17 +592,17 @@ function Collegamenti() {
                           Annulla
                         </Button>
                       </div>
-                    </section>
+                    </div>
                   );
                 })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Nessun invito in attesa. Puoi generarne uno con Invito rapido o dalla scheda del
+                Nessun invito in attesa. Puoi generarne uno con Invita partner o dalla scheda del
                 cliente.
               </p>
             )}
-          </Section>
+          </div>
         ) : null}
 
         {isAdmin ? null : (
@@ -544,10 +612,12 @@ function Collegamenti() {
         )}
       </div>
 
+      <ConnectionDetail row={openRow} isAdmin={isAdmin} onClose={() => setOpenRow(null)} />
+
       <Dialog
-        open={freeOpen}
+        open={inviteOpen}
         onOpenChange={(open) => {
-          setFreeOpen(open);
+          setInviteOpen(open);
           if (!open) {
             setFreeEmail("");
             setFreeResult(null);
@@ -556,10 +626,10 @@ function Collegamenti() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Invito rapido</DialogTitle>
+            <DialogTitle>Invita partner</DialogTitle>
             <DialogDescription>
-              Genera un codice e un link da mandare come vuoi, senza compilare prima la scheda
-              cliente.
+              Genera un codice e un link da mandare come vuoi. Per invitare un cliente già in
+              anagrafica usa il pulsante Invita nella sua scheda.
             </DialogDescription>
           </DialogHeader>
           {freeResult ? (
@@ -574,7 +644,7 @@ function Collegamenti() {
               </div>
               <p className="text-sm text-muted-foreground">
                 Chi ha già un account Trevi Fruit usa il codice; chi non lo ha apre il link e si
-                registra. Il link non è più recuperabile dopo la chiusura di questa finestra.
+                registra. Dopo la chiusura di questa finestra il link non è più recuperabile.
               </p>
               <Button
                 variant="outline"
@@ -602,10 +672,10 @@ function Collegamenti() {
           )}
           <DialogFooter>
             {freeResult ? (
-              <Button onClick={() => setFreeOpen(false)}>Ho salvato codice e link</Button>
+              <Button onClick={() => setInviteOpen(false)}>Ho salvato codice e link</Button>
             ) : (
               <Button disabled={busy || !isAdmin} onClick={createFreeInvitation}>
-                Genera invito
+                Invito rapido
               </Button>
             )}
           </DialogFooter>
@@ -615,13 +685,11 @@ function Collegamenti() {
       <Dialog open={codeOpen} onOpenChange={setCodeOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ho un codice invito</DialogTitle>
-            <DialogDescription>
-              Inserisci il codice ricevuto dal fornitore: il collegamento si attiva subito.
-            </DialogDescription>
+            <DialogTitle>Ho un codice</DialogTitle>
+            <DialogDescription>Inserisci il codice invito ricevuto.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="codice-invito">Codice</Label>
+            <Label htmlFor="codice-invito">Codice invito</Label>
             <Input
               id="codice-invito"
               value={code}
@@ -632,37 +700,11 @@ function Collegamenti() {
           </div>
           <DialogFooter>
             <Button disabled={busy || !isAdmin || code.trim() === ""} onClick={useInviteCode}>
-              Collega
+              Continua
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppShell>
-  );
-}
-
-function CompanyRow({
-  option,
-  actionLabel,
-  disabled,
-  onAction,
-}: {
-  option: CompanyOption;
-  actionLabel: string;
-  disabled: boolean;
-  onAction: () => void;
-}) {
-  return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <h3 className="font-display text-base font-semibold">{option.legal_name}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {[option.city, option.province].filter(Boolean).join(" · ") || "Sede non indicata"}
-        </p>
-      </div>
-      <Button size="sm" disabled={disabled} onClick={onAction}>
-        {actionLabel}
-      </Button>
-    </section>
   );
 }
