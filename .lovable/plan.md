@@ -22,8 +22,14 @@ Elenco clienti del venditore, con ricerca e stato, e scheda cliente con:
 - indirizzi (con la scelta se condividerli con i partner);
 - destinazioni (punti operativi, con indirizzo collegato e documenti separati);
 - riferimento Danea e note;
-- azienda Trevi Fruit collegata: solo indicazione in sola lettura ("Collegata a … · rapporto attivo/sospeso/in attesa") con collegamento alla pagina Collegamenti;
-- azione **Invita**: crea, rispedisce o annulla l'invito di quel cliente (resta qui perché parte dal cliente);
+- **indicatore di collegamento** (pallino colorato con etichetta, sola lettura, che apre la pagina Collegamenti):
+  - grigio = non collegato, nessun invito;
+  - giallo = invito inviato o richiesta in attesa di risposta;
+  - verde = collegato e operativo;
+  - arancione = collegato ma sospeso da uno dei due lati;
+  - rosso = rifiutato o collegamento chiuso;
+- azione **Invita** quando il cliente non è collegato: invio del link per email, reinvio o annullamento (resta qui perché parte da quel cliente);
+- se il cliente si registra da solo e chiede il collegamento, l'indicatore passa a giallo e la richiesta si approva dalla pagina Collegamenti: nella scheda cliente non si decide nulla;
 - in futuro: listino assegnato e condizioni commerciali.
 
 Un cliente esiste qui anche se non usa Trevi Fruit.
