@@ -104,16 +104,16 @@ export async function importDaneaCatalog(
 
     const { data: existingRows, error: existingError } = await supabaseAdmin
       .from("products")
-      .select("id, code, danea_internal_id")
+      .select("id, code, danea_internal_id, danea_um")
       .eq("company_id", companyId)
       .eq("archive_id", archiveId);
     if (existingError) throw new Error(existingError.message);
 
-    const byInternalId = new Map<string, { id: string; code: string }>();
-    const byCode = new Map<string, { id: string }>();
+    const byInternalId = new Map<string, { id: string; code: string; daneaUm: string | null }>();
+    const byCode = new Map<string, { id: string; daneaUm: string | null }>();
     for (const row of existingRows ?? []) {
-      if (row.danea_internal_id) byInternalId.set(row.danea_internal_id, { id: row.id, code: row.code });
-      byCode.set(row.code, { id: row.id });
+      if (row.danea_internal_id) byInternalId.set(row.danea_internal_id, { id: row.id, code: row.code, daneaUm: row.danea_um });
+      byCode.set(row.code, { id: row.id, daneaUm: row.danea_um });
     }
 
     let created = 0;
@@ -143,14 +143,23 @@ export async function importDaneaCatalog(
         continue;
       }
       byCode.delete(match.code);
-      byCode.set(product.code, { id: match.id });
+      byCode.set(product.code, { id: match.id, daneaUm: match.daneaUm });
       match.code = product.code;
     }
 
+    const changedUmProductIds: string[] = [];
     const rows = doc.products.map((product) => {
       const existing =
         (product.internalId ? byInternalId.get(product.internalId) : undefined) ??
         byCode.get(product.code);
+      if (existing && (existing.daneaUm ?? "").trim().toLowerCase() !== (product.um ?? "").trim().toLowerCase()) {
+        changedUmProductIds.push(existing.id);
+        issues.push({
+          productCode: product.code,
+          fieldName: "Um",
+          reason: `U.M. Danea cambiata da '${existing.daneaUm ?? "—"}' a '${product.um ?? "—"}': verificare le conversioni stimate Trevi Fruit`,
+        });
+      }
       if (existing) updated += 1;
       else created += 1;
 
@@ -201,6 +210,15 @@ export async function importDaneaCatalog(
         .select("id, code");
       if (error) throw new Error(`Salvataggio prodotti: ${error.message}`);
       for (const row of data ?? []) idByCode.set(row.code, row.id);
+    }
+
+    for (const chunk of chunked(changedUmProductIds, 200)) {
+      const { error } = await supabaseAdmin
+        .from("product_sale_units")
+        .update({ needs_review: true })
+        .in("product_id", chunk)
+        .not("conversion_factor", "is", null);
+      if (error) throw new Error(`Revisione U.M. Trevi Fruit: ${error.message}`);
     }
 
     await applyPrices(supabaseAdmin, companyId, doc, idByCode);
