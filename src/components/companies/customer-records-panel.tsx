@@ -599,6 +599,7 @@ export function CustomerRecordsPanel({
                 onClick={() => {
                   setInviteFor(null);
                   setInviteLink(null);
+                  setInviteCode(null);
                 }}
               >
                 Ho copiato, chiudi
