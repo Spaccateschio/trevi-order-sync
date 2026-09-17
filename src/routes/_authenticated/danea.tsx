@@ -265,6 +265,12 @@ function DaneaPage() {
 
   const list = stations.data ?? [];
   const activeCount = list.filter((s) => s.status === "attivo").length;
+  const archiveList = archives.data ?? [];
+  const activeArchives = archiveList.filter((a) => a.status === "attivo");
+  const defaultArchiveId =
+    activeArchives.find((a) => a.is_default)?.id ?? activeArchives[0]?.id ?? "";
+  const chosenArchiveId = stationArchiveId || defaultArchiveId;
+  const archiveNameById = new Map(archiveList.map((a) => [a.id, a.name]));
 
   return (
     <AppShell
