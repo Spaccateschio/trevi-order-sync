@@ -59,6 +59,8 @@ const MAX_STATIONS = 5;
 const DANEA_PRODUCTS_URL = "https://trevi-order-sync.lovable.app/api/public/danea/products";
 const REGENERATE_WARNING =
   "La password attuale smetterà immediatamente di funzionare. Dopo la rigenerazione dovrai inserire la nuova password anche in Danea Easyfatt. Continuare?";
+const MOVE_WARNING =
+  "Spostando la postazione in un altro archivio, i prossimi invii aggiorneranno il catalogo di quell'archivio. Un invio completo (FULL) riconcilierà solo il nuovo archivio. Utente, password e indirizzo non cambiano. Continuare?";
 const CARD = "rounded-xl border border-border bg-card p-3 shadow-sm sm:p-4";
 const CARD_TITLE = "font-display text-sm font-semibold sm:text-base";
 
