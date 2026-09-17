@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, ImageIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,11 +8,13 @@ import { cn } from "@/lib/utils";
 export function ProductMobileList({
   products,
   selectedIds,
+  imageUrls,
   onSelect,
   onOpen,
 }: {
   products: ProductRow[];
   selectedIds: Set<string>;
+  imageUrls?: Map<string, string>;
   onSelect: (id: string, checked: boolean) => void;
   onOpen: (product: ProductRow) => void;
 }) {
@@ -24,6 +26,7 @@ export function ProductMobileList({
       </div>
       {products.map((product) => {
         const checked = selectedIds.has(product.id);
+        const url = imageUrls?.get(product.id);
         return (
           <div key={product.id} className={cn("grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-1 py-3", checked && "bg-accent/10")}>
             <Checkbox
@@ -33,8 +36,13 @@ export function ProductMobileList({
               className="mt-1 h-5 w-5"
             />
             <button type="button" className="min-w-0 text-left" onClick={() => onOpen(product)}>
-              <div className="flex min-w-0 items-start justify-between gap-2">
-                <div className="min-w-0">
+              <div className="flex min-w-0 items-start gap-2.5">
+                {url ? (
+                  <img src={url} alt={`Immagine di ${product.description ?? product.code}`} loading="lazy" className="h-11 w-11 shrink-0 rounded border border-border object-cover" />
+                ) : (
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded border border-dashed border-border text-muted-foreground" aria-hidden="true"><ImageIcon className="h-4 w-4" /></div>
+                )}
+                <div className="min-w-0 flex-1">
                   <p className="truncate font-mono text-xs font-semibold">{product.code}</p>
                   <p className="line-clamp-2 text-sm font-medium">{product.description ?? "—"}</p>
                 </div>
