@@ -185,7 +185,7 @@ function ProdottiPage() {
     if (!preferencesReady || !userId) return;
     const timer = window.setTimeout(async () => {
       const columns = { visibility, order: columnOrder, sizing: columnSizing };
-      const { error } = await supabase.from("user_grid_preferences").upsert({ user_id: userId, grid_key: GRID_KEY, device_class: deviceClass, columns: columns as Json, sort: sorting as Json }, { onConflict: "user_id,grid_key,device_class" });
+      const { error } = await supabase.from("user_grid_preferences").upsert({ user_id: userId, grid_key: GRID_KEY, device_class: deviceClass, columns: columns as Json, sort: sorting as unknown as Json }, { onConflict: "user_id,grid_key,device_class" });
       if (error) toast.error("Impossibile salvare le preferenze della griglia");
     }, 500);
     return () => window.clearTimeout(timer);
