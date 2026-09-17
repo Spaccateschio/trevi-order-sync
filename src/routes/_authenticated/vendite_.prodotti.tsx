@@ -632,12 +632,12 @@ function ImportDialog({
           </div>
 
           <div>
-            <p className="font-medium">2. Analizza file</p>
+            <p className="font-medium">3. Analizza file</p>
             <Button
               className="mt-2"
               variant="outline"
               size="sm"
-              disabled={!xml || !companyId || analyzeMutation.isPending}
+              disabled={!xml || !companyId || !chosenArchiveId || analyzeMutation.isPending}
               onClick={() => analyzeMutation.mutate()}
             >
               {analyzeMutation.isPending ? "Analisi…" : "Analizza file"}
