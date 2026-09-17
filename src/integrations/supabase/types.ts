@@ -277,11 +277,13 @@ export type Database = {
           created_at: string
           customer_record_id: string | null
           decided_at: string | null
-          email: string
-          email_normalized: string
+          email: string | null
+          email_normalized: string | null
           expires_at: string
           id: string
+          invite_code: string | null
           invited_by: string | null
+          is_free_invite: boolean
           relation_id: string | null
           resend_count: number
           seller_company_id: string
@@ -294,11 +296,13 @@ export type Database = {
           created_at?: string
           customer_record_id?: string | null
           decided_at?: string | null
-          email: string
-          email_normalized: string
+          email?: string | null
+          email_normalized?: string | null
           expires_at: string
           id?: string
+          invite_code?: string | null
           invited_by?: string | null
+          is_free_invite?: boolean
           relation_id?: string | null
           resend_count?: number
           seller_company_id: string
@@ -311,11 +315,13 @@ export type Database = {
           created_at?: string
           customer_record_id?: string | null
           decided_at?: string | null
-          email?: string
-          email_normalized?: string
+          email?: string | null
+          email_normalized?: string | null
           expires_at?: string
           id?: string
+          invite_code?: string | null
           invited_by?: string | null
+          is_free_invite?: boolean
           relation_id?: string | null
           resend_count?: number
           seller_company_id?: string
@@ -1713,6 +1719,14 @@ export type Database = {
         Args: { _buyer_company_id: string; _token: string }
         Returns: string
       }
+      accept_invitation_code: {
+        Args: { _buyer_company_id: string; _code: string }
+        Returns: string
+      }
+      accept_invitation_row: {
+        Args: { _buyer_company_id: string; _invitation_id: string }
+        Returns: string
+      }
       accept_invitation_with_new_company: {
         Args: {
           _address_line?: string
@@ -1792,6 +1806,19 @@ export type Database = {
         }
         Returns: {
           invitation_id: string
+          invite_code: string
+          token: string
+        }[]
+      }
+      create_free_invitation: {
+        Args: {
+          _email?: string
+          _seller_company_id: string
+          _valid_days?: number
+        }
+        Returns: {
+          invitation_id: string
+          invite_code: string
           token: string
         }[]
       }
@@ -1811,6 +1838,7 @@ export type Database = {
         Args: { _accept: boolean; _proposal_id: string }
         Returns: undefined
       }
+      generate_invite_code: { Args: never; Returns: string }
       has_active_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
         Returns: boolean
@@ -1968,6 +1996,15 @@ export type Database = {
       revoke_company_relation: {
         Args: { _relation_id: string }
         Returns: undefined
+      }
+      search_companies: {
+        Args: { _query: string; _role: string }
+        Returns: {
+          city: string
+          id: string
+          legal_name: string
+          province: string
+        }[]
       }
       set_company_capabilities: {
         Args: { _can_buy: boolean; _can_sell: boolean; _company_id: string }
