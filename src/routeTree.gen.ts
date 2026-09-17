@@ -23,6 +23,7 @@ import { Route as AuthenticatedOperativoRouteImport } from './routes/_authentica
 import { Route as AuthenticatedVenditeRouteImport } from './routes/_authenticated/vendite'
 import { Route as AuthenticatedAcquistiIndexRouteImport } from './routes/_authenticated/acquisti.index'
 import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_authenticated/acquisti.fornitori'
+import { Route as AuthenticatedInvitoTokenRouteImport } from './routes/_authenticated/invito.$token'
 import { Route as AuthenticatedVenditeClientiRouteImport } from './routes/_authenticated/vendite_.clienti'
 import { Route as AuthenticatedVenditeProdottiRouteImport } from './routes/_authenticated/vendite_.prodotti'
 import { Route as ApiPublicDaneaProductsRouteImport } from './routes/api/public/danea/products'
@@ -99,6 +100,12 @@ const AuthenticatedAcquistiFornitoriRoute =
     path: '/acquisti/fornitori',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedInvitoTokenRoute =
+  AuthenticatedInvitoTokenRouteImport.update({
+    id: '/invito/$token',
+    path: '/invito/$token',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedVenditeClientiRoute =
   AuthenticatedVenditeClientiRouteImport.update({
     id: '/vendite_/clienti',
@@ -130,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/operativo': typeof AuthenticatedOperativoRoute
   '/vendite': typeof AuthenticatedVenditeRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/invito/$token': typeof AuthenticatedInvitoTokenRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti/': typeof AuthenticatedAcquistiIndexRoute
@@ -148,6 +156,7 @@ export interface FileRoutesByTo {
   '/operativo': typeof AuthenticatedOperativoRoute
   '/vendite': typeof AuthenticatedVenditeRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/invito/$token': typeof AuthenticatedInvitoTokenRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti': typeof AuthenticatedAcquistiIndexRoute
@@ -168,6 +177,7 @@ export interface FileRoutesById {
   '/_authenticated/operativo': typeof AuthenticatedOperativoRoute
   '/_authenticated/vendite': typeof AuthenticatedVenditeRoute
   '/_authenticated/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/_authenticated/invito/$token': typeof AuthenticatedInvitoTokenRoute
   '/_authenticated/vendite_/clienti': typeof AuthenticatedVenditeClientiRoute
   '/_authenticated/vendite_/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/_authenticated/acquisti/': typeof AuthenticatedAcquistiIndexRoute
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
     | '/operativo'
     | '/vendite'
     | '/acquisti/fornitori'
+    | '/invito/$token'
     | '/vendite/clienti'
     | '/vendite/prodotti'
     | '/acquisti/'
@@ -206,6 +217,7 @@ export interface FileRouteTypes {
     | '/operativo'
     | '/vendite'
     | '/acquisti/fornitori'
+    | '/invito/$token'
     | '/vendite/clienti'
     | '/vendite/prodotti'
     | '/acquisti'
@@ -225,6 +237,7 @@ export interface FileRouteTypes {
     | '/_authenticated/operativo'
     | '/_authenticated/vendite'
     | '/_authenticated/acquisti/fornitori'
+    | '/_authenticated/invito/$token'
     | '/_authenticated/vendite_/clienti'
     | '/_authenticated/vendite_/prodotti'
     | '/_authenticated/acquisti/'
@@ -339,6 +352,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAcquistiFornitoriRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/invito/$token': {
+      id: '/_authenticated/invito/$token'
+      path: '/invito/$token'
+      fullPath: '/invito/$token'
+      preLoaderRoute: typeof AuthenticatedInvitoTokenRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/vendite_/clienti': {
       id: '/_authenticated/vendite_/clienti'
       path: '/vendite/clienti'
@@ -373,6 +393,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOperativoRoute: typeof AuthenticatedOperativoRoute
   AuthenticatedVenditeRoute: typeof AuthenticatedVenditeRoute
   AuthenticatedAcquistiFornitoriRoute: typeof AuthenticatedAcquistiFornitoriRoute
+  AuthenticatedInvitoTokenRoute: typeof AuthenticatedInvitoTokenRoute
   AuthenticatedVenditeClientiRoute: typeof AuthenticatedVenditeClientiRoute
   AuthenticatedVenditeProdottiRoute: typeof AuthenticatedVenditeProdottiRoute
   AuthenticatedAcquistiIndexRoute: typeof AuthenticatedAcquistiIndexRoute
@@ -388,6 +409,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOperativoRoute: AuthenticatedOperativoRoute,
   AuthenticatedVenditeRoute: AuthenticatedVenditeRoute,
   AuthenticatedAcquistiFornitoriRoute: AuthenticatedAcquistiFornitoriRoute,
+  AuthenticatedInvitoTokenRoute: AuthenticatedInvitoTokenRoute,
   AuthenticatedVenditeClientiRoute: AuthenticatedVenditeClientiRoute,
   AuthenticatedVenditeProdottiRoute: AuthenticatedVenditeProdottiRoute,
   AuthenticatedAcquistiIndexRoute: AuthenticatedAcquistiIndexRoute,

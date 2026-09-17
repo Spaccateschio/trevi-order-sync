@@ -8,7 +8,7 @@
 - [x] Correzione UX U.M.: secondo clic richiude l’editor; rimozione separata e confermata (test CICORIA desktop/smartphone)
 - [x] Punto 4: immagini Trevi Fruit (senza coda periodica; validazione prima del cambio, cancellazione best-effort con audit)
 - [x] Punto 5a: collegamento B2B — relazione unica venditore→acquirente, stati in attesa/attivo/rifiutato/revocato, doppio consenso (interruttore per lato), invito lato venditore, pagina Clienti
-- [ ] Punto 5b: anagrafica clienti del venditore (non registrati) e P.IVA normalizzata
+- [x] Punto 5b: anagrafica clienti del venditore (non registrati), P.IVA normalizzata e inviti B2B con token/scadenza/reinvio/annullamento
 - [ ] Punto 5c: condizioni commerciali per rapporto (listino Danea, catalogo visibile)
 
 ## Completato
