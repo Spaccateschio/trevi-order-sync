@@ -695,7 +695,7 @@ function ImportDialog({
           </div>
 
           <div>
-            <p className="font-medium">3. Conferma importazione</p>
+            <p className="font-medium">4. Conferma importazione</p>
             <p className="text-xs text-muted-foreground">
               Le modifiche vengono applicate solo dopo la conferma.
             </p>
