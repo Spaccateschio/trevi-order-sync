@@ -169,6 +169,10 @@ function Onboarding() {
             <p className="mt-1.5 text-sm text-muted-foreground">
               Profilo scelto: {PROFILI.find((p) => p.value === profilo)?.title}
             </p>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Registrare l'azienda non ti collega a nessun fornitore: dopo potrai richiedere il
+              collegamento e sarà il fornitore ad approvarlo.
+            </p>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">

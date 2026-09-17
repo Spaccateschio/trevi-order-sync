@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { CustomerRecordsPanel } from "@/components/companies/customer-records-panel";
+import { ProposedUpdatesPanel } from "@/components/companies/proposed-updates-panel";
 import { RelationCard } from "@/components/companies/relation-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,6 +98,7 @@ function Clienti() {
       description="Ogni collegamento è indipendente e resta valido solo se entrambe le aziende lo mantengono attivo."
     >
       <div className="space-y-6">
+        {company ? <ProposedUpdatesPanel companyId={company.companyId} isAdmin={isAdmin} /> : null}
         {company ? <CustomerRecordsPanel companyId={company.companyId} isAdmin={isAdmin} /> : null}
 
         <div className="space-y-3">

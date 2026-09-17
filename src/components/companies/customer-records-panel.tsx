@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AddressManager } from "@/components/companies/address-manager";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -407,6 +408,16 @@ export function CustomerRecordsPanel({
               />
             </div>
           </div>
+
+          {editing ? (
+            <div className="mt-4 border-t border-border pt-4">
+              <AddressManager
+                owner={{ customerRecordId: editing.id }}
+                isAdmin={isAdmin}
+                showPartnerVisibility={false}
+              />
+            </div>
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setFormOpen(false)}>
               Chiudi

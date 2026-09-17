@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, PlaceholderCard } from "@/components/app-shell";
+import { AddressManager } from "@/components/companies/address-manager";
 import { UnitCatalogue } from "@/components/company/unit-catalogue";
 import { Button } from "@/components/ui/button";
 import {
@@ -96,6 +97,17 @@ function Amministrazione() {
                   Entrambe le modalità sono già attive.
                 </p>
               ) : null}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:col-span-2">
+            <h2 className="font-display text-base font-semibold">Indirizzi dell'azienda</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Puoi avere più sedi, più punti di consegna e più punti di ritiro. Ogni indirizzo è
+              visibile alle aziende collegate solo se lo attivi tu.
+            </p>
+            <div className="mt-4">
+              <AddressManager owner={{ companyId: company.companyId }} isAdmin={allowed} />
             </div>
           </section>
 

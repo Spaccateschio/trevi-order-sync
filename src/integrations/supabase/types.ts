@@ -14,6 +14,136 @@ export type Database = {
   }
   public: {
     Tables: {
+      address_functions: {
+        Row: {
+          address_id: string
+          company_id: string | null
+          created_at: string
+          customer_record_id: string | null
+          function: Database["public"]["Enums"]["address_function"]
+          id: string
+          is_default: boolean
+        }
+        Insert: {
+          address_id: string
+          company_id?: string | null
+          created_at?: string
+          customer_record_id?: string | null
+          function: Database["public"]["Enums"]["address_function"]
+          id?: string
+          is_default?: boolean
+        }
+        Update: {
+          address_id?: string
+          company_id?: string | null
+          created_at?: string
+          customer_record_id?: string | null
+          function?: Database["public"]["Enums"]["address_function"]
+          id?: string
+          is_default?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "address_functions_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "address_functions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "address_functions_customer_record_id_fkey"
+            columns: ["customer_record_id"]
+            isOneToOne: false
+            referencedRelation: "customer_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      addresses: {
+        Row: {
+          address_line: string | null
+          city: string | null
+          company_id: string | null
+          contact_name: string | null
+          country: string
+          created_at: string
+          created_by: string | null
+          customer_record_id: string | null
+          id: string
+          label: string
+          notes: string | null
+          phone: string | null
+          postal_code: string | null
+          province: string | null
+          status: Database["public"]["Enums"]["entity_status"]
+          street_number: string | null
+          updated_at: string
+          visible_to_partners: boolean
+        }
+        Insert: {
+          address_line?: string | null
+          city?: string | null
+          company_id?: string | null
+          contact_name?: string | null
+          country?: string
+          created_at?: string
+          created_by?: string | null
+          customer_record_id?: string | null
+          id?: string
+          label: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          province?: string | null
+          status?: Database["public"]["Enums"]["entity_status"]
+          street_number?: string | null
+          updated_at?: string
+          visible_to_partners?: boolean
+        }
+        Update: {
+          address_line?: string | null
+          city?: string | null
+          company_id?: string | null
+          contact_name?: string | null
+          country?: string
+          created_at?: string
+          created_by?: string | null
+          customer_record_id?: string | null
+          id?: string
+          label?: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          province?: string | null
+          status?: Database["public"]["Enums"]["entity_status"]
+          street_number?: string | null
+          updated_at?: string
+          visible_to_partners?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "addresses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "addresses_customer_record_id_fkey"
+            columns: ["customer_record_id"]
+            isOneToOne: false
+            referencedRelation: "customer_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_events: {
         Row: {
           action: string
@@ -385,6 +515,69 @@ export type Database = {
           },
           {
             foreignKeyName: "customer_product_unit_preferences_seller_company_id_fkey"
+            columns: ["seller_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_record_proposed_updates: {
+        Row: {
+          created_at: string
+          current_value: string | null
+          customer_record_id: string
+          decided_at: string | null
+          decided_by: string | null
+          field_name: string
+          id: string
+          proposed_by: string | null
+          proposed_value: string | null
+          seller_company_id: string
+          source: string
+          status: Database["public"]["Enums"]["proposed_update_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: string | null
+          customer_record_id: string
+          decided_at?: string | null
+          decided_by?: string | null
+          field_name: string
+          id?: string
+          proposed_by?: string | null
+          proposed_value?: string | null
+          seller_company_id: string
+          source?: string
+          status?: Database["public"]["Enums"]["proposed_update_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: string | null
+          customer_record_id?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          field_name?: string
+          id?: string
+          proposed_by?: string | null
+          proposed_value?: string | null
+          seller_company_id?: string
+          source?: string
+          status?: Database["public"]["Enums"]["proposed_update_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_record_proposed_updates_customer_record_id_fkey"
+            columns: ["customer_record_id"]
+            isOneToOne: false
+            referencedRelation: "customer_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_record_proposed_updates_seller_company_id_fkey"
             columns: ["seller_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -1441,6 +1634,28 @@ export type Database = {
         Args: { _buyer_company_id: string; _token: string }
         Returns: string
       }
+      accept_invitation_with_new_company: {
+        Args: {
+          _address_line?: string
+          _can_buy?: boolean
+          _can_sell?: boolean
+          _city?: string
+          _delivery_address_line?: string
+          _delivery_city?: string
+          _delivery_notes?: string
+          _delivery_postal_code?: string
+          _delivery_province?: string
+          _email?: string
+          _legal_name: string
+          _phone?: string
+          _postal_code?: string
+          _province?: string
+          _tax_code?: string
+          _token: string
+          _vat_number?: string
+        }
+        Returns: string
+      }
       apply_product_sale_unit_batch: {
         Args: {
           _actor_user_id?: string
@@ -1472,11 +1687,23 @@ export type Database = {
           province: string
         }[]
       }
+      can_read_company_address: {
+        Args: { _company_id: string; _visible: boolean }
+        Returns: boolean
+      }
+      can_write_customer_record: {
+        Args: { _customer_record_id: string }
+        Returns: boolean
+      }
       cancel_customer_invitation: {
         Args: { _invitation_id: string }
         Returns: undefined
       }
       company_buys: { Args: { _company_id: string }; Returns: boolean }
+      company_exists_for_vat: {
+        Args: { _vat_number: string }
+        Returns: boolean
+      }
       company_sells: { Args: { _company_id: string }; Returns: boolean }
       create_customer_invitation: {
         Args: {
@@ -1501,6 +1728,10 @@ export type Database = {
         Args: { _accept: boolean; _relation_id: string }
         Returns: undefined
       }
+      decide_proposed_update: {
+        Args: { _accept: boolean; _proposal_id: string }
+        Returns: undefined
+      }
       has_active_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
         Returns: boolean
@@ -1515,13 +1746,30 @@ export type Database = {
       invitation_preview: {
         Args: { _token: string }
         Returns: {
+          company_exists_for_vat: boolean
+          customer_address_line: string
+          customer_city: string
+          customer_delivery_address_line: string
+          customer_delivery_city: string
+          customer_delivery_notes: string
+          customer_delivery_postal_code: string
+          customer_delivery_province: string
+          customer_email: string
           customer_legal_name: string
+          customer_phone: string
+          customer_postal_code: string
+          customer_province: string
+          customer_record_id: string
+          customer_tax_code: string
           customer_vat_normalized: string
+          customer_vat_number: string
           email: string
           expired: boolean
           invitation_id: string
+          seller_company_id: string
           seller_company_name: string
           status: Database["public"]["Enums"]["invitation_status"]
+          vat_mismatch: boolean
         }[]
       }
       invite_customer_relation: {
@@ -1570,6 +1818,10 @@ export type Database = {
         Returns: string
       }
       normalize_vat: { Args: { _value: string }; Returns: string }
+      owns_customer_record: {
+        Args: { _customer_record_id: string }
+        Returns: boolean
+      }
       register_company: {
         Args: {
           _address_line?: string
@@ -1655,6 +1907,12 @@ export type Database = {
       shares_relation_with: { Args: { _company_id: string }; Returns: boolean }
     }
     Enums: {
+      address_function:
+        | "sede_legale"
+        | "sede_operativa"
+        | "consegna"
+        | "ritiro"
+        | "magazzino"
       app_role: "amministratore" | "operatore" | "trasportatore"
       danea_connection_status: "attivo" | "revocato"
       danea_sync_mode: "full" | "incremental"
@@ -1667,6 +1925,7 @@ export type Database = {
         | "annullato"
         | "annullato_scaduto"
       product_publish_status: "pubblicato" | "non_pubblicato"
+      proposed_update_status: "in_attesa" | "accettato" | "rifiutato"
       relation_origin: "invito_fornitore" | "richiesta_cliente"
       relation_status:
         | "in_attesa"
@@ -1801,6 +2060,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      address_function: [
+        "sede_legale",
+        "sede_operativa",
+        "consegna",
+        "ritiro",
+        "magazzino",
+      ],
       app_role: ["amministratore", "operatore", "trasportatore"],
       danea_connection_status: ["attivo", "revocato"],
       danea_sync_mode: ["full", "incremental"],
@@ -1814,6 +2080,7 @@ export const Constants = {
         "annullato_scaduto",
       ],
       product_publish_status: ["pubblicato", "non_pubblicato"],
+      proposed_update_status: ["in_attesa", "accettato", "rifiutato"],
       relation_origin: ["invito_fornitore", "richiesta_cliente"],
       relation_status: [
         "in_attesa",

@@ -1,0 +1,13 @@
+REVOKE EXECUTE ON FUNCTION public.accept_invitation_with_new_company(text, text, boolean, boolean, text, text, text, text, text, text, text, text, text, text, text, text, text) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.decide_proposed_update(uuid, boolean) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.can_read_company_address(uuid, boolean) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.owns_customer_record(uuid) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.can_write_customer_record(uuid) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.company_exists_for_vat(text) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.address_function_owner() FROM anon, PUBLIC;
+GRANT EXECUTE ON FUNCTION public.accept_invitation_with_new_company(text, text, boolean, boolean, text, text, text, text, text, text, text, text, text, text, text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.decide_proposed_update(uuid, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_read_company_address(uuid, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.owns_customer_record(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_write_customer_record(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.company_exists_for_vat(text) TO authenticated;
