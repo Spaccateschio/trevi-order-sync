@@ -117,7 +117,11 @@ function Collegamenti() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [freeEmail, setFreeEmail] = useState("");
-  const [freeResult, setFreeResult] = useState<{ code: string; link: string } | null>(null);
+  const [freeResult, setFreeResult] = useState<{
+    code: string;
+    link: string;
+    expiresAt?: string | null;
+  } | null>(null);
   const [codeOpen, setCodeOpen] = useState(false);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
