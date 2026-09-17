@@ -22,8 +22,14 @@ Elenco clienti del venditore, con ricerca e stato, e scheda cliente con:
 - indirizzi (con la scelta se condividerli con i partner);
 - destinazioni (punti operativi, con indirizzo collegato e documenti separati);
 - riferimento Danea e note;
-- azienda Trevi Fruit collegata: solo indicazione in sola lettura ("Collegata a … · rapporto attivo/sospeso/in attesa") con collegamento alla pagina Collegamenti;
-- azione **Invita**: crea, rispedisce o annulla l'invito di quel cliente (resta qui perché parte dal cliente);
+- **indicatore di collegamento** (pallino colorato con etichetta, sola lettura, che apre la pagina Collegamenti):
+  - grigio = non collegato, nessun invito;
+  - giallo = invito inviato o richiesta in attesa di risposta;
+  - verde = collegato e operativo;
+  - arancione = collegato ma sospeso da uno dei due lati;
+  - rosso = rifiutato o collegamento chiuso;
+- azione **Invita** quando il cliente non è collegato: invio del link per email, reinvio o annullamento (resta qui perché parte da quel cliente);
+- se il cliente si registra da solo e chiede il collegamento, l'indicatore passa a giallo e la richiesta si approva dalla pagina Collegamenti: nella scheda cliente non si decide nulla;
 - in futuro: listino assegnato e condizioni commerciali.
 
 Un cliente esiste qui anche se non usa Trevi Fruit.
@@ -44,7 +50,7 @@ Tutto ciò che riguarda anagrafica, indirizzi e destinazioni esce da questa pagi
 Nessun dato duplicato: la relazione resta una sola riga in `supplier_customer_relations`, con `status`, `origin`, `seller_enabled`, `buyer_enabled` e il collegamento facoltativo al cliente d'anagrafica (`customer_record_id`).
 
 - Collegamenti legge e scrive la relazione (accetta, rifiuta, sospende, riattiva) tramite le funzioni già esistenti.
-- Clienti legge la stessa relazione in sola lettura, tramite `customer_record_id`, solo per mostrare "azienda collegata" e lo stato.
+- Clienti legge la stessa relazione in sola lettura, tramite `customer_record_id`, solo per calcolare il colore dell'indicatore: nessuna decisione, nessuna sospensione, nessuna copia dei dati.
 - Gli inviti restano in `company_invitations`: si creano dalla scheda cliente, si controllano da Collegamenti.
 - Un solo punto di calcolo dello stato operativo (`isRelationOperational`), già presente, usato da entrambe le pagine.
 
