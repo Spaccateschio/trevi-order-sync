@@ -664,6 +664,88 @@ export type Database = {
           },
         ]
       }
+      product_images: {
+        Row: {
+          archive_id: string
+          byte_size: number
+          checksum_sha256: string
+          company_id: string
+          content_type: string
+          created_at: string
+          height: number
+          id: string
+          image_path: string
+          product_id: string
+          thumbnail_byte_size: number
+          thumbnail_height: number
+          thumbnail_path: string
+          thumbnail_width: number
+          updated_at: string
+          uploaded_by: string
+          width: number
+        }
+        Insert: {
+          archive_id: string
+          byte_size: number
+          checksum_sha256: string
+          company_id: string
+          content_type: string
+          created_at?: string
+          height: number
+          id?: string
+          image_path: string
+          product_id: string
+          thumbnail_byte_size: number
+          thumbnail_height: number
+          thumbnail_path: string
+          thumbnail_width: number
+          updated_at?: string
+          uploaded_by: string
+          width: number
+        }
+        Update: {
+          archive_id?: string
+          byte_size?: number
+          checksum_sha256?: string
+          company_id?: string
+          content_type?: string
+          created_at?: string
+          height?: number
+          id?: string
+          image_path?: string
+          product_id?: string
+          thumbnail_byte_size?: number
+          thumbnail_height?: number
+          thumbnail_path?: string
+          thumbnail_width?: number
+          updated_at?: string
+          uploaded_by?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_images_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_images_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_images_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_prices: {
         Row: {
           company_id: string
@@ -1240,6 +1322,17 @@ export type Database = {
         }
         Returns: string
       }
+      remove_product_image: {
+        Args: {
+          _actor_user_id: string
+          _company_id: string
+          _product_id: string
+        }
+        Returns: {
+          old_image_path: string
+          old_thumbnail_path: string
+        }[]
+      }
       request_supplier_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
         Returns: string
@@ -1247,6 +1340,28 @@ export type Database = {
       set_company_capabilities: {
         Args: { _can_buy: boolean; _can_sell: boolean; _company_id: string }
         Returns: undefined
+      }
+      set_product_image: {
+        Args: {
+          _actor_user_id: string
+          _archive_id: string
+          _byte_size: number
+          _checksum_sha256: string
+          _company_id: string
+          _content_type: string
+          _height: number
+          _image_path: string
+          _product_id: string
+          _thumbnail_byte_size: number
+          _thumbnail_height: number
+          _thumbnail_path: string
+          _thumbnail_width: number
+          _width: number
+        }
+        Returns: {
+          old_image_path: string
+          old_thumbnail_path: string
+        }[]
       }
       shares_company_with: { Args: { _user_id: string }; Returns: boolean }
       shares_relation_with: { Args: { _company_id: string }; Returns: boolean }

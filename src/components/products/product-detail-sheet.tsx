@@ -6,6 +6,7 @@ import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { dateTime, euro, type ProductRow } from "@/lib/product-grid";
 import { SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
+import { ProductImageManager } from "./product-image-manager";
 
 function Field({ label, value }: { label: string; value: string }) {
   return <div><dt className="text-xs uppercase text-muted-foreground">{label}</dt><dd className="break-words text-sm">{value}</dd></div>;
@@ -30,6 +31,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
     </SheetHeader>
     <div className="mt-6 space-y-6">
       {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} /> : null}
+      <ProductImageManager productId={product.id} image={product.product_images ?? null} editable={isAdmin} />
       <Collapsible open={daneaOpen} onOpenChange={setDaneaOpen} className="border-t border-border pt-2">
         <CollapsibleTrigger asChild><Button type="button" variant="ghost" className="w-full justify-between px-0 text-sm font-semibold" aria-label={`${daneaOpen ? "Chiudi" : "Apri"} dati Danea`}>Dati Danea <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">Sola lettura<ChevronDown className={`transition-transform ${daneaOpen ? "rotate-180" : ""}`} /></span></Button></CollapsibleTrigger>
         <CollapsibleContent className="space-y-5 pt-3">

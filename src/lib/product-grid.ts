@@ -41,6 +41,7 @@ export type ProductRow = {
   last_received_at: string;
   first_received_at: string;
   product_prices: ProductPrice[];
+  product_images?: { id: string } | null;
   sale_units?: { code: string; is_default: boolean; needs_review: boolean }[];
 };
 
@@ -91,6 +92,7 @@ export const PRODUCT_COLUMNS: ProductColumn[] = [
   { id: "sale_units", label: "U.M. vendita", size: 160, minSize: 110, value: (p) => p.sale_units?.map((unit) => unit.code).join(", ") || "—" },
   { id: "default_sale_unit", label: "U.M. predefinita", size: 145, minSize: 110, value: (p) => p.sale_units?.find((unit) => unit.is_default)?.code ?? "—" },
   { id: "unit_review", label: "Conversioni da verificare", size: 190, minSize: 140, value: (p) => p.sale_units?.some((unit) => unit.needs_review) ? "Da verificare" : "—" },
+  { id: "image", label: "Immagine", size: 84, minSize: 68, value: (p) => p.product_images ? "Sì" : "No" },
   { id: "price_1", label: "Listino 1", size: 112, minSize: 92, numeric: true, value: (p) => priceForList(p, 1) },
   ...Array.from({ length: 8 }, (_, index): ProductColumn => {
     const number = index + 2;
