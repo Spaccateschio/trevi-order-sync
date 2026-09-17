@@ -34,14 +34,6 @@ export const Route = createFileRoute("/_authenticated/acquisti/fornitori")({
   component: Fornitori,
 });
 
-const RELATION_LABEL: Record<string, string> = {
-  in_attesa: "Richiesta in attesa di approvazione",
-  attivo: "Collegamento attivo",
-  sospeso: "Collegamento sospeso",
-  revocato: "Collegamento revocato",
-  rifiutato: "Richiesta rifiutata",
-};
-
 type Supplier = { id: string; legal_name: string; city: string | null; province: string | null };
 
 function Fornitori() {
