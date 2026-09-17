@@ -329,6 +329,8 @@ export function CustomerRecordsPanel({
     const row = (data ?? [])[0];
     if (row?.token) setInviteLink(linkFor(row.token));
     setInviteCode(row?.invite_code ?? null);
+    setInviteRecipient(inviteFor.legal_name);
+    if (row?.invitation_id) setInviteExpires(await fetchExpires(row.invitation_id));
     if (row?.invitation_id && row?.token) await deliverInviteEmail(row.invitation_id, row.token);
     await refresh();
   }
@@ -341,10 +343,19 @@ export function CustomerRecordsPanel({
       toast.error(error.message);
       return;
     }
-    const token = (data ?? [])[0]?.token;
+    const row = (data ?? [])[0];
+    const token = row?.token;
     if (token) {
+      const record = records.find(
+        (item) =>
+          item.id ===
+          invitations.find((inv) => inv.id === invitationId)?.customer_record_id,
+      );
       setInviteFor(null);
+      setInviteRecipient(record?.legal_name ?? null);
+      setInviteCode(row?.invite_code ?? null);
       setInviteLink(linkFor(token));
+      setInviteExpires(await fetchExpires(invitationId));
       await deliverInviteEmail(invitationId, token);
     }
     await refresh();
