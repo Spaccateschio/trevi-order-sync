@@ -1,6 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+
+import { useIdentity } from "@/hooks/use-identity";
+import { linkStatusOf } from "@/lib/relation-link-status";
 
 import { AddressManager } from "@/components/companies/address-manager";
 import { CustomerImportDialog } from "@/components/companies/customer-import-dialog";
