@@ -120,8 +120,42 @@ export function CustomerRecordsPanel({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkResults, setBulkResults] = useState<
-    { name: string; email: string; link?: string; error?: string }[]
+    {
+      name: string;
+      email: string;
+      link?: string;
+      code?: string | null;
+      expiresAt?: string | null;
+      error?: string;
+    }[]
   >([]);
+
+  /** Dati aziendali stampati sul foglio invito: sola lettura. */
+  const companyQuery = useQuery({
+    queryKey: ["company-contact", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("legal_name, email, phone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const invitedBy = [identity?.profile?.firstName, identity?.profile?.lastName]
+    .filter(Boolean)
+    .join(" ");
+
+  function pdfBase() {
+    return {
+      sellerName: companyQuery.data?.legal_name ?? "La tua azienda",
+      sellerEmail: companyQuery.data?.email ?? null,
+      sellerPhone: companyQuery.data?.phone ?? null,
+      invitedBy: invitedBy || null,
+    };
+  }
 
   const recordsQuery = useQuery({
     queryKey: customerRecordsQueryKey,
