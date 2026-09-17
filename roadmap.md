@@ -12,6 +12,7 @@
 - [x] Punto 5b.1: registrazione cliente da invito con precompilazione, registrazione autonoma con richiesta di collegamento, indirizzi multipli con visibilità esplicita verso i partner
 - [x] Punto 5b.2: destinazioni cliente (punto operativo/centro documentale) sopra gli indirizzi + importazione massiva clienti da file Danea con anteprima e invito multiplo
 - [x] Riorganizzazione: Clienti = solo anagrafica commerciale con indicatore colorato di collegamento; nuova pagina Collegamenti per i rapporti tra aziende; Fornitori rimanda a Collegamenti
+- [ ] Restyling UX/UI pagina Collegamenti B2B: barra compatta (Le mie connessioni | Cerca azienda | Invita partner | Ho un codice), elenco compatto con Rapporto "Io vendo a / Io compro da / Entrambi", dettaglio rapporto con azioni, badge Richieste/Inviti (solo UI)
 - [ ] Punto 5c: Cliente → Listino Danea assegnato, ereditato dalle destinazioni con possibile override (colonna Listino presente nell'export soggetti Danea)
 
 ## Completato
