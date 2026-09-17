@@ -258,14 +258,14 @@ export function CustomerRecordsPanel({
     return `${window.location.origin}/invito/${token}`;
   }
 
-  /** Scadenza dell'invito appena creato o rinnovato: sola lettura. */
-  async function fetchExpires(invitationId: string) {
+  /** Scadenza e codice dell'invito appena creato o rinnovato: sola lettura. */
+  async function fetchInviteMeta(invitationId: string) {
     const { data } = await supabase
       .from("company_invitations")
-      .select("expires_at")
+      .select("expires_at, invite_code")
       .eq("id", invitationId)
       .maybeSingle();
-    return data?.expires_at ?? null;
+    return { expiresAt: data?.expires_at ?? null, code: data?.invite_code ?? null };
   }
 
   async function downloadCurrentInvitePdf() {
