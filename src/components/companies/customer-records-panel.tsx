@@ -112,6 +112,7 @@ export function CustomerRecordsPanel({
   const [inviteFor, setInviteFor] = useState<CustomerRecord | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -230,8 +231,9 @@ export function CustomerRecordsPanel({
       toast.error(error.message);
       return;
     }
-    const token = (data ?? [])[0]?.token;
-    if (token) setInviteLink(linkFor(token));
+    const row = (data ?? [])[0];
+    if (row?.token) setInviteLink(linkFor(row.token));
+    setInviteCode(row?.invite_code ?? null);
     await refresh();
   }
 
@@ -559,6 +561,7 @@ export function CustomerRecordsPanel({
           if (!open) {
             setInviteFor(null);
             setInviteLink(null);
+            setInviteCode(null);
           }
         }}
       >
@@ -576,6 +579,13 @@ export function CustomerRecordsPanel({
                 Invia questo indirizzo al cliente: è valido una sola volta e scade automaticamente.
               </p>
               <Input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} />
+              {inviteCode ? (
+                <p className="text-sm text-muted-foreground">
+                  Se il cliente è già su Trevi Fruit può usare il codice{" "}
+                  <span className="font-mono tracking-widest text-foreground">{inviteCode}</span>{" "}
+                  dalla pagina Collegamenti.
+                </p>
+              ) : null}
             </div>
           ) : (
             <div className="grid gap-1.5">
@@ -589,6 +599,7 @@ export function CustomerRecordsPanel({
                 onClick={() => {
                   setInviteFor(null);
                   setInviteLink(null);
+                  setInviteCode(null);
                 }}
               >
                 Ho copiato, chiudi

@@ -18,6 +18,8 @@ type Props = {
   /** Lato dal quale l'azienda dell'utente guarda il rapporto. */
   side: RelationSide;
   isAdmin: boolean;
+  /** Vero quando con la stessa azienda esiste anche il rapporto opposto. */
+  bothWays?: boolean;
 };
 
 function statusLabel(relation: Relation, side: RelationSide) {
@@ -35,7 +37,7 @@ function statusLabel(relation: Relation, side: RelationSide) {
   return relation.sellerEnabled ? "Sospeso dal cliente" : "Sospeso dal fornitore";
 }
 
-export function RelationCard({ relation, side, isAdmin }: Props) {
+export function RelationCard({ relation, side, isAdmin, bothWays = false }: Props) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
 
@@ -65,10 +67,18 @@ export function RelationCard({ relation, side, isAdmin }: Props) {
     toast.success(ok);
   }
 
+  const roleLabel = bothWays ? "Cliente e fornitore" : side === "venditore" ? "Cliente" : "Fornitore";
+  const canClose = isAdmin && (relation.status === "attivo" || relation.status === "sospeso");
+
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h3 className="font-display text-base font-semibold">{partnerName}</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-display text-base font-semibold">{partnerName}</h3>
+          <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+            {roleLabel}
+          </span>
+        </div>
         <p className="mt-1 text-sm text-muted-foreground">{statusLabel(relation, side)}</p>
       </div>
 
@@ -129,6 +139,28 @@ export function RelationCard({ relation, side, isAdmin }: Props) {
             />
             <span className="text-muted-foreground">Il mio lato</span>
           </label>
+        ) : null}
+
+        {canClose ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  `Chiudere il collegamento con ${partnerName}? Non si perde nessun dato: potrai ricollegarti con un nuovo invito.`,
+                )
+              )
+                return;
+              void run(
+                () => supabase.rpc("revoke_company_relation", { _relation_id: relation.id }),
+                "Collegamento chiuso.",
+              );
+            }}
+          >
+            Chiudi collegamento
+          </Button>
         ) : null}
       </div>
     </section>
