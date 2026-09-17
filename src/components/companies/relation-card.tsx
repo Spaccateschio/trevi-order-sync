@@ -18,6 +18,8 @@ type Props = {
   /** Lato dal quale l'azienda dell'utente guarda il rapporto. */
   side: RelationSide;
   isAdmin: boolean;
+  /** Vero quando con la stessa azienda esiste anche il rapporto opposto. */
+  bothWays?: boolean;
 };
 
 function statusLabel(relation: Relation, side: RelationSide) {
