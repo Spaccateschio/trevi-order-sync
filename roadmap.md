@@ -3,7 +3,7 @@
 ## In corso
 - [x] Revisione Vendite → Prodotti, punto 1: archivi Danea + import per archivio (con test)
 - [x] Punto 2: griglia Prodotti professionale (selezione globale dell’intero risultato filtrato, menu Colonne persistente, ridimensionamento fluido, preferenze automatiche per utente/dispositivo, stampa/esportazione)
-- [ ] Punto 3: U.M. Trevi Fruit (8 U.M. aziendali iniziali non assegnate, anagrafica, U.M. per prodotto, conversione stimata facoltativa, gestione multipla, cambio U.M. Danea in revisione)
+- [x] Punto 3: U.M. Trevi Fruit (8 U.M. aziendali iniziali non assegnate, anagrafica, U.M. per prodotto, conversione stimata facoltativa, gestione multipla, cambio U.M. Danea in revisione)
 - [ ] Punto 4: immagini Trevi Fruit
 
 ## Completato
