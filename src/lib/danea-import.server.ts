@@ -391,16 +391,17 @@ function chunked<T>(items: T[], size: number): T[][] {
 async function syncPriceListNames(
   supabaseAdmin: AdminClient,
   companyId: string,
+  archiveId: string,
   doc: DaneaDocument,
 ) {
   const rows = [];
   for (let i = 1; i <= 9; i += 1) {
     const name = doc.priceNames[i] ?? null;
-    rows.push({ company_id: companyId, list_number: i, danea_name: name });
+    rows.push({ company_id: companyId, archive_id: archiveId, list_number: i, danea_name: name });
   }
   await supabaseAdmin
     .from("danea_price_lists")
-    .upsert(rows, { onConflict: "company_id,list_number" });
+    .upsert(rows, { onConflict: "company_id,archive_id,list_number" });
 }
 
 async function applyPrices(
