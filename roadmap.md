@@ -10,7 +10,7 @@
 - [x] Punto 5a: collegamento B2B — relazione unica venditore→acquirente, stati in attesa/attivo/rifiutato/revocato, doppio consenso (interruttore per lato), invito lato venditore, pagina Clienti
 - [x] Punto 5b: anagrafica clienti del venditore (non registrati), P.IVA normalizzata e inviti B2B con token/scadenza/reinvio/annullamento
 - [x] Punto 5b.1: registrazione cliente da invito con precompilazione, registrazione autonoma con richiesta di collegamento, indirizzi multipli con visibilità esplicita verso i partner
-- [ ] Punto 5b.2: destinazioni cliente (punto operativo/centro documentale) sopra gli indirizzi + importazione massiva clienti da file Danea con anteprima e invito multiplo
+- [x] Punto 5b.2: destinazioni cliente (punto operativo/centro documentale) sopra gli indirizzi + importazione massiva clienti da file Danea con anteprima e invito multiplo
 - [ ] Punto 5c: condizioni commerciali per rapporto (listino Danea, catalogo visibile), ereditate dal cliente con possibile override per destinazione
 
 ## Completato

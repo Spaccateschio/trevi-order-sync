@@ -460,6 +460,85 @@ export type Database = {
           },
         ]
       }
+      customer_destinations: {
+        Row: {
+          address_id: string | null
+          contact_name: string | null
+          created_at: string
+          created_by: string | null
+          customer_record_id: string
+          danea_reference: string | null
+          id: string
+          internal_code: string | null
+          is_default: boolean
+          label: string
+          notes: string | null
+          phone: string | null
+          seller_company_id: string
+          separate_documents: boolean
+          status: Database["public"]["Enums"]["entity_status"]
+          updated_at: string
+        }
+        Insert: {
+          address_id?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_record_id: string
+          danea_reference?: string | null
+          id?: string
+          internal_code?: string | null
+          is_default?: boolean
+          label: string
+          notes?: string | null
+          phone?: string | null
+          seller_company_id: string
+          separate_documents?: boolean
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Update: {
+          address_id?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_record_id?: string
+          danea_reference?: string | null
+          id?: string
+          internal_code?: string | null
+          is_default?: boolean
+          label?: string
+          notes?: string | null
+          phone?: string | null
+          seller_company_id?: string
+          separate_documents?: boolean
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_destinations_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_destinations_customer_record_id_fkey"
+            columns: ["customer_record_id"]
+            isOneToOne: false
+            referencedRelation: "customer_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_destinations_seller_company_id_fkey"
+            columns: ["seller_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_product_unit_preferences: {
         Row: {
           buyer_company_id: string
@@ -1781,6 +1860,23 @@ export type Database = {
       link_customer_record_to_relation: {
         Args: { _customer_record_id: string; _relation_id: string }
         Returns: undefined
+      }
+      manage_customer_destination: {
+        Args: {
+          _action: string
+          _address_id?: string
+          _contact_name?: string
+          _customer_record_id: string
+          _danea_reference?: string
+          _destination_id?: string
+          _internal_code?: string
+          _is_default?: boolean
+          _label?: string
+          _notes?: string
+          _phone?: string
+          _separate_documents?: boolean
+        }
+        Returns: string
       }
       manage_customer_record: {
         Args: {
