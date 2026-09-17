@@ -128,6 +128,38 @@ function Collegamenti() {
 
   const company = activeCompany(identity);
   const isAdmin = hasRole(identity, "amministratore");
+
+  /** Contatti aziendali stampati sul foglio invito: sola lettura. */
+  const companyContact = useQuery({
+    queryKey: ["company-contact", company?.companyId],
+    enabled: Boolean(company?.companyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("legal_name, email, phone")
+        .eq("id", company!.companyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  async function downloadFreeInvitePdf() {
+    if (!freeResult) return;
+    const { downloadInvitePdf } = await import("@/lib/invite-pdf");
+    const invitedBy = [identity?.profile?.firstName, identity?.profile?.lastName]
+      .filter(Boolean)
+      .join(" ");
+    await downloadInvitePdf({
+      sellerName: companyContact.data?.legal_name ?? company?.companyName ?? "La tua azienda",
+      sellerEmail: companyContact.data?.email ?? null,
+      sellerPhone: companyContact.data?.phone ?? null,
+      invitedBy: invitedBy || null,
+      inviteCode: freeResult.code || null,
+      inviteLink: freeResult.link,
+      expiresAt: freeResult.expiresAt ?? null,
+    });
+  }
   const sells = companySells(identity);
   const buys = companyBuys(identity);
 
