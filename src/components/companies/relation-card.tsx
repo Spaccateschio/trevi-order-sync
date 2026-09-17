@@ -138,6 +138,28 @@ export function RelationCard({ relation, side, isAdmin }: Props) {
             <span className="text-muted-foreground">Il mio lato</span>
           </label>
         ) : null}
+
+        {canClose ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  `Chiudere il collegamento con ${partnerName}? Non si perde nessun dato: potrai ricollegarti con un nuovo invito.`,
+                )
+              )
+                return;
+              void run(
+                () => supabase.rpc("revoke_company_relation", { _relation_id: relation.id }),
+                "Collegamento chiuso.",
+              );
+            }}
+          >
+            Chiudi collegamento
+          </Button>
+        ) : null}
       </div>
     </section>
   );
