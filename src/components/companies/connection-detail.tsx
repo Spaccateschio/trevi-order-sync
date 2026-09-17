@@ -45,7 +45,7 @@ export function ConnectionDetail({ row, isAdmin, onClose }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("supplier_customer_relations")
-        .select("requested_at, accepted_at, decided_at, internal_reference")
+        .select("requested_at, accepted_at, decided_at")
         .eq("id", relation!.id)
         .maybeSingle();
       if (error) throw error;
@@ -131,7 +131,7 @@ export function ConnectionDetail({ row, isAdmin, onClose }: Props) {
             <Field
               label="Cliente d'anagrafica collegato"
               value={
-                <Link to="/vendite_/clienti" className="underline">
+                <Link to="/vendite/clienti" className="underline">
                   Apri la scheda cliente
                 </Link>
               }
