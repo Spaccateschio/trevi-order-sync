@@ -234,7 +234,8 @@ function ProdottiPage() {
   const visible = sortedFiltered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
   const getImageUrls = useServerFn(getProductImageUrls);
   const imageColumnVisible = visibility["image"] !== false;
-  const visibleImageProductIds = useMemo(() => imageColumnVisible ? visible.filter((product) => product.product_images).map((product) => product.id) : [], [imageColumnVisible, visible]);
+  const needsThumbnails = imageColumnVisible || deviceClass === "smartphone";
+  const visibleImageProductIds = useMemo(() => needsThumbnails ? visible.filter((product) => product.product_images).map((product) => product.id) : [], [needsThumbnails, visible]);
   const imageUrlsQuery = useQuery({
     queryKey: ["product-grid-image-urls", visibleImageProductIds],
     enabled: visibleImageProductIds.length > 0,
@@ -299,7 +300,7 @@ function ProdottiPage() {
       </div>
 
       <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} />
-      <ProductMobileList products={visible} selectedIds={selectedIds} onSelect={(id, checked) => setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; })} onOpen={setSelected} />
+      <ProductMobileList products={visible} selectedIds={selectedIds} imageUrls={imageUrls} onSelect={(id, checked) => setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; })} onOpen={setSelected} />
 
       {pageCount > 1 ? <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><Button variant="outline" size="sm" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Precedenti</Button><span className="truncate text-center text-xs text-muted-foreground">Pagina {currentPage + 1} di {pageCount}</span><Button variant="outline" size="sm" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>Successivi</Button></div> : null}
     </div>
