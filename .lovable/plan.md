@@ -1,79 +1,71 @@
-# Punto 5b — Anagrafica clienti, P.IVA e inviti B2B (solo piano)
+# Punto 5b.1 — Registrazione cliente da invito e precompilazione dati
 
-## 1. Cosa esiste realmente oggi (verificato sul database)
+Obiettivo: chi riceve un invito non deve riscrivere i dati aziendali già presenti nella scheda cliente del venditore. La scheda cliente resta di proprietà del venditore; l'azienda registrata resta del cliente.
 
-- **`companies`** — anagrafica unica di tutte le aziende, con `can_buy` / `can_sell` (vincolo: almeno un profilo attivo), indirizzo sede e indirizzo di consegna. P.IVA con unicità solo quando presente, ma **sul testo così com'è scritto**.
-- **`supplier_customer_relations`** — la relazione unica venditore→acquirente, già completa di: stato, origine (invito fornitore / richiesta cliente), `requested_at/by`, `decided_at/by`, `accepted_at`, **`seller_enabled` / `buyer_enabled`** (doppio consenso già implementato al punto 5a), riferimento interno e note. Vincoli attivi: coppia unica, divieto di rapporto con sé stessa, chiavi verso `companies` senza cancellazione a cascata.
-- **`company_members` + `company_member_roles`** — appartenenza e ruoli (amministratore / operatore / trasportatore), con `invited_by` già presente.
-- **`profiles`**, **`company_settings`**, **`audit_events`** — presenti e in uso.
-- **`customer_companies` e `customer_company_users` non esistono più**: rimosse quando l'anagrafica è stata unificata. Nessuna P.IVA finta è mai stata creata.
-- **Funzioni server già attive**: capacità (vende/compra), appartenenza, ruolo, relazione operativa, richiesta, invito, accettazione/rifiuto, revoca, interruttore del proprio lato. Tutte protette e basate sull'utente autenticato.
-- **Frontend**: pagina Acquisti → Fornitori e pagina Vendite → Clienti, con card comune e interruttore del proprio lato.
+## Cosa esiste già (verificato)
 
-Conclusione: relazione seller→buyer, doppio consenso, capacità e sicurezza cross-azienda **sono già fatti**. Restano tre lacune reali.
+- Anagrafica clienti del venditore completa (ragione sociale, P.IVA, codice fiscale, contatti, sede, consegna, note) con P.IVA normalizzata.
+- Inviti con collegamento alla scheda cliente, scadenza, reinvio, annullamento, link con codice monouso.
+- Pagina dell'invito che mostra il fornitore e la scheda cliente e permette l'accettazione.
+- Collegamento commerciale unico venditore→cliente con doppio consenso, stati e registro attività.
+- Registrazione persona (nome, cognome, cellulare, email, password) e, subito dopo, creazione azienda con COMPRO/VENDO/ENTRAMBI.
+- Vincolo che impedisce due aziende registrate con la stessa P.IVA.
 
-## 2. Le tre lacune da colmare
+## Cosa manca
 
-1. **Anagrafica cliente del venditore**: non esiste. Serve per i clienti che non si registreranno mai.
-2. **P.IVA non normalizzata**: "IT12345678901" e "12345678901" oggi convivono come aziende distinte.
-3. **Inviti B2B verso chi non ha ancora un account**: oggi si può invitare solo un'azienda già registrata.
+1. Il link dell'invito funziona solo per chi è già dentro con un'azienda: se il cliente non ha accesso viene mandato all'ingresso e perde l'invito.
+2. La creazione dell'azienda parte da campi vuoti: i dati della scheda cliente non vengono proposti.
+3. Non esiste il caso "azienda con quella P.IVA esiste già": oggi la creazione fallirebbe con un errore tecnico.
+4. Non esiste il controllo esplicito P.IVA scheda cliente ≠ P.IVA azienda che accetta, con messaggio e passaggio all'amministratore.
+5. Non esiste una traccia delle differenze fra scheda cliente e azienda registrata, da mostrare al venditore.
 
-## 3. Anagrafica cliente del venditore (nuova tabella `customer_records`)
+## Come funzionerà
 
-Appartiene all'azienda venditrice. Contiene: ragione sociale, P.IVA e codice fiscale (con versione normalizzata), contatti, indirizzo, indirizzo di consegna, note, stato (attivo / disattivato), riferimento interno.
+### Percorso del cliente
 
-- Non è un account e non dà accesso a nulla.
-- Visibile solo ai membri del venditore che la possiede; creazione e modifica riservate all'amministratore.
-- P.IVA unica **all'interno della stessa azienda venditrice**, non a livello di piattaforma: due fornitori diversi possono avere lo stesso cliente in anagrafica.
-- Collegamento con un'azienda registrata: solo tramite un campo `customer_record_id` sulla relazione, con azione esplicita di un amministratore del venditore. La corrispondenza di P.IVA viene **proposta come suggerimento**, mai applicata da sola; la somiglianza della ragione sociale non produce mai un collegamento. Nessuna fusione automatica, nessuna P.IVA segnaposto.
+1. Apre il link. Se non ha accesso, la pagina dell'invito lo accoglie comunque: vede chi lo invita e i pulsanti Accedi / Crea il tuo accesso; il codice dell'invito viene conservato e ritrovato dopo la registrazione o l'accesso.
+2. Fatto l'accesso, torna automaticamente all'invito.
+3. Se non ha ancora un'azienda: vede il riquadro "Dati aziendali associati al tuo invito" con ragione sociale, P.IVA, codice fiscale, indirizzo, CAP/città/provincia, telefono, email, indirizzo di consegna, già compilati e modificabili, più la scelta COMPRO / VENDO / ENTRAMBI (preselezionata su COMPRO). Pulsanti: Confermo i dati e Modifica/Completa.
+4. Alla conferma l'azienda viene creata e collegata al venditore in un unico passaggio, con esito operativo se il venditore ha già dato il proprio consenso.
+5. Se ha già un'azienda: vede l'azienda con cui accetterà (P.IVA parzialmente mascherata) e conferma il collegamento, come oggi.
 
-## 4. P.IVA normalizzata
+### Controllo P.IVA (lato server, sempre)
 
-- Colonna normalizzata (solo cifre, prefisso paese rimosso, spazi eliminati) su `companies` e su `customer_records`, calcolata dal database tramite trigger, mai inviata dal browser.
-- Unicità su `companies` applicata alla versione normalizzata, solo quando il valore esiste davvero.
-- Prima di applicare il vincolo verifico i duplicati reali già presenti: se ne trovo, te li segnalo e decidi tu. Nessuna azienda viene unita o rinominata da me.
-- Aziende con P.IVA reali differenti restano sempre distinte.
+- Scheda cliente senza P.IVA: nessun blocco, il cliente inserisce la propria.
+- P.IVA uguale (confronto normalizzato): collegamento consentito.
+- P.IVA diversa e entrambe presenti: nessun collegamento. Messaggio al cliente ("i dati non corrispondono, il fornitore verificherà") e segnalazione al venditore in Vendite → Clienti, che può collegare manualmente o correggere la propria scheda. Nessuna scheda e nessuna azienda vengono modificate automaticamente.
+- Esiste già un'azienda registrata con quella P.IVA: non se ne crea una seconda. Se l'utente ne è amministratore, gli si propone di collegare quella; altrimenti messaggio che spiega di farsi aggiungere dall'amministratore della sua azienda.
 
-## 5. Inviti B2B (nuova tabella `company_invitations`)
+### Dati e proprietà
 
-L'invito collega **due aziende**, non i singoli dipendenti del cliente.
+- Le correzioni fatte dal cliente valgono solo sulla sua azienda: la scheda cliente del venditore non viene mai sovrascritta.
+- Le differenze rilevate al momento del collegamento vengono conservate come "aggiornamenti proposti" e mostrate al venditore, che decide se recepirle (la funzione di recepimento sarà rifinita nel 5c).
 
-Contiene: azienda venditrice, anagrafica cliente collegata (facoltativa), email destinataria normalizzata, gettone segreto salvato solo come impronta, stato (in attesa / accettato / annullato / scaduto), scadenza, chi ha invitato, data di invio, contatore di reinvii, relazione creata all'accettazione.
+### Invito indipendente dall'email
 
-Casi gestiti:
+Il codice dell'invito resta l'unica prova valida; l'email serve solo a proporlo. Il link può quindi in futuro essere inviato via SMS o WhatsApp senza cambiare nulla della logica. Nessuna integrazione SMS ora.
 
-- **Cliente già registrato**: nessun invito via email necessario, il venditore invita direttamente l'azienda; la relazione nasce "in attesa" e il cliente accetta dalla propria area.
-- **Cliente non registrato**: invito via email; alla registrazione con quella email l'invito viene riconosciuto e, all'accettazione, nasce la relazione già collegata all'anagrafica cliente.
-- **Cliente già in anagrafica**: l'invito parte dalla scheda cliente e resta agganciato ad essa.
-- **Invito duplicato**: al massimo un invito in attesa per coppia venditore + email; un secondo tentativo restituisce quello esistente.
-- **Reinvio**: nuovo gettone, nuova scadenza, invito unico, contatore aggiornato.
-- **Annullamento**: stato "annullato", gettone invalidato, storia conservata.
-- **Scadenza**: gettone scaduto rifiutato con messaggio chiaro e possibilità di chiedere un nuovo invito.
-- **Più utenti della stessa azienda**: l'accettazione riguarda l'azienda; chiunque ne sia amministratore accetta una volta sola per tutti.
+## Dettagli tecnici
 
-Tutto passa da funzioni protette: nessun identificativo azienda o relazione ricevuto dal browser viene ritenuto attendibile.
+- Nuova pagina pubblica dell'invito (fuori dall'area protetta) che mostra l'anteprima senza sessione; la pagina protetta attuale resta come reindirizzamento.
+- Codice invito conservato nel browser (sessionStorage) e nel parametro di ritorno dell'accesso; la conferma email rientra sul link dell'invito.
+- Estensione di `invitation_preview`: aggiunge i dati proposti della scheda cliente (nessun dato riservato del venditore) e i flag `company_exists_for_vat`, `vat_mismatch`.
+- Nuova funzione `accept_invitation_with_new_company(_token, dati azienda...)`: verifica invito valido e non scaduto, verifica P.IVA, verifica assenza di azienda duplicata, crea l'azienda con l'utente come amministratore, crea/aggiorna la relazione con `customer_record_id`, registra tutto in `audit_events`. Tutto in una sola transazione, `SECURITY DEFINER`, `search_path = public`, eseguibile solo da utenti autenticati.
+- `accept_customer_invitation` esistente: aggiunta della verifica di coerenza P.IVA e del controllo di ruolo amministratore, senza cambiare la firma.
+- Nuova tabella `customer_record_proposed_updates` (scheda cliente, campo, valore proposto, origine, stato) con RLS: leggibile e decidibile solo dal venditore proprietario.
+- Nessun `company_id`, `seller_company_id` o P.IVA ricevuto dal browser viene considerato attendibile: tutto ricalcolato lato server dal codice invito e dall'utente autenticato.
 
-## 6. Sicurezza
+## Fuori ambito
 
-- Le nuove tabelle hanno regole d'accesso attive: anagrafica clienti leggibile solo dai membri del venditore; invito leggibile dal venditore e, tramite funzione dedicata, da chi presenta il gettone corretto.
-- Azienda estranea (C) non vede né la relazione né l'anagrafica né gli inviti di A e B.
-- Le azioni di invito, accettazione, annullamento, collegamento anagrafica↔azienda verificano ruolo amministratore, capacità (vende/compra) e appartenenza al lato corretto.
-- Ogni passaggio finisce nel registro attività.
+Listini e condizioni commerciali (5c), catalogo cliente, Ordina, ordini, invii SMS/WhatsApp, modifiche a Prodotti, U.M., Immagini, Archivi Danea e listini Danea.
 
-## 7. Migrazione
+## Test previsti
 
-Una sola migrazione, senza perdita di dati: nuove colonne P.IVA normalizzata con trigger, `customer_record_id` sulla relazione, tabelle `customer_records` e `company_invitations` con permessi e regole d'accesso, nuove funzioni protette. Prodotti, U.M., immagini, archivi Danea, listini e relazioni esistenti restano intatti.
-
-## 8. Test previsti
-
-- Isolamento A/B/C: A vende, B compra da A e da un terzo fornitore, C estranea non vede nulla.
-- Multi-cliente e multi-fornitore: rapporti indipendenti, nessuna interferenza tra cataloghi futuri.
-- Doppio consenso: spegnere un lato rende il rapporto non operativo senza perdere dati; riaccensione ripristina.
-- Coppia duplicata e rapporto con sé stessa rifiutati; venditore senza "vende" o acquirente senza "compra" bloccati.
-- Anagrafica cliente non registrato visibile solo al venditore; collegamento a un'azienda registrata solo per azione esplicita.
-- Inviti: duplicato, reinvio, annullamento, scaduto, accettazione da azienda già registrata e da nuovo iscritto.
-- Prova che chiamate dal browser con identificativi manomessi non producono effetti.
-
-## 9. Fuori ambito in questo punto
-
-Catalogo cliente, listini assegnati, prezzi, Ordina, ordini, preparazione, consegne, download ordini da Danea, marketplace, chat, preferiti, mirroring documenti. Nessuna modifica a Prodotti, U.M., Immagini e Archivi Danea.
+1. Cliente senza accesso: link → registrazione → conferma email → ritorno all'invito → dati precompilati → conferma → azienda creata e collegata.
+2. Cliente con accesso ma senza azienda: dati precompilati, modifica dell'indirizzo, conferma; scheda cliente del venditore invariata e differenza registrata come proposta.
+3. Cliente con azienda già registrata e stessa P.IVA: nessuna azienda duplicata, solo collegamento.
+4. P.IVA diversa: collegamento bloccato, messaggio al cliente e segnalazione al venditore; nessun dato modificato.
+5. Azienda con quella P.IVA esistente ma utente non amministratore: collegamento negato con spiegazione.
+6. Invito scaduto, annullato, già usato, codice inesistente: nessun effetto.
+7. Isolamento: una terza azienda non vede invito, scheda cliente, relazione né proposte.
+8. Verifica desktop e smartphone del riquadro dati precompilati.
