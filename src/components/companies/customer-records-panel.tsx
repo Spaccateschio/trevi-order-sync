@@ -365,6 +365,11 @@ export function CustomerRecordsPanel({
             (inv) => inv.customer_record_id === record.id && inv.status === "in_attesa",
           );
           const last = invitations.find((inv) => inv.customer_record_id === record.id);
+          // Stessa relazione della pagina Collegamenti, qui solo in lettura.
+          const relation = (identity?.relations ?? []).find(
+            (r) => r.sellerCompanyId === companyId && r.customerRecordId === record.id,
+          );
+          const link = linkStatusOf(relation, Boolean(pending));
           return (
             <section
               key={record.id}
