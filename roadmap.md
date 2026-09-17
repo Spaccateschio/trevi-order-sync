@@ -6,7 +6,7 @@
 - [x] Punto 3: U.M. Trevi Fruit (8 U.M. aziendali iniziali non assegnate, anagrafica, U.M. per prodotto, conversione stimata facoltativa, gestione multipla, cambio U.M. Danea in revisione)
 - [x] Rifinitura Punto 3: U.M. rapide in cima al dettaglio e dati Danea collassabili (test desktop/smartphone)
 - [x] Correzione UX U.M.: secondo clic richiude l’editor; rimozione separata e confermata (test CICORIA desktop/smartphone)
-- [ ] Punto 4: immagini Trevi Fruit
+- [ ] Punto 4: immagini Trevi Fruit (senza coda periodica; validazione prima del cambio, cancellazione best-effort con audit)
 
 ## Completato
 - [x] Importazione manuale file Danea (Opzione B) con stesso parser/motore
