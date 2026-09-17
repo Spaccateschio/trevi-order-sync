@@ -37,7 +37,7 @@ function statusLabel(relation: Relation, side: RelationSide) {
   return relation.sellerEnabled ? "Sospeso dal cliente" : "Sospeso dal fornitore";
 }
 
-export function RelationCard({ relation, side, isAdmin }: Props) {
+export function RelationCard({ relation, side, isAdmin, bothWays = false }: Props) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
 
