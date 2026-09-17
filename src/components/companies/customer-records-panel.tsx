@@ -396,7 +396,14 @@ export function CustomerRecordsPanel({
     if (!chosen.length) return;
     setBusy(true);
     setBulkOpen(true);
-    const results: { name: string; email: string; link?: string; error?: string }[] = [];
+    const results: {
+      name: string;
+      email: string;
+      link?: string;
+      code?: string | null;
+      expiresAt?: string | null;
+      error?: string;
+    }[] = [];
     for (const record of chosen) {
       const email = (record.email ?? "").trim();
       if (!email) {
