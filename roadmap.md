@@ -27,3 +27,5 @@
 - Sistema avanzato di ruoli
 - Modifica prodotti da Trevi Fruit (Danea resta il gestionale)
 - Conversioni U.M. realmente fisse (da valutare con carico merci/inventario)
+
+- [x] Email di invito collegamento inviate dal mittente notify.suitefficio.com (invito rapido, invito da scheda cliente, inviti multipli, rinnovo)
