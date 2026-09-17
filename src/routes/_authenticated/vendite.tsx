@@ -23,14 +23,6 @@ export const Route = createFileRoute("/_authenticated/vendite")({
   component: Vendite,
 });
 
-const RELATION_LABEL: Record<string, string> = {
-  in_attesa: "In attesa della tua approvazione",
-  attivo: "Attivo",
-  sospeso: "Sospeso",
-  revocato: "Revocato",
-  rifiutato: "Rifiutato",
-};
-
 function Vendite() {
   const { data: identity, isLoading } = useIdentity();
   const company = activeCompany(identity);
