@@ -383,7 +383,20 @@ export function CustomerRecordsPanel({
                   aria-label={`Seleziona ${record.legal_name}`}
                 />
                 <div className="min-w-0">
-                <h3 className="font-display text-base font-semibold">{record.legal_name}</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-display text-base font-semibold">{record.legal_name}</h3>
+                  <Link
+                    to="/collegamenti"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground"
+                    title="Stato del collegamento su Trevi Fruit"
+                  >
+                    <span
+                      aria-hidden
+                      className={`size-2 rounded-full ${link.dotClassName}`}
+                    />
+                    {link.label}
+                  </Link>
+                </div>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {[
                     record.vat_number ? `P.IVA ${record.vat_number}` : null,
