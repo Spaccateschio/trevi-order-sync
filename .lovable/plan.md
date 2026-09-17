@@ -1,4 +1,4 @@
-# Punto 5b.1 — Registrazione cliente da invito e precompilazione dati
+# Punto 5b.1 — Registrazione da invito, registrazione autonoma e indirizzi multipli
 
 Obiettivo: chi riceve un invito non deve riscrivere i dati aziendali già presenti nella scheda cliente del venditore. La scheda cliente resta di proprietà del venditore; l'azienda registrata resta del cliente.
 
