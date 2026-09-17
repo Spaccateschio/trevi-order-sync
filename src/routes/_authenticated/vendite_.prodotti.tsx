@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { activeCompany, companySells, hasRole, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { analyzeDaneaFile, importDaneaFile } from "@/lib/danea.functions";
 import {
   DEFAULT_COLUMN_ORDER,
@@ -184,7 +185,7 @@ function ProdottiPage() {
     if (!preferencesReady || !userId) return;
     const timer = window.setTimeout(async () => {
       const columns = { visibility, order: columnOrder, sizing: columnSizing };
-      const { error } = await supabase.from("user_grid_preferences").upsert({ user_id: userId, grid_key: GRID_KEY, device_class: deviceClass, columns, sort: sorting }, { onConflict: "user_id,grid_key,device_class" });
+      const { error } = await supabase.from("user_grid_preferences").upsert({ user_id: userId, grid_key: GRID_KEY, device_class: deviceClass, columns: columns as Json, sort: sorting as Json }, { onConflict: "user_id,grid_key,device_class" });
       if (error) toast.error("Impossibile salvare le preferenze della griglia");
     }, 500);
     return () => window.clearTimeout(timer);
@@ -280,7 +281,7 @@ function ProdottiPage() {
 
     <div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column?.label}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>
 
-    <ProductDetailSheet product={selected} archiveName={selected ? archiveNameById.get(selected.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data} onClose={() => setSelected(null)} />
+    <ProductDetailSheet product={selected} archiveName={selected ? archiveNameById.get(selected.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} onClose={() => setSelected(null)} />
     <ImportDialog open={importOpen} onOpenChange={setImportOpen} companyId={companyId} archives={archives.filter((archive) => archive.status === "attivo").map((archive) => ({ id: archive.id, name: archive.name, isDefault: archive.is_default }))} onImported={() => { void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] }); void queryClient.invalidateQueries({ queryKey: ["danea-listini", companyId] }); }} />
   </AppShell>;
 }
