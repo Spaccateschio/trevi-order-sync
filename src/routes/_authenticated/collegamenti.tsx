@@ -270,7 +270,7 @@ function Collegamenti() {
     setBusy(true);
     const { data, error } = await supabase.rpc("create_free_invitation", {
       _seller_company_id: company.companyId,
-      _email: freeEmail.trim() === "" ? null : freeEmail.trim(),
+      ...(freeEmail.trim() === "" ? {} : { _email: freeEmail.trim() }),
     });
     setBusy(false);
     if (error) {
