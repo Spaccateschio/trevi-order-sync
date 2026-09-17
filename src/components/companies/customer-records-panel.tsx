@@ -561,6 +561,7 @@ export function CustomerRecordsPanel({
           if (!open) {
             setInviteFor(null);
             setInviteLink(null);
+            setInviteCode(null);
           }
         }}
       >
