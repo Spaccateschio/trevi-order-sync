@@ -198,10 +198,11 @@ export function AddressManager({
         return;
       }
     } else {
-      const insert =
-        "companyId" in owner
-          ? { ...payload, company_id: owner.companyId }
-          : { ...payload, customer_record_id: owner.customerRecordId };
+      const insert = {
+        ...payload,
+        company_id: "companyId" in owner ? owner.companyId : null,
+        customer_record_id: "customerRecordId" in owner ? owner.customerRecordId : null,
+      };
       const { data, error } = await supabase.from("addresses").insert(insert).select("id").single();
       if (error || !data) {
         setBusy(false);
