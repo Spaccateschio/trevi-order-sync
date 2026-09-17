@@ -81,7 +81,7 @@ Separazione confermata: gli indirizzi dell'azienda appartengono al cliente, quel
 
 Nell'invito gli indirizzi della scheda cliente vengono proposti come indirizzi iniziali dell'azienda, modificabili prima della conferma.
 
-RLS: gli indirizzi di un'azienda sono modificabili solo dai suoi amministratori; sono leggibili dalle aziende con un rapporto operativo (per consegne e ritiri) e da nessun altro. Gli indirizzi di una scheda cliente sono leggibili e modificabili solo dal venditore proprietario.
+RLS e visibilità: gli indirizzi di un'azienda sono modificabili solo dai suoi amministratori. La visibilità verso i partner non è automatica: ogni indirizzo ha un interruttore `visible_to_partners`, spento per impostazione predefinita. Un'azienda con rapporto operativo vede solo gli indirizzi che il proprietario ha reso visibili; sedi e magazzini interni restano privati. Visibilità e predefinito per funzione sono due concetti distinti e indipendenti. Gli indirizzi di una scheda cliente sono leggibili e modificabili solo dal venditore proprietario.
 
 Preparazione ordini: l'ordine futuro conserverà una copia dei dati dell'indirizzo scelto, così una modifica successiva dell'anagrafica non cambia gli ordini già fatti. Ordina non viene implementato ora.
 

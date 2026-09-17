@@ -13,8 +13,11 @@ type Modo = "accesso" | "registrazione";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  validateSearch: (search: Record<string, unknown>): { modo?: Modo | undefined } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { modo?: Modo | undefined; invito?: string | undefined } => ({
     modo: search["modo"] === "registrazione" ? "registrazione" : undefined,
+    invito: typeof search["invito"] === "string" ? search["invito"] : undefined,
   }),
   head: () => ({
     meta: [
@@ -34,7 +37,7 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  const { modo } = Route.useSearch();
+  const { modo, invito } = Route.useSearch();
   const navigate = useNavigate();
   const [mode, setMode] = useState<Modo>(modo === "registrazione" ? "registrazione" : "accesso");
   const [email, setEmail] = useState("");
@@ -46,11 +49,27 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
+  // L'invito arriva dal link ricevuto: dopo l'accesso torniamo esattamente lì.
+  const inviteToken = invito ?? readInviteToken();
+
+  useEffect(() => {
+    if (invito) rememberInviteToken(invito);
+  }, [invito]);
+
+  function afterAuth() {
+    if (inviteToken) {
+      navigate({ to: "/invito/$token", params: { token: inviteToken }, replace: true });
+      return;
+    }
+    navigate({ to: "/dashboard", replace: true });
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard", replace: true });
+      if (data.session) afterAuth();
     });
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -80,7 +99,7 @@ function AuthPage() {
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: inviteToken ? inviteUrl(inviteToken) : window.location.origin,
             data: {
               first_name: firstName.trim(),
               last_name: lastName.trim(),
@@ -93,7 +112,7 @@ function AuthPage() {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate({ to: "/dashboard", replace: true });
+        afterAuth();
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Operazione non riuscita";

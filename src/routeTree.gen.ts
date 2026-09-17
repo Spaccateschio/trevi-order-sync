@@ -21,9 +21,9 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedOperativoRouteImport } from './routes/_authenticated/operativo'
 import { Route as AuthenticatedVenditeRouteImport } from './routes/_authenticated/vendite'
+import { Route as InvitoTokenRouteImport } from './routes/invito.$token'
 import { Route as AuthenticatedAcquistiIndexRouteImport } from './routes/_authenticated/acquisti.index'
 import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_authenticated/acquisti.fornitori'
-import { Route as AuthenticatedInvitoTokenRouteImport } from './routes/_authenticated/invito.$token'
 import { Route as AuthenticatedVenditeClientiRouteImport } from './routes/_authenticated/vendite_.clienti'
 import { Route as AuthenticatedVenditeProdottiRouteImport } from './routes/_authenticated/vendite_.prodotti'
 import { Route as ApiPublicDaneaProductsRouteImport } from './routes/api/public/danea/products'
@@ -88,6 +88,11 @@ const AuthenticatedVenditeRoute = AuthenticatedVenditeRouteImport.update({
   path: '/vendite',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const InvitoTokenRoute = InvitoTokenRouteImport.update({
+  id: '/invito/$token',
+  path: '/invito/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAcquistiIndexRoute =
   AuthenticatedAcquistiIndexRouteImport.update({
     id: '/acquisti/',
@@ -98,12 +103,6 @@ const AuthenticatedAcquistiFornitoriRoute =
   AuthenticatedAcquistiFornitoriRouteImport.update({
     id: '/acquisti/fornitori',
     path: '/acquisti/fornitori',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedInvitoTokenRoute =
-  AuthenticatedInvitoTokenRouteImport.update({
-    id: '/invito/$token',
-    path: '/invito/$token',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedVenditeClientiRoute =
@@ -136,8 +135,8 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/operativo': typeof AuthenticatedOperativoRoute
   '/vendite': typeof AuthenticatedVenditeRoute
+  '/invito/$token': typeof InvitoTokenRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
-  '/invito/$token': typeof AuthenticatedInvitoTokenRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti/': typeof AuthenticatedAcquistiIndexRoute
@@ -155,8 +154,8 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/operativo': typeof AuthenticatedOperativoRoute
   '/vendite': typeof AuthenticatedVenditeRoute
+  '/invito/$token': typeof InvitoTokenRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
-  '/invito/$token': typeof AuthenticatedInvitoTokenRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti': typeof AuthenticatedAcquistiIndexRoute
@@ -176,8 +175,8 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/operativo': typeof AuthenticatedOperativoRoute
   '/_authenticated/vendite': typeof AuthenticatedVenditeRoute
+  '/invito/$token': typeof InvitoTokenRoute
   '/_authenticated/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
-  '/_authenticated/invito/$token': typeof AuthenticatedInvitoTokenRoute
   '/_authenticated/vendite_/clienti': typeof AuthenticatedVenditeClientiRoute
   '/_authenticated/vendite_/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/_authenticated/acquisti/': typeof AuthenticatedAcquistiIndexRoute
@@ -197,8 +196,8 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/operativo'
     | '/vendite'
-    | '/acquisti/fornitori'
     | '/invito/$token'
+    | '/acquisti/fornitori'
     | '/vendite/clienti'
     | '/vendite/prodotti'
     | '/acquisti/'
@@ -216,8 +215,8 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/operativo'
     | '/vendite'
-    | '/acquisti/fornitori'
     | '/invito/$token'
+    | '/acquisti/fornitori'
     | '/vendite/clienti'
     | '/vendite/prodotti'
     | '/acquisti'
@@ -236,8 +235,8 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/_authenticated/operativo'
     | '/_authenticated/vendite'
+    | '/invito/$token'
     | '/_authenticated/acquisti/fornitori'
-    | '/_authenticated/invito/$token'
     | '/_authenticated/vendite_/clienti'
     | '/_authenticated/vendite_/prodotti'
     | '/_authenticated/acquisti/'
@@ -249,6 +248,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  InvitoTokenRoute: typeof InvitoTokenRoute
   ApiPublicDaneaProductsRoute: typeof ApiPublicDaneaProductsRoute
 }
 
@@ -338,6 +338,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVenditeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/invito/$token': {
+      id: '/invito/$token'
+      path: '/invito/$token'
+      fullPath: '/invito/$token'
+      preLoaderRoute: typeof InvitoTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/acquisti/': {
       id: '/_authenticated/acquisti/'
       path: '/acquisti'
@@ -350,13 +357,6 @@ declare module '@tanstack/react-router' {
       path: '/acquisti/fornitori'
       fullPath: '/acquisti/fornitori'
       preLoaderRoute: typeof AuthenticatedAcquistiFornitoriRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/invito/$token': {
-      id: '/_authenticated/invito/$token'
-      path: '/invito/$token'
-      fullPath: '/invito/$token'
-      preLoaderRoute: typeof AuthenticatedInvitoTokenRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/vendite_/clienti': {
@@ -393,7 +393,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOperativoRoute: typeof AuthenticatedOperativoRoute
   AuthenticatedVenditeRoute: typeof AuthenticatedVenditeRoute
   AuthenticatedAcquistiFornitoriRoute: typeof AuthenticatedAcquistiFornitoriRoute
-  AuthenticatedInvitoTokenRoute: typeof AuthenticatedInvitoTokenRoute
   AuthenticatedVenditeClientiRoute: typeof AuthenticatedVenditeClientiRoute
   AuthenticatedVenditeProdottiRoute: typeof AuthenticatedVenditeProdottiRoute
   AuthenticatedAcquistiIndexRoute: typeof AuthenticatedAcquistiIndexRoute
@@ -409,7 +408,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOperativoRoute: AuthenticatedOperativoRoute,
   AuthenticatedVenditeRoute: AuthenticatedVenditeRoute,
   AuthenticatedAcquistiFornitoriRoute: AuthenticatedAcquistiFornitoriRoute,
-  AuthenticatedInvitoTokenRoute: AuthenticatedInvitoTokenRoute,
   AuthenticatedVenditeClientiRoute: AuthenticatedVenditeClientiRoute,
   AuthenticatedVenditeProdottiRoute: AuthenticatedVenditeProdottiRoute,
   AuthenticatedAcquistiIndexRoute: AuthenticatedAcquistiIndexRoute,
@@ -423,6 +421,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  InvitoTokenRoute: InvitoTokenRoute,
   ApiPublicDaneaProductsRoute: ApiPublicDaneaProductsRoute,
 }
 export const routeTree = rootRouteImport
