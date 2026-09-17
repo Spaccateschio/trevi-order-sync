@@ -251,6 +251,68 @@ export type Database = {
           },
         ]
       }
+      customer_product_unit_preferences: {
+        Row: {
+          buyer_company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          product_id: string
+          product_sale_unit_id: string
+          seller_company_id: string
+          updated_at: string
+        }
+        Insert: {
+          buyer_company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id: string
+          product_sale_unit_id: string
+          seller_company_id: string
+          updated_at?: string
+        }
+        Update: {
+          buyer_company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id?: string
+          product_sale_unit_id?: string
+          seller_company_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_product_unit_preferences_buyer_company_id_fkey"
+            columns: ["buyer_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_unit_preferences_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_unit_preferences_product_sale_unit_id_fkey"
+            columns: ["product_sale_unit_id"]
+            isOneToOne: false
+            referencedRelation: "product_sale_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_unit_preferences_seller_company_id_fkey"
+            columns: ["seller_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       danea_archives: {
         Row: {
           company_id: string
@@ -650,6 +712,79 @@ export type Database = {
           },
         ]
       }
+      product_sale_units: {
+        Row: {
+          company_id: string
+          conversion_factor: number | null
+          conversion_reference_um: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          is_customer_visible: boolean
+          is_default: boolean
+          needs_review: boolean
+          product_id: string
+          unit_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          conversion_factor?: number | null
+          conversion_reference_um?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_customer_visible?: boolean
+          is_default?: boolean
+          needs_review?: boolean
+          product_id: string
+          unit_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          conversion_factor?: number | null
+          conversion_reference_um?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_customer_visible?: boolean
+          is_default?: boolean
+          needs_review?: boolean
+          product_id?: string
+          unit_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_sale_units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_sale_units_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_sale_units_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_supplier_costs: {
         Row: {
           company_id: string
@@ -957,6 +1092,47 @@ export type Database = {
           },
         ]
       }
+      units_of_measure: {
+        Row: {
+          code: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          status: Database["public"]["Enums"]["entity_status"]
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "units_of_measure_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_grid_preferences: {
         Row: {
           columns: Json
@@ -995,6 +1171,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_product_sale_unit_batch: {
+        Args: {
+          _actor_user_id?: string
+          _boolean_value?: boolean
+          _company_id: string
+          _conversion_factor?: number
+          _operation: string
+          _overwrite?: boolean
+          _product_ids: string[]
+          _unit_id: string
+        }
+        Returns: Json
+      }
       available_suppliers: {
         Args: never
         Returns: {
@@ -1019,6 +1208,17 @@ export type Database = {
       }
       is_company_admin: { Args: { _company_id: string }; Returns: boolean }
       is_company_member: { Args: { _company_id: string }; Returns: boolean }
+      manage_unit_of_measure: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _code?: string
+          _company_id: string
+          _description?: string
+          _unit_id: string
+        }
+        Returns: string
+      }
       register_company: {
         Args: {
           _address_line?: string

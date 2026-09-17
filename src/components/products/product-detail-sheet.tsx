@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { dateTime, euro, type ProductRow } from "@/lib/product-grid";
+import { SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
 
 function Field({ label, value }: { label: string; value: string }) {
   return <div><dt className="text-xs uppercase text-muted-foreground">{label}</dt><dd className="break-words text-sm">{value}</dd></div>;
@@ -13,6 +14,9 @@ export function ProductDetailSheet({
   isAdmin,
   cost,
   onClose,
+  companyId,
+  companyUnits,
+  saleUnits,
 }: {
   product: ProductRow | null;
   archiveName: string;
@@ -20,6 +24,9 @@ export function ProductDetailSheet({
   isAdmin: boolean;
   cost?: { supplier_name: string | null; supplier_code: string | null; supplier_product_code: string | null; supplier_net_price: number | null } | null;
   onClose: () => void;
+  companyId: string | null;
+  companyUnits: CompanyUnit[];
+  saleUnits: ProductSaleUnit[];
 }) {
   return (
     <Sheet open={Boolean(product)} onOpenChange={(open) => !open && onClose()}>
@@ -51,6 +58,7 @@ export function ProductDetailSheet({
             </section>
             {isAdmin ? <section className="border-t border-border pt-4"><h3 className="text-sm font-semibold">Fornitore e costo</h3><dl className="mt-2 grid grid-cols-2 gap-3"><Field label="Fornitore" value={cost?.supplier_name ?? product.supplier_name ?? "—"} /><Field label="Codice fornitore" value={cost?.supplier_code ?? product.supplier_code ?? "—"} /><Field label="Codice prodotto" value={cost?.supplier_product_code ?? product.supplier_product_code ?? "—"} /><Field label="Costo netto" value={euro(cost?.supplier_net_price)} /></dl></section> : null}
             <section className="border-t border-border pt-4"><h3 className="text-sm font-semibold">Altri dati Danea</h3><dl className="mt-2 grid grid-cols-2 gap-3"><Field label="Note" value={product.notes ?? "—"} /><Field label="Nome immagine" value={product.image_file_name ?? "—"} /><Field label="Cartella immagine" value={product.image_folder ?? "—"} /><Field label="Barcode" value={product.barcode ?? "—"} /><Field label="Produttore" value={product.producer_name ?? "—"} /><Field label="Tipo prodotto" value={product.product_type ?? "—"} /></dl></section>
+            {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} /> : null}
           </div>
         </> : null}
       </SheetContent>

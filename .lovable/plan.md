@@ -86,7 +86,7 @@ Interfaccia compatta:
 - “Elimina” disponibile solo quando non è mai stata associata né usata da una preferenza; altrimenti viene proposta “Disattiva”;
 - descrizione modificabile; sigla modificabile solo finché la U.M. non è mai stata associata. Se è già usata, si disattiva la vecchia e se ne crea una nuova, preservando il significato storico.
 
-Nessun elenco iniziale inventato verrà inserito automaticamente: l’amministratore crea solo le U.M. realmente usate. Potremo valutare in implementazione un’azione esplicita “Aggiungi U.M. Danea” precompilata, mai automatica.
+Alla configurazione iniziale dell’azienda saranno predisposte nell’anagrafica: `kg — Chilogrammo`, `pz — Pezzo`, `cs — Cassa`, `ct — Cartone`, `vasch — Vaschetta`, `mz — Mazzo`, `lt — Litro`, `ml — Millilitro`. Sono soltanto U.M. aziendali disponibili, modificabili/disattivabili: nessuna viene associata automaticamente ai prodotti. L’anagrafica aziendale e le U.M. di vendita del singolo prodotto restano entità nettamente separate.
 
 ## Dettaglio del prodotto
 
@@ -166,7 +166,7 @@ Poiché le associazioni usano `product_id`, due codici uguali in archivi differe
 
 1. Creare le tre tabelle nell’ordine: anagrafica → associazioni prodotto → preferenze cliente, ciascuna con GRANT, RLS, policy, indici e trigger nello stesso intervento.
 2. Non modificare né riscrivere i 4 prodotti attuali, `danea_um`, archivi, listini o postazioni.
-3. Nessun backfill automatico delle U.M.: evita di trasformare sigle Danea non normalizzate in configurazioni operative senza decisione dell’amministratore.
+3. Inserire le otto U.M. iniziali per ogni azienda esistente e predisporle automaticamente per le nuove aziende, senza creare alcuna associazione prodotto/U.M. e senza interpretare le sigle Danea.
 4. Aggiungere funzioni server per CRUD anagrafica, configurazione singola e batch; operazioni atomiche e audit.
 5. Estendere il confronto dell’import Danea solo per rilevare il cambio U.M. e marcare le stime da verificare; identità, FULL/INCREMENTAL e risposta endpoint restano invariati.
 6. Estendere infine griglia e dettaglio; nessun dato operativo viene scritto nella tabella `products`.
