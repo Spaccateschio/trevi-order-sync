@@ -26,7 +26,11 @@ Conseguenze:
 - La pagina Prodotti ottiene colonna opzionale Archivio, filtro Archivio e vista "tutti gli archivi insieme": un solo catalogo, provenienza sempre riconoscibile.
 - In futuro un ordine con prodotti di due archivi potrà essere separato per archivio: la riga d'ordine porterà l'archivio, quindi ogni Danea scaricherà solo le proprie righe. Non implemento ora il ritorno ordini.
 
-Migrazione senza perdite: creo l'archivio "Archivio principale", vi assegno i 4 prodotti già ricevuti, i listini, lo storico invii e **entrambe** le postazioni esistenti (Pc Ufficio Andrea e pc casa andrea restano identiche: nome, utente, password, indirizzo). Poi dalla pagina Gestionale potrai creare un secondo archivio e spostarvi la postazione che usa l'altro archivio; da quel momento i due cataloghi non si pestano più i piedi.
+Migrazione senza perdite: creo l'archivio "Archivio principale", vi assegno i 4 prodotti già ricevuti, i listini, lo storico invii e **entrambe** le postazioni esistenti (Pc Ufficio Andrea e pc casa andrea restano identiche: nome, utente, password, indirizzo).
+
+Nella pagina Gestionale la relazione diventa esplicita e visibile: prima l'**Archivio Danea** con il suo nome, e dentro di esso le **postazioni che gli appartengono** — non più un elenco piatto di PC. Potrai creare e rinominare un archivio e assegnare o spostare una postazione da un archivio all'altro, con richiesta di conferma quando lo spostamento può cambiare l'esito dei successivi invii completi.
+
+Importante per te: **prima di usare il secondo Danea, crea il relativo archivio e assegnagli pc casa andrea**, altrimenti i due cataloghi tornerebbero a sovrapporsi.
 
 ## 4. Pagina compatta e griglia gestionale
 
@@ -71,8 +75,8 @@ Nessuna tabella di magazzino, nessun movimento, nessuna giacenza inventata adess
 ## 8. Dettagli tecnici
 
 - Migrazione 1 — archivi: `danea_archives` (company_id, name, note, is_default, status); `danea_stations.archive_id`, `products.archive_id`, `danea_sync_runs.archive_id`, `danea_price_lists.archive_id` (backfill sull'archivio predefinito creato nella stessa migrazione); indici unici sostituiti con (company_id, archive_id, danea_internal_id) e (company_id, archive_id, code); GRANT + RLS per amministratori/membri dell'azienda tramite le funzioni esistenti.
-- `danea-import.server.ts`: risoluzione archivio dalla postazione (o scelto dall'amministratore nell'importazione manuale); tutte le letture/upsert/riconciliazioni FULL e INCREMENTAL filtrate per `archive_id`. Parser invariato, più due campi nuovi (`size_um`, `weight_um`) e predisposizione `stock_quantity`/`stock_received_at` lasciati NULL.
-- Migrazione 2 — U.M.: `units_of_measure` (company_id, code, description, is_active, is_system); `product_sale_units` (product_id, unit_id, is_active, visible_to_customer, is_default, conversion_factor NULL, conversion_kind 'stimata'|'fissa'); `customer_unit_preferences` (buyer_company_id, product_id, unit_id); unico `is_default` per prodotto tramite indice parziale; nessuna cancellazione a cascata delle unità usate.
+- `danea-import.server.ts`: risoluzione archivio dalla postazione (o scelto dall'amministratore nell'importazione manuale); tutte le letture/upsert/riconciliazioni FULL e INCREMENTAL filtrate per `archive_id`. Parser invariato, più due campi nuovi (`size_um`, `weight_um`). **Nessun campo di giacenza**: `stock_quantity`/`stock_received_at` non vengono introdotti in questa fase.
+- Migrazione 2 — U.M.: `units_of_measure` (company_id, code, description, is_active, is_system); `product_sale_units` (product_id, unit_id, is_active, visible_to_customer, is_default, `conversion_factor` facoltativo e **sempre trattato come stima**, senza campo tipo-conversione); `customer_unit_preferences` (buyer_company_id, product_id, unit_id); unico `is_default` per prodotto tramite indice parziale; nessuna cancellazione a cascata delle unità usate. Le conversioni realmente fisse (1 cartone = 12 pezzi) verranno valutate con carico merci/inventario.
 - Migrazione 3 — preferenze griglia: `user_grid_preferences` (user_id, grid_key, device_class, columns jsonb, sort jsonb), RLS `user_id = auth.uid()`.
 - Migrazione 4 — immagini Trevi Fruit: bucket privato `product-images` + `products.tf_image_path`, separato da `image_file_name`/`image_folder` di Danea.
 - Griglia: `@tanstack/react-table` per colonne/ordinamento/selezione, ridimensionamento e riordino nativi della libreria; virtualizzazione con `@tanstack/react-virtual` attivata solo oltre ~300 righe; caricamento paginato dal server oltre ~2000 prodotti. Stampa via CSS `@page` dedicata, senza librerie.
@@ -81,11 +85,11 @@ Nessuna tabella di magazzino, nessun movimento, nessuna giacenza inventata adess
 
 Verifiche previste: i 4 prodotti esistenti restano visibili e assegnati all'archivio principale; Pc Ufficio Andrea e pc casa andrea invariate (nome, utente, indirizzo, password) e funzionanti; invio completo dall'archivio 1 non depubblica l'archivio 2; incrementale limitato al proprio archivio; due archivi con lo stesso codice convivono; colonne mostrate/nascoste/spostate/allargate e ordinamento ritrovati al rientro, separatamente su desktop e telefono; ripristino predefiniti; stampa ed esportazione coerenti con le colonne visibili; anagrafica U.M. con unità usata non eliminabile ma disattivabile; conversione stimata su più prodotti selezionati; nessuna immagine mostrata quando esiste solo il riferimento Danea.
 
-## 10. Ordine di lavoro proposto
+## 10. Ordine di lavoro (con test dopo ogni punto)
 
-1. Archivi Danea + import per archivio (base indispensabile).
-2. Nuova griglia compatta con colonne, preferenze, selezione, stampa, esportazione.
-3. Anagrafica U.M. e U.M. di vendita per prodotto, con conversioni stimate.
-4. Immagini Trevi Fruit.
+1. Archivi Danea e import per archivio → test prima di proseguire.
+2. Griglia Prodotti professionale → test prima di proseguire.
+3. U.M. Trevi Fruit → test prima di proseguire.
+4. Immagini Trevi Fruit → test finale.
 
-Dimmi se approvi tutto o se preferisci partire da un punto diverso.
+In questa fase non vengono costruiti Inventario, carichi/scarichi, Ordina né il download ordini da Danea.
