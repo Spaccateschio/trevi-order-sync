@@ -804,6 +804,11 @@ export function CustomerRecordsPanel({
             </div>
           )}
           <DialogFooter>
+            {bulkResults.some((result) => result.link) ? (
+              <Button variant="outline" disabled={busy} onClick={downloadBulkInvitePdf}>
+                Scarica PDF ({bulkResults.filter((result) => result.link).length} pagine)
+              </Button>
+            ) : null}
             <Button
               onClick={() => {
                 setBulkOpen(false);
