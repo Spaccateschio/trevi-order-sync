@@ -22,8 +22,14 @@ function decodeBase64(value: string) {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
+function byteAt(bytes: Uint8Array, offset: number) {
+  const value = bytes[offset];
+  if (value === undefined) throw new Error("Immagine WEBP incompleta");
+  return value;
+}
+
 function readUint24LE(bytes: Uint8Array, offset: number) {
-  return bytes[offset] + (bytes[offset + 1] << 8) + (bytes[offset + 2] << 16);
+  return byteAt(bytes, offset) + (byteAt(bytes, offset + 1) << 8) + (byteAt(bytes, offset + 2) << 16);
 }
 
 function parseWebp(bytes: Uint8Array): { width: number; height: number } {
@@ -35,21 +41,22 @@ function parseWebp(bytes: Uint8Array): { width: number; height: number } {
   if (kind === "VP8X") {
     return { width: 1 + readUint24LE(bytes, 24), height: 1 + readUint24LE(bytes, 27) };
   }
-  if (kind === "VP8 " && bytes.length >= 30 && bytes[23] === 0x9d && bytes[24] === 0x01 && bytes[25] === 0x2a) {
+  if (kind === "VP8 " && bytes.length >= 30 && byteAt(bytes, 23) === 0x9d && byteAt(bytes, 24) === 0x01 && byteAt(bytes, 25) === 0x2a) {
     return {
-      width: (bytes[26] | (bytes[27] << 8)) & 0x3fff,
-      height: (bytes[28] | (bytes[29] << 8)) & 0x3fff,
+      width: (byteAt(bytes, 26) | (byteAt(bytes, 27) << 8)) & 0x3fff,
+      height: (byteAt(bytes, 28) | (byteAt(bytes, 29) << 8)) & 0x3fff,
     };
   }
-  if (kind === "VP8L" && bytes.length >= 25 && bytes[20] === 0x2f) {
-    const bits = bytes[21] | (bytes[22] << 8) | (bytes[23] << 16) | (bytes[24] << 24);
+  if (kind === "VP8L" && bytes.length >= 25 && byteAt(bytes, 20) === 0x2f) {
+    const bits = byteAt(bytes, 21) | (byteAt(bytes, 22) << 8) | (byteAt(bytes, 23) << 16) | (byteAt(bytes, 24) << 24);
     return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
   }
   throw new Error("Formato WEBP non riconosciuto");
 }
 
 async function sha256(bytes: Uint8Array) {
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const copy = Uint8Array.from(bytes);
+  const digest = await crypto.subtle.digest("SHA-256", copy.buffer);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 

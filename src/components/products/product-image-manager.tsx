@@ -22,7 +22,7 @@ const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_SOURCE_BYTES = 12 * 1024 * 1024;
 const MAX_SOURCE_DIMENSION = 8000;
 
-type ImageMeta = { id: string; product_id: string } | null;
+type ImageMeta = { id: string } | null;
 
 async function canvasBlob(bitmap: ImageBitmap, maxDimension: number, quality: number) {
   const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
