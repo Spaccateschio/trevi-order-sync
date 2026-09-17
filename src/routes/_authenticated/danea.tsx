@@ -76,11 +76,32 @@ function DaneaPage() {
   const isAdmin = hasRole(identity, "amministratore");
 
   const [name, setName] = useState("");
+  const [stationArchiveId, setStationArchiveId] = useState("");
+  const [newArchiveName, setNewArchiveName] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [fresh, setFresh] = useState<{ username: string; password: string } | null>(null);
 
   const createStation = useServerFn(createDaneaStation);
   const regenerate = useServerFn(regenerateDaneaStationPassword);
   const revoke = useServerFn(revokeDaneaStation);
+  const createArchive = useServerFn(createDaneaArchive);
+  const renameArchive = useServerFn(renameDaneaArchive);
+  const moveStation = useServerFn(moveDaneaStation);
+
+  const archives = useQuery({
+    queryKey: ["danea", "archives", companyId],
+    enabled: Boolean(companyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("danea_archives")
+        .select("id, name, notes, is_default, status, created_at")
+        .eq("company_id", companyId!)
+        .order("created_at", { ascending: true });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
 
   const stations = useQuery({
     queryKey: ["danea", "stations", companyId],
@@ -89,7 +110,7 @@ function DaneaPage() {
       const { data, error } = await supabase
         .from("danea_stations")
         .select(
-          "id, name, username, status, last_auth_at, last_auth_outcome, last_success_at, detected_creator, detected_app_version, created_at",
+          "id, archive_id, name, username, status, last_auth_at, last_auth_outcome, last_success_at, detected_creator, detected_app_version, created_at",
         )
         .eq("company_id", companyId!)
         .order("created_at", { ascending: true });
