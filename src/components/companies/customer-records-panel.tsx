@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { sendInvitationEmail } from "@/lib/invitation-email.functions";
 
 /**
  * Anagrafica clienti del venditore: descrive un cliente amministrativo.
@@ -219,6 +220,25 @@ export function CustomerRecordsPanel({
     return `${window.location.origin}/invito/${token}`;
   }
 
+  /**
+   * L'email è una consegna in più: se non parte, codice e link restano
+   * validi e l'invito non viene annullato.
+   */
+  async function deliverInviteEmail(invitationId: string, token: string) {
+    try {
+      const result = await sendInvitationEmail({ data: { invitationId, token } });
+      if (result.sent) {
+        toast.success("Invito inviato per email.");
+      } else if (result.reason === "no_email") {
+        toast.info("Nessuna email indicata: usa il link o il codice.");
+      } else {
+        toast.info("Questo indirizzo non riceve più le nostre email: usa il link o il codice.");
+      }
+    } catch {
+      toast.error("Email non inviata: puoi comunque usare il link o il codice.");
+    }
+  }
+
   async function sendInvite() {
     if (!inviteFor) return;
     setBusy(true);
@@ -234,6 +254,7 @@ export function CustomerRecordsPanel({
     const row = (data ?? [])[0];
     if (row?.token) setInviteLink(linkFor(row.token));
     setInviteCode(row?.invite_code ?? null);
+    if (row?.invitation_id && row?.token) await deliverInviteEmail(row.invitation_id, row.token);
     await refresh();
   }
 
@@ -249,6 +270,7 @@ export function CustomerRecordsPanel({
     if (token) {
       setInviteFor(null);
       setInviteLink(linkFor(token));
+      await deliverInviteEmail(invitationId, token);
     }
     await refresh();
   }
@@ -308,7 +330,17 @@ export function CustomerRecordsPanel({
         results.push({ name: record.legal_name, email, error: error.message });
         continue;
       }
-      const token = (data ?? [])[0]?.token;
+      const row = (data ?? [])[0];
+      const token = row?.token;
+      const invitationId = pending ? pending.id : row?.invitation_id;
+      if (token && invitationId) {
+        // L'email è una consegna in più: un errore non invalida l'invito.
+        try {
+          await sendInvitationEmail({ data: { invitationId, token } });
+        } catch {
+          /* il link resta valido e resta nell'elenco copiabile */
+        }
+      }
       results.push({
         name: record.legal_name,
         email,

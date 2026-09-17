@@ -29,6 +29,7 @@ import {
   type Relation,
 } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import { sendInvitationEmail } from "@/lib/invitation-email.functions";
 
 export const Route = createFileRoute("/_authenticated/collegamenti")({
   head: () => ({
@@ -339,12 +340,21 @@ function Collegamenti() {
   }
 
   async function resendInvitation(invitationId: string) {
-    const { error } = await supabase.rpc("resend_customer_invitation", {
+    const { data, error } = await supabase.rpc("resend_customer_invitation", {
       _invitation_id: invitationId,
     });
     if (error) {
       toast.error(error.message);
       return;
+    }
+    const token = (data ?? [])[0]?.token;
+    if (token) {
+      // Se l'invito ha un'email, il rinnovo la raggiunge di nuovo.
+      try {
+        await sendInvitationEmail({ data: { invitationId, token } });
+      } catch {
+        /* codice e link restano validi */
+      }
     }
     await refreshInvitations();
     toast.success("Invito rinnovato.");
@@ -383,6 +393,18 @@ function Collegamenti() {
       code: row.invite_code ?? "",
       link: `${window.location.origin}/invito/${row.token}`,
     });
+    // Con un'email indicata l'invito parte anche via email; senza, restano codice e link.
+    if (freeEmail.trim() !== "") {
+      try {
+        const result = await sendInvitationEmail({
+          data: { invitationId: row.invitation_id, token: row.token },
+        });
+        if (result.sent) toast.success("Invito inviato per email.");
+        else toast.info("Questo indirizzo non riceve le nostre email: usa il link o il codice.");
+      } catch {
+        toast.error("Email non inviata: puoi comunque usare il link o il codice.");
+      }
+    }
     await refreshInvitations();
   }
 
