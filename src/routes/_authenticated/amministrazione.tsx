@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, PlaceholderCard } from "@/components/app-shell";
+import { UnitCatalogue } from "@/components/company/unit-catalogue";
 import { Button } from "@/components/ui/button";
 import {
   activeCompany,
@@ -97,6 +98,8 @@ function Amministrazione() {
               ) : null}
             </div>
           </section>
+
+          {sells ? <UnitCatalogue companyId={company.companyId} /> : null}
 
           <PlaceholderCard
             title="In arrivo nelle prossime fasi"

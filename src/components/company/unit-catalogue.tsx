@@ -1,0 +1,25 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { Pencil, Plus, Power, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { manageUnitOfMeasure } from "@/lib/sales-units.functions";
+
+type UnitRow = { id: string; code: string; description: string; status: "attivo" | "disattivato" | "revocato"; product_sale_units: { count: number }[] };
+export function UnitCatalogue({ companyId }: { companyId: string }) {
+  const queryClient = useQueryClient(); const manage = useServerFn(manageUnitOfMeasure);
+  const [editing, setEditing] = useState<{ id: string | null; code: string; description: string } | null>(null);
+  const query = useQuery({ queryKey: ["company-units", companyId], queryFn: async () => { const { data, error } = await supabase.from("units_of_measure").select("id, code, description, status, product_sale_units(count)").eq("company_id", companyId).order("code"); if (error) throw new Error(error.message); return data as UnitRow[]; } });
+  const mutation = useMutation({ mutationFn: (input: { action: "create"|"update"|"activate"|"deactivate"|"delete"; unitId: string|null; code?: string; description?: string }) => manage({ data: { companyId, unitId: input.unitId, action: input.action, code: input.code ?? null, description: input.description ?? null } }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["company-units", companyId] }); setEditing(null); toast.success("Anagrafica U.M. aggiornata"); }, onError: (error: Error) => toast.error(error.message) });
+  return <section className="rounded-lg border border-border bg-card p-4 sm:col-span-2">
+    <div className="flex items-center justify-between gap-3"><div><h2 className="font-display text-base font-semibold">Unità di misura</h2><p className="text-sm text-muted-foreground">Anagrafica aziendale. Le U.M. disponibili non sono assegnate automaticamente ai prodotti.</p></div><Button size="sm" onClick={() => setEditing({ id: null, code: "", description: "" })}><Plus />Nuova U.M.</Button></div>
+    <div className="mt-4 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-xs text-muted-foreground"><th className="py-2">Sigla</th><th>Descrizione</th><th>Stato</th><th>Prodotti</th><th className="text-right">Azioni</th></tr></thead><tbody>{query.data?.map((unit) => { const used = unit.product_sale_units[0]?.count ?? 0; return <tr key={unit.id} className="border-b last:border-0"><td className="py-2 font-mono font-semibold">{unit.code}</td><td>{unit.description}</td><td><Badge variant={unit.status === "attivo" ? "secondary" : "outline"}>{unit.status === "attivo" ? "Attiva" : "Disattivata"}</Badge></td><td>{used}</td><td><div className="flex justify-end gap-1"><Button size="icon" variant="ghost" title="Modifica" onClick={() => setEditing({ id: unit.id, code: unit.code, description: unit.description })}><Pencil /></Button><Button size="icon" variant="ghost" title={unit.status === "attivo" ? "Disattiva" : "Attiva"} onClick={() => mutation.mutate({ action: unit.status === "attivo" ? "deactivate" : "activate", unitId: unit.id })}><Power /></Button><Button size="icon" variant="ghost" title="Elimina" disabled={used > 0} onClick={() => mutation.mutate({ action: "delete", unitId: unit.id })}><Trash2 /></Button></div></td></tr>; })}</tbody></table></div>
+    <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}><DialogContent><DialogHeader><DialogTitle>{editing?.id ? "Modifica U.M." : "Nuova U.M."}</DialogTitle><DialogDescription>Sigla e descrizione appartengono all’anagrafica Trevi Fruit, non modificano Danea.</DialogDescription></DialogHeader>{editing ? <div className="space-y-3"><Input aria-label="Sigla U.M." placeholder="Sigla" value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value })} /><Input aria-label="Descrizione U.M." placeholder="Descrizione" value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></div> : null}<DialogFooter><Button variant="outline" onClick={() => setEditing(null)}>Annulla</Button><Button disabled={!editing?.code.trim() || !editing.description.trim() || mutation.isPending} onClick={() => editing && mutation.mutate({ action: editing.id ? "update" : "create", unitId: editing.id, code: editing.code, description: editing.description })}>Salva</Button></DialogFooter></DialogContent></Dialog>
+  </section>;
+}

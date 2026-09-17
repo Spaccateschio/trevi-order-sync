@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
-import { Columns3, Download, FileUp, Printer, RotateCcw, Search, SquareCheckBig } from "lucide-react";
+import { Columns3, Download, FileUp, Printer, Ruler, RotateCcw, Search, SquareCheckBig } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -10,6 +10,8 @@ import { AppShell } from "@/components/app-shell";
 import { ProductDetailSheet } from "@/components/products/product-detail-sheet";
 import { ProductGrid } from "@/components/products/product-grid";
 import { ProductMobileList } from "@/components/products/product-mobile-list";
+import { SalesUnitBatchDialog } from "@/components/products/sales-unit-batch-dialog";
+import type { CompanyUnit, ProductSaleUnit } from "@/components/products/sales-unit-manager";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -109,6 +111,7 @@ function ProdottiPage() {
   const [selected, setSelected] = useState<ProductRow | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
+  const [unitBatchOpen, setUnitBatchOpen] = useState(false);
   const [deviceClass, setDeviceClass] = useState<GridDevice>("desktop");
   const [visibility, setVisibility] = useState<VisibilityState>(defaults.visibility);
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(defaults.order);
@@ -203,6 +206,9 @@ function ProdottiPage() {
     },
   });
 
+  const companyUnitsQuery = useQuery({ queryKey: ["company-units", companyId], enabled: Boolean(companyId), queryFn: async () => { if (!companyId) return []; const { data, error } = await supabase.from("units_of_measure").select("id, code, description, status").eq("company_id", companyId).order("code"); if (error) throw new Error(error.message); return data as CompanyUnit[]; } });
+  const saleUnitsQuery = useQuery({ queryKey: ["product-sale-units", companyId], enabled: Boolean(companyId), queryFn: async () => { if (!companyId) return []; const { data, error } = await supabase.from("product_sale_units").select("id, product_id, unit_id, is_active, is_customer_visible, is_default, conversion_factor, conversion_reference_um, needs_review, units_of_measure(code, description)").eq("company_id", companyId); if (error) throw new Error(error.message); return data as ProductSaleUnit[]; } });
+
   const archives = archivesQuery.data ?? [];
   const archiveNameById = useMemo(() => new Map(archives.map((archive) => [archive.id, archive.name])), [archives]);
   const allProducts = productsQuery.data ?? [];
@@ -272,7 +278,7 @@ function ProdottiPage() {
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-y border-border py-1.5 text-xs">
         <p className="truncate text-muted-foreground">{productsQuery.isLoading ? "Caricamento…" : `${sortedFiltered.length} prodotti`}{selectedProducts.length ? ` · ${selectedProducts.length} selezionati` : ""}</p>
-        <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{isAdmin ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
+        <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{isAdmin && selectedProducts.length ? <Button variant="outline" size="sm" onClick={() => setUnitBatchOpen(true)}><Ruler />Gestisci U.M. vendita</Button> : null}{isAdmin ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
       </div>
 
       <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} />
@@ -283,7 +289,8 @@ function ProdottiPage() {
 
     <div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column?.label}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>
 
-    <ProductDetailSheet product={selected} archiveName={selected ? archiveNameById.get(selected.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} onClose={() => setSelected(null)} />
+    <ProductDetailSheet product={selected} archiveName={selected ? archiveNameById.get(selected.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === selected?.id)} onClose={() => setSelected(null)} />
+    {companyId ? <SalesUnitBatchDialog open={unitBatchOpen} onOpenChange={setUnitBatchOpen} companyId={companyId} productIds={selectedProducts.map((product) => product.id)} units={companyUnitsQuery.data ?? []} /> : null}
     <ImportDialog open={importOpen} onOpenChange={setImportOpen} companyId={companyId} archives={archives.filter((archive) => archive.status === "attivo").map((archive) => ({ id: archive.id, name: archive.name, isDefault: archive.is_default }))} onImported={() => { void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] }); void queryClient.invalidateQueries({ queryKey: ["danea-listini", companyId] }); }} />
   </AppShell>;
 }
