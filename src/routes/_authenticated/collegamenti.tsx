@@ -425,9 +425,15 @@ function Collegamenti() {
       toast.error("Invito non generato: riprova.");
       return;
     }
+    const meta = await supabase
+      .from("company_invitations")
+      .select("expires_at")
+      .eq("id", row.invitation_id)
+      .maybeSingle();
     setFreeResult({
       code: row.invite_code ?? "",
       link: `${window.location.origin}/invito/${row.token}`,
+      expiresAt: meta.data?.expires_at ?? null,
     });
     // Con un'email indicata l'invito parte anche via email; senza, restano codice e link.
     if (freeEmail.trim() !== "") {
