@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useRef, useState } from "react";
+import type { ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
+import { Columns3, Download, FileUp, Printer, RotateCcw, Search, SquareCheckBig } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
-import { Badge } from "@/components/ui/badge";
+import { ProductDetailSheet } from "@/components/products/product-detail-sheet";
+import { ProductGrid } from "@/components/products/product-grid";
+import { ProductMobileList } from "@/components/products/product-mobile-list";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +19,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -23,33 +36,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { activeCompany, companySells, hasRole, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { analyzeDaneaFile, importDaneaFile } from "@/lib/danea.functions";
+import {
+  DEFAULT_COLUMN_ORDER,
+  PRODUCT_COLUMNS,
+  defaultGridPreferences,
+  formatGridValue,
+  type GridDevice,
+  type GridPreferences,
+  type ProductRow,
+} from "@/lib/product-grid";
 
 export const Route = createFileRoute("/_authenticated/vendite_/prodotti")({
   head: () => ({
     meta: [
       { title: "Prodotti da Danea — Trevi Fruit" },
-      {
-        name: "description",
-        content:
-          "Elenco unico dei prodotti ricevuti da Danea Easyfatt: ricerca, filtri, dettaglio e importazione manuale del file.",
-      },
+      { name: "description", content: "Griglia operativa dei prodotti ricevuti da Danea Easyfatt." },
       { property: "og:title", content: "Prodotti da Danea — Trevi Fruit" },
-      {
-        property: "og:description",
-        content:
-          "Elenco unico dei prodotti ricevuti da Danea Easyfatt: ricerca, filtri, dettaglio e importazione manuale del file.",
-      },
+      { property: "og:description", content: "Griglia operativa dei prodotti ricevuti da Danea Easyfatt." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -58,70 +65,72 @@ export const Route = createFileRoute("/_authenticated/vendite_/prodotti")({
 });
 
 const PAGE_SIZE = 50;
+const GRID_KEY = "vendite.prodotti";
 
-type ProductRow = {
-  id: string;
-  archive_id: string;
-  code: string;
-  description: string | null;
-  category: string | null;
-  subcategory: string | null;
-  danea_um: string | null;
-  size_um: string | null;
-  weight_um: string | null;
-  vat_perc: number | null;
-  vat_code: string | null;
-  vat_description: string | null;
-  publish_status: "pubblicato" | "non_pubblicato";
-  danea_internal_id: string | null;
-  notes: string | null;
-  image_file_name: string | null;
-  image_folder: string | null;
-  supplier_code: string | null;
-  supplier_name: string | null;
-  supplier_product_code: string | null;
-  last_received_at: string;
-  product_prices: { list_number: number; net_price: number | null; gross_price: number | null }[];
-};
-
-function euro(value: number | null | undefined) {
-  if (value === null || value === undefined) return "—";
-  return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(value);
+function getDeviceClass(): GridDevice {
+  if (typeof window === "undefined") return "desktop";
+  if (window.innerWidth < 768) return "smartphone";
+  if (window.innerWidth < 1280) return "tablet";
+  return "desktop";
 }
 
-function dateTime(value: string | null) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("it-IT", { dateStyle: "short", timeStyle: "short" }).format(
-    new Date(value),
-  );
+function sortProducts(products: ProductRow[], sorting: SortingState, archives: Map<string, string>) {
+  const active = sorting[0];
+  if (!active) return products;
+  const column = PRODUCT_COLUMNS.find((item) => item.id === active.id);
+  if (!column) return products;
+  return [...products].sort((left, right) => {
+    const a = column.value(left, archives);
+    const b = column.value(right, archives);
+    if (a === b) return 0;
+    if (a === null || a === "—") return 1;
+    if (b === null || b === "—") return -1;
+    const result = typeof a === "number" && typeof b === "number"
+      ? a - b
+      : String(a).localeCompare(String(b), "it", { numeric: true, sensitivity: "base" });
+    return active.desc ? -result : result;
+  });
 }
 
 function ProdottiPage() {
   const { data: identity, isLoading: identityLoading } = useIdentity();
   const company = activeCompany(identity);
   const companyId = company?.companyId ?? null;
+  const userId = identity?.userId ?? null;
   const isAdmin = hasRole(identity, "amministratore");
   const queryClient = useQueryClient();
+  const defaults = useMemo(() => defaultGridPreferences(), []);
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("tutte");
   const [archiveFilter, setArchiveFilter] = useState("tutti");
-  // Danea è il gestionale padrone: per default vediamo solo i prodotti
-  // presenti nell'ultimo catalogo inviato.
   const [status, setStatus] = useState("pubblicato");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<ProductRow | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
+  const [deviceClass, setDeviceClass] = useState<GridDevice>("desktop");
+  const [visibility, setVisibility] = useState<VisibilityState>(defaults.visibility);
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(defaults.order);
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(defaults.sizing);
+  const [sorting, setSorting] = useState<SortingState>(defaults.sorting);
+  const [preferencesReady, setPreferencesReady] = useState(false);
+
+  useEffect(() => {
+    const update = () => setDeviceClass(getDeviceClass());
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  useEffect(() => setPreferencesReady(false), [deviceClass, userId]);
 
   const archivesQuery = useQuery({
     queryKey: ["danea-archivi", companyId],
     enabled: Boolean(companyId),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("danea_archives")
-        .select("id, name, is_default, status")
-        .eq("company_id", companyId!)
-        .order("created_at", { ascending: true });
+      if (!companyId) return [];
+      const { data, error } = await supabase.from("danea_archives").select("id, name, is_default, status").eq("company_id", companyId).order("created_at", { ascending: true });
       if (error) throw new Error(error.message);
       return data ?? [];
     },
@@ -130,18 +139,11 @@ function ProdottiPage() {
   const productsQuery = useQuery({
     queryKey: ["prodotti", companyId],
     enabled: Boolean(companyId),
-    // Gli invii da Danea arrivano dal server: ricontrolliamo spesso così
-    // l'elenco riflette subito l'ultimo catalogo ricevuto.
     refetchInterval: 15000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select(
-          "id, archive_id, code, description, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, publish_status, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, last_received_at, product_prices(list_number, net_price, gross_price)",
-        )
-        .eq("company_id", companyId!)
-        .order("code");
+      if (!companyId) return [];
+      const { data, error } = await supabase.from("products").select("id, archive_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price)").eq("company_id", companyId).order("code");
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as ProductRow[];
     },
@@ -151,350 +153,139 @@ function ProdottiPage() {
     queryKey: ["danea-listini", companyId],
     enabled: Boolean(companyId),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("danea_price_lists")
-        .select("list_number, danea_name, display_name")
-        .eq("company_id", companyId!)
-        .order("list_number");
+      if (!companyId) return [];
+      const { data, error } = await supabase.from("danea_price_lists").select("list_number, danea_name, display_name").eq("company_id", companyId).order("list_number");
       if (error) throw new Error(error.message);
       return data ?? [];
     },
   });
 
-  const costsQuery = useQuery({
-    queryKey: ["danea-costi", companyId, selected?.id],
-    enabled: Boolean(companyId && selected && isAdmin),
+  const preferencesQuery = useQuery({
+    queryKey: ["product-grid-preferences", userId, deviceClass],
+    enabled: Boolean(userId),
     queryFn: async () => {
-      const { data } = await supabase
-        .from("product_supplier_costs")
-        .select("supplier_name, supplier_code, supplier_product_code, supplier_net_price, supplier_gross_price, received_at")
-        .eq("product_id", selected!.id)
-        .maybeSingle();
+      if (!userId) return null;
+      const { data, error } = await supabase.from("user_grid_preferences").select("columns, sort").eq("user_id", userId).eq("grid_key", GRID_KEY).eq("device_class", deviceClass).maybeSingle();
+      if (error) throw new Error(error.message);
       return data;
     },
   });
 
-  const listName = (listNumber: number) => {
-    const row = priceListsQuery.data?.find((l) => l.list_number === listNumber);
-    return row?.display_name ?? row?.danea_name ?? `Listino ${listNumber}`;
-  };
+  useEffect(() => {
+    if (preferencesQuery.isLoading) return;
+    const row = preferencesQuery.data;
+    const columns = row?.columns as Partial<GridPreferences> | undefined;
+    const savedSort = row?.sort as SortingState | undefined;
+    setVisibility(columns?.visibility ?? defaults.visibility);
+    setColumnOrder(columns?.order ?? defaults.order);
+    setColumnSizing(columns?.sizing ?? defaults.sizing);
+    setSorting(Array.isArray(savedSort) ? savedSort : defaults.sorting);
+    setPreferencesReady(true);
+  }, [defaults, deviceClass, preferencesQuery.data, preferencesQuery.isLoading]);
 
-  const allProducts = productsQuery.data ?? [];
+  useEffect(() => {
+    if (!preferencesReady || !userId) return;
+    const timer = window.setTimeout(async () => {
+      const columns = { visibility, order: columnOrder, sizing: columnSizing };
+      const { error } = await supabase.from("user_grid_preferences").upsert({ user_id: userId, grid_key: GRID_KEY, device_class: deviceClass, columns: columns as Json, sort: sorting as unknown as Json }, { onConflict: "user_id,grid_key,device_class" });
+      if (error) toast.error("Impossibile salvare le preferenze della griglia");
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [columnOrder, columnSizing, deviceClass, preferencesReady, sorting, userId, visibility]);
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of allProducts) if (p.category) set.add(p.category);
-    return [...set].sort((a, b) => a.localeCompare(b, "it"));
-  }, [allProducts]);
+  const costsQuery = useQuery({
+    queryKey: ["danea-costi", companyId, selected?.id],
+    enabled: Boolean(companyId && selected && isAdmin),
+    queryFn: async () => {
+      if (!selected) return null;
+      const { data } = await supabase.from("product_supplier_costs").select("supplier_name, supplier_code, supplier_product_code, supplier_net_price, supplier_gross_price, received_at").eq("product_id", selected.id).maybeSingle();
+      return data;
+    },
+  });
 
   const archives = archivesQuery.data ?? [];
-  const archiveNameById = new Map(archives.map((a) => [a.id, a.name]));
-
+  const archiveNameById = useMemo(() => new Map(archives.map((archive) => [archive.id, archive.name])), [archives]);
+  const allProducts = productsQuery.data ?? [];
+  const categories = useMemo(() => [...new Set(allProducts.flatMap((product) => product.category ? [product.category] : []))].sort((a, b) => a.localeCompare(b, "it")), [allProducts]);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return allProducts.filter((p) => {
-      if (category !== "tutte" && p.category !== category) return false;
-      if (archiveFilter !== "tutti" && p.archive_id !== archiveFilter) return false;
-      if (status !== "tutti" && p.publish_status !== status) return false;
-      if (!term) return true;
-      return (
-        p.code.toLowerCase().includes(term) || (p.description ?? "").toLowerCase().includes(term)
-      );
+    return allProducts.filter((product) => {
+      if (category !== "tutte" && product.category !== category) return false;
+      if (archiveFilter !== "tutti" && product.archive_id !== archiveFilter) return false;
+      if (status !== "tutti" && product.publish_status !== status) return false;
+      return !term || product.code.toLowerCase().includes(term) || (product.description ?? "").toLowerCase().includes(term);
     });
-  }, [allProducts, search, category, status, archiveFilter]);
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  }, [allProducts, archiveFilter, category, search, status]);
+  const sortedFiltered = useMemo(() => sortProducts(filtered, sorting, archiveNameById), [archiveNameById, filtered, sorting]);
+  const pageCount = Math.max(1, Math.ceil(sortedFiltered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
-  const visible = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const visible = sortedFiltered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const selectedProducts = sortedFiltered.filter((product) => selectedIds.has(product.id));
+  const outputProducts = selectedProducts.length ? selectedProducts : sortedFiltered;
+  const visibleColumns = columnOrder.map((id) => PRODUCT_COLUMNS.find((column) => column.id === id)).filter((column) => column && visibility[column.id] !== false && (isAdmin || !column.adminOnly));
 
-  const mainPrice = (p: ProductRow) => {
-    const first = [...p.product_prices].sort((a, b) => a.list_number - b.list_number)[0];
-    return first ? (first.net_price ?? first.gross_price) : null;
+  const listName = (number: number) => {
+    const row = priceListsQuery.data?.find((list) => list.list_number === number);
+    return row?.display_name ?? row?.danea_name ?? `Listino ${number}`;
   };
 
-  if (!identityLoading && !companySells(identity)) {
-    return (
-      <AppShell title="Prodotti" description="Area riservata alle aziende che vendono.">
-        <p className="text-sm text-muted-foreground">
-          Il profilo di vendita non è attivo per la tua azienda. Un amministratore può attivarlo
-          dalla pagina Azienda.
-        </p>
-      </AppShell>
-    );
+  function resetPreferences() {
+    const next = defaultGridPreferences();
+    setVisibility(next.visibility);
+    setColumnOrder(next.order);
+    setColumnSizing(next.sizing);
+    setSorting(next.sorting);
   }
 
-  return (
-    <AppShell
-      title="Prodotti"
-      description="Tutti i prodotti ricevuti da Danea, dal collegamento diretto o dall'importazione manuale."
-    >
-      <div className="space-y-4">
-        {isAdmin ? (
-          <div className="flex justify-end">
-            <Button onClick={() => setImportOpen(true)}>Importa da Danea</Button>
-          </div>
-        ) : null}
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
-          <Input
-            placeholder="Cerca per codice o descrizione"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(0);
-            }}
-          />
-          <Select
-            value={category}
-            onValueChange={(v) => {
-              setCategory(v);
-              setPage(0);
-            }}
-          >
-            <SelectTrigger className="sm:w-48">
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="tutte">Tutte le categorie</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={status}
-            onValueChange={(v) => {
-              setStatus(v);
-              setPage(0);
-            }}
-          >
-            <SelectTrigger className="sm:w-44">
-              <SelectValue placeholder="Stato" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pubblicato">Catalogo Danea attuale</SelectItem>
-              <SelectItem value="non_pubblicato">Non più inviati da Danea</SelectItem>
-              <SelectItem value="tutti">Tutti</SelectItem>
-            </SelectContent>
-          </Select>
-          {archives.length > 1 ? (
-            <Select
-              value={archiveFilter}
-              onValueChange={(v) => {
-                setArchiveFilter(v);
-                setPage(0);
-              }}
-            >
-              <SelectTrigger className="sm:w-48">
-                <SelectValue placeholder="Archivio" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tutti">Tutti gli archivi</SelectItem>
-                {archives.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
+  function exportCsv() {
+    const header = visibleColumns.map((column) => `"${column?.label.replaceAll('"', '""')}"`).join(";");
+    const rows = outputProducts.map((product) => visibleColumns.map((column) => {
+      if (!column) return '""';
+      const value = formatGridValue(column, column.value(product, archiveNameById));
+      return `"${value.replaceAll('"', '""')}"`;
+    }).join(";"));
+    const blob = new Blob(["\ufeff", [header, ...rows].join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `prodotti-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if (!identityLoading && !companySells(identity)) return <AppShell title="Prodotti" description="Area riservata alle aziende che vendono."><p className="text-sm text-muted-foreground">Il profilo di vendita non è attivo per la tua azienda.</p></AppShell>;
+
+  return <AppShell title="Prodotti" compact wide>
+    <div className="space-y-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 xl:flex xl:items-center">
+        <div className="relative min-w-0 xl:w-72"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input aria-label="Cerca prodotti" className="h-9 pl-8" placeholder="Codice o descrizione" value={search} onChange={(event) => { setSearch(event.target.value); setPage(0); }} /></div>
+        <div className="flex shrink-0 items-center gap-1 xl:order-last">
+          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Columns3 />Colonne</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="max-h-[70vh] w-64"><DropdownMenuLabel>Colonne visibili</DropdownMenuLabel>{PRODUCT_COLUMNS.filter((column) => isAdmin || !column.adminOnly).map((column) => <DropdownMenuCheckboxItem key={column.id} checked={visibility[column.id] !== false} onSelect={(event) => event.preventDefault()} onCheckedChange={(checked) => setVisibility((current) => ({ ...current, [column.id]: checked }))}>{column.label}</DropdownMenuCheckboxItem>)}<DropdownMenuSeparator /><DropdownMenuItem onSelect={resetPreferences}><RotateCcw />Ripristina predefinite</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Seleziona prodotti"><SquareCheckBig /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setSelectedIds(new Set(visible.map((product) => product.id)))}>Seleziona questa pagina ({visible.length})</DropdownMenuItem><DropdownMenuItem onSelect={() => setSelectedIds(new Set(sortedFiltered.map((product) => product.id)))}>Seleziona tutti i risultati ({sortedFiltered.length})</DropdownMenuItem><DropdownMenuItem disabled={!selectedIds.size} onSelect={() => setSelectedIds(new Set())}>Azzera selezione</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
         </div>
-
-        <p className="text-xs text-muted-foreground">
-          {productsQuery.isLoading
-            ? "Caricamento…"
-            : status === "pubblicato"
-              ? `${filtered.length} prodotti nell'ultimo catalogo ricevuto da Danea`
-              : `${filtered.length} prodotti su ${allProducts.length} in archivio`}
-        </p>
-
-        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-28">Codice</TableHead>
-                <TableHead>Descrizione</TableHead>
-                <TableHead className="hidden md:table-cell">Categoria</TableHead>
-                <TableHead className="w-16">U.M.</TableHead>
-                <TableHead className="w-16">IVA</TableHead>
-                <TableHead className="w-28 text-right">Listino 1</TableHead>
-                <TableHead className="w-32">Stato</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((p) => (
-                <TableRow
-                  key={p.id}
-                  className="cursor-pointer"
-                  onClick={() => setSelected(p)}
-                >
-                  <TableCell className="font-mono text-xs">{p.code}</TableCell>
-                  <TableCell className="text-sm">{p.description ?? "—"}</TableCell>
-                  <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
-                    {[p.category, p.subcategory].filter(Boolean).join(" / ") || "—"}
-                  </TableCell>
-                  <TableCell className="text-xs">{p.danea_um ?? "—"}</TableCell>
-                  <TableCell className="text-xs">
-                    {p.vat_perc !== null ? `${p.vat_perc}%` : (p.vat_code ?? "—")}
-                  </TableCell>
-                  <TableCell className="text-right text-sm">{euro(mainPrice(p))}</TableCell>
-                  <TableCell>
-                    <Badge variant={p.publish_status === "pubblicato" ? "default" : "secondary"}>
-                      {p.publish_status === "pubblicato" ? "Pubblicato" : "Non pubblicato"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!productsQuery.isLoading && !visible.length ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    Nessun prodotto. Importa il file Danea oppure invia il catalogo dalla postazione
-                    Danea.
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
+        <div className="col-span-2 flex min-w-0 gap-2 overflow-x-auto xl:col-span-1 xl:flex-1">
+          <Select value={category} onValueChange={(value) => { setCategory(value); setPage(0); }}><SelectTrigger className="h-9 w-44 shrink-0"><SelectValue placeholder="Categoria" /></SelectTrigger><SelectContent><SelectItem value="tutte">Tutte le categorie</SelectItem>{categories.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select>
+          {archives.length > 1 ? <Select value={archiveFilter} onValueChange={(value) => { setArchiveFilter(value); setPage(0); }}><SelectTrigger className="h-9 w-44 shrink-0"><SelectValue placeholder="Archivio" /></SelectTrigger><SelectContent><SelectItem value="tutti">Tutti gli archivi</SelectItem>{archives.map((archive) => <SelectItem key={archive.id} value={archive.id}>{archive.name}</SelectItem>)}</SelectContent></Select> : null}
+          <Select value={status} onValueChange={(value) => { setStatus(value); setPage(0); }}><SelectTrigger className="h-9 w-48 shrink-0"><SelectValue placeholder="Stato" /></SelectTrigger><SelectContent><SelectItem value="pubblicato">Catalogo attuale</SelectItem><SelectItem value="non_pubblicato">Non più inviati</SelectItem><SelectItem value="tutti">Tutti gli stati</SelectItem></SelectContent></Select>
         </div>
-
-        {pageCount > 1 ? (
-          <div className="flex items-center justify-between text-sm">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === 0}
-              onClick={() => setPage(currentPage - 1)}
-            >
-              Precedenti
-            </Button>
-            <span className="text-muted-foreground">
-              Pagina {currentPage + 1} di {pageCount}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage >= pageCount - 1}
-              onClick={() => setPage(currentPage + 1)}
-            >
-              Successivi
-            </Button>
-          </div>
-        ) : null}
       </div>
 
-      <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{selected?.description ?? selected?.code}</DialogTitle>
-            <DialogDescription>
-              Dati ricevuti da Danea Easyfatt. La modifica dell'anagrafica avviene in Danea.
-            </DialogDescription>
-          </DialogHeader>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-y border-border py-1.5 text-xs">
+        <p className="truncate text-muted-foreground">{productsQuery.isLoading ? "Caricamento…" : `${sortedFiltered.length} prodotti`}{selectedProducts.length ? ` · ${selectedProducts.length} selezionati` : ""}</p>
+        <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{isAdmin ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
+      </div>
 
-          {selected ? (
-            <div className="space-y-4 text-sm">
-              <dl className="grid grid-cols-2 gap-3">
-                <Field label="Codice" value={selected.code} />
-                <Field label="Identificativo interno" value={selected.danea_internal_id ?? "—"} />
-                <Field label="Categoria" value={selected.category ?? "—"} />
-                <Field label="Sottocategoria" value={selected.subcategory ?? "—"} />
-                <Field label="Unità di misura" value={selected.danea_um ?? "—"} />
-                <Field
-                  label="IVA"
-                  value={
-                    selected.vat_perc !== null
-                      ? `${selected.vat_perc}% ${selected.vat_description ?? ""}`.trim()
-                      : (selected.vat_code ?? "—")
-                  }
-                />
-                <Field
-                  label="Stato"
-                  value={selected.publish_status === "pubblicato" ? "Pubblicato" : "Non pubblicato"}
-                />
-                <Field label="Ultimo aggiornamento" value={dateTime(selected.last_received_at)} />
-              </dl>
+      <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} />
+      <ProductMobileList products={visible} selectedIds={selectedIds} onSelect={(id, checked) => setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; })} onOpen={setSelected} />
 
-              <section>
-                <h3 className="font-display text-sm font-semibold">Listini</h3>
-                {selected.product_prices.length ? (
-                  <ul className="mt-2 space-y-1">
-                    {[...selected.product_prices]
-                      .sort((a, b) => a.list_number - b.list_number)
-                      .map((price) => (
-                        <li key={price.list_number} className="flex justify-between gap-3">
-                          <span className="text-muted-foreground">
-                            {listName(price.list_number)}
-                          </span>
-                          <span>
-                            {euro(price.net_price)}
-                            {price.gross_price !== null ? ` (ivato ${euro(price.gross_price)})` : ""}
-                          </span>
-                        </li>
-                      ))}
-                  </ul>
-                ) : (
-                  <p className="mt-1 text-muted-foreground">Nessun prezzo ricevuto.</p>
-                )}
-              </section>
-
-              {isAdmin ? (
-                <section>
-                  <h3 className="font-display text-sm font-semibold">Fornitore e costo</h3>
-                  {costsQuery.data ? (
-                    <dl className="mt-2 grid grid-cols-2 gap-3">
-                      <Field label="Fornitore" value={costsQuery.data.supplier_name ?? "—"} />
-                      <Field label="Codice fornitore" value={costsQuery.data.supplier_code ?? "—"} />
-                      <Field
-                        label="Codice prodotto fornitore"
-                        value={costsQuery.data.supplier_product_code ?? "—"}
-                      />
-                      <Field label="Costo" value={euro(costsQuery.data.supplier_net_price)} />
-                    </dl>
-                  ) : (
-                    <p className="mt-1 text-muted-foreground">
-                      {selected.supplier_name
-                        ? selected.supplier_name
-                        : "Nessun dato fornitore ricevuto."}
-                    </p>
-                  )}
-                </section>
-              ) : null}
-
-              <section>
-                <h3 className="font-display text-sm font-semibold">Altri dati</h3>
-                <dl className="mt-2 grid grid-cols-2 gap-3">
-                  <Field label="Note" value={selected.notes ?? "—"} />
-                  <Field label="Immagine" value={selected.image_file_name ?? "—"} />
-                  <Field label="Cartella immagini" value={selected.image_folder ?? "—"} />
-                </dl>
-              </section>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
-      <ImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        companyId={companyId}
-        archives={archives.filter((a) => a.status === "attivo").map((a) => ({ id: a.id, name: a.name, isDefault: a.is_default }))}
-        onImported={() => {
-          void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] });
-          void queryClient.invalidateQueries({ queryKey: ["danea-listini", companyId] });
-        }}
-      />
-    </AppShell>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="break-words">{value}</dd>
+      {pageCount > 1 ? <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><Button variant="outline" size="sm" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Precedenti</Button><span className="truncate text-center text-xs text-muted-foreground">Pagina {currentPage + 1} di {pageCount}</span><Button variant="outline" size="sm" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>Successivi</Button></div> : null}
     </div>
-  );
+
+    <div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column?.label}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>
+
+    <ProductDetailSheet product={selected} archiveName={selected ? archiveNameById.get(selected.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} onClose={() => setSelected(null)} />
+    <ImportDialog open={importOpen} onOpenChange={setImportOpen} companyId={companyId} archives={archives.filter((archive) => archive.status === "attivo").map((archive) => ({ id: archive.id, name: archive.name, isDefault: archive.is_default }))} onImported={() => { void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] }); void queryClient.invalidateQueries({ queryKey: ["danea-listini", companyId] }); }} />
+  </AppShell>;
 }
 
 type Analysis = Awaited<ReturnType<typeof analyzeDaneaFile>>;

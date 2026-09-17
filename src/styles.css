@@ -61,6 +61,38 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  body > * {
+    visibility: hidden;
+  }
+
+  #product-print-area,
+  #product-print-area * {
+    visibility: visible;
+  }
+
+  #product-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: var(--color-background);
+    color: var(--color-foreground);
+  }
+
+  #product-print-area thead {
+    display: table-header-group;
+  }
+
+  #product-print-area tr {
+    break-inside: avoid;
+  }
+}
+
 :root {
   --radius: 0.625rem;
 

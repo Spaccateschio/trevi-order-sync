@@ -957,6 +957,39 @@ export type Database = {
           },
         ]
       }
+      user_grid_preferences: {
+        Row: {
+          columns: Json
+          created_at: string
+          device_class: string
+          grid_key: string
+          id: string
+          sort: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          columns?: Json
+          created_at?: string
+          device_class: string
+          grid_key: string
+          id?: string
+          sort?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          columns?: Json
+          created_at?: string
+          device_class?: string
+          grid_key?: string
+          id?: string
+          sort?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

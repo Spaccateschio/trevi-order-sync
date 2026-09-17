@@ -19,10 +19,14 @@ const AREA_LABEL: Record<NavArea, string> = {
 export function AppShell({
   title,
   description,
+  compact = false,
+  wide = false,
   children,
 }: {
   title: string;
   description?: string;
+  compact?: boolean;
+  wide?: boolean;
   children: ReactNode;
 }) {
   const { data: identity, isSuccess } = useIdentity();
@@ -152,9 +156,9 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl overflow-x-hidden px-3 pb-28 pt-4 sm:px-5 lg:pb-10 lg:pt-7">
-          <div className="mb-4 min-w-0 lg:mb-6">
-            <h1 className="text-xl font-semibold sm:text-2xl lg:text-3xl">{title}</h1>
+        <main className={cn("mx-auto w-full overflow-x-hidden px-3 pb-28 pt-4 sm:px-5 lg:pb-10", wide ? "max-w-none lg:px-4" : "max-w-6xl", compact ? "lg:pt-3" : "lg:pt-7")}>
+          <div className={cn("min-w-0", compact ? "mb-2" : "mb-4 lg:mb-6")}>
+            <h1 className={cn("font-semibold", compact ? "text-xl" : "text-xl sm:text-2xl lg:text-3xl")}>{title}</h1>
             {description ? (
               <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{description}</p>
             ) : null}

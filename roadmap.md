@@ -1,8 +1,8 @@
 # Roadmap
 
 ## In corso
-- [ ] Revisione Vendite → Prodotti, punto 1: archivi Danea + import per archivio (con test)
-- [ ] Punto 2: griglia Prodotti professionale (colonne, preferenze per utente/dispositivo, selezione, stampa, esportazione)
+- [x] Revisione Vendite → Prodotti, punto 1: archivi Danea + import per archivio (con test)
+- [x] Punto 2: griglia Prodotti professionale (selezione globale dell’intero risultato filtrato, menu Colonne persistente, ridimensionamento fluido, preferenze automatiche per utente/dispositivo, stampa/esportazione)
 - [ ] Punto 3: U.M. Trevi Fruit (anagrafica, U.M. per prodotto, conversione stimata facoltativa)
 - [ ] Punto 4: immagini Trevi Fruit
 

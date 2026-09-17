@@ -15,7 +15,9 @@ Trasformare Vendite → Prodotti in una schermata operativa compatta, mantenendo
    - Menu Colonne con caselle per tutti i campi realmente presenti; nessuna Giacenza e nessun dato inventato.
    - Riordino trascinando le intestazioni, ridimensionamento dal bordo, intestazione fissa e righe dense.
    - Filtri e comandi raccolti in un’unica barra compatta immediatamente sopra la griglia.
-   - Selezione singola, multipla e di tutto il risultato filtrato.
+   - Selezione singola, multipla, della pagina corrente oppure dell’intero risultato filtrato: se i filtri trovano 1.500 prodotti, la selezione globale comprende tutti i 1.500 anche se solo una parte è renderizzata.
+   - Il menu Colonne resta aperto durante scelte consecutive, usa un elenco compatto con checkbox e include il ripristino delle impostazioni iniziali.
+   - Il ridimensionamento aggiorna la griglia durante il trascinamento e applica larghezze minime utilizzabili.
 
 3. **Smartphone e dettaglio prodotto**
    - Su smartphone sostituire la griglia larga con un elenco touch compatto, mantenendo ricerca, filtri e selezione.
@@ -23,8 +25,8 @@ Trasformare Vendite → Prodotti in una schermata operativa compatta, mantenendo
    - Mostrare soltanto i dati Danea in lettura; nessuna U.M. Trevi Fruit, conversione o immagine in questa fase.
 
 4. **Stampa ed esportazione**
-   - Stampare i prodotti selezionati con le colonne visibili nello stesso ordine, in formato A4; se non c’è selezione, stampare il risultato filtrato.
-   - Esportare CSV compatibile con Excel, separatore `;` e codifica corretta; selezionati se presenti, altrimenti risultato filtrato.
+   - Stampare tutti i prodotti selezionati — anche oltre la pagina o le righe renderizzate — con le colonne visibili nello stesso ordine, in formato A4; se non c’è selezione, stampare l’intero risultato filtrato.
+   - Esportare CSV compatibile con Excel, separatore `;` e codifica corretta; tutti i selezionati se presenti, altrimenti l’intero risultato filtrato.
    - Escludere dai file e dalla stampa la colonna tecnica di selezione.
 
 5. **Compattezza della pagina**
@@ -36,7 +38,7 @@ Trasformare Vendite → Prodotti in una schermata operativa compatta, mantenendo
 - `src/components/products/product-grid.tsx`: griglia desktop/tablet.
 - `src/components/products/product-mobile-list.tsx`: elenco smartphone.
 - `src/components/products/product-detail-sheet.tsx`: dettaglio laterale/a tutto schermo.
-- `src/lib/product-grid.ts`: definizioni delle colonne, valori esportabili e impostazioni iniziali.
+- `src/lib/product-grid.ts`: definizioni delle colonne, valori esportabili e impostazioni iniziali; salvataggio automatico ritardato dopo ogni modifica, senza pulsante Salva.
 - `src/components/app-shell.tsx`: sola opzione di intestazione compatta, usata da Prodotti.
 - `src/styles.css`: sole regole di stampa A4 della griglia.
 - `package.json` e lockfile: TanStack Table; virtualizzazione solo se necessaria per dataset ampi.
