@@ -251,6 +251,50 @@ export type Database = {
           },
         ]
       }
+      danea_archives: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_default: boolean
+          name: string
+          notes: string | null
+          status: Database["public"]["Enums"]["entity_status"]
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "danea_archives_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       danea_auth_failures: {
         Row: {
           attempted_username: string | null
@@ -277,6 +321,7 @@ export type Database = {
       }
       danea_price_lists: {
         Row: {
+          archive_id: string
           company_id: string
           created_at: string
           danea_name: string | null
@@ -287,6 +332,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archive_id: string
           company_id: string
           created_at?: string
           danea_name?: string | null
@@ -297,6 +343,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archive_id?: string
           company_id?: string
           created_at?: string
           danea_name?: string | null
@@ -307,6 +354,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "danea_price_lists_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "danea_price_lists_company_id_fkey"
             columns: ["company_id"]
@@ -319,6 +373,7 @@ export type Database = {
       danea_stations: {
         Row: {
           allowed_uses: string[]
+          archive_id: string
           company_id: string
           created_at: string
           created_by: string | null
@@ -340,6 +395,7 @@ export type Database = {
         }
         Insert: {
           allowed_uses?: string[]
+          archive_id: string
           company_id: string
           created_at?: string
           created_by?: string | null
@@ -361,6 +417,7 @@ export type Database = {
         }
         Update: {
           allowed_uses?: string[]
+          archive_id?: string
           company_id?: string
           created_at?: string
           created_by?: string | null
@@ -381,6 +438,13 @@ export type Database = {
           username?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "danea_stations_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "danea_stations_company_id_fkey"
             columns: ["company_id"]
@@ -438,6 +502,7 @@ export type Database = {
       danea_sync_runs: {
         Row: {
           app_version: string | null
+          archive_id: string
           company_id: string
           created_at: string
           created_count: number
@@ -463,6 +528,7 @@ export type Database = {
         }
         Insert: {
           app_version?: string | null
+          archive_id: string
           company_id: string
           created_at?: string
           created_count?: number
@@ -488,6 +554,7 @@ export type Database = {
         }
         Update: {
           app_version?: string | null
+          archive_id?: string
           company_id?: string
           created_at?: string
           created_count?: number
@@ -512,6 +579,13 @@ export type Database = {
           warehouse?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "danea_sync_runs_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "danea_sync_runs_company_id_fkey"
             columns: ["company_id"]
@@ -635,6 +709,7 @@ export type Database = {
       }
       products: {
         Row: {
+          archive_id: string
           barcode: string | null
           category: string | null
           code: string
@@ -674,6 +749,7 @@ export type Database = {
           vat_perc: number | null
         }
         Insert: {
+          archive_id: string
           barcode?: string | null
           category?: string | null
           code: string
@@ -713,6 +789,7 @@ export type Database = {
           vat_perc?: number | null
         }
         Update: {
+          archive_id?: string
           barcode?: string | null
           category?: string | null
           code?: string
@@ -752,6 +829,13 @@ export type Database = {
           vat_perc?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "products_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "products_company_id_fkey"
             columns: ["company_id"]
