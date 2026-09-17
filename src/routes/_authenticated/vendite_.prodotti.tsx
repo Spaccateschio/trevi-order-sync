@@ -187,17 +187,21 @@ function ProdottiPage() {
     return [...set].sort((a, b) => a.localeCompare(b, "it"));
   }, [allProducts]);
 
+  const archives = archivesQuery.data ?? [];
+  const archiveNameById = new Map(archives.map((a) => [a.id, a.name]));
+
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return allProducts.filter((p) => {
       if (category !== "tutte" && p.category !== category) return false;
+      if (archiveFilter !== "tutti" && p.archive_id !== archiveFilter) return false;
       if (status !== "tutti" && p.publish_status !== status) return false;
       if (!term) return true;
       return (
         p.code.toLowerCase().includes(term) || (p.description ?? "").toLowerCase().includes(term)
       );
     });
-  }, [allProducts, search, category, status]);
+  }, [allProducts, search, category, status, archiveFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
