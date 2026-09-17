@@ -137,9 +137,9 @@ Se upload o validazione falliscono, la vecchia immagine resta visibile e i nuovi
 - Rimuove prima il riferimento corrente in una transazione con audit.
 - Cancella poi i due file; un eventuale errore viene accodato senza lasciare la pagina collegata a file mancanti.
 
-### Pulizia orfani
+### Errori di cancellazione
 
-Nuova tabella tecnica `storage_cleanup_queue` con `company_id`, path, motivo, tentativi e data del prossimo tentativo; RLS senza accesso browser, servizio server soltanto. Una rotta periodica protetta dal segreto già disponibile riprova le cancellazioni. Ogni nuovo caricamento/rimozione può inoltre smaltire una piccola parte della coda della stessa azienda. Nessuna scansione indiscriminata di file di altre aziende.
+Non viene introdotta alcuna coda o pulizia periodica in questa fase. Dopo una sostituzione o rimozione riuscita il server tenta subito di eliminare i vecchi file; se la cancellazione fallisce, registra l’errore nell’audit senza compromettere l’immagine corrente.
 
 ## 8. Lettura efficiente e URL firmati
 
@@ -201,7 +201,7 @@ Nessuna modifica al parser e nessuna immagine binaria entra nell’import.
 ## 12. Migrazione e file previsti
 
 1. Creare bucket privato `product-images` con limite coerente ai file finali.
-2. Migrazione SQL: `product_images`, `storage_cleanup_queue`, GRANT, RLS, trigger di coerenza, funzioni SQL atomiche e audit.
+2. Migrazione SQL: `product_images`, GRANT, RLS, trigger di coerenza, funzioni SQL atomiche e audit.
 3. Nuove funzioni server per preparazione upload, finalizzazione/validazione, URL firmati, rimozione e pulizia.
 4. Nuovo componente immagine nel dettaglio, senza modificare `SalesUnitManager`.
 5. Estensione del tipo/query prodotto con presenza immagine e metadati minimi.
@@ -234,7 +234,7 @@ Nessun backfill: tutti i prodotti iniziano correttamente come `Senza immagine`, 
 - sostituzione riuscita mostra subito la nuova immagine e rimuove la vecchia;
 - errore durante upload/finalizzazione conserva la precedente;
 - rimozione mostra `Nessuna immagine`;
-- fallimento di cancellazione crea una voce di pulizia e il retry elimina l’orfano;
+- fallimento di cancellazione viene registrato nell’audit senza compromettere l’immagine corrente;
 - due sostituzioni concorrenti non lasciano attiva una versione obsoleta.
 
 ### Interfaccia e prestazioni
