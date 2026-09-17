@@ -29,6 +29,8 @@ export type Relation = {
   /** Doppio consenso: il rapporto è operativo solo se entrambi i lati sono attivi. */
   sellerEnabled: boolean;
   buyerEnabled: boolean;
+  /** Cliente d'anagrafica collegato, quando presente: nessun dato duplicato. */
+  customerRecordId: string | null;
 };
 
 /** Unico punto di calcolo: rapporto realmente utilizzabile. */
