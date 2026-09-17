@@ -81,6 +81,7 @@ export type Database = {
           status: Database["public"]["Enums"]["entity_status"]
           tax_code: string | null
           updated_at: string
+          vat_normalized: string | null
           vat_number: string | null
         }
         Insert: {
@@ -108,6 +109,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["entity_status"]
           tax_code?: string | null
           updated_at?: string
+          vat_normalized?: string | null
           vat_number?: string | null
         }
         Update: {
@@ -135,9 +137,86 @@ export type Database = {
           status?: Database["public"]["Enums"]["entity_status"]
           tax_code?: string | null
           updated_at?: string
+          vat_normalized?: string | null
           vat_number?: string | null
         }
         Relationships: []
+      }
+      company_invitations: {
+        Row: {
+          created_at: string
+          customer_record_id: string | null
+          decided_at: string | null
+          email: string
+          email_normalized: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          relation_id: string | null
+          resend_count: number
+          seller_company_id: string
+          sent_at: string
+          status: Database["public"]["Enums"]["invitation_status"]
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_record_id?: string | null
+          decided_at?: string | null
+          email: string
+          email_normalized: string
+          expires_at: string
+          id?: string
+          invited_by?: string | null
+          relation_id?: string | null
+          resend_count?: number
+          seller_company_id: string
+          sent_at?: string
+          status?: Database["public"]["Enums"]["invitation_status"]
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_record_id?: string | null
+          decided_at?: string | null
+          email?: string
+          email_normalized?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          relation_id?: string | null
+          resend_count?: number
+          seller_company_id?: string
+          sent_at?: string
+          status?: Database["public"]["Enums"]["invitation_status"]
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_invitations_customer_record_id_fkey"
+            columns: ["customer_record_id"]
+            isOneToOne: false
+            referencedRelation: "customer_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_invitations_relation_id_fkey"
+            columns: ["relation_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_customer_relations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_invitations_seller_company_id_fkey"
+            columns: ["seller_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_member_roles: {
         Row: {
@@ -306,6 +385,92 @@ export type Database = {
           },
           {
             foreignKeyName: "customer_product_unit_preferences_seller_company_id_fkey"
+            columns: ["seller_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_records: {
+        Row: {
+          address_line: string | null
+          city: string | null
+          created_at: string
+          created_by: string | null
+          delivery_address_line: string | null
+          delivery_city: string | null
+          delivery_notes: string | null
+          delivery_postal_code: string | null
+          delivery_province: string | null
+          email: string | null
+          id: string
+          internal_reference: string | null
+          legal_name: string
+          notes: string | null
+          phone: string | null
+          postal_code: string | null
+          province: string | null
+          seller_company_id: string
+          status: Database["public"]["Enums"]["entity_status"]
+          tax_code: string | null
+          updated_at: string
+          vat_normalized: string | null
+          vat_number: string | null
+        }
+        Insert: {
+          address_line?: string | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivery_address_line?: string | null
+          delivery_city?: string | null
+          delivery_notes?: string | null
+          delivery_postal_code?: string | null
+          delivery_province?: string | null
+          email?: string | null
+          id?: string
+          internal_reference?: string | null
+          legal_name: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          province?: string | null
+          seller_company_id: string
+          status?: Database["public"]["Enums"]["entity_status"]
+          tax_code?: string | null
+          updated_at?: string
+          vat_normalized?: string | null
+          vat_number?: string | null
+        }
+        Update: {
+          address_line?: string | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivery_address_line?: string | null
+          delivery_city?: string | null
+          delivery_notes?: string | null
+          delivery_postal_code?: string | null
+          delivery_province?: string | null
+          email?: string | null
+          id?: string
+          internal_reference?: string | null
+          legal_name?: string
+          notes?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          province?: string | null
+          seller_company_id?: string
+          status?: Database["public"]["Enums"]["entity_status"]
+          tax_code?: string | null
+          updated_at?: string
+          vat_normalized?: string | null
+          vat_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_records_seller_company_id_fkey"
             columns: ["seller_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -1117,6 +1282,7 @@ export type Database = {
           buyer_company_id: string
           buyer_enabled: boolean
           created_at: string
+          customer_record_id: string | null
           decided_at: string | null
           decided_by: string | null
           id: string
@@ -1135,6 +1301,7 @@ export type Database = {
           buyer_company_id: string
           buyer_enabled?: boolean
           created_at?: string
+          customer_record_id?: string | null
           decided_at?: string | null
           decided_by?: string | null
           id?: string
@@ -1153,6 +1320,7 @@ export type Database = {
           buyer_company_id?: string
           buyer_enabled?: boolean
           created_at?: string
+          customer_record_id?: string | null
           decided_at?: string | null
           decided_by?: string | null
           id?: string
@@ -1179,6 +1347,13 @@ export type Database = {
             columns: ["seller_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_customer_relations_customer_record_id_fkey"
+            columns: ["customer_record_id"]
+            isOneToOne: false
+            referencedRelation: "customer_records"
             referencedColumns: ["id"]
           },
         ]
@@ -1262,6 +1437,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_customer_invitation: {
+        Args: { _buyer_company_id: string; _token: string }
+        Returns: string
+      }
       apply_product_sale_unit_batch: {
         Args: {
           _actor_user_id?: string
@@ -1293,8 +1472,31 @@ export type Database = {
           province: string
         }[]
       }
+      cancel_customer_invitation: {
+        Args: { _invitation_id: string }
+        Returns: undefined
+      }
       company_buys: { Args: { _company_id: string }; Returns: boolean }
       company_sells: { Args: { _company_id: string }; Returns: boolean }
+      create_customer_invitation: {
+        Args: {
+          _customer_record_id: string
+          _email: string
+          _valid_days?: number
+        }
+        Returns: {
+          invitation_id: string
+          token: string
+        }[]
+      }
+      customer_record_match_suggestions: {
+        Args: { _customer_record_id: string }
+        Returns: {
+          company_id: string
+          legal_name: string
+          vat_normalized: string
+        }[]
+      }
       decide_company_relation: {
         Args: { _accept: boolean; _relation_id: string }
         Returns: undefined
@@ -1310,12 +1512,52 @@ export type Database = {
         }
         Returns: boolean
       }
+      invitation_preview: {
+        Args: { _token: string }
+        Returns: {
+          customer_legal_name: string
+          customer_vat_normalized: string
+          email: string
+          expired: boolean
+          invitation_id: string
+          seller_company_name: string
+          status: Database["public"]["Enums"]["invitation_status"]
+        }[]
+      }
       invite_customer_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
         Returns: string
       }
       is_company_admin: { Args: { _company_id: string }; Returns: boolean }
       is_company_member: { Args: { _company_id: string }; Returns: boolean }
+      link_customer_record_to_relation: {
+        Args: { _customer_record_id: string; _relation_id: string }
+        Returns: undefined
+      }
+      manage_customer_record: {
+        Args: {
+          _action: string
+          _address_line?: string
+          _city?: string
+          _customer_record_id?: string
+          _delivery_address_line?: string
+          _delivery_city?: string
+          _delivery_notes?: string
+          _delivery_postal_code?: string
+          _delivery_province?: string
+          _email?: string
+          _internal_reference?: string
+          _legal_name?: string
+          _notes?: string
+          _phone?: string
+          _postal_code?: string
+          _province?: string
+          _seller_company_id: string
+          _tax_code?: string
+          _vat_number?: string
+        }
+        Returns: string
+      }
       manage_unit_of_measure: {
         Args: {
           _action: string
@@ -1327,6 +1569,7 @@ export type Database = {
         }
         Returns: string
       }
+      normalize_vat: { Args: { _value: string }; Returns: string }
       register_company: {
         Args: {
           _address_line?: string
@@ -1366,6 +1609,13 @@ export type Database = {
       request_supplier_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
         Returns: string
+      }
+      resend_customer_invitation: {
+        Args: { _invitation_id: string; _valid_days?: number }
+        Returns: {
+          invitation_id: string
+          token: string
+        }[]
       }
       revoke_company_relation: {
         Args: { _relation_id: string }
@@ -1411,6 +1661,11 @@ export type Database = {
       danea_sync_outcome: "in_corso" | "completato" | "fallito"
       danea_sync_source: "postazione" | "manuale"
       entity_status: "attivo" | "disattivato" | "revocato"
+      invitation_status:
+        | "in_attesa"
+        | "accettato"
+        | "annullato"
+        | "annullato_scaduto"
       product_publish_status: "pubblicato" | "non_pubblicato"
       relation_origin: "invito_fornitore" | "richiesta_cliente"
       relation_status:
@@ -1552,6 +1807,12 @@ export const Constants = {
       danea_sync_outcome: ["in_corso", "completato", "fallito"],
       danea_sync_source: ["postazione", "manuale"],
       entity_status: ["attivo", "disattivato", "revocato"],
+      invitation_status: [
+        "in_attesa",
+        "accettato",
+        "annullato",
+        "annullato_scaduto",
+      ],
       product_publish_status: ["pubblicato", "non_pubblicato"],
       relation_origin: ["invito_fornitore", "richiesta_cliente"],
       relation_status: [
