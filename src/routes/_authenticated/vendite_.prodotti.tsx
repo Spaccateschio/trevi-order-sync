@@ -211,7 +211,7 @@ function ProdottiPage() {
 
   const archives = archivesQuery.data ?? [];
   const archiveNameById = useMemo(() => new Map(archives.map((archive) => [archive.id, archive.name])), [archives]);
-  const allProducts = productsQuery.data ?? [];
+  const allProducts = useMemo(() => (productsQuery.data ?? []).map((product) => ({ ...product, sale_units: (saleUnitsQuery.data ?? []).filter((row) => row.product_id === product.id).map((row) => ({ code: row.units_of_measure?.code ?? "—", is_default: row.is_default, needs_review: row.needs_review })) })), [productsQuery.data, saleUnitsQuery.data]);
   const categories = useMemo(() => [...new Set(allProducts.flatMap((product) => product.category ? [product.category] : []))].sort((a, b) => a.localeCompare(b, "it")), [allProducts]);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
