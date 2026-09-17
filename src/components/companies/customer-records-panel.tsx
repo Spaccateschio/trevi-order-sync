@@ -721,15 +721,22 @@ export function CustomerRecordsPanel({
           )}
           <DialogFooter>
             {inviteLink ? (
-              <Button
-                onClick={() => {
-                  setInviteFor(null);
-                  setInviteLink(null);
-                  setInviteCode(null);
-                }}
-              >
-                Ho copiato, chiudi
-              </Button>
+              <>
+                <Button variant="outline" onClick={downloadCurrentInvitePdf}>
+                  Scarica PDF
+                </Button>
+                <Button
+                  onClick={() => {
+                    setInviteFor(null);
+                    setInviteLink(null);
+                    setInviteCode(null);
+                    setInviteRecipient(null);
+                    setInviteExpires(null);
+                  }}
+                >
+                  Ho copiato, chiudi
+                </Button>
+              </>
             ) : (
               <Button disabled={busy || !isAdmin} onClick={sendInvite}>
                 Genera invito
