@@ -47,8 +47,9 @@ Vincoli e indici:
 
 - UNIQUE `(product_id, unit_id)`;
 - un solo default per prodotto tramite indice unico parziale `WHERE is_default`;
+- zero associazioni sono ammesse; quando esiste almeno una U.M. attiva, le funzioni di scrittura garantiscono esattamente una predefinita;
 - `conversion_factor > 0` quando presente;
-- il default deve essere attivo; la coerenza azienda di prodotto e U.M. sarà verificata da trigger `SECURITY DEFINER SET search_path = public`;
+- la predefinita deve essere attiva e visibile al cliente; la coerenza azienda di prodotto e U.M. sarà verificata da trigger `SECURITY DEFINER SET search_path = public`;
 - FK senza CASCADE distruttivi; una U.M. usata non può essere eliminata.
 
 ### `customer_product_unit_preferences`
@@ -69,7 +70,7 @@ Un trigger verifica: rapporto commerciale attivo, prodotto del venditore, U.M. a
 - Tutte le nuove tabelle avranno `GRANT` espliciti, RLS attiva e nessun accesso anonimo.
 - `units_of_measure`: membri dell’azienda leggono; solo amministratori inseriscono, modificano, disattivano o eliminano.
 - `product_sale_units`: membri dell’azienda leggono; solo amministratori scrivono in questa fase.
-- `customer_product_unit_preferences`: predisposta per lettura/scrittura controllata dei membri del venditore; nessuna UI e nessun uso in Ordina ora.
+- `customer_product_unit_preferences`: membri del venditore leggono; in futuro il cliente collegato potrà leggere/scrivere solo la propria preferenza verso un prodotto visibile e una U.M. attiva/visibile. In questo Punto 3 non ci saranno UI né uso in Ordina.
 - `company_id` non sarà considerato attendibile dal browser: le funzioni server verificheranno appartenenza/ruolo tramite identità autenticata e ricaveranno prodotto/U.M./azienda dal database.
 - Le operazioni singole e multiple passeranno da funzioni server autenticate, con validazione, transazione database e registrazione in `audit_events`.
 
@@ -83,7 +84,7 @@ Interfaccia compatta:
 - crea e modifica con dialog;
 - attiva/disattiva senza perdere associazioni;
 - “Elimina” disponibile solo quando non è mai stata associata né usata da una preferenza; altrimenti viene proposta “Disattiva”;
-- modifica della sigla ammessa dall’amministratore, con avviso se già associata. La modifica cambia l’etichetta operativa, non i dati Danea e non crea prodotti nuovi.
+- descrizione modificabile; sigla modificabile solo finché la U.M. non è mai stata associata. Se è già usata, si disattiva la vecchia e se ne crea una nuova, preservando il significato storico.
 
 Nessun elenco iniziale inventato verrà inserito automaticamente: l’amministratore crea solo le U.M. realmente usate. Potremo valutare in implementazione un’azione esplicita “Aggiungi U.M. Danea” precompilata, mai automatica.
 
@@ -115,7 +116,7 @@ Operazioni separate e non ambigue:
 - **Attiva / Disattiva** — modifica solo lo stato;
 - **Imposta conversione stimata** — scelta esplicita tra “solo associazioni senza fattore” e “sovrascrivi anche i fattori esistenti”, con secondo avviso per la sovrascrittura;
 - **Imposta predefinita** — consentita solo scegliendo una singola U.M.; sostituisce il default dei prodotti selezionati in una transazione e mostra quanti default cambieranno;
-- **Rimuovi associazione** — solo se non referenziata; mai confusa con disattivazione.
+- **Rimuovi associazione** — solo se non è mai stata usata né referenziata; altrimenti è disponibile soltanto la disattivazione, così resta la memoria storica.
 
 Nessuna operazione di massa toccherà `danea_um`, prezzi, descrizioni o altri dati Danea.
 
