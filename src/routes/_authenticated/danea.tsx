@@ -575,6 +575,7 @@ function DaneaPage() {
                   <thead className="text-[10px] uppercase text-muted-foreground sm:text-xs">
                     <tr>
                       <th className="py-1.5 pr-3">Postazione</th>
+                      <th className="py-1.5 pr-3">Archivio</th>
                       <th className="py-1.5 pr-3">Utente</th>
                       <th className="py-1.5 pr-3">Stato</th>
                       <th className="py-1.5 pr-3">Ultima connessione</th>
