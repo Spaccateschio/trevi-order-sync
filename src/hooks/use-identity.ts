@@ -72,7 +72,7 @@ async function fetchIdentity(): Promise<Identity | null> {
     supabase
       .from("supplier_customer_relations")
       .select(
-        "id, seller_company_id, buyer_company_id, status, seller:companies!supplier_customer_relations_company_id_fkey(legal_name)",
+        "id, seller_company_id, buyer_company_id, status, origin, seller_enabled, buyer_enabled, seller:companies!supplier_customer_relations_company_id_fkey(legal_name), buyer:companies!relations_buyer_fkey(legal_name)",
       ),
   ]);
 
@@ -154,7 +154,11 @@ async function fetchIdentity(): Promise<Identity | null> {
     sellerCompanyId: row.seller_company_id,
     sellerCompanyName: (row.seller as { legal_name: string } | null)?.legal_name ?? null,
     buyerCompanyId: row.buyer_company_id,
+    buyerCompanyName: (row.buyer as { legal_name: string } | null)?.legal_name ?? null,
     status: row.status as RelationStatus,
+    origin: row.origin as RelationOrigin,
+    sellerEnabled: row.seller_enabled,
+    buyerEnabled: row.buyer_enabled,
   }));
 
   return {
