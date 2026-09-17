@@ -135,21 +135,26 @@ function fileName(data: InvitePdfData) {
   return `invito-${base || "cliente"}.pdf`;
 }
 
-/** Genera e scarica il foglio invito (una pagina). */
-export async function downloadInvitePdf(data: InvitePdfData) {
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
-  await drawPage(doc, data);
-  doc.save(fileName(data));
-}
-
-/** Genera un unico PDF con una pagina per invito (inviti multipli). */
-export async function downloadInvitePdfBatch(items: InvitePdfData[], name = "inviti.pdf") {
-  if (items.length === 0) return;
+/** Compone il documento (una pagina per invito) senza salvarlo. */
+export async function renderInvitePdf(items: InvitePdfData[]) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   for (let index = 0; index < items.length; index += 1) {
     if (index > 0) doc.addPage();
     // eslint-disable-next-line no-await-in-loop
     await drawPage(doc, items[index]!);
   }
+  return doc;
+}
+
+/** Genera e scarica il foglio invito (una pagina). */
+export async function downloadInvitePdf(data: InvitePdfData) {
+  const doc = await renderInvitePdf([data]);
+  doc.save(fileName(data));
+}
+
+/** Genera un unico PDF con una pagina per invito (inviti multipli). */
+export async function downloadInvitePdfBatch(items: InvitePdfData[], name = "inviti.pdf") {
+  if (items.length === 0) return;
+  const doc = await renderInvitePdf(items);
   doc.save(name);
 }
