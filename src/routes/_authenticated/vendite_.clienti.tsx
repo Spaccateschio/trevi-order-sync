@@ -97,6 +97,7 @@ function Clienti() {
       description="Ogni collegamento è indipendente e resta valido solo se entrambe le aziende lo mantengono attivo."
     >
       <div className="space-y-6">
+        {company ? <ProposedUpdatesPanel companyId={company.companyId} isAdmin={isAdmin} /> : null}
         {company ? <CustomerRecordsPanel companyId={company.companyId} isAdmin={isAdmin} /> : null}
 
         <div className="space-y-3">
