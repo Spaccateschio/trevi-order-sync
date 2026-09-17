@@ -181,9 +181,10 @@ function ProdottiPage() {
     const row = preferencesQuery.data;
     const columns = row?.columns as Partial<GridPreferences> | undefined;
     const savedSort = row?.sort as SortingState | undefined;
-    setVisibility(columns?.visibility ?? defaults.visibility);
-    setColumnOrder(columns?.order ?? defaults.order);
-    setColumnSizing(columns?.sizing ?? defaults.sizing);
+    setVisibility({ ...defaults.visibility, ...(columns?.visibility ?? {}) });
+    const savedOrder = columns?.order ?? [];
+    setColumnOrder([...savedOrder, ...defaults.order.filter((id) => !savedOrder.includes(id))]);
+    setColumnSizing({ ...defaults.sizing, ...(columns?.sizing ?? {}) });
     setSorting(Array.isArray(savedSort) ? savedSort : defaults.sorting);
     setPreferencesReady(true);
   }, [defaults, deviceClass, preferencesQuery.data, preferencesQuery.isLoading]);
@@ -214,6 +215,7 @@ function ProdottiPage() {
   const archives = archivesQuery.data ?? [];
   const archiveNameById = useMemo(() => new Map(archives.map((archive) => [archive.id, archive.name])), [archives]);
   const allProducts = useMemo(() => (productsQuery.data ?? []).map((product) => ({ ...product, sale_units: (saleUnitsQuery.data ?? []).filter((row) => row.product_id === product.id).map((row) => ({ code: row.units_of_measure?.code ?? "—", is_default: row.is_default, needs_review: row.needs_review })) })), [productsQuery.data, saleUnitsQuery.data]);
+  const currentProduct = selected ? allProducts.find((product) => product.id === selected.id) ?? selected : null;
   const categories = useMemo(() => [...new Set(allProducts.flatMap((product) => product.category ? [product.category] : []))].sort((a, b) => a.localeCompare(b, "it")), [allProducts]);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -304,7 +306,7 @@ function ProdottiPage() {
 
     <div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column?.label}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>
 
-    <ProductDetailSheet product={selected} archiveName={selected ? archiveNameById.get(selected.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === selected?.id)} onClose={() => setSelected(null)} />
+    <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => setSelected(null)} />
     {companyId ? <SalesUnitBatchDialog open={unitBatchOpen} onOpenChange={setUnitBatchOpen} companyId={companyId} productIds={selectedProducts.map((product) => product.id)} units={companyUnitsQuery.data ?? []} /> : null}
     <ImportDialog open={importOpen} onOpenChange={setImportOpen} companyId={companyId} archives={archives.filter((archive) => archive.status === "attivo").map((archive) => ({ id: archive.id, name: archive.name, isDefault: archive.is_default }))} onImported={() => { void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] }); void queryClient.invalidateQueries({ queryKey: ["danea-listini", companyId] }); }} />
   </AppShell>;
