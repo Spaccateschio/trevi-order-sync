@@ -588,6 +588,9 @@ function DaneaPage() {
                     {list.map((station) => (
                       <tr key={station.id} className="border-t border-border">
                         <td className="py-1.5 pr-3">{station.name}</td>
+                        <td className="py-1.5 pr-3">
+                          {archiveNameById.get(station.archive_id) ?? "—"}
+                        </td>
                         <td className="py-1.5 pr-3 font-mono text-[11px] sm:text-xs">
                           {station.username}
                         </td>
