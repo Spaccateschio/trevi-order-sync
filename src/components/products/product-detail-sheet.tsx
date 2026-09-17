@@ -16,7 +16,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
   archiveName: string;
   listName: (number: number) => string;
   isAdmin: boolean;
-  cost?: { supplier_name: string | null; supplier_code: string | null; supplier_product_code: string | null; supplier_net_price: number | null } | null;
+  cost: { supplier_name: string | null; supplier_code: string | null; supplier_product_code: string | null; supplier_net_price: number | null } | null | undefined;
   companyId: string | null;
   companyUnits: CompanyUnit[];
   saleUnits: ProductSaleUnit[];
