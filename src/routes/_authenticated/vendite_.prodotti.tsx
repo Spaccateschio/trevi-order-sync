@@ -278,6 +278,27 @@ function ProdottiPage() {
               <SelectItem value="tutti">Tutti</SelectItem>
             </SelectContent>
           </Select>
+          {archives.length > 1 ? (
+            <Select
+              value={archiveFilter}
+              onValueChange={(v) => {
+                setArchiveFilter(v);
+                setPage(0);
+              }}
+            >
+              <SelectTrigger className="sm:w-48">
+                <SelectValue placeholder="Archivio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tutti">Tutti gli archivi</SelectItem>
+                {archives.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
         </div>
 
         <p className="text-xs text-muted-foreground">
