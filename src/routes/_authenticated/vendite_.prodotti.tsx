@@ -234,7 +234,7 @@ function ProdottiPage() {
             <Button onClick={() => setImportOpen(true)}>Importa da Danea</Button>
           </div>
         ) : null}
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
           <Input
             placeholder="Cerca per codice o descrizione"
             value={search}
