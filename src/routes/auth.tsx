@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { inviteUrl, readInviteToken, rememberInviteToken } from "@/lib/invite-token";
 import { validatePhone } from "@/lib/phone";
 
 type Modo = "accesso" | "registrazione";
