@@ -197,7 +197,7 @@ export async function importDaneaCatalog(
     for (const chunk of chunked(rows, 200)) {
       const { data, error } = await supabaseAdmin
         .from("products")
-        .upsert(chunk, { onConflict: "company_id,code" })
+        .upsert(chunk, { onConflict: "company_id,archive_id,code" })
         .select("id, code");
       if (error) throw new Error(`Salvataggio prodotti: ${error.message}`);
       for (const row of data ?? []) idByCode.set(row.code, row.id);
@@ -213,6 +213,8 @@ export async function importDaneaCatalog(
       // deve essere stato salvato. Un file vuoto o parzialmente salvato non può
       // depubblicare in massa. Le segnalazioni sui singoli campi non bloccano
       // l'allineamento: l'invio completo resta la fotografia dell'archivio Danea.
+      // La riconciliazione è SEMPRE limitata all'archivio di provenienza: un invio
+      // completo dell'Archivio 1 non deve toccare i prodotti dell'Archivio 2.
       const everyRowSaved = idByCode.size === rows.length;
       const safeToReconcile = doc.products.length > 0 && everyRowSaved;
 
@@ -221,6 +223,7 @@ export async function importDaneaCatalog(
           .from("products")
           .update({ publish_status: "non_pubblicato", unpublished_at: now })
           .eq("company_id", companyId)
+          .eq("archive_id", archiveId)
           .eq("publish_status", "pubblicato")
           .neq("last_sync_run_id", runId)
           .select("id");
@@ -239,6 +242,7 @@ export async function importDaneaCatalog(
         .from("products")
         .update({ publish_status: "non_pubblicato", unpublished_at: now, last_sync_run_id: runId })
         .eq("company_id", companyId)
+        .eq("archive_id", archiveId)
         .in("code", doc.deletedCodes)
         .select("id");
       if (error) throw new Error(`Depubblicazione: ${error.message}`);
