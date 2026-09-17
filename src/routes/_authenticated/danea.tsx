@@ -11,8 +11,11 @@ import { Label } from "@/components/ui/label";
 import { hasRole, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  createDaneaArchive,
   createDaneaStation,
+  moveDaneaStation,
   regenerateDaneaStationPassword,
+  renameDaneaArchive,
   revokeDaneaStation,
 } from "@/lib/danea.functions";
 
