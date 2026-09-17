@@ -478,6 +478,7 @@ function ProdottiPage() {
         open={importOpen}
         onOpenChange={setImportOpen}
         companyId={companyId}
+        archives={archives.filter((a) => a.status === "attivo").map((a) => ({ id: a.id, name: a.name, isDefault: a.is_default }))}
         onImported={() => {
           void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] });
           void queryClient.invalidateQueries({ queryKey: ["danea-listini", companyId] });
