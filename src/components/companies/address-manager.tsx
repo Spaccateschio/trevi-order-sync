@@ -85,6 +85,15 @@ type FormState = typeof emptyForm & {
 
 const emptyState: FormState = { ...emptyForm, functions: [], defaults: [] };
 
+/** Messaggi comprensibili al posto degli errori tecnici del database. */
+function friendlyError(message: string) {
+  if (message.includes("address_functions_company_default_unique")
+      || message.includes("address_functions_record_default_unique")) {
+    return "Esiste già un indirizzo predefinito per questa funzione: togli prima il predefinito dall'altro indirizzo.";
+  }
+  return message;
+}
+
 function ownerFilter(owner: Owner) {
   return "companyId" in owner
     ? { column: "company_id" as const, value: owner.companyId }
@@ -194,7 +203,7 @@ export function AddressManager({
       const { error } = await supabase.from("addresses").update(payload).eq("id", editing.id);
       if (error) {
         setBusy(false);
-        toast.error(error.message);
+        toast.error(friendlyError(error.message));
         return;
       }
     } else {
@@ -206,7 +215,7 @@ export function AddressManager({
       const { data, error } = await supabase.from("addresses").insert(insert).select("id").single();
       if (error || !data) {
         setBusy(false);
-        toast.error(error?.message ?? "Non è stato possibile salvare l'indirizzo");
+        toast.error(friendlyError(error?.message ?? "Non è stato possibile salvare l'indirizzo"));
         return;
       }
       addressId = data.id;
@@ -238,7 +247,7 @@ export function AddressManager({
           const { error } = await supabase
             .from("address_functions")
             .insert({ address_id: addressId, function: code, is_default: isDefault });
-          if (error) toast.error(error.message);
+          if (error) toast.error(friendlyError(error.message));
         }
       }
     }
