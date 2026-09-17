@@ -16,13 +16,25 @@ export type Membership = {
   roles: AppRole[];
 };
 
+export type RelationOrigin = "invito_fornitore" | "richiesta_cliente";
+
 export type Relation = {
   id: string;
   sellerCompanyId: string;
   sellerCompanyName: string | null;
   buyerCompanyId: string;
+  buyerCompanyName: string | null;
   status: RelationStatus;
+  origin: RelationOrigin;
+  /** Doppio consenso: il rapporto è operativo solo se entrambi i lati sono attivi. */
+  sellerEnabled: boolean;
+  buyerEnabled: boolean;
 };
+
+/** Unico punto di calcolo: rapporto realmente utilizzabile. */
+export function isRelationOperational(relation: Relation) {
+  return relation.status === "attivo" && relation.sellerEnabled && relation.buyerEnabled;
+}
 
 export type Identity = {
   userId: string;
