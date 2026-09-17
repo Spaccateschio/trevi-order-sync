@@ -85,11 +85,11 @@ Nessuna tabella di magazzino, nessun movimento, nessuna giacenza inventata adess
 
 Verifiche previste: i 4 prodotti esistenti restano visibili e assegnati all'archivio principale; Pc Ufficio Andrea e pc casa andrea invariate (nome, utente, indirizzo, password) e funzionanti; invio completo dall'archivio 1 non depubblica l'archivio 2; incrementale limitato al proprio archivio; due archivi con lo stesso codice convivono; colonne mostrate/nascoste/spostate/allargate e ordinamento ritrovati al rientro, separatamente su desktop e telefono; ripristino predefiniti; stampa ed esportazione coerenti con le colonne visibili; anagrafica U.M. con unità usata non eliminabile ma disattivabile; conversione stimata su più prodotti selezionati; nessuna immagine mostrata quando esiste solo il riferimento Danea.
 
-## 10. Ordine di lavoro proposto
+## 10. Ordine di lavoro (con test dopo ogni punto)
 
-1. Archivi Danea + import per archivio (base indispensabile).
-2. Nuova griglia compatta con colonne, preferenze, selezione, stampa, esportazione.
-3. Anagrafica U.M. e U.M. di vendita per prodotto, con conversioni stimate.
-4. Immagini Trevi Fruit.
+1. Archivi Danea e import per archivio → test prima di proseguire.
+2. Griglia Prodotti professionale → test prima di proseguire.
+3. U.M. Trevi Fruit → test prima di proseguire.
+4. Immagini Trevi Fruit → test finale.
 
-Dimmi se approvi tutto o se preferisci partire da un punto diverso.
+In questa fase non vengono costruiti Inventario, carichi/scarichi, Ordina né il download ordini da Danea.
