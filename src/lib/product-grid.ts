@@ -11,6 +11,7 @@ export type ProductRow = {
   archive_id: string;
   code: string;
   description: string | null;
+  description_html: string | null;
   category: string | null;
   subcategory: string | null;
   danea_um: string | null;
@@ -19,6 +20,7 @@ export type ProductRow = {
   vat_perc: number | null;
   vat_code: string | null;
   vat_description: string | null;
+  vat_class: string | null;
   publish_status: "pubblicato" | "non_pubblicato";
   danea_internal_id: string | null;
   notes: string | null;
@@ -27,6 +29,7 @@ export type ProductRow = {
   supplier_code: string | null;
   supplier_name: string | null;
   supplier_product_code: string | null;
+  supplier_notes: string | null;
   producer_name: string | null;
   product_type: string | null;
   barcode: string | null;
@@ -36,6 +39,7 @@ export type ProductRow = {
   custom_field_3: string | null;
   custom_field_4: string | null;
   last_received_at: string;
+  first_received_at: string;
   product_prices: ProductPrice[];
 };
 
@@ -79,6 +83,7 @@ const text = (value: string | null | undefined) => value || "—";
 export const PRODUCT_COLUMNS: ProductColumn[] = [
   { id: "code", label: "Codice", size: 120, minSize: 84, value: (p) => p.code },
   { id: "description", label: "Descrizione", size: 320, minSize: 160, value: (p) => text(p.description) },
+  { id: "description_html", label: "Descrizione HTML", size: 260, minSize: 150, value: (p) => text(p.description_html) },
   { id: "category", label: "Categoria", size: 170, minSize: 110, value: (p) => text(p.category) },
   { id: "subcategory", label: "Sottocategoria", size: 170, minSize: 110, value: (p) => text(p.subcategory) },
   { id: "danea_um", label: "U.M. Danea", size: 100, minSize: 76, value: (p) => text(p.danea_um) },
@@ -95,6 +100,8 @@ export const PRODUCT_COLUMNS: ProductColumn[] = [
     };
   }),
   { id: "vat", label: "IVA", size: 90, minSize: 72, value: (p) => p.vat_perc !== null ? `${p.vat_perc}%` : text(p.vat_code) },
+  { id: "vat_class", label: "Classe IVA", size: 120, minSize: 90, value: (p) => text(p.vat_class) },
+  { id: "vat_description", label: "Descrizione IVA", size: 160, minSize: 110, value: (p) => text(p.vat_description) },
   { id: "status", label: "Stato", size: 128, minSize: 105, value: (p) => p.publish_status === "pubblicato" ? "Pubblicato" : "Non pubblicato" },
   { id: "archive", label: "Archivio", size: 170, minSize: 110, value: (p, archives) => archives.get(p.archive_id) ?? "—" },
   { id: "internal_id", label: "InternalID", size: 130, minSize: 95, value: (p) => text(p.danea_internal_id) },
@@ -106,6 +113,7 @@ export const PRODUCT_COLUMNS: ProductColumn[] = [
   { id: "supplier_name", label: "Fornitore", size: 170, minSize: 110, adminOnly: true, value: (p) => text(p.supplier_name) },
   { id: "supplier_code", label: "Codice fornitore", size: 145, minSize: 105, adminOnly: true, value: (p) => text(p.supplier_code) },
   { id: "supplier_product_code", label: "Cod. prod. fornitore", size: 165, minSize: 120, adminOnly: true, value: (p) => text(p.supplier_product_code) },
+  { id: "supplier_notes", label: "Note fornitore", size: 220, minSize: 140, adminOnly: true, value: (p) => text(p.supplier_notes) },
   { id: "notes", label: "Note", size: 240, minSize: 140, value: (p) => text(p.notes) },
   { id: "image_file_name", label: "Nome file immagine", size: 180, minSize: 120, value: (p) => text(p.image_file_name) },
   { id: "image_folder", label: "Cartella immagine", size: 180, minSize: 120, value: (p) => text(p.image_folder) },
@@ -115,6 +123,7 @@ export const PRODUCT_COLUMNS: ProductColumn[] = [
   { id: "custom_field_3", label: "Campo personalizzato 3", size: 180, minSize: 130, value: (p) => text(p.custom_field_3) },
   { id: "custom_field_4", label: "Campo personalizzato 4", size: 180, minSize: 130, value: (p) => text(p.custom_field_4) },
   { id: "last_received_at", label: "Ultimo aggiornamento", size: 155, minSize: 120, value: (p) => dateTime(p.last_received_at) },
+  { id: "first_received_at", label: "Prima ricezione", size: 155, minSize: 120, value: (p) => dateTime(p.first_received_at) },
 ];
 
 export const DEFAULT_COLUMN_ORDER = PRODUCT_COLUMNS.map((column) => column.id);
