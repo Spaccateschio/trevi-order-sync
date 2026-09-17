@@ -18,6 +18,10 @@ export function ProductMobileList({
 }) {
   return (
     <div className="divide-y divide-border border-y border-border md:hidden">
+      <div className="flex items-center justify-between gap-3 px-1 py-1.5 text-[11px] font-medium text-muted-foreground">
+        <span className="min-w-0 truncate">Codice / Descrizione</span>
+        <span className="shrink-0">Listino 1</span>
+      </div>
       {products.map((product) => {
         const checked = selectedIds.has(product.id);
         return (
@@ -36,10 +40,10 @@ export function ProductMobileList({
                 </div>
                 <span className="shrink-0 text-sm font-semibold">{euro(priceForList(product, 1))}</span>
               </div>
-              <div className="mt-2 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                <span className="truncate">{product.category ?? "Senza categoria"}</span>
+              <div className="mt-2 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="truncate"><span className="font-medium">Categoria:</span> {product.category ?? "—"}</span>
                 <span aria-hidden="true">·</span>
-                <span className="shrink-0">{product.danea_um ?? "U.M. —"}</span>
+                <span className="shrink-0"><span className="font-medium">U.M.:</span> {product.danea_um ?? "—"}</span>
                 {checked ? <Check className="ml-auto h-3.5 w-3.5 text-primary" /> : null}
               </div>
               {product.publish_status !== "pubblicato" ? (
