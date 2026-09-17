@@ -1,41 +1,108 @@
-# Importazione massiva clienti da Danea
+# Punto 5b.2 — Destinazioni cliente + importazione massiva clienti da Danea
 
-Obiettivo: nella sezione **Anagrafica clienti** (Vendite → Clienti) poter caricare un file esportato da Danea per inserire molti clienti in un colpo solo, controllarli in anteprima, aprirne la scheda e inviare il link d'invito, anche a più clienti insieme.
+Struttura che vogliamo consolidare **prima** di importare centinaia di clienti:
 
-## Cosa vedrai nell'app
+```text
+Azienda registrata → rapporto B2B → Cliente Trevi → una o più Destinazioni → uno o più Indirizzi
+poi (in futuro): Destinazione → Listino/condizioni → Ordine → DDT/Fattura → Danea
+```
 
-1. Nuovo pulsante **Importa da Danea** accanto a "Nuovo cliente".
-2. Scegli il file: Excel (.xlsx), CSV/testo (.csv/.txt) o XML soggetti Danea.
-3. Riconoscimento automatico delle colonne dell'esportazione Danea (Cod., Codice fiscale, Partita Iva, Denominazione, Indirizzo, Cap, Città, Prov., Referente, Tel., Cell, e-mail, Note). Se un'intestazione non viene riconosciuta puoi abbinarla a mano.
-4. **Anteprima obbligatoria** prima di salvare, con tre gruppi:
-   - Nuovi clienti da creare
-   - Clienti già presenti che verranno aggiornati (riconosciuti per partita IVA, in mancanza per codice fiscale, altrimenti per riferimento interno/codice Danea)
-   - Righe scartate, con il motivo (ragione sociale mancante, partita IVA duplicata nel file, riga vuota)
-   Puoi togliere la spunta a singole righe prima di confermare.
-5. Alla conferma: riepilogo con creati / aggiornati / scartati.
-6. Ogni cliente importato è già cliccabile: si apre la sua scheda con dati, indirizzi e il pulsante **Invita**.
-7. **Invito multiplo**: caselle di selezione nell'elenco clienti + "Genera inviti per i selezionati"; risultato con un elenco copiabile di nome cliente, email e link d'invito (inclusi i clienti senza email, da completare prima).
+## 1. Che cosa ho verificato di Danea (senza inventare nulla)
 
-## Regole confermate
+Esportazione reale dei soggetti che mi hai inviato (`Soggetti_prova1-2`): una riga per cliente, con
+Cod., Codice fiscale, Partita Iva, Denominazione, Indirizzo, Cap, Città, Prov., Regione, Nazione,
+Cod. destinatario fatt. elettr., Rif. amministrativo, Referente, Tel., Cell, Fax, e-mail, Pec,
+Sconti, Listino, Fido, Agente, Pagamento, Banca, Ns Banca, SDD, Resp. trasporto, Porto, Fatt. con Iva,
+Dich. d'intento, Conto reg., Rit. acconto, Doc via e-mail, Note doc., Home page, Login web,
+Libero 1-6, Note.
 
-- Cliente già presente → i dati del file **aggiornano** quello esistente; le note esistenti non vengono cancellate se il file non le contiene.
-- L'importazione **non crea** collegamenti commerciali né account: crea solo l'anagrafica del venditore. Il collegamento nasce sempre da un invito accettato.
-- Nessun catalogo o prodotto viene toccato: questa importazione riguarda solo i clienti.
+Conseguenza importante: **questo file contiene un solo indirizzo per cliente e nessuna colonna di
+destinazione merce**. Quindi:
 
-## Dettagli tecnici
+- non dedurrò destinazioni dai dati: righe con la stessa P.IVA e indirizzo diverso non diventeranno
+  automaticamente due destinazioni, né due clienti distinti;
+- l'importazione crea il cliente e una destinazione "Sede" iniziale (l'indirizzo del file);
+- resta **da verificare con un'esportazione reale** come Danea espone le destinazioni merce
+  (elenco "Destinazioni diverse" del soggetto) e se hanno un proprio codice: ti chiederò
+  un'esportazione dedicata quando serviranno i DDT. Fino ad allora le destinazioni si creano a mano
+  in Trevi Fruit.
 
-- Lettura del file nel browser: `xlsx` (SheetJS) per .xlsx, parser CSV con rilevamento separatore `;`/`,`, `DOMParser` per l'XML soggetti Danea (`<Customer>`/`<Subject>` con Company/VatCode/FiscalCode/Address/Postcode/City/Province/Phone/Mobile/Email/Notes).
-- Normalizzazione in un tipo comune `ParsedCustomerRow`, deduplica per P.IVA normalizzata (`normalize_vat`), confronto con `customer_records` del venditore per calcolare l'anteprima.
-- Salvataggio riga per riga tramite la RPC esistente `manage_customer_record` (`create`/`update`), quindi nessuna modifica a RLS o schema; il campo `internal_reference` accoglie il codice Danea.
-- Inviti multipli tramite la RPC esistente `create_customer_invitation` in sequenza, con gestione degli errori per singolo cliente.
-- File toccati: `src/components/companies/customer-records-panel.tsx` (pulsante, selezione, invito multiplo), nuovo `src/components/companies/customer-import-dialog.tsx` (caricamento + anteprima), nuovo `src/lib/customer-import.ts` (parser e confronto). Nessun altro file modificato.
-- Aggiornamento di `roadmap.md` a lavoro concluso.
+## 2. Cliente, Destinazione, Indirizzo
 
-## Test previsti
+- **Cliente Trevi** (`customer_records`, già esistente): l'intestatario, ragione sociale e P.IVA unica.
+- **Destinazione** (nuova tabella `customer_destinations`): punto operativo/centro documentale del
+  cliente, es. "Ristorante Centro". Campi: cliente proprietario, nome/etichetta, indirizzo collegato
+  (`addresses`), codice interno, riferimento Danea, referente, telefono, note operative,
+  attiva/non attiva, predefinita, separazione documentale/contabile (sì/no).
+  Nessuna duplicazione dei dati fiscali della società madre: P.IVA, codice fiscale e dati di
+  fatturazione restano sul cliente.
+- **Indirizzo** (`addresses`, già esistente): il dato fisico con le sue funzioni
+  (sede legale, sede operativa, consegna, ritiro, magazzino) e la visibilità verso i partner.
 
-- Import del file di esempio `Soggetti_prova1-2.ods` convertito in .xlsx e in .csv: righe riconosciute e anteprima corretta.
-- Reimport dello stesso file: tutti i clienti risultano "da aggiornare", nessun duplicato.
-- Riga senza ragione sociale e P.IVA doppia nel file: scartate con motivo.
-- Apertura scheda cliente importato e invio invito singolo.
-- Invito multiplo su più clienti selezionati.
+Una destinazione punta a un indirizzo esistente, quindi lo stesso indirizzo può servire più funzioni
+senza essere duplicato.
+
+## 3. Cosa vedrai nell'app
+
+**Anagrafica clienti (Vendite → Clienti)**
+
+1. Nuovo pulsante **Importa da Danea**: file Excel (.xlsx), CSV/testo o XML soggetti Danea.
+2. Riconoscimento automatico delle intestazioni Danea sopra elencate, con abbinamento manuale per
+   quelle non riconosciute.
+3. **Anteprima obbligatoria** in tre gruppi: da creare, da aggiornare (riconosciuti per P.IVA, poi
+   codice fiscale, poi codice Danea), scartati con motivo. Puoi deselezionare singole righe.
+4. Conferma → riepilogo creati / aggiornati / scartati.
+5. **Selezione multipla** nell'elenco clienti e "Genera inviti per i selezionati": elenco copiabile
+   con nome, email e link d'invito; i clienti senza email sono segnalati.
+
+**Scheda cliente**
+
+6. Nuova sezione **Destinazioni**: elenco, aggiunta, modifica, attiva/disattiva, predefinita,
+   scelta dell'indirizzo tra quelli del cliente e nota "documenti/contabilità separati".
+7. Il pulsante **Invita** resta sulla scheda cliente (l'invito riguarda il cliente, non la destinazione).
+
+## 4. Regole confermate
+
+- Cliente già presente → i dati del file lo **aggiornano**; le note esistenti non vengono cancellate
+  se il file non le contiene.
+- L'importazione non crea account né rapporti commerciali: il collegamento nasce solo da un invito
+  accettato.
+- Nessun prodotto, listino o condizione viene toccato.
+
+## 5. Preparazione a Ordina e al Punto 5c (solo struttura, niente implementazione)
+
+- L'ordine futuro conserverà cliente **e** destinazione scelta, con snapshot congelato dei dati della
+  destinazione e dell'indirizzo, così i documenti storici non cambiano.
+- Il modello permetterà nel Punto 5c di tenere listino/condizioni sul cliente ed **ereditarli** nelle
+  destinazioni, con eventuale override per singola destinazione: le condizioni potranno riferirsi al
+  rapporto (cliente) oppure a una destinazione, senza rifare l'anagrafica.
+
+## 6. Dettagli tecnici
+
+- Migration: `customer_destinations` (id, seller_company_id, customer_record_id, address_id nullable,
+  label, internal_code, danea_reference, contact_name, phone, notes, separate_documents boolean,
+  status, is_default, created_by, created_at, updated_at), GRANT a `authenticated`/`service_role`,
+  RLS con le funzioni esistenti (`owns_customer_record`, `is_company_admin`), unicità del default per
+  cliente, indice su customer_record_id, trigger `set_updated_at`, audit sulle modifiche.
+  Nessuna colonna GENERATED negli insert; funzioni `SECURITY DEFINER` con `search_path = public`.
+- RPC `manage_customer_destination(create|update|activate|deactivate|set_default)`.
+- Import: lettura nel browser con `xlsx` (SheetJS) per .xlsx, parser CSV con separatore `;`/`,`,
+  `DOMParser` per l'XML soggetti; normalizzazione in `ParsedCustomerRow`, deduplica per P.IVA
+  normalizzata, confronto con `customer_records`, salvataggio riga per riga con la RPC esistente
+  `manage_customer_record` (codice Danea in `internal_reference`).
+- Inviti multipli con `create_customer_invitation` in sequenza e gestione errori per singolo cliente.
+- File: nuovi `src/lib/customer-import.ts`, `src/components/companies/customer-import-dialog.tsx`,
+  `src/components/companies/destination-manager.tsx`; modificato
+  `src/components/companies/customer-records-panel.tsx`. Nessun altro file toccato.
+
+## 7. Test previsti
+
+- Import del file di esempio in .xlsx e .csv: righe riconosciute, anteprima corretta.
+- Reimport: tutti "da aggiornare", nessun duplicato; stessa P.IVA con indirizzo diverso → un solo
+  cliente, nessuna destinazione inventata.
+- Righe senza ragione sociale e P.IVA doppia nel file: scartate con motivo.
+- Creazione di due destinazioni sullo stesso cliente, predefinita, disattivazione, collegamento a
+  indirizzi diversi.
+- Invito singolo dalla scheda e invito multiplo su più clienti.
+- Isolamento: un altro venditore non vede clienti né destinazioni.
 - Verifica su smartphone (545 px) e desktop.
