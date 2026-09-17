@@ -1,4 +1,4 @@
-# Punto 5b.1 — Registrazione cliente da invito e precompilazione dati
+# Punto 5b.1 — Registrazione da invito, registrazione autonoma e indirizzi multipli
 
 Obiettivo: chi riceve un invito non deve riscrivere i dati aziendali già presenti nella scheda cliente del venditore. La scheda cliente resta di proprietà del venditore; l'azienda registrata resta del cliente.
 
@@ -55,9 +55,40 @@ Il codice dell'invito resta l'unica prova valida; l'email serve solo a proporlo.
 - Nuova tabella `customer_record_proposed_updates` (scheda cliente, campo, valore proposto, origine, stato) con RLS: leggibile e decidibile solo dal venditore proprietario.
 - Nessun `company_id`, `seller_company_id` o P.IVA ricevuto dal browser viene considerato attendibile: tutto ricalcolato lato server dal codice invito e dall'utente autenticato.
 
+## Registrazione autonoma ≠ autorizzazione commerciale
+
+Restano quattro livelli distinti e separati: accesso alla piattaforma, identità dell'azienda, rapporto commerciale, autorizzazione a catalogo/prezzi/ordini.
+
+- Un'azienda può registrarsi da sola: crea accesso e azienda, ma non diventa cliente di nessuno.
+- Per lavorare con un venditore serve una richiesta di collegamento (acquirente → venditore) che un amministratore del venditore accetta o rifiuta. Solo dopo l'accettazione, e con entrambi gli interruttori accesi, il rapporto è operativo. La funzione di richiesta e la decisione esistono già; va aggiunta la pagina "Trova il tuo fornitore" nell'area Acquisti e l'elenco delle richieste in attesa in Vendite → Clienti.
+- Conoscere una P.IVA non dà mai diritti: se la P.IVA inserita appartiene a un'azienda già registrata, la registrazione autonoma si ferma e mostra "questa azienda è già presente: chiedi al suo amministratore di aggiungerti". Nessuna appropriazione, nessuna fusione, nessun collegamento automatico a rapporti esistenti.
+- La P.IVA di una scheda cliente non crea mai da sola un collegamento: serve sempre invito accettato o richiesta accettata.
+- Nessuna verifica esterna della P.IVA in questa fase: solo controllo di formato e unicità.
+
+## Indirizzi multipli
+
+Oggi sede e consegna sono campi fissi su azienda e scheda cliente. Passiamo a un elenco di indirizzi, senza limiti di numero.
+
+Nuova tabella `addresses`: proprietario (azienda **oppure** scheda cliente, mai entrambi), etichetta ("Ristorante Centro", "CAR Box 15"), via, numero civico, CAP, città, provincia, paese, referente, telefono, note operative, attivo/non attivo.
+
+Le funzioni di un indirizzo sono separate dall'indirizzo stesso, in `address_functions`: sede legale, sede operativa, consegna, ritiro, magazzino, con flag "predefinito per questa funzione". Così lo stesso indirizzo può essere insieme sede operativa e consegna senza essere duplicato, e possono esistere più consegne. Un solo predefinito per funzione e per proprietario, garantito da vincolo.
+
+Consegna = dove il venditore porta la merce. Ritiro = dove il cliente va a prenderla (tipicamente un indirizzo del venditore). Sono due funzioni distinte, così l'ordine potrà offrire "Consegna a…" oppure "Ritiro presso…".
+
+Migrazione senza perdita: ogni sede esistente diventa un indirizzo con funzione sede legale predefinita, ogni indirizzo di consegna esistente un indirizzo con funzione consegna predefinita; i campi attuali restano in sola lettura per un periodo e le schermate leggono dal nuovo elenco.
+
+Separazione confermata: gli indirizzi dell'azienda appartengono al cliente, quelli della scheda cliente al venditore. Il cliente che cambia i propri indirizzi non modifica l'anagrafica del venditore; le differenze diventano aggiornamenti proposti.
+
+Nell'invito gli indirizzi della scheda cliente vengono proposti come indirizzi iniziali dell'azienda, modificabili prima della conferma.
+
+RLS: gli indirizzi di un'azienda sono modificabili solo dai suoi amministratori; sono leggibili dalle aziende con un rapporto operativo (per consegne e ritiri) e da nessun altro. Gli indirizzi di una scheda cliente sono leggibili e modificabili solo dal venditore proprietario.
+
+Preparazione ordini: l'ordine futuro conserverà una copia dei dati dell'indirizzo scelto, così una modifica successiva dell'anagrafica non cambia gli ordini già fatti. Ordina non viene implementato ora.
+
 ## Fuori ambito
 
-Listini e condizioni commerciali (5c), catalogo cliente, Ordina, ordini, invii SMS/WhatsApp, modifiche a Prodotti, U.M., Immagini, Archivi Danea e listini Danea.
+Listini e condizioni commerciali (5c), catalogo cliente, Ordina, ordini, invii SMS/WhatsApp, verifica esterna della P.IVA, modifiche a Prodotti, U.M., Immagini, Archivi Danea e listini Danea.
+
 
 ## Test previsti
 
@@ -69,3 +100,9 @@ Listini e condizioni commerciali (5c), catalogo cliente, Ordina, ordini, invii S
 6. Invito scaduto, annullato, già usato, codice inesistente: nessun effetto.
 7. Isolamento: una terza azienda non vede invito, scheda cliente, relazione né proposte.
 8. Verifica desktop e smartphone del riquadro dati precompilati.
+9. Registrazione autonoma: nuova azienda creata, nessun accesso a clienti, fornitori, catalogo o prezzi di altri.
+10. Richiesta di collegamento: acquirente richiede, venditore vede la richiesta, accetta e il rapporto diventa operativo; con rifiuto nessun accesso.
+11. Registrazione autonoma con P.IVA di un'azienda già registrata: bloccata, nessuna appropriazione.
+12. Indirizzi: creazione di più consegne, un solo predefinito per funzione, indirizzo con doppia funzione senza duplicati, disattivazione senza perdita di storico.
+13. Migrazione indirizzi: sedi e consegne esistenti presenti nel nuovo elenco con le funzioni corrette.
+14. Isolamento indirizzi: azienda senza rapporto operativo non li vede; il cliente non vede quelli della scheda del venditore.
