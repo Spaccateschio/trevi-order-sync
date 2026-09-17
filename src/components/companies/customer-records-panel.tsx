@@ -104,6 +104,7 @@ export function CustomerRecordsPanel({
   isAdmin: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { data: identity } = useIdentity();
   const [editing, setEditing] = useState<CustomerRecord | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
