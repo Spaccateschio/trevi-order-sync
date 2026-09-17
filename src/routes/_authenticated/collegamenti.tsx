@@ -520,26 +520,10 @@ function Collegamenti() {
       <div className="space-y-4">
         {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
 
-        {/* Barra compatta: ogni voce è una vista, niente sezioni permanenti. */}
+        {/* Azioni sempre visibili sopra l'elenco, contatori a destra. */}
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant={view === "connessioni" ? "default" : "outline"}
-            onClick={() => setView("connessioni")}
-          >
-            <Link2 className="size-4" />
-            Le mie connessioni
-          </Button>
-          <Button
-            size="sm"
-            variant={view === "ricerca" ? "default" : "outline"}
-            onClick={() => setView("ricerca")}
-          >
-            <Search className="size-4" />
-            Cerca azienda
-          </Button>
           {sells ? (
-            <Button size="sm" variant="outline" disabled={!isAdmin} onClick={() => setInviteOpen(true)}>
+            <Button size="sm" disabled={!isAdmin} onClick={() => setInviteOpen(true)}>
               <Sparkles className="size-4" />
               Invita partner
             </Button>
@@ -547,9 +531,17 @@ function Collegamenti() {
           {buys ? (
             <Button size="sm" variant="outline" disabled={!isAdmin} onClick={() => setCodeOpen(true)}>
               <KeyRound className="size-4" />
-              Ho un codice
+              Inserisci codice
             </Button>
           ) : null}
+          <Button
+            size="sm"
+            variant={view === "ricerca" ? "default" : "outline"}
+            onClick={() => setView(view === "ricerca" ? "connessioni" : "ricerca")}
+          >
+            <Search className="size-4" />
+            Cerca azienda
+          </Button>
           <span className="flex flex-wrap gap-2 sm:ml-auto">
             <Button
               size="sm"
@@ -576,6 +568,32 @@ function Collegamenti() {
               </Button>
             ) : null}
           </span>
+        </div>
+
+        {/* Tab principali: sono la navigazione della pagina, non semplici filtri. */}
+        <div className="flex gap-1 border-b border-border">
+          {(Object.keys(tabLabels) as Tab[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-current={view === "connessioni" && tab === key ? "page" : undefined}
+              onClick={() => {
+                setTab(key);
+                setView("connessioni");
+              }}
+              className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                view === "connessioni" && tab === key
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Link2 className="size-4" />
+              {tabLabels[key]}
+              <span className="rounded-full bg-muted px-1.5 text-xs text-muted-foreground">
+                {tabCounts[key]}
+              </span>
+            </button>
+          ))}
         </div>
 
         {view === "connessioni" ? (
@@ -611,6 +629,7 @@ function Collegamenti() {
             />
           </div>
         ) : null}
+
 
         {view === "ricerca" ? (
           <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
