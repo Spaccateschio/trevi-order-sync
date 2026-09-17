@@ -301,6 +301,22 @@ function DaneaPage() {
         <section className={CARD}>
           <h2 className={CARD_TITLE}>Aggiungi postazione</h2>
           <div className="mt-2 grid gap-2">
+            <Label htmlFor="station-archive" className="text-xs">
+              Archivio Danea
+            </Label>
+            <select
+              id="station-archive"
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={chosenArchiveId}
+              onChange={(e) => setStationArchiveId(e.target.value)}
+            >
+              {activeArchives.length ? null : <option value="">Crea prima un archivio</option>}
+              {activeArchives.map((archive) => (
+                <option key={archive.id} value={archive.id}>
+                  {archive.name}
+                </option>
+              ))}
+            </select>
             <Label htmlFor="station-name" className="text-xs">
               Nome postazione
             </Label>
@@ -315,7 +331,10 @@ function DaneaPage() {
               size="sm"
               onClick={() => createMutation.mutate()}
               disabled={
-                !name.trim() || createMutation.isPending || activeCount >= MAX_STATIONS
+                !name.trim() ||
+                !chosenArchiveId ||
+                createMutation.isPending ||
+                activeCount >= MAX_STATIONS
               }
             >
               Aggiungi postazione
@@ -325,6 +344,145 @@ function DaneaPage() {
             </p>
           </div>
         </section>
+
+        <section className={`${CARD} lg:col-span-3`}>
+          <h2 className={CARD_TITLE}>Archivi Danea</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Un archivio = un file gestionale Danea. Codici e identificativi si ripetono tra archivi
+            diversi senza confondersi, e un invio completo riconcilia solo il proprio archivio.
+          </p>
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <div className="grid min-w-[14rem] flex-1 gap-1">
+              <Label htmlFor="archive-name" className="text-xs">
+                Nome nuovo archivio
+              </Label>
+              <Input
+                id="archive-name"
+                value={newArchiveName}
+                onChange={(e) => setNewArchiveName(e.target.value)}
+                placeholder="Archivio secondario"
+                maxLength={80}
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => createArchiveMutation.mutate()}
+              disabled={!newArchiveName.trim() || createArchiveMutation.isPending}
+            >
+              Crea archivio
+            </Button>
+          </div>
+
+          <ul className="mt-3 grid gap-2">
+            {archiveList.map((archive) => {
+              const archiveStations = list.filter((s) => s.archive_id === archive.id);
+              return (
+                <li key={archive.id} className="rounded-lg border border-border p-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {renamingId === archive.id ? (
+                      <>
+                        <Input
+                          className="h-8 max-w-[16rem]"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          maxLength={80}
+                        />
+                        <Button
+                          size="sm"
+                          disabled={!renameValue.trim() || renameArchiveMutation.isPending}
+                          onClick={() =>
+                            renameArchiveMutation.mutate({
+                              archiveId: archive.id,
+                              name: renameValue,
+                            })
+                          }
+                        >
+                          Salva
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setRenamingId(null)}>
+                          Annulla
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-display text-sm font-semibold">{archive.name}</span>
+                        {archive.is_default ? (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+                            Predefinito
+                          </span>
+                        ) : null}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setRenamingId(archive.id);
+                            setRenameValue(archive.name);
+                          }}
+                        >
+                          Rinomina
+                        </Button>
+                      </>
+                    )}
+                  </div>
+
+                  {archiveStations.length ? (
+                    <ul className="mt-2 grid gap-1.5">
+                      {archiveStations.map((station) => (
+                        <li
+                          key={station.id}
+                          className="flex flex-wrap items-center gap-2 border-t border-border pt-1.5 text-xs"
+                        >
+                          <span className="font-medium">{station.name}</span>
+                          <span className="font-mono text-[11px] text-muted-foreground">
+                            {station.username}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {station.status === "attivo" ? "Attiva" : "Revocata"}
+                          </span>
+                          {station.status === "attivo" && activeArchives.length > 1 ? (
+                            <select
+                              className="ml-auto h-8 rounded-md border border-input bg-background px-2 text-xs"
+                              value={station.archive_id}
+                              disabled={moveStationMutation.isPending}
+                              onChange={(e) => {
+                                const target = e.target.value;
+                                if (target === station.archive_id) return;
+                                if (window.confirm(MOVE_WARNING)) {
+                                  moveStationMutation.mutate({
+                                    stationId: station.id,
+                                    archiveId: target,
+                                  });
+                                } else {
+                                  refreshStations();
+                                }
+                              }}
+                            >
+                              {activeArchives.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  Sposta in: {a.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Nessuna postazione in questo archivio.
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+            {archiveList.length ? null : (
+              <li className="text-sm text-muted-foreground">
+                Nessun archivio: creane uno per collegare le postazioni Danea.
+              </li>
+            )}
+          </ul>
+        </section>
+
 
         {fresh ? (
           <section className="rounded-xl border border-accent bg-accent/10 p-3 lg:col-span-3">
