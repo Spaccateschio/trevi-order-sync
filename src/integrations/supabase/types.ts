@@ -735,6 +735,7 @@ export type Database = {
           product_type: string | null
           publish_status: Database["public"]["Enums"]["product_publish_status"]
           raw_payload: Json | null
+          size_um: string | null
           subcategory: string | null
           subcategory_levels: string[] | null
           supplier_code: string | null
@@ -747,6 +748,7 @@ export type Database = {
           vat_code: string | null
           vat_description: string | null
           vat_perc: number | null
+          weight_um: string | null
         }
         Insert: {
           archive_id: string
@@ -775,6 +777,7 @@ export type Database = {
           product_type?: string | null
           publish_status?: Database["public"]["Enums"]["product_publish_status"]
           raw_payload?: Json | null
+          size_um?: string | null
           subcategory?: string | null
           subcategory_levels?: string[] | null
           supplier_code?: string | null
@@ -787,6 +790,7 @@ export type Database = {
           vat_code?: string | null
           vat_description?: string | null
           vat_perc?: number | null
+          weight_um?: string | null
         }
         Update: {
           archive_id?: string
@@ -815,6 +819,7 @@ export type Database = {
           product_type?: string | null
           publish_status?: Database["public"]["Enums"]["product_publish_status"]
           raw_payload?: Json | null
+          size_um?: string | null
           subcategory?: string | null
           subcategory_levels?: string[] | null
           supplier_code?: string | null
@@ -827,6 +832,7 @@ export type Database = {
           vat_code?: string | null
           vat_description?: string | null
           vat_perc?: number | null
+          weight_um?: string | null
         }
         Relationships: [
           {
