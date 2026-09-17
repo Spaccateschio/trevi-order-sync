@@ -2,6 +2,7 @@ import {
   Building2,
   ClipboardList,
   LayoutDashboard,
+  Link2,
   Package,
   PlugZap,
   ReceiptText,
@@ -27,6 +28,7 @@ import {
 export type ModuleKey =
   | "comune.panoramica"
   | "comune.azienda"
+  | "comune.collegamenti"
   | "comune.account"
   | "acquisti.panoramica"
   | "acquisti.fornitori"
@@ -58,6 +60,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Panoramica",
     short: "Home",
     icon: LayoutDashboard,
+  },
+  {
+    key: "comune.collegamenti",
+    area: "comune",
+    to: "/collegamenti",
+    label: "Collegamenti",
+    short: "Collegam.",
+    icon: Link2,
   },
   {
     key: "acquisti.panoramica",
