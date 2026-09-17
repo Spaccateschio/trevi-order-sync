@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { AddressManager } from "@/components/companies/address-manager";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
