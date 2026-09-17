@@ -407,6 +407,16 @@ export function CustomerRecordsPanel({
               />
             </div>
           </div>
+
+          {editing ? (
+            <div className="mt-4 border-t border-border pt-4">
+              <AddressManager
+                owner={{ customerRecordId: editing.id }}
+                isAdmin={isAdmin}
+                showPartnerVisibility={false}
+              />
+            </div>
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setFormOpen(false)}>
               Chiudi
