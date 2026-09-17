@@ -211,7 +211,7 @@ function DaneaPage() {
 
   const createMutation = useMutation({
     mutationFn: async () =>
-      await createStation({ data: { companyId: companyId!, archiveId: stationArchiveId, name } }),
+      await createStation({ data: { companyId: companyId!, archiveId: chosenArchiveId, name } }),
     onSuccess: (result) => {
       setFresh({ username: result.username, password: result.password });
       setName("");
