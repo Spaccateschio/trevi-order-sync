@@ -117,13 +117,49 @@ function Collegamenti() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [freeEmail, setFreeEmail] = useState("");
-  const [freeResult, setFreeResult] = useState<{ code: string; link: string } | null>(null);
+  const [freeResult, setFreeResult] = useState<{
+    code: string;
+    link: string;
+    expiresAt?: string | null;
+  } | null>(null);
   const [codeOpen, setCodeOpen] = useState(false);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
 
   const company = activeCompany(identity);
   const isAdmin = hasRole(identity, "amministratore");
+
+  /** Contatti aziendali stampati sul foglio invito: sola lettura. */
+  const companyContact = useQuery({
+    queryKey: ["company-contact", company?.companyId],
+    enabled: Boolean(company?.companyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("legal_name, email, phone")
+        .eq("id", company!.companyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  async function downloadFreeInvitePdf() {
+    if (!freeResult) return;
+    const { downloadInvitePdf } = await import("@/lib/invite-pdf");
+    const invitedBy = [identity?.profile?.firstName, identity?.profile?.lastName]
+      .filter(Boolean)
+      .join(" ");
+    await downloadInvitePdf({
+      sellerName: companyContact.data?.legal_name ?? company?.companyName ?? "La tua azienda",
+      sellerEmail: companyContact.data?.email ?? null,
+      sellerPhone: companyContact.data?.phone ?? null,
+      invitedBy: invitedBy || null,
+      inviteCode: freeResult.code || null,
+      inviteLink: freeResult.link,
+      expiresAt: freeResult.expiresAt ?? null,
+    });
+  }
   const sells = companySells(identity);
   const buys = companyBuys(identity);
 
@@ -389,9 +425,15 @@ function Collegamenti() {
       toast.error("Invito non generato: riprova.");
       return;
     }
+    const meta = await supabase
+      .from("company_invitations")
+      .select("expires_at")
+      .eq("id", row.invitation_id)
+      .maybeSingle();
     setFreeResult({
       code: row.invite_code ?? "",
       link: `${window.location.origin}/invito/${row.token}`,
+      expiresAt: meta.data?.expires_at ?? null,
     });
     // Con un'email indicata l'invito parte anche via email; senza, restano codice e link.
     if (freeEmail.trim() !== "") {
@@ -774,6 +816,9 @@ function Collegamenti() {
                 }}
               >
                 Copia codice e link
+              </Button>
+              <Button variant="outline" onClick={downloadFreeInvitePdf}>
+                Scarica PDF con QR
               </Button>
             </div>
           ) : (

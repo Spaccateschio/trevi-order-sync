@@ -114,12 +114,48 @@ export function CustomerRecordsPanel({
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteRecipient, setInviteRecipient] = useState<string | null>(null);
+  const [inviteExpires, setInviteExpires] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkResults, setBulkResults] = useState<
-    { name: string; email: string; link?: string; error?: string }[]
+    {
+      name: string;
+      email: string;
+      link?: string;
+      code?: string | null;
+      expiresAt?: string | null;
+      error?: string;
+    }[]
   >([]);
+
+  /** Dati aziendali stampati sul foglio invito: sola lettura. */
+  const companyQuery = useQuery({
+    queryKey: ["company-contact", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("legal_name, email, phone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const invitedBy = [identity?.profile?.firstName, identity?.profile?.lastName]
+    .filter(Boolean)
+    .join(" ");
+
+  function pdfBase() {
+    return {
+      sellerName: companyQuery.data?.legal_name ?? "La tua azienda",
+      sellerEmail: companyQuery.data?.email ?? null,
+      sellerPhone: companyQuery.data?.phone ?? null,
+      invitedBy: invitedBy || null,
+    };
+  }
 
   const recordsQuery = useQuery({
     queryKey: customerRecordsQueryKey,
@@ -214,10 +250,49 @@ export function CustomerRecordsPanel({
     setInviteFor(record);
     setInviteEmail(record.email ?? "");
     setInviteLink(null);
+    setInviteRecipient(record.legal_name);
+    setInviteExpires(null);
   }
 
   function linkFor(token: string) {
     return `${window.location.origin}/invito/${token}`;
+  }
+
+  /** Scadenza e codice dell'invito appena creato o rinnovato: sola lettura. */
+  async function fetchInviteMeta(invitationId: string) {
+    const { data } = await supabase
+      .from("company_invitations")
+      .select("expires_at, invite_code")
+      .eq("id", invitationId)
+      .maybeSingle();
+    return { expiresAt: data?.expires_at ?? null, code: data?.invite_code ?? null };
+  }
+
+  async function downloadCurrentInvitePdf() {
+    if (!inviteLink) return;
+    const { downloadInvitePdf } = await import("@/lib/invite-pdf");
+    await downloadInvitePdf({
+      ...pdfBase(),
+      recipientName: inviteRecipient,
+      inviteCode,
+      inviteLink,
+      expiresAt: inviteExpires,
+    });
+  }
+
+  async function downloadBulkInvitePdf() {
+    const usable = bulkResults.filter((result) => result.link);
+    if (!usable.length) return;
+    const { downloadInvitePdfBatch } = await import("@/lib/invite-pdf");
+    await downloadInvitePdfBatch(
+      usable.map((result) => ({
+        ...pdfBase(),
+        recipientName: result.name,
+        inviteCode: result.code ?? null,
+        inviteLink: result.link!,
+        expiresAt: result.expiresAt ?? null,
+      })),
+    );
   }
 
   /**
@@ -254,6 +329,12 @@ export function CustomerRecordsPanel({
     const row = (data ?? [])[0];
     if (row?.token) setInviteLink(linkFor(row.token));
     setInviteCode(row?.invite_code ?? null);
+    setInviteRecipient(inviteFor.legal_name);
+    if (row?.invitation_id) {
+      const meta = await fetchInviteMeta(row.invitation_id);
+      setInviteExpires(meta.expiresAt);
+      if (!row?.invite_code) setInviteCode(meta.code);
+    }
     if (row?.invitation_id && row?.token) await deliverInviteEmail(row.invitation_id, row.token);
     await refresh();
   }
@@ -266,10 +347,20 @@ export function CustomerRecordsPanel({
       toast.error(error.message);
       return;
     }
-    const token = (data ?? [])[0]?.token;
+    const row = (data ?? [])[0];
+    const token = row?.token;
     if (token) {
+      const record = records.find(
+        (item) =>
+          item.id ===
+          invitations.find((inv) => inv.id === invitationId)?.customer_record_id,
+      );
       setInviteFor(null);
+      setInviteRecipient(record?.legal_name ?? null);
       setInviteLink(linkFor(token));
+      const meta = await fetchInviteMeta(invitationId);
+      setInviteCode(meta.code);
+      setInviteExpires(meta.expiresAt);
       await deliverInviteEmail(invitationId, token);
     }
     await refresh();
@@ -305,7 +396,14 @@ export function CustomerRecordsPanel({
     if (!chosen.length) return;
     setBusy(true);
     setBulkOpen(true);
-    const results: { name: string; email: string; link?: string; error?: string }[] = [];
+    const results: {
+      name: string;
+      email: string;
+      link?: string;
+      code?: string | null;
+      expiresAt?: string | null;
+      error?: string;
+    }[] = [];
     for (const record of chosen) {
       const email = (record.email ?? "").trim();
       if (!email) {
@@ -341,9 +439,12 @@ export function CustomerRecordsPanel({
           /* il link resta valido e resta nell'elenco copiabile */
         }
       }
+      const meta = invitationId ? await fetchInviteMeta(invitationId) : null;
       results.push({
         name: record.legal_name,
         email,
+        code: meta?.code ?? null,
+        expiresAt: meta?.expiresAt ?? null,
         ...(token ? { link: linkFor(token) } : { error: "Invito non generato." }),
       });
     }
@@ -627,15 +728,22 @@ export function CustomerRecordsPanel({
           )}
           <DialogFooter>
             {inviteLink ? (
-              <Button
-                onClick={() => {
-                  setInviteFor(null);
-                  setInviteLink(null);
-                  setInviteCode(null);
-                }}
-              >
-                Ho copiato, chiudi
-              </Button>
+              <>
+                <Button variant="outline" onClick={downloadCurrentInvitePdf}>
+                  Scarica PDF
+                </Button>
+                <Button
+                  onClick={() => {
+                    setInviteFor(null);
+                    setInviteLink(null);
+                    setInviteCode(null);
+                    setInviteRecipient(null);
+                    setInviteExpires(null);
+                  }}
+                >
+                  Ho copiato, chiudi
+                </Button>
+              </>
             ) : (
               <Button disabled={busy || !isAdmin} onClick={sendInvite}>
                 Genera invito
@@ -703,6 +811,11 @@ export function CustomerRecordsPanel({
             </div>
           )}
           <DialogFooter>
+            {bulkResults.some((result) => result.link) ? (
+              <Button variant="outline" disabled={busy} onClick={downloadBulkInvitePdf}>
+                Scarica PDF ({bulkResults.filter((result) => result.link).length} pagine)
+              </Button>
+            ) : null}
             <Button
               onClick={() => {
                 setBulkOpen(false);

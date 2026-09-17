@@ -29,3 +29,4 @@
 - Conversioni U.M. realmente fisse (da valutare con carico merci/inventario)
 
 - [x] Email di invito collegamento inviate dal mittente notify.suitefficio.com (invito rapido, invito da scheda cliente, inviti multipli, rinnovo)
+- [x] Foglio invito PDF A4 con QR, codice invito, nome di chi invita e contatti aziendali (scheda cliente, inviti multipli, invito rapido in Collegamenti)
