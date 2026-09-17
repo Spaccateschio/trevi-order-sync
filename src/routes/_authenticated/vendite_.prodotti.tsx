@@ -503,11 +503,13 @@ function ImportDialog({
   open,
   onOpenChange,
   companyId,
+  archives,
   onImported,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   companyId: string | null;
+  archives: { id: string; name: string; isDefault: boolean }[];
   onImported: () => void;
 }) {
   const analyze = useServerFn(analyzeDaneaFile);
@@ -516,6 +518,10 @@ function ImportDialog({
   const [xml, setXml] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [archiveId, setArchiveId] = useState("");
+
+  const chosenArchiveId =
+    archiveId || archives.find((a) => a.isDefault)?.id || archives[0]?.id || "";
 
   const reset = () => {
     setXml(null);
@@ -525,13 +531,15 @@ function ImportDialog({
   };
 
   const analyzeMutation = useMutation({
-    mutationFn: async () => analyze({ data: { companyId: companyId!, xml: xml! } }),
+    mutationFn: async () =>
+      analyze({ data: { companyId: companyId!, archiveId: chosenArchiveId, xml: xml! } }),
     onSuccess: (result) => setAnalysis(result),
     onError: (error: Error) => toast.error(error.message),
   });
 
   const importMutation = useMutation({
-    mutationFn: async () => runImport({ data: { companyId: companyId!, xml: xml! } }),
+    mutationFn: async () =>
+      runImport({ data: { companyId: companyId!, archiveId: chosenArchiveId, xml: xml! } }),
     onSuccess: (result) => {
       toast.success("Importazione Danea completata", {
         description: `Creati ${result.created}, aggiornati ${result.updated}, invariati ${Math.max(
