@@ -250,10 +250,49 @@ export function CustomerRecordsPanel({
     setInviteFor(record);
     setInviteEmail(record.email ?? "");
     setInviteLink(null);
+    setInviteRecipient(record.legal_name);
+    setInviteExpires(null);
   }
 
   function linkFor(token: string) {
     return `${window.location.origin}/invito/${token}`;
+  }
+
+  /** Scadenza dell'invito appena creato o rinnovato: sola lettura. */
+  async function fetchExpires(invitationId: string) {
+    const { data } = await supabase
+      .from("company_invitations")
+      .select("expires_at")
+      .eq("id", invitationId)
+      .maybeSingle();
+    return data?.expires_at ?? null;
+  }
+
+  async function downloadCurrentInvitePdf() {
+    if (!inviteLink) return;
+    const { downloadInvitePdf } = await import("@/lib/invite-pdf");
+    await downloadInvitePdf({
+      ...pdfBase(),
+      recipientName: inviteRecipient,
+      inviteCode,
+      inviteLink,
+      expiresAt: inviteExpires,
+    });
+  }
+
+  async function downloadBulkInvitePdf() {
+    const usable = bulkResults.filter((result) => result.link);
+    if (!usable.length) return;
+    const { downloadInvitePdfBatch } = await import("@/lib/invite-pdf");
+    await downloadInvitePdfBatch(
+      usable.map((result) => ({
+        ...pdfBase(),
+        recipientName: result.name,
+        inviteCode: result.code ?? null,
+        inviteLink: result.link!,
+        expiresAt: result.expiresAt ?? null,
+      })),
+    );
   }
 
   /**
