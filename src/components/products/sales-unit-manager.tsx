@@ -1,12 +1,23 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Check, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, Plus, Star } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { applyProductSaleUnitBatch } from "@/lib/sales-units.functions";
 
@@ -16,29 +27,124 @@ export type ProductSaleUnit = { id: string; product_id: string; unit_id: string;
 export function SalesUnitManager({ companyId, productId, daneaUm, units, assignments, editable }: { companyId: string; productId: string; daneaUm: string | null; units: CompanyUnit[]; assignments: ProductSaleUnit[]; editable: boolean }) {
   const run = useServerFn(applyProductSaleUnitBatch);
   const queryClient = useQueryClient();
-  const [chosen, setChosen] = useState("");
-  const [factors, setFactors] = useState<Record<string, string>>({});
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<ProductSaleUnit | null>(null);
+  const [offerDeactivation, setOfferDeactivation] = useState(false);
+  const [draft, setDraft] = useState({ active: true, visible: true, isDefault: false, factor: "" });
+
+  const selected = useMemo(() => assignments.find((row) => row.id === selectedId) ?? null, [assignments, selectedId]);
+  useEffect(() => {
+    if (!selected) return;
+    setDraft({
+      active: selected.is_active,
+      visible: selected.is_customer_visible,
+      isDefault: selected.is_default,
+      factor: selected.conversion_factor?.toString() ?? "",
+    });
+  }, [selected]);
+
   const mutation = useMutation({
     mutationFn: (input: { unitId: string; operation: "add" | "visible" | "active" | "factor" | "default" | "remove"; booleanValue?: boolean | null; factor?: number | null }) => run({ data: { companyId, productIds: [productId], unitId: input.unitId, operation: input.operation, booleanValue: input.booleanValue ?? null, conversionFactor: input.factor ?? null, overwrite: true } }),
     onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["product-sale-units", companyId] }); toast.success("U.M. vendita aggiornata"); },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!selected) return;
+      const normalizedFactor = draft.factor.trim().replace(",", ".");
+      const factor = normalizedFactor ? Number(normalizedFactor) : null;
+      if (factor !== null && (!Number.isFinite(factor) || factor <= 0)) throw new Error("La conversione deve essere maggiore di zero");
+      if (draft.active !== selected.is_active) await run({ data: { companyId, productIds: [productId], unitId: selected.unit_id, operation: "active", booleanValue: draft.active, conversionFactor: null, overwrite: true } });
+      if (draft.visible !== selected.is_customer_visible) await run({ data: { companyId, productIds: [productId], unitId: selected.unit_id, operation: "visible", booleanValue: draft.visible, conversionFactor: null, overwrite: true } });
+      if (draft.isDefault && !selected.is_default) await run({ data: { companyId, productIds: [productId], unitId: selected.unit_id, operation: "default", booleanValue: null, conversionFactor: null, overwrite: true } });
+      if (factor !== selected.conversion_factor || selected.needs_review) await run({ data: { companyId, productIds: [productId], unitId: selected.unit_id, operation: "factor", booleanValue: null, conversionFactor: factor, overwrite: true } });
+    },
+    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["product-sale-units", companyId] }); toast.success("Configurazione U.M. salvata"); },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const available = units.filter((unit) => unit.status === "attivo" && !assignments.some((row) => row.unit_id === unit.id));
-  return <section className="border-t border-border pt-4">
-    <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">Impostazioni Trevi Fruit</h3><p className="text-xs text-muted-foreground">U.M. vendita · riferimento Danea: {daneaUm ?? "—"}</p></div><Badge variant="secondary">Modificabili</Badge></div>
-    <div className="mt-3 space-y-2">
-      {assignments.map((row) => <div key={row.id} className="rounded-md border border-border p-3">
-        <div className="flex items-center gap-2"><strong className="text-sm">{row.units_of_measure?.code ?? "—"}</strong><span className="text-xs text-muted-foreground">{row.units_of_measure?.description}</span>{row.is_default ? <Badge>Predefinita</Badge> : null}{row.needs_review ? <Badge variant="destructive"><AlertTriangle />Da verificare</Badge> : null}</div>
-        <div className="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
-          <label className="flex items-center gap-2"><Switch disabled={!editable || mutation.isPending} checked={row.is_active} onCheckedChange={(value) => mutation.mutate({ unitId: row.unit_id, operation: "active", booleanValue: value })} />Attiva</label>
-          <label className="flex items-center gap-2"><Switch disabled={!editable || mutation.isPending} checked={row.is_customer_visible} onCheckedChange={(value) => mutation.mutate({ unitId: row.unit_id, operation: "visible", booleanValue: value })} />Cliente</label>
-          <Button variant="outline" size="sm" disabled={!editable || row.is_default || mutation.isPending} onClick={() => mutation.mutate({ unitId: row.unit_id, operation: "default" })}><Check />Predefinita</Button>
-          <Button variant="ghost" size="sm" disabled={!editable || mutation.isPending} onClick={() => mutation.mutate({ unitId: row.unit_id, operation: "remove" })}><Trash2 />Rimuovi</Button>
-        </div>
-        <div className="mt-3 flex items-center gap-2"><span className="shrink-0 text-xs text-muted-foreground">1 {row.units_of_measure?.code} ≈</span><Input aria-label={`Conversione ${row.units_of_measure?.code}`} className="h-8 w-28" inputMode="decimal" disabled={!editable} value={factors[row.id] ?? (row.conversion_factor ?? "")} onChange={(event) => setFactors((current) => ({ ...current, [row.id]: event.target.value }))} placeholder="Nessuna"/><span className="text-xs">{daneaUm ?? "U.M. Danea"}</span><Button size="sm" variant="outline" disabled={!editable || mutation.isPending} onClick={() => { const value = factors[row.id] ?? (row.conversion_factor?.toString() ?? ""); mutation.mutate({ unitId: row.unit_id, operation: "factor", factor: value ? Number(value.replace(",", ".")) : null }); }}>Salva stima</Button></div>
-      </div>)}
-      {!assignments.length ? <p className="py-3 text-sm text-muted-foreground">Nessuna U.M. di vendita configurata.</p> : null}
+  const busy = mutation.isPending || saveMutation.isPending;
+
+  const requestRemoval = (row: ProductSaleUnit) => {
+    setOfferDeactivation(row.is_default);
+    setRemoveTarget(row);
+  };
+
+  const confirmRemoval = async () => {
+    if (!removeTarget) return;
+    const operation = offerDeactivation ? "active" : "remove";
+    const result = await mutation.mutateAsync({ unitId: removeTarget.unit_id, operation, ...(operation === "active" ? { booleanValue: false } : {}) });
+    if (operation === "remove" && result.changed === 0) {
+      setOfferDeactivation(true);
+      return;
+    }
+    setSelectedId(null);
+    setRemoveTarget(null);
+    setOfferDeactivation(false);
+  };
+
+  return <section aria-labelledby="sale-units-title">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+      <div className="min-w-0"><h3 id="sale-units-title" className="text-sm font-semibold">Impostazioni Trevi Fruit</h3><p className="text-xs text-muted-foreground">U.M. vendita · riferimento Danea: {daneaUm ?? "—"}</p></div>
+      <Badge variant="secondary" className="shrink-0">{editable ? "Modificabili" : "Sola lettura"}</Badge>
     </div>
-    {editable && available.length ? <div className="mt-3 flex gap-2"><select aria-label="U.M. da aggiungere" className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm" value={chosen} onChange={(event) => setChosen(event.target.value)}><option value="">Scegli U.M.</option>{available.map((unit) => <option key={unit.id} value={unit.id}>{unit.code} — {unit.description}</option>)}</select><Button size="sm" disabled={!chosen || mutation.isPending} onClick={() => mutation.mutate({ unitId: chosen, operation: "add" })}><Plus />Aggiungi</Button></div> : null}
+
+    <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="U.M. vendita associate">
+      {assignments.map((row) => {
+        const code = row.units_of_measure?.code ?? "—";
+        const isSelected = selectedId === row.id;
+        return <Button
+          key={row.id}
+          type="button"
+          size="sm"
+          variant={isSelected ? "default" : "outline"}
+          aria-pressed={isSelected}
+          aria-label={`${code}${row.is_default ? ", predefinita" : ""}${row.needs_review ? ", da verificare" : ""}`}
+          onClick={() => {
+            if (isSelected && editable) requestRemoval(row);
+            else setSelectedId(isSelected ? null : row.id);
+          }}
+        >
+          {code}{row.is_default ? <Star className="fill-current" aria-hidden="true" /> : null}{row.needs_review ? <AlertTriangle aria-hidden="true" /> : null}
+        </Button>;
+      })}
+      {editable && available.length ? <Popover open={addOpen} onOpenChange={setAddOpen}>
+        <PopoverTrigger asChild><Button type="button" size="icon" variant="outline" aria-label="Aggiungi U.M. vendita"><Plus /></Button></PopoverTrigger>
+        <PopoverContent align="start" className="w-64 p-2">
+          <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">Aggiungi U.M. vendita</p>
+          <div className="max-h-64 space-y-1 overflow-y-auto">
+            {available.map((unit) => <Button key={unit.id} type="button" variant="ghost" className="h-auto w-full justify-start py-2 text-left" disabled={busy} onClick={async () => { await mutation.mutateAsync({ unitId: unit.id, operation: "add" }); setAddOpen(false); }}><span><strong>{unit.code}</strong><span className="ml-2 text-muted-foreground">{unit.description}</span></span></Button>)}
+          </div>
+        </PopoverContent>
+      </Popover> : null}
+      {!assignments.length && !available.length ? <p className="text-sm text-muted-foreground">Nessuna U.M. disponibile.</p> : null}
+      {!assignments.length && available.length ? <p className="text-sm text-muted-foreground">Aggiungi la prima U.M. con +.</p> : null}
+    </div>
+
+    {selected ? <div className="mt-4 rounded-md border border-border bg-muted/30 p-3">
+      <div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{selected.units_of_measure?.code ?? "—"} — {selected.units_of_measure?.description ?? ""}</strong>{selected.needs_review ? <Badge variant="destructive"><AlertTriangle />U.M. Danea cambiata: verifica la stima</Badge> : null}</div>
+      <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
+        <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy} checked={draft.active} onCheckedChange={(active) => setDraft((current) => ({ ...current, active, isDefault: active ? current.isDefault : false }))} />Attiva</label>
+        <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy} checked={draft.visible} onCheckedChange={(visible) => setDraft((current) => ({ ...current, visible, isDefault: visible ? current.isDefault : false }))} />Visibile cliente</label>
+        <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy || selected.is_default} checked={draft.isDefault} onCheckedChange={(isDefault) => setDraft((current) => ({ ...current, isDefault, active: isDefault ? true : current.active, visible: isDefault ? true : current.visible }))} />Predefinita</label>
+      </div>
+      <div className="mt-4 grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2"><span className="text-sm">1 {selected.units_of_measure?.code ?? "U.M."} ≈</span><Input aria-label={`Conversione stimata ${selected.units_of_measure?.code ?? "U.M."}`} inputMode="decimal" disabled={!editable || busy} value={draft.factor} onChange={(event) => setDraft((current) => ({ ...current, factor: event.target.value }))} placeholder="Nessuna"/><span className="truncate text-sm">{daneaUm ?? "U.M. Danea"}</span></div>
+      {editable ? <div className="mt-4 flex justify-end"><Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate()}>Salva</Button></div> : null}
+    </div> : null}
+
+    <AlertDialog open={Boolean(removeTarget)} onOpenChange={(open) => { if (!open) { setRemoveTarget(null); setOfferDeactivation(false); } }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{offerDeactivation ? "Disattivare questa U.M.?" : "Rimuovere questa U.M.?"}</AlertDialogTitle>
+          <AlertDialogDescription>{offerDeactivation
+            ? `“${removeTarget?.units_of_measure?.code ?? "U.M."} — ${removeTarget?.units_of_measure?.description ?? ""}” non può essere rimossa perché è predefinita o già storicizzata. Puoi disattivarla senza perdere lo storico.`
+            : `Rimuovere “${removeTarget?.units_of_measure?.code ?? "U.M."} — ${removeTarget?.units_of_measure?.description ?? ""}” dalle U.M. di vendita di questo prodotto?`}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={(event) => { event.preventDefault(); void confirmRemoval(); }}>{offerDeactivation ? "Disattiva" : "Rimuovi"}</AlertDialogAction></AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </section>;
 }
