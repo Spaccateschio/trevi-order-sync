@@ -314,14 +314,19 @@ export type AnalyzeResult = {
  * Anteprima in SOLA LETTURA: usa lo stesso lettore XML del collegamento diretto,
  * non scrive nulla e non registra alcun invio.
  */
-export async function analyzeDaneaCatalog(companyId: string, xml: string): Promise<AnalyzeResult> {
+export async function analyzeDaneaCatalog(
+  companyId: string,
+  archiveId: string,
+  xml: string,
+): Promise<AnalyzeResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const doc = parseDaneaProducts(xml);
 
   const { data: existingRows, error } = await supabaseAdmin
     .from("products")
     .select("id, code, danea_internal_id, publish_status, last_sync_run_id")
-    .eq("company_id", companyId);
+    .eq("company_id", companyId)
+    .eq("archive_id", archiveId);
   if (error) throw new Error(error.message);
 
   const byInternalId = new Set<string>();
