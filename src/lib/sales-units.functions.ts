@@ -37,11 +37,11 @@ export const manageUnitOfMeasure = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: result, error } = await supabaseAdmin.rpc("manage_unit_of_measure", {
       _company_id: data.companyId,
-      _unit_id: data.unitId,
+      _unit_id: data.unitId ?? "00000000-0000-0000-0000-000000000000",
       _action: data.action,
-      _code: data.code,
-      _description: data.description,
       _actor_user_id: context.userId,
+      ...(data.code === null ? {} : { _code: data.code }),
+      ...(data.description === null ? {} : { _description: data.description }),
     });
     if (error) throw new Error(error.message);
     return { id: result };
@@ -58,10 +58,10 @@ export const applyProductSaleUnitBatch = createServerFn({ method: "POST" })
       _product_ids: data.productIds,
       _unit_id: data.unitId,
       _operation: data.operation,
-      _boolean_value: data.booleanValue,
-      _conversion_factor: data.conversionFactor,
       _overwrite: data.overwrite,
       _actor_user_id: context.userId,
+      ...(data.booleanValue === null ? {} : { _boolean_value: data.booleanValue }),
+      ...(data.conversionFactor === null ? {} : { _conversion_factor: data.conversionFactor }),
     });
     if (error) throw new Error(error.message);
     return result as { requested: number; changed: number; unchanged: number };
