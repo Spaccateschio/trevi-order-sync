@@ -238,7 +238,7 @@ export function AddressManager({
           const { error } = await supabase
             .from("address_functions")
             .insert({ address_id: addressId, function: code, is_default: isDefault });
-          if (error) toast.error(error.message);
+          if (error) toast.error(friendlyError(error.message));
         }
       }
     }
