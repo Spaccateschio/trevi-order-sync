@@ -123,6 +123,8 @@ function ProdottiPage() {
     return () => window.removeEventListener("resize", update);
   }, []);
 
+  useEffect(() => setPreferencesReady(false), [deviceClass, userId]);
+
   const archivesQuery = useQuery({
     queryKey: ["danea-archivi", companyId],
     enabled: Boolean(companyId),
@@ -269,7 +271,7 @@ function ProdottiPage() {
       </div>
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-y border-border py-1.5 text-xs">
-        <p className="truncate text-muted-foreground">{productsQuery.isLoading ? "Caricamento…" : `${sortedFiltered.length} prodotti`}{selectedIds.size ? ` · ${selectedIds.size} selezionati` : ""}</p>
+        <p className="truncate text-muted-foreground">{productsQuery.isLoading ? "Caricamento…" : `${sortedFiltered.length} prodotti`}{selectedProducts.length ? ` · ${selectedProducts.length} selezionati` : ""}</p>
         <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{isAdmin ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
       </div>
 

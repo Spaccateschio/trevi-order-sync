@@ -63,7 +63,21 @@ export function ProductGrid({
       minSize: 40,
       enableSorting: false,
       enableResizing: false,
-      header: () => null,
+      header: () => {
+        const pageIds = products.map((product) => product.id);
+        const selectedOnPage = pageIds.filter((id) => selectedIds.has(id)).length;
+        return (
+          <Checkbox
+            checked={selectedOnPage === pageIds.length && pageIds.length > 0 ? true : selectedOnPage > 0 ? "indeterminate" : false}
+            onCheckedChange={(value) => {
+              const next = new Set(selectedIds);
+              for (const id of pageIds) value === true ? next.add(id) : next.delete(id);
+              onSelectionChange(next);
+            }}
+            aria-label="Seleziona la pagina corrente"
+          />
+        );
+      },
       cell: ({ row }) => (
         <Checkbox
           checked={selectedIds.has(row.original.id)}
