@@ -268,21 +268,36 @@ function Collegamenti() {
   };
 
   const passesFilter = (row: ConnectionRow, key: Filter) => {
-    if (key === "vendo") return row.side === "venditore";
-    if (key === "compro") return row.side === "acquirente";
+    if (key === "attivi") return row.statusTone === "attivo";
     if (key === "attesa") return row.relation.status === "in_attesa";
     if (key === "sospesi") return row.statusTone === "sospeso";
     return true;
   };
 
+  /**
+   * Tab principali: Clienti (aziende a cui vendo), Fornitori (aziende da cui
+   * compro), Entrambi (rapporti nei due sensi, una sola riga per azienda).
+   */
+  const inTab = (row: ConnectionRow, key: Tab) => {
+    if (key === "entrambi") return row.bothWays && row.side === "venditore";
+    if (key === "clienti") return row.side === "venditore" && !row.bothWays;
+    return row.side === "acquirente" && !row.bothWays;
+  };
+
+  const tabCounts = Object.fromEntries(
+    (Object.keys(tabLabels) as Tab[]).map((key) => [key, rows.filter((row) => inTab(row, key)).length]),
+  ) as Record<Tab, number>;
+
+  const tabRows = rows.filter((row) => inTab(row, tab));
+
   const filterCounts = Object.fromEntries(
     (Object.keys(filterLabels) as Filter[]).map((key) => [
       key,
-      rows.filter((row) => matchSearch(row) && passesFilter(row, key)).length,
+      tabRows.filter((row) => matchSearch(row) && passesFilter(row, key)).length,
     ]),
   ) as Record<Filter, number>;
 
-  const visibleRows = rows.filter((row) => matchSearch(row) && passesFilter(row, filter));
+  const visibleRows = tabRows.filter((row) => matchSearch(row) && passesFilter(row, filter));
   const pendingRows = rows.filter((row) => row.relation.status === "in_attesa");
   const openRow = rows.find((row) => row.key === openKey) ?? null;
 
