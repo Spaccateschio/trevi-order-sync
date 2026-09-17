@@ -50,7 +50,7 @@ Tutto ciò che riguarda anagrafica, indirizzi e destinazioni esce da questa pagi
 Nessun dato duplicato: la relazione resta una sola riga in `supplier_customer_relations`, con `status`, `origin`, `seller_enabled`, `buyer_enabled` e il collegamento facoltativo al cliente d'anagrafica (`customer_record_id`).
 
 - Collegamenti legge e scrive la relazione (accetta, rifiuta, sospende, riattiva) tramite le funzioni già esistenti.
-- Clienti legge la stessa relazione in sola lettura, tramite `customer_record_id`, solo per mostrare "azienda collegata" e lo stato.
+- Clienti legge la stessa relazione in sola lettura, tramite `customer_record_id`, solo per calcolare il colore dell'indicatore: nessuna decisione, nessuna sospensione, nessuna copia dei dati.
 - Gli inviti restano in `company_invitations`: si creano dalla scheda cliente, si controllano da Collegamenti.
 - Un solo punto di calcolo dello stato operativo (`isRelationOperational`), già presente, usato da entrambe le pagine.
 
