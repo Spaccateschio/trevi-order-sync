@@ -383,6 +383,18 @@ function Collegamenti() {
       code: row.invite_code ?? "",
       link: `${window.location.origin}/invito/${row.token}`,
     });
+    // Con un'email indicata l'invito parte anche via email; senza, restano codice e link.
+    if (freeEmail.trim() !== "") {
+      try {
+        const result = await sendInvitationEmail({
+          data: { invitationId: row.invitation_id, token: row.token },
+        });
+        if (result.sent) toast.success("Invito inviato per email.");
+        else toast.info("Questo indirizzo non riceve le nostre email: usa il link o il codice.");
+      } catch {
+        toast.error("Email non inviata: puoi comunque usare il link o il codice.");
+      }
+    }
     await refreshInvitations();
   }
 

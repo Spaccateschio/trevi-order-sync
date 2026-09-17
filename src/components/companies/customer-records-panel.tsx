@@ -330,7 +330,17 @@ export function CustomerRecordsPanel({
         results.push({ name: record.legal_name, email, error: error.message });
         continue;
       }
-      const token = (data ?? [])[0]?.token;
+      const row = (data ?? [])[0];
+      const token = row?.token;
+      const invitationId = pending ? pending.id : row?.invitation_id;
+      if (token && invitationId) {
+        // L'email è una consegna in più: un errore non invalida l'invito.
+        try {
+          await sendInvitationEmail({ data: { invitationId, token } });
+        } catch {
+          /* il link resta valido e resta nell'elenco copiabile */
+        }
+      }
       results.push({
         name: record.legal_name,
         email,
