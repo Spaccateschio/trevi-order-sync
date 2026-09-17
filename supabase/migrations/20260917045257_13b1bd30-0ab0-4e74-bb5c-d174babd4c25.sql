@@ -1,0 +1,1 @@
+ALTER TABLE public.user_grid_preferences DROP CONSTRAINT user_grid_preferences_user_id_fkey;
