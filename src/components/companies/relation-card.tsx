@@ -50,7 +50,10 @@ export function RelationCard({ relation, side, isAdmin }: Props) {
     ((relation.origin === "richiesta_cliente" && side === "venditore") ||
       (relation.origin === "invito_fornitore" && side === "acquirente"));
 
-  async function run(action: () => Promise<{ error: { message: string } | null }>, ok: string) {
+  async function run(
+    action: () => PromiseLike<{ error: { message: string } | null }>,
+    ok: string,
+  ) {
     setBusy(true);
     const { error } = await action();
     setBusy(false);
