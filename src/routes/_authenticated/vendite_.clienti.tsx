@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { CustomerRecordsPanel } from "@/components/companies/customer-records-panel";
+import { ProposedUpdatesPanel } from "@/components/companies/proposed-updates-panel";
 import { RelationCard } from "@/components/companies/relation-card";
 import { Button } from "@/components/ui/button";
 import {
