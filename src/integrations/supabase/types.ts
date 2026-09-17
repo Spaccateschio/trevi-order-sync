@@ -1171,6 +1171,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_product_sale_unit_batch: {
+        Args: {
+          _actor_user_id?: string
+          _boolean_value?: boolean
+          _company_id: string
+          _conversion_factor?: number
+          _operation: string
+          _overwrite?: boolean
+          _product_ids: string[]
+          _unit_id: string
+        }
+        Returns: Json
+      }
       available_suppliers: {
         Args: never
         Returns: {
@@ -1195,6 +1208,17 @@ export type Database = {
       }
       is_company_admin: { Args: { _company_id: string }; Returns: boolean }
       is_company_member: { Args: { _company_id: string }; Returns: boolean }
+      manage_unit_of_measure: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _code?: string
+          _company_id: string
+          _description?: string
+          _unit_id: string
+        }
+        Returns: string
+      }
       register_company: {
         Args: {
           _address_line?: string
