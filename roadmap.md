@@ -11,7 +11,8 @@
 - [x] Punto 5b: anagrafica clienti del venditore (non registrati), P.IVA normalizzata e inviti B2B con token/scadenza/reinvio/annullamento
 - [x] Punto 5b.1: registrazione cliente da invito con precompilazione, registrazione autonoma con richiesta di collegamento, indirizzi multipli con visibilità esplicita verso i partner
 - [x] Punto 5b.2: destinazioni cliente (punto operativo/centro documentale) sopra gli indirizzi + importazione massiva clienti da file Danea con anteprima e invito multiplo
-- [ ] Punto 5c: condizioni commerciali per rapporto (listino Danea, catalogo visibile), ereditate dal cliente con possibile override per destinazione
+- [x] Riorganizzazione: Clienti = solo anagrafica commerciale con indicatore colorato di collegamento; nuova pagina Collegamenti per i rapporti tra aziende; Fornitori rimanda a Collegamenti
+- [ ] Punto 5c: Cliente → Listino Danea assegnato, ereditato dalle destinazioni con possibile override (colonna Listino presente nell'export soggetti Danea)
 
 ## Completato
 - [x] Importazione manuale file Danea (Opzione B) con stesso parser/motore

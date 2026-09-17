@@ -1,6 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+
+import { useIdentity } from "@/hooks/use-identity";
+import { linkStatusOf } from "@/lib/relation-link-status";
 
 import { AddressManager } from "@/components/companies/address-manager";
 import { CustomerImportDialog } from "@/components/companies/customer-import-dialog";
@@ -100,6 +104,7 @@ export function CustomerRecordsPanel({
   isAdmin: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { data: identity } = useIdentity();
   const [editing, setEditing] = useState<CustomerRecord | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -360,6 +365,11 @@ export function CustomerRecordsPanel({
             (inv) => inv.customer_record_id === record.id && inv.status === "in_attesa",
           );
           const last = invitations.find((inv) => inv.customer_record_id === record.id);
+          // Stessa relazione della pagina Collegamenti, qui solo in lettura.
+          const relation = (identity?.relations ?? []).find(
+            (r) => r.sellerCompanyId === companyId && r.customerRecordId === record.id,
+          );
+          const link = linkStatusOf(relation, Boolean(pending));
           return (
             <section
               key={record.id}
@@ -373,7 +383,20 @@ export function CustomerRecordsPanel({
                   aria-label={`Seleziona ${record.legal_name}`}
                 />
                 <div className="min-w-0">
-                <h3 className="font-display text-base font-semibold">{record.legal_name}</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-display text-base font-semibold">{record.legal_name}</h3>
+                  <Link
+                    to="/collegamenti"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground"
+                    title="Stato del collegamento su Trevi Fruit"
+                  >
+                    <span
+                      aria-hidden
+                      className={`size-2 rounded-full ${link.dotClassName}`}
+                    />
+                    {link.label}
+                  </Link>
+                </div>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {[
                     record.vat_number ? `P.IVA ${record.vat_number}` : null,
@@ -395,14 +418,16 @@ export function CustomerRecordsPanel({
                 <Button size="sm" variant="outline" onClick={() => openEdit(record)}>
                   Dettagli
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!isAdmin}
-                  onClick={() => openInvite(record)}
-                >
-                  Invita
-                </Button>
+                {link.key === "attivo" || link.key === "sospeso" ? null : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!isAdmin}
+                    onClick={() => openInvite(record)}
+                  >
+                    Invita
+                  </Button>
+                )}
                 {pending ? (
                   <>
                     <Button

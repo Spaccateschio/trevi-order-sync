@@ -29,6 +29,8 @@ export type Relation = {
   /** Doppio consenso: il rapporto è operativo solo se entrambi i lati sono attivi. */
   sellerEnabled: boolean;
   buyerEnabled: boolean;
+  /** Cliente d'anagrafica collegato, quando presente: nessun dato duplicato. */
+  customerRecordId: string | null;
 };
 
 /** Unico punto di calcolo: rapporto realmente utilizzabile. */
@@ -72,7 +74,7 @@ async function fetchIdentity(): Promise<Identity | null> {
     supabase
       .from("supplier_customer_relations")
       .select(
-        "id, seller_company_id, buyer_company_id, status, origin, seller_enabled, buyer_enabled, seller:companies!supplier_customer_relations_company_id_fkey(legal_name), buyer:companies!relations_buyer_fkey(legal_name)",
+        "id, seller_company_id, buyer_company_id, status, origin, seller_enabled, buyer_enabled, customer_record_id, seller:companies!supplier_customer_relations_company_id_fkey(legal_name), buyer:companies!relations_buyer_fkey(legal_name)",
       ),
   ]);
 
@@ -159,6 +161,7 @@ async function fetchIdentity(): Promise<Identity | null> {
     origin: row.origin as RelationOrigin,
     sellerEnabled: row.seller_enabled,
     buyerEnabled: row.buyer_enabled,
+    customerRecordId: row.customer_record_id ?? null,
   }));
 
   return {
