@@ -357,9 +357,10 @@ export function CustomerRecordsPanel({
       );
       setInviteFor(null);
       setInviteRecipient(record?.legal_name ?? null);
-      setInviteCode(row?.invite_code ?? null);
       setInviteLink(linkFor(token));
-      setInviteExpires(await fetchExpires(invitationId));
+      const meta = await fetchInviteMeta(invitationId);
+      setInviteCode(meta.code);
+      setInviteExpires(meta.expiresAt);
       await deliverInviteEmail(invitationId, token);
     }
     await refresh();
