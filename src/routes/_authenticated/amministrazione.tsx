@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell, PlaceholderCard } from "@/components/app-shell";
+import { AddressManager } from "@/components/companies/address-manager";
 import { UnitCatalogue } from "@/components/company/unit-catalogue";
 import { Button } from "@/components/ui/button";
 import {
