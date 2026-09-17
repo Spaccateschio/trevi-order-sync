@@ -432,9 +432,12 @@ export function CustomerRecordsPanel({
           /* il link resta valido e resta nell'elenco copiabile */
         }
       }
+      const meta = invitationId ? await fetchInviteMeta(invitationId) : null;
       results.push({
         name: record.legal_name,
         email,
+        code: meta?.code ?? null,
+        expiresAt: meta?.expiresAt ?? null,
         ...(token ? { link: linkFor(token) } : { error: "Invito non generato." }),
       });
     }
