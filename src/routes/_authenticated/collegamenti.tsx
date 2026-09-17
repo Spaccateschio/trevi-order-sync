@@ -791,14 +791,27 @@ function Collegamenti() {
                             Copia codice
                           </Button>
                         ) : null}
+                        {freshLinks[invitation.id] ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(freshLinks[invitation.id]!);
+                              toast.success("Link copiato.");
+                            }}
+                          >
+                            Copia link
+                          </Button>
+                        ) : null}
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={!isAdmin}
-                          onClick={() => resendInvitation(invitation.id)}
+                          disabled={!isAdmin || busyId === invitation.id}
+                          onClick={() => resendInvitation(invitation.id, expired)}
                         >
-                          Rinnova
+                          {expired ? "Rinnova invito" : "Reinvia invito"}
                         </Button>
+
                         <Button
                           size="sm"
                           variant="ghost"
