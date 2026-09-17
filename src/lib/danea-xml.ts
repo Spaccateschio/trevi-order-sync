@@ -11,6 +11,8 @@ export type DaneaProduct = {
   subcategory: string | null;
   subcategoryLevels: string[];
   um: string | null;
+  sizeUm: string | null;
+  weightUm: string | null;
   vatCode: string | null;
   vatPerc: number | null;
   vatClass: string | null;
