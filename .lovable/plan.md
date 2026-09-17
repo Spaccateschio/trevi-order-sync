@@ -26,7 +26,11 @@ Conseguenze:
 - La pagina Prodotti ottiene colonna opzionale Archivio, filtro Archivio e vista "tutti gli archivi insieme": un solo catalogo, provenienza sempre riconoscibile.
 - In futuro un ordine con prodotti di due archivi potrà essere separato per archivio: la riga d'ordine porterà l'archivio, quindi ogni Danea scaricherà solo le proprie righe. Non implemento ora il ritorno ordini.
 
-Migrazione senza perdite: creo l'archivio "Archivio principale", vi assegno i 4 prodotti già ricevuti, i listini, lo storico invii e **entrambe** le postazioni esistenti (Pc Ufficio Andrea e pc casa andrea restano identiche: nome, utente, password, indirizzo). Poi dalla pagina Gestionale potrai creare un secondo archivio e spostarvi la postazione che usa l'altro archivio; da quel momento i due cataloghi non si pestano più i piedi.
+Migrazione senza perdite: creo l'archivio "Archivio principale", vi assegno i 4 prodotti già ricevuti, i listini, lo storico invii e **entrambe** le postazioni esistenti (Pc Ufficio Andrea e pc casa andrea restano identiche: nome, utente, password, indirizzo).
+
+Nella pagina Gestionale la relazione diventa esplicita e visibile: prima l'**Archivio Danea** con il suo nome, e dentro di esso le **postazioni che gli appartengono** — non più un elenco piatto di PC. Potrai creare e rinominare un archivio e assegnare o spostare una postazione da un archivio all'altro, con richiesta di conferma quando lo spostamento può cambiare l'esito dei successivi invii completi.
+
+Importante per te: **prima di usare il secondo Danea, crea il relativo archivio e assegnagli pc casa andrea**, altrimenti i due cataloghi tornerebbero a sovrapporsi.
 
 ## 4. Pagina compatta e griglia gestionale
 
