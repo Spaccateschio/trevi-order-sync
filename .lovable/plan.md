@@ -90,14 +90,15 @@ Alla configurazione iniziale dell’azienda saranno predisposte nell’anagrafic
 
 ## Dettaglio del prodotto
 
-Il pannello manterrà due sezioni nette:
+Il pannello mostrerà per prima **IMPOSTAZIONI TREVI FRUIT — modificabili**. Le U.M. associate saranno pulsanti compatti in una fila che va automaticamente a capo; la stella identifica la predefinita. Il pulsante `+` apre l’elenco delle U.M. aziendali attive non ancora associate e la scelta aggiunge subito l’associazione.
 
-1. **DATI DANEA — sola lettura**: inclusa `U.M. Danea`.
-2. **IMPOSTAZIONI TREVI FRUIT — modificabili**: tabella U.M. vendita con sigla, cliente sì/no, predefinita, conversione stimata e stato.
+Un solo pulsante U.M. alla volta apre l’area di configurazione sottostante con sigla, descrizione, stato attivo, visibilità cliente, predefinita, conversione stimata verso la U.M. Danea e un’unica azione Salva. Le modifiche dei campi restano locali finché non si preme Salva. La conversione viene mostrata come `1 cs ≈ 15 kg`, mai come equivalenza esatta; se manca resta vuota e l’U.M. rimane utilizzabile. Se richiede revisione compare l’avviso “U.M. Danea cambiata: verifica la stima”.
 
-Azioni amministratore: aggiungi, modifica, attiva/disattiva, cambia visibilità, imposta come predefinita, rimuovi l’associazione se non referenziata. Gli altri membri vedono la configurazione senza modificarla.
+Un secondo clic sulla U.M. già aperta non la elimina: apre una conferma “Rimuovere «cs — Cassa» dalle U.M. di vendita di questo prodotto?”. Se l’associazione è predefinita o già referenziata/storicizzata e le regole esistenti ne impediscono la rimozione, la conferma propone invece la disattivazione. Nessun clic singolo può rimuovere dati.
 
-La conversione verrà mostrata come `≈ 15 kg`, mai come equivalenza esatta. Se manca: `—`, ma l’U.M. resta utilizzabile. Se richiede revisione: avviso evidente “U.M. Danea cambiata: verifica la stima”.
+Subito dopo compare **DATI DANEA — sola lettura**, inizialmente chiusa e apribile su richiesta. Al suo interno restano tutti i dati già presenti: archivio, identificativo, categoria, U.M. originale, IVA, stato, aggiornamento, listini, dati fornitore autorizzati, note e riferimenti immagine. Nessun dato Danea viene eliminato o reso modificabile.
+
+Gli amministratori modificano la configurazione; gli altri membri vedono la stessa struttura senza controlli di scrittura.
 
 ## Modifica multipla dalla griglia
 
@@ -157,9 +158,9 @@ Poiché le associazioni usano `product_id`, due codici uguali in archivi differe
 
 ## Desktop, tablet e smartphone
 
-- **Desktop:** gestione nel pannello laterale del prodotto; barra azioni multipla sopra la griglia; dialog ampio con anteprima tabellare.
+- **Desktop:** gestione U.M. subito in cima al pannello laterale del prodotto; dati Danea collassabili; barra azioni multipla sopra la griglia; dialog ampio con anteprima tabellare.
 - **Tablet:** pannello più largo e azioni impilate; stessa anteprima con colonne essenziali.
-- **Smartphone:** dettaglio a tutto schermo; ogni U.M. come riga touch con menu azioni; modifica multipla a passaggi, riepilogo prima della conferma.
+- **Smartphone:** dettaglio a tutto schermo; pulsanti U.M. touch che vanno automaticamente a capo, una sola configurazione aperta e dati Danea collassabili; modifica multipla a passaggi, riepilogo prima della conferma.
 - La griglia resta compatta; si aggiungeranno colonne opzionali “U.M. vendita”, “U.M. predefinita” e “Conversioni da verificare”, non visibili di default.
 
 ## Migrazione sicura
@@ -206,6 +207,10 @@ Poiché le associazioni usano `product_id`, due codici uguali in archivi differe
 
 ### Interfaccia
 - desktop, tablet e smartphone;
+- Impostazioni Trevi Fruit visibili prima dei dati Danea senza scorrimento iniziale;
+- pulsanti U.M. a capo su smartphone, stella sulla predefinita e una sola configurazione aperta;
+- aggiunta tramite `+`, salvataggio esplicito e conferma prima di rimozione/disattivazione;
+- Dati Danea inizialmente chiusi ma completi e sempre in sola lettura;
 - pannello singolo e dialog multiplo;
 - colonne opzionali e preferenze griglia già esistenti;
 - accessibilità da tastiera, focus, testi lunghi e almeno centinaia di prodotti selezionati.
