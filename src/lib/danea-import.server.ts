@@ -56,6 +56,7 @@ export async function importDaneaCatalog(
     .from("danea_sync_runs")
     .select("payload_hash")
     .eq("company_id", companyId)
+    .eq("archive_id", archiveId)
     .eq("outcome", "completato")
     .order("started_at", { ascending: false })
     .limit(1)
@@ -65,6 +66,7 @@ export async function importDaneaCatalog(
     .from("danea_sync_runs")
     .insert({
       company_id: companyId,
+      archive_id: archiveId,
       station_id: station ? station.id : null,
       source: station ? ("postazione" as const) : ("manuale" as const),
       imported_by: origin.kind === "manual" ? origin.userId : null,
