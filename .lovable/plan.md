@@ -100,3 +100,9 @@ Listini e condizioni commerciali (5c), catalogo cliente, Ordina, ordini, invii S
 6. Invito scaduto, annullato, già usato, codice inesistente: nessun effetto.
 7. Isolamento: una terza azienda non vede invito, scheda cliente, relazione né proposte.
 8. Verifica desktop e smartphone del riquadro dati precompilati.
+9. Registrazione autonoma: nuova azienda creata, nessun accesso a clienti, fornitori, catalogo o prezzi di altri.
+10. Richiesta di collegamento: acquirente richiede, venditore vede la richiesta, accetta e il rapporto diventa operativo; con rifiuto nessun accesso.
+11. Registrazione autonoma con P.IVA di un'azienda già registrata: bloccata, nessuna appropriazione.
+12. Indirizzi: creazione di più consegne, un solo predefinito per funzione, indirizzo con doppia funzione senza duplicati, disattivazione senza perdita di storico.
+13. Migrazione indirizzi: sedi e consegne esistenti presenti nel nuovo elenco con le funzioni corrette.
+14. Isolamento indirizzi: azienda senza rapporto operativo non li vede; il cliente non vede quelli della scheda del venditore.
