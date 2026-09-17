@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bell, KeyRound, Link2, Mail, Search, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -36,13 +37,13 @@ export const Route = createFileRoute("/_authenticated/collegamenti")({
       {
         name: "description",
         content:
-          "Gestisci i collegamenti tra la tua azienda e le altre aziende Trevi Fruit: connessioni, richieste, inviti e codici.",
+          "Gestisci i rapporti con le altre aziende della piattaforma Trevi Fruit: connessioni, richieste, inviti e codici.",
       },
       { property: "og:title", content: "Collegamenti B2B — Trevi Fruit" },
       {
         property: "og:description",
         content:
-          "Gestisci i collegamenti tra la tua azienda e le altre aziende Trevi Fruit: connessioni, richieste, inviti e codici.",
+          "Gestisci i rapporti con le altre aziende della piattaforma Trevi Fruit: connessioni, richieste, inviti e codici.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -68,6 +69,12 @@ type PendingInvitation = {
   customer_legal_name: string | null;
 };
 
+type RelationMeta = {
+  requestedAt: string | null;
+  acceptedAt: string | null;
+  updatedAt: string | null;
+};
+
 type View = "connessioni" | "ricerca" | "richieste" | "inviti";
 type Filter = "tutti" | "vendo" | "compro" | "attesa" | "sospesi";
 
@@ -81,13 +88,10 @@ const filterLabels: Record<Filter, string> = {
 
 function statusOf(relation: Relation, side: "venditore" | "acquirente") {
   if (relation.status === "in_attesa") {
-    const waitingOnMe =
+    const waiting =
       (relation.origin === "richiesta_cliente" && side === "venditore") ||
       (relation.origin === "invito_fornitore" && side === "acquirente");
-    return {
-      label: waitingOnMe ? "Da approvare" : "In attesa",
-      tone: "attesa" as const,
-    };
+    return { label: waiting ? "Da approvare" : "In attesa", tone: "attesa" as const };
   }
   if (relation.status === "rifiutato") return { label: "Rifiutato", tone: "chiuso" as const };
   if (relation.status === "revocato") return { label: "Chiuso", tone: "chiuso" as const };
@@ -103,7 +107,7 @@ function Collegamenti() {
   const [view, setView] = useState<View>("connessioni");
   const [filter, setFilter] = useState<Filter>("tutti");
   const [listSearch, setListSearch] = useState("");
-  const [openRow, setOpenRow] = useState<ConnectionRow | null>(null);
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const [searchRole, setSearchRole] = useState<"cliente" | "fornitore">("cliente");
@@ -126,34 +130,64 @@ function Collegamenti() {
   const asSeller = relations.filter((r) => r.sellerCompanyId === company?.companyId);
   const asBuyer = relations.filter((r) => r.buyerCompanyId === company?.companyId);
 
-  const waitingOnMe = (r: Relation, side: "venditore" | "acquirente") =>
-    r.status === "in_attesa" &&
-    ((r.origin === "richiesta_cliente" && side === "venditore") ||
-      (r.origin === "invito_fornitore" && side === "acquirente"));
+  const partnerIds = useMemo(
+    () => [
+      ...new Set([
+        ...asSeller.map((r) => r.buyerCompanyId),
+        ...asBuyer.map((r) => r.sellerCompanyId),
+      ]),
+    ],
+    [asSeller, asBuyer],
+  );
 
-  const incoming = [
-    ...asSeller.filter((r) => waitingOnMe(r, "venditore")).map((r) => ({ r, side: "venditore" as const })),
-    ...asBuyer.filter((r) => waitingOnMe(r, "acquirente")).map((r) => ({ r, side: "acquirente" as const })),
-  ];
-  const outgoing = [
-    ...asSeller
-      .filter((r) => r.status === "in_attesa" && !waitingOnMe(r, "venditore"))
-      .map((r) => ({ r, side: "venditore" as const })),
-    ...asBuyer
-      .filter((r) => r.status === "in_attesa" && !waitingOnMe(r, "acquirente"))
-      .map((r) => ({ r, side: "acquirente" as const })),
-  ];
+  // Solo lettura: date del rapporto e dati pubblici del partner, nessuna copia di dati.
+  const metaQuery = useQuery({
+    queryKey: ["relation-meta", company?.companyId, relations.length],
+    queryFn: async () => {
+      const [rels, comps] = await Promise.all([
+        supabase
+          .from("supplier_customer_relations")
+          .select("id, requested_at, accepted_at, updated_at"),
+        partnerIds.length
+          ? supabase.from("companies").select("id, vat_number, city, province").in("id", partnerIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (rels.error) throw rels.error;
+      if (comps.error) throw comps.error;
+      const byRelation = new Map<string, RelationMeta>();
+      for (const row of rels.data ?? [])
+        byRelation.set(row.id, {
+          requestedAt: row.requested_at,
+          acceptedAt: row.accepted_at,
+          updatedAt: row.updated_at,
+        });
+      const byCompany = new Map<string, { vat: string | null; place: string | null }>();
+      for (const row of (comps.data ?? []) as {
+        id: string;
+        vat_number: string | null;
+        city: string | null;
+        province: string | null;
+      }[])
+        byCompany.set(row.id, {
+          vat: row.vat_number,
+          place:
+            [row.city, row.province ? `(${row.province})` : null].filter(Boolean).join(" ") || null,
+        });
+      return { byRelation, byCompany };
+    },
+    enabled: Boolean(company),
+  });
 
   const rows = useMemo<ConnectionRow[]>(() => {
     const buyerPartners = new Set(asBuyer.map((r) => r.sellerCompanyId));
     const sellerPartners = new Set(asSeller.map((r) => r.buyerCompanyId));
-    const build = (relation: Relation, side: "venditore" | "acquirente") => {
+    const build = (relation: Relation, side: "venditore" | "acquirente"): ConnectionRow => {
+      const partnerId = side === "venditore" ? relation.buyerCompanyId : relation.sellerCompanyId;
       const bothWays =
-        side === "venditore"
-          ? buyerPartners.has(relation.buyerCompanyId)
-          : sellerPartners.has(relation.sellerCompanyId);
+        side === "venditore" ? buyerPartners.has(partnerId) : sellerPartners.has(partnerId);
       const status = statusOf(relation, side);
-      const myEnabled = side === "venditore" ? relation.sellerEnabled : relation.buyerEnabled;
+      const partner = metaQuery.data?.byCompany.get(partnerId);
+      const meta = metaQuery.data?.byRelation.get(relation.id);
       return {
         key: `${relation.id}-${side}`,
         relation,
@@ -163,27 +197,48 @@ function Collegamenti() {
           side === "venditore"
             ? relation.buyerCompanyName ?? "Azienda cliente"
             : relation.sellerCompanyName ?? "Azienda fornitrice",
+        partnerVat: partner?.vat ?? null,
+        partnerPlace: partner?.place ?? null,
         relationshipLabel: bothWays ? "Entrambi" : side === "venditore" ? "Io vendo a" : "Io compro da",
         statusLabel: status.label,
         statusTone: status.tone,
-        mySideLabel: myEnabled ? "Attivo" : "Sospeso",
-      } satisfies ConnectionRow;
+        mySideEnabled: side === "venditore" ? relation.sellerEnabled : relation.buyerEnabled,
+        lastActivity: meta?.updatedAt ?? null,
+      };
     };
     return [
       ...asSeller.map((r) => build(r, "venditore")),
       ...asBuyer.map((r) => build(r, "acquirente")),
     ].sort((a, b) => a.partnerName.localeCompare(b.partnerName, "it"));
-  }, [asSeller, asBuyer]);
+  }, [asSeller, asBuyer, metaQuery.data]);
 
-  const visibleRows = rows.filter((row) => {
-    if (listSearch.trim() && !row.partnerName.toLowerCase().includes(listSearch.trim().toLowerCase()))
-      return false;
-    if (filter === "vendo") return row.side === "venditore";
-    if (filter === "compro") return row.side === "acquirente";
-    if (filter === "attesa") return row.relation.status === "in_attesa";
-    if (filter === "sospesi") return row.statusTone === "sospeso";
+  const matchSearch = (row: ConnectionRow) => {
+    const term = listSearch.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      row.partnerName.toLowerCase().includes(term) ||
+      (row.partnerVat ?? "").toLowerCase().includes(term)
+    );
+  };
+
+  const passesFilter = (row: ConnectionRow, key: Filter) => {
+    if (key === "vendo") return row.side === "venditore";
+    if (key === "compro") return row.side === "acquirente";
+    if (key === "attesa") return row.relation.status === "in_attesa";
+    if (key === "sospesi") return row.statusTone === "sospeso";
     return true;
-  });
+  };
+
+  const filterCounts = Object.fromEntries(
+    (Object.keys(filterLabels) as Filter[]).map((key) => [
+      key,
+      rows.filter((row) => matchSearch(row) && passesFilter(row, key)).length,
+    ]),
+  ) as Record<Filter, number>;
+
+  const visibleRows = rows.filter((row) => matchSearch(row) && passesFilter(row, filter));
+  const pendingRows = rows.filter((row) => row.relation.status === "in_attesa");
+  const openRow = rows.find((row) => row.key === openKey) ?? null;
 
   const invitationsQuery = useQuery({
     queryKey: ["pending-invitations", company?.companyId],
@@ -232,10 +287,23 @@ function Collegamenti() {
   });
 
   const pendingInvitations = invitationsQuery.data ?? [];
-  const requestCount = incoming.length + outgoing.length;
 
   async function refreshInvitations() {
     await queryClient.invalidateQueries({ queryKey: ["pending-invitations"] });
+  }
+
+  async function toggleSide(row: ConnectionRow, enabled: boolean) {
+    const { error } = await supabase.rpc("set_relation_side_enabled", {
+      _relation_id: row.relation.id,
+      _enabled: enabled,
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: identityQueryKey });
+    await queryClient.invalidateQueries({ queryKey: ["relation-meta"] });
+    toast.success(enabled ? "Il tuo lato è attivo." : "Il tuo lato è sospeso.");
   }
 
   async function inviteBuyer(buyerCompanyId: string) {
@@ -336,56 +404,67 @@ function Collegamenti() {
     toast.success("Collegamento attivato.");
   }
 
-  const tabs: { key: View; label: string }[] = [
-    { key: "connessioni", label: "Le mie connessioni" },
-    { key: "ricerca", label: "Cerca azienda" },
-  ];
-
   return (
     <AppShell
       title="Collegamenti B2B"
-      description="Gestisci i collegamenti con le aziende partner. L'anagrafica commerciale resta in Vendite → Clienti."
+      description="Gestisci i rapporti con le altre aziende della piattaforma Trevi Fruit."
     >
       <div className="space-y-4">
         {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
 
-        {/* Barra compatta */}
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2">
-          {tabs.map((tab) => (
-            <Button
-              key={tab.key}
-              size="sm"
-              variant={view === tab.key ? "default" : "ghost"}
-              onClick={() => setView(tab.key)}
-            >
-              {tab.label}
-            </Button>
-          ))}
+        {/* Barra compatta: ogni voce è una vista, niente sezioni permanenti. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant={view === "connessioni" ? "default" : "outline"}
+            onClick={() => setView("connessioni")}
+          >
+            <Link2 className="size-4" />
+            Le mie connessioni
+          </Button>
+          <Button
+            size="sm"
+            variant={view === "ricerca" ? "default" : "outline"}
+            onClick={() => setView("ricerca")}
+          >
+            <Search className="size-4" />
+            Cerca azienda
+          </Button>
           {sells ? (
             <Button size="sm" variant="outline" disabled={!isAdmin} onClick={() => setInviteOpen(true)}>
+              <Sparkles className="size-4" />
               Invita partner
             </Button>
           ) : null}
           {buys ? (
             <Button size="sm" variant="outline" disabled={!isAdmin} onClick={() => setCodeOpen(true)}>
+              <KeyRound className="size-4" />
               Ho un codice
             </Button>
           ) : null}
-          <span className="ml-auto flex gap-2">
+          <span className="flex flex-wrap gap-2 sm:ml-auto">
             <Button
               size="sm"
-              variant={view === "richieste" ? "default" : "ghost"}
+              variant={view === "richieste" ? "default" : "outline"}
               onClick={() => setView(view === "richieste" ? "connessioni" : "richieste")}
             >
-              Richieste ({requestCount})
+              <Bell className="size-4" />
+              Richieste
+              <span className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground">
+                {pendingRows.length}
+              </span>
             </Button>
             {sells ? (
               <Button
                 size="sm"
-                variant={view === "inviti" ? "default" : "ghost"}
+                variant={view === "inviti" ? "default" : "outline"}
                 onClick={() => setView(view === "inviti" ? "connessioni" : "inviti")}
               >
-                Inviti ({pendingInvitations.length})
+                <Mail className="size-4" />
+                Inviti
+                <span className="ml-1 rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
+                  {pendingInvitations.length}
+                </span>
               </Button>
             ) : null}
           </span>
@@ -394,13 +473,16 @@ function Collegamenti() {
         {view === "connessioni" ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Input
-                className="h-9 w-full max-w-xs"
-                value={listSearch}
-                onChange={(event) => setListSearch(event.target.value)}
-                placeholder="Cerca…"
-                aria-label="Cerca fra le connessioni"
-              />
+              <div className="relative w-full max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="h-9 pl-9"
+                  value={listSearch}
+                  onChange={(event) => setListSearch(event.target.value)}
+                  placeholder="Cerca per ragione sociale o partita IVA…"
+                  aria-label="Cerca fra le connessioni"
+                />
+              </div>
               {(Object.keys(filterLabels) as Filter[]).map((key) => (
                 <Button
                   key={key}
@@ -409,18 +491,45 @@ function Collegamenti() {
                   onClick={() => setFilter(key)}
                 >
                   {filterLabels[key]}
+                  <span className="ml-1 text-xs opacity-70">{filterCounts[key]}</span>
                 </Button>
               ))}
-              <span className="ml-auto text-sm text-muted-foreground">
-                {visibleRows.length} di {rows.length}
-              </span>
             </div>
-            <ConnectionsTable rows={visibleRows} onOpen={setOpenRow} />
+            <ConnectionsTable
+              rows={visibleRows}
+              canManage={isAdmin}
+              onOpen={(row) => setOpenKey(row.key)}
+              onToggleSide={toggleSide}
+            />
           </div>
         ) : null}
 
         {view === "ricerca" ? (
-          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+          <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div>
+              <h2 className="font-display text-base font-semibold">Cerca azienda</h2>
+              <p className="text-sm text-muted-foreground">
+                Cerca un'azienda già registrata su Trevi Fruit.
+              </p>
+            </div>
+            <form
+              className="flex flex-wrap gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setSearchQuery(searchTerm.trim());
+              }}
+            >
+              <Input
+                className="h-9 max-w-sm"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Ragione sociale o partita IVA…"
+                aria-label="Cerca azienda"
+              />
+              <Button type="submit" size="sm" variant="outline">
+                Cerca azienda
+              </Button>
+            </form>
             <div className="flex flex-wrap gap-2">
               {sells ? (
                 <Button
@@ -441,24 +550,6 @@ function Collegamenti() {
                 </Button>
               ) : null}
             </div>
-            <form
-              className="flex flex-wrap gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                setSearchQuery(searchTerm.trim());
-              }}
-            >
-              <Input
-                className="h-9 max-w-sm"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Ragione sociale o partita IVA"
-                aria-label="Cerca azienda"
-              />
-              <Button type="submit" size="sm" variant="outline">
-                Cerca
-              </Button>
-            </form>
             {searchQuery === "" ? (
               <p className="text-sm text-muted-foreground">
                 Scrivi almeno una parola del nome o le prime cifre della partita IVA.
@@ -500,14 +591,14 @@ function Collegamenti() {
         ) : null}
 
         {view === "richieste" ? (
-          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
-            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Richieste
-            </h2>
-            {requestCount ? (
+          <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <h2 className="font-display text-base font-semibold">Richieste</h2>
+            {pendingRows.length ? (
               <ConnectionsTable
-                rows={rows.filter((row) => row.relation.status === "in_attesa")}
-                onOpen={setOpenRow}
+                rows={pendingRows}
+                canManage={isAdmin}
+                onOpen={(row) => setOpenKey(row.key)}
+                onToggleSide={toggleSide}
               />
             ) : (
               <p className="text-sm text-muted-foreground">Nessuna richiesta in corso.</p>
@@ -516,10 +607,8 @@ function Collegamenti() {
         ) : null}
 
         {view === "inviti" ? (
-          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
-            <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Inviti in attesa
-            </h2>
+          <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <h2 className="font-display text-base font-semibold">Inviti in attesa</h2>
             {invitationsQuery.isLoading ? (
               <p className="text-sm text-muted-foreground">Caricamento…</p>
             ) : pendingInvitations.length ? (
@@ -612,7 +701,14 @@ function Collegamenti() {
         )}
       </div>
 
-      <ConnectionDetail row={openRow} isAdmin={isAdmin} onClose={() => setOpenRow(null)} />
+      <ConnectionDetail
+        row={openRow}
+        isAdmin={isAdmin}
+        dates={
+          openRow ? metaQuery.data?.byRelation.get(openRow.relation.id) ?? null : null
+        }
+        onClose={() => setOpenKey(null)}
+      />
 
       <Dialog
         open={inviteOpen}
@@ -628,8 +724,8 @@ function Collegamenti() {
           <DialogHeader>
             <DialogTitle>Invita partner</DialogTitle>
             <DialogDescription>
-              Genera un codice e un link da mandare come vuoi. Per invitare un cliente già in
-              anagrafica usa il pulsante Invita nella sua scheda.
+              Genera un invito B2B anche senza avere il partner in anagrafica. Per invitare un
+              cliente già in anagrafica usa il pulsante Invita nella sua scheda.
             </DialogDescription>
           </DialogHeader>
           {freeResult ? (
@@ -660,13 +756,13 @@ function Collegamenti() {
             </div>
           ) : (
             <div className="space-y-2">
-              <Label htmlFor="invito-email">Email (facoltativa)</Label>
+              <Label htmlFor="invito-email">Email (opzionale)</Label>
               <Input
                 id="invito-email"
                 type="email"
                 value={freeEmail}
                 onChange={(event) => setFreeEmail(event.target.value)}
-                placeholder="cliente@esempio.it"
+                placeholder="es. nome@azienda.it"
               />
             </div>
           )}
@@ -675,7 +771,8 @@ function Collegamenti() {
               <Button onClick={() => setInviteOpen(false)}>Ho salvato codice e link</Button>
             ) : (
               <Button disabled={busy || !isAdmin} onClick={createFreeInvitation}>
-                Invito rapido
+                <Link2 className="size-4" />
+                Genera codice invito
               </Button>
             )}
           </DialogFooter>
@@ -686,7 +783,7 @@ function Collegamenti() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Ho un codice</DialogTitle>
-            <DialogDescription>Inserisci il codice invito ricevuto.</DialogDescription>
+            <DialogDescription>Inserisci il codice invito che hai ricevuto.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="codice-invito">Codice invito</Label>
@@ -694,12 +791,16 @@ function Collegamenti() {
               id="codice-invito"
               value={code}
               onChange={(event) => setCode(event.target.value.toUpperCase())}
-              placeholder="ABCD2345"
+              placeholder="es. PPK2J5YH"
               className="font-mono tracking-widest"
             />
           </div>
           <DialogFooter>
-            <Button disabled={busy || !isAdmin || code.trim() === ""} onClick={useInviteCode}>
+            <Button
+              className="w-full"
+              disabled={busy || !isAdmin || code.trim() === ""}
+              onClick={useInviteCode}
+            >
               Continua
             </Button>
           </DialogFooter>

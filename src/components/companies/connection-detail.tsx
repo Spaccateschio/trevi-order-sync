@@ -1,11 +1,17 @@
 import { Link } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { ExternalLink, PauseCircle, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import type { ConnectionRow } from "@/components/companies/connections-table";
+import {
+  CompanyAvatar,
+  RelationPill,
+  StatusPill,
+  type ConnectionRow,
+} from "@/components/companies/connections-table";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { identityQueryKey } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 type Props = {
   row: ConnectionRow | null;
   isAdmin: boolean;
+  dates: { requestedAt: string | null; acceptedAt: string | null; updatedAt: string | null } | null;
   onClose: () => void;
 };
 
@@ -28,51 +35,16 @@ function formatDate(value: string | null) {
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   if (value === null || value === undefined || value === "") return null;
   return (
-    <div className="flex flex-col gap-0.5 border-b border-border py-2 last:border-b-0">
-      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-sm">{value}</span>
+    <div className="flex items-center justify-between gap-4 border-b border-border py-2.5 last:border-b-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-right text-sm">{value}</span>
     </div>
   );
 }
 
-export function ConnectionDetail({ row, isAdmin, onClose }: Props) {
+export function ConnectionDetail({ row, isAdmin, dates, onClose }: Props) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const relation = row?.relation ?? null;
-
-  const details = useQuery({
-    queryKey: ["relation-detail", relation?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("supplier_customer_relations")
-        .select("requested_at, accepted_at, decided_at")
-        .eq("id", relation!.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: Boolean(relation),
-  });
-
-  const partnerId = row
-    ? row.side === "venditore"
-      ? row.relation.buyerCompanyId
-      : row.relation.sellerCompanyId
-    : null;
-
-  const partner = useQuery({
-    queryKey: ["relation-partner", partnerId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("legal_name, vat_number, city, province")
-        .eq("id", partnerId!)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: Boolean(partnerId),
-  });
 
   async function run(action: () => PromiseLike<{ error: { message: string } | null }>, ok: string) {
     setBusy(true);
@@ -80,16 +52,16 @@ export function ConnectionDetail({ row, isAdmin, onClose }: Props) {
     setBusy(false);
     if (error) {
       toast.error(error.message);
-      return;
+      return false;
     }
     await queryClient.invalidateQueries({ queryKey: identityQueryKey });
-    await queryClient.invalidateQueries({ queryKey: ["relation-detail"] });
+    await queryClient.invalidateQueries({ queryKey: ["relation-meta"] });
     toast.success(ok);
+    return true;
   }
 
-  if (!row || !relation) return null;
-
-  const myEnabled = row.side === "venditore" ? relation.sellerEnabled : relation.buyerEnabled;
+  if (!row) return null;
+  const relation = row.relation;
   const partnerEnabled = row.side === "venditore" ? relation.buyerEnabled : relation.sellerEnabled;
   const canDecide =
     relation.status === "in_attesa" &&
@@ -100,53 +72,88 @@ export function ConnectionDetail({ row, isAdmin, onClose }: Props) {
   return (
     <Sheet open onOpenChange={(open) => (!open ? onClose() : undefined)}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>{row.partnerName}</SheetTitle>
-          <SheetDescription>{row.relationshipLabel} · {row.statusLabel}</SheetDescription>
+        <SheetHeader className="space-y-0">
+          <div className="flex items-start gap-3">
+            <CompanyAvatar className="size-12" />
+            <div className="min-w-0">
+              <SheetTitle className="truncate text-left">{row.partnerName}</SheetTitle>
+              <div className="mt-1">
+                <StatusPill row={row} />
+              </div>
+              {row.partnerVat ? (
+                <p className="mt-1 text-sm text-muted-foreground">P.IVA {row.partnerVat}</p>
+              ) : null}
+              {row.partnerPlace ? (
+                <p className="text-sm text-muted-foreground">{row.partnerPlace}</p>
+              ) : null}
+            </div>
+          </div>
         </SheetHeader>
 
-        <div className="mt-4">
-          <Field label="Ragione sociale" value={partner.data?.legal_name ?? row.partnerName} />
-          <Field label="Partita IVA" value={partner.data?.vat_number ?? "Non visibile"} />
+        <div className="mt-5">
+          <Field label="Rapporto" value={<RelationPill label={row.relationshipLabel} />} />
+          <Field label="Stato" value={<StatusPill row={row} />} />
           <Field
-            label="Sede"
-            value={[partner.data?.city, partner.data?.province].filter(Boolean).join(" · ")}
+            label="Il mio lato"
+            value={
+              relation.status === "attivo" ? (
+                <span className="flex items-center gap-2">
+                  <Switch
+                    checked={row.mySideEnabled}
+                    disabled={busy || !isAdmin}
+                    aria-label="Il mio lato"
+                    onCheckedChange={(value) =>
+                      void run(
+                        () =>
+                          supabase.rpc("set_relation_side_enabled", {
+                            _relation_id: relation.id,
+                            _enabled: value,
+                          }),
+                        value ? "Il tuo lato è attivo." : "Il tuo lato è sospeso.",
+                      )
+                    }
+                  />
+                  {row.mySideEnabled ? "Attivo" : "Sospeso"}
+                </span>
+              ) : (
+                row.mySideEnabled ? "Attivo" : "Sospeso"
+              )
+            }
           />
-          <Field label="Rapporto" value={row.relationshipLabel} />
-          <Field label="Stato" value={row.statusLabel} />
-          <Field label="Il mio lato" value={myEnabled ? "Attivo" : "Sospeso"} />
           <Field label="Lato partner" value={partnerEnabled ? "Attivo" : "Sospeso"} />
           <Field
             label="Origine"
             value={
               relation.origin === "invito_fornitore"
-                ? "Invito inviato dal venditore"
-                : "Richiesta inviata dall'acquirente"
+                ? "Invito da Trevi Fruit"
+                : "Richiesta dell'acquirente"
             }
           />
-          <Field label="Richiesta del" value={formatDate(details.data?.requested_at ?? null)} />
-          <Field label="Collegato dal" value={formatDate(details.data?.accepted_at ?? null)} />
-          <Field label="Decisione del" value={formatDate(details.data?.decided_at ?? null)} />
-          {relation.customerRecordId ? (
-            <Field
-              label="Cliente d'anagrafica collegato"
-              value={
-                <Link to="/vendite/clienti" className="underline">
-                  Apri la scheda cliente
-                </Link>
-              }
-            />
-          ) : null}
+          <Field label="Richiesta" value={formatDate(dates?.requestedAt ?? null)} />
+          <Field label="Accettazione" value={formatDate(dates?.acceptedAt ?? null)} />
+          <Field label="Ultima attività" value={formatDate(dates?.updatedAt ?? null)} />
         </div>
 
-        <div className="mt-6 space-y-3">
+        {relation.customerRecordId ? (
+          <div className="mt-5 rounded-xl border border-border p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Cliente associato</p>
+            <Link
+              to="/vendite/clienti"
+              className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium underline"
+            >
+              Vai alla scheda <ExternalLink className="size-3.5" />
+            </Link>
+          </div>
+        ) : null}
+
+        <div className="mt-6 space-y-2">
           {canDecide && isAdmin ? (
             <div className="flex gap-2">
               <Button
-                size="sm"
+                className="flex-1"
                 disabled={busy}
                 onClick={() =>
-                  run(
+                  void run(
                     () =>
                       supabase.rpc("decide_company_relation", {
                         _relation_id: relation.id,
@@ -159,11 +166,11 @@ export function ConnectionDetail({ row, isAdmin, onClose }: Props) {
                 Accetta
               </Button>
               <Button
-                size="sm"
+                className="flex-1"
                 variant="outline"
                 disabled={busy}
                 onClick={() =>
-                  run(
+                  void run(
                     () =>
                       supabase.rpc("decide_company_relation", {
                         _relation_id: relation.id,
@@ -178,52 +185,50 @@ export function ConnectionDetail({ row, isAdmin, onClose }: Props) {
             </div>
           ) : null}
 
-          {relation.status === "attivo" ? (
-            <label className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
-              <span>
-                Il mio lato
-                <span className="block text-xs text-muted-foreground">
-                  Sospendendolo il rapporto resta, ma non è operativo.
-                </span>
-              </span>
-              <Switch
-                checked={myEnabled}
-                disabled={busy || !isAdmin}
-                onCheckedChange={(value) =>
-                  run(
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {relation.status === "attivo" && isAdmin ? (
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={busy}
+                onClick={() =>
+                  void run(
                     () =>
                       supabase.rpc("set_relation_side_enabled", {
                         _relation_id: relation.id,
-                        _enabled: value,
+                        _enabled: !row.mySideEnabled,
                       }),
-                    value ? "Il tuo lato è attivo." : "Il tuo lato è sospeso.",
+                    row.mySideEnabled ? "Il tuo lato è sospeso." : "Il tuo lato è attivo.",
                   )
                 }
-              />
-            </label>
-          ) : null}
-
-          {canClose ? (
-            <Button
-              variant="outline"
-              className="w-full text-destructive"
-              disabled={busy}
-              onClick={() => {
-                if (
-                  !window.confirm(
-                    `Chiudere il collegamento con ${row.partnerName}? Non si perde nessun dato: potrai ricollegarti con un nuovo invito.`,
+              >
+                <PauseCircle className="size-4" />
+                {row.mySideEnabled ? "Sospendi il mio lato" : "Riattiva il mio lato"}
+              </Button>
+            ) : null}
+            {canClose ? (
+              <Button
+                variant="outline"
+                className="flex-1 border-destructive/40 text-destructive"
+                disabled={busy}
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      `Chiudere il collegamento con ${row.partnerName}? Non si perde nessun dato: potrai ricollegarti con un nuovo invito.`,
+                    )
                   )
-                )
-                  return;
-                void run(
-                  () => supabase.rpc("revoke_company_relation", { _relation_id: relation.id }),
-                  "Collegamento chiuso.",
-                ).then(onClose);
-              }}
-            >
-              Chiudi collegamento
-            </Button>
-          ) : null}
+                    return;
+                  void run(
+                    () => supabase.rpc("revoke_company_relation", { _relation_id: relation.id }),
+                    "Collegamento chiuso.",
+                  ).then((ok) => (ok ? onClose() : undefined));
+                }}
+              >
+                <Trash2 className="size-4" />
+                Chiudi collegamento
+              </Button>
+            ) : null}
+          </div>
         </div>
       </SheetContent>
     </Sheet>
