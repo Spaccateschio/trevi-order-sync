@@ -114,6 +114,8 @@ function mapProduct(node: Record<string, unknown>): DaneaProduct {
     subcategory: text(node["Subcategory"]),
     subcategoryLevels,
     um: text(node["Um"]),
+    sizeUm: text(node["SizeUm"]),
+    weightUm: text(node["WeightUm"]),
     vatCode: text(vatNode),
     vatPerc: num(attr(vatObj, "Perc")),
     vatClass: attr(vatObj, "Class"),
