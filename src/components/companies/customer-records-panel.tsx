@@ -3,7 +3,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AddressManager } from "@/components/companies/address-manager";
+import { CustomerImportDialog } from "@/components/companies/customer-import-dialog";
+import { DestinationManager } from "@/components/companies/destination-manager";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -104,6 +107,12 @@ export function CustomerRecordsPanel({
   const [inviteFor, setInviteFor] = useState<CustomerRecord | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkResults, setBulkResults] = useState<
+    { name: string; email: string; link?: string; error?: string }[]
+  >([]);
 
   const recordsQuery = useQuery({
     queryKey: customerRecordsQueryKey,
@@ -252,19 +261,96 @@ export function CustomerRecordsPanel({
   const records = recordsQuery.data ?? [];
   const invitations = invitationsQuery.data ?? [];
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  /** Inviti in blocco: un invito per cliente, gli errori non fermano gli altri. */
+  async function generateBulkInvites() {
+    const chosen = records.filter((record) => selectedIds.has(record.id));
+    if (!chosen.length) return;
+    setBusy(true);
+    setBulkOpen(true);
+    const results: { name: string; email: string; link?: string; error?: string }[] = [];
+    for (const record of chosen) {
+      const email = (record.email ?? "").trim();
+      if (!email) {
+        results.push({
+          name: record.legal_name,
+          email: "",
+          error: "Manca l’email: aggiungila nella scheda cliente.",
+        });
+        continue;
+      }
+      const pending = invitations.find(
+        (inv) => inv.customer_record_id === record.id && inv.status === "in_attesa",
+      );
+      // Se un invito è già in attesa lo rinnoviamo, così l'elenco resta completo.
+      const { data, error } = pending
+        ? await supabase.rpc("resend_customer_invitation", { _invitation_id: pending.id })
+        : await supabase.rpc("create_customer_invitation", {
+            _customer_record_id: record.id,
+            _email: email,
+          });
+      if (error) {
+        results.push({ name: record.legal_name, email, error: error.message });
+        continue;
+      }
+      const token = (data ?? [])[0]?.token;
+      results.push({
+        name: record.legal_name,
+        email,
+        ...(token ? { link: linkFor(token) } : { error: "Invito non generato." }),
+      });
+    }
+    setBulkResults(results);
+    setBusy(false);
+    await refresh();
+  }
+
+  const bulkText = bulkResults
+    .filter((result) => result.link)
+    .map((result) => `${result.name}\t${result.email}\t${result.link}`)
+    .join("\n");
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Anagrafica clienti
         </h2>
-        <Button size="sm" disabled={!isAdmin} onClick={openNew}>
-          Nuovo cliente
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" disabled={!isAdmin} onClick={() => setImportOpen(true)}>
+            Importa da Danea
+          </Button>
+          <Button size="sm" disabled={!isAdmin} onClick={openNew}>
+            Nuovo cliente
+          </Button>
+        </div>
       </div>
       <p className="text-sm text-muted-foreground">
         Puoi registrare qui tutti i tuoi clienti, anche quelli che non usano Trevi Fruit.
       </p>
+
+      {selectedIds.size ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 p-3">
+          <p className="text-sm">{selectedIds.size} clienti selezionati</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+              Annulla selezione
+            </Button>
+            <Button size="sm" disabled={busy || !isAdmin} onClick={generateBulkInvites}>
+              Genera inviti per i selezionati
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
 
       {recordsQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">Caricamento…</p>
@@ -279,7 +365,14 @@ export function CustomerRecordsPanel({
               key={record.id}
               className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
             >
-              <div className="min-w-0">
+              <div className="flex min-w-0 items-start gap-3">
+                <Checkbox
+                  className="mt-1"
+                  checked={selectedIds.has(record.id)}
+                  onCheckedChange={() => toggleSelect(record.id)}
+                  aria-label={`Seleziona ${record.legal_name}`}
+                />
+                <div className="min-w-0">
                 <h3 className="font-display text-base font-semibold">{record.legal_name}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {[
@@ -296,6 +389,7 @@ export function CustomerRecordsPanel({
                     {last.resend_count ? ` · reinvii: ${last.resend_count}` : ""}
                   </p>
                 ) : null}
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button size="sm" variant="outline" onClick={() => openEdit(record)}>
@@ -418,6 +512,11 @@ export function CustomerRecordsPanel({
               />
             </div>
           ) : null}
+          {editing ? (
+            <div className="mt-4 border-t border-border pt-4">
+              <DestinationManager customerRecordId={editing.id} isAdmin={isAdmin} />
+            </div>
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setFormOpen(false)}>
               Chiudi
@@ -474,6 +573,76 @@ export function CustomerRecordsPanel({
                 Genera invito
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <CustomerImportDialog
+        companyId={companyId}
+        existing={records.map((record) => ({
+          id: record.id,
+          legal_name: record.legal_name,
+          vat_normalized: record.vat_normalized,
+          tax_code: record.tax_code,
+          internal_reference: record.internal_reference,
+        }))}
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={refresh}
+      />
+
+      <Dialog
+        open={bulkOpen}
+        onOpenChange={(value) => {
+          setBulkOpen(value);
+          if (!value) setBulkResults([]);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Inviti per i clienti selezionati</DialogTitle>
+            <DialogDescription>
+              Copia l’elenco e invia a ciascun cliente il proprio indirizzo: ogni link vale una sola
+              volta e scade automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+          {busy ? (
+            <p className="text-sm text-muted-foreground">Generazione inviti…</p>
+          ) : (
+            <div className="space-y-3">
+              {bulkText ? (
+                <Textarea
+                  readOnly
+                  rows={Math.min(12, bulkResults.length + 1)}
+                  value={bulkText}
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              ) : null}
+              {bulkResults.some((result) => result.error) ? (
+                <div className="space-y-1 rounded-lg border border-border p-3">
+                  <p className="text-sm font-medium">Inviti non generati</p>
+                  <ul className="space-y-1 text-sm text-muted-foreground">
+                    {bulkResults
+                      .filter((result) => result.error)
+                      .map((result) => (
+                        <li key={`${result.name}-${result.email}`}>
+                          {result.name}: {result.error}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setBulkOpen(false);
+                setBulkResults([]);
+              }}
+            >
+              Chiudi
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
