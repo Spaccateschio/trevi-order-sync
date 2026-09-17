@@ -1,19 +1,20 @@
 import { parseDaneaProducts, type DaneaDocument, type DaneaIssue } from "./danea-xml";
 
-/** La postazione autenticata: da qui deriva l'azienda, mai dal client. */
+/** La postazione autenticata: da qui derivano azienda e archivio, mai dal client. */
 export type DaneaStationRow = {
   id: string;
   company_id: string;
+  archive_id: string;
 };
 
 /**
  * Origine dell'invio. Il motore di importazione è UNICO: cambia solo la porta
  * d'ingresso (postazione Danea via HTTP, oppure file caricato a mano da un
- * amministratore). In entrambi i casi l'azienda è ricavata sul server.
+ * amministratore). In entrambi i casi azienda e archivio sono ricavati sul server.
  */
 export type DaneaImportOrigin =
   | { kind: "station"; station: DaneaStationRow }
-  | { kind: "manual"; companyId: string; userId: string };
+  | { kind: "manual"; companyId: string; archiveId: string; userId: string };
 
 export async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -34,8 +35,10 @@ export type ImportResult = {
 
 /**
  * Riceve il catalogo Danea e lo applica in modo idempotente.
- * Identità: (company_id, danea_internal_id) come chiave principale,
- * (company_id, code) come chiave alternativa e unica disponibile nei DeletedProducts.
+ * Identità: (company_id, archive_id, danea_internal_id) come chiave principale,
+ * (company_id, archive_id, code) come chiave alternativa e unica disponibile nei
+ * DeletedProducts. Archivi Danea differenti riusano gli stessi InternalID/Code:
+ * ogni operazione è quindi limitata al proprio archivio.
  */
 export async function importDaneaCatalog(
   origin: DaneaImportOrigin,
@@ -44,6 +47,7 @@ export async function importDaneaCatalog(
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const station = origin.kind === "station" ? origin.station : null;
   const companyId = origin.kind === "station" ? origin.station.company_id : origin.companyId;
+  const archiveId = origin.kind === "station" ? origin.station.archive_id : origin.archiveId;
 
   const payloadHash = await sha256Hex(xml);
   const doc = parseDaneaProducts(xml);
@@ -52,6 +56,7 @@ export async function importDaneaCatalog(
     .from("danea_sync_runs")
     .select("payload_hash")
     .eq("company_id", companyId)
+    .eq("archive_id", archiveId)
     .eq("outcome", "completato")
     .order("started_at", { ascending: false })
     .limit(1)
@@ -61,6 +66,7 @@ export async function importDaneaCatalog(
     .from("danea_sync_runs")
     .insert({
       company_id: companyId,
+      archive_id: archiveId,
       station_id: station ? station.id : null,
       source: station ? ("postazione" as const) : ("manuale" as const),
       imported_by: origin.kind === "manual" ? origin.userId : null,
@@ -94,12 +100,13 @@ export async function importDaneaCatalog(
         .eq("id", station.id);
     }
 
-    await syncPriceListNames(supabaseAdmin, companyId, doc);
+    await syncPriceListNames(supabaseAdmin, companyId, archiveId, doc);
 
     const { data: existingRows, error: existingError } = await supabaseAdmin
       .from("products")
       .select("id, code, danea_internal_id")
-      .eq("company_id", companyId);
+      .eq("company_id", companyId)
+      .eq("archive_id", archiveId);
     if (existingError) throw new Error(existingError.message);
 
     const byInternalId = new Map<string, { id: string; code: string }>();
@@ -149,6 +156,7 @@ export async function importDaneaCatalog(
 
       return {
         company_id: companyId,
+        archive_id: archiveId,
         danea_internal_id: product.internalId,
         code: product.code,
         description: product.description,
@@ -157,6 +165,8 @@ export async function importDaneaCatalog(
         subcategory: product.subcategory,
         subcategory_levels: product.subcategoryLevels.length ? product.subcategoryLevels : null,
         danea_um: product.um,
+        size_um: product.sizeUm,
+        weight_um: product.weightUm,
         vat_code: product.vatCode,
         vat_perc: product.vatPerc,
         vat_class: product.vatClass,
@@ -187,7 +197,7 @@ export async function importDaneaCatalog(
     for (const chunk of chunked(rows, 200)) {
       const { data, error } = await supabaseAdmin
         .from("products")
-        .upsert(chunk, { onConflict: "company_id,code" })
+        .upsert(chunk, { onConflict: "company_id,archive_id,code" })
         .select("id, code");
       if (error) throw new Error(`Salvataggio prodotti: ${error.message}`);
       for (const row of data ?? []) idByCode.set(row.code, row.id);
@@ -203,6 +213,8 @@ export async function importDaneaCatalog(
       // deve essere stato salvato. Un file vuoto o parzialmente salvato non può
       // depubblicare in massa. Le segnalazioni sui singoli campi non bloccano
       // l'allineamento: l'invio completo resta la fotografia dell'archivio Danea.
+      // La riconciliazione è SEMPRE limitata all'archivio di provenienza: un invio
+      // completo dell'Archivio 1 non deve toccare i prodotti dell'Archivio 2.
       const everyRowSaved = idByCode.size === rows.length;
       const safeToReconcile = doc.products.length > 0 && everyRowSaved;
 
@@ -211,6 +223,7 @@ export async function importDaneaCatalog(
           .from("products")
           .update({ publish_status: "non_pubblicato", unpublished_at: now })
           .eq("company_id", companyId)
+          .eq("archive_id", archiveId)
           .eq("publish_status", "pubblicato")
           .neq("last_sync_run_id", runId)
           .select("id");
@@ -229,6 +242,7 @@ export async function importDaneaCatalog(
         .from("products")
         .update({ publish_status: "non_pubblicato", unpublished_at: now, last_sync_run_id: runId })
         .eq("company_id", companyId)
+        .eq("archive_id", archiveId)
         .in("code", doc.deletedCodes)
         .select("id");
       if (error) throw new Error(`Depubblicazione: ${error.message}`);
@@ -300,14 +314,19 @@ export type AnalyzeResult = {
  * Anteprima in SOLA LETTURA: usa lo stesso lettore XML del collegamento diretto,
  * non scrive nulla e non registra alcun invio.
  */
-export async function analyzeDaneaCatalog(companyId: string, xml: string): Promise<AnalyzeResult> {
+export async function analyzeDaneaCatalog(
+  companyId: string,
+  archiveId: string,
+  xml: string,
+): Promise<AnalyzeResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const doc = parseDaneaProducts(xml);
 
   const { data: existingRows, error } = await supabaseAdmin
     .from("products")
     .select("id, code, danea_internal_id, publish_status, last_sync_run_id")
-    .eq("company_id", companyId);
+    .eq("company_id", companyId)
+    .eq("archive_id", archiveId);
   if (error) throw new Error(error.message);
 
   const byInternalId = new Set<string>();
@@ -372,16 +391,17 @@ function chunked<T>(items: T[], size: number): T[][] {
 async function syncPriceListNames(
   supabaseAdmin: AdminClient,
   companyId: string,
+  archiveId: string,
   doc: DaneaDocument,
 ) {
   const rows = [];
   for (let i = 1; i <= 9; i += 1) {
     const name = doc.priceNames[i] ?? null;
-    rows.push({ company_id: companyId, list_number: i, danea_name: name });
+    rows.push({ company_id: companyId, archive_id: archiveId, list_number: i, danea_name: name });
   }
   await supabaseAdmin
     .from("danea_price_lists")
-    .upsert(rows, { onConflict: "company_id,list_number" });
+    .upsert(rows, { onConflict: "company_id,archive_id,list_number" });
 }
 
 async function applyPrices(

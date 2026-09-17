@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.assert_archive_same_company() FROM PUBLIC, anon, authenticated;

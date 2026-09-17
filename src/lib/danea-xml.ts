@@ -11,6 +11,8 @@ export type DaneaProduct = {
   subcategory: string | null;
   subcategoryLevels: string[];
   um: string | null;
+  sizeUm: string | null;
+  weightUm: string | null;
   vatCode: string | null;
   vatPerc: number | null;
   vatClass: string | null;
@@ -112,6 +114,8 @@ function mapProduct(node: Record<string, unknown>): DaneaProduct {
     subcategory: text(node["Subcategory"]),
     subcategoryLevels,
     um: text(node["Um"]),
+    sizeUm: text(node["SizeUm"]),
+    weightUm: text(node["WeightUm"]),
     vatCode: text(vatNode),
     vatPerc: num(attr(vatObj, "Perc")),
     vatClass: attr(vatObj, "Class"),

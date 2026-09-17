@@ -11,8 +11,11 @@ import { Label } from "@/components/ui/label";
 import { hasRole, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  createDaneaArchive,
   createDaneaStation,
+  moveDaneaStation,
   regenerateDaneaStationPassword,
+  renameDaneaArchive,
   revokeDaneaStation,
 } from "@/lib/danea.functions";
 
@@ -56,6 +59,8 @@ const MAX_STATIONS = 5;
 const DANEA_PRODUCTS_URL = "https://trevi-order-sync.lovable.app/api/public/danea/products";
 const REGENERATE_WARNING =
   "La password attuale smetterà immediatamente di funzionare. Dopo la rigenerazione dovrai inserire la nuova password anche in Danea Easyfatt. Continuare?";
+const MOVE_WARNING =
+  "Spostando la postazione in un altro archivio, i prossimi invii aggiorneranno il catalogo di quell'archivio. Un invio completo (FULL) riconcilierà solo il nuovo archivio. Utente, password e indirizzo non cambiano. Continuare?";
 const CARD = "rounded-xl border border-border bg-card p-3 shadow-sm sm:p-4";
 const CARD_TITLE = "font-display text-sm font-semibold sm:text-base";
 
@@ -71,11 +76,32 @@ function DaneaPage() {
   const isAdmin = hasRole(identity, "amministratore");
 
   const [name, setName] = useState("");
+  const [stationArchiveId, setStationArchiveId] = useState("");
+  const [newArchiveName, setNewArchiveName] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [fresh, setFresh] = useState<{ username: string; password: string } | null>(null);
 
   const createStation = useServerFn(createDaneaStation);
   const regenerate = useServerFn(regenerateDaneaStationPassword);
   const revoke = useServerFn(revokeDaneaStation);
+  const createArchive = useServerFn(createDaneaArchive);
+  const renameArchive = useServerFn(renameDaneaArchive);
+  const moveStation = useServerFn(moveDaneaStation);
+
+  const archives = useQuery({
+    queryKey: ["danea", "archives", companyId],
+    enabled: Boolean(companyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("danea_archives")
+        .select("id, name, notes, is_default, status, created_at")
+        .eq("company_id", companyId!)
+        .order("created_at", { ascending: true });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
 
   const stations = useQuery({
     queryKey: ["danea", "stations", companyId],
@@ -84,7 +110,7 @@ function DaneaPage() {
       const { data, error } = await supabase
         .from("danea_stations")
         .select(
-          "id, name, username, status, last_auth_at, last_auth_outcome, last_success_at, detected_creator, detected_app_version, created_at",
+          "id, archive_id, name, username, status, last_auth_at, last_auth_outcome, last_success_at, detected_creator, detected_app_version, created_at",
         )
         .eq("company_id", companyId!)
         .order("created_at", { ascending: true });
@@ -148,9 +174,44 @@ function DaneaPage() {
 
   const refreshStations = () =>
     queryClient.invalidateQueries({ queryKey: ["danea", "stations", companyId] });
+  const refreshArchives = () =>
+    queryClient.invalidateQueries({ queryKey: ["danea", "archives", companyId] });
+
+  const createArchiveMutation = useMutation({
+    mutationFn: async () =>
+      await createArchive({ data: { companyId: companyId!, name: newArchiveName } }),
+    onSuccess: () => {
+      setNewArchiveName("");
+      toast.success("Archivio Danea creato.");
+      refreshArchives();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const renameArchiveMutation = useMutation({
+    mutationFn: async (vars: { archiveId: string; name: string }) =>
+      await renameArchive({ data: { companyId: companyId!, ...vars } }),
+    onSuccess: () => {
+      setRenamingId(null);
+      toast.success("Archivio rinominato.");
+      refreshArchives();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const moveStationMutation = useMutation({
+    mutationFn: async (vars: { stationId: string; archiveId: string }) =>
+      await moveStation({ data: { companyId: companyId!, ...vars } }),
+    onSuccess: () => {
+      toast.success("Postazione spostata. Utente, password e indirizzo non cambiano.");
+      refreshStations();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const createMutation = useMutation({
-    mutationFn: async () => await createStation({ data: { companyId: companyId!, name } }),
+    mutationFn: async () =>
+      await createStation({ data: { companyId: companyId!, archiveId: chosenArchiveId, name } }),
     onSuccess: (result) => {
       setFresh({ username: result.username, password: result.password });
       setName("");
@@ -204,6 +265,12 @@ function DaneaPage() {
 
   const list = stations.data ?? [];
   const activeCount = list.filter((s) => s.status === "attivo").length;
+  const archiveList = archives.data ?? [];
+  const activeArchives = archiveList.filter((a) => a.status === "attivo");
+  const defaultArchiveId =
+    activeArchives.find((a) => a.is_default)?.id ?? activeArchives[0]?.id ?? "";
+  const chosenArchiveId = stationArchiveId || defaultArchiveId;
+  const archiveNameById = new Map(archiveList.map((a) => [a.id, a.name]));
 
   return (
     <AppShell
@@ -234,6 +301,22 @@ function DaneaPage() {
         <section className={CARD}>
           <h2 className={CARD_TITLE}>Aggiungi postazione</h2>
           <div className="mt-2 grid gap-2">
+            <Label htmlFor="station-archive" className="text-xs">
+              Archivio Danea
+            </Label>
+            <select
+              id="station-archive"
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={chosenArchiveId}
+              onChange={(e) => setStationArchiveId(e.target.value)}
+            >
+              {activeArchives.length ? null : <option value="">Crea prima un archivio</option>}
+              {activeArchives.map((archive) => (
+                <option key={archive.id} value={archive.id}>
+                  {archive.name}
+                </option>
+              ))}
+            </select>
             <Label htmlFor="station-name" className="text-xs">
               Nome postazione
             </Label>
@@ -248,7 +331,10 @@ function DaneaPage() {
               size="sm"
               onClick={() => createMutation.mutate()}
               disabled={
-                !name.trim() || createMutation.isPending || activeCount >= MAX_STATIONS
+                !name.trim() ||
+                !chosenArchiveId ||
+                createMutation.isPending ||
+                activeCount >= MAX_STATIONS
               }
             >
               Aggiungi postazione
@@ -258,6 +344,145 @@ function DaneaPage() {
             </p>
           </div>
         </section>
+
+        <section className={`${CARD} lg:col-span-3`}>
+          <h2 className={CARD_TITLE}>Archivi Danea</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Un archivio = un file gestionale Danea. Codici e identificativi si ripetono tra archivi
+            diversi senza confondersi, e un invio completo riconcilia solo il proprio archivio.
+          </p>
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <div className="grid min-w-[14rem] flex-1 gap-1">
+              <Label htmlFor="archive-name" className="text-xs">
+                Nome nuovo archivio
+              </Label>
+              <Input
+                id="archive-name"
+                value={newArchiveName}
+                onChange={(e) => setNewArchiveName(e.target.value)}
+                placeholder="Archivio secondario"
+                maxLength={80}
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => createArchiveMutation.mutate()}
+              disabled={!newArchiveName.trim() || createArchiveMutation.isPending}
+            >
+              Crea archivio
+            </Button>
+          </div>
+
+          <ul className="mt-3 grid gap-2">
+            {archiveList.map((archive) => {
+              const archiveStations = list.filter((s) => s.archive_id === archive.id);
+              return (
+                <li key={archive.id} className="rounded-lg border border-border p-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {renamingId === archive.id ? (
+                      <>
+                        <Input
+                          className="h-8 max-w-[16rem]"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          maxLength={80}
+                        />
+                        <Button
+                          size="sm"
+                          disabled={!renameValue.trim() || renameArchiveMutation.isPending}
+                          onClick={() =>
+                            renameArchiveMutation.mutate({
+                              archiveId: archive.id,
+                              name: renameValue,
+                            })
+                          }
+                        >
+                          Salva
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setRenamingId(null)}>
+                          Annulla
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-display text-sm font-semibold">{archive.name}</span>
+                        {archive.is_default ? (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+                            Predefinito
+                          </span>
+                        ) : null}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setRenamingId(archive.id);
+                            setRenameValue(archive.name);
+                          }}
+                        >
+                          Rinomina
+                        </Button>
+                      </>
+                    )}
+                  </div>
+
+                  {archiveStations.length ? (
+                    <ul className="mt-2 grid gap-1.5">
+                      {archiveStations.map((station) => (
+                        <li
+                          key={station.id}
+                          className="flex flex-wrap items-center gap-2 border-t border-border pt-1.5 text-xs"
+                        >
+                          <span className="font-medium">{station.name}</span>
+                          <span className="font-mono text-[11px] text-muted-foreground">
+                            {station.username}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {station.status === "attivo" ? "Attiva" : "Revocata"}
+                          </span>
+                          {station.status === "attivo" && activeArchives.length > 1 ? (
+                            <select
+                              className="ml-auto h-8 rounded-md border border-input bg-background px-2 text-xs"
+                              value={station.archive_id}
+                              disabled={moveStationMutation.isPending}
+                              onChange={(e) => {
+                                const target = e.target.value;
+                                if (target === station.archive_id) return;
+                                if (window.confirm(MOVE_WARNING)) {
+                                  moveStationMutation.mutate({
+                                    stationId: station.id,
+                                    archiveId: target,
+                                  });
+                                } else {
+                                  refreshStations();
+                                }
+                              }}
+                            >
+                              {activeArchives.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  Sposta in: {a.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Nessuna postazione in questo archivio.
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+            {archiveList.length ? null : (
+              <li className="text-sm text-muted-foreground">
+                Nessun archivio: creane uno per collegare le postazioni Danea.
+              </li>
+            )}
+          </ul>
+        </section>
+
 
         {fresh ? (
           <section className="rounded-xl border border-accent bg-accent/10 p-3 lg:col-span-3">
@@ -350,6 +575,7 @@ function DaneaPage() {
                   <thead className="text-[10px] uppercase text-muted-foreground sm:text-xs">
                     <tr>
                       <th className="py-1.5 pr-3">Postazione</th>
+                      <th className="py-1.5 pr-3">Archivio</th>
                       <th className="py-1.5 pr-3">Utente</th>
                       <th className="py-1.5 pr-3">Stato</th>
                       <th className="py-1.5 pr-3">Ultima connessione</th>
@@ -362,6 +588,9 @@ function DaneaPage() {
                     {list.map((station) => (
                       <tr key={station.id} className="border-t border-border">
                         <td className="py-1.5 pr-3">{station.name}</td>
+                        <td className="py-1.5 pr-3">
+                          {archiveNameById.get(station.archive_id) ?? "—"}
+                        </td>
                         <td className="py-1.5 pr-3 font-mono text-[11px] sm:text-xs">
                           {station.username}
                         </td>

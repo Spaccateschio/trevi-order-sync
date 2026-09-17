@@ -95,6 +95,8 @@ export function parseBasicAuth(header: string | null): BasicCredentials | null {
 export type StationRow = {
   id: string;
   company_id: string;
+  /** Archivio Danea a cui appartiene la postazione: determina il catalogo aggiornato. */
+  archive_id: string;
   status: "attivo" | "revocato";
   password_hash: string;
   password_salt: string;
@@ -137,7 +139,7 @@ export async function authenticateStation(
 
   const { data: station } = await supabaseAdmin
     .from("danea_stations")
-    .select("id, company_id, status, password_hash, password_salt, allowed_uses")
+    .select("id, company_id, archive_id, status, password_hash, password_salt, allowed_uses")
     .eq("username", credentials.username)
     .maybeSingle();
 

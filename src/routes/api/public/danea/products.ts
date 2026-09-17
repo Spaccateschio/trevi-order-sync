@@ -55,7 +55,11 @@ export const Route = createFileRoute("/api/public/danea/products")({
           await importDaneaCatalog(
             {
               kind: "station",
-              station: { id: auth.station.id, company_id: auth.station.company_id },
+              station: {
+                id: auth.station.id,
+                company_id: auth.station.company_id,
+                archive_id: auth.station.archive_id,
+              },
             },
             xml,
           );

@@ -61,11 +61,14 @@ const PAGE_SIZE = 50;
 
 type ProductRow = {
   id: string;
+  archive_id: string;
   code: string;
   description: string | null;
   category: string | null;
   subcategory: string | null;
   danea_um: string | null;
+  size_um: string | null;
+  weight_um: string | null;
   vat_perc: number | null;
   vat_code: string | null;
   vat_description: string | null;
@@ -102,12 +105,27 @@ function ProdottiPage() {
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("tutte");
+  const [archiveFilter, setArchiveFilter] = useState("tutti");
   // Danea è il gestionale padrone: per default vediamo solo i prodotti
   // presenti nell'ultimo catalogo inviato.
   const [status, setStatus] = useState("pubblicato");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<ProductRow | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+
+  const archivesQuery = useQuery({
+    queryKey: ["danea-archivi", companyId],
+    enabled: Boolean(companyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("danea_archives")
+        .select("id, name, is_default, status")
+        .eq("company_id", companyId!)
+        .order("created_at", { ascending: true });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
 
   const productsQuery = useQuery({
     queryKey: ["prodotti", companyId],
@@ -120,7 +138,7 @@ function ProdottiPage() {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "id, code, description, category, subcategory, danea_um, vat_perc, vat_code, vat_description, publish_status, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, last_received_at, product_prices(list_number, net_price, gross_price)",
+          "id, archive_id, code, description, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, publish_status, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, last_received_at, product_prices(list_number, net_price, gross_price)",
         )
         .eq("company_id", companyId!)
         .order("code");
@@ -169,17 +187,21 @@ function ProdottiPage() {
     return [...set].sort((a, b) => a.localeCompare(b, "it"));
   }, [allProducts]);
 
+  const archives = archivesQuery.data ?? [];
+  const archiveNameById = new Map(archives.map((a) => [a.id, a.name]));
+
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return allProducts.filter((p) => {
       if (category !== "tutte" && p.category !== category) return false;
+      if (archiveFilter !== "tutti" && p.archive_id !== archiveFilter) return false;
       if (status !== "tutti" && p.publish_status !== status) return false;
       if (!term) return true;
       return (
         p.code.toLowerCase().includes(term) || (p.description ?? "").toLowerCase().includes(term)
       );
     });
-  }, [allProducts, search, category, status]);
+  }, [allProducts, search, category, status, archiveFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -212,7 +234,7 @@ function ProdottiPage() {
             <Button onClick={() => setImportOpen(true)}>Importa da Danea</Button>
           </div>
         ) : null}
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
           <Input
             placeholder="Cerca per codice o descrizione"
             value={search}
@@ -256,6 +278,27 @@ function ProdottiPage() {
               <SelectItem value="tutti">Tutti</SelectItem>
             </SelectContent>
           </Select>
+          {archives.length > 1 ? (
+            <Select
+              value={archiveFilter}
+              onValueChange={(v) => {
+                setArchiveFilter(v);
+                setPage(0);
+              }}
+            >
+              <SelectTrigger className="sm:w-48">
+                <SelectValue placeholder="Archivio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tutti">Tutti gli archivi</SelectItem>
+                {archives.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
         </div>
 
         <p className="text-xs text-muted-foreground">
@@ -435,6 +478,7 @@ function ProdottiPage() {
         open={importOpen}
         onOpenChange={setImportOpen}
         companyId={companyId}
+        archives={archives.filter((a) => a.status === "attivo").map((a) => ({ id: a.id, name: a.name, isDefault: a.is_default }))}
         onImported={() => {
           void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] });
           void queryClient.invalidateQueries({ queryKey: ["danea-listini", companyId] });
@@ -459,11 +503,13 @@ function ImportDialog({
   open,
   onOpenChange,
   companyId,
+  archives,
   onImported,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   companyId: string | null;
+  archives: { id: string; name: string; isDefault: boolean }[];
   onImported: () => void;
 }) {
   const analyze = useServerFn(analyzeDaneaFile);
@@ -472,6 +518,10 @@ function ImportDialog({
   const [xml, setXml] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [archiveId, setArchiveId] = useState("");
+
+  const chosenArchiveId =
+    archiveId || archives.find((a) => a.isDefault)?.id || archives[0]?.id || "";
 
   const reset = () => {
     setXml(null);
@@ -481,13 +531,15 @@ function ImportDialog({
   };
 
   const analyzeMutation = useMutation({
-    mutationFn: async () => analyze({ data: { companyId: companyId!, xml: xml! } }),
+    mutationFn: async () =>
+      analyze({ data: { companyId: companyId!, archiveId: chosenArchiveId, xml: xml! } }),
     onSuccess: (result) => setAnalysis(result),
     onError: (error: Error) => toast.error(error.message),
   });
 
   const importMutation = useMutation({
-    mutationFn: async () => runImport({ data: { companyId: companyId!, xml: xml! } }),
+    mutationFn: async () =>
+      runImport({ data: { companyId: companyId!, archiveId: chosenArchiveId, xml: xml! } }),
     onSuccess: (result) => {
       toast.success("Importazione Danea completata", {
         description: `Creati ${result.created}, aggiornati ${result.updated}, invariati ${Math.max(
@@ -521,7 +573,32 @@ function ImportDialog({
 
         <div className="space-y-4 text-sm">
           <div>
-            <p className="font-medium">1. Seleziona file Danea</p>
+            <p className="font-medium">1. Archivio Danea da aggiornare</p>
+            <Select
+              value={chosenArchiveId}
+              onValueChange={(v) => {
+                setArchiveId(v);
+                setAnalysis(null);
+              }}
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Archivio Danea" />
+              </SelectTrigger>
+              <SelectContent>
+                {archives.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Il file aggiorna soltanto i prodotti di questo archivio.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-medium">2. Seleziona file Danea</p>
             <input
               ref={fileRef}
               type="file"
@@ -555,12 +632,12 @@ function ImportDialog({
           </div>
 
           <div>
-            <p className="font-medium">2. Analizza file</p>
+            <p className="font-medium">3. Analizza file</p>
             <Button
               className="mt-2"
               variant="outline"
               size="sm"
-              disabled={!xml || !companyId || analyzeMutation.isPending}
+              disabled={!xml || !companyId || !chosenArchiveId || analyzeMutation.isPending}
               onClick={() => analyzeMutation.mutate()}
             >
               {analyzeMutation.isPending ? "Analisi…" : "Analizza file"}
@@ -618,7 +695,7 @@ function ImportDialog({
           </div>
 
           <div>
-            <p className="font-medium">3. Conferma importazione</p>
+            <p className="font-medium">4. Conferma importazione</p>
             <p className="text-xs text-muted-foreground">
               Le modifiche vengono applicate solo dopo la conferma.
             </p>
