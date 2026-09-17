@@ -573,7 +573,32 @@ function ImportDialog({
 
         <div className="space-y-4 text-sm">
           <div>
-            <p className="font-medium">1. Seleziona file Danea</p>
+            <p className="font-medium">1. Archivio Danea da aggiornare</p>
+            <Select
+              value={chosenArchiveId}
+              onValueChange={(v) => {
+                setArchiveId(v);
+                setAnalysis(null);
+              }}
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Archivio Danea" />
+              </SelectTrigger>
+              <SelectContent>
+                {archives.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Il file aggiorna soltanto i prodotti di questo archivio.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-medium">2. Seleziona file Danea</p>
             <input
               ref={fileRef}
               type="file"
