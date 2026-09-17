@@ -31,6 +31,7 @@ export type ModuleKey =
   | "acquisti.panoramica"
   | "acquisti.fornitori"
   | "vendite.panoramica"
+  | "vendite.clienti"
   | "vendite.prodotti"
   | "vendite.gestionale"
   | "vendite.preparazione"
@@ -81,6 +82,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Vendite",
     short: "Vendite",
     icon: ReceiptText,
+  },
+  {
+    key: "vendite.clienti",
+    area: "vendite",
+    to: "/vendite/clienti",
+    label: "Clienti",
+    short: "Clienti",
+    icon: Store,
   },
   {
     key: "vendite.prodotti",
