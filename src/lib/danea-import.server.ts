@@ -100,12 +100,13 @@ export async function importDaneaCatalog(
         .eq("id", station.id);
     }
 
-    await syncPriceListNames(supabaseAdmin, companyId, doc);
+    await syncPriceListNames(supabaseAdmin, companyId, archiveId, doc);
 
     const { data: existingRows, error: existingError } = await supabaseAdmin
       .from("products")
       .select("id, code, danea_internal_id")
-      .eq("company_id", companyId);
+      .eq("company_id", companyId)
+      .eq("archive_id", archiveId);
     if (existingError) throw new Error(existingError.message);
 
     const byInternalId = new Map<string, { id: string; code: string }>();
