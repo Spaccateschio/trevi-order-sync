@@ -418,14 +418,16 @@ export function CustomerRecordsPanel({
                 <Button size="sm" variant="outline" onClick={() => openEdit(record)}>
                   Dettagli
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!isAdmin}
-                  onClick={() => openInvite(record)}
-                >
-                  Invita
-                </Button>
+                {link.key === "attivo" || link.key === "sospeso" ? null : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!isAdmin}
+                    onClick={() => openInvite(record)}
+                  >
+                    Invita
+                  </Button>
+                )}
                 {pending ? (
                   <>
                     <Button
