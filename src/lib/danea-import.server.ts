@@ -1,19 +1,20 @@
 import { parseDaneaProducts, type DaneaDocument, type DaneaIssue } from "./danea-xml";
 
-/** La postazione autenticata: da qui deriva l'azienda, mai dal client. */
+/** La postazione autenticata: da qui derivano azienda e archivio, mai dal client. */
 export type DaneaStationRow = {
   id: string;
   company_id: string;
+  archive_id: string;
 };
 
 /**
  * Origine dell'invio. Il motore di importazione è UNICO: cambia solo la porta
  * d'ingresso (postazione Danea via HTTP, oppure file caricato a mano da un
- * amministratore). In entrambi i casi l'azienda è ricavata sul server.
+ * amministratore). In entrambi i casi azienda e archivio sono ricavati sul server.
  */
 export type DaneaImportOrigin =
   | { kind: "station"; station: DaneaStationRow }
-  | { kind: "manual"; companyId: string; userId: string };
+  | { kind: "manual"; companyId: string; archiveId: string; userId: string };
 
 export async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -34,8 +35,10 @@ export type ImportResult = {
 
 /**
  * Riceve il catalogo Danea e lo applica in modo idempotente.
- * Identità: (company_id, danea_internal_id) come chiave principale,
- * (company_id, code) come chiave alternativa e unica disponibile nei DeletedProducts.
+ * Identità: (company_id, archive_id, danea_internal_id) come chiave principale,
+ * (company_id, archive_id, code) come chiave alternativa e unica disponibile nei
+ * DeletedProducts. Archivi Danea differenti riusano gli stessi InternalID/Code:
+ * ogni operazione è quindi limitata al proprio archivio.
  */
 export async function importDaneaCatalog(
   origin: DaneaImportOrigin,
@@ -44,6 +47,7 @@ export async function importDaneaCatalog(
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const station = origin.kind === "station" ? origin.station : null;
   const companyId = origin.kind === "station" ? origin.station.company_id : origin.companyId;
+  const archiveId = origin.kind === "station" ? origin.station.archive_id : origin.archiveId;
 
   const payloadHash = await sha256Hex(xml);
   const doc = parseDaneaProducts(xml);
