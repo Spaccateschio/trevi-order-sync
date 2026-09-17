@@ -1113,7 +1113,9 @@ export type Database = {
       }
       supplier_customer_relations: {
         Row: {
+          accepted_at: string | null
           buyer_company_id: string
+          buyer_enabled: boolean
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -1124,11 +1126,14 @@ export type Database = {
           requested_at: string
           requested_by: string | null
           seller_company_id: string
+          seller_enabled: boolean
           status: Database["public"]["Enums"]["relation_status"]
           updated_at: string
         }
         Insert: {
+          accepted_at?: string | null
           buyer_company_id: string
+          buyer_enabled?: boolean
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -1139,11 +1144,14 @@ export type Database = {
           requested_at?: string
           requested_by?: string | null
           seller_company_id: string
+          seller_enabled?: boolean
           status?: Database["public"]["Enums"]["relation_status"]
           updated_at?: string
         }
         Update: {
+          accepted_at?: string | null
           buyer_company_id?: string
+          buyer_enabled?: boolean
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -1154,6 +1162,7 @@ export type Database = {
           requested_at?: string
           requested_by?: string | null
           seller_company_id?: string
+          seller_enabled?: boolean
           status?: Database["public"]["Enums"]["relation_status"]
           updated_at?: string
         }
@@ -1266,6 +1275,15 @@ export type Database = {
         }
         Returns: Json
       }
+      available_buyers: {
+        Args: never
+        Returns: {
+          city: string
+          id: string
+          legal_name: string
+          province: string
+        }[]
+      }
       available_suppliers: {
         Args: never
         Returns: {
@@ -1277,6 +1295,10 @@ export type Database = {
       }
       company_buys: { Args: { _company_id: string }; Returns: boolean }
       company_sells: { Args: { _company_id: string }; Returns: boolean }
+      decide_company_relation: {
+        Args: { _accept: boolean; _relation_id: string }
+        Returns: undefined
+      }
       has_active_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
         Returns: boolean
@@ -1287,6 +1309,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
         }
         Returns: boolean
+      }
+      invite_customer_relation: {
+        Args: { _buyer_company_id: string; _seller_company_id: string }
+        Returns: string
       }
       is_company_admin: { Args: { _company_id: string }; Returns: boolean }
       is_company_member: { Args: { _company_id: string }; Returns: boolean }
@@ -1322,6 +1348,10 @@ export type Database = {
         }
         Returns: string
       }
+      relation_is_operational: {
+        Args: { _buyer_company_id: string; _seller_company_id: string }
+        Returns: boolean
+      }
       remove_product_image: {
         Args: {
           _actor_user_id: string
@@ -1336,6 +1366,10 @@ export type Database = {
       request_supplier_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
         Returns: string
+      }
+      revoke_company_relation: {
+        Args: { _relation_id: string }
+        Returns: undefined
       }
       set_company_capabilities: {
         Args: { _can_buy: boolean; _can_sell: boolean; _company_id: string }
@@ -1362,6 +1396,10 @@ export type Database = {
           old_image_path: string
           old_thumbnail_path: string
         }[]
+      }
+      set_relation_side_enabled: {
+        Args: { _enabled: boolean; _relation_id: string }
+        Returns: undefined
       }
       shares_company_with: { Args: { _user_id: string }; Returns: boolean }
       shares_relation_with: { Args: { _company_id: string }; Returns: boolean }
