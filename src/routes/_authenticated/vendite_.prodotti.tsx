@@ -61,11 +61,14 @@ const PAGE_SIZE = 50;
 
 type ProductRow = {
   id: string;
+  archive_id: string;
   code: string;
   description: string | null;
   category: string | null;
   subcategory: string | null;
   danea_um: string | null;
+  size_um: string | null;
+  weight_um: string | null;
   vat_perc: number | null;
   vat_code: string | null;
   vat_description: string | null;
