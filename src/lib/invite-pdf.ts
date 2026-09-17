@@ -113,6 +113,29 @@ async function drawPage(doc: jsPDF, data: InvitePdfData) {
     y,
   );
   doc.setTextColor(0);
+  y += 12;
+
+  // Istruzioni passo per passo: riempiono la pagina e guidano il cliente.
+  const boxHeight = 46;
+  doc.setDrawColor(210);
+  doc.roundedRect(MARGIN, y, pageWidth - MARGIN * 2, boxHeight, 3, 3);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("Come collegarsi", MARGIN + 6, y + 10);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const steps = [
+    "1. Inquadra il codice QR con la fotocamera del telefono oppure apri il link.",
+    "2. Se non hai ancora un account, registra la tua azienda: servono partita IVA, email e cellulare.",
+    "3. Se hai già un account Trevi Fruit, accedi e inserisci il codice invito nella pagina Collegamenti.",
+    "4. Conferma l'invito: il collegamento con noi diventa operativo subito dopo.",
+  ];
+  let stepY = y + 19;
+  for (const step of steps) {
+    const lines = doc.splitTextToSize(step, pageWidth - MARGIN * 2 - 12);
+    doc.text(lines, MARGIN + 6, stepY);
+    stepY += lines.length * 5 + 1.5;
+  }
 
   // Piede: chi invita e contatti
   const footerY = doc.internal.pageSize.getHeight() - MARGIN - 20;
