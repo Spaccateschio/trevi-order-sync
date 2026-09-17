@@ -147,7 +147,7 @@ export function ProductGrid({
             {group.headers.map((header) => {
               const sorted = header.column.getIsSorted();
               return <th key={header.id} style={{ width: header.getSize() }} className="relative h-9 border-b border-r border-border px-2 text-left font-semibold last:border-r-0">
-                {header.column.id === "select" ? null : <button
+                {header.column.id === "select" ? flexRender(header.column.columnDef.header, header.getContext()) : <button
                   type="button"
                   draggable
                   onDragStart={(event) => startDrag(event, header.column.id)}
