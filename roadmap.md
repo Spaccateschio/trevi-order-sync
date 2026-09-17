@@ -5,6 +5,7 @@
 - [x] Punto 2: griglia Prodotti professionale (selezione globale dell’intero risultato filtrato, menu Colonne persistente, ridimensionamento fluido, preferenze automatiche per utente/dispositivo, stampa/esportazione)
 - [x] Punto 3: U.M. Trevi Fruit (8 U.M. aziendali iniziali non assegnate, anagrafica, U.M. per prodotto, conversione stimata facoltativa, gestione multipla, cambio U.M. Danea in revisione)
 - [x] Rifinitura Punto 3: U.M. rapide in cima al dettaglio e dati Danea collassabili (test desktop/smartphone)
+- [x] Correzione UX U.M.: secondo clic richiude l’editor; rimozione separata e confermata (test CICORIA desktop/smartphone)
 - [ ] Punto 4: immagini Trevi Fruit
 
 ## Completato
