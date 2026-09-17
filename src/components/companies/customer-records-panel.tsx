@@ -579,6 +579,13 @@ export function CustomerRecordsPanel({
                 Invia questo indirizzo al cliente: è valido una sola volta e scade automaticamente.
               </p>
               <Input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} />
+              {inviteCode ? (
+                <p className="text-sm text-muted-foreground">
+                  Se il cliente è già su Trevi Fruit può usare il codice{" "}
+                  <span className="font-mono tracking-widest text-foreground">{inviteCode}</span>{" "}
+                  dalla pagina Collegamenti.
+                </p>
+              ) : null}
             </div>
           ) : (
             <div className="grid gap-1.5">
