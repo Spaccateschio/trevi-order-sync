@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
+import { RelationCard } from "@/components/companies/relation-card";
 import { Button } from "@/components/ui/button";
 import {
   activeCompany,
@@ -94,6 +95,16 @@ function Fornitori() {
         ) : suppliers.length ? (
           suppliers.map((supplier) => {
             const relation = relations.find((r) => r.sellerCompanyId === supplier.id);
+            if (relation) {
+              return (
+                <RelationCard
+                  key={supplier.id}
+                  relation={relation}
+                  side="acquirente"
+                  isAdmin={isAdmin}
+                />
+              );
+            }
             return (
               <section
                 key={supplier.id}
@@ -105,20 +116,13 @@ function Fornitori() {
                     {[supplier.city, supplier.province].filter(Boolean).join(" · ") ||
                       "Sede non indicata"}
                   </p>
-                  {relation ? (
-                    <p className="mt-1 text-sm font-medium">
-                      {RELATION_LABEL[relation.status] ?? relation.status}
-                    </p>
-                  ) : null}
                 </div>
-                {relation ? null : (
-                  <Button
-                    onClick={() => handleRequest(supplier.id)}
-                    disabled={!isAdmin || busyId === supplier.id}
-                  >
-                    Richiedi collegamento
-                  </Button>
-                )}
+                <Button
+                  onClick={() => handleRequest(supplier.id)}
+                  disabled={!isAdmin || busyId === supplier.id}
+                >
+                  Richiedi collegamento
+                </Button>
               </section>
             );
           })
