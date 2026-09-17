@@ -156,6 +156,7 @@ export async function importDaneaCatalog(
 
       return {
         company_id: companyId,
+        archive_id: archiveId,
         danea_internal_id: product.internalId,
         code: product.code,
         description: product.description,
@@ -164,6 +165,8 @@ export async function importDaneaCatalog(
         subcategory: product.subcategory,
         subcategory_levels: product.subcategoryLevels.length ? product.subcategoryLevels : null,
         danea_um: product.um,
+        size_um: product.sizeUm,
+        weight_um: product.weightUm,
         vat_code: product.vatCode,
         vat_perc: product.vatPerc,
         vat_class: product.vatClass,
