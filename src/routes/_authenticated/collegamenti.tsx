@@ -29,6 +29,7 @@ import {
   type Relation,
 } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import { sendInvitationEmail } from "@/lib/invitation-email.functions";
 
 export const Route = createFileRoute("/_authenticated/collegamenti")({
   head: () => ({
@@ -339,12 +340,21 @@ function Collegamenti() {
   }
 
   async function resendInvitation(invitationId: string) {
-    const { error } = await supabase.rpc("resend_customer_invitation", {
+    const { data, error } = await supabase.rpc("resend_customer_invitation", {
       _invitation_id: invitationId,
     });
     if (error) {
       toast.error(error.message);
       return;
+    }
+    const token = (data ?? [])[0]?.token;
+    if (token) {
+      // Se l'invito ha un'email, il rinnovo la raggiunge di nuovo.
+      try {
+        await sendInvitationEmail({ data: { invitationId, token } });
+      } catch {
+        /* codice e link restano validi */
+      }
     }
     await refreshInvitations();
     toast.success("Invito rinnovato.");
