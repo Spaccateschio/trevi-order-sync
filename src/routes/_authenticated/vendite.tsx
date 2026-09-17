@@ -1,7 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { AppShell, PlaceholderCard } from "@/components/app-shell";
-import { activeCompany, companySells, useIdentity } from "@/hooks/use-identity";
+import {
+  activeCompany,
+  companySells,
+  isRelationOperational,
+  useIdentity,
+} from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/vendite")({
   head: () => ({
@@ -51,9 +56,19 @@ function Vendite() {
             <ul className="mt-3 space-y-2 text-sm">
               {relations.map((r) => (
                 <li key={r.id}>
-                  <span className="font-medium">Richiesta di collegamento</span>
+                  <span className="font-medium">{r.buyerCompanyName ?? "Cliente"}</span>
                   <span className="block text-muted-foreground">
-                    {RELATION_LABEL[r.status] ?? r.status}
+                    {r.status === "in_attesa"
+                      ? r.origin === "richiesta_cliente"
+                        ? "In attesa della tua risposta"
+                        : "Invito in attesa di risposta"
+                      : isRelationOperational(r)
+                        ? "Collegamento attivo"
+                        : r.status === "attivo"
+                          ? "Collegamento sospeso"
+                          : r.status === "rifiutato"
+                            ? "Richiesta rifiutata"
+                            : "Collegamento chiuso"}
                   </span>
                 </li>
               ))}
@@ -63,6 +78,9 @@ function Vendite() {
               Nessun cliente collegato per ora.
             </p>
           )}
+          <Link to="/vendite/clienti" className="mt-3 inline-block text-sm font-medium underline">
+            Gestisci i clienti
+          </Link>
         </section>
 
         <PlaceholderCard
