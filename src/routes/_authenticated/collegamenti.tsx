@@ -399,25 +399,45 @@ function Collegamenti() {
     toast.success("Richiesta inviata. Attendi l'approvazione del fornitore.");
   }
 
-  async function resendInvitation(invitationId: string) {
+  /**
+   * Reinvio/rinnovo dell'invito: stessa funzione protetta già in uso, che
+   * aggiorna scadenza e link dell'invito esistente senza crearne un altro.
+   */
+  async function resendInvitation(invitationId: string, expired: boolean) {
+    setBusyId(invitationId);
     const { data, error } = await supabase.rpc("resend_customer_invitation", {
       _invitation_id: invitationId,
     });
     if (error) {
+      setBusyId(null);
       toast.error(error.message);
       return;
     }
     const token = (data ?? [])[0]?.token;
+    let emailed = false;
     if (token) {
-      // Se l'invito ha un'email, il rinnovo la raggiunge di nuovo.
+      setFreshLinks((prev) => ({
+        ...prev,
+        [invitationId]: `${window.location.origin}/invito/${token}`,
+      }));
       try {
-        await sendInvitationEmail({ data: { invitationId, token } });
+        const result = await sendInvitationEmail({ data: { invitationId, token } });
+        emailed = result.sent;
       } catch {
         /* codice e link restano validi */
       }
     }
+    setBusyId(null);
     await refreshInvitations();
-    toast.success("Invito rinnovato.");
+    toast.success(
+      emailed
+        ? expired
+          ? "Invito rinnovato e inviato per email."
+          : "Invito reinviato per email."
+        : expired
+          ? "Invito rinnovato: copia il link o il codice."
+          : "Invito aggiornato: copia il link o il codice.",
+    );
   }
 
   async function cancelInvitation(invitationId: string) {
