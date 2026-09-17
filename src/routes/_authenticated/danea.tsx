@@ -174,9 +174,44 @@ function DaneaPage() {
 
   const refreshStations = () =>
     queryClient.invalidateQueries({ queryKey: ["danea", "stations", companyId] });
+  const refreshArchives = () =>
+    queryClient.invalidateQueries({ queryKey: ["danea", "archives", companyId] });
+
+  const createArchiveMutation = useMutation({
+    mutationFn: async () =>
+      await createArchive({ data: { companyId: companyId!, name: newArchiveName } }),
+    onSuccess: () => {
+      setNewArchiveName("");
+      toast.success("Archivio Danea creato.");
+      refreshArchives();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const renameArchiveMutation = useMutation({
+    mutationFn: async (vars: { archiveId: string; name: string }) =>
+      await renameArchive({ data: { companyId: companyId!, ...vars } }),
+    onSuccess: () => {
+      setRenamingId(null);
+      toast.success("Archivio rinominato.");
+      refreshArchives();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const moveStationMutation = useMutation({
+    mutationFn: async (vars: { stationId: string; archiveId: string }) =>
+      await moveStation({ data: { companyId: companyId!, ...vars } }),
+    onSuccess: () => {
+      toast.success("Postazione spostata. Utente, password e indirizzo non cambiano.");
+      refreshStations();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const createMutation = useMutation({
-    mutationFn: async () => await createStation({ data: { companyId: companyId!, name } }),
+    mutationFn: async () =>
+      await createStation({ data: { companyId: companyId!, archiveId: stationArchiveId, name } }),
     onSuccess: (result) => {
       setFresh({ username: result.username, password: result.password });
       setName("");
