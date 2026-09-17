@@ -10,7 +10,7 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, GripVertical } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, GripVertical, ImageOff } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,6 +32,7 @@ export function ProductGrid({
   onSizingChange,
   onSortingChange,
   onOpen,
+  imageUrls,
 }: {
   products: ProductRow[];
   archives: Map<string, string>;
@@ -47,6 +48,7 @@ export function ProductGrid({
   onSizingChange: (state: ColumnSizingState) => void;
   onSortingChange: (state: SortingState) => void;
   onOpen: (product: ProductRow) => void;
+  imageUrls: Map<string, string>;
 }) {
   const [sizingInfo, setSizingInfo] = useState<ColumnSizingInfoState>({
     startOffset: null,
@@ -98,13 +100,15 @@ export function ProductGrid({
       size: item.size,
       minSize: item.minSize,
       sortingFn: item.numeric ? "basic" : "alphanumeric",
-      cell: (context) => (
+      cell: (context) => item.id === "image" ? (
+        imageUrls.get(context.row.original.id) ? <img src={imageUrls.get(context.row.original.id)} alt="" loading="lazy" className="mx-auto h-7 w-10 object-contain" /> : <ImageOff className="mx-auto h-4 w-4 text-muted-foreground" aria-label="Senza immagine" />
+      ) : (
         <span className={cn("block truncate", item.id === "code" && "font-mono text-xs font-semibold", item.numeric && "text-right tabular-nums")}>
           {formatGridValue(item, context.getValue<string | number | null>())}
         </span>
       ),
     })),
-  ], [archives, isAdmin, onSelectionChange, selectedIds]);
+  ], [archives, imageUrls, isAdmin, onSelectionChange, selectedIds]);
 
   const table = useReactTable({
     data: products,

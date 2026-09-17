@@ -42,6 +42,7 @@ import { activeCompany, companySells, hasRole, useIdentity } from "@/hooks/use-i
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { analyzeDaneaFile, importDaneaFile } from "@/lib/danea.functions";
+import { getProductImageUrls } from "@/lib/product-images.functions";
 import {
   DEFAULT_COLUMN_ORDER,
   PRODUCT_COLUMNS,
@@ -107,6 +108,7 @@ function ProdottiPage() {
   const [category, setCategory] = useState("tutte");
   const [archiveFilter, setArchiveFilter] = useState("tutti");
   const [status, setStatus] = useState("pubblicato");
+  const [imageFilter, setImageFilter] = useState("tutte");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<ProductRow | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -146,7 +148,7 @@ function ProdottiPage() {
     refetchOnWindowFocus: true,
     queryFn: async () => {
       if (!companyId) return [];
-      const { data, error } = await supabase.from("products").select("id, archive_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price)").eq("company_id", companyId).order("code");
+      const { data, error } = await supabase.from("products").select("id, archive_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price), product_images(id)").eq("company_id", companyId).order("code");
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as ProductRow[];
     },
@@ -219,13 +221,25 @@ function ProdottiPage() {
       if (category !== "tutte" && product.category !== category) return false;
       if (archiveFilter !== "tutti" && product.archive_id !== archiveFilter) return false;
       if (status !== "tutti" && product.publish_status !== status) return false;
+      if (imageFilter === "con" && !product.product_images) return false;
+      if (imageFilter === "senza" && product.product_images) return false;
       return !term || product.code.toLowerCase().includes(term) || (product.description ?? "").toLowerCase().includes(term);
     });
-  }, [allProducts, archiveFilter, category, search, status]);
+  }, [allProducts, archiveFilter, category, imageFilter, search, status]);
   const sortedFiltered = useMemo(() => sortProducts(filtered, sorting, archiveNameById), [archiveNameById, filtered, sorting]);
   const pageCount = Math.max(1, Math.ceil(sortedFiltered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
   const visible = sortedFiltered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const getImageUrls = useServerFn(getProductImageUrls);
+  const imageColumnVisible = visibility["image"] !== false;
+  const visibleImageProductIds = useMemo(() => imageColumnVisible ? visible.filter((product) => product.product_images).map((product) => product.id) : [], [imageColumnVisible, visible]);
+  const imageUrlsQuery = useQuery({
+    queryKey: ["product-grid-image-urls", visibleImageProductIds],
+    enabled: visibleImageProductIds.length > 0,
+    queryFn: () => getImageUrls({ data: { productIds: visibleImageProductIds, thumbnail: true } }),
+    staleTime: 8 * 60 * 1000,
+  });
+  const imageUrls = useMemo(() => new Map((imageUrlsQuery.data ?? []).map((row) => [row.productId, row.url])), [imageUrlsQuery.data]);
   const selectedProducts = sortedFiltered.filter((product) => selectedIds.has(product.id));
   const outputProducts = selectedProducts.length ? selectedProducts : sortedFiltered;
   const visibleColumns = columnOrder.map((id) => PRODUCT_COLUMNS.find((column) => column.id === id)).filter((column) => column && visibility[column.id] !== false && (isAdmin || !column.adminOnly));
@@ -273,6 +287,7 @@ function ProdottiPage() {
           <Select value={category} onValueChange={(value) => { setCategory(value); setPage(0); }}><SelectTrigger className="h-9 w-44 shrink-0"><SelectValue placeholder="Categoria" /></SelectTrigger><SelectContent><SelectItem value="tutte">Tutte le categorie</SelectItem>{categories.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select>
           {archives.length > 1 ? <Select value={archiveFilter} onValueChange={(value) => { setArchiveFilter(value); setPage(0); }}><SelectTrigger className="h-9 w-44 shrink-0"><SelectValue placeholder="Archivio" /></SelectTrigger><SelectContent><SelectItem value="tutti">Tutti gli archivi</SelectItem>{archives.map((archive) => <SelectItem key={archive.id} value={archive.id}>{archive.name}</SelectItem>)}</SelectContent></Select> : null}
           <Select value={status} onValueChange={(value) => { setStatus(value); setPage(0); }}><SelectTrigger className="h-9 w-48 shrink-0"><SelectValue placeholder="Stato" /></SelectTrigger><SelectContent><SelectItem value="pubblicato">Catalogo attuale</SelectItem><SelectItem value="non_pubblicato">Non più inviati</SelectItem><SelectItem value="tutti">Tutti gli stati</SelectItem></SelectContent></Select>
+          <Select value={imageFilter} onValueChange={(value) => { setImageFilter(value); setPage(0); }}><SelectTrigger className="h-9 w-40 shrink-0"><SelectValue placeholder="Immagine" /></SelectTrigger><SelectContent><SelectItem value="tutte">Tutte le immagini</SelectItem><SelectItem value="con">Con immagine</SelectItem><SelectItem value="senza">Senza immagine</SelectItem></SelectContent></Select>
         </div>
       </div>
 
@@ -281,7 +296,7 @@ function ProdottiPage() {
         <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{isAdmin && selectedProducts.length ? <Button variant="outline" size="sm" onClick={() => setUnitBatchOpen(true)}><Ruler />Gestisci U.M. vendita</Button> : null}{isAdmin ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
       </div>
 
-      <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} />
+      <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} />
       <ProductMobileList products={visible} selectedIds={selectedIds} onSelect={(id, checked) => setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; })} onOpen={setSelected} />
 
       {pageCount > 1 ? <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><Button variant="outline" size="sm" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Precedenti</Button><span className="truncate text-center text-xs text-muted-foreground">Pagina {currentPage + 1} di {pageCount}</span><Button variant="outline" size="sm" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>Successivi</Button></div> : null}
