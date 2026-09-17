@@ -234,7 +234,8 @@ function ProdottiPage() {
   const visible = sortedFiltered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
   const getImageUrls = useServerFn(getProductImageUrls);
   const imageColumnVisible = visibility["image"] !== false;
-  const visibleImageProductIds = useMemo(() => imageColumnVisible ? visible.filter((product) => product.product_images).map((product) => product.id) : [], [imageColumnVisible, visible]);
+  const needsThumbnails = imageColumnVisible || deviceClass === "smartphone";
+  const visibleImageProductIds = useMemo(() => needsThumbnails ? visible.filter((product) => product.product_images).map((product) => product.id) : [], [needsThumbnails, visible]);
   const imageUrlsQuery = useQuery({
     queryKey: ["product-grid-image-urls", visibleImageProductIds],
     enabled: visibleImageProductIds.length > 0,
