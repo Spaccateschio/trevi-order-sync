@@ -114,6 +114,8 @@ export function CustomerRecordsPanel({
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteRecipient, setInviteRecipient] = useState<string | null>(null);
+  const [inviteExpires, setInviteExpires] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
