@@ -817,6 +817,9 @@ function Collegamenti() {
               >
                 Copia codice e link
               </Button>
+              <Button variant="outline" onClick={downloadFreeInvitePdf}>
+                Scarica PDF con QR
+              </Button>
             </div>
           ) : (
             <div className="space-y-2">
