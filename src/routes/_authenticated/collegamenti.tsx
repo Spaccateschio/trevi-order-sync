@@ -77,12 +77,18 @@ type RelationMeta = {
 };
 
 type View = "connessioni" | "ricerca" | "richieste" | "inviti";
-type Filter = "tutti" | "vendo" | "compro" | "attesa" | "sospesi";
+type Tab = "clienti" | "fornitori" | "entrambi";
+type Filter = "tutti" | "attivi" | "attesa" | "sospesi";
+
+const tabLabels: Record<Tab, string> = {
+  clienti: "Clienti",
+  fornitori: "Fornitori",
+  entrambi: "Entrambi",
+};
 
 const filterLabels: Record<Filter, string> = {
   tutti: "Tutti",
-  vendo: "Io vendo",
-  compro: "Io compro",
+  attivi: "Attivi",
   attesa: "In attesa",
   sospesi: "Sospesi",
 };
@@ -106,7 +112,10 @@ function Collegamenti() {
   const queryClient = useQueryClient();
 
   const [view, setView] = useState<View>("connessioni");
+  const [tab, setTab] = useState<Tab>("clienti");
   const [filter, setFilter] = useState<Filter>("tutti");
+  /** Link freschi ottenuti dopo un reinvio: il token non è recuperabile dal database. */
+  const [freshLinks, setFreshLinks] = useState<Record<string, string>>({});
   const [listSearch, setListSearch] = useState("");
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
