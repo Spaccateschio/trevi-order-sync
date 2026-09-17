@@ -77,12 +77,18 @@ type RelationMeta = {
 };
 
 type View = "connessioni" | "ricerca" | "richieste" | "inviti";
-type Filter = "tutti" | "vendo" | "compro" | "attesa" | "sospesi";
+type Tab = "clienti" | "fornitori" | "entrambi";
+type Filter = "tutti" | "attivi" | "attesa" | "sospesi";
+
+const tabLabels: Record<Tab, string> = {
+  clienti: "Clienti",
+  fornitori: "Fornitori",
+  entrambi: "Entrambi",
+};
 
 const filterLabels: Record<Filter, string> = {
   tutti: "Tutti",
-  vendo: "Io vendo",
-  compro: "Io compro",
+  attivi: "Attivi",
   attesa: "In attesa",
   sospesi: "Sospesi",
 };
@@ -106,7 +112,10 @@ function Collegamenti() {
   const queryClient = useQueryClient();
 
   const [view, setView] = useState<View>("connessioni");
+  const [tab, setTab] = useState<Tab>("clienti");
   const [filter, setFilter] = useState<Filter>("tutti");
+  /** Link freschi ottenuti dopo un reinvio: il token non è recuperabile dal database. */
+  const [freshLinks, setFreshLinks] = useState<Record<string, string>>({});
   const [listSearch, setListSearch] = useState("");
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -259,21 +268,36 @@ function Collegamenti() {
   };
 
   const passesFilter = (row: ConnectionRow, key: Filter) => {
-    if (key === "vendo") return row.side === "venditore";
-    if (key === "compro") return row.side === "acquirente";
+    if (key === "attivi") return row.statusTone === "attivo";
     if (key === "attesa") return row.relation.status === "in_attesa";
     if (key === "sospesi") return row.statusTone === "sospeso";
     return true;
   };
 
+  /**
+   * Tab principali: Clienti (aziende a cui vendo), Fornitori (aziende da cui
+   * compro), Entrambi (rapporti nei due sensi, una sola riga per azienda).
+   */
+  const inTab = (row: ConnectionRow, key: Tab) => {
+    if (key === "entrambi") return row.bothWays && row.side === "venditore";
+    if (key === "clienti") return row.side === "venditore" && !row.bothWays;
+    return row.side === "acquirente" && !row.bothWays;
+  };
+
+  const tabCounts = Object.fromEntries(
+    (Object.keys(tabLabels) as Tab[]).map((key) => [key, rows.filter((row) => inTab(row, key)).length]),
+  ) as Record<Tab, number>;
+
+  const tabRows = rows.filter((row) => inTab(row, tab));
+
   const filterCounts = Object.fromEntries(
     (Object.keys(filterLabels) as Filter[]).map((key) => [
       key,
-      rows.filter((row) => matchSearch(row) && passesFilter(row, key)).length,
+      tabRows.filter((row) => matchSearch(row) && passesFilter(row, key)).length,
     ]),
   ) as Record<Filter, number>;
 
-  const visibleRows = rows.filter((row) => matchSearch(row) && passesFilter(row, filter));
+  const visibleRows = tabRows.filter((row) => matchSearch(row) && passesFilter(row, filter));
   const pendingRows = rows.filter((row) => row.relation.status === "in_attesa");
   const openRow = rows.find((row) => row.key === openKey) ?? null;
 
@@ -375,25 +399,45 @@ function Collegamenti() {
     toast.success("Richiesta inviata. Attendi l'approvazione del fornitore.");
   }
 
-  async function resendInvitation(invitationId: string) {
+  /**
+   * Reinvio/rinnovo dell'invito: stessa funzione protetta già in uso, che
+   * aggiorna scadenza e link dell'invito esistente senza crearne un altro.
+   */
+  async function resendInvitation(invitationId: string, expired: boolean) {
+    setBusyId(invitationId);
     const { data, error } = await supabase.rpc("resend_customer_invitation", {
       _invitation_id: invitationId,
     });
     if (error) {
+      setBusyId(null);
       toast.error(error.message);
       return;
     }
     const token = (data ?? [])[0]?.token;
+    let emailed = false;
     if (token) {
-      // Se l'invito ha un'email, il rinnovo la raggiunge di nuovo.
+      setFreshLinks((prev) => ({
+        ...prev,
+        [invitationId]: `${window.location.origin}/invito/${token}`,
+      }));
       try {
-        await sendInvitationEmail({ data: { invitationId, token } });
+        const result = await sendInvitationEmail({ data: { invitationId, token } });
+        emailed = result.sent;
       } catch {
         /* codice e link restano validi */
       }
     }
+    setBusyId(null);
     await refreshInvitations();
-    toast.success("Invito rinnovato.");
+    toast.success(
+      emailed
+        ? expired
+          ? "Invito rinnovato e inviato per email."
+          : "Invito reinviato per email."
+        : expired
+          ? "Invito rinnovato: copia il link o il codice."
+          : "Invito aggiornato: copia il link o il codice.",
+    );
   }
 
   async function cancelInvitation(invitationId: string) {
@@ -476,26 +520,10 @@ function Collegamenti() {
       <div className="space-y-4">
         {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
 
-        {/* Barra compatta: ogni voce è una vista, niente sezioni permanenti. */}
+        {/* Azioni sempre visibili sopra l'elenco, contatori a destra. */}
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant={view === "connessioni" ? "default" : "outline"}
-            onClick={() => setView("connessioni")}
-          >
-            <Link2 className="size-4" />
-            Le mie connessioni
-          </Button>
-          <Button
-            size="sm"
-            variant={view === "ricerca" ? "default" : "outline"}
-            onClick={() => setView("ricerca")}
-          >
-            <Search className="size-4" />
-            Cerca azienda
-          </Button>
           {sells ? (
-            <Button size="sm" variant="outline" disabled={!isAdmin} onClick={() => setInviteOpen(true)}>
+            <Button size="sm" disabled={!isAdmin} onClick={() => setInviteOpen(true)}>
               <Sparkles className="size-4" />
               Invita partner
             </Button>
@@ -503,9 +531,17 @@ function Collegamenti() {
           {buys ? (
             <Button size="sm" variant="outline" disabled={!isAdmin} onClick={() => setCodeOpen(true)}>
               <KeyRound className="size-4" />
-              Ho un codice
+              Inserisci codice
             </Button>
           ) : null}
+          <Button
+            size="sm"
+            variant={view === "ricerca" ? "default" : "outline"}
+            onClick={() => setView(view === "ricerca" ? "connessioni" : "ricerca")}
+          >
+            <Search className="size-4" />
+            Cerca azienda
+          </Button>
           <span className="flex flex-wrap gap-2 sm:ml-auto">
             <Button
               size="sm"
@@ -532,6 +568,32 @@ function Collegamenti() {
               </Button>
             ) : null}
           </span>
+        </div>
+
+        {/* Tab principali: sono la navigazione della pagina, non semplici filtri. */}
+        <div className="flex gap-1 border-b border-border">
+          {(Object.keys(tabLabels) as Tab[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-current={view === "connessioni" && tab === key ? "page" : undefined}
+              onClick={() => {
+                setTab(key);
+                setView("connessioni");
+              }}
+              className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                view === "connessioni" && tab === key
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Link2 className="size-4" />
+              {tabLabels[key]}
+              <span className="rounded-full bg-muted px-1.5 text-xs text-muted-foreground">
+                {tabCounts[key]}
+              </span>
+            </button>
+          ))}
         </div>
 
         {view === "connessioni" ? (
@@ -567,6 +629,7 @@ function Collegamenti() {
             />
           </div>
         ) : null}
+
 
         {view === "ricerca" ? (
           <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -728,14 +791,27 @@ function Collegamenti() {
                             Copia codice
                           </Button>
                         ) : null}
+                        {freshLinks[invitation.id] ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(freshLinks[invitation.id]!);
+                              toast.success("Link copiato.");
+                            }}
+                          >
+                            Copia link
+                          </Button>
+                        ) : null}
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={!isAdmin}
-                          onClick={() => resendInvitation(invitation.id)}
+                          disabled={!isAdmin || busyId === invitation.id}
+                          onClick={() => resendInvitation(invitation.id, expired)}
                         >
-                          Rinnova
+                          {expired ? "Rinnova invito" : "Reinvia invito"}
                         </Button>
+
                         <Button
                           size="sm"
                           variant="ghost"
