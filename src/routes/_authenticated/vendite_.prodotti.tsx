@@ -102,12 +102,27 @@ function ProdottiPage() {
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("tutte");
+  const [archiveFilter, setArchiveFilter] = useState("tutti");
   // Danea è il gestionale padrone: per default vediamo solo i prodotti
   // presenti nell'ultimo catalogo inviato.
   const [status, setStatus] = useState("pubblicato");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<ProductRow | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+
+  const archivesQuery = useQuery({
+    queryKey: ["danea-archivi", companyId],
+    enabled: Boolean(companyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("danea_archives")
+        .select("id, name, is_default, status")
+        .eq("company_id", companyId!)
+        .order("created_at", { ascending: true });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
 
   const productsQuery = useQuery({
     queryKey: ["prodotti", companyId],
@@ -120,7 +135,7 @@ function ProdottiPage() {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "id, code, description, category, subcategory, danea_um, vat_perc, vat_code, vat_description, publish_status, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, last_received_at, product_prices(list_number, net_price, gross_price)",
+          "id, archive_id, code, description, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, publish_status, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, last_received_at, product_prices(list_number, net_price, gross_price)",
         )
         .eq("company_id", companyId!)
         .order("code");
