@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Plus, Star } from "lucide-react";
+import { AlertTriangle, Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -103,10 +103,7 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
           variant={isSelected ? "default" : "outline"}
           aria-pressed={isSelected}
           aria-label={`${code}${row.is_default ? ", predefinita" : ""}${row.needs_review ? ", da verificare" : ""}`}
-          onClick={() => {
-            if (isSelected && editable) requestRemoval(row);
-            else setSelectedId(isSelected ? null : row.id);
-          }}
+          onClick={() => setSelectedId(isSelected ? null : row.id)}
         >
           {code}{row.is_default ? <Star className="fill-current" aria-hidden="true" /> : null}{row.needs_review ? <AlertTriangle aria-hidden="true" /> : null}
         </Button>;
@@ -132,7 +129,10 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
         <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy || selected.is_default} checked={draft.isDefault} onCheckedChange={(isDefault) => setDraft((current) => ({ ...current, isDefault, active: isDefault ? true : current.active, visible: isDefault ? true : current.visible }))} />Predefinita</label>
       </div>
       <div className="mt-4 grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2"><span className="text-sm">1 {selected.units_of_measure?.code ?? "U.M."} ≈</span><Input aria-label={`Conversione stimata ${selected.units_of_measure?.code ?? "U.M."}`} inputMode="decimal" disabled={!editable || busy} value={draft.factor} onChange={(event) => setDraft((current) => ({ ...current, factor: event.target.value }))} placeholder="Nessuna"/><span className="truncate text-sm">{daneaUm ?? "U.M. Danea"}</span></div>
-      {editable ? <div className="mt-4 flex justify-end"><Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate()}>Salva</Button></div> : null}
+      {editable ? <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => requestRemoval(selected)}><Trash2 aria-hidden="true" />Rimuovi U.M.</Button>
+        <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate()}>Salva</Button>
+      </div> : null}
     </div> : null}
 
     <AlertDialog open={Boolean(removeTarget)} onOpenChange={(open) => { if (!open) { setRemoveTarget(null); setOfferDeactivation(false); } }}>
