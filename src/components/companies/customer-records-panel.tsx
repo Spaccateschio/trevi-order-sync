@@ -230,8 +230,9 @@ export function CustomerRecordsPanel({
       toast.error(error.message);
       return;
     }
-    const token = (data ?? [])[0]?.token;
-    if (token) setInviteLink(linkFor(token));
+    const row = (data ?? [])[0];
+    if (row?.token) setInviteLink(linkFor(row.token));
+    setInviteCode(row?.invite_code ?? null);
     await refresh();
   }
 
