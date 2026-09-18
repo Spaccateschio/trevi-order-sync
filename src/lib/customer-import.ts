@@ -274,7 +274,25 @@ const XML_FIELDS: { field: ImportField; tags: string[] }[] = [
   { field: "phone", tags: ["Phone", "Tel", "Mobile", "Cell"] },
   { field: "internal_reference", tags: ["Code", "CustomerCode", "Cod"] },
   { field: "notes", tags: ["Notes", "Note"] },
+  { field: "region", tags: ["Region", "Regione"] },
+  { field: "country", tags: ["Country", "Nazione"] },
+  { field: "sdi_code", tags: ["EInvoiceDestCode", "SdiCode", "CodiceDestinatario"] },
+  { field: "sdi_admin_reference", tags: ["EInvoiceAdminRef", "RifAmministrativo"] },
+  { field: "contact_name", tags: ["Contact", "Referente", "ContactName"] },
+  { field: "fax", tags: ["Fax"] },
+  { field: "pec", tags: ["Pec", "EmailPec"] },
+  { field: "discounts", tags: ["Discounts", "Sconti", "Discount"] },
+  { field: "price_list", tags: ["PriceList", "Listino", "PriceListNum"] },
+  { field: "credit_limit", tags: ["CreditLimit", "Fido"] },
+  { field: "agent", tags: ["Agent", "Agente"] },
+  { field: "payment_terms", tags: ["Payment", "Pagamento", "PaymentTerms"] },
+  { field: "bank", tags: ["Bank", "Banca"] },
+  { field: "our_bank", tags: ["OurBank", "NsBanca"] },
 ];
+
+const XML_KNOWN_TAGS = new Set(
+  XML_FIELDS.flatMap((entry) => entry.tags.map((tag) => tag.toLowerCase())),
+);
 
 function textOf(element: Element, tags: string[]) {
   for (const tag of tags) {
