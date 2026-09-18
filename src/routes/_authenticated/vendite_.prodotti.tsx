@@ -45,6 +45,7 @@ import { analyzeDaneaFile, importDaneaFile } from "@/lib/danea.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import {
   DEFAULT_COLUMN_ORDER,
+  columnLabel,
   PRODUCT_COLUMNS,
   defaultGridPreferences,
   formatGridValue,
@@ -280,7 +281,7 @@ function ProdottiPage() {
   }
 
   function exportCsv() {
-    const header = visibleColumns.map((column) => `"${column?.label.replaceAll('"', '""')}"`).join(";");
+    const header = visibleColumns.map((column) => `"${(column ? columnLabel(column, listName) : "").replaceAll('"', '""')}"`).join(";");
     const rows = outputProducts.map((product) => visibleColumns.map((column) => {
       if (!column) return '""';
       const value = formatGridValue(column, column.value(product, archiveNameById));
@@ -302,7 +303,7 @@ function ProdottiPage() {
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 xl:flex xl:items-center">
         <div className="relative min-w-0 xl:w-72"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input aria-label="Cerca prodotti" className="h-9 pl-8" placeholder="Codice o descrizione" value={search} onChange={(event) => { setSearch(event.target.value); setPage(0); }} /></div>
         <div className="flex shrink-0 items-center gap-1 xl:order-last">
-          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Columns3 />Colonne</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="max-h-[70vh] w-64"><DropdownMenuLabel>Colonne visibili</DropdownMenuLabel>{PRODUCT_COLUMNS.filter((column) => isAdmin || !column.adminOnly).map((column) => <DropdownMenuCheckboxItem key={column.id} checked={visibility[column.id] !== false} onSelect={(event) => event.preventDefault()} onCheckedChange={(checked) => setVisibility((current) => ({ ...current, [column.id]: checked }))}>{column.label}</DropdownMenuCheckboxItem>)}<DropdownMenuSeparator /><DropdownMenuItem onSelect={resetPreferences}><RotateCcw />Ripristina predefinite</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Columns3 />Colonne</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="max-h-[70vh] w-64"><DropdownMenuLabel>Colonne visibili</DropdownMenuLabel>{PRODUCT_COLUMNS.filter((column) => isAdmin || !column.adminOnly).map((column) => <DropdownMenuCheckboxItem key={column.id} checked={visibility[column.id] !== false} onSelect={(event) => event.preventDefault()} onCheckedChange={(checked) => setVisibility((current) => ({ ...current, [column.id]: checked }))}>{columnLabel(column, listName)}</DropdownMenuCheckboxItem>)}<DropdownMenuSeparator /><DropdownMenuItem onSelect={resetPreferences}><RotateCcw />Ripristina predefinite</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
           <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Seleziona prodotti"><SquareCheckBig /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setSelectedIds(new Set(visible.map((product) => product.id)))}>Seleziona questa pagina ({visible.length})</DropdownMenuItem><DropdownMenuItem onSelect={() => setSelectedIds(new Set(sortedFiltered.map((product) => product.id)))}>Seleziona tutti i risultati ({sortedFiltered.length})</DropdownMenuItem><DropdownMenuItem disabled={!selectedIds.size} onSelect={() => setSelectedIds(new Set())}>Azzera selezione</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
         </div>
         <div className="col-span-2 flex min-w-0 gap-2 overflow-x-auto xl:col-span-1 xl:flex-1">
@@ -318,13 +319,13 @@ function ProdottiPage() {
         <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{isAdmin && selectedProducts.length ? <><Button variant="outline" size="sm" disabled={showcaseMutation.isPending} onClick={() => showcaseMutation.mutate(true)}><Eye />In vetrina</Button><Button variant="outline" size="sm" disabled={showcaseMutation.isPending} onClick={() => showcaseMutation.mutate(false)}><EyeOff />Nascondi</Button><Button variant="outline" size="sm" onClick={() => setUnitBatchOpen(true)}><Ruler />Gestisci U.M. vendita</Button></> : null}{isAdmin ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
       </div>
 
-      <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} />
+      <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} listName={listName} />
       <ProductMobileList products={visible} selectedIds={selectedIds} imageUrls={imageUrls} onSelect={(id, checked) => setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; })} onOpen={setSelected} />
 
       {pageCount > 1 ? <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><Button variant="outline" size="sm" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Precedenti</Button><span className="truncate text-center text-xs text-muted-foreground">Pagina {currentPage + 1} di {pageCount}</span><Button variant="outline" size="sm" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>Successivi</Button></div> : null}
     </div>
 
-    <div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column?.label}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>
+    <div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column ? columnLabel(column, listName) : ""}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>
 
     <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => setSelected(null)} />
     {companyId ? <SalesUnitBatchDialog open={unitBatchOpen} onOpenChange={setUnitBatchOpen} companyId={companyId} productIds={selectedProducts.map((product) => product.id)} units={companyUnitsQuery.data ?? []} /> : null}
