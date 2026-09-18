@@ -203,6 +203,8 @@ export async function importDaneaCatalog(
     });
 
     const idByCode = new Map<string, string>();
+    // Il payload non contiene mai b2b_visible: così FULL e INCREMENTAL preservano
+    // i prodotti che il venditore ha nascosto dalla vetrina B2B.
     for (const chunk of chunked(rows, 200)) {
       const { data, error } = await supabaseAdmin
         .from("products")
