@@ -39,7 +39,7 @@ export function UnitPicker({
   }
 
   return (
-    <Select value={value ?? undefined} onValueChange={onChange}>
+    <Select {...(value ? { value } : {})} onValueChange={onChange}>
       <SelectTrigger
         className={cn("h-8 w-full min-w-24 text-sm", className)}
         onClick={(event) => event.stopPropagation()}

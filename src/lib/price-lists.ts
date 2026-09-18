@@ -51,7 +51,7 @@ export async function fetchDefaultPriceListSetting(companyId: string) {
 export async function setDefaultPriceList(companyId: string, listNumber: number | null) {
   const { error } = await supabase.rpc("set_default_price_list", {
     _company_id: companyId,
-    _list_number: listNumber,
+    _list_number: listNumber as number,
   });
   if (error) throw new Error(error.message);
 }
@@ -59,7 +59,7 @@ export async function setDefaultPriceList(companyId: string, listNumber: number 
 export async function setCustomerPriceList(customerRecordId: string, listNumber: number | null) {
   const { error } = await supabase.rpc("set_customer_price_list", {
     _customer_record_id: customerRecordId,
-    _list_number: listNumber,
+    _list_number: listNumber as number,
   });
   if (error) throw new Error(error.message);
 }
