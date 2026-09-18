@@ -233,6 +233,10 @@ export function CustomerImportDialog({
         {parsed && parsed.headers.length ? (
           <div className="space-y-2 rounded-lg border border-border p-3">
             <p className="text-sm font-medium">Colonne del file</p>
+            <p className="text-xs text-muted-foreground">
+              Tutte le colonne del file vengono importate. Quelle senza un campo dedicato finiscono
+              in “Altri dati (Danea)” nella scheda del cliente.
+            </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {parsed.headers.map((header, column) => (
                 <div key={`${header}-${column}`} className="grid gap-1">
@@ -249,7 +253,7 @@ export function CustomerImportDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={IGNORE}>Non importare</SelectItem>
+                      <SelectItem value={IGNORE}>Altri dati (Danea)</SelectItem>
                       {FIELD_OPTIONS.map((field) => (
                         <SelectItem key={field} value={field}>
                           {IMPORT_FIELD_LABELS[field]}
