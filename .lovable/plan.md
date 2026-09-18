@@ -18,10 +18,10 @@
 - Nell'importazione da file compare, prima dell'anteprima, la scelta obbligatoria dell'archivio Danea: nessuna deduzione dal nome o dal contenuto del file. L'archivio scelto viene salvato su ogni cliente creato o aggiornato.
 - Il riconoscimento dei clienti già presenti (codice Danea, P.IVA, codice fiscale) avviene **solo all'interno dell'archivio scelto**: stesso codice o stessa P.IVA in due archivi restano due schede distinte, mai unite. I clienti senza archivio vengono confrontati solo per l'archivio "non assegnato".
 
-### 3. Prezzi e catalogo coerenti con l'archivio
+### 3. Prezzi risolti nell'archivio del cliente
 - Il listino assegnato a un cliente viene risolto sui listini del suo archivio; cliente senza archivio: comportamento identico a oggi.
-- Un acquirente collegato a un'anagrafica con archivio vede in catalogo **solo i prodotti di quell'archivio**; anagrafica senza archivio: vede tutto come oggi. (È il punto su cui mi hai chiesto un parere: lo confermo, è coerente e reversibile — oggi con un solo archivio non cambia nulla nella pratica.)
 - L'assegnazione manuale del listino accetta solo numeri esistenti nell'archivio del cliente.
+- **La visibilità del catalogo non cambia**: l'archivio del cliente serve solo a risolvere i suoi listini, non limita i prodotti che può vedere o acquistare. Resta possibile, in futuro, comprare da più archivi.
 
 ## Fuori scope (confermato)
 Applicazione automatica della colonna "Listino" del file clienti (resta al Punto 5c), cancellazione dati di test, fusione clienti tra archivi. Resta in coda anche la richiesta precedente su conferma/sovrascrittura dei dati in import e sul valore listino "Rompi" non riconosciuto: la affronto dopo, separatamente.
@@ -29,7 +29,7 @@ Applicazione automatica della colonna "Listino" del file clienti (resta al Punto
 ## Note tecniche
 - Migrazione additiva: indice unico `danea_price_lists (company_id, archive_id, list_number)` dopo consolidamento dei duplicati; `customer_records.archive_id uuid NULL REFERENCES danea_archives(id)` + indice su (seller_company_id, archive_id); trigger di coerenza archivio↔azienda come per i prodotti.
 - `manage_customer_record`: nuovo parametro `_archive_id uuid DEFAULT NULL`, scritto in create e in update (solo se passato), `SECURITY DEFINER`, `search_path = public`, controlli `is_company_admin` + `company_sells` invariati.
-- `buyer_catalog_prices`, `resolve_default_price_list`, `set_customer_price_list`: risoluzione del listino vincolata all'`archive_id` del cliente (fallback attuale quando NULL); filtro prodotti per archivio nel catalogo acquirente.
+- `buyer_catalog_prices`, `resolve_default_price_list`, `set_customer_price_list`: risoluzione del listino vincolata all'`archive_id` del cliente (fallback attuale quando NULL). Nessun filtro prodotti per archivio: la visibilità del catalogo resta quella di oggi.
 - Frontend: `fetchActivePriceLists` restituisce anche l'archivio (raggruppamento nelle select), selettore archivio in `customer-import-dialog.tsx`, matching per archivio in `buildPreview` (`src/lib/customer-import.ts`), archivio mostrato nella scheda cliente.
 - Nessuna modifica a import prodotti, relazioni B2B, doppio consenso, inviti, destinazioni.
 
