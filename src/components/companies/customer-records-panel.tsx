@@ -58,6 +58,20 @@ export type CustomerRecord = {
   notes: string | null;
   status: "attivo" | "disattivato" | "revocato";
   assigned_price_list_number: number | null;
+  region: string | null;
+  country: string | null;
+  sdi_code: string | null;
+  sdi_admin_reference: string | null;
+  contact_name: string | null;
+  fax: string | null;
+  pec: string | null;
+  discounts: string | null;
+  credit_limit: string | null;
+  agent: string | null;
+  payment_terms: string | null;
+  bank: string | null;
+  our_bank: string | null;
+  danea_extra: Record<string, string> | null;
 };
 
 type Invitation = {
