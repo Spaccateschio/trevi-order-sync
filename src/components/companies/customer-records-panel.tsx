@@ -1018,6 +1018,68 @@ export function CustomerRecordsPanel({
         </>
       )}
 
+      {/* Archivio: clienti eliminati, recuperabili con tutti i loro dati. */}
+      {deletedRecords.length ? (
+        <div className="space-y-2 border-t border-border pt-3">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={() => setDeletedOpen((prev) => !prev)}
+          >
+            Clienti eliminati ({deletedRecords.length})
+          </Button>
+          {deletedOpen ? (
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+              {deletedRecords.map((record) => (
+                <div
+                  key={record.id}
+                  className="flex items-center justify-between gap-2 px-2 py-1.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium">{record.legal_name}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {[record.vat_number, [record.city, record.province].filter(Boolean).join(" ")]
+                        .filter(Boolean)
+                        .join(" · ") || "Nessun dato aggiuntivo"}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 shrink-0 text-xs"
+                    disabled={!isAdmin}
+                    onClick={() => void restoreRecord(record)}
+                  >
+                    Ripristina
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <AlertDialog open={Boolean(deleteFor)} onOpenChange={(open) => !open && setDeleteFor(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare “{deleteFor?.legal_name}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Il cliente verrà nascosto dall’elenco, ma i suoi dati non vengono cancellati: potrai
+              recuperarlo in qualsiasi momento dal pulsante “Clienti eliminati” in fondo alla pagina.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteFor && void softDelete(deleteFor)}>
+              Elimina cliente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
+
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-3xl overflow-y-auto">
