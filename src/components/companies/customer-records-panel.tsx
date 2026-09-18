@@ -37,6 +37,7 @@ import {
   LOCKED_CUSTOMER_COLUMN,
   customerMatchesQuery,
   loadCustomerColumnWidths,
+  moveCustomerColumn,
   loadCustomerColumns,
   saveCustomerColumnWidths,
   saveCustomerColumns,
@@ -198,6 +199,8 @@ export function CustomerRecordsPanel({
   const [columnWidths, setColumnWidths] = useState<Record<CustomerColumnKey, number>>(() =>
     loadCustomerColumnWidths(),
   );
+  const [dragColumn, setDragColumn] = useState<CustomerColumnKey | null>(null);
+  const [dropTarget, setDropTarget] = useState<CustomerColumnKey | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkResults, setBulkResults] = useState<
     {
@@ -611,7 +614,10 @@ export function CustomerRecordsPanel({
     .map((result) => `${result.name}\t${result.email}\t${result.link}`)
     .join("\n");
 
-  const columns = CUSTOMER_COLUMNS.filter((column) => visibleColumns.includes(column.key));
+  // L'ordine in tabella è quello scelto dall'utente trascinando le intestazioni.
+  const columns = visibleColumns
+    .map((key) => CUSTOMER_COLUMNS.find((column) => column.key === key))
+    .filter((column): column is (typeof CUSTOMER_COLUMNS)[number] => Boolean(column));
 
   const filtered = useMemo(() => {
     const list = records.filter((record) => customerMatchesQuery(record, search));
@@ -637,11 +643,8 @@ export function CustomerRecordsPanel({
 
   function toggleColumn(key: CustomerColumnKey) {
     setVisibleColumns((prev) => {
-      const next = prev.includes(key)
-        ? prev.filter((item) => item !== key)
-        : [...CUSTOMER_COLUMNS.map((c) => c.key)].filter(
-            (item) => prev.includes(item) || item === key,
-          );
+      // Aggiunta in coda: l'ordine scelto trascinando non viene stravolto.
+      const next = prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key];
       const safe = next.includes(LOCKED_CUSTOMER_COLUMN)
         ? next
         : [...next, LOCKED_CUSTOMER_COLUMN];
@@ -649,6 +652,19 @@ export function CustomerRecordsPanel({
       return safe;
     });
   }
+
+  function dropColumn(target: CustomerColumnKey) {
+    const source = dragColumn;
+    setDragColumn(null);
+    setDropTarget(null);
+    if (!source || source === target) return;
+    setVisibleColumns((prev) => {
+      const next = moveCustomerColumn(prev, source, target);
+      saveCustomerColumns(next);
+      return next;
+    });
+  }
+
 
   function toggleSort(key: CustomerColumnKey) {
     setSort((prev) => (prev.key === key ? { key, asc: !prev.asc } : { key, asc: true }));
@@ -924,22 +940,51 @@ export function CustomerRecordsPanel({
                   {columns.map((column) => (
                     <th
                       key={column.key}
-                      className="relative h-8 min-w-0 cursor-pointer select-none border-b border-r border-border px-1 text-left font-medium text-muted-foreground"
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", column.key);
+                        setDragColumn(column.key);
+                      }}
+                      onDragOver={(event) => {
+                        if (!dragColumn) return;
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "move";
+                        if (dropTarget !== column.key) setDropTarget(column.key);
+                      }}
+                      onDragLeave={() => setDropTarget((prev) => (prev === column.key ? null : prev))}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        dropColumn(column.key);
+                      }}
+                      onDragEnd={() => {
+                        setDragColumn(null);
+                        setDropTarget(null);
+                      }}
+                      className={`relative h-8 min-w-0 cursor-grab select-none border-b border-r border-border px-1 text-left font-medium text-muted-foreground active:cursor-grabbing ${
+                        dropTarget === column.key && dragColumn !== column.key
+                          ? "bg-accent text-accent-foreground"
+                          : ""
+                      } ${dragColumn === column.key ? "opacity-60" : ""}`}
+                      title={`${column.label} — clicca per ordinare, trascina per spostare`}
                       onClick={() => toggleSort(column.key)}
                     >
-                      <span className="block truncate" title={column.label}>
+                      <span className="block truncate">
                         {column.label}{sort.key === column.key ? (sort.asc ? " ▲" : " ▼") : ""}
                       </span>
                       <span
                         role="separator"
                         aria-label={`Ridimensiona ${column.label}`}
                         aria-orientation="vertical"
+                        draggable={false}
                         className="absolute inset-y-0 right-0 z-20 w-1.5 cursor-col-resize touch-none hover:bg-accent"
                         onPointerDown={(event) => resizeColumn(event, column.key)}
+                        onDragStart={(event) => event.preventDefault()}
                         onClick={(event) => event.stopPropagation()}
                       />
                     </th>
                   ))}
+
                   <th className="h-8 border-b border-border px-1 text-right font-medium text-muted-foreground">Azioni</th>
                 </tr>
               </thead>

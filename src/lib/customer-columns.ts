@@ -179,3 +179,19 @@ export function customerMatchesQuery(record: CustomerRecord, query: string) {
     .filter(Boolean)
     .some((field) => String(field).toLowerCase().includes(needle));
 }
+
+/** Sposta una colonna nella posizione di un'altra (trascinamento intestazioni). */
+export function moveCustomerColumn(
+  keys: CustomerColumnKey[],
+  source: CustomerColumnKey,
+  target: CustomerColumnKey,
+): CustomerColumnKey[] {
+  if (source === target) return keys;
+  const from = keys.indexOf(source);
+  const to = keys.indexOf(target);
+  if (from < 0 || to < 0) return keys;
+  const next = [...keys];
+  next.splice(from, 1);
+  next.splice(to, 0, source);
+  return next;
+}
