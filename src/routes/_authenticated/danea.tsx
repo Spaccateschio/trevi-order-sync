@@ -369,9 +369,16 @@ function DaneaPage() {
             >
               Aggiungi postazione
             </Button>
+            {activeArchives.length ? null : (
+              <p className="rounded-md bg-muted px-2 py-1.5 text-xs text-muted-foreground">
+                Prima serve un archivio Danea: creane uno qui sotto, nella scheda “Archivi Danea”.
+                Poi potrai aggiungere la postazione.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               {activeCount}/{MAX_STATIONS} postazioni attive.
             </p>
+
           </div>
         </section>
 
