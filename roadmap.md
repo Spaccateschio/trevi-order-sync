@@ -39,3 +39,5 @@
 - [ ] Fase A.2 — Catalogo globale cross-fornitore, listini assegnati (default azienda, invito, assegnazione manuale) e U.M. preferita sticky dell'acquirente. Vincoli: DROP+CREATE delle funzioni invito (no overload), copia listino su tutti i percorsi di accettazione, relation_is_operational solo nella policy INSERT del buyer.
 
 - [ ] Importazione clienti: listini con abbinamento manuale, conferma sovrascrittura dati, nessun doppione con clienti eliminati
+
+- [ ] Archivi Danea su clienti e listini: archive_id su danea_price_lists e customer_records, selettore archivio in import clienti, prezzi e catalogo per archivio
