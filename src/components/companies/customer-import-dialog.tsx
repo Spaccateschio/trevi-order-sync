@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,7 @@ export function CustomerImportDialog({
   const archivesQuery = useQuery({
     queryKey: ["archivi-danea", companyId],
     queryFn: () => fetchDaneaArchives(companyId),
+    refetchOnMount: "always",
   });
   const archives = archivesQuery.data ?? [];
 
@@ -74,8 +75,20 @@ export function CustomerImportDialog({
   const priceListsQuery = useQuery({
     queryKey: ["listini-attivi", companyId],
     queryFn: () => fetchActivePriceLists(companyId),
+    refetchOnMount: "always",
+    staleTime: 0,
   });
   const priceLists = listsForArchive(priceListsQuery.data ?? [], archiveId);
+
+  /**
+   * I listini arrivano da Danea: se l'elenco non è ancora caricato non
+   * assegniamo nulla, quindi ricarichiamo a ogni apertura della finestra.
+   */
+  useEffect(() => {
+    if (open) void priceListsQuery.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
 
   function reset() {
     setParsed(null);
