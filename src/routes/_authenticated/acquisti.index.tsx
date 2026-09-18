@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { AppShell, PlaceholderCard } from "@/components/app-shell";
+import { Button } from "@/components/ui/button";
 import { activeCompany, companyBuys, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/acquisti/")({
