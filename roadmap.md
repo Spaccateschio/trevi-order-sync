@@ -37,3 +37,5 @@
 - [x] Fase A marketplace B2B: Acquisti → Catalogo (vetrine fornitori collegati, griglia prodotti, scheda prodotto, preferiti, prezzi solo se listino assegnato) + interruttore "In vetrina B2B" lato venditore (singolo e multiplo)
 
 - [ ] Fase A.2 — Catalogo globale cross-fornitore, listini assegnati (default azienda, invito, assegnazione manuale) e U.M. preferita sticky dell'acquirente. Vincoli: DROP+CREATE delle funzioni invito (no overload), copia listino su tutti i percorsi di accettazione, relation_is_operational solo nella policy INSERT del buyer.
+
+- [ ] Importazione clienti: listini con abbinamento manuale, conferma sovrascrittura dati, nessun doppione con clienti eliminati
