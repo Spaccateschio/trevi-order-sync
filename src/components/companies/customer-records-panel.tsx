@@ -640,11 +640,8 @@ export function CustomerRecordsPanel({
 
   function toggleColumn(key: CustomerColumnKey) {
     setVisibleColumns((prev) => {
-      const next = prev.includes(key)
-        ? prev.filter((item) => item !== key)
-        : [...CUSTOMER_COLUMNS.map((c) => c.key)].filter(
-            (item) => prev.includes(item) || item === key,
-          );
+      // Aggiunta in coda: l'ordine scelto trascinando non viene stravolto.
+      const next = prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key];
       const safe = next.includes(LOCKED_CUSTOMER_COLUMN)
         ? next
         : [...next, LOCKED_CUSTOMER_COLUMN];
@@ -652,6 +649,19 @@ export function CustomerRecordsPanel({
       return safe;
     });
   }
+
+  function dropColumn(target: CustomerColumnKey) {
+    const source = dragColumn;
+    setDragColumn(null);
+    setDropTarget(null);
+    if (!source || source === target) return;
+    setVisibleColumns((prev) => {
+      const next = moveCustomerColumn(prev, source, target);
+      saveCustomerColumns(next);
+      return next;
+    });
+  }
+
 
   function toggleSort(key: CustomerColumnKey) {
     setSort((prev) => (prev.key === key ? { key, asc: !prev.asc } : { key, asc: true }));
