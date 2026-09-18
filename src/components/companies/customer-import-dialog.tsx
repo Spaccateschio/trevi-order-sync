@@ -101,6 +101,11 @@ export function CustomerImportDialog({
 
   async function handleFile(file: File) {
     setSummary(null);
+    if (!archiveId) {
+      toast.error("Scegli prima l'archivio Danea di provenienza del file.");
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
     try {
       const result = await parseCustomerFile(file);
       if (!result.customers.length) {
