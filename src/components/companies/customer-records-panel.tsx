@@ -1044,7 +1044,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /** Dato che arriva dal gestionale: sola lettura. */
-function ReadField({ label, value }: { label: string; value?: string | null }) {
+function ReadField({ label, value }: { label: string; value?: string | null | undefined }) {
   return (
     <div className="grid gap-1.5">
       <Label className="text-muted-foreground">{label}</Label>
