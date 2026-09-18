@@ -223,26 +223,32 @@ function CatalogProductPage() {
 
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="text-xs uppercase text-muted-foreground">Unità di misura</p>
-              {product.product_sale_units.length ? (
-                <ul className="mt-2 space-y-1 text-sm">
-                  {product.product_sale_units.map((unit, index) => (
-                    <li key={`${unit.units_of_measure?.code ?? index}`}>
-                      <span className="font-medium">{unit.units_of_measure?.code ?? "—"}</span>
+              <div className="mt-2 max-w-52">
+                <UnitPicker
+                  units={units}
+                  value={selectedUnit?.id ?? null}
+                  fallbackLabel={product.danea_um}
+                  onChange={(unitId) => chooseUnit.mutate(unitId)}
+                />
+              </div>
+              {units.length ? (
+                <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                  {units.map((unit, index) => (
+                    <li key={unit.id ?? index}>
+                      <span className="font-medium text-foreground">
+                        {unit.units_of_measure?.code ?? "—"}
+                      </span>
                       {unit.units_of_measure?.description
                         ? ` · ${unit.units_of_measure.description}`
                         : ""}
-                      {unit.is_default ? " · predefinita" : ""}
+                      {unit.is_default ? " · predefinita del fornitore" : ""}
                       {unit.conversion_factor
                         ? ` · circa ${unit.conversion_factor} ${unit.conversion_reference_um ?? ""}`.trimEnd()
                         : ""}
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {product.danea_um ?? "Non indicata"}
-                </p>
-              )}
+              ) : null}
             </div>
 
             {product.description_html || product.notes ? (
