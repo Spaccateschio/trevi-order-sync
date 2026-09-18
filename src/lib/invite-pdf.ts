@@ -22,6 +22,14 @@ export type InvitePdfData = {
 
 const MARGIN = 18;
 
+/** Palette del tema dell'app: blu notte + giallo ocra. */
+const NAVY: [number, number, number] = [31, 42, 68];
+const OCRA: [number, number, number] = [217, 155, 40];
+const OCRA_CHIARO: [number, number, number] = [250, 243, 227];
+const OCRA_TESTO: [number, number, number] = [246, 214, 148];
+const GRIGIO: [number, number, number] = [110, 110, 110];
+const GRIGIO_SCURO: [number, number, number] = [70, 74, 84];
+
 function formatDate(value?: string | null) {
   if (!value) return null;
   const date = new Date(value);
@@ -31,25 +39,31 @@ function formatDate(value?: string | null) {
 
 async function drawPage(doc: jsPDF, data: InvitePdfData) {
   const pageWidth = doc.internal.pageSize.getWidth();
-  let y = MARGIN;
+  const contentWidth = pageWidth - MARGIN * 2;
+
+  // Testata: banda blu notte con filetto ocra, come il tema dell'app.
+  const bandHeight = 32;
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, pageWidth, bandHeight, "F");
+  doc.setFillColor(...OCRA);
+  doc.rect(0, bandHeight, pageWidth, 1.6, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
-  doc.text(data.sellerName, MARGIN, y + 6);
+  doc.setTextColor(255, 255, 255);
+  doc.text(data.sellerName, MARGIN, 15);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.setTextColor(110);
-  doc.text("Invito a collegarsi su Trevi Fruit", MARGIN, y + 13);
-  doc.setTextColor(0);
+  doc.setTextColor(...OCRA_TESTO);
+  doc.text("Invito a collegarsi su Trevi Fruit", MARGIN, 23);
+  doc.setTextColor(0, 0, 0);
 
-  y += 22;
-  doc.setDrawColor(200);
-  doc.line(MARGIN, y, pageWidth - MARGIN, y);
-  y += 12;
+  let y = bandHeight + 12;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
+  doc.setTextColor(...NAVY);
   doc.text(
     data.recipientName ? `Gentile ${data.recipientName},` : "Gentile cliente,",
     MARGIN,
@@ -59,27 +73,32 @@ async function drawPage(doc: jsPDF, data: InvitePdfData) {
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
+  doc.setTextColor(...GRIGIO_SCURO);
   const intro = doc.splitTextToSize(
     `${data.sellerName} ti invita a collegarti su Trevi Fruit per gestire ordini, preparazione e consegne in modo più semplice. Inquadra il codice QR con la fotocamera del telefono oppure apri il link indicato per completare la registrazione.`,
-    pageWidth - MARGIN * 2,
+    contentWidth,
   );
   doc.text(intro, MARGIN, y);
   y += intro.length * 6 + 8;
 
   // QR + codice invito
   const qrSize = 58;
-  const qrDataUrl = await QRCode.toDataURL(data.inviteLink, { margin: 1, width: 512 });
+  const qrDataUrl = await QRCode.toDataURL(data.inviteLink, {
+    margin: 1,
+    width: 512,
+    color: { dark: "#1f2a44", light: "#ffffff" },
+  });
   doc.addImage(qrDataUrl, "PNG", MARGIN, y, qrSize, qrSize);
 
   const textX = MARGIN + qrSize + 10;
   let textY = y + 8;
 
   if (data.inviteCode) {
-    doc.setFont("helvetica", "normal");
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
-    doc.setTextColor(110);
-    doc.text("Codice invito", textX, textY);
-    doc.setTextColor(0);
+    doc.setTextColor(...OCRA);
+    doc.text("CODICE INVITO", textX, textY);
+    doc.setTextColor(...NAVY);
     doc.setFont("courier", "bold");
     doc.setFontSize(22);
     doc.text(data.inviteCode, textX, textY + 10);
@@ -88,9 +107,8 @@ async function drawPage(doc: jsPDF, data: InvitePdfData) {
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.setTextColor(110);
+  doc.setTextColor(...GRIGIO);
   doc.text("Link di registrazione", textX, textY + 2);
-  doc.setTextColor(0);
   doc.setFontSize(9);
   const linkLines = doc.splitTextToSize(data.inviteLink, pageWidth - MARGIN - textX);
   doc.textWithLink(linkLines[0] ?? data.inviteLink, textX, textY + 8, { url: data.inviteLink });
@@ -102,7 +120,7 @@ async function drawPage(doc: jsPDF, data: InvitePdfData) {
 
   const expires = formatDate(data.expiresAt);
   doc.setFontSize(10);
-  doc.setTextColor(110);
+  doc.setTextColor(...GRIGIO);
   if (expires) {
     doc.text(`L'invito è valido fino al ${expires}.`, MARGIN, y);
     y += 6;
@@ -112,18 +130,19 @@ async function drawPage(doc: jsPDF, data: InvitePdfData) {
     MARGIN,
     y,
   );
-  doc.setTextColor(0);
   y += 12;
 
-  // Istruzioni passo per passo: riempiono la pagina e guidano il cliente.
+  // Istruzioni passo per passo: riquadro ocra chiaro con titolo blu notte.
   const boxHeight = 46;
-  doc.setDrawColor(210);
-  doc.roundedRect(MARGIN, y, pageWidth - MARGIN * 2, boxHeight, 3, 3);
+  doc.setFillColor(...OCRA_CHIARO);
+  doc.roundedRect(MARGIN, y, contentWidth, boxHeight, 3, 3, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
+  doc.setTextColor(...NAVY);
   doc.text("Come collegarsi", MARGIN + 6, y + 10);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
+  doc.setTextColor(...GRIGIO_SCURO);
   const steps = [
     "1. Inquadra il codice QR con la fotocamera del telefono oppure apri il link.",
     "2. Se non hai ancora un account, registra la tua azienda: servono partita IVA, email e cellulare.",
@@ -132,16 +151,19 @@ async function drawPage(doc: jsPDF, data: InvitePdfData) {
   ];
   let stepY = y + 19;
   for (const step of steps) {
-    const lines = doc.splitTextToSize(step, pageWidth - MARGIN * 2 - 12);
+    const lines = doc.splitTextToSize(step, contentWidth - 12);
     doc.text(lines, MARGIN + 6, stepY);
     stepY += lines.length * 5 + 1.5;
   }
 
-  // Piede: chi invita e contatti
+  // Piede: chi invita e contatti, con filetto ocra.
   const footerY = doc.internal.pageSize.getHeight() - MARGIN - 20;
-  doc.setDrawColor(200);
+  doc.setDrawColor(...OCRA);
+  doc.setLineWidth(0.8);
   doc.line(MARGIN, footerY, pageWidth - MARGIN, footerY);
+  doc.setLineWidth(0.2);
   doc.setFontSize(10);
+  doc.setTextColor(...GRIGIO);
   const contact: string[] = [];
   if (data.invitedBy) contact.push(`Invito inviato da ${data.invitedBy} — ${data.sellerName}`);
   else contact.push(data.sellerName);
