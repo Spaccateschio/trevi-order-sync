@@ -194,29 +194,23 @@ export function detectMapping(headers: string[]): (ImportField | null)[] {
 function rowsToCustomers(
   rows: string[][],
   mapping: (ImportField | null)[],
+  headers: string[] = [],
 ): ParsedCustomerRow[] {
   const out: ParsedCustomerRow[] = [];
   rows.forEach((cells, index) => {
-    const row: ParsedCustomerRow = {
-      rowIndex: index + 2,
-      legal_name: "",
-      vat_number: "",
-      tax_code: "",
-      email: "",
-      phone: "",
-      address_line: "",
-      postal_code: "",
-      city: "",
-      province: "",
-      internal_reference: "",
-      notes: "",
-    };
-    mapping.forEach((field, column) => {
-      if (!field) return;
+    const row = emptyRow(index + 2);
+    (cells.length > mapping.length ? cells : mapping).forEach((_, column) => {
+      const field = mapping[column] ?? null;
       const value = (cells[column] ?? "").toString().trim();
       if (!value) return;
-      if (field === "phone" && row.phone) {
-        row.phone = `${row.phone} · ${value}`;
+      if (!field) {
+        // Colonna non abbinata ma compilata: la conserviamo fra gli altri dati Danea.
+        const label = (headers[column] ?? "").toString().trim() || `Colonna ${column + 1}`;
+        row.extra[label] = row.extra[label] ? `${row.extra[label]} · ${value}` : value;
+        return;
+      }
+      if (MERGEABLE.includes(field) && row[field]) {
+        row[field] = `${row[field]} · ${value}`;
         return;
       }
       row[field] = value;
