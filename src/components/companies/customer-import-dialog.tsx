@@ -221,7 +221,7 @@ export function CustomerImportDialog({
 
     for (const item of rows) {
       const row = item.row;
-      const priceList = resolvePriceListNumber(row.price_list, priceLists);
+      const priceList = listForRow(row.price_list);
       const extraEntries = Object.entries(row.extra).filter(([, value]) => value);
       const payload = {
         _seller_company_id: companyId,
@@ -281,14 +281,22 @@ export function CustomerImportDialog({
     setSelected(new Set());
   }
 
-  const unresolvedPriceLists = Array.from(
-    new Set(
-      preview
-        .filter((item) => item.outcome !== "skip" && item.row.price_list)
-        .filter((item) => resolvePriceListNumber(item.row.price_list, priceLists) === null)
-        .map((item) => item.row.price_list),
-    ),
-  );
+  /** Valori di listino presenti nel file, con quanti clienti riguardano. */
+  const fileLists = (() => {
+    const counts = new Map<string, number>();
+    for (const item of preview) {
+      if (item.outcome === "skip") continue;
+      const value = (item.row.price_list ?? "").trim();
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([value, count]) => ({
+      value,
+      count,
+      recognised: value ? resolvePriceListNumber(value, priceLists) : null,
+      assigned: listForRow(value),
+    }));
+  })();
+
 
   const groups = {
     create: preview.filter((item) => item.outcome === "create"),
