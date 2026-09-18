@@ -253,7 +253,7 @@ export function CustomerImportDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={IGNORE}>Non importare</SelectItem>
+                      <SelectItem value={IGNORE}>Altri dati (Danea)</SelectItem>
                       {FIELD_OPTIONS.map((field) => (
                         <SelectItem key={field} value={field}>
                           {IMPORT_FIELD_LABELS[field]}
