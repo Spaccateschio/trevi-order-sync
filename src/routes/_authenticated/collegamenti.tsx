@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, KeyRound, Link2, Mail, Search, Sparkles } from "lucide-react";
+import { ArrowRight, Bell, KeyRound, Link2, Mail, QrCode, Search, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -545,6 +545,7 @@ function Collegamenti() {
               {pendingRows.length}
             </span>
           </Button>
+
           {sells ? (
             <Button
               size="sm"
@@ -581,6 +582,7 @@ function Collegamenti() {
             <span className="truncate sm:hidden">Connessioni</span>
             <span className="hidden sm:inline">Le mie connessioni</span>
           </Button>
+
           <Button
             size="sm"
             variant={view === "ricerca" ? "default" : "outline"}
@@ -590,30 +592,30 @@ function Collegamenti() {
             <Search className="size-4 shrink-0" />
             <span className="truncate">Cerca azienda</span>
           </Button>
+
           {sells ? (
             <Button
               size="sm"
               variant="outline"
-              className="min-w-0 px-2 sm:px-3"
+              className="hidden min-w-0 px-3 sm:inline-flex"
               disabled={!isAdmin}
               onClick={() => setInviteOpen(true)}
             >
               <Sparkles className="size-4 shrink-0" />
-              <span className="truncate sm:hidden">Invita</span>
-              <span className="hidden sm:inline">Invita partner</span>
+              Invita partner
             </Button>
           ) : null}
+
           {buys ? (
             <Button
               size="sm"
               variant="outline"
-              className="min-w-0 px-2 sm:px-3"
+              className="hidden min-w-0 px-3 sm:inline-flex"
               disabled={!isAdmin}
               onClick={() => setCodeOpen(true)}
             >
               <KeyRound className="size-4 shrink-0" />
-              <span className="truncate sm:hidden">Codice</span>
-              <span className="hidden sm:inline">Ho un codice</span>
+              Ho un codice
             </Button>
           ) : null}
         </div>
@@ -636,6 +638,7 @@ function Collegamenti() {
                 ))}
               </TabsList>
             </Tabs>
+
             <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2 sm:flex sm:flex-wrap sm:items-center">
               <div className="relative min-w-0 sm:w-full sm:max-w-sm">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground sm:left-3 sm:size-4" />
@@ -643,10 +646,11 @@ function Collegamenti() {
                   className="h-8 min-w-0 pl-8 pr-2 text-xs sm:h-9 sm:pl-9 sm:text-sm"
                   value={listSearch}
                   onChange={(event) => setListSearch(event.target.value)}
-                  placeholder="Cerca cliente…"
+                  placeholder="Cerca per nome o P.IVA…"
                   aria-label="Cerca fra le connessioni"
                 />
               </div>
+
               <Select value={stato} onValueChange={(value) => setStato(value as StatoFilter)}>
                 <SelectTrigger
                   className="h-8 w-full px-2 text-xs sm:h-9 sm:w-[168px] sm:text-sm"
@@ -663,6 +667,7 @@ function Collegamenti() {
                 </SelectContent>
               </Select>
             </div>
+
             <ConnectionsTable
               rows={visibleRows}
               canManage={isAdmin}
@@ -671,7 +676,6 @@ function Collegamenti() {
             />
           </div>
         ) : null}
-
         {view === "ricerca" ? (
           <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
             <div>
@@ -874,6 +878,85 @@ function Collegamenti() {
                 cliente.
               </p>
             )}
+          </div>
+        ) : null}
+
+        {/* Scorciatoie: righe compatte su mobile, card estese da tablet in su. */}
+        {view === "connessioni" ? (
+          <div className="grid gap-2 pt-1 sm:grid-cols-2 sm:gap-3 sm:pt-2 lg:grid-cols-3">
+            <div className="flex items-center gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-3 sm:flex-col sm:items-stretch sm:p-4">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary sm:size-10">
+                <Search className="size-4 sm:size-5" />
+              </span>
+              <div className="min-w-0 flex-1 sm:flex sm:flex-col">
+                <h3 className="font-display text-sm font-semibold sm:mt-3 sm:text-base">
+                  Cerca azienda
+                </h3>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground sm:mt-1 sm:flex-1 sm:whitespace-normal sm:text-sm">
+                  Trova un'azienda già registrata su Trevi Fruit e richiedi il collegamento.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="size-8 shrink-0 p-0 sm:mt-3 sm:h-9 sm:w-full sm:px-4"
+                aria-label="Cerca azienda"
+                onClick={() => setView("ricerca")}
+              >
+                <span className="hidden sm:inline">Cerca azienda</span>
+                <ArrowRight className="size-4" />
+              </Button>
+            </div>
+            {sells ? (
+              <div className="flex items-center gap-3 rounded-2xl border border-success/20 bg-success/5 p-3 sm:flex-col sm:items-stretch sm:p-4">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-success/10 text-success sm:size-10">
+                  <Sparkles className="size-4 sm:size-5" />
+                </span>
+                <div className="min-w-0 flex-1 sm:flex sm:flex-col">
+                  <h3 className="font-display text-sm font-semibold sm:mt-3 sm:text-base">
+                    Invita partner
+                  </h3>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground sm:mt-1 sm:flex-1 sm:whitespace-normal sm:text-sm">
+                    Genera un codice invito da condividere, anche senza avere il partner in
+                    anagrafica.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="size-8 shrink-0 bg-success p-0 text-success-foreground hover:bg-success/90 sm:mt-3 sm:h-9 sm:w-full sm:px-4"
+                  aria-label="Invita partner"
+                  disabled={!isAdmin}
+                  onClick={() => setInviteOpen(true)}
+                >
+                  <span className="hidden sm:inline">Invita partner</span>
+                  <ArrowRight className="size-4" />
+                </Button>
+              </div>
+            ) : null}
+            {buys ? (
+              <div className="flex items-center gap-3 rounded-2xl border border-border bg-accent/30 p-3 sm:flex-col sm:items-stretch sm:p-4">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground sm:size-10">
+                  <QrCode className="size-4 sm:size-5" />
+                </span>
+                <div className="min-w-0 flex-1 sm:flex sm:flex-col">
+                  <h3 className="font-display text-sm font-semibold sm:mt-3 sm:text-base">
+                    Ho un codice
+                  </h3>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground sm:mt-1 sm:flex-1 sm:whitespace-normal sm:text-sm">
+                    Inserisci il codice invito che hai ricevuto per collegarti con un'azienda.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="size-8 shrink-0 p-0 sm:mt-3 sm:h-9 sm:w-full sm:px-4"
+                  aria-label="Inserisci codice"
+                  disabled={!isAdmin}
+                  onClick={() => setCodeOpen(true)}
+                >
+                  <span className="hidden sm:inline">Inserisci codice</span>
+                  <ArrowRight className="size-4" />
+                </Button>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
