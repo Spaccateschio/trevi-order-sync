@@ -364,11 +364,15 @@ export async function parseCustomerFile(file: File): Promise<ParsedFile> {
   const headers = grid[headerIndex] ?? [];
   const mapping = detectMapping(headers);
   const rows = grid.slice(headerIndex + 1).filter((row) => row.some((cell) => cell.trim()));
-  return { headers, mapping, rows, customers: rowsToCustomers(rows, mapping) };
+  return { headers, mapping, rows, customers: rowsToCustomers(rows, mapping, headers) };
 }
 
 export function remap(parsed: ParsedFile, mapping: (ImportField | null)[]): ParsedFile {
-  return { ...parsed, mapping, customers: rowsToCustomers(parsed.rows, mapping) };
+  return {
+    ...parsed,
+    mapping,
+    customers: rowsToCustomers(parsed.rows, mapping, parsed.headers),
+  };
 }
 
 export type ExistingCustomer = {
