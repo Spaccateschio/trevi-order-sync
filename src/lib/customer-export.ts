@@ -75,7 +75,7 @@ function htmlEscape(value: unknown) {
 }
 
 export function printCustomers(context: ExportContext) {
-  const popup = window.open("", "_blank", "noopener,noreferrer");
+  const popup = window.open("", "_blank");
   if (!popup) throw new Error("Consenti l’apertura della finestra di stampa.");
   const header = context.columns.map((column) => `<th>${htmlEscape(column.label)}</th>`).join("");
   const body = context.records
