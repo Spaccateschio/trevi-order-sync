@@ -413,17 +413,55 @@ export function CustomerImportDialog({
           </div>
         ) : null}
 
-        {unresolvedPriceLists.length ? (
-
-          <div className="space-y-1 rounded-lg border border-border p-3">
-            <p className="text-sm font-medium">Listini non riconosciuti</p>
+        {fileLists.length && priceLists.length ? (
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <p className="text-sm font-medium">Listini del file</p>
             <p className="text-xs text-muted-foreground">
-              Questi nomi di listino non esistono nella tua azienda: il cliente viene importato
-              senza listino e i prezzi restano su richiesta finché non lo assegni.
+              I nomi riconosciuti vengono assegnati da soli. Per gli altri scegli tu il listino: la
+              scelta viene ricordata per questo archivio. Senza indicazione si usa il listino base (
+              {priceLists[0]?.label}).
             </p>
-            <p className="text-sm text-muted-foreground">{unresolvedPriceLists.join(", ")}</p>
+            <div className="space-y-2">
+              {fileLists.map((entry) => (
+                <div
+                  key={entry.value || "__vuoto__"}
+                  className="flex flex-wrap items-center justify-between gap-2"
+                >
+                  <span className="text-sm">
+                    {entry.value || "Nessun listino nel file"}{" "}
+                    <span className="text-xs text-muted-foreground">({entry.count} clienti)</span>
+                  </span>
+                  {entry.recognised ? (
+                    <span className="text-xs text-muted-foreground">
+                      Riconosciuto ·{" "}
+                      {priceLists.find((item) => item.listNumber === entry.recognised)?.label}
+                    </span>
+                  ) : (
+                    <Select
+                      value={entry.assigned === null ? IGNORE : String(entry.assigned)}
+                      onValueChange={(value) =>
+                        rememberList(entry.value.trim(), value === IGNORE ? null : Number(value))
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-56 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={IGNORE}>Nessun listino</SelectItem>
+                        {priceLists.map((item) => (
+                          <SelectItem key={item.listNumber} value={String(item.listNumber)}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
+
 
         {preview.length ? (
           <div className="space-y-3">
