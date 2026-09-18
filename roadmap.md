@@ -43,3 +43,5 @@
 - [ ] Archivi Danea su clienti e listini: archive_id su danea_price_lists e customer_records, selettore archivio in import clienti, prezzi e catalogo per archivio
 
 - [x] Archivi Danea su clienti e listini: listini univoci per archivio, archive_id sui clienti, selettore archivio obbligatorio in import, listini risolti per archivio (catalogo invariato)
+
+- [ ] Import clienti: abbinamento manuale dei listini non riconosciuti + listino base (primo dell'archivio) come predefinito, modificabile
