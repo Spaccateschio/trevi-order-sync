@@ -965,6 +965,42 @@ export function CustomerRecordsPanel({
   );
 }
 
+/** Dati amministrativi che arrivano dal gestionale: sola lettura, richiudibile. */
+function DaneaAdminBlock({ record }: { record: CustomerRecord }) {
+  const values = DANEA_READONLY.map((entry) => ({
+    label: entry.label,
+    value: (record[entry.key] as string | null) ?? "",
+  })).filter((entry) => entry.value);
+  const extra = Object.entries(record.danea_extra ?? {}).filter(([, value]) => value);
+  if (!values.length && !extra.length) return null;
+  return (
+    <details className="mt-4 rounded-lg border border-border p-3">
+      <summary className="cursor-pointer text-sm font-medium">Dati amministrativi (Danea)</summary>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+        {values.map((entry) => (
+          <div key={entry.label} className="min-w-0">
+            <dt className="text-xs text-muted-foreground">{entry.label}</dt>
+            <dd className="truncate text-sm">{entry.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {extra.length ? (
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="text-xs font-medium text-muted-foreground">Altri dati Danea</p>
+          <dl className="mt-2 grid gap-3 sm:grid-cols-2">
+            {extra.map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="truncate text-sm">{String(value)}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : null}
+    </details>
+  );
+}
+
 function Field({
   label,
   value,
