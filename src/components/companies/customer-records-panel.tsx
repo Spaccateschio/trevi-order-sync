@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -30,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { DANEA_EXTRA_GROUP_BY_LABEL } from "@/lib/customer-import";
 import { sendInvitationEmail } from "@/lib/invitation-email.functions";
 import {
   fetchActivePriceLists,
@@ -101,20 +103,6 @@ const emptyForm = {
 };
 
 type FormState = typeof emptyForm;
-
-/** Campi amministrativi che arrivano da Danea: mostrati in sola lettura. */
-const DANEA_READONLY: { key: keyof CustomerRecord; label: string }[] = [
-  { key: "region", label: "Regione" },
-  { key: "country", label: "Nazione" },
-  { key: "sdi_code", label: "Cod. destinatario fatt. elettr." },
-  { key: "sdi_admin_reference", label: "Rif. ammin. fatt. elettr." },
-  { key: "discounts", label: "Sconti" },
-  { key: "credit_limit", label: "Fido" },
-  { key: "agent", label: "Agente" },
-  { key: "payment_terms", label: "Pagamento" },
-  { key: "bank", label: "Banca" },
-  { key: "our_bank", label: "Nostra banca" },
-];
 
 function toForm(record: CustomerRecord): FormState {
   return {
@@ -708,76 +696,155 @@ export function CustomerRecordsPanel({
       )}
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Dettagli cliente" : "Nuovo cliente"}</DialogTitle>
             <DialogDescription>
-              La scheda cliente è tua e resta valida anche senza un account del cliente.
+              La scheda cliente è tua e resta valida anche senza un account del cliente. I dati che
+              arrivano dal gestionale sono in sola lettura.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field
-              label="Ragione sociale"
-              value={form.legal_name}
-              onChange={(v) => setForm({ ...form, legal_name: v })}
-              className="sm:col-span-2"
-            />
-            <Field
-              label="Partita IVA"
-              value={form.vat_number}
-              onChange={(v) => setForm({ ...form, vat_number: v })}
-            />
-            <Field
-              label="Codice fiscale"
-              value={form.tax_code}
-              onChange={(v) => setForm({ ...form, tax_code: v })}
-            />
-            <Field
-              label="Email"
-              value={form.email}
-              onChange={(v) => setForm({ ...form, email: v })}
-            />
-            <Field
-              label="Telefono"
-              value={form.phone}
-              onChange={(v) => setForm({ ...form, phone: v })}
-            />
-            <Field
-              label="Indirizzo"
-              value={form.address_line}
-              onChange={(v) => setForm({ ...form, address_line: v })}
-              className="sm:col-span-2"
-            />
-            <Field label="CAP" value={form.postal_code} onChange={(v) => setForm({ ...form, postal_code: v })} />
-            <Field label="Città" value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
-            <Field
-              label="Provincia"
-              value={form.province}
-              onChange={(v) => setForm({ ...form, province: v })}
-            />
-            <Field
-              label="Riferimento interno"
-              value={form.internal_reference}
-              onChange={(v) => setForm({ ...form, internal_reference: v })}
-            />
-            <Field
-              label="Referente"
-              value={form.contact_name}
-              onChange={(v) => setForm({ ...form, contact_name: v })}
-            />
-            <Field label="Fax" value={form.fax} onChange={(v) => setForm({ ...form, fax: v })} />
-            <Field label="PEC" value={form.pec} onChange={(v) => setForm({ ...form, pec: v })} />
-            <div className="grid gap-1.5 sm:col-span-2">
-              <Label>Note</Label>
-              <Textarea
-                value={form.notes}
-                onChange={(event) => setForm({ ...form, notes: event.target.value })}
-              />
-            </div>
-          </div>
 
-          {editing ? <DaneaAdminBlock record={editing} /> : null}
+          <Tabs defaultValue="anagrafica">
+            <TabsList className="flex w-full flex-wrap">
+              <TabsTrigger value="anagrafica">Anagrafica</TabsTrigger>
+              <TabsTrigger value="commerciale">Rapporti commerciali</TabsTrigger>
+              <TabsTrigger value="varie">Varie</TabsTrigger>
+            </TabsList>
 
+            <TabsContent value="anagrafica" className="mt-4 space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field
+                  label="Codice"
+                  value={form.internal_reference}
+                  onChange={(v) => setForm({ ...form, internal_reference: v })}
+                />
+                <Field
+                  label="Codice fiscale"
+                  value={form.tax_code}
+                  onChange={(v) => setForm({ ...form, tax_code: v })}
+                />
+                <Field
+                  label="Partita IVA"
+                  value={form.vat_number}
+                  onChange={(v) => setForm({ ...form, vat_number: v })}
+                />
+                <Field
+                  label="Denominazione"
+                  value={form.legal_name}
+                  onChange={(v) => setForm({ ...form, legal_name: v })}
+                />
+              </div>
+
+              <Section title="Sede operativa">
+                <Field
+                  label="Indirizzo"
+                  value={form.address_line}
+                  onChange={(v) => setForm({ ...form, address_line: v })}
+                  className="sm:col-span-2"
+                />
+                <Field
+                  label="CAP"
+                  value={form.postal_code}
+                  onChange={(v) => setForm({ ...form, postal_code: v })}
+                />
+                <Field
+                  label="Città"
+                  value={form.city}
+                  onChange={(v) => setForm({ ...form, city: v })}
+                />
+                <Field
+                  label="Provincia"
+                  value={form.province}
+                  onChange={(v) => setForm({ ...form, province: v })}
+                />
+                <ReadField label="Regione" value={editing?.region} />
+                <ReadField label="Nazione" value={editing?.country} />
+              </Section>
+
+              <Section title="Fattura elettronica">
+                <ReadField label="Recapito (cod. destinatario)" value={editing?.sdi_code} />
+                <ReadField label="Rif. amministrativo" value={editing?.sdi_admin_reference} />
+              </Section>
+
+              <Section title="Contatti">
+                <Field
+                  label="Referente"
+                  value={form.contact_name}
+                  onChange={(v) => setForm({ ...form, contact_name: v })}
+                />
+                <Field label="Fax" value={form.fax} onChange={(v) => setForm({ ...form, fax: v })} />
+                <Field
+                  label="Telefono"
+                  value={form.phone}
+                  onChange={(v) => setForm({ ...form, phone: v })}
+                />
+                <Field
+                  label="e-mail"
+                  value={form.email}
+                  onChange={(v) => setForm({ ...form, email: v })}
+                />
+                <Field label="PEC" value={form.pec} onChange={(v) => setForm({ ...form, pec: v })} />
+              </Section>
+            </TabsContent>
+
+            <TabsContent value="commerciale" className="mt-4 space-y-4">
+              {editing ? (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <ReadField label="Sconti" value={editing.discounts} />
+                    <div className="grid gap-1.5">
+                      <Label>Listino</Label>
+                      <Select
+                        value={
+                          editing.assigned_price_list_number === null
+                            ? "nessuno"
+                            : String(editing.assigned_price_list_number)
+                        }
+                        onValueChange={(value) => void assignPriceList(editing, value)}
+                        disabled={!isAdmin}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Listino" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
+                          {priceLists.map((item) => (
+                            <SelectItem key={item.listNumber} value={String(item.listNumber)}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <ReadField label="Fido" value={editing.credit_limit} />
+                    <ReadField label="Agente" value={editing.agent} />
+                    <ReadField label="Pagamento" value={editing.payment_terms} />
+                    <ReadField label="Coordinate bancarie" value={editing.bank} />
+                    <ReadField label="Nostra banca" value={editing.our_bank} />
+                  </div>
+                  <ExtraFields record={editing} group="commerciale" />
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  I dati commerciali arrivano dal gestionale: saranno visibili dopo il primo
+                  salvataggio o l’importazione da Danea.
+                </p>
+              )}
+            </TabsContent>
+
+            <TabsContent value="varie" className="mt-4 space-y-4">
+              {editing ? <ExtraFields record={editing} group="varie" /> : null}
+              <div className="grid gap-1.5">
+                <Label>Note</Label>
+                <Textarea
+                  value={form.notes}
+                  onChange={(event) => setForm({ ...form, notes: event.target.value })}
+                />
+              </div>
+              {editing ? <OtherDaneaData record={editing} /> : null}
+            </TabsContent>
+          </Tabs>
 
           {editing ? (
             <div className="mt-4 border-t border-border pt-4">
@@ -793,6 +860,7 @@ export function CustomerRecordsPanel({
               <DestinationManager customerRecordId={editing.id} isAdmin={isAdmin} />
             </div>
           ) : null}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setFormOpen(false)}>
               Chiudi
@@ -965,41 +1033,70 @@ export function CustomerRecordsPanel({
   );
 }
 
-/** Dati amministrativi che arrivano dal gestionale: sola lettura, richiudibile. */
-function DaneaAdminBlock({ record }: { record: CustomerRecord }) {
-  const values = DANEA_READONLY.map((entry) => ({
-    label: entry.label,
-    value: (record[entry.key] as string | null) ?? "",
-  })).filter((entry) => entry.value);
-  const extra = Object.entries(record.danea_extra ?? {}).filter(([, value]) => value);
-  if (!values.length && !extra.length) return null;
+/** Gruppo di campi con titolo, come le sezioni della scheda Danea. */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <details className="mt-4 rounded-lg border border-border p-3">
-      <summary className="cursor-pointer text-sm font-medium">Dati amministrativi (Danea)</summary>
+    <div className="rounded-lg border border-border p-3">
+      <p className="mb-3 text-sm font-medium">{title}</p>
+      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+    </div>
+  );
+}
+
+/** Dato che arriva dal gestionale: sola lettura. */
+function ReadField({ label, value }: { label: string; value?: string | null | undefined }) {
+  return (
+    <div className="grid gap-1.5">
+      <Label className="text-muted-foreground">{label}</Label>
+      <p className="min-h-9 truncate rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+        {value?.trim() ? value : "—"}
+      </p>
+    </div>
+  );
+}
+
+/** Campi Danea riconosciuti e conservati, divisi per scheda. */
+function ExtraFields({
+  record,
+  group,
+}: {
+  record: CustomerRecord;
+  group: "commerciale" | "varie";
+}) {
+  const entries = Object.entries(record.danea_extra ?? {}).filter(
+    ([label, value]) => value && DANEA_EXTRA_GROUP_BY_LABEL[label] === group,
+  );
+  if (!entries.length) return null;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {entries.map(([label, value]) => (
+        <ReadField key={label} label={label} value={String(value)} />
+      ))}
+    </div>
+  );
+}
+
+/** Colonne del file senza collocazione prevista: conservate e sempre visibili. */
+function OtherDaneaData({ record }: { record: CustomerRecord }) {
+  const extra = Object.entries(record.danea_extra ?? {}).filter(
+    ([label, value]) => value && !DANEA_EXTRA_GROUP_BY_LABEL[label],
+  );
+  if (!extra.length) return null;
+  return (
+    <details className="rounded-lg border border-border p-3">
+      <summary className="cursor-pointer text-sm font-medium">Altri dati (Danea)</summary>
       <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-        {values.map((entry) => (
-          <div key={entry.label} className="min-w-0">
-            <dt className="text-xs text-muted-foreground">{entry.label}</dt>
-            <dd className="truncate text-sm">{entry.value}</dd>
+        {extra.map(([label, value]) => (
+          <div key={label} className="min-w-0">
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="truncate text-sm">{String(value)}</dd>
           </div>
         ))}
       </dl>
-      {extra.length ? (
-        <div className="mt-3 border-t border-border pt-3">
-          <p className="text-xs font-medium text-muted-foreground">Altri dati Danea</p>
-          <dl className="mt-2 grid gap-3 sm:grid-cols-2">
-            {extra.map(([label, value]) => (
-              <div key={label} className="min-w-0">
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="truncate text-sm">{String(value)}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      ) : null}
     </details>
   );
 }
+
 
 function Field({
   label,
