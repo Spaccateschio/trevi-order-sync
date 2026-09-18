@@ -6,11 +6,20 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { FavoriteButton } from "@/components/catalog/favorite-button";
+import { UnitPicker } from "@/components/catalog/unit-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { activeCompany, isRelationOperational, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAssignedPrices, type CatalogProductRow } from "@/lib/catalog";
+import {
+  CATALOG_SELECT,
+  fetchAssignedPrices,
+  fetchUnitPreferences,
+  resolveSaleUnit,
+  saveUnitPreference,
+  sortedSaleUnits,
+  type CatalogProductRow,
+} from "@/lib/catalog";
 import { getCatalogImageUrls } from "@/lib/catalog.functions";
 import { euro } from "@/lib/product-grid";
 
