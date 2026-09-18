@@ -38,6 +38,7 @@ import {
 } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import { sendInvitationEmail } from "@/lib/invitation-email.functions";
+import { fetchActivePriceLists, fetchDefaultPriceList } from "@/lib/price-lists";
 
 export const Route = createFileRoute("/_authenticated/collegamenti")({
   head: () => ({
@@ -148,6 +149,19 @@ function Collegamenti() {
 
   const company = activeCompany(identity);
   const isAdmin = hasRole(identity, "amministratore");
+
+  /** Listini Danea attivi: precompilano il listino dell'invito rapido. */
+  const priceListsQuery = useQuery({
+    queryKey: ["listini-attivi", company?.companyId],
+    enabled: Boolean(company?.companyId),
+    queryFn: () => fetchActivePriceLists(company!.companyId),
+  });
+
+  const defaultPriceListQuery = useQuery({
+    queryKey: ["listino-predefinito", company?.companyId],
+    enabled: Boolean(company?.companyId),
+    queryFn: () => fetchDefaultPriceList(company!.companyId),
+  });
 
   /** Contatti aziendali stampati sul foglio invito: sola lettura. */
   const companyContact = useQuery({
