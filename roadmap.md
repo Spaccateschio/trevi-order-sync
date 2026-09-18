@@ -17,9 +17,6 @@
 - [ ] FASE A marketplace B2B: Acquisti → Catalogo (vetrine fornitori collegati, griglia prodotti, pagina prodotto, preferiti, prezzo solo se listino assegnato, flag vetrina lato venditore)
 - [ ] FASE B: lista della spesa per fornitore, inventario con quantità contate e riordino suggerito, ordini interni (bozza → inviato → confermato → evaso)
 - [ ] FASE C: ordini a fornitori non registrati via pagina pubblica a token + invito alla registrazione
-- [ ] FASE A marketplace B2B: Acquisti → Catalogo (vetrine fornitori collegati, griglia prodotti, pagina prodotto, preferiti, prezzo solo se listino assegnato, flag vetrina lato venditore)
-- [ ] FASE B: lista della spesa per fornitore, inventario con riordino suggerito, ordini interni (bozza → inviato → confermato → evaso)
-- [ ] FASE C: ordini a fornitori non registrati via pagina pubblica a token + invito alla registrazione
 
 ## Completato
 - [x] Importazione manuale file Danea (Opzione B) con stesso parser/motore
