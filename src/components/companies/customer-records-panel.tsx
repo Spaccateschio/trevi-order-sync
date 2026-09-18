@@ -180,6 +180,14 @@ export function CustomerRecordsPanel({
   const [invitePriceList, setInvitePriceList] = useState<string>("nessuno");
   const [importOpen, setImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [visibleColumns, setVisibleColumns] = useState<CustomerColumnKey[]>(() =>
+    loadCustomerColumns(),
+  );
+  const [sort, setSort] = useState<{ key: CustomerColumnKey; asc: boolean }>({
+    key: "legal_name",
+    asc: true,
+  });
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkResults, setBulkResults] = useState<
     {
