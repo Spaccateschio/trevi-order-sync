@@ -80,6 +80,30 @@ function CatalogProductPage() {
     queryFn: () => fetchAssignedPrices(sellerId, [productId]),
   });
 
+  const unitsQuery = useQuery({
+    queryKey: ["catalogo-um-preferita", buyerId, sellerId, productId],
+    enabled: operational && Boolean(buyerId),
+    queryFn: () => fetchUnitPreferences(buyerId!, sellerId),
+  });
+
+  const chooseUnit = useMutation({
+    mutationFn: async (productSaleUnitId: string) => {
+      if (!buyerId) throw new Error("Azienda non disponibile");
+      await saveUnitPreference({
+        buyerCompanyId: buyerId,
+        sellerCompanyId: sellerId,
+        productId,
+        productSaleUnitId,
+        userId: identity?.userId ?? null,
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["catalogo-um-preferita", buyerId] });
+      void queryClient.invalidateQueries({ queryKey: ["catalogo-um-preferite", buyerId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const imageQuery = useQuery({
     queryKey: ["catalogo-immagine", sellerId, productId],
     enabled: operational && Boolean(productQuery.data?.product_images),
