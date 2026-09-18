@@ -258,13 +258,35 @@ export function CustomerImportDialog({
         ) : null}
 
         <div className="grid gap-1.5">
+          <Label>Archivio di provenienza</Label>
+          <Select value={archiveId ?? undefined} onValueChange={changeArchive}>
+            <SelectTrigger>
+              <SelectValue placeholder="Scegli l’archivio Danea del file" />
+            </SelectTrigger>
+            <SelectContent>
+              {archives.map((archive) => (
+                <SelectItem key={archive.id} value={archive.id}>
+                  {archive.name}
+                  {archive.isDefault ? " · predefinito" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Obbligatorio: i clienti, i loro codici e i listini restano separati per archivio. Lo
+            stesso codice in due archivi resta una scheda distinta.
+          </p>
+        </div>
+
+        <div className="grid gap-1.5">
           <Label htmlFor="customer-import-file">File Danea</Label>
           <input
             id="customer-import-file"
             ref={inputRef}
             type="file"
+            disabled={!archiveId}
             accept=".xlsx,.xls,.ods,.csv,.txt,.xml"
-            className="block w-full cursor-pointer rounded-md border border-border bg-background p-2 text-sm"
+            className="block w-full cursor-pointer rounded-md border border-border bg-background p-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) void handleFile(file);
