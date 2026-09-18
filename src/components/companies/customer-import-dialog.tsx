@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,7 @@ export function CustomerImportDialog({
   const archivesQuery = useQuery({
     queryKey: ["archivi-danea", companyId],
     queryFn: () => fetchDaneaArchives(companyId),
+    refetchOnMount: "always",
   });
   const archives = archivesQuery.data ?? [];
 
@@ -74,8 +75,20 @@ export function CustomerImportDialog({
   const priceListsQuery = useQuery({
     queryKey: ["listini-attivi", companyId],
     queryFn: () => fetchActivePriceLists(companyId),
+    refetchOnMount: "always",
+    staleTime: 0,
   });
   const priceLists = listsForArchive(priceListsQuery.data ?? [], archiveId);
+
+  /**
+   * I listini arrivano da Danea: se l'elenco non è ancora caricato non
+   * assegniamo nulla, quindi ricarichiamo a ogni apertura della finestra.
+   */
+  useEffect(() => {
+    if (open) void priceListsQuery.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
 
   function reset() {
     setParsed(null);
@@ -331,7 +344,19 @@ export function CustomerImportDialog({
           </div>
         ) : null}
 
+        {archiveId && !priceListsQuery.isLoading && !priceLists.length ? (
+          <div className="space-y-1 rounded-lg border border-border p-3">
+            <p className="text-sm font-medium">Nessun listino in questo archivio</p>
+            <p className="text-xs text-muted-foreground">
+              Questo archivio non ha ancora ricevuto i listini da Danea: i clienti verranno
+              importati senza listino. Invia prima i prodotti dalla postazione Danea, poi reimporta
+              il file per assegnare i listini.
+            </p>
+          </div>
+        ) : null}
+
         {unresolvedPriceLists.length ? (
+
           <div className="space-y-1 rounded-lg border border-border p-3">
             <p className="text-sm font-medium">Listini non riconosciuti</p>
             <p className="text-xs text-muted-foreground">
