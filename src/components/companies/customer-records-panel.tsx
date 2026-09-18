@@ -149,12 +149,6 @@ function toForm(record: CustomerRecord): FormState {
   };
 }
 
-const invitationLabel: Record<Invitation["status"], string> = {
-  in_attesa: "Invito in attesa",
-  accettato: "Invito accettato",
-  annullato: "Invito annullato",
-  annullato_scaduto: "Invito scaduto",
-};
 
 export const customerRecordsQueryKey = ["customer-records"] as const;
 
