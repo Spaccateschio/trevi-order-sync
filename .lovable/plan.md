@@ -29,7 +29,7 @@ Applicazione automatica della colonna "Listino" del file clienti (resta al Punto
 ## Note tecniche
 - Migrazione additiva: indice unico `danea_price_lists (company_id, archive_id, list_number)` dopo consolidamento dei duplicati; `customer_records.archive_id uuid NULL REFERENCES danea_archives(id)` + indice su (seller_company_id, archive_id); trigger di coerenza archivio↔azienda come per i prodotti.
 - `manage_customer_record`: nuovo parametro `_archive_id uuid DEFAULT NULL`, scritto in create e in update (solo se passato), `SECURITY DEFINER`, `search_path = public`, controlli `is_company_admin` + `company_sells` invariati.
-- `buyer_catalog_prices`, `resolve_default_price_list`, `set_customer_price_list`: risoluzione del listino vincolata all'`archive_id` del cliente (fallback attuale quando NULL); filtro prodotti per archivio nel catalogo acquirente.
+- `buyer_catalog_prices`, `resolve_default_price_list`, `set_customer_price_list`: risoluzione del listino vincolata all'`archive_id` del cliente (fallback attuale quando NULL). Nessun filtro prodotti per archivio: la visibilità del catalogo resta quella di oggi.
 - Frontend: `fetchActivePriceLists` restituisce anche l'archivio (raggruppamento nelle select), selettore archivio in `customer-import-dialog.tsx`, matching per archivio in `buildPreview` (`src/lib/customer-import.ts`), archivio mostrato nella scheda cliente.
 - Nessuna modifica a import prodotti, relazioni B2B, doppio consenso, inviti, destinazioni.
 
