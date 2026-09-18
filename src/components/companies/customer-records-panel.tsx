@@ -851,7 +851,7 @@ export function CustomerRecordsPanel({
                 ))}
                 <col className="w-14" />
               </colgroup>
-              <thead className="sticky top-0 z-10 bg-muted shadow-sm lg:top-0">
+              <thead className="sticky top-14 z-10 bg-muted shadow-sm lg:top-0">
                 <tr>
                   <th className="h-8 border-b border-r border-border px-1 text-left">
                     <Checkbox
