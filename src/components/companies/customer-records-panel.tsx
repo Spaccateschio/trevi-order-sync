@@ -42,7 +42,18 @@ import {
   saveCustomerColumns,
   type CustomerColumnKey,
 } from "@/lib/customer-columns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
+
 import {
   Select,
   SelectContent,
@@ -478,8 +489,47 @@ export function CustomerRecordsPanel({
     toast.success("Invito annullato.");
   }
 
-  const records = recordsQuery.data ?? [];
+  const allRecords = recordsQuery.data ?? [];
+  // I clienti eliminati restano in archivio con stato "revocato": nascosti, non cancellati.
+  const records = allRecords.filter((record) => record.status !== "revocato");
+  const deletedRecords = allRecords.filter((record) => record.status === "revocato");
   const invitations = invitationsQuery.data ?? [];
+
+  /** Eliminazione morbida: il cliente sparisce dall'elenco ma i dati restano. */
+  async function softDelete(record: CustomerRecord) {
+    const { error } = await supabase.rpc("manage_customer_record_status", {
+      _seller_company_id: companyId,
+      _customer_record_id: record.id,
+      _action: "delete",
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(record.id);
+      return next;
+    });
+    setDeleteFor(null);
+    await refresh();
+    toast.success("Cliente eliminato: puoi recuperarlo da “Clienti eliminati”.");
+  }
+
+  async function restoreRecord(record: CustomerRecord) {
+    const { error } = await supabase.rpc("manage_customer_record_status", {
+      _seller_company_id: companyId,
+      _customer_record_id: record.id,
+      _action: "restore",
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await refresh();
+    toast.success("Cliente ripristinato.");
+  }
+
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -648,6 +698,14 @@ export function CustomerRecordsPanel({
           <DropdownMenuItem disabled={!isAdmin} onSelect={() => void toggleStatus(record)}>
             {record.status === "attivo" ? "Disattiva" : "Riattiva"}
           </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!isAdmin}
+            className="text-destructive focus:text-destructive"
+            onSelect={() => setDeleteFor(record)}
+          >
+            Elimina cliente
+          </DropdownMenuItem>
+
         </DropdownMenuContent>
       </DropdownMenu>
     );
