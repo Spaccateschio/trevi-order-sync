@@ -133,7 +133,7 @@ export function CustomerImportDialog({
     const recognised = resolvePriceListNumber(value, priceLists);
     if (recognised) return recognised;
     const key = value.trim();
-    if (key && key in listMap) return listMap[key];
+    if (key && key in listMap) return listMap[key] ?? null;
     return baseList;
   }
 
