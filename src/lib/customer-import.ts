@@ -323,23 +323,17 @@ function parseDaneaSubjectsXml(text: string): ParsedCustomerRow[] {
     throw new Error("Nel file XML non ho trovato clienti da importare.");
   }
   return nodes.map((node, index) => {
-    const row: ParsedCustomerRow = {
-      rowIndex: index + 1,
-      legal_name: "",
-      vat_number: "",
-      tax_code: "",
-      email: "",
-      phone: "",
-      address_line: "",
-      postal_code: "",
-      city: "",
-      province: "",
-      internal_reference: "",
-      notes: "",
-    };
+    const row = emptyRow(index + 1);
     for (const entry of XML_FIELDS) {
       row[entry.field] = textOf(node, entry.tags);
     }
+    // Tag compilati senza campo dedicato: conservati fra gli altri dati Danea.
+    Array.from(node.children).forEach((child) => {
+      if (child.children.length) return;
+      if (XML_KNOWN_TAGS.has(child.tagName.toLowerCase())) return;
+      const value = child.textContent?.trim();
+      if (value) row.extra[child.tagName] = value;
+    });
     return row;
   });
 }
