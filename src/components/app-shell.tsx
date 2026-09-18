@@ -19,12 +19,15 @@ const AREA_LABEL: Record<NavArea, string> = {
 export function AppShell({
   title,
   description,
+  actions,
   compact = false,
   wide = false,
   children,
 }: {
   title: string;
   description?: string;
+  /** Azioni di pagina mostrate a destra del titolo; su mobile vanno a capo. */
+  actions?: ReactNode;
   compact?: boolean;
   wide?: boolean;
   children: ReactNode;
@@ -70,9 +73,7 @@ export function AppShell({
         ? "vendite"
         : "comune";
 
-  const mobileItems = items.filter(
-    (item) => item.area === "comune" || item.area === mobileArea,
-  );
+  const mobileItems = items.filter((item) => item.area === "comune" || item.area === mobileArea);
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -156,12 +157,30 @@ export function AppShell({
           </div>
         </header>
 
-        <main className={cn("mx-auto w-full overflow-x-hidden px-3 pb-28 pt-4 sm:px-5 lg:pb-10", wide ? "max-w-none lg:px-4" : "max-w-6xl", compact ? "lg:pt-3" : "lg:pt-7")}>
+        <main
+          className={cn(
+            "mx-auto w-full overflow-x-hidden px-3 pb-28 pt-4 sm:px-5 lg:pb-10",
+            wide ? "max-w-none lg:px-4" : "max-w-6xl",
+            compact ? "lg:pt-3" : "lg:pt-7",
+          )}
+        >
           <div className={cn("min-w-0", compact ? "mb-2" : "mb-4 lg:mb-6")}>
-            <h1 className={cn("font-semibold", compact ? "text-xl" : "text-xl sm:text-2xl lg:text-3xl")}>{title}</h1>
-            {description ? (
-              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{description}</p>
-            ) : null}
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+              <div className="min-w-0">
+                <h1
+                  className={cn(
+                    "font-semibold",
+                    compact ? "text-xl" : "text-xl sm:text-2xl lg:text-3xl",
+                  )}
+                >
+                  {title}
+                </h1>
+                {description ? (
+                  <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{description}</p>
+                ) : null}
+              </div>
+              {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+            </div>
           </div>
           {children}
         </main>
@@ -193,20 +212,17 @@ export function AppShell({
   );
 }
 
-export function PlaceholderCard({
-  title,
-  items,
-}: {
-  title: string;
-  items: string[];
-}) {
+export function PlaceholderCard({ title, items }: { title: string; items: string[] }) {
   return (
     <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <h2 className="font-display text-base font-semibold">{title}</h2>
       <ul className="mt-3 space-y-2">
         {items.map((item) => (
           <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+            <span
+              className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+              aria-hidden="true"
+            />
             {item}
           </li>
         ))}

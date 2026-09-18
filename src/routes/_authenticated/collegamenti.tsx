@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, KeyRound, Link2, Mail, Search, Sparkles } from "lucide-react";
+import { ArrowRight, Bell, KeyRound, Link2, Mail, QrCode, Search, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -18,6 +18,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   activeCompany,
   companyBuys,
@@ -77,8 +85,9 @@ type RelationMeta = {
 };
 
 type View = "connessioni" | "ricerca" | "richieste" | "inviti";
+/** Tab principali: Clienti (a cui vendo), Fornitori (da cui compro), Entrambi. */
 type Tab = "clienti" | "fornitori" | "entrambi";
-type Filter = "tutti" | "attivi" | "attesa" | "sospesi";
+type StatoFilter = "tutti" | "attivi" | "attesa" | "sospesi" | "chiusi";
 
 const tabLabels: Record<Tab, string> = {
   clienti: "Clienti",
@@ -86,11 +95,12 @@ const tabLabels: Record<Tab, string> = {
   entrambi: "Entrambi",
 };
 
-const filterLabels: Record<Filter, string> = {
-  tutti: "Tutti",
+const statoLabels: Record<StatoFilter, string> = {
+  tutti: "Tutti gli stati",
   attivi: "Attivi",
   attesa: "In attesa",
   sospesi: "Sospesi",
+  chiusi: "Rifiutati e chiusi",
 };
 
 function statusOf(relation: Relation, side: "venditore" | "acquirente") {
@@ -113,7 +123,7 @@ function Collegamenti() {
 
   const [view, setView] = useState<View>("connessioni");
   const [tab, setTab] = useState<Tab>("clienti");
-  const [filter, setFilter] = useState<Filter>("tutti");
+  const [stato, setStato] = useState<StatoFilter>("tutti");
   /** Link freschi ottenuti dopo un reinvio: il token non è recuperabile dal database. */
   const [freshLinks, setFreshLinks] = useState<Record<string, string>>({});
   const [listSearch, setListSearch] = useState("");
@@ -241,14 +251,19 @@ function Collegamenti() {
         bothWays,
         partnerName:
           side === "venditore"
-            ? relation.buyerCompanyName ?? "Azienda cliente"
-            : relation.sellerCompanyName ?? "Azienda fornitrice",
+            ? (relation.buyerCompanyName ?? "Azienda cliente")
+            : (relation.sellerCompanyName ?? "Azienda fornitrice"),
         partnerVat: partner?.vat ?? null,
         partnerPlace: partner?.place ?? null,
-        relationshipLabel: bothWays ? "Entrambi" : side === "venditore" ? "Io vendo a" : "Io compro da",
+        relationshipLabel: bothWays
+          ? "Entrambi"
+          : side === "venditore"
+            ? "Io vendo a"
+            : "Io compro da",
         statusLabel: status.label,
         statusTone: status.tone,
         mySideEnabled: side === "venditore" ? relation.sellerEnabled : relation.buyerEnabled,
+        partnerSideEnabled: side === "venditore" ? relation.buyerEnabled : relation.sellerEnabled,
         lastActivity: meta?.updatedAt ?? null,
       };
     };
@@ -267,37 +282,33 @@ function Collegamenti() {
     );
   };
 
-  const passesFilter = (row: ConnectionRow, key: Filter) => {
-    if (key === "attivi") return row.statusTone === "attivo";
-    if (key === "attesa") return row.relation.status === "in_attesa";
-    if (key === "sospesi") return row.statusTone === "sospeso";
-    return true;
-  };
+  /** Nei rapporti in due sensi si mostra una sola riga per azienda. */
+  const singleRows = rows.filter((row) => !(row.bothWays && row.side === "acquirente"));
 
-  /**
-   * Tab principali: Clienti (aziende a cui vendo), Fornitori (aziende da cui
-   * compro), Entrambi (rapporti nei due sensi, una sola riga per azienda).
-   */
   const inTab = (row: ConnectionRow, key: Tab) => {
-    if (key === "entrambi") return row.bothWays && row.side === "venditore";
+    if (key === "entrambi") return row.bothWays;
     if (key === "clienti") return row.side === "venditore" && !row.bothWays;
     return row.side === "acquirente" && !row.bothWays;
   };
 
+  const passesStato = (row: ConnectionRow, key: StatoFilter) => {
+    if (key === "attivi") return row.statusTone === "attivo";
+    if (key === "attesa") return row.relation.status === "in_attesa";
+    if (key === "sospesi") return row.statusTone === "sospeso";
+    if (key === "chiusi") return row.statusTone === "chiuso";
+    return true;
+  };
+
   const tabCounts = Object.fromEntries(
-    (Object.keys(tabLabels) as Tab[]).map((key) => [key, rows.filter((row) => inTab(row, key)).length]),
+    (Object.keys(tabLabels) as Tab[]).map((key) => [
+      key,
+      singleRows.filter((row) => inTab(row, key)).length,
+    ]),
   ) as Record<Tab, number>;
 
-  const tabRows = rows.filter((row) => inTab(row, tab));
-
-  const filterCounts = Object.fromEntries(
-    (Object.keys(filterLabels) as Filter[]).map((key) => [
-      key,
-      tabRows.filter((row) => matchSearch(row) && passesFilter(row, key)).length,
-    ]),
-  ) as Record<Filter, number>;
-
-  const visibleRows = tabRows.filter((row) => matchSearch(row) && passesFilter(row, filter));
+  const visibleRows = singleRows.filter(
+    (row) => matchSearch(row) && inTab(row, tab) && passesStato(row, stato),
+  );
   const pendingRows = rows.filter((row) => row.relation.status === "in_attesa");
   const openRow = rows.find((row) => row.key === openKey) ?? null;
 
@@ -516,88 +527,108 @@ function Collegamenti() {
     <AppShell
       title="Collegamenti B2B"
       description="Gestisci i rapporti con le altre aziende della piattaforma Trevi Fruit."
+      actions={
+        <>
+          <Button
+            size="sm"
+            variant="outline"
+            className={
+              view === "richieste"
+                ? undefined
+                : "border-destructive/25 bg-destructive/5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            }
+            onClick={() => setView(view === "richieste" ? "connessioni" : "richieste")}
+          >
+            <Bell className="size-4" />
+            Richieste
+            <span className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground">
+              {pendingRows.length}
+            </span>
+          </Button>
+          {sells ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className={
+                view === "inviti"
+                  ? undefined
+                  : "border-warning/40 bg-warning/10 text-warning-foreground hover:bg-warning/20"
+              }
+              onClick={() => setView(view === "inviti" ? "connessioni" : "inviti")}
+            >
+              <Mail className="size-4" />
+              Inviti
+              <span className="ml-1 rounded-full bg-warning px-1.5 text-xs text-warning-foreground">
+                {pendingInvitations.length}
+              </span>
+            </Button>
+          ) : null}
+        </>
+      }
     >
       <div className="space-y-4">
         {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
 
-        {/* Azioni sempre visibili sopra l'elenco, contatori a destra. */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Barra viste principale: connessioni, ricerca e i due flussi rapidi. */}
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          <Button
+            size="sm"
+            variant={view === "connessioni" ? "default" : "outline"}
+            className="shrink-0"
+            onClick={() => setView("connessioni")}
+          >
+            <Link2 className="size-4" />
+            Le mie connessioni
+          </Button>
+          <Button
+            size="sm"
+            variant={view === "ricerca" ? "default" : "outline"}
+            className="shrink-0"
+            onClick={() => setView("ricerca")}
+          >
+            <Search className="size-4" />
+            Cerca azienda
+          </Button>
           {sells ? (
-            <Button size="sm" disabled={!isAdmin} onClick={() => setInviteOpen(true)}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              disabled={!isAdmin}
+              onClick={() => setInviteOpen(true)}
+            >
               <Sparkles className="size-4" />
               Invita partner
             </Button>
           ) : null}
           {buys ? (
-            <Button size="sm" variant="outline" disabled={!isAdmin} onClick={() => setCodeOpen(true)}>
-              <KeyRound className="size-4" />
-              Inserisci codice
-            </Button>
-          ) : null}
-          <Button
-            size="sm"
-            variant={view === "ricerca" ? "default" : "outline"}
-            onClick={() => setView(view === "ricerca" ? "connessioni" : "ricerca")}
-          >
-            <Search className="size-4" />
-            Cerca azienda
-          </Button>
-          <span className="flex flex-wrap gap-2 sm:ml-auto">
             <Button
               size="sm"
-              variant={view === "richieste" ? "default" : "outline"}
-              onClick={() => setView(view === "richieste" ? "connessioni" : "richieste")}
+              variant="outline"
+              className="shrink-0"
+              disabled={!isAdmin}
+              onClick={() => setCodeOpen(true)}
             >
-              <Bell className="size-4" />
-              Richieste
-              <span className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground">
-                {pendingRows.length}
-              </span>
+              <KeyRound className="size-4" />
+              Ho un codice
             </Button>
-            {sells ? (
-              <Button
-                size="sm"
-                variant={view === "inviti" ? "default" : "outline"}
-                onClick={() => setView(view === "inviti" ? "connessioni" : "inviti")}
-              >
-                <Mail className="size-4" />
-                Inviti
-                <span className="ml-1 rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
-                  {pendingInvitations.length}
-                </span>
-              </Button>
-            ) : null}
-          </span>
-        </div>
-
-        {/* Tab principali: sono la navigazione della pagina, non semplici filtri. */}
-        <div className="flex gap-1 border-b border-border">
-          {(Object.keys(tabLabels) as Tab[]).map((key) => (
-            <button
-              key={key}
-              type="button"
-              aria-current={view === "connessioni" && tab === key ? "page" : undefined}
-              onClick={() => {
-                setTab(key);
-                setView("connessioni");
-              }}
-              className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-                view === "connessioni" && tab === key
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Link2 className="size-4" />
-              {tabLabels[key]}
-              <span className="rounded-full bg-muted px-1.5 text-xs text-muted-foreground">
-                {tabCounts[key]}
-              </span>
-            </button>
-          ))}
+          ) : null}
         </div>
 
         {view === "connessioni" ? (
           <div className="space-y-3">
+            <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+              <TabsList className="h-auto w-full justify-stretch gap-1 sm:w-auto sm:justify-start">
+                {(Object.keys(tabLabels) as Tab[]).map((key) => (
+                  <TabsTrigger key={key} value={key} className="flex-1 sm:flex-none">
+                    {tabLabels[key]}
+                    <span className="ml-1.5 text-xs text-muted-foreground">
+                      {tabCounts[key]}
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative w-full max-w-sm">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -609,17 +640,18 @@ function Collegamenti() {
                   aria-label="Cerca fra le connessioni"
                 />
               </div>
-              {(Object.keys(filterLabels) as Filter[]).map((key) => (
-                <Button
-                  key={key}
-                  size="sm"
-                  variant={filter === key ? "default" : "outline"}
-                  onClick={() => setFilter(key)}
-                >
-                  {filterLabels[key]}
-                  <span className="ml-1 text-xs opacity-70">{filterCounts[key]}</span>
-                </Button>
-              ))}
+              <Select value={stato} onValueChange={(value) => setStato(value as StatoFilter)}>
+                <SelectTrigger className="h-9 w-[168px]" aria-label="Filtra per stato">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(statoLabels) as StatoFilter[]).map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {statoLabels[key]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <ConnectionsTable
               rows={visibleRows}
@@ -629,7 +661,6 @@ function Collegamenti() {
             />
           </div>
         ) : null}
-
 
         {view === "ricerca" ? (
           <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -701,7 +732,9 @@ function Collegamenti() {
                       size="sm"
                       disabled={!isAdmin || busyId === option.id}
                       onClick={() =>
-                        searchRole === "cliente" ? inviteBuyer(option.id) : requestSupplier(option.id)
+                        searchRole === "cliente"
+                          ? inviteBuyer(option.id)
+                          : requestSupplier(option.id)
                       }
                     >
                       Richiedi collegamento
@@ -834,6 +867,61 @@ function Collegamenti() {
           </div>
         ) : null}
 
+        {/* Scorciatoie in fondo pagina, come nel nuovo layout. */}
+        {view === "connessioni" ? (
+          <div className="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex flex-col rounded-2xl border border-primary/15 bg-primary/5 p-4">
+              <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                <Search className="size-5" />
+              </span>
+              <h3 className="mt-3 font-display text-base font-semibold">Cerca azienda</h3>
+              <p className="mt-1 flex-1 text-sm text-muted-foreground">
+                Trova un'azienda già registrata su Trevi Fruit e richiedi il collegamento.
+              </p>
+              <Button className="mt-3 w-full" onClick={() => setView("ricerca")}>
+                Cerca azienda <ArrowRight className="size-4" />
+              </Button>
+            </div>
+            {sells ? (
+              <div className="flex flex-col rounded-2xl border border-success/20 bg-success/5 p-4">
+                <span className="grid size-10 place-items-center rounded-xl bg-success/10 text-success">
+                  <Sparkles className="size-5" />
+                </span>
+                <h3 className="mt-3 font-display text-base font-semibold">Invita partner</h3>
+                <p className="mt-1 flex-1 text-sm text-muted-foreground">
+                  Genera un codice invito da condividere, anche senza avere il partner in
+                  anagrafica.
+                </p>
+                <Button
+                  className="mt-3 w-full bg-success text-success-foreground hover:bg-success/90"
+                  disabled={!isAdmin}
+                  onClick={() => setInviteOpen(true)}
+                >
+                  Invita partner <ArrowRight className="size-4" />
+                </Button>
+              </div>
+            ) : null}
+            {buys ? (
+              <div className="flex flex-col rounded-2xl border border-border bg-accent/30 p-4">
+                <span className="grid size-10 place-items-center rounded-xl bg-accent text-accent-foreground">
+                  <QrCode className="size-5" />
+                </span>
+                <h3 className="mt-3 font-display text-base font-semibold">Ho un codice</h3>
+                <p className="mt-1 flex-1 text-sm text-muted-foreground">
+                  Inserisci il codice invito che hai ricevuto per collegarti con un'azienda.
+                </p>
+                <Button
+                  className="mt-3 w-full"
+                  disabled={!isAdmin}
+                  onClick={() => setCodeOpen(true)}
+                >
+                  Inserisci codice <ArrowRight className="size-4" />
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {isAdmin ? null : (
           <p className="text-sm text-muted-foreground">
             Solo un amministratore della tua azienda può gestire i collegamenti.
@@ -844,9 +932,7 @@ function Collegamenti() {
       <ConnectionDetail
         row={openRow}
         isAdmin={isAdmin}
-        dates={
-          openRow ? metaQuery.data?.byRelation.get(openRow.relation.id) ?? null : null
-        }
+        dates={openRow ? (metaQuery.data?.byRelation.get(openRow.relation.id) ?? null) : null}
         onClose={() => setOpenKey(null)}
       />
 
