@@ -190,6 +190,7 @@ export function CustomerImportDialog({
         _our_bank: row.our_bank,
         ...(extraEntries.length ? { _danea_extra: Object.fromEntries(extraEntries) } : {}),
         ...(priceList ? { _price_list_number: priceList } : {}),
+        _archive_id: archiveId,
       };
       const { error } = await supabase.rpc("manage_customer_record", payload);
       if (error) {
