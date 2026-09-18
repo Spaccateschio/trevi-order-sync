@@ -31,6 +31,7 @@ import { Route as AuthenticatedAcquistiCatalogoIndexRouteImport } from './routes
 import { Route as ApiPublicDaneaProductsRouteImport } from './routes/api/public/danea/products'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as AuthenticatedAcquistiCatalogoSellerIdIndexRouteImport } from './routes/_authenticated/acquisti.catalogo.$sellerId.index'
+import { Route as AuthenticatedAcquistiCatalogoSellerIdProductIdRouteImport } from './routes/_authenticated/acquisti.catalogo.$sellerId.$productId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -150,6 +151,12 @@ const AuthenticatedAcquistiCatalogoSellerIdIndexRoute =
     path: '/acquisti/catalogo/$sellerId/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAcquistiCatalogoSellerIdProductIdRoute =
+  AuthenticatedAcquistiCatalogoSellerIdProductIdRouteImport.update({
+    id: '/acquisti/catalogo/$sellerId/$productId',
+    path: '/acquisti/catalogo/$sellerId/$productId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/acquisti/catalogo/': typeof AuthenticatedAcquistiCatalogoIndexRoute
+  '/acquisti/catalogo/$sellerId/$productId': typeof AuthenticatedAcquistiCatalogoSellerIdProductIdRoute
   '/acquisti/catalogo/$sellerId/': typeof AuthenticatedAcquistiCatalogoSellerIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -195,6 +203,7 @@ export interface FileRoutesByTo {
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/acquisti/catalogo': typeof AuthenticatedAcquistiCatalogoIndexRoute
+  '/acquisti/catalogo/$sellerId/$productId': typeof AuthenticatedAcquistiCatalogoSellerIdProductIdRoute
   '/acquisti/catalogo/$sellerId': typeof AuthenticatedAcquistiCatalogoSellerIdIndexRoute
 }
 export interface FileRoutesById {
@@ -220,6 +229,7 @@ export interface FileRoutesById {
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/_authenticated/acquisti/catalogo/': typeof AuthenticatedAcquistiCatalogoIndexRoute
+  '/_authenticated/acquisti/catalogo/$sellerId/$productId': typeof AuthenticatedAcquistiCatalogoSellerIdProductIdRoute
   '/_authenticated/acquisti/catalogo/$sellerId/': typeof AuthenticatedAcquistiCatalogoSellerIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -245,6 +255,7 @@ export interface FileRouteTypes {
     | '/api/public/danea/products'
     | '/lovable/email/transactional/preview'
     | '/acquisti/catalogo/'
+    | '/acquisti/catalogo/$sellerId/$productId'
     | '/acquisti/catalogo/$sellerId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -268,6 +279,7 @@ export interface FileRouteTypes {
     | '/api/public/danea/products'
     | '/lovable/email/transactional/preview'
     | '/acquisti/catalogo'
+    | '/acquisti/catalogo/$sellerId/$productId'
     | '/acquisti/catalogo/$sellerId'
   id:
     | '__root__'
@@ -292,6 +304,7 @@ export interface FileRouteTypes {
     | '/api/public/danea/products'
     | '/lovable/email/transactional/preview'
     | '/_authenticated/acquisti/catalogo/'
+    | '/_authenticated/acquisti/catalogo/$sellerId/$productId'
     | '/_authenticated/acquisti/catalogo/$sellerId/'
   fileRoutesById: FileRoutesById
 }
@@ -461,6 +474,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAcquistiCatalogoSellerIdIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/acquisti/catalogo/$sellerId/$productId': {
+      id: '/_authenticated/acquisti/catalogo/$sellerId/$productId'
+      path: '/acquisti/catalogo/$sellerId/$productId'
+      fullPath: '/acquisti/catalogo/$sellerId/$productId'
+      preLoaderRoute: typeof AuthenticatedAcquistiCatalogoSellerIdProductIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -479,6 +499,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedVenditeProdottiRoute: typeof AuthenticatedVenditeProdottiRoute
   AuthenticatedAcquistiIndexRoute: typeof AuthenticatedAcquistiIndexRoute
   AuthenticatedAcquistiCatalogoIndexRoute: typeof AuthenticatedAcquistiCatalogoIndexRoute
+  AuthenticatedAcquistiCatalogoSellerIdProductIdRoute: typeof AuthenticatedAcquistiCatalogoSellerIdProductIdRoute
   AuthenticatedAcquistiCatalogoSellerIdIndexRoute: typeof AuthenticatedAcquistiCatalogoSellerIdIndexRoute
 }
 
@@ -498,6 +519,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAcquistiIndexRoute: AuthenticatedAcquistiIndexRoute,
   AuthenticatedAcquistiCatalogoIndexRoute:
     AuthenticatedAcquistiCatalogoIndexRoute,
+  AuthenticatedAcquistiCatalogoSellerIdProductIdRoute:
+    AuthenticatedAcquistiCatalogoSellerIdProductIdRoute,
   AuthenticatedAcquistiCatalogoSellerIdIndexRoute:
     AuthenticatedAcquistiCatalogoSellerIdIndexRoute,
 }
