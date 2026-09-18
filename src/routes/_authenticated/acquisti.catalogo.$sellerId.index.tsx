@@ -17,7 +17,14 @@ import {
 } from "@/components/ui/select";
 import { activeCompany, isRelationOperational, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAssignedPrices, fetchSellerCatalogue, saleUnitCodes } from "@/lib/catalog";
+import {
+  fetchAssignedPrices,
+  fetchSellerCatalogue,
+  fetchUnitPreferences,
+  resolveSaleUnit,
+  saveUnitPreference,
+  sortedSaleUnits,
+} from "@/lib/catalog";
 import { getCatalogImageUrls } from "@/lib/catalog.functions";
 
 export const Route = createFileRoute("/_authenticated/acquisti/catalogo/$sellerId/")({
@@ -53,6 +60,7 @@ function SellerCatalogue() {
     (r) => r.buyerCompanyId === buyerId && r.sellerCompanyId === sellerId,
   );
   const operational = relation ? isRelationOperational(relation) : false;
+  const sellerName = relation?.sellerCompanyName ?? "Fornitore";
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("tutte");
@@ -84,6 +92,12 @@ function SellerCatalogue() {
       if (error) throw new Error(error.message);
       return new Set((data ?? []).map((row) => row.product_id));
     },
+  });
+
+  const unitsQuery = useQuery({
+    queryKey: ["catalogo-um-preferite", buyerId, sellerId],
+    enabled: operational && Boolean(buyerId),
+    queryFn: () => fetchUnitPreferences(buyerId!, sellerId),
   });
 
   const imagesQuery = useQuery({
@@ -131,6 +145,24 @@ function SellerCatalogue() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const chooseUnit = useMutation({
+    mutationFn: async (input: { productId: string; productSaleUnitId: string }) => {
+      if (!buyerId) throw new Error("Azienda non disponibile");
+      await saveUnitPreference({
+        buyerCompanyId: buyerId,
+        sellerCompanyId: sellerId,
+        productId: input.productId,
+        productSaleUnitId: input.productSaleUnitId,
+        userId: identity?.userId ?? null,
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["catalogo-um-preferite", buyerId] });
+      void queryClient.invalidateQueries({ queryKey: ["catalogo-um-preferita", buyerId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const categories = useMemo(
     () =>
       Array.from(
@@ -143,6 +175,7 @@ function SellerCatalogue() {
 
   const rows: CatalogProduct[] = useMemo(() => {
     const term = search.trim().toLowerCase();
+    const preferences = unitsQuery.data ?? new Map<string, string>();
     return (productsQuery.data ?? [])
       .filter((product) => {
         if (category !== "tutte" && product.category !== category) return false;
@@ -155,14 +188,27 @@ function SellerCatalogue() {
       })
       .map((product) => ({
         id: product.id,
+        sellerId,
+        sellerName,
         code: product.code,
         description: product.description,
         category: product.category,
         danea_um: product.danea_um,
-        saleUnits: saleUnitCodes(product),
+        units: sortedSaleUnits(product),
+        selectedUnitId: resolveSaleUnit(product, preferences.get(product.id))?.id ?? null,
         price: pricesQuery.data?.get(product.id) ?? null,
       }));
-  }, [category, favorites, onlyFavorites, pricesQuery.data, productsQuery.data, search]);
+  }, [
+    category,
+    favorites,
+    onlyFavorites,
+    pricesQuery.data,
+    productsQuery.data,
+    search,
+    sellerId,
+    sellerName,
+    unitsQuery.data,
+  ]);
 
   const hasPrices = (pricesQuery.data?.size ?? 0) > 0;
 
@@ -184,7 +230,7 @@ function SellerCatalogue() {
 
   return (
     <AppShell
-      title={relation?.sellerCompanyName ?? "Catalogo del fornitore"}
+      title={sellerName}
       description={
         hasPrices
           ? "Prezzi del listino che questo fornitore ti ha assegnato."
@@ -229,11 +275,13 @@ function SellerCatalogue() {
         <p className="text-sm text-muted-foreground">Caricamento del catalogo…</p>
       ) : (
         <CatalogList
-          sellerId={sellerId}
           products={rows}
           imageUrls={imagesQuery.data ?? new Map()}
           favorites={favorites}
-          onToggleFavorite={(productId) => toggleFavorite.mutate(productId)}
+          onToggleFavorite={(product) => toggleFavorite.mutate(product.id)}
+          onSelectUnit={(product, unitId) =>
+            chooseUnit.mutate({ productId: product.id, productSaleUnitId: unitId })
+          }
         />
       )}
     </AppShell>
