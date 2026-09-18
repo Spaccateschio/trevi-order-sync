@@ -146,6 +146,13 @@ export function defaultGridPreferences(): GridPreferences {
   };
 }
 
+/** Intestazione mostrata: per i listini usa il nome ricevuto da Danea. */
+export function columnLabel(column: ProductColumn, listName?: (number: number) => string) {
+  const match = /^price_(\d)$/.exec(column.id);
+  if (match && listName) return listName(Number(match[1]));
+  return column.label;
+}
+
 export function formatGridValue(column: ProductColumn, value: string | number | null) {
   if (column.numeric && typeof value === "number") return euro(value);
   return value === null || value === "" ? "—" : String(value);
