@@ -8,8 +8,19 @@ import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { hasRole, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchDefaultPriceListSetting,
+  setDefaultPriceList,
+} from "@/lib/price-lists";
 import {
   createDaneaArchive,
   createDaneaStation,
@@ -132,6 +143,25 @@ function DaneaPage() {
       return data ?? [];
     },
   });
+
+  /** Listino proposto ai nuovi clienti: usato in fase di invito. */
+  const defaultPriceList = useQuery({
+    queryKey: ["listino-predefinito-impostato", companyId],
+    enabled: Boolean(companyId),
+    queryFn: () => fetchDefaultPriceListSetting(companyId!),
+  });
+
+  async function saveDefaultPriceList(value: string) {
+    if (!companyId) return;
+    try {
+      await setDefaultPriceList(companyId, value === "nessuno" ? null : Number(value));
+      await queryClient.invalidateQueries({ queryKey: ["listino-predefinito-impostato", companyId] });
+      await queryClient.invalidateQueries({ queryKey: ["listino-predefinito", companyId] });
+      toast.success("Listino predefinito aggiornato.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Impostazione non salvata");
+    }
+  }
 
   const runs = useQuery({
     queryKey: ["danea", "runs", companyId],
@@ -667,6 +697,33 @@ function DaneaPage() {
               Compariranno dopo il primo invio da Danea.
             </p>
           )}
+
+          <div className="mt-4 space-y-1.5 border-t border-border pt-3">
+            <Label>Listino predefinito per i nuovi clienti</Label>
+            <Select
+              value={
+                defaultPriceList.data === null || defaultPriceList.data === undefined
+                  ? "nessuno"
+                  : String(defaultPriceList.data)
+              }
+              onValueChange={(value) => void saveDefaultPriceList(value)}
+            >
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Listino" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nessuno">Nessuno · primo listino attivo</SelectItem>
+                {(priceLists.data ?? []).map((item) => (
+                  <SelectItem key={item.list_number} value={String(item.list_number)}>
+                    {item.display_name ?? item.danea_name ?? `Listino ${item.list_number}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Viene proposto quando generi un invito; puoi sempre cambiarlo sul singolo cliente.
+            </p>
+          </div>
         </section>
 
         <section className={`${CARD} lg:col-span-2`}>

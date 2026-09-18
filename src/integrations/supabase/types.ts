@@ -333,6 +333,7 @@ export type Database = {
           invite_code: string | null
           invited_by: string | null
           is_free_invite: boolean
+          price_list_number: number | null
           relation_id: string | null
           resend_count: number
           seller_company_id: string
@@ -352,6 +353,7 @@ export type Database = {
           invite_code?: string | null
           invited_by?: string | null
           is_free_invite?: boolean
+          price_list_number?: number | null
           relation_id?: string | null
           resend_count?: number
           seller_company_id: string
@@ -371,6 +373,7 @@ export type Database = {
           invite_code?: string | null
           invited_by?: string | null
           is_free_invite?: boolean
+          price_list_number?: number | null
           relation_id?: string | null
           resend_count?: number
           seller_company_id?: string
@@ -484,6 +487,7 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          default_price_list_number: number | null
           display_name: string
           notes: string | null
           timezone: string
@@ -492,6 +496,7 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
+          default_price_list_number?: number | null
           display_name: string
           notes?: string | null
           timezone?: string
@@ -500,6 +505,7 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
+          default_price_list_number?: number | null
           display_name?: string
           notes?: string | null
           timezone?: string
@@ -1804,6 +1810,10 @@ export type Database = {
         }
         Returns: string
       }
+      apply_invitation_price_list: {
+        Args: { _invitation_id: string; _relation_id: string }
+        Returns: undefined
+      }
       apply_product_sale_unit_batch: {
         Args: {
           _actor_user_id?: string
@@ -1870,6 +1880,7 @@ export type Database = {
         Args: {
           _customer_record_id: string
           _email: string
+          _price_list_number?: number
           _valid_days?: number
         }
         Returns: {
@@ -1881,6 +1892,7 @@ export type Database = {
       create_free_invitation: {
         Args: {
           _email?: string
+          _price_list_number?: number
           _seller_company_id: string
           _valid_days?: number
         }
@@ -2061,6 +2073,10 @@ export type Database = {
           token: string
         }[]
       }
+      resolve_default_price_list: {
+        Args: { _company_id: string }
+        Returns: number
+      }
       revoke_company_relation: {
         Args: { _relation_id: string }
         Returns: undefined
@@ -2076,6 +2092,14 @@ export type Database = {
       }
       set_company_capabilities: {
         Args: { _can_buy: boolean; _can_sell: boolean; _company_id: string }
+        Returns: undefined
+      }
+      set_customer_price_list: {
+        Args: { _customer_record_id: string; _list_number: number }
+        Returns: undefined
+      }
+      set_default_price_list: {
+        Args: { _company_id: string; _list_number: number }
         Returns: undefined
       }
       set_product_b2b_visibility: {

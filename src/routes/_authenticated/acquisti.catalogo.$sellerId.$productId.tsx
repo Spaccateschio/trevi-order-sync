@@ -6,11 +6,20 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { FavoriteButton } from "@/components/catalog/favorite-button";
+import { UnitPicker } from "@/components/catalog/unit-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { activeCompany, isRelationOperational, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAssignedPrices, type CatalogProductRow } from "@/lib/catalog";
+import {
+  CATALOG_SELECT,
+  fetchAssignedPrices,
+  fetchUnitPreferences,
+  resolveSaleUnit,
+  saveUnitPreference,
+  sortedSaleUnits,
+  type CatalogProductRow,
+} from "@/lib/catalog";
 import { getCatalogImageUrls } from "@/lib/catalog.functions";
 import { euro } from "@/lib/product-grid";
 
@@ -54,9 +63,7 @@ function CatalogProductPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select(
-          "id, code, description, description_html, category, subcategory, danea_um, notes, product_images(id), product_sale_units(is_default, conversion_factor, conversion_reference_um, units_of_measure(code, description))",
-        )
+        .select(CATALOG_SELECT)
         .eq("company_id", sellerId)
         .eq("publish_status", "pubblicato")
         .eq("b2b_visible", true)
@@ -71,6 +78,30 @@ function CatalogProductPage() {
     queryKey: ["catalogo-prezzo", sellerId, productId],
     enabled: operational && Boolean(productQuery.data),
     queryFn: () => fetchAssignedPrices(sellerId, [productId]),
+  });
+
+  const unitsQuery = useQuery({
+    queryKey: ["catalogo-um-preferita", buyerId, sellerId, productId],
+    enabled: operational && Boolean(buyerId),
+    queryFn: () => fetchUnitPreferences(buyerId!, sellerId),
+  });
+
+  const chooseUnit = useMutation({
+    mutationFn: async (productSaleUnitId: string) => {
+      if (!buyerId) throw new Error("Azienda non disponibile");
+      await saveUnitPreference({
+        buyerCompanyId: buyerId,
+        sellerCompanyId: sellerId,
+        productId,
+        productSaleUnitId,
+        userId: identity?.userId ?? null,
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["catalogo-um-preferita", buyerId] });
+      void queryClient.invalidateQueries({ queryKey: ["catalogo-um-preferite", buyerId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const imageQuery = useQuery({
@@ -138,6 +169,10 @@ function CatalogProductPage() {
 
   const product = productQuery.data;
   const price = priceQuery.data?.get(productId) ?? null;
+  const units = product ? sortedSaleUnits(product) : [];
+  const selectedUnit = product
+    ? resolveSaleUnit(product, unitsQuery.data?.get(productId))
+    : null;
 
   return (
     <AppShell
@@ -188,26 +223,32 @@ function CatalogProductPage() {
 
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="text-xs uppercase text-muted-foreground">Unità di misura</p>
-              {product.product_sale_units.length ? (
-                <ul className="mt-2 space-y-1 text-sm">
-                  {product.product_sale_units.map((unit, index) => (
-                    <li key={`${unit.units_of_measure?.code ?? index}`}>
-                      <span className="font-medium">{unit.units_of_measure?.code ?? "—"}</span>
+              <div className="mt-2 max-w-52">
+                <UnitPicker
+                  units={units}
+                  value={selectedUnit?.id ?? null}
+                  fallbackLabel={product.danea_um}
+                  onChange={(unitId) => chooseUnit.mutate(unitId)}
+                />
+              </div>
+              {units.length ? (
+                <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                  {units.map((unit, index) => (
+                    <li key={unit.id ?? index}>
+                      <span className="font-medium text-foreground">
+                        {unit.units_of_measure?.code ?? "—"}
+                      </span>
                       {unit.units_of_measure?.description
                         ? ` · ${unit.units_of_measure.description}`
                         : ""}
-                      {unit.is_default ? " · predefinita" : ""}
+                      {unit.is_default ? " · predefinita del fornitore" : ""}
                       {unit.conversion_factor
                         ? ` · circa ${unit.conversion_factor} ${unit.conversion_reference_um ?? ""}`.trimEnd()
                         : ""}
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {product.danea_um ?? "Non indicata"}
-                </p>
-              )}
+              ) : null}
             </div>
 
             {product.description_html || product.notes ? (

@@ -38,6 +38,7 @@ import {
 } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import { sendInvitationEmail } from "@/lib/invitation-email.functions";
+import { fetchActivePriceLists, fetchDefaultPriceList } from "@/lib/price-lists";
 
 export const Route = createFileRoute("/_authenticated/collegamenti")({
   head: () => ({
@@ -136,6 +137,7 @@ function Collegamenti() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [freeEmail, setFreeEmail] = useState("");
+  const [freePriceList, setFreePriceList] = useState<string>("nessuno");
   const [freeResult, setFreeResult] = useState<{
     code: string;
     link: string;
@@ -147,6 +149,19 @@ function Collegamenti() {
 
   const company = activeCompany(identity);
   const isAdmin = hasRole(identity, "amministratore");
+
+  /** Listini Danea attivi: precompilano il listino dell'invito rapido. */
+  const priceListsQuery = useQuery({
+    queryKey: ["listini-attivi", company?.companyId],
+    enabled: Boolean(company?.companyId),
+    queryFn: () => fetchActivePriceLists(company!.companyId),
+  });
+
+  const defaultPriceListQuery = useQuery({
+    queryKey: ["listino-predefinito", company?.companyId],
+    enabled: Boolean(company?.companyId),
+    queryFn: () => fetchDefaultPriceList(company!.companyId),
+  });
 
   /** Contatti aziendali stampati sul foglio invito: sola lettura. */
   const companyContact = useQuery({
@@ -463,12 +478,19 @@ function Collegamenti() {
     toast.success("Invito annullato.");
   }
 
+  function openInviteDialog() {
+    const suggested = defaultPriceListQuery.data ?? null;
+    setFreePriceList(suggested === null ? "nessuno" : String(suggested));
+    setInviteOpen(true);
+  }
+
   async function createFreeInvitation() {
     if (!company) return;
     setBusy(true);
     const { data, error } = await supabase.rpc("create_free_invitation", {
       _seller_company_id: company.companyId,
       ...(freeEmail.trim() === "" ? {} : { _email: freeEmail.trim() }),
+      ...(freePriceList === "nessuno" ? {} : { _price_list_number: Number(freePriceList) }),
     });
     setBusy(false);
     if (error) {
@@ -599,7 +621,7 @@ function Collegamenti() {
               variant="outline"
               className="hidden min-w-0 px-3 sm:inline-flex"
               disabled={!isAdmin}
-              onClick={() => setInviteOpen(true)}
+              onClick={openInviteDialog}
             >
               <Sparkles className="size-4 shrink-0" />
               Invita partner
@@ -925,7 +947,7 @@ function Collegamenti() {
                   className="size-8 shrink-0 bg-success p-0 text-success-foreground hover:bg-success/90 sm:mt-3 sm:h-9 sm:w-full sm:px-4"
                   aria-label="Invita partner"
                   disabled={!isAdmin}
-                  onClick={() => setInviteOpen(true)}
+                  onClick={openInviteDialog}
                 >
                   <span className="hidden sm:inline">Invita partner</span>
                   <ArrowRight className="size-4" />
@@ -1022,15 +1044,36 @@ function Collegamenti() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-2">
-              <Label htmlFor="invito-email">Email (opzionale)</Label>
-              <Input
-                id="invito-email"
-                type="email"
-                value={freeEmail}
-                onChange={(event) => setFreeEmail(event.target.value)}
-                placeholder="es. nome@azienda.it"
-              />
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="invito-email">Email (opzionale)</Label>
+                <Input
+                  id="invito-email"
+                  type="email"
+                  value={freeEmail}
+                  onChange={(event) => setFreeEmail(event.target.value)}
+                  placeholder="es. nome@azienda.it"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Listino da assegnare</Label>
+                <Select value={freePriceList} onValueChange={setFreePriceList}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Listino" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
+                    {(priceListsQuery.data ?? []).map((item) => (
+                      <SelectItem key={item.listNumber} value={String(item.listNumber)}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Il listino si applica quando il collegamento viene agganciato a una scheda cliente.
+                </p>
+              </div>
             </div>
           )}
           <DialogFooter>
