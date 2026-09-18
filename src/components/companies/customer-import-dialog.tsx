@@ -80,6 +80,15 @@ export function CustomerImportDialog({
   });
   const priceLists = listsForArchive(priceListsQuery.data ?? [], archiveId);
 
+  /** Listino base dell'archivio: usato per i clienti senza listino nel file. */
+  const baseList = priceLists[0]?.listNumber ?? null;
+
+  /**
+   * Abbinamento manuale dei nomi di listino non riconosciuti (es. "BAR"),
+   * ricordato per archivio: i file Danea vecchi usano nomi diversi.
+   */
+  const [listMap, setListMap] = useState<Record<string, number | null>>({});
+
   /**
    * I listini arrivano da Danea: se l'elenco non è ancora caricato non
    * assegniamo nulla, quindi ricarichiamo a ogni apertura della finestra.
@@ -88,6 +97,47 @@ export function CustomerImportDialog({
     if (open) void priceListsQuery.refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  useEffect(() => {
+    if (!archiveId) {
+      setListMap({});
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`trevi:clienti:listini:${archiveId}`);
+      setListMap(raw ? (JSON.parse(raw) as Record<string, number | null>) : {});
+    } catch {
+      setListMap({});
+    }
+  }, [archiveId]);
+
+  function rememberList(value: string, listNumber: number | null) {
+    setListMap((prev) => {
+      const next = { ...prev, [value]: listNumber };
+      if (archiveId) {
+        try {
+          localStorage.setItem(`trevi:clienti:listini:${archiveId}`, JSON.stringify(next));
+        } catch {
+          /* spazio non disponibile: l'abbinamento vale solo per questa importazione */
+        }
+      }
+      return next;
+    });
+  }
+
+  /**
+   * Listino del cliente: nome riconosciuto, altrimenti abbinamento manuale,
+   * altrimenti il listino base dell'archivio.
+   */
+  function listForRow(value: string): number | null {
+    const recognised = resolvePriceListNumber(value, priceLists);
+    if (recognised) return recognised;
+    const key = value.trim();
+    if (key && key in listMap) return listMap[key];
+    return baseList;
+  }
+
+
 
 
   function reset() {
