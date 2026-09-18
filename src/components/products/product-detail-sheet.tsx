@@ -1,15 +1,57 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { dateTime, euro, type ProductRow } from "@/lib/product-grid";
 import { SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
 import { ProductImageManager } from "./product-image-manager";
 
 function Field({ label, value }: { label: string; value: string }) {
   return <div><dt className="text-xs uppercase text-muted-foreground">{label}</dt><dd className="break-words text-sm">{value}</dd></div>;
+}
+
+function ShowcaseToggle({ product, companyId, editable }: { product: ProductRow; companyId: string; editable: boolean }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: async (visible: boolean) => {
+      const { error } = await supabase.rpc("set_product_b2b_visibility", {
+        _company_id: companyId,
+        _product_ids: [product.id],
+        _visible: visible,
+      });
+      if (error) throw new Error(error.message);
+      return visible;
+    },
+    onSuccess: (visible) => {
+      toast.success(visible ? "Prodotto in vetrina B2B" : "Prodotto nascosto dalla vetrina");
+      void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  return (
+    <section className="flex items-start justify-between gap-4 rounded-lg border border-border p-3">
+      <div>
+        <p className="text-sm font-semibold">In vetrina B2B</p>
+        <p className="text-xs text-muted-foreground">
+          Se attivo, i clienti collegati vedono questo prodotto nel tuo catalogo. Non cambia nulla in Danea.
+        </p>
+      </div>
+      <Switch
+        checked={product.b2b_visible}
+        disabled={!editable || mutation.isPending}
+        onCheckedChange={(value) => mutation.mutate(value)}
+        aria-label="In vetrina B2B"
+      />
+    </section>
+  );
 }
 
 function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, companyId, companyUnits, saleUnits }: {
