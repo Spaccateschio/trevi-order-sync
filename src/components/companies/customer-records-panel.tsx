@@ -42,7 +42,18 @@ import {
   saveCustomerColumns,
   type CustomerColumnKey,
 } from "@/lib/customer-columns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
+
 import {
   Select,
   SelectContent,
@@ -173,6 +184,9 @@ export function CustomerRecordsPanel({
   const [invitePriceList, setInvitePriceList] = useState<string>("nessuno");
   const [importOpen, setImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteFor, setDeleteFor] = useState<CustomerRecord | null>(null);
+  const [deletedOpen, setDeletedOpen] = useState(false);
+
   const [search, setSearch] = useState("");
   const [visibleColumns, setVisibleColumns] = useState<CustomerColumnKey[]>(() =>
     loadCustomerColumns(),
@@ -478,8 +492,47 @@ export function CustomerRecordsPanel({
     toast.success("Invito annullato.");
   }
 
-  const records = recordsQuery.data ?? [];
+  const allRecords = recordsQuery.data ?? [];
+  // I clienti eliminati restano in archivio con stato "revocato": nascosti, non cancellati.
+  const records = allRecords.filter((record) => record.status !== "revocato");
+  const deletedRecords = allRecords.filter((record) => record.status === "revocato");
   const invitations = invitationsQuery.data ?? [];
+
+  /** Eliminazione morbida: il cliente sparisce dall'elenco ma i dati restano. */
+  async function softDelete(record: CustomerRecord) {
+    const { error } = await supabase.rpc("manage_customer_record_status", {
+      _seller_company_id: companyId,
+      _customer_record_id: record.id,
+      _action: "delete",
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(record.id);
+      return next;
+    });
+    setDeleteFor(null);
+    await refresh();
+    toast.success("Cliente eliminato: puoi recuperarlo da “Clienti eliminati”.");
+  }
+
+  async function restoreRecord(record: CustomerRecord) {
+    const { error } = await supabase.rpc("manage_customer_record_status", {
+      _seller_company_id: companyId,
+      _customer_record_id: record.id,
+      _action: "restore",
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await refresh();
+    toast.success("Cliente ripristinato.");
+  }
+
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -648,6 +701,14 @@ export function CustomerRecordsPanel({
           <DropdownMenuItem disabled={!isAdmin} onSelect={() => void toggleStatus(record)}>
             {record.status === "attivo" ? "Disattiva" : "Riattiva"}
           </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!isAdmin}
+            className="text-destructive focus:text-destructive"
+            onSelect={() => setDeleteFor(record)}
+          >
+            Elimina cliente
+          </DropdownMenuItem>
+
         </DropdownMenuContent>
       </DropdownMenu>
     );
@@ -956,6 +1017,68 @@ export function CustomerRecordsPanel({
           </div>
         </>
       )}
+
+      {/* Archivio: clienti eliminati, recuperabili con tutti i loro dati. */}
+      {deletedRecords.length ? (
+        <div className="space-y-2 border-t border-border pt-3">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={() => setDeletedOpen((prev) => !prev)}
+          >
+            Clienti eliminati ({deletedRecords.length})
+          </Button>
+          {deletedOpen ? (
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+              {deletedRecords.map((record) => (
+                <div
+                  key={record.id}
+                  className="flex items-center justify-between gap-2 px-2 py-1.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium">{record.legal_name}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {[record.vat_number, [record.city, record.province].filter(Boolean).join(" ")]
+                        .filter(Boolean)
+                        .join(" · ") || "Nessun dato aggiuntivo"}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 shrink-0 text-xs"
+                    disabled={!isAdmin}
+                    onClick={() => void restoreRecord(record)}
+                  >
+                    Ripristina
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <AlertDialog open={Boolean(deleteFor)} onOpenChange={(open) => !open && setDeleteFor(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare “{deleteFor?.legal_name}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Il cliente verrà nascosto dall’elenco, ma i suoi dati non vengono cancellati: potrai
+              recuperarlo in qualsiasi momento dal pulsante “Clienti eliminati” in fondo alla pagina.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteFor && void softDelete(deleteFor)}>
+              Elimina cliente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
 
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
