@@ -14,6 +14,9 @@
 - [x] Riorganizzazione: Clienti = solo anagrafica commerciale con indicatore colorato di collegamento; nuova pagina Collegamenti per i rapporti tra aziende; Fornitori rimanda a Collegamenti
 - [x] Restyling UX/UI pagina Collegamenti B2B: tab principali Clienti | Fornitori | Entrambi, azioni sopra l'elenco (Invita partner | Inserisci codice | Cerca azienda), badge Richieste/Inviti, inviti con Copia codice/Copia link/Reinvia invito/Annulla e Rinnova se scaduto, dettaglio rapporto con azioni (solo UI)
 - [ ] Punto 5c: Cliente → Listino Danea assegnato, ereditato dalle destinazioni con possibile override (colonna Listino presente nell'export soggetti Danea)
+- [ ] FASE A marketplace B2B: Acquisti → Catalogo (vetrine fornitori collegati, griglia prodotti, pagina prodotto, preferiti, prezzo solo se listino assegnato, flag vetrina lato venditore)
+- [ ] FASE B: lista della spesa per fornitore, inventario con riordino suggerito, ordini interni (bozza → inviato → confermato → evaso)
+- [ ] FASE C: ordini a fornitori non registrati via pagina pubblica a token + invito alla registrazione
 
 ## Completato
 - [x] Importazione manuale file Danea (Opzione B) con stesso parser/motore
