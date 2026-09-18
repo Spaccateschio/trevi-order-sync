@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { AppShell, PlaceholderCard } from "@/components/app-shell";
+import { Button } from "@/components/ui/button";
 import { activeCompany, companyBuys, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/acquisti/")({
@@ -76,11 +77,22 @@ function Acquisti() {
           )}
         </section>
 
+        <section className="space-y-3 rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="font-display text-base font-semibold">Catalogo dei fornitori</h2>
+          <p className="text-sm text-muted-foreground">
+            Sfoglia i prodotti in vetrina dei fornitori collegati, con foto, unità di misura e
+            prezzi quando il fornitore ti ha assegnato un listino.
+          </p>
+          <Button asChild size="sm">
+            <Link to="/acquisti/catalogo">Apri il catalogo</Link>
+          </Button>
+        </section>
+
         <PlaceholderCard
-          title="Non ancora sviluppato"
+          title="In arrivo"
           items={[
-            "Cataloghi dei fornitori",
-            "Listini che ogni fornitore ti assegna",
+            "Lista della spesa per fornitore",
+            "Inventario con quantità contate e riordino suggerito",
             "Ordini di acquisto e loro stato",
             "Consegne ricevute",
           ]}

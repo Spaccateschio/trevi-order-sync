@@ -31,6 +31,7 @@ export type ModuleKey =
   | "comune.collegamenti"
   | "comune.account"
   | "acquisti.panoramica"
+  | "acquisti.catalogo"
   | "acquisti.fornitori"
   | "vendite.panoramica"
   | "vendite.clienti"
@@ -76,6 +77,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Acquisti",
     short: "Acquisti",
     icon: ShoppingBasket,
+  },
+  {
+    key: "acquisti.catalogo",
+    area: "acquisti",
+    to: "/acquisti/catalogo",
+    label: "Catalogo",
+    short: "Catalogo",
+    icon: Package,
   },
   {
     key: "acquisti.fornitori",

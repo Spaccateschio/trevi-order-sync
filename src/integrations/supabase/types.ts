@@ -185,6 +185,55 @@ export type Database = {
           },
         ]
       }
+      buyer_product_favorites: {
+        Row: {
+          buyer_company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          product_id: string
+          seller_company_id: string
+        }
+        Insert: {
+          buyer_company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id: string
+          seller_company_id: string
+        }
+        Update: {
+          buyer_company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id?: string
+          seller_company_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyer_product_favorites_buyer_company_id_fkey"
+            columns: ["buyer_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_product_favorites_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_product_favorites_seller_company_id_fkey"
+            columns: ["seller_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address_line: string | null
@@ -673,6 +722,7 @@ export type Database = {
       customer_records: {
         Row: {
           address_line: string | null
+          assigned_price_list_number: number | null
           city: string | null
           created_at: string
           created_by: string | null
@@ -698,6 +748,7 @@ export type Database = {
         }
         Insert: {
           address_line?: string | null
+          assigned_price_list_number?: number | null
           city?: string | null
           created_at?: string
           created_by?: string | null
@@ -723,6 +774,7 @@ export type Database = {
         }
         Update: {
           address_line?: string | null
+          assigned_price_list_number?: number | null
           city?: string | null
           created_at?: string
           created_by?: string | null
@@ -1370,6 +1422,7 @@ export type Database = {
       products: {
         Row: {
           archive_id: string
+          b2b_visible: boolean
           barcode: string | null
           category: string | null
           code: string
@@ -1412,6 +1465,7 @@ export type Database = {
         }
         Insert: {
           archive_id: string
+          b2b_visible?: boolean
           barcode?: string | null
           category?: string | null
           code: string
@@ -1454,6 +1508,7 @@ export type Database = {
         }
         Update: {
           archive_id?: string
+          b2b_visible?: boolean
           barcode?: string | null
           category?: string | null
           code?: string
@@ -1780,8 +1835,21 @@ export type Database = {
           province: string
         }[]
       }
+      buyer_catalog_prices: {
+        Args: { _product_ids: string[]; _seller_company_id: string }
+        Returns: {
+          gross_price: number
+          list_number: number
+          net_price: number
+          product_id: string
+        }[]
+      }
       can_read_company_address: {
         Args: { _company_id: string; _visible: boolean }
+        Returns: boolean
+      }
+      can_view_seller_catalogue: {
+        Args: { _seller_company_id: string }
         Returns: boolean
       }
       can_write_customer_record: {
@@ -2009,6 +2077,15 @@ export type Database = {
       set_company_capabilities: {
         Args: { _can_buy: boolean; _can_sell: boolean; _company_id: string }
         Returns: undefined
+      }
+      set_product_b2b_visibility: {
+        Args: {
+          _actor_user_id?: string
+          _company_id: string
+          _product_ids: string[]
+          _visible: boolean
+        }
+        Returns: number
       }
       set_product_image: {
         Args: {

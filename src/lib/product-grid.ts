@@ -22,6 +22,7 @@ export type ProductRow = {
   vat_description: string | null;
   vat_class: string | null;
   publish_status: "pubblicato" | "non_pubblicato";
+  b2b_visible: boolean;
   danea_internal_id: string | null;
   notes: string | null;
   image_file_name: string | null;
@@ -109,6 +110,7 @@ export const PRODUCT_COLUMNS: ProductColumn[] = [
   { id: "vat_class", label: "Classe IVA", size: 120, minSize: 90, value: (p) => text(p.vat_class) },
   { id: "vat_description", label: "Descrizione IVA", size: 160, minSize: 110, value: (p) => text(p.vat_description) },
   { id: "status", label: "Stato", size: 128, minSize: 105, value: (p) => p.publish_status === "pubblicato" ? "Pubblicato" : "Non pubblicato" },
+  { id: "b2b_visible", label: "In vetrina B2B", size: 130, minSize: 105, value: (p) => p.b2b_visible ? "In vetrina" : "Nascosto" },
   { id: "archive", label: "Archivio", size: 170, minSize: 110, value: (p, archives) => archives.get(p.archive_id) ?? "—" },
   { id: "internal_id", label: "InternalID", size: 130, minSize: 95, value: (p) => text(p.danea_internal_id) },
   { id: "size_um", label: "U.M. dimensioni", size: 135, minSize: 100, value: (p) => text(p.size_um) },

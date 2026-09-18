@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
-import { Columns3, Download, FileUp, Printer, Ruler, RotateCcw, Search, SquareCheckBig } from "lucide-react";
+import { Columns3, Download, Eye, EyeOff, FileUp, Printer, Ruler, RotateCcw, Search, SquareCheckBig } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -121,6 +121,25 @@ function ProdottiPage() {
   const [sorting, setSorting] = useState<SortingState>(defaults.sorting);
   const [preferencesReady, setPreferencesReady] = useState(false);
 
+  // Vetrina B2B: products resta in sola scrittura Danea, l'interruttore passa dalla funzione dedicata.
+  const showcaseMutation = useMutation({
+    mutationFn: async (visible: boolean) => {
+      if (!companyId) throw new Error("Azienda non disponibile");
+      const { error } = await supabase.rpc("set_product_b2b_visibility", {
+        _company_id: companyId,
+        _product_ids: Array.from(selectedIds),
+        _visible: visible,
+      });
+      if (error) throw new Error(error.message);
+      return visible;
+    },
+    onSuccess: (visible) => {
+      toast.success(visible ? "Prodotti messi in vetrina B2B" : "Prodotti nascosti dalla vetrina");
+      void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   useEffect(() => {
     const update = () => setDeviceClass(getDeviceClass());
     update();
@@ -148,7 +167,7 @@ function ProdottiPage() {
     refetchOnWindowFocus: true,
     queryFn: async () => {
       if (!companyId) return [];
-      const { data, error } = await supabase.from("products").select("id, archive_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price), product_images(id)").eq("company_id", companyId).order("code");
+      const { data, error } = await supabase.from("products").select("id, archive_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, b2b_visible, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price), product_images(id)").eq("company_id", companyId).order("code");
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as ProductRow[];
     },
@@ -296,7 +315,7 @@ function ProdottiPage() {
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-y border-border py-1.5 text-xs">
         <p className="truncate text-muted-foreground">{productsQuery.isLoading ? "Caricamento…" : `${sortedFiltered.length} prodotti`}{selectedProducts.length ? ` · ${selectedProducts.length} selezionati` : ""}</p>
-        <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{isAdmin && selectedProducts.length ? <Button variant="outline" size="sm" onClick={() => setUnitBatchOpen(true)}><Ruler />Gestisci U.M. vendita</Button> : null}{isAdmin ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
+        <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{isAdmin && selectedProducts.length ? <><Button variant="outline" size="sm" disabled={showcaseMutation.isPending} onClick={() => showcaseMutation.mutate(true)}><Eye />In vetrina</Button><Button variant="outline" size="sm" disabled={showcaseMutation.isPending} onClick={() => showcaseMutation.mutate(false)}><EyeOff />Nascondi</Button><Button variant="outline" size="sm" onClick={() => setUnitBatchOpen(true)}><Ruler />Gestisci U.M. vendita</Button></> : null}{isAdmin ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
       </div>
 
       <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} />

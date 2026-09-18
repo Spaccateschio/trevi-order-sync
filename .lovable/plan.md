@@ -81,3 +81,18 @@ funzionanti. Nessun secondo catalogo prezzi: i prezzi restano quelli dei listini
 - Prodotto con vetrina disattivata: invisibile all'acquirente, invariato in Danea.
 - Senza listino assegnato: nessun prezzo visibile e nessun prezzo raggiungibile.
 - Preferiti salvati e filtrabili; prova desktop 1280px e smartphone 390px.
+
+## Vincoli aggiuntivi confermati
+
+1. **Listino assegnato — unica catena ammessa**: relazione operativa →
+   `supplier_customer_relations.customer_record_id` →
+   `customer_records.assigned_price_list_number` → listino con
+   `danea_price_lists.is_active = true`. Se manca il cliente d'anagrafica collegato,
+   manca l'assegnazione o il listino non è attivo, `buyer_catalog_prices` restituisce
+   zero righe. Vietato dedurre il cliente da partita IVA o ragione sociale.
+2. **Immagini firmate**: la server function firma con privilegi elevati, quindi verifica
+   da sé, prima di firmare, che l'utente appartenga a un'azienda con collegamento
+   operativo verso quel fornitore e che il prodotto sia pubblicato con `b2b_visible = true`.
+3. **Import Danea**: il payload di upsert in `danea-import.server.ts` non include mai
+   `b2b_visible`, così FULL e INCREMENTAL la preservano. Verifica finale aggiuntiva:
+   prodotto nascosto dalla vetrina → import FULL → resta nascosto.
