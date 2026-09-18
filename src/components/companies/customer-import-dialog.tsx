@@ -381,7 +381,7 @@ export function CustomerImportDialog({
           >
             Chiudi
           </Button>
-          <Button disabled={busy || !preview.length} onClick={confirmImport}>
+          <Button disabled={busy || !preview.length || !archiveId} onClick={confirmImport}>
             {busy ? "Importazione…" : `Importa ${selected.size} clienti`}
           </Button>
         </DialogFooter>

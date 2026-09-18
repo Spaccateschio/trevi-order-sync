@@ -72,6 +72,8 @@ import {
 } from "@/lib/customer-export";
 import {
   fetchActivePriceLists,
+  fetchDaneaArchives,
+  listsForArchive,
   fetchDefaultPriceList,
   setCustomerPriceList,
 } from "@/lib/price-lists";
@@ -111,6 +113,7 @@ export type CustomerRecord = {
   bank: string | null;
   our_bank: string | null;
   danea_extra: Record<string, string> | null;
+  archive_id: string | null;
 };
 
 type Invitation = {
@@ -253,6 +256,12 @@ export function CustomerRecordsPanel({
 
   const priceLists = priceListsQuery.data ?? [];
 
+  /** Archivi Danea: mostrano la provenienza del cliente nella scheda. */
+  const archivesQuery = useQuery({
+    queryKey: ["archivi-danea", companyId],
+    queryFn: () => fetchDaneaArchives(companyId),
+  });
+
   async function assignPriceList(record: CustomerRecord, value: string) {
     try {
       await setCustomerPriceList(record.id, value === "nessuno" ? null : Number(value));
@@ -273,7 +282,7 @@ export function CustomerRecordsPanel({
       const { data, error } = await supabase
         .from("customer_records")
         .select(
-          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, address_line, postal_code, city, province, internal_reference, notes, status, assigned_price_list_number, region, country, sdi_code, sdi_admin_reference, contact_name, fax, pec, discounts, credit_limit, agent, payment_terms, bank, our_bank, danea_extra",
+          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, address_line, postal_code, city, province, internal_reference, notes, status, assigned_price_list_number, region, country, sdi_code, sdi_admin_reference, contact_name, fax, pec, discounts, credit_limit, agent, payment_terms, bank, our_bank, danea_extra, archive_id",
         )
         .eq("seller_company_id", companyId)
         .order("legal_name");
@@ -733,7 +742,9 @@ export function CustomerRecordsPanel({
   function priceListText(record: CustomerRecord) {
     if (record.assigned_price_list_number === null) return "Nessuno · prezzi su richiesta";
     return (
-      priceLists.find((item) => item.listNumber === record.assigned_price_list_number)?.label ??
+      listsForArchive(priceLists, record.archive_id).find(
+        (item) => item.listNumber === record.assigned_price_list_number,
+      )?.label ??
       `Listino ${record.assigned_price_list_number}`
     );
   }
@@ -1189,6 +1200,15 @@ export function CustomerRecordsPanel({
                   value={form.province}
                   onChange={(v) => setForm({ ...form, province: v })}
                 />
+                <ReadField
+                  label="Archivio Danea"
+                  value={
+                    editing
+                      ? (archivesQuery.data ?? []).find((a) => a.id === editing.archive_id)?.name ??
+                        "Non assegnato"
+                      : null
+                  }
+                />
                 <ReadField label="Regione" value={editing?.region} />
                 <ReadField label="Nazione" value={editing?.country} />
               </Section>
@@ -1240,7 +1260,7 @@ export function CustomerRecordsPanel({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
-                          {priceLists.map((item) => (
+                          {listsForArchive(priceLists, editing.archive_id).map((item) => (
                             <SelectItem key={item.listNumber} value={String(item.listNumber)}>
                               {item.label}
                             </SelectItem>
@@ -1349,7 +1369,7 @@ export function CustomerRecordsPanel({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
-                    {priceLists.map((item) => (
+                    {listsForArchive(priceLists, inviteFor?.archive_id ?? null).map((item) => (
                       <SelectItem key={item.listNumber} value={String(item.listNumber)}>
                         {item.label}
                       </SelectItem>
@@ -1394,6 +1414,7 @@ export function CustomerRecordsPanel({
           vat_normalized: record.vat_normalized,
           tax_code: record.tax_code,
           internal_reference: record.internal_reference,
+          archive_id: record.archive_id,
         }))}
         open={importOpen}
         onOpenChange={setImportOpen}
