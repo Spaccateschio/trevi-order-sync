@@ -24,6 +24,7 @@ import {
   IMPORT_FIELD_LABELS,
   buildPreview,
   parseCustomerFile,
+  parsePriceListNumber,
   remap,
   type ExistingCustomer,
   type ImportField,
