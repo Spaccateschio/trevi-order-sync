@@ -478,6 +478,12 @@ function Collegamenti() {
     toast.success("Invito annullato.");
   }
 
+  function openInviteDialog() {
+    const suggested = defaultPriceListQuery.data ?? null;
+    setFreePriceList(suggested === null ? "nessuno" : String(suggested));
+    setInviteOpen(true);
+  }
+
   async function createFreeInvitation() {
     if (!company) return;
     setBusy(true);
@@ -615,7 +621,7 @@ function Collegamenti() {
               variant="outline"
               className="hidden min-w-0 px-3 sm:inline-flex"
               disabled={!isAdmin}
-              onClick={() => setInviteOpen(true)}
+              onClick={openInviteDialog}
             >
               <Sparkles className="size-4 shrink-0" />
               Invita partner
@@ -941,7 +947,7 @@ function Collegamenti() {
                   className="size-8 shrink-0 bg-success p-0 text-success-foreground hover:bg-success/90 sm:mt-3 sm:h-9 sm:w-full sm:px-4"
                   aria-label="Invita partner"
                   disabled={!isAdmin}
-                  onClick={() => setInviteOpen(true)}
+                  onClick={openInviteDialog}
                 >
                   <span className="hidden sm:inline">Invita partner</span>
                   <ArrowRight className="size-4" />
