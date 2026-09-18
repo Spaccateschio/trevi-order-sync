@@ -22,8 +22,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { sendInvitationEmail } from "@/lib/invitation-email.functions";
+import {
+  fetchActivePriceLists,
+  fetchDefaultPriceList,
+  setCustomerPriceList,
+} from "@/lib/price-lists";
 
 /**
  * Anagrafica clienti del venditore: descrive un cliente amministrativo.
@@ -45,6 +57,7 @@ export type CustomerRecord = {
   internal_reference: string | null;
   notes: string | null;
   status: "attivo" | "disattivato" | "revocato";
+  assigned_price_list_number: number | null;
 };
 
 type Invitation = {
@@ -116,6 +129,7 @@ export function CustomerRecordsPanel({
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [inviteRecipient, setInviteRecipient] = useState<string | null>(null);
   const [inviteExpires, setInviteExpires] = useState<string | null>(null);
+  const [invitePriceList, setInvitePriceList] = useState<string>("nessuno");
   const [importOpen, setImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -157,13 +171,40 @@ export function CustomerRecordsPanel({
     };
   }
 
+  /** Listini Danea attivi dell'azienda venditrice: unica origine dei prezzi. */
+  const priceListsQuery = useQuery({
+    queryKey: ["listini-attivi", companyId],
+    queryFn: () => fetchActivePriceLists(companyId),
+  });
+
+  const defaultPriceListQuery = useQuery({
+    queryKey: ["listino-predefinito", companyId],
+    queryFn: () => fetchDefaultPriceList(companyId),
+  });
+
+  const priceLists = priceListsQuery.data ?? [];
+
+  async function assignPriceList(record: CustomerRecord, value: string) {
+    try {
+      await setCustomerPriceList(record.id, value === "nessuno" ? null : Number(value));
+      toast.success(
+        value === "nessuno"
+          ? "Listino rimosso: il cliente vedrà i prezzi su richiesta."
+          : "Listino assegnato: il cliente vede subito i prezzi nel catalogo.",
+      );
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Assegnazione non riuscita");
+    }
+  }
+
   const recordsQuery = useQuery({
     queryKey: customerRecordsQueryKey,
     queryFn: async (): Promise<CustomerRecord[]> => {
       const { data, error } = await supabase
         .from("customer_records")
         .select(
-          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, address_line, postal_code, city, province, internal_reference, notes, status",
+          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, address_line, postal_code, city, province, internal_reference, notes, status, assigned_price_list_number",
         )
         .eq("seller_company_id", companyId)
         .order("legal_name");
@@ -320,6 +361,7 @@ export function CustomerRecordsPanel({
     const { data, error } = await supabase.rpc("create_customer_invitation", {
       _customer_record_id: inviteFor.id,
       _email: inviteEmail,
+      ...(invitePriceList === "nessuno" ? {} : { _price_list_number: Number(invitePriceList) }),
     });
     setBusy(false);
     if (error) {
@@ -721,9 +763,27 @@ export function CustomerRecordsPanel({
               ) : null}
             </div>
           ) : (
-            <div className="grid gap-1.5">
-              <Label>Email del cliente</Label>
-              <Input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
+            <div className="grid gap-3">
+              <div className="grid gap-1.5">
+                <Label>Email del cliente</Label>
+                <Input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Listino da assegnare</Label>
+                <Select value={invitePriceList} onValueChange={setInvitePriceList}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Listino" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
+                    {priceLists.map((item) => (
+                      <SelectItem key={item.listNumber} value={String(item.listNumber)}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
           <DialogFooter>
