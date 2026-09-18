@@ -154,6 +154,87 @@ function emptyRow(rowIndex: number): ParsedCustomerRow {
   };
 }
 
+/**
+ * Colonne Danea senza campo dedicato: conservate in `danea_extra` con
+ * un'etichetta canonica e la scheda in cui vanno mostrate.
+ */
+export type DaneaExtraGroup = "anagrafica" | "commerciale" | "varie";
+
+export const DANEA_EXTRA_FIELDS: {
+  label: string;
+  group: DaneaExtraGroup;
+  headers: string[];
+}[] = [
+  { label: "Data mandato SDD", group: "commerciale", headers: ["data mandato sdd"] },
+  { label: "Emissione SDD", group: "commerciale", headers: ["emissione sdd"] },
+  {
+    label: "Responsabile trasporto",
+    group: "commerciale",
+    headers: ["resp. trasporto", "resp trasporto", "inc. trasporto", "responsabile trasporto"],
+  },
+  { label: "Porto", group: "commerciale", headers: ["porto"] },
+  {
+    label: "Aliquota IVA",
+    group: "commerciale",
+    headers: ["fatt. con iva", "fatt con iva", "aliquota iva"],
+  },
+  {
+    label: "Dichiarazione d'intento",
+    group: "commerciale",
+    headers: ["dich. d'intento", "dich d'intento", "dich. intento", "dichiarazione d'intento"],
+  },
+  {
+    label: "Data dichiarazione d'intento",
+    group: "commerciale",
+    headers: ["data dich. d'intento", "data dich d'intento", "data dichiarazione d'intento"],
+  },
+  {
+    label: "Conto contabile",
+    group: "commerciale",
+    headers: ["conto reg.", "conto reg", "conto"],
+  },
+  {
+    label: "Ritenuta d'acconto",
+    group: "commerciale",
+    headers: ["rit. acconto?", "rit. acconto", "rit acconto", "ritenuta d'acconto"],
+  },
+  {
+    label: "Invio documenti via e-mail",
+    group: "commerciale",
+    headers: ["doc via e-mail?", "doc via e-mail", "doc via email", "invia documenti tramite e-mail"],
+  },
+  {
+    label: "Avviso nuovi documenti",
+    group: "commerciale",
+    headers: ["avviso nuovi doc.", "avviso nuovi doc", "mostra avviso"],
+  },
+  {
+    label: "Nota in creazione documenti",
+    group: "commerciale",
+    headers: ["note doc.", "note doc", "inserisci nota"],
+  },
+  { label: "Home page", group: "varie", headers: ["home page", "homepage", "sito web"] },
+  { label: "Login web", group: "varie", headers: ["login web"] },
+  { label: "Libero 1", group: "varie", headers: ["libero 1"] },
+  { label: "Libero 2", group: "varie", headers: ["libero 2"] },
+  { label: "Libero 3", group: "varie", headers: ["libero 3"] },
+  { label: "Libero 4", group: "varie", headers: ["libero 4"] },
+  { label: "Libero 5", group: "varie", headers: ["libero 5"] },
+  { label: "Libero 6", group: "varie", headers: ["libero 6"] },
+];
+
+/** Etichetta canonica per una colonna Danea senza campo dedicato. */
+export function canonicalExtraLabel(header: string): string | null {
+  const normalized = normalizeHeader(header);
+  if (!normalized) return null;
+  return DANEA_EXTRA_FIELDS.find((entry) => entry.headers.includes(normalized))?.label ?? null;
+}
+
+/** Etichetta → scheda in cui mostrare il dato importato. */
+export const DANEA_EXTRA_GROUP_BY_LABEL: Record<string, DaneaExtraGroup> = Object.fromEntries(
+  DANEA_EXTRA_FIELDS.map((entry) => [entry.label, entry.group]),
+);
+
 /** Numero di listino Danea, se la colonna contiene un numero. */
 export function parsePriceListNumber(value: string): number | null {
   const match = value.match(/\d+/);
@@ -161,6 +242,25 @@ export function parsePriceListNumber(value: string): number | null {
   const parsed = Number(match[0]);
   return Number.isFinite(parsed) && parsed > 0 && parsed < 1000 ? parsed : null;
 }
+
+/**
+ * Nel file Danea la colonna Listino contiene il nome del listino
+ * ("BAR", "Listino 13"), non il numero: lo risolviamo confrontando i nomi
+ * dei listini dell'azienda. Se non c'è corrispondenza non assegniamo nulla.
+ */
+export function resolvePriceListNumber(
+  value: string,
+  lists: { listNumber: number; label: string }[],
+): number | null {
+  const wanted = normalizeHeader(value);
+  if (!wanted) return null;
+  const byName = lists.find((item) => normalizeHeader(item.label) === wanted);
+  if (byName) return byName.listNumber;
+  const numeric = parsePriceListNumber(value);
+  if (numeric && lists.some((item) => item.listNumber === numeric)) return numeric;
+  return null;
+}
+
 
 function normalizeHeader(value: string) {
   return value
