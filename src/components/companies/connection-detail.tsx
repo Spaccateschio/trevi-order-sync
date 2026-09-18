@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, PauseCircle, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -12,10 +12,18 @@ import {
 } from "@/components/companies/connections-table";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { identityQueryKey } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchActivePriceLists, setCustomerPriceList } from "@/lib/price-lists";
 
 type Props = {
   row: ConnectionRow | null;
@@ -46,6 +54,45 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 export function ConnectionDetail({ row, isAdmin, dates, onClose }: Props) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
+  const sellerCompanyId = row?.side === "venditore" ? row.relation.sellerCompanyId : null;
+  const customerRecordId = row?.relation.customerRecordId ?? null;
+
+  /** Listini attivi del venditore: unica origine dei prezzi del catalogo. */
+  const priceListsQuery = useQuery({
+    queryKey: ["listini-attivi", sellerCompanyId],
+    enabled: Boolean(sellerCompanyId),
+    queryFn: () => fetchActivePriceLists(sellerCompanyId!),
+  });
+
+  const assignedQuery = useQuery({
+    queryKey: ["listino-cliente", customerRecordId],
+    enabled: Boolean(customerRecordId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customer_records")
+        .select("assigned_price_list_number")
+        .eq("id", customerRecordId!)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return data?.assigned_price_list_number ?? null;
+    },
+  });
+
+  async function assignPriceList(value: string) {
+    if (!customerRecordId) return;
+    try {
+      await setCustomerPriceList(customerRecordId, value === "nessuno" ? null : Number(value));
+      await queryClient.invalidateQueries({ queryKey: ["listino-cliente", customerRecordId] });
+      await queryClient.invalidateQueries({ queryKey: ["customer-records"] });
+      toast.success(
+        value === "nessuno"
+          ? "Listino rimosso: il cliente vedrà i prezzi su richiesta."
+          : "Listino assegnato: il cliente vede subito i prezzi nel catalogo.",
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Assegnazione non riuscita");
+    }
+  }
 
   async function run(action: () => PromiseLike<{ error: { message: string } | null }>, ok: string) {
     setBusy(true);
@@ -174,6 +221,34 @@ export function ConnectionDetail({ row, isAdmin, dates, onClose }: Props) {
                     Vai alla scheda <ExternalLink className="size-3.5" />
                   </Link>
                 </div>
+                {row.side === "venditore" ? (
+                  <div className="mt-3 space-y-1.5">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Listino assegnato
+                    </p>
+                    <Select
+                      value={
+                        assignedQuery.data === null || assignedQuery.data === undefined
+                          ? "nessuno"
+                          : String(assignedQuery.data)
+                      }
+                      onValueChange={(value) => void assignPriceList(value)}
+                      disabled={!isAdmin}
+                    >
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="Listino" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
+                        {(priceListsQuery.data ?? []).map((item) => (
+                          <SelectItem key={item.listNumber} value={String(item.listNumber)}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </TabsContent>
