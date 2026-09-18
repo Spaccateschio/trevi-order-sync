@@ -129,6 +129,9 @@ function toForm(record: CustomerRecord): FormState {
     province: record.province ?? "",
     internal_reference: record.internal_reference ?? "",
     notes: record.notes ?? "",
+    contact_name: record.contact_name ?? "",
+    fax: record.fax ?? "",
+    pec: record.pec ?? "",
   };
 }
 
