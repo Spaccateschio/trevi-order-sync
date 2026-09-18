@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { Download, FileSpreadsheet, Printer } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -23,14 +24,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -43,11 +36,12 @@ import {
   CUSTOMER_COLUMNS,
   LOCKED_CUSTOMER_COLUMN,
   customerMatchesQuery,
+  loadCustomerColumnWidths,
   loadCustomerColumns,
+  saveCustomerColumnWidths,
   saveCustomerColumns,
   type CustomerColumnKey,
 } from "@/lib/customer-columns";
-import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -59,6 +53,11 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { DANEA_EXTRA_GROUP_BY_LABEL } from "@/lib/customer-import";
 import { sendInvitationEmail } from "@/lib/invitation-email.functions";
+import {
+  downloadCustomersCsv,
+  downloadCustomersExcel,
+  printCustomers,
+} from "@/lib/customer-export";
 import {
   fetchActivePriceLists,
   fetchDefaultPriceList,
@@ -182,6 +181,9 @@ export function CustomerRecordsPanel({
     key: "legal_name",
     asc: true,
   });
+  const [columnWidths, setColumnWidths] = useState<Record<CustomerColumnKey, number>>(() =>
+    loadCustomerColumnWidths(),
+  );
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkResults, setBulkResults] = useState<
     {
@@ -651,32 +653,11 @@ export function CustomerRecordsPanel({
     );
   }
 
-  function PriceListCell({ record }: { record: CustomerRecord }) {
+  function priceListText(record: CustomerRecord) {
+    if (record.assigned_price_list_number === null) return "Nessuno · prezzi su richiesta";
     return (
-      <Select
-        value={
-          record.assigned_price_list_number === null
-            ? "nessuno"
-            : String(record.assigned_price_list_number)
-        }
-        onValueChange={(value) => void assignPriceList(record, value)}
-        disabled={!isAdmin}
-      >
-        <SelectTrigger
-          className="h-7 w-full text-xs"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <SelectValue placeholder="Listino" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
-          {priceLists.map((item) => (
-            <SelectItem key={item.listNumber} value={String(item.listNumber)}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      priceLists.find((item) => item.listNumber === record.assigned_price_list_number)?.label ??
+      `Listino ${record.assigned_price_list_number}`
     );
   }
 
@@ -696,12 +677,53 @@ export function CustomerRecordsPanel({
   }
 
   function cellContent(column: (typeof CUSTOMER_COLUMNS)[number], record: CustomerRecord) {
-    if (column.key === "price_list") return <PriceListCell record={record} />;
+    if (column.key === "price_list")
+      return <span className="text-muted-foreground">{priceListText(record)}</span>;
     if (column.key === "link") return <LinkCell record={record} />;
     if (column.key === "legal_name")
       return <span className="font-medium">{record.legal_name}</span>;
     return <span className="text-muted-foreground">{column.value(record) || "—"}</span>;
   }
+
+  function exportContext() {
+    const chosen = filtered.filter((record) => selectedIds.has(record.id));
+    return {
+      columns,
+      records: chosen,
+      priceListLabel: priceListText,
+      linkLabel: (record: CustomerRecord) => rowInfo(record).link.label,
+    };
+  }
+
+  function resizeColumn(event: React.PointerEvent, key: CustomerColumnKey) {
+    event.preventDefault();
+    event.stopPropagation();
+    const table = event.currentTarget.closest("table");
+    if (!table) return;
+    const startX = event.clientX;
+    const startWidth = columnWidths[key];
+    const tableWidth = table.getBoundingClientRect().width;
+    if (!tableWidth) return;
+    const onMove = (moveEvent: PointerEvent) => {
+      const delta = ((moveEvent.clientX - startX) / tableWidth) * 100;
+      setColumnWidths((current) => ({ ...current, [key]: Math.max(3, startWidth + delta) }));
+    };
+    const onUp = () => {
+      setColumnWidths((current) => {
+        saveCustomerColumnWidths(current);
+        return current;
+      });
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  }
+
+  const visibleWeight = columns.reduce((total, column) => total + columnWidths[column.key], 0);
+  const columnPercent = (key: CustomerColumnKey) =>
+    `${(columnWidths[key] / Math.max(visibleWeight, 1)) * 100}%`;
+  const densityClass = columns.length >= 12 ? "text-[8px]" : columns.length >= 8 ? "text-[9px]" : "text-[10px]";
 
   return (
     <div className="space-y-3">
@@ -769,6 +791,36 @@ export function CustomerRecordsPanel({
             </Button>
             <Button
               size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => {
+                try {
+                  printCustomers(exportContext());
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Stampa non disponibile");
+                }
+              }}
+            >
+              <Printer /> Stampa
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => void downloadCustomersExcel(exportContext())}
+            >
+              <FileSpreadsheet /> Salva Excel
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => downloadCustomersCsv(exportContext())}
+            >
+              <Download /> Salva CSV
+            </Button>
+            <Button
+              size="sm"
               className="h-7 text-xs"
               disabled={busy || !isAdmin}
               onClick={generateBulkInvites}
@@ -790,62 +842,82 @@ export function CustomerRecordsPanel({
       ) : (
         <>
           {/* Elenco gestionale: una riga per cliente, testo compatto. */}
-          <div className="hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
-            <Table className="text-xs">
-              <TableHeader className="sticky top-0 z-10 bg-muted/60 backdrop-blur">
-                <TableRow>
-                  <TableHead className="w-8">
+          <div className="hidden rounded-lg border border-border bg-card sm:block">
+            <table className={`w-full table-fixed border-separate border-spacing-0 ${densityClass}`}>
+              <colgroup>
+                <col className="w-8" />
+                {columns.map((column) => (
+                  <col key={column.key} style={{ width: columnPercent(column.key) }} />
+                ))}
+                <col className="w-14" />
+              </colgroup>
+              <thead className="sticky top-0 z-10 bg-muted shadow-sm lg:top-0">
+                <tr>
+                  <th className="h-8 border-b border-r border-border px-1 text-left">
                     <Checkbox
                       checked={allFilteredSelected}
                       onCheckedChange={toggleAllFiltered}
                       aria-label="Seleziona tutti i clienti filtrati"
                     />
-                  </TableHead>
+                  </th>
                   {columns.map((column) => (
-                    <TableHead
+                    <th
                       key={column.key}
-                      className={cn(
-                        "h-8 cursor-pointer select-none whitespace-nowrap text-xs",
-                        column.className,
-                      )}
+                      className="relative h-8 min-w-0 cursor-pointer select-none border-b border-r border-border px-1 text-left font-medium text-muted-foreground"
                       onClick={() => toggleSort(column.key)}
                     >
-                      {column.label}
-                      {sort.key === column.key ? (sort.asc ? " ▲" : " ▼") : ""}
-                    </TableHead>
+                      <span className="block truncate" title={column.label}>
+                        {column.label}{sort.key === column.key ? (sort.asc ? " ▲" : " ▼") : ""}
+                      </span>
+                      <span
+                        role="separator"
+                        aria-label={`Ridimensiona ${column.label}`}
+                        aria-orientation="vertical"
+                        className="absolute inset-y-0 right-0 z-20 w-1.5 cursor-col-resize touch-none hover:bg-accent"
+                        onPointerDown={(event) => resizeColumn(event, column.key)}
+                        onClick={(event) => event.stopPropagation()}
+                      />
+                    </th>
                   ))}
-                  <TableHead className="w-20 text-right text-xs">Azioni</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                  <th className="h-8 border-b border-border px-1 text-right font-medium text-muted-foreground">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
                 {filtered.map((record) => (
-                  <TableRow
+                  <tr
                     key={record.id}
-                    className="cursor-pointer odd:bg-muted/20"
+                    className="cursor-pointer odd:bg-muted/20 hover:bg-muted/50"
                     onClick={() => openEdit(record)}
                   >
-                    <TableCell className="py-1" onClick={(event) => event.stopPropagation()}>
+                    <td className="border-b border-r border-border px-1 py-1" onClick={(event) => event.stopPropagation()}>
                       <Checkbox
                         checked={selectedIds.has(record.id)}
                         onCheckedChange={() => toggleSelect(record.id)}
                         aria-label={`Seleziona ${record.legal_name}`}
                       />
-                    </TableCell>
+                    </td>
                     {columns.map((column) => (
-                      <TableCell
+                      <td
                         key={column.key}
-                        className={cn("max-w-56 truncate py-1", column.className)}
+                        className="min-w-0 truncate border-b border-r border-border px-1 py-1"
+                        title={
+                          column.key === "price_list"
+                            ? priceListText(record)
+                            : column.key === "link"
+                              ? rowInfo(record).link.label
+                              : column.value(record) || "—"
+                        }
                       >
-                        {cellContent(column, record)}
-                      </TableCell>
+                        <span className="block truncate">{cellContent(column, record)}</span>
+                      </td>
                     ))}
-                    <TableCell className="py-1 text-right">
+                    <td className="border-b border-border px-1 py-1 text-right">
                       <RowActions record={record} />
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
 
           {/* Smartphone: lista compatta con le stesse azioni. */}
