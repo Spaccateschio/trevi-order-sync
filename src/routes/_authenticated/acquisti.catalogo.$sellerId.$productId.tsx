@@ -142,7 +142,7 @@ function CatalogProductPage() {
   return (
     <AppShell
       title={product?.description ?? product?.code ?? "Prodotto"}
-      description={relation?.sellerCompanyName ?? undefined}
+      description={relation?.sellerCompanyName ?? "Catalogo del fornitore"}
       actions={
         <Button asChild variant="outline" size="sm">
           <Link to="/acquisti/catalogo/$sellerId" params={{ sellerId }}>
@@ -155,7 +155,7 @@ function CatalogProductPage() {
         <p className="text-sm text-muted-foreground">Caricamento…</p>
       ) : !product ? (
         <p className="text-sm text-muted-foreground">
-          Prodotto non disponibile: potrebbe essere stato togliere dalla vetrina dal fornitore.
+          Prodotto non disponibile: il fornitore potrebbe averlo nascosto dalla vetrina.
         </p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,380px)_1fr]">
