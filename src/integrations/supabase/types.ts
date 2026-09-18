@@ -2067,6 +2067,14 @@ export type Database = {
         }
         Returns: string
       }
+      manage_customer_record_status: {
+        Args: {
+          _action: string
+          _customer_record_id: string
+          _seller_company_id: string
+        }
+        Returns: string
+      }
       manage_unit_of_measure: {
         Args: {
           _action: string
