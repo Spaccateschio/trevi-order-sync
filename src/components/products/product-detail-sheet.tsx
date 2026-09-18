@@ -72,6 +72,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
       <SheetDescription>Configura le U.M. di vendita o consulta i dati originali Danea.</SheetDescription>
     </SheetHeader>
     <div className="mt-6 space-y-6">
+      {companyId ? <ShowcaseToggle product={product} companyId={companyId} editable={isAdmin} /> : null}
       {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} /> : null}
       <ProductImageManager productId={product.id} image={product.product_images ?? null} editable={isAdmin} />
       <Collapsible open={daneaOpen} onOpenChange={setDaneaOpen} className="border-t border-border pt-2">
