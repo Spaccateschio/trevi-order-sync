@@ -293,6 +293,9 @@ export function CustomerRecordsPanel({
     setInviteLink(null);
     setInviteRecipient(record.legal_name);
     setInviteExpires(null);
+    // Precompilato: listino già assegnato al cliente, altrimenti predefinito dell'azienda.
+    const suggested = record.assigned_price_list_number ?? defaultPriceListQuery.data ?? null;
+    setInvitePriceList(suggested === null ? "nessuno" : String(suggested));
   }
 
   function linkFor(token: string) {
