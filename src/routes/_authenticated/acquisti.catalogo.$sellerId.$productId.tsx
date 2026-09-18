@@ -169,6 +169,10 @@ function CatalogProductPage() {
 
   const product = productQuery.data;
   const price = priceQuery.data?.get(productId) ?? null;
+  const units = product ? sortedSaleUnits(product) : [];
+  const selectedUnit = product
+    ? resolveSaleUnit(product, unitsQuery.data?.get(productId))
+    : null;
 
   return (
     <AppShell
