@@ -123,6 +123,7 @@ function Collegamenti() {
 
   const [view, setView] = useState<View>("connessioni");
   const [tab, setTab] = useState<Tab>("clienti");
+  const [stato, setStato] = useState<StatoFilter>("tutti");
   /** Link freschi ottenuti dopo un reinvio: il token non è recuperabile dal database. */
   const [freshLinks, setFreshLinks] = useState<Record<string, string>>({});
   const [listSearch, setListSearch] = useState("");
@@ -284,10 +285,9 @@ function Collegamenti() {
   /** Nei rapporti in due sensi si mostra una sola riga per azienda. */
   const singleRows = rows.filter((row) => !(row.bothWays && row.side === "acquirente"));
 
-  const inRapporto = (row: ConnectionRow, key: RapportoFilter) => {
-    if (key === "tutti") return true;
+  const inTab = (row: ConnectionRow, key: Tab) => {
     if (key === "entrambi") return row.bothWays;
-    if (key === "vendo") return row.side === "venditore" && !row.bothWays;
+    if (key === "clienti") return row.side === "venditore" && !row.bothWays;
     return row.side === "acquirente" && !row.bothWays;
   };
 
@@ -299,8 +299,15 @@ function Collegamenti() {
     return true;
   };
 
+  const tabCounts = Object.fromEntries(
+    (Object.keys(tabLabels) as Tab[]).map((key) => [
+      key,
+      singleRows.filter((row) => inTab(row, key)).length,
+    ]),
+  ) as Record<Tab, number>;
+
   const visibleRows = singleRows.filter(
-    (row) => matchSearch(row) && inRapporto(row, rapporto) && passesStato(row, stato),
+    (row) => matchSearch(row) && inTab(row, tab) && passesStato(row, stato),
   );
   const pendingRows = rows.filter((row) => row.relation.status === "in_attesa");
   const openRow = rows.find((row) => row.key === openKey) ?? null;
@@ -610,6 +617,18 @@ function Collegamenti() {
 
         {view === "connessioni" ? (
           <div className="space-y-3">
+            <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+              <TabsList className="h-auto w-full justify-stretch gap-1 sm:w-auto sm:justify-start">
+                {(Object.keys(tabLabels) as Tab[]).map((key) => (
+                  <TabsTrigger key={key} value={key} className="flex-1 sm:flex-none">
+                    {tabLabels[key]}
+                    <span className="ml-1.5 text-xs text-muted-foreground">
+                      {tabCounts[key]}
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative w-full max-w-sm">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -621,21 +640,6 @@ function Collegamenti() {
                   aria-label="Cerca fra le connessioni"
                 />
               </div>
-              <Select
-                value={rapporto}
-                onValueChange={(value) => setRapporto(value as RapportoFilter)}
-              >
-                <SelectTrigger className="h-9 w-[168px]" aria-label="Filtra per rapporto">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(rapportoLabels) as RapportoFilter[]).map((key) => (
-                    <SelectItem key={key} value={key}>
-                      {rapportoLabels[key]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <Select value={stato} onValueChange={(value) => setStato(value as StatoFilter)}>
                 <SelectTrigger className="h-9 w-[168px]" aria-label="Filtra per stato">
                   <SelectValue />
