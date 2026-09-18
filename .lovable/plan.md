@@ -1,41 +1,39 @@
-# Importazione clienti: listini corretti e conferma sui dati da sovrascrivere
+# Archivi Danea su clienti e listini
 
-## Cosa ho trovato nel nuovo file
+## Cosa ho verificato nel progetto
 
-- Il nuovo `Soggetti_2.ods` usa nomi di listino generici: **Listino 1** (39 clienti), **Listino 2** (48), **Listino 3** (15), **Rompi** (2), 2 righe senza listino.
-- I listini nel tuo gestionale sono registrati con i vecchi nomi: **1 = BAR**, **2 = RISTORANTE**, **3 = Listino 13**. Quindi il cliente viene collegato al numero giusto, ma nella scheda leggi il vecchio nome: "Listino 1" appare come "BAR", "Listino 3" come "Listino 13". È questo il motivo principale della sensazione di listini sbagliati.
-- **Rompi** non corrisponde a nessun listino: quei clienti restano con il listino precedente, senza avvisarti in modo chiaro.
-- I clienti eliminati (nascosti) non vengono confrontati durante l'importazione: reimportandoli nascono **doppioni** (es. AL MORO presente due volte).
-- Oggi l'aggiornamento riempie i campi vuoti e sostituisce quelli compilati, ma non ti chiede nulla e non può svuotare un dato che nel nuovo file è stato cancellato.
+- **Prodotti**: già legati all'archivio. ✓
+- **Listini**: la tabella dei listini **ha già** il campo archivio e la sincronizzazione dei nomi scrive già nell'archivio dell'import in corso. Manca però il vincolo di unicità su (azienda, archivio, numero): senza di esso l'aggiornamento dei nomi può creare righe doppie invece di aggiornare, ed è da lì che nascono nomi incoerenti. Oggi esiste un solo archivio ("Archivio principale", 9 listini, 14 prodotti), quindi nulla è stato sovrascritto tra archivi.
+- **Clienti**: nessun campo archivio. Da aggiungere, con scelta obbligatoria all'import.
+- **Prezzi e listini assegnati**: le funzioni di risoluzione (prezzi acquirente, listino predefinito, assegnazione listino) cercano il listino per azienda + numero, **senza archivio**: con due archivi il numero 2 diventa ambiguo.
 
 ## Cosa farò
 
-### 1. Listini: nome giusto e abbinamento manuale
-- Nell'anteprima compare una riga per ogni valore di listino trovato nel file, con il listino a cui verrà assegnato ("Listino 1 → listino 1 · BAR").
-- Per i valori non riconosciuti (**Rompi**) scegli tu dall'elenco a quale listino corrisponde, oppure "non assegnare". La scelta viene ricordata per le importazioni successive.
-- Se nel file un listino ha un nome nuovo, posso aggiornare il nome mostrato nell'app con quello del file (spunta "Aggiorna i nomi dei listini dal file"), così "BAR" diventa "Listino 1" solo se lo confermi.
+### 1. Listini per archivio, senza ambiguità
+- Rendo univoca la terna azienda + archivio + numero listino (unendo eventuali righe doppie preesistenti), così ogni archivio ha i suoi nomi e non li perde più.
+- Gli elenchi "Listino assegnato" e "Listino predefinito" mostrano i listini raggruppati per archivio, con il nome dell'archivio accanto.
 
-### 2. Conferma prima di sovrascrivere
-- Per i clienti già presenti l'anteprima elenca, cliente per cliente, i dati che cambiano: valore attuale → nuovo valore (compreso il listino).
-- In alto scegli una volta come comportarti:
-  - **Sostituisci tutto con il nuovo file** (svuota anche i campi che nel file sono vuoti),
-  - **Aggiorna solo dove il file ha un dato** (comportamento attuale),
-  - **Solo campi vuoti** (non tocca nulla di già compilato).
-- Puoi comunque deselezionare i singoli clienti che non vuoi aggiornare.
+### 2. Archivio sui clienti
+- Nuovo campo archivio sull'anagrafica cliente, vuoto per i clienti già presenti.
+- Nell'importazione da file compare, prima dell'anteprima, la scelta obbligatoria dell'archivio Danea: nessuna deduzione dal nome o dal contenuto del file. L'archivio scelto viene salvato su ogni cliente creato o aggiornato.
+- Il riconoscimento dei clienti già presenti (codice Danea, P.IVA, codice fiscale) avviene **solo all'interno dell'archivio scelto**: stesso codice o stessa P.IVA in due archivi restano due schede distinte, mai unite. I clienti senza archivio vengono confrontati solo per l'archivio "non assegnato".
 
-### 3. Niente doppioni
-- Il confronto include anche i clienti eliminati: se un cliente del file corrisponde a uno eliminato, l'anteprima lo segnala e lo ripristina aggiornandolo, invece di creare una scheda nuova.
+### 3. Prezzi e catalogo coerenti con l'archivio
+- Il listino assegnato a un cliente viene risolto sui listini del suo archivio; cliente senza archivio: comportamento identico a oggi.
+- Un acquirente collegato a un'anagrafica con archivio vede in catalogo **solo i prodotti di quell'archivio**; anagrafica senza archivio: vede tutto come oggi. (È il punto su cui mi hai chiesto un parere: lo confermo, è coerente e reversibile — oggi con un solo archivio non cambia nulla nella pratica.)
+- L'assegnazione manuale del listino accetta solo numeri esistenti nell'archivio del cliente.
+
+## Fuori scope (confermato)
+Applicazione automatica della colonna "Listino" del file clienti (resta al Punto 5c), cancellazione dati di test, fusione clienti tra archivi. Resta in coda anche la richiesta precedente su conferma/sovrascrittura dei dati in import e sul valore listino "Rompi" non riconosciuto: la affronto dopo, separatamente.
 
 ## Note tecniche
-
-- Migrazione: `manage_customer_record` con nuovo parametro `_overwrite boolean DEFAULT false` (quando true i campi passati sostituiscono il valore esistente, anche con NULL) e `_price_list_number` che può essere azzerato solo in modalità sostituzione; `SECURITY DEFINER`, `search_path = public`, controlli `is_company_admin` + `company_sells` invariati. Nuova RPC `set_price_list_display_name(_company_id, _list_number, _display_name)` per l'opzione dei nomi, admin-only.
-- `src/lib/customer-import.ts`: mappa nomi listino → numero con override manuale (`resolvePriceListNumber` esteso), `buildPreview` riceve anche i clienti eliminati e restituisce l'esito `restore`, calcolo del diff campo per campo.
-- `src/components/companies/customer-import-dialog.tsx`: pannello listini con Select per i valori non riconosciuti, scelta della modalità di aggiornamento, elenco differenze per cliente.
-- `src/components/companies/customer-records-panel.tsx`: passa tutti i clienti (compresi gli eliminati) al dialogo.
-- Nessuna modifica a prodotti, collegamenti B2B, RLS esistenti, destinazioni o indirizzi.
+- Migrazione additiva: indice unico `danea_price_lists (company_id, archive_id, list_number)` dopo consolidamento dei duplicati; `customer_records.archive_id uuid NULL REFERENCES danea_archives(id)` + indice su (seller_company_id, archive_id); trigger di coerenza archivio↔azienda come per i prodotti.
+- `manage_customer_record`: nuovo parametro `_archive_id uuid DEFAULT NULL`, scritto in create e in update (solo se passato), `SECURITY DEFINER`, `search_path = public`, controlli `is_company_admin` + `company_sells` invariati.
+- `buyer_catalog_prices`, `resolve_default_price_list`, `set_customer_price_list`: risoluzione del listino vincolata all'`archive_id` del cliente (fallback attuale quando NULL); filtro prodotti per archivio nel catalogo acquirente.
+- Frontend: `fetchActivePriceLists` restituisce anche l'archivio (raggruppamento nelle select), selettore archivio in `customer-import-dialog.tsx`, matching per archivio in `buildPreview` (`src/lib/customer-import.ts`), archivio mostrato nella scheda cliente.
+- Nessuna modifica a import prodotti, relazioni B2B, doppio consenso, inviti, destinazioni.
 
 ## Verifiche
-
-- Import di `Soggetti_2.ods`: nessun doppione, "Rompi" chiesto una volta, 102 clienti con listino atteso.
-- Cliente con dato svuotato nel file: aggiornato solo in modalità "Sostituisci tutto".
-- Controllo su computer e smartphone, build senza errori.
+- Due file con stessi codici e stesse P.IVA importati su due archivi → schede separate, nomi listini intatti su entrambi.
+- Listino 2 assegnato a un cliente dell'archivio A → prezzi del listino 2 di A, mai di B.
+- Un solo archivio: comportamento identico a oggi; build e controlli su computer e smartphone.
