@@ -121,6 +121,25 @@ function ProdottiPage() {
   const [sorting, setSorting] = useState<SortingState>(defaults.sorting);
   const [preferencesReady, setPreferencesReady] = useState(false);
 
+  // Vetrina B2B: products resta in sola scrittura Danea, l'interruttore passa dalla funzione dedicata.
+  const showcaseMutation = useMutation({
+    mutationFn: async (visible: boolean) => {
+      if (!companyId) throw new Error("Azienda non disponibile");
+      const { error } = await supabase.rpc("set_product_b2b_visibility", {
+        _company_id: companyId,
+        _product_ids: Array.from(selectedIds),
+        _visible: visible,
+      });
+      if (error) throw new Error(error.message);
+      return visible;
+    },
+    onSuccess: (visible) => {
+      toast.success(visible ? "Prodotti messi in vetrina B2B" : "Prodotti nascosti dalla vetrina");
+      void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   useEffect(() => {
     const update = () => setDeviceClass(getDeviceClass());
     update();
