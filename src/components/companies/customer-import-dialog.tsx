@@ -147,6 +147,10 @@ export function CustomerImportDialog({
       toast.error("Seleziona almeno un cliente da importare.");
       return;
     }
+    if (!archiveId) {
+      toast.error("Scegli l'archivio Danea di provenienza del file.");
+      return;
+    }
     setBusy(true);
     let created = 0;
     let updated = 0;
