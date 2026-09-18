@@ -305,7 +305,9 @@ function rowsToCustomers(
       if (!value) return;
       if (!field) {
         // Colonna non abbinata ma compilata: la conserviamo fra gli altri dati Danea.
-        const label = (headers[column] ?? "").toString().trim() || `Colonna ${column + 1}`;
+        const header = (headers[column] ?? "").toString().trim();
+        const label = canonicalExtraLabel(header) || header || `Colonna ${column + 1}`;
+
         row.extra[label] = row.extra[label] ? `${row.extra[label]} · ${value}` : value;
         return;
       }
