@@ -729,6 +729,7 @@ export type Database = {
         Row: {
           address_line: string | null
           agent: string | null
+          archive_id: string | null
           assigned_price_list_number: number | null
           bank: string | null
           city: string | null
@@ -769,6 +770,7 @@ export type Database = {
         Insert: {
           address_line?: string | null
           agent?: string | null
+          archive_id?: string | null
           assigned_price_list_number?: number | null
           bank?: string | null
           city?: string | null
@@ -809,6 +811,7 @@ export type Database = {
         Update: {
           address_line?: string | null
           agent?: string | null
+          archive_id?: string | null
           assigned_price_list_number?: number | null
           bank?: string | null
           city?: string | null
@@ -847,6 +850,13 @@ export type Database = {
           vat_number?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "customer_records_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "customer_records_seller_company_id_fkey"
             columns: ["seller_company_id"]
@@ -2033,6 +2043,7 @@ export type Database = {
           _action: string
           _address_line?: string
           _agent?: string
+          _archive_id?: string
           _bank?: string
           _city?: string
           _contact_name?: string

@@ -483,6 +483,7 @@ export type ExistingCustomer = {
   vat_normalized: string | null;
   tax_code: string | null;
   internal_reference: string | null;
+  archive_id?: string | null;
 };
 
 export type PreviewItem = {
@@ -493,15 +494,21 @@ export type PreviewItem = {
   reason?: string;
 };
 
-/** Anteprima: cosa verrà creato, aggiornato o scartato. */
+/**
+ * Anteprima: cosa verrà creato, aggiornato o scartato.
+ * Il confronto avviene solo dentro l'archivio Danea scelto: lo stesso codice
+ * o la stessa partita IVA in due archivi restano due schede distinte.
+ */
 export function buildPreview(
   customers: ParsedCustomerRow[],
   existing: ExistingCustomer[],
+  archiveId: string | null = null,
 ): PreviewItem[] {
   const byVat = new Map<string, ExistingCustomer>();
   const byTax = new Map<string, ExistingCustomer>();
   const byRef = new Map<string, ExistingCustomer>();
-  for (const record of existing) {
+  const scoped = existing.filter((record) => (record.archive_id ?? null) === (archiveId ?? null));
+  for (const record of scoped) {
     if (record.vat_normalized) byVat.set(record.vat_normalized, record);
     if (record.tax_code) byTax.set(normalizeVat(record.tax_code), record);
     if (record.internal_reference) byRef.set(record.internal_reference.trim().toLowerCase(), record);

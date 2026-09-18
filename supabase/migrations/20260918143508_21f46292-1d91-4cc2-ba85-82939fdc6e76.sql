@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.danea_price_lists_company_archive_list_key;

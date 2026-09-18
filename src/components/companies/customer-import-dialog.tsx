@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchActivePriceLists } from "@/lib/price-lists";
+import { fetchActivePriceLists, fetchDaneaArchives, listsForArchive } from "@/lib/price-lists";
 import {
   IMPORT_FIELD_LABELS,
   buildPreview,
@@ -61,32 +61,51 @@ export function CustomerImportDialog({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+  /** Archivio Danea di provenienza del file: scelta obbligatoria, mai dedotta. */
+  const [archiveId, setArchiveId] = useState<string | null>(null);
+
+  const archivesQuery = useQuery({
+    queryKey: ["archivi-danea", companyId],
+    queryFn: () => fetchDaneaArchives(companyId),
+  });
+  const archives = archivesQuery.data ?? [];
 
   /** Listini dell'azienda: servono per riconoscere il nome scritto nel file. */
   const priceListsQuery = useQuery({
     queryKey: ["listini-attivi", companyId],
     queryFn: () => fetchActivePriceLists(companyId),
   });
-  const priceLists = priceListsQuery.data ?? [];
+  const priceLists = listsForArchive(priceListsQuery.data ?? [], archiveId);
 
   function reset() {
     setParsed(null);
     setPreview([]);
     setSelected(new Set());
     setSummary(null);
+    setArchiveId(null);
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  function applyPreview(file: ParsedFile) {
-    const items = buildPreview(file.customers, existing);
+  function applyPreview(file: ParsedFile, archive: string | null = archiveId) {
+    const items = buildPreview(file.customers, existing, archive);
     setPreview(items);
     setSelected(
       new Set(items.filter((item) => item.outcome !== "skip").map((item) => item.row.rowIndex)),
     );
   }
 
+  function changeArchive(value: string) {
+    setArchiveId(value);
+    if (parsed) applyPreview(parsed, value);
+  }
+
   async function handleFile(file: File) {
     setSummary(null);
+    if (!archiveId) {
+      toast.error("Scegli prima l'archivio Danea di provenienza del file.");
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
     try {
       const result = await parseCustomerFile(file);
       if (!result.customers.length) {
@@ -128,6 +147,10 @@ export function CustomerImportDialog({
       toast.error("Seleziona almeno un cliente da importare.");
       return;
     }
+    if (!archiveId) {
+      toast.error("Scegli l'archivio Danea di provenienza del file.");
+      return;
+    }
     setBusy(true);
     let created = 0;
     let updated = 0;
@@ -167,6 +190,7 @@ export function CustomerImportDialog({
         _our_bank: row.our_bank,
         ...(extraEntries.length ? { _danea_extra: Object.fromEntries(extraEntries) } : {}),
         ...(priceList ? { _price_list_number: priceList } : {}),
+        _archive_id: archiveId,
       };
       const { error } = await supabase.rpc("manage_customer_record", payload);
       if (error) {
@@ -234,13 +258,35 @@ export function CustomerImportDialog({
         ) : null}
 
         <div className="grid gap-1.5">
+          <Label>Archivio di provenienza</Label>
+          <Select {...(archiveId ? { value: archiveId } : {})} onValueChange={changeArchive}>
+            <SelectTrigger>
+              <SelectValue placeholder="Scegli l’archivio Danea del file" />
+            </SelectTrigger>
+            <SelectContent>
+              {archives.map((archive) => (
+                <SelectItem key={archive.id} value={archive.id}>
+                  {archive.name}
+                  {archive.isDefault ? " · predefinito" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Obbligatorio: i clienti, i loro codici e i listini restano separati per archivio. Lo
+            stesso codice in due archivi resta una scheda distinta.
+          </p>
+        </div>
+
+        <div className="grid gap-1.5">
           <Label htmlFor="customer-import-file">File Danea</Label>
           <input
             id="customer-import-file"
             ref={inputRef}
             type="file"
+            disabled={!archiveId}
             accept=".xlsx,.xls,.ods,.csv,.txt,.xml"
-            className="block w-full cursor-pointer rounded-md border border-border bg-background p-2 text-sm"
+            className="block w-full cursor-pointer rounded-md border border-border bg-background p-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) void handleFile(file);
@@ -335,7 +381,7 @@ export function CustomerImportDialog({
           >
             Chiudi
           </Button>
-          <Button disabled={busy || !preview.length} onClick={confirmImport}>
+          <Button disabled={busy || !preview.length || !archiveId} onClick={confirmImport}>
             {busy ? "Importazione…" : `Importa ${selected.size} clienti`}
           </Button>
         </DialogFooter>

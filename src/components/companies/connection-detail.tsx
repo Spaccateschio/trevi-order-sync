@@ -23,7 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { identityQueryKey } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchActivePriceLists, setCustomerPriceList } from "@/lib/price-lists";
+import { fetchActivePriceLists, listsForArchive, setCustomerPriceList } from "@/lib/price-lists";
 
 type Props = {
   row: ConnectionRow | null;
@@ -70,11 +70,14 @@ export function ConnectionDetail({ row, isAdmin, dates, onClose }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customer_records")
-        .select("assigned_price_list_number")
+        .select("assigned_price_list_number, archive_id")
         .eq("id", customerRecordId!)
         .maybeSingle();
       if (error) throw new Error(error.message);
-      return data?.assigned_price_list_number ?? null;
+      return {
+        listNumber: data?.assigned_price_list_number ?? null,
+        archiveId: data?.archive_id ?? null,
+      };
     },
   });
 
@@ -228,9 +231,10 @@ export function ConnectionDetail({ row, isAdmin, dates, onClose }: Props) {
                     </p>
                     <Select
                       value={
-                        assignedQuery.data === null || assignedQuery.data === undefined
+                        assignedQuery.data?.listNumber === null ||
+                        assignedQuery.data?.listNumber === undefined
                           ? "nessuno"
-                          : String(assignedQuery.data)
+                          : String(assignedQuery.data.listNumber)
                       }
                       onValueChange={(value) => void assignPriceList(value)}
                       disabled={!isAdmin}
@@ -240,7 +244,10 @@ export function ConnectionDetail({ row, isAdmin, dates, onClose }: Props) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
-                        {(priceListsQuery.data ?? []).map((item) => (
+                        {listsForArchive(
+                          priceListsQuery.data ?? [],
+                          assignedQuery.data?.archiveId ?? null,
+                        ).map((item) => (
                           <SelectItem key={item.listNumber} value={String(item.listNumber)}>
                             {item.label}
                           </SelectItem>
