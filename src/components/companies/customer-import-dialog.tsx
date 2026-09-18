@@ -344,7 +344,19 @@ export function CustomerImportDialog({
           </div>
         ) : null}
 
+        {archiveId && !priceListsQuery.isLoading && !priceLists.length ? (
+          <div className="space-y-1 rounded-lg border border-border p-3">
+            <p className="text-sm font-medium">Nessun listino in questo archivio</p>
+            <p className="text-xs text-muted-foreground">
+              Questo archivio non ha ancora ricevuto i listini da Danea: i clienti verranno
+              importati senza listino. Invia prima i prodotti dalla postazione Danea, poi reimporta
+              il file per assegnare i listini.
+            </p>
+          </div>
+        ) : null}
+
         {unresolvedPriceLists.length ? (
+
           <div className="space-y-1 rounded-lg border border-border p-3">
             <p className="text-sm font-medium">Listini non riconosciuti</p>
             <p className="text-xs text-muted-foreground">
