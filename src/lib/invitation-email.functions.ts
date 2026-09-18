@@ -10,6 +10,22 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * accettiamo solo l'identificativo dell'invito e il token appena generato,
  * che non è recuperabile perché nel database resta solo la sua impronta.
  */
+/**
+ * L'email può essere generata da un ambiente locale o di anteprima: in quel
+ * caso il link non sarebbe raggiungibile da chi la riceve, quindi usiamo
+ * sempre l'indirizzo pubblico del sito.
+ */
+const PUBLIC_SITE_URL = "https://trevi-order-sync.lovable.app";
+
+function publicOrigin(origin: string): string {
+  const fromEnv = process.env["PUBLIC_SITE_URL"];
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)) {
+    return PUBLIC_SITE_URL;
+  }
+  return origin;
+}
+
 const schema = z.object({
   invitationId: z.string().uuid(),
   token: z.string().min(10),
@@ -51,7 +67,7 @@ export const sendInvitationEmail = createServerFn({ method: "POST" })
         : Promise.resolve({ data: null }),
     ]);
 
-    const origin = new URL(getRequest().url).origin;
+    const origin = publicOrigin(new URL(getRequest().url).origin);
     const { sendTemplateEmail } = await import("./email-templates/send-email");
 
     const result = await sendTemplateEmail("invito-collegamento", recipient, {
