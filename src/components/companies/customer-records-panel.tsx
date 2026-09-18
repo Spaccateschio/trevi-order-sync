@@ -937,22 +937,51 @@ export function CustomerRecordsPanel({
                   {columns.map((column) => (
                     <th
                       key={column.key}
-                      className="relative h-8 min-w-0 cursor-pointer select-none border-b border-r border-border px-1 text-left font-medium text-muted-foreground"
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", column.key);
+                        setDragColumn(column.key);
+                      }}
+                      onDragOver={(event) => {
+                        if (!dragColumn) return;
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "move";
+                        if (dropTarget !== column.key) setDropTarget(column.key);
+                      }}
+                      onDragLeave={() => setDropTarget((prev) => (prev === column.key ? null : prev))}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        dropColumn(column.key);
+                      }}
+                      onDragEnd={() => {
+                        setDragColumn(null);
+                        setDropTarget(null);
+                      }}
+                      className={`relative h-8 min-w-0 cursor-grab select-none border-b border-r border-border px-1 text-left font-medium text-muted-foreground active:cursor-grabbing ${
+                        dropTarget === column.key && dragColumn !== column.key
+                          ? "bg-accent text-accent-foreground"
+                          : ""
+                      } ${dragColumn === column.key ? "opacity-60" : ""}`}
+                      title={`${column.label} — clicca per ordinare, trascina per spostare`}
                       onClick={() => toggleSort(column.key)}
                     >
-                      <span className="block truncate" title={column.label}>
+                      <span className="block truncate">
                         {column.label}{sort.key === column.key ? (sort.asc ? " ▲" : " ▼") : ""}
                       </span>
                       <span
                         role="separator"
                         aria-label={`Ridimensiona ${column.label}`}
                         aria-orientation="vertical"
+                        draggable={false}
                         className="absolute inset-y-0 right-0 z-20 w-1.5 cursor-col-resize touch-none hover:bg-accent"
                         onPointerDown={(event) => resizeColumn(event, column.key)}
+                        onDragStart={(event) => event.preventDefault()}
                         onClick={(event) => event.stopPropagation()}
                       />
                     </th>
                   ))}
+
                   <th className="h-8 border-b border-border px-1 text-right font-medium text-muted-foreground">Azioni</th>
                 </tr>
               </thead>
