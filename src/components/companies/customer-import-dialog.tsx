@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -20,12 +21,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchActivePriceLists } from "@/lib/price-lists";
 import {
   IMPORT_FIELD_LABELS,
   buildPreview,
   parseCustomerFile,
-  parsePriceListNumber,
   remap,
+  resolvePriceListNumber,
   type ExistingCustomer,
   type ImportField,
   type ParsedFile,
@@ -59,6 +61,13 @@ export function CustomerImportDialog({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+
+  /** Listini dell'azienda: servono per riconoscere il nome scritto nel file. */
+  const priceListsQuery = useQuery({
+    queryKey: ["listini-attivi", companyId],
+    queryFn: () => fetchActivePriceLists(companyId),
+  });
+  const priceLists = priceListsQuery.data ?? [];
 
   function reset() {
     setParsed(null);
@@ -126,7 +135,7 @@ export function CustomerImportDialog({
 
     for (const item of rows) {
       const row = item.row;
-      const priceList = parsePriceListNumber(row.price_list);
+      const priceList = resolvePriceListNumber(row.price_list, priceLists);
       const extraEntries = Object.entries(row.extra).filter(([, value]) => value);
       const payload = {
         _seller_company_id: companyId,
@@ -184,6 +193,15 @@ export function CustomerImportDialog({
     setPreview([]);
     setSelected(new Set());
   }
+
+  const unresolvedPriceLists = Array.from(
+    new Set(
+      preview
+        .filter((item) => item.outcome !== "skip" && item.row.price_list)
+        .filter((item) => resolvePriceListNumber(item.row.price_list, priceLists) === null)
+        .map((item) => item.row.price_list),
+    ),
+  );
 
   const groups = {
     create: preview.filter((item) => item.outcome === "create"),
@@ -264,6 +282,17 @@ export function CustomerImportDialog({
                 </div>
               ))}
             </div>
+          </div>
+        ) : null}
+
+        {unresolvedPriceLists.length ? (
+          <div className="space-y-1 rounded-lg border border-border p-3">
+            <p className="text-sm font-medium">Listini non riconosciuti</p>
+            <p className="text-xs text-muted-foreground">
+              Questi nomi di listino non esistono nella tua azienda: il cliente viene importato
+              senza listino e i prezzi restano su richiesta finché non lo assegni.
+            </p>
+            <p className="text-sm text-muted-foreground">{unresolvedPriceLists.join(", ")}</p>
           </div>
         ) : null}
 

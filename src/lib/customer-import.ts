@@ -434,7 +434,7 @@ function parseDaneaSubjectsXml(text: string): ParsedCustomerRow[] {
       if (child.children.length) return;
       if (XML_KNOWN_TAGS.has(child.tagName.toLowerCase())) return;
       const value = child.textContent?.trim();
-      if (value) row.extra[child.tagName] = value;
+      if (value) row.extra[canonicalExtraLabel(child.tagName) ?? child.tagName] = value;
     });
     return row;
   });
