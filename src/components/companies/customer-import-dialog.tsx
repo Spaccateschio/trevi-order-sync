@@ -61,28 +61,42 @@ export function CustomerImportDialog({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+  /** Archivio Danea di provenienza del file: scelta obbligatoria, mai dedotta. */
+  const [archiveId, setArchiveId] = useState<string | null>(null);
+
+  const archivesQuery = useQuery({
+    queryKey: ["archivi-danea", companyId],
+    queryFn: () => fetchDaneaArchives(companyId),
+  });
+  const archives = archivesQuery.data ?? [];
 
   /** Listini dell'azienda: servono per riconoscere il nome scritto nel file. */
   const priceListsQuery = useQuery({
     queryKey: ["listini-attivi", companyId],
     queryFn: () => fetchActivePriceLists(companyId),
   });
-  const priceLists = priceListsQuery.data ?? [];
+  const priceLists = listsForArchive(priceListsQuery.data ?? [], archiveId);
 
   function reset() {
     setParsed(null);
     setPreview([]);
     setSelected(new Set());
     setSummary(null);
+    setArchiveId(null);
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  function applyPreview(file: ParsedFile) {
-    const items = buildPreview(file.customers, existing);
+  function applyPreview(file: ParsedFile, archive: string | null = archiveId) {
+    const items = buildPreview(file.customers, existing, archive);
     setPreview(items);
     setSelected(
       new Set(items.filter((item) => item.outcome !== "skip").map((item) => item.row.rowIndex)),
     );
+  }
+
+  function changeArchive(value: string) {
+    setArchiveId(value);
+    if (parsed) applyPreview(parsed, value);
   }
 
   async function handleFile(file: File) {
