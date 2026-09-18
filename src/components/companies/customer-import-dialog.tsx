@@ -24,6 +24,7 @@ import {
   IMPORT_FIELD_LABELS,
   buildPreview,
   parseCustomerFile,
+  parsePriceListNumber,
   remap,
   type ExistingCustomer,
   type ImportField,
@@ -125,6 +126,8 @@ export function CustomerImportDialog({
 
     for (const item of rows) {
       const row = item.row;
+      const priceList = parsePriceListNumber(row.price_list);
+      const extraEntries = Object.entries(row.extra).filter(([, value]) => value);
       const payload = {
         _seller_company_id: companyId,
         _action: item.outcome === "update" ? "update" : "create",
@@ -140,6 +143,21 @@ export function CustomerImportDialog({
         _province: row.province,
         _internal_reference: row.internal_reference,
         ...(row.notes ? { _notes: row.notes } : {}),
+        _region: row.region,
+        _country: row.country,
+        _sdi_code: row.sdi_code,
+        _sdi_admin_reference: row.sdi_admin_reference,
+        _contact_name: row.contact_name,
+        _fax: row.fax,
+        _pec: row.pec,
+        _discounts: row.discounts,
+        _credit_limit: row.credit_limit,
+        _agent: row.agent,
+        _payment_terms: row.payment_terms,
+        _bank: row.bank,
+        _our_bank: row.our_bank,
+        ...(extraEntries.length ? { _danea_extra: Object.fromEntries(extraEntries) } : {}),
+        ...(priceList ? { _price_list_number: priceList } : {}),
       };
       const { error } = await supabase.rpc("manage_customer_record", payload);
       if (error) {

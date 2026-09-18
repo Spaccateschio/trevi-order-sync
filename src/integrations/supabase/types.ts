@@ -728,23 +728,37 @@ export type Database = {
       customer_records: {
         Row: {
           address_line: string | null
+          agent: string | null
           assigned_price_list_number: number | null
+          bank: string | null
           city: string | null
+          contact_name: string | null
+          country: string | null
           created_at: string
           created_by: string | null
+          credit_limit: string | null
+          danea_extra: Json | null
           delivery_address_line: string | null
           delivery_city: string | null
           delivery_notes: string | null
           delivery_postal_code: string | null
           delivery_province: string | null
+          discounts: string | null
           email: string | null
+          fax: string | null
           id: string
           internal_reference: string | null
           legal_name: string
           notes: string | null
+          our_bank: string | null
+          payment_terms: string | null
+          pec: string | null
           phone: string | null
           postal_code: string | null
           province: string | null
+          region: string | null
+          sdi_admin_reference: string | null
+          sdi_code: string | null
           seller_company_id: string
           status: Database["public"]["Enums"]["entity_status"]
           tax_code: string | null
@@ -754,23 +768,37 @@ export type Database = {
         }
         Insert: {
           address_line?: string | null
+          agent?: string | null
           assigned_price_list_number?: number | null
+          bank?: string | null
           city?: string | null
+          contact_name?: string | null
+          country?: string | null
           created_at?: string
           created_by?: string | null
+          credit_limit?: string | null
+          danea_extra?: Json | null
           delivery_address_line?: string | null
           delivery_city?: string | null
           delivery_notes?: string | null
           delivery_postal_code?: string | null
           delivery_province?: string | null
+          discounts?: string | null
           email?: string | null
+          fax?: string | null
           id?: string
           internal_reference?: string | null
           legal_name: string
           notes?: string | null
+          our_bank?: string | null
+          payment_terms?: string | null
+          pec?: string | null
           phone?: string | null
           postal_code?: string | null
           province?: string | null
+          region?: string | null
+          sdi_admin_reference?: string | null
+          sdi_code?: string | null
           seller_company_id: string
           status?: Database["public"]["Enums"]["entity_status"]
           tax_code?: string | null
@@ -780,23 +808,37 @@ export type Database = {
         }
         Update: {
           address_line?: string | null
+          agent?: string | null
           assigned_price_list_number?: number | null
+          bank?: string | null
           city?: string | null
+          contact_name?: string | null
+          country?: string | null
           created_at?: string
           created_by?: string | null
+          credit_limit?: string | null
+          danea_extra?: Json | null
           delivery_address_line?: string | null
           delivery_city?: string | null
           delivery_notes?: string | null
           delivery_postal_code?: string | null
           delivery_province?: string | null
+          discounts?: string | null
           email?: string | null
+          fax?: string | null
           id?: string
           internal_reference?: string | null
           legal_name?: string
           notes?: string | null
+          our_bank?: string | null
+          payment_terms?: string | null
+          pec?: string | null
           phone?: string | null
           postal_code?: string | null
           province?: string | null
+          region?: string | null
+          sdi_admin_reference?: string | null
+          sdi_code?: string | null
           seller_company_id?: string
           status?: Database["public"]["Enums"]["entity_status"]
           tax_code?: string | null
@@ -1990,20 +2032,35 @@ export type Database = {
         Args: {
           _action: string
           _address_line?: string
+          _agent?: string
+          _bank?: string
           _city?: string
+          _contact_name?: string
+          _country?: string
+          _credit_limit?: string
           _customer_record_id?: string
+          _danea_extra?: Json
           _delivery_address_line?: string
           _delivery_city?: string
           _delivery_notes?: string
           _delivery_postal_code?: string
           _delivery_province?: string
+          _discounts?: string
           _email?: string
+          _fax?: string
           _internal_reference?: string
           _legal_name?: string
           _notes?: string
+          _our_bank?: string
+          _payment_terms?: string
+          _pec?: string
           _phone?: string
           _postal_code?: string
+          _price_list_number?: number
           _province?: string
+          _region?: string
+          _sdi_admin_reference?: string
+          _sdi_code?: string
           _seller_company_id: string
           _tax_code?: string
           _vat_number?: string

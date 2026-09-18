@@ -58,6 +58,20 @@ export type CustomerRecord = {
   notes: string | null;
   status: "attivo" | "disattivato" | "revocato";
   assigned_price_list_number: number | null;
+  region: string | null;
+  country: string | null;
+  sdi_code: string | null;
+  sdi_admin_reference: string | null;
+  contact_name: string | null;
+  fax: string | null;
+  pec: string | null;
+  discounts: string | null;
+  credit_limit: string | null;
+  agent: string | null;
+  payment_terms: string | null;
+  bank: string | null;
+  our_bank: string | null;
+  danea_extra: Record<string, string> | null;
 };
 
 type Invitation = {
@@ -81,9 +95,26 @@ const emptyForm = {
   province: "",
   internal_reference: "",
   notes: "",
+  contact_name: "",
+  fax: "",
+  pec: "",
 };
 
 type FormState = typeof emptyForm;
+
+/** Campi amministrativi che arrivano da Danea: mostrati in sola lettura. */
+const DANEA_READONLY: { key: keyof CustomerRecord; label: string }[] = [
+  { key: "region", label: "Regione" },
+  { key: "country", label: "Nazione" },
+  { key: "sdi_code", label: "Cod. destinatario fatt. elettr." },
+  { key: "sdi_admin_reference", label: "Rif. ammin. fatt. elettr." },
+  { key: "discounts", label: "Sconti" },
+  { key: "credit_limit", label: "Fido" },
+  { key: "agent", label: "Agente" },
+  { key: "payment_terms", label: "Pagamento" },
+  { key: "bank", label: "Banca" },
+  { key: "our_bank", label: "Nostra banca" },
+];
 
 function toForm(record: CustomerRecord): FormState {
   return {
@@ -98,6 +129,9 @@ function toForm(record: CustomerRecord): FormState {
     province: record.province ?? "",
     internal_reference: record.internal_reference ?? "",
     notes: record.notes ?? "",
+    contact_name: record.contact_name ?? "",
+    fax: record.fax ?? "",
+    pec: record.pec ?? "",
   };
 }
 
@@ -204,7 +238,7 @@ export function CustomerRecordsPanel({
       const { data, error } = await supabase
         .from("customer_records")
         .select(
-          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, address_line, postal_code, city, province, internal_reference, notes, status, assigned_price_list_number",
+          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, address_line, postal_code, city, province, internal_reference, notes, status, assigned_price_list_number, region, country, sdi_code, sdi_admin_reference, contact_name, fax, pec, discounts, credit_limit, agent, payment_terms, bank, our_bank, danea_extra",
         )
         .eq("seller_company_id", companyId)
         .order("legal_name");
@@ -262,6 +296,9 @@ export function CustomerRecordsPanel({
       _province: form.province,
       _internal_reference: form.internal_reference,
       _notes: form.notes,
+      _contact_name: form.contact_name,
+      _fax: form.fax,
+      _pec: form.pec,
     });
     setBusy(false);
     if (error) {
@@ -723,6 +760,13 @@ export function CustomerRecordsPanel({
               value={form.internal_reference}
               onChange={(v) => setForm({ ...form, internal_reference: v })}
             />
+            <Field
+              label="Referente"
+              value={form.contact_name}
+              onChange={(v) => setForm({ ...form, contact_name: v })}
+            />
+            <Field label="Fax" value={form.fax} onChange={(v) => setForm({ ...form, fax: v })} />
+            <Field label="PEC" value={form.pec} onChange={(v) => setForm({ ...form, pec: v })} />
             <div className="grid gap-1.5 sm:col-span-2">
               <Label>Note</Label>
               <Textarea
@@ -731,6 +775,9 @@ export function CustomerRecordsPanel({
               />
             </div>
           </div>
+
+          {editing ? <DaneaAdminBlock record={editing} /> : null}
+
 
           {editing ? (
             <div className="mt-4 border-t border-border pt-4">
@@ -915,6 +962,42 @@ export function CustomerRecordsPanel({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** Dati amministrativi che arrivano dal gestionale: sola lettura, richiudibile. */
+function DaneaAdminBlock({ record }: { record: CustomerRecord }) {
+  const values = DANEA_READONLY.map((entry) => ({
+    label: entry.label,
+    value: (record[entry.key] as string | null) ?? "",
+  })).filter((entry) => entry.value);
+  const extra = Object.entries(record.danea_extra ?? {}).filter(([, value]) => value);
+  if (!values.length && !extra.length) return null;
+  return (
+    <details className="mt-4 rounded-lg border border-border p-3">
+      <summary className="cursor-pointer text-sm font-medium">Dati amministrativi (Danea)</summary>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+        {values.map((entry) => (
+          <div key={entry.label} className="min-w-0">
+            <dt className="text-xs text-muted-foreground">{entry.label}</dt>
+            <dd className="truncate text-sm">{entry.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {extra.length ? (
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="text-xs font-medium text-muted-foreground">Altri dati Danea</p>
+          <dl className="mt-2 grid gap-3 sm:grid-cols-2">
+            {extra.map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="truncate text-sm">{String(value)}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : null}
+    </details>
   );
 }
 

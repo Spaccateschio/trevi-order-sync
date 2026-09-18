@@ -22,13 +22,32 @@ export type ParsedCustomerRow = {
   province: string;
   internal_reference: string;
   notes: string;
+  region: string;
+  country: string;
+  sdi_code: string;
+  sdi_admin_reference: string;
+  contact_name: string;
+  fax: string;
+  pec: string;
+  discounts: string;
+  credit_limit: string;
+  agent: string;
+  payment_terms: string;
+  bank: string;
+  our_bank: string;
+  price_list: string;
+  /** Colonne Danea compilate ma senza campo dedicato: intestazione → valore. */
+  extra: Record<string, string>;
 };
 
-export type ImportField = keyof Omit<ParsedCustomerRow, "rowIndex">;
+export type ImportField = keyof Omit<ParsedCustomerRow, "rowIndex" | "extra">;
+
+/** Campi dove i valori di più colonne vengono uniti invece di sovrascriversi. */
+const MERGEABLE: ImportField[] = ["phone"];
 
 /** Intestazioni Danea riconosciute (accento e maiuscole ignorati). */
 const HEADER_MAP: { field: ImportField; headers: string[] }[] = [
-  { field: "internal_reference", headers: ["cod.", "cod", "codice", "codice cliente"] },
+  { field: "internal_reference", headers: ["cod.", "cod", "codice", "codice cliente", "codice danea"] },
   { field: "tax_code", headers: ["codice fiscale", "cod. fiscale", "cf"] },
   { field: "vat_number", headers: ["partita iva", "p.iva", "piva", "partita i.v.a."] },
   {
@@ -39,8 +58,39 @@ const HEADER_MAP: { field: ImportField; headers: string[] }[] = [
   { field: "postal_code", headers: ["cap"] },
   { field: "city", headers: ["citta", "città", "comune"] },
   { field: "province", headers: ["prov.", "prov", "provincia"] },
+  { field: "region", headers: ["regione"] },
+  { field: "country", headers: ["nazione", "paese", "stato"] },
+  {
+    field: "sdi_code",
+    headers: [
+      "cod. destinatario fatt. elettr.",
+      "cod. destinatario fatt elettr.",
+      "codice destinatario",
+      "cod. destinatario",
+      "sdi",
+    ],
+  },
+  {
+    field: "sdi_admin_reference",
+    headers: [
+      "rif. ammin. fatt. elettr.",
+      "rif. ammin. fatt elettr.",
+      "rif. amministrativo",
+      "riferimento amministrativo",
+    ],
+  },
+  { field: "contact_name", headers: ["referente", "contatto"] },
   { field: "email", headers: ["e-mail", "email", "mail"] },
+  { field: "pec", headers: ["pec"] },
+  { field: "fax", headers: ["fax"] },
   { field: "phone", headers: ["tel.", "tel", "telefono", "cell", "cellulare"] },
+  { field: "discounts", headers: ["sconti", "sconto"] },
+  { field: "price_list", headers: ["listino"] },
+  { field: "credit_limit", headers: ["fido"] },
+  { field: "agent", headers: ["agente"] },
+  { field: "payment_terms", headers: ["pagamento", "condizioni di pagamento"] },
+  { field: "bank", headers: ["banca"] },
+  { field: "our_bank", headers: ["ns banca", "ns. banca", "nostra banca"] },
   { field: "notes", headers: ["note", "note doc."] },
 ];
 
@@ -56,7 +106,61 @@ export const IMPORT_FIELD_LABELS: Record<ImportField, string> = {
   province: "Provincia",
   internal_reference: "Codice Danea",
   notes: "Note",
+  region: "Regione",
+  country: "Nazione",
+  sdi_code: "Cod. destinatario fatt. elettr.",
+  sdi_admin_reference: "Rif. ammin. fatt. elettr.",
+  contact_name: "Referente",
+  fax: "Fax",
+  pec: "PEC",
+  discounts: "Sconti",
+  credit_limit: "Fido",
+  agent: "Agente",
+  payment_terms: "Pagamento",
+  bank: "Banca",
+  our_bank: "Nostra banca",
+  price_list: "Listino",
 };
+
+function emptyRow(rowIndex: number): ParsedCustomerRow {
+  return {
+    rowIndex,
+    legal_name: "",
+    vat_number: "",
+    tax_code: "",
+    email: "",
+    phone: "",
+    address_line: "",
+    postal_code: "",
+    city: "",
+    province: "",
+    internal_reference: "",
+    notes: "",
+    region: "",
+    country: "",
+    sdi_code: "",
+    sdi_admin_reference: "",
+    contact_name: "",
+    fax: "",
+    pec: "",
+    discounts: "",
+    credit_limit: "",
+    agent: "",
+    payment_terms: "",
+    bank: "",
+    our_bank: "",
+    price_list: "",
+    extra: {},
+  };
+}
+
+/** Numero di listino Danea, se la colonna contiene un numero. */
+export function parsePriceListNumber(value: string): number | null {
+  const match = value.match(/\d+/);
+  if (!match) return null;
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) && parsed > 0 && parsed < 1000 ? parsed : null;
+}
 
 function normalizeHeader(value: string) {
   return value
@@ -90,29 +194,23 @@ export function detectMapping(headers: string[]): (ImportField | null)[] {
 function rowsToCustomers(
   rows: string[][],
   mapping: (ImportField | null)[],
+  headers: string[] = [],
 ): ParsedCustomerRow[] {
   const out: ParsedCustomerRow[] = [];
   rows.forEach((cells, index) => {
-    const row: ParsedCustomerRow = {
-      rowIndex: index + 2,
-      legal_name: "",
-      vat_number: "",
-      tax_code: "",
-      email: "",
-      phone: "",
-      address_line: "",
-      postal_code: "",
-      city: "",
-      province: "",
-      internal_reference: "",
-      notes: "",
-    };
-    mapping.forEach((field, column) => {
-      if (!field) return;
+    const row = emptyRow(index + 2);
+    (cells.length > mapping.length ? cells : mapping).forEach((_, column) => {
+      const field = mapping[column] ?? null;
       const value = (cells[column] ?? "").toString().trim();
       if (!value) return;
-      if (field === "phone" && row.phone) {
-        row.phone = `${row.phone} · ${value}`;
+      if (!field) {
+        // Colonna non abbinata ma compilata: la conserviamo fra gli altri dati Danea.
+        const label = (headers[column] ?? "").toString().trim() || `Colonna ${column + 1}`;
+        row.extra[label] = row.extra[label] ? `${row.extra[label]} · ${value}` : value;
+        return;
+      }
+      if (MERGEABLE.includes(field) && row[field]) {
+        row[field] = `${row[field]} · ${value}`;
         return;
       }
       row[field] = value;
@@ -176,7 +274,25 @@ const XML_FIELDS: { field: ImportField; tags: string[] }[] = [
   { field: "phone", tags: ["Phone", "Tel", "Mobile", "Cell"] },
   { field: "internal_reference", tags: ["Code", "CustomerCode", "Cod"] },
   { field: "notes", tags: ["Notes", "Note"] },
+  { field: "region", tags: ["Region", "Regione"] },
+  { field: "country", tags: ["Country", "Nazione"] },
+  { field: "sdi_code", tags: ["EInvoiceDestCode", "SdiCode", "CodiceDestinatario"] },
+  { field: "sdi_admin_reference", tags: ["EInvoiceAdminRef", "RifAmministrativo"] },
+  { field: "contact_name", tags: ["Contact", "Referente", "ContactName"] },
+  { field: "fax", tags: ["Fax"] },
+  { field: "pec", tags: ["Pec", "EmailPec"] },
+  { field: "discounts", tags: ["Discounts", "Sconti", "Discount"] },
+  { field: "price_list", tags: ["PriceList", "Listino", "PriceListNum"] },
+  { field: "credit_limit", tags: ["CreditLimit", "Fido"] },
+  { field: "agent", tags: ["Agent", "Agente"] },
+  { field: "payment_terms", tags: ["Payment", "Pagamento", "PaymentTerms"] },
+  { field: "bank", tags: ["Bank", "Banca"] },
+  { field: "our_bank", tags: ["OurBank", "NsBanca"] },
 ];
+
+const XML_KNOWN_TAGS = new Set(
+  XML_FIELDS.flatMap((entry) => entry.tags.map((tag) => tag.toLowerCase())),
+);
 
 function textOf(element: Element, tags: string[]) {
   for (const tag of tags) {
@@ -207,23 +323,17 @@ function parseDaneaSubjectsXml(text: string): ParsedCustomerRow[] {
     throw new Error("Nel file XML non ho trovato clienti da importare.");
   }
   return nodes.map((node, index) => {
-    const row: ParsedCustomerRow = {
-      rowIndex: index + 1,
-      legal_name: "",
-      vat_number: "",
-      tax_code: "",
-      email: "",
-      phone: "",
-      address_line: "",
-      postal_code: "",
-      city: "",
-      province: "",
-      internal_reference: "",
-      notes: "",
-    };
+    const row = emptyRow(index + 1);
     for (const entry of XML_FIELDS) {
       row[entry.field] = textOf(node, entry.tags);
     }
+    // Tag compilati senza campo dedicato: conservati fra gli altri dati Danea.
+    Array.from(node.children).forEach((child) => {
+      if (child.children.length) return;
+      if (XML_KNOWN_TAGS.has(child.tagName.toLowerCase())) return;
+      const value = child.textContent?.trim();
+      if (value) row.extra[child.tagName] = value;
+    });
     return row;
   });
 }
@@ -254,11 +364,15 @@ export async function parseCustomerFile(file: File): Promise<ParsedFile> {
   const headers = grid[headerIndex] ?? [];
   const mapping = detectMapping(headers);
   const rows = grid.slice(headerIndex + 1).filter((row) => row.some((cell) => cell.trim()));
-  return { headers, mapping, rows, customers: rowsToCustomers(rows, mapping) };
+  return { headers, mapping, rows, customers: rowsToCustomers(rows, mapping, headers) };
 }
 
 export function remap(parsed: ParsedFile, mapping: (ImportField | null)[]): ParsedFile {
-  return { ...parsed, mapping, customers: rowsToCustomers(parsed.rows, mapping) };
+  return {
+    ...parsed,
+    mapping,
+    customers: rowsToCustomers(parsed.rows, mapping, parsed.headers),
+  };
 }
 
 export type ExistingCustomer = {
