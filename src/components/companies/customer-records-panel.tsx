@@ -296,6 +296,9 @@ export function CustomerRecordsPanel({
       _province: form.province,
       _internal_reference: form.internal_reference,
       _notes: form.notes,
+      _contact_name: form.contact_name,
+      _fax: form.fax,
+      _pec: form.pec,
     });
     setBusy(false);
     if (error) {
