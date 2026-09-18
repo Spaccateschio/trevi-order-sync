@@ -37,6 +37,7 @@ import {
   LOCKED_CUSTOMER_COLUMN,
   customerMatchesQuery,
   loadCustomerColumnWidths,
+  moveCustomerColumn,
   loadCustomerColumns,
   saveCustomerColumnWidths,
   saveCustomerColumns,
