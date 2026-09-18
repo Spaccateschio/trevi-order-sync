@@ -1,98 +1,97 @@
-# Fase A — Catalogo acquisti (vetrine dei fornitori collegati)
+# Fase A.2 — Catalogo globale, listini assegnati e U.M. preferite
 
-Obiettivo: chi compra apre **Acquisti → Catalogo**, vede le vetrine dei fornitori con
-collegamento operativo, entra nel catalogo di un fornitore, apre la pagina di un
-prodotto e mette i preferiti. Nessun ordine in questa fase.
+## A) Catalogo globale cross-fornitore
 
-## Cosa vedrà l'utente
+In **Acquisti → Catalogo** due viste selezionabili in alto:
+- **Vetrine**: le card attuali dei fornitori operativi (invariate).
+- **Tutti i prodotti**: elenco unico con i prodotti di tutti i fornitori operativi.
 
-### Acquisti → Catalogo (elenco vetrine)
-- Una card per ogni fornitore con collegamento **operativo** (doppio consenso già esistente):
-  nome, città, numero prodotti in vetrina, indicazione "prezzi disponibili" o "prezzi su richiesta".
-- Fornitori collegati ma sospesi da un lato: mostrati come non disponibili, senza catalogo.
-- Nessun collegamento: messaggio con collegamento alla pagina Collegamenti.
+Colonne: foto, codice/descrizione, fornitore, categoria, U.M. (selettore rapido), prezzo, preferito.
+Filtri: ricerca testo, fornitore, categoria, "Solo preferiti", "Solo con prezzo".
+Su smartphone: card touch con foto piccola, fornitore e prezzo.
 
-### Catalogo di un fornitore
-- Griglia con foto, codice, descrizione, categoria, unità di misura di vendita e prezzo
-  (solo se il fornitore ti ha assegnato un listino).
-- Ricerca per codice/descrizione, filtro per categoria, filtro "Solo preferiti".
-- Cuoricino/stella per aggiungere e togliere dai preferiti direttamente dalla griglia.
-- Su smartphone: elenco a card touch, una riga per prodotto con foto piccola.
+I prezzi si ottengono chiamando `buyer_catalog_prices` una volta per fornitore e unendo i
+risultati lato client: nessuna nuova via d'accesso ai prezzi, nessuna policy su `product_prices`.
+Le foto passano dalla server function `getCatalogImageUrls` già esistente, chiamata per fornitore.
 
-### Pagina prodotto
-- Foto grande, descrizione, categoria, unità di misura aziendali del fornitore con
-  eventuale conversione indicativa, prezzo se assegnato, altrimenti "Prezzo confermato
-  dal fornitore in fase d'ordine".
-- Pulsante **Preferito**. Il pulsante "Aggiungi alla lista della spesa" viene predisposto
-  ma disattivato con etichetta "disponibile a breve" (arriva in Fase B).
+## B) Listini assegnati al cliente
 
-### Lato venditore
-- In Vendite → Prodotti: nuova colonna e interruttore **In vetrina B2B** (default attivo),
-  nel dettaglio prodotto e in modifica multipla dalla griglia già esistente.
-- Nascondere un prodotto non cambia nulla in Danea e non tocca l'import.
+### Aggiunte al database (solo additive)
+1. `company_settings.default_price_list_number smallint` — listino predefinito che l'azienda
+   venditrice propone ai nuovi clienti.
+2. `company_invitations.price_list_number smallint` — listino scelto al momento dell'invito.
 
-## Aggiunte al database (solo additive)
+### Funzioni RPC (SECURITY DEFINER, `search_path = public`, audit su `audit_events`)
+- `set_default_price_list(_company_id, _list_number)` — solo `is_company_admin`; accetta solo
+  numeri presenti in `danea_price_lists` con `is_active = true` per quell'azienda, oppure NULL.
+- `set_customer_price_list(_customer_record_id, _list_number)` — solo amministratore del
+  venditore proprietario del cliente; scrive `customer_records.assigned_price_list_number`.
+  Nessun update diretto dal browser.
+- `resolve_default_price_list(_company_id)` — restituisce il valore impostato oppure, se assente,
+  il `list_number` attivo più basso.
+- Estensione di `create_customer_invitation` e `create_free_invitation` con parametro
+  `_price_list_number` facoltativo (default = predefinito risolto), salvato sull'invito.
+- Estensione di `accept_invitation_row` / `link_customer_record_to_relation`: quando l'invito
+  ha un listino e il collegamento è agganciato a un cliente d'anagrafica senza listino,
+  il valore viene copiato in `customer_records.assigned_price_list_number`.
+  Invito rapido senza anagrafica: il valore resta sull'invito e si applica all'aggancio.
 
-1. `products.b2b_visible boolean not null default true`
-   - `products` resta in sola scrittura Danea: l'interruttore passa da una funzione
-     `set_product_b2b_visibility(_company_id, _product_ids[], _visible)` SECURITY DEFINER,
-     con audit su `audit_events`. FULL/INCREMENTAL non toccano il campo.
-2. `buyer_product_favorites` (nuova tabella)
-   - `buyer_company_id`, `seller_company_id`, `product_id`, `created_by`, `created_at`;
-     unico per (buyer, product). RLS: solo membri dell'azienda acquirente, e solo se il
-     collegamento con quel fornitore è operativo.
-3. `customer_records.assigned_price_list_number smallint` (preparazione minima 5c)
-   - Serve solo alla regola "prezzo solo se assegnato". L'assegnazione dall'interfaccia,
-     l'ereditarietà sulle destinazioni e l'import dal file Danea restano nel Punto 5c.
-4. Lettura catalogo lato acquirente: nuove policy di sola lettura su `products`,
-   `product_images`, `product_sale_units`, `units_of_measure` con la condizione
-   `relation_is_operational(seller, buyer)` + `publish_status = 'pubblicato'` + `b2b_visible`.
-5. Prezzi: funzione `buyer_catalog_prices(_seller_company_id, _product_ids[])`
-   SECURITY DEFINER che restituisce i prezzi **solo** del listino assegnato all'acquirente
-   e niente se non c'è assegnazione. Nessuna policy diretta su `product_prices`:
-   i prezzi non assegnati non sono raggiungibili.
+### Interfaccia
+- **Gestionale/Impostazioni**: select "Listino predefinito per i nuovi clienti" tra i listini
+  Danea attivi.
+- **Finestre invito** (scheda cliente e invito rapido in Collegamenti): select "Listino da
+  assegnare", precompilata col predefinito.
+- **Scheda cliente** (Vendite → Clienti) e **dettaglio collegamento**: select "Listino
+  assegnato" visibile all'amministratore venditore, con indicazione "Nessun listino → prezzi
+  su richiesta".
+
+Ereditarietà sulle destinazioni, override e import assegnazioni dal file Danea restano nel
+Punto 5c: non anticipati.
+
+## C) U.M. preferita dell'acquirente (sticky)
+
+Riuso di `customer_product_unit_preferences` (unica per seller+buyer+prodotto).
+Le RLS attuali già permettono all'acquirente lettura, inserimento, aggiornamento e cancellazione
+(`is_company_member(buyer_company_id)`); verifico solo che il trigger di validazione accetti la
+scrittura lato acquirente con collegamento operativo e, se necessario, aggiungo la condizione
+`relation_is_operational` alla policy di inserimento (irrigidimento, non allargamento).
+
+Regola di risoluzione, applicata ovunque: preferenza salvata → unità predefinita del prodotto
+→ prima unità disponibile.
+
+Regola sticky: ogni scelta di U.M. fa upsert della preferenza, quindi l'ultima usata diventa la
+proposta successiva. Punti di scelta costruiti ora: select nella pagina prodotto e selettore
+rapido nella riga del catalogo (globale e per fornitore). La lista della spesa (Fase B) riusa
+la stessa funzione senza logica nuova.
 
 ## Codice
 
-- Nuove pagine: `src/routes/_authenticated/acquisti.catalogo.tsx` (vetrine),
-  `acquisti.catalogo.$sellerId.tsx` (griglia), `acquisti.catalogo.$sellerId.$productId.tsx`
-  (pagina prodotto), ognuna con proprio `head()`.
-- Nuovi componenti in `src/components/catalog/`: `supplier-showcase-card.tsx`,
-  `catalog-grid.tsx`, `catalog-mobile-list.tsx`, `favorite-button.tsx`.
-- Nuovo `src/lib/catalog.functions.ts`: lettura catalogo, prezzi assegnati e URL firmati
-  delle immagini tramite server function autenticata (le immagini restano in bucket privato).
-- `src/lib/navigation.ts`: nuova voce `acquisti.catalogo` (icona Store) prima di Fornitori;
-  la voce Fornitori resta come rimando a Collegamenti.
-- `acquisti.index.tsx`: al posto dell'elenco "non ancora sviluppato", scorciatoie al
-  Catalogo e ai fornitori collegati.
-- Lato venditore: interruttore vetrina in `product-detail-sheet.tsx`, colonna in
-  `product-grid.ts`, azione multipla riusando il dialog batch già presente.
+- `src/lib/catalog.ts`: lettura multi-fornitore, prezzi per fornitore, preferenze U.M.
+  (lettura + upsert), risoluzione U.M. proposta.
+- `src/lib/price-lists.ts`: listini attivi del venditore e chiamate alle nuove RPC.
+- Nuovi componenti in `src/components/catalog/`: `catalog-global-list.tsx`,
+  `unit-picker.tsx`.
+- `src/routes/_authenticated/acquisti.catalogo.index.tsx`: due viste Vetrine / Tutti i prodotti.
+- `acquisti.catalogo.$sellerId.index.tsx` e `...$productId.tsx`: selettore U.M. sticky.
+- `src/components/companies/customer-records-panel.tsx` e `connection-detail.tsx`:
+  select listino assegnato.
+- `src/routes/_authenticated/danea.tsx` (area Gestionale): select listino predefinito.
+- Finestre invito in `customer-records-panel.tsx` e `collegamenti.tsx`: select listino.
 
-## Cosa non viene toccato
+## Non toccato
 
-Relazioni e doppio consenso, inviti e codici, `customer_records`, indirizzi e destinazioni,
-import Danea e parser, listini Danea ricevuti, U.M. esistenti, RLS e funzioni server
-funzionanti. Nessun secondo catalogo prezzi: i prezzi restano quelli dei listini Danea.
+Import Danea e parser, listini Danea ricevuti, relazioni e doppio consenso, destinazioni e
+indirizzi, prodotti lato venditore, `buyer_catalog_prices` come unica via ai prezzi.
 
-## Verifica prima di consegnare
+## Casi di verifica
 
-- Un acquirente vede solo i cataloghi dei collegamenti operativi; spegnendo il lato
-  venditore il catalogo sparisce.
-- Prodotto con vetrina disattivata: invisibile all'acquirente, invariato in Danea.
-- Senza listino assegnato: nessun prezzo visibile e nessun prezzo raggiungibile.
-- Preferiti salvati e filtrabili; prova desktop 1280px e smartphone 390px.
-
-## Vincoli aggiuntivi confermati
-
-1. **Listino assegnato — unica catena ammessa**: relazione operativa →
-   `supplier_customer_relations.customer_record_id` →
-   `customer_records.assigned_price_list_number` → listino con
-   `danea_price_lists.is_active = true`. Se manca il cliente d'anagrafica collegato,
-   manca l'assegnazione o il listino non è attivo, `buyer_catalog_prices` restituisce
-   zero righe. Vietato dedurre il cliente da partita IVA o ragione sociale.
-2. **Immagini firmate**: la server function firma con privilegi elevati, quindi verifica
-   da sé, prima di firmare, che l'utente appartenga a un'azienda con collegamento
-   operativo verso quel fornitore e che il prodotto sia pubblicato con `b2b_visible = true`.
-3. **Import Danea**: il payload di upsert in `danea-import.server.ts` non include mai
-   `b2b_visible`, così FULL e INCREMENTAL la preservano. Verifica finale aggiuntiva:
-   prodotto nascosto dalla vetrina → import FULL → resta nascosto.
+- Assegno un listino a un cliente già collegato → nel suo catalogo i prezzi compaiono subito,
+  al posto di "Su richiesta".
+- Rimuovo l'assegnazione → tornano "Su richiesta" e nessun prezzo è raggiungibile.
+- Invito con listino scelto → accettazione → il cliente d'anagrafica risulta con quel listino.
+- Invito rapido senza anagrafica → aggancio a un cliente → il listino si applica in quel momento.
+- Cambio U.M. nella pagina prodotto → rientrando, e nella griglia del catalogo globale,
+  la stessa U.M. è già proposta.
+- Catalogo globale con due fornitori: filtri fornitore/categoria/preferiti/"Solo con prezzo"
+  coerenti; il fornitore sospeso da un lato non compare.
+- Prova desktop 1280px e smartphone 390px.
