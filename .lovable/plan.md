@@ -95,3 +95,23 @@ indirizzi, prodotti lato venditore, `buyer_catalog_prices` come unica via ai pre
 - Catalogo globale con due fornitori: filtri fornitore/categoria/preferiti/"Solo con prezzo"
   coerenti; il fornitore sospeso da un lato non compare.
 - Prova desktop 1280px e smartphone 390px.
+
+## Vincoli aggiuntivi confermati
+
+1. **Firme delle funzioni invito — nessun overload**: `create_customer_invitation(uuid, text, integer)`
+   e `create_free_invitation` non vengono estese con un `CREATE OR REPLACE` che aggiunge
+   `_price_list_number` con default: Postgres creerebbe una seconda funzione in overload e le
+   chiamate a 3 argomenti diventerebbero ambigue ("function is not unique"), rompendo i flussi
+   invito attuali. Nella stessa migrazione: `DROP FUNCTION` della firma vecchia, `CREATE` con la
+   nuova firma, poi `REVOKE` da PUBLIC e anon e `GRANT EXECUTE` a authenticated sulla nuova firma.
+   Stesso trattamento per `create_free_invitation`.
+2. **Copia del listino su tutti i percorsi di accettazione**: le vie sono
+   `accept_customer_invitation`, `accept_invitation_code`, `accept_invitation_with_new_company`.
+   Se convergono tutte su `accept_invitation_row`, la copia del listino sta solo lì; altrimenti
+   va ripetuta in ognuna. Il percorso coperto viene dichiarato in un commento nel codice SQL.
+   Verifica aggiuntiva: accettazione via codice, via link e via registrazione di nuova azienda →
+   in tutti e tre il listino dell'invito arriva a destinazione.
+3. **`relation_is_operational` solo nella policy INSERT lato acquirente**, non nel trigger.
+   `validate_customer_product_unit_preference` gira anche sulle scritture del venditore, che deve
+   poter sistemare le U.M. di un cliente con un lato momentaneamente sospeso: il trigger resta con
+   `has_active_relation` così com'è.
