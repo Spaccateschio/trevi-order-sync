@@ -1045,41 +1045,75 @@ export function CustomerRecordsPanel({
   );
 }
 
-/** Dati amministrativi che arrivano dal gestionale: sola lettura, richiudibile. */
-function DaneaAdminBlock({ record }: { record: CustomerRecord }) {
+/** Gruppo di campi con titolo, come le sezioni della scheda Danea. */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <p className="mb-3 text-sm font-medium">{title}</p>
+      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+    </div>
+  );
+}
+
+/** Dato che arriva dal gestionale: sola lettura. */
+function ReadField({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="grid gap-1.5">
+      <Label className="text-muted-foreground">{label}</Label>
+      <p className="min-h-9 truncate rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+        {value?.trim() ? value : "—"}
+      </p>
+    </div>
+  );
+}
+
+/** Campi Danea riconosciuti e conservati, divisi per scheda. */
+function ExtraFields({
+  record,
+  group,
+}: {
+  record: CustomerRecord;
+  group: "commerciale" | "varie";
+}) {
+  const entries = Object.entries(record.danea_extra ?? {}).filter(
+    ([label, value]) => value && DANEA_EXTRA_GROUP_BY_LABEL[label] === group,
+  );
+  if (!entries.length) return null;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {entries.map(([label, value]) => (
+        <ReadField key={label} label={label} value={String(value)} />
+      ))}
+    </div>
+  );
+}
+
+/** Colonne del file senza collocazione prevista: conservate e sempre visibili. */
+function OtherDaneaData({ record }: { record: CustomerRecord }) {
   const values = DANEA_READONLY.map((entry) => ({
     label: entry.label,
     value: (record[entry.key] as string | null) ?? "",
   })).filter((entry) => entry.value);
-  const extra = Object.entries(record.danea_extra ?? {}).filter(([, value]) => value);
-  if (!values.length && !extra.length) return null;
+  const extra = Object.entries(record.danea_extra ?? {}).filter(
+    ([label, value]) => value && !DANEA_EXTRA_GROUP_BY_LABEL[label],
+  );
+  if (!extra.length) return null;
+  void values;
   return (
-    <details className="mt-4 rounded-lg border border-border p-3">
-      <summary className="cursor-pointer text-sm font-medium">Dati amministrativi (Danea)</summary>
+    <details className="rounded-lg border border-border p-3">
+      <summary className="cursor-pointer text-sm font-medium">Altri dati (Danea)</summary>
       <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-        {values.map((entry) => (
-          <div key={entry.label} className="min-w-0">
-            <dt className="text-xs text-muted-foreground">{entry.label}</dt>
-            <dd className="truncate text-sm">{entry.value}</dd>
+        {extra.map(([label, value]) => (
+          <div key={label} className="min-w-0">
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="truncate text-sm">{String(value)}</dd>
           </div>
         ))}
       </dl>
-      {extra.length ? (
-        <div className="mt-3 border-t border-border pt-3">
-          <p className="text-xs font-medium text-muted-foreground">Altri dati Danea</p>
-          <dl className="mt-2 grid gap-3 sm:grid-cols-2">
-            {extra.map(([label, value]) => (
-              <div key={label} className="min-w-0">
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="truncate text-sm">{String(value)}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      ) : null}
     </details>
   );
 }
+
 
 function Field({
   label,
