@@ -95,9 +95,26 @@ const emptyForm = {
   province: "",
   internal_reference: "",
   notes: "",
+  contact_name: "",
+  fax: "",
+  pec: "",
 };
 
 type FormState = typeof emptyForm;
+
+/** Campi amministrativi che arrivano da Danea: mostrati in sola lettura. */
+const DANEA_READONLY: { key: keyof CustomerRecord; label: string }[] = [
+  { key: "region", label: "Regione" },
+  { key: "country", label: "Nazione" },
+  { key: "sdi_code", label: "Cod. destinatario fatt. elettr." },
+  { key: "sdi_admin_reference", label: "Rif. ammin. fatt. elettr." },
+  { key: "discounts", label: "Sconti" },
+  { key: "credit_limit", label: "Fido" },
+  { key: "agent", label: "Agente" },
+  { key: "payment_terms", label: "Pagamento" },
+  { key: "bank", label: "Banca" },
+  { key: "our_bank", label: "Nostra banca" },
+];
 
 function toForm(record: CustomerRecord): FormState {
   return {
