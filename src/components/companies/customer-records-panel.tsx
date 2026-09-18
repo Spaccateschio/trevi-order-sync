@@ -238,7 +238,7 @@ export function CustomerRecordsPanel({
       const { data, error } = await supabase
         .from("customer_records")
         .select(
-          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, address_line, postal_code, city, province, internal_reference, notes, status, assigned_price_list_number",
+          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, address_line, postal_code, city, province, internal_reference, notes, status, assigned_price_list_number, region, country, sdi_code, sdi_admin_reference, contact_name, fax, pec, discounts, credit_limit, agent, payment_terms, bank, our_bank, danea_extra",
         )
         .eq("seller_company_id", companyId)
         .order("legal_name");
