@@ -259,7 +259,7 @@ export function CustomerImportDialog({
 
         <div className="grid gap-1.5">
           <Label>Archivio di provenienza</Label>
-          <Select value={archiveId ?? undefined} onValueChange={changeArchive}>
+          <Select {...(archiveId ? { value: archiveId } : {})} onValueChange={changeArchive}>
             <SelectTrigger>
               <SelectValue placeholder="Scegli l’archivio Danea del file" />
             </SelectTrigger>
