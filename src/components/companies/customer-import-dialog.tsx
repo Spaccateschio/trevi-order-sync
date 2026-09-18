@@ -80,6 +80,15 @@ export function CustomerImportDialog({
   });
   const priceLists = listsForArchive(priceListsQuery.data ?? [], archiveId);
 
+  /** Listino base dell'archivio: usato per i clienti senza listino nel file. */
+  const baseList = priceLists[0]?.listNumber ?? null;
+
+  /**
+   * Abbinamento manuale dei nomi di listino non riconosciuti (es. "BAR"),
+   * ricordato per archivio: i file Danea vecchi usano nomi diversi.
+   */
+  const [listMap, setListMap] = useState<Record<string, number | null>>({});
+
   /**
    * I listini arrivano da Danea: se l'elenco non è ancora caricato non
    * assegniamo nulla, quindi ricarichiamo a ogni apertura della finestra.
@@ -88,6 +97,47 @@ export function CustomerImportDialog({
     if (open) void priceListsQuery.refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  useEffect(() => {
+    if (!archiveId) {
+      setListMap({});
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`trevi:clienti:listini:${archiveId}`);
+      setListMap(raw ? (JSON.parse(raw) as Record<string, number | null>) : {});
+    } catch {
+      setListMap({});
+    }
+  }, [archiveId]);
+
+  function rememberList(value: string, listNumber: number | null) {
+    setListMap((prev) => {
+      const next = { ...prev, [value]: listNumber };
+      if (archiveId) {
+        try {
+          localStorage.setItem(`trevi:clienti:listini:${archiveId}`, JSON.stringify(next));
+        } catch {
+          /* spazio non disponibile: l'abbinamento vale solo per questa importazione */
+        }
+      }
+      return next;
+    });
+  }
+
+  /**
+   * Listino del cliente: nome riconosciuto, altrimenti abbinamento manuale,
+   * altrimenti il listino base dell'archivio.
+   */
+  function listForRow(value: string): number | null {
+    const recognised = resolvePriceListNumber(value, priceLists);
+    if (recognised) return recognised;
+    const key = value.trim();
+    if (key && key in listMap) return listMap[key] ?? null;
+    return baseList;
+  }
+
+
 
 
   function reset() {
@@ -171,7 +221,7 @@ export function CustomerImportDialog({
 
     for (const item of rows) {
       const row = item.row;
-      const priceList = resolvePriceListNumber(row.price_list, priceLists);
+      const priceList = listForRow(row.price_list);
       const extraEntries = Object.entries(row.extra).filter(([, value]) => value);
       const payload = {
         _seller_company_id: companyId,
@@ -231,14 +281,22 @@ export function CustomerImportDialog({
     setSelected(new Set());
   }
 
-  const unresolvedPriceLists = Array.from(
-    new Set(
-      preview
-        .filter((item) => item.outcome !== "skip" && item.row.price_list)
-        .filter((item) => resolvePriceListNumber(item.row.price_list, priceLists) === null)
-        .map((item) => item.row.price_list),
-    ),
-  );
+  /** Valori di listino presenti nel file, con quanti clienti riguardano. */
+  const fileLists = (() => {
+    const counts = new Map<string, number>();
+    for (const item of preview) {
+      if (item.outcome === "skip") continue;
+      const value = (item.row.price_list ?? "").trim();
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([value, count]) => ({
+      value,
+      count,
+      recognised: value ? resolvePriceListNumber(value, priceLists) : null,
+      assigned: listForRow(value),
+    }));
+  })();
+
 
   const groups = {
     create: preview.filter((item) => item.outcome === "create"),
@@ -355,17 +413,55 @@ export function CustomerImportDialog({
           </div>
         ) : null}
 
-        {unresolvedPriceLists.length ? (
-
-          <div className="space-y-1 rounded-lg border border-border p-3">
-            <p className="text-sm font-medium">Listini non riconosciuti</p>
+        {fileLists.length && priceLists.length ? (
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <p className="text-sm font-medium">Listini del file</p>
             <p className="text-xs text-muted-foreground">
-              Questi nomi di listino non esistono nella tua azienda: il cliente viene importato
-              senza listino e i prezzi restano su richiesta finché non lo assegni.
+              I nomi riconosciuti vengono assegnati da soli. Per gli altri scegli tu il listino: la
+              scelta viene ricordata per questo archivio. Senza indicazione si usa il listino base (
+              {priceLists[0]?.label}).
             </p>
-            <p className="text-sm text-muted-foreground">{unresolvedPriceLists.join(", ")}</p>
+            <div className="space-y-2">
+              {fileLists.map((entry) => (
+                <div
+                  key={entry.value || "__vuoto__"}
+                  className="flex flex-wrap items-center justify-between gap-2"
+                >
+                  <span className="text-sm">
+                    {entry.value || "Nessun listino nel file"}{" "}
+                    <span className="text-xs text-muted-foreground">({entry.count} clienti)</span>
+                  </span>
+                  {entry.recognised ? (
+                    <span className="text-xs text-muted-foreground">
+                      Riconosciuto ·{" "}
+                      {priceLists.find((item) => item.listNumber === entry.recognised)?.label}
+                    </span>
+                  ) : (
+                    <Select
+                      value={entry.assigned === null ? IGNORE : String(entry.assigned)}
+                      onValueChange={(value) =>
+                        rememberList(entry.value.trim(), value === IGNORE ? null : Number(value))
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-56 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={IGNORE}>Nessun listino</SelectItem>
+                        {priceLists.map((item) => (
+                          <SelectItem key={item.listNumber} value={String(item.listNumber)}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
+
 
         {preview.length ? (
           <div className="space-y-3">
