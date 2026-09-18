@@ -14,7 +14,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, GripVertical, ImageOff } from "lucide-
 import { useMemo, useState } from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatGridValue, PRODUCT_COLUMNS, type ProductRow } from "@/lib/product-grid";
+import { columnLabel, formatGridValue, PRODUCT_COLUMNS, type ProductRow } from "@/lib/product-grid";
 import { cn } from "@/lib/utils";
 
 export function ProductGrid({
@@ -33,6 +33,7 @@ export function ProductGrid({
   onSortingChange,
   onOpen,
   imageUrls,
+  listName,
 }: {
   products: ProductRow[];
   archives: Map<string, string>;
@@ -49,6 +50,7 @@ export function ProductGrid({
   onSortingChange: (state: SortingState) => void;
   onOpen: (product: ProductRow) => void;
   imageUrls: Map<string, string>;
+  listName?: (number: number) => string;
 }) {
   const [sizingInfo, setSizingInfo] = useState<ColumnSizingInfoState>({
     startOffset: null,
@@ -96,7 +98,7 @@ export function ProductGrid({
     ...PRODUCT_COLUMNS.filter((item) => isAdmin || !item.adminOnly).map((item): ColumnDef<ProductRow> => ({
       id: item.id,
       accessorFn: (row) => item.value(row, archives),
-      header: item.label,
+      header: columnLabel(item, listName),
       size: item.size,
       minSize: item.minSize,
       sortingFn: item.numeric ? "basic" : "alphanumeric",
@@ -108,7 +110,7 @@ export function ProductGrid({
         </span>
       ),
     })),
-  ], [archives, imageUrls, isAdmin, onSelectionChange, selectedIds]);
+  ], [archives, imageUrls, isAdmin, listName, onSelectionChange, selectedIds]);
 
   const table = useReactTable({
     data: products,
