@@ -184,6 +184,9 @@ export function CustomerRecordsPanel({
   const [invitePriceList, setInvitePriceList] = useState<string>("nessuno");
   const [importOpen, setImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteFor, setDeleteFor] = useState<CustomerRecord | null>(null);
+  const [deletedOpen, setDeletedOpen] = useState(false);
+
   const [search, setSearch] = useState("");
   const [visibleColumns, setVisibleColumns] = useState<CustomerColumnKey[]>(() =>
     loadCustomerColumns(),
