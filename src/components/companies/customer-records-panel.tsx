@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -30,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { DANEA_EXTRA_GROUP_BY_LABEL } from "@/lib/customer-import";
 import { sendInvitationEmail } from "@/lib/invitation-email.functions";
 import {
   fetchActivePriceLists,
@@ -101,20 +103,6 @@ const emptyForm = {
 };
 
 type FormState = typeof emptyForm;
-
-/** Campi amministrativi che arrivano da Danea: mostrati in sola lettura. */
-const DANEA_READONLY: { key: keyof CustomerRecord; label: string }[] = [
-  { key: "region", label: "Regione" },
-  { key: "country", label: "Nazione" },
-  { key: "sdi_code", label: "Cod. destinatario fatt. elettr." },
-  { key: "sdi_admin_reference", label: "Rif. ammin. fatt. elettr." },
-  { key: "discounts", label: "Sconti" },
-  { key: "credit_limit", label: "Fido" },
-  { key: "agent", label: "Agente" },
-  { key: "payment_terms", label: "Pagamento" },
-  { key: "bank", label: "Banca" },
-  { key: "our_bank", label: "Nostra banca" },
-];
 
 function toForm(record: CustomerRecord): FormState {
   return {
@@ -1090,15 +1078,10 @@ function ExtraFields({
 
 /** Colonne del file senza collocazione prevista: conservate e sempre visibili. */
 function OtherDaneaData({ record }: { record: CustomerRecord }) {
-  const values = DANEA_READONLY.map((entry) => ({
-    label: entry.label,
-    value: (record[entry.key] as string | null) ?? "",
-  })).filter((entry) => entry.value);
   const extra = Object.entries(record.danea_extra ?? {}).filter(
     ([label, value]) => value && !DANEA_EXTRA_GROUP_BY_LABEL[label],
   );
   if (!extra.length) return null;
-  void values;
   return (
     <details className="rounded-lg border border-border p-3">
       <summary className="cursor-pointer text-sm font-medium">Altri dati (Danea)</summary>
