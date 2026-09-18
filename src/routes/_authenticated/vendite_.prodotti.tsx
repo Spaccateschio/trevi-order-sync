@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
-import { Columns3, Download, FileUp, Printer, Ruler, RotateCcw, Search, SquareCheckBig } from "lucide-react";
+import { Columns3, Download, Eye, EyeOff, FileUp, Printer, Ruler, RotateCcw, Search, SquareCheckBig } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -296,7 +296,7 @@ function ProdottiPage() {
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-y border-border py-1.5 text-xs">
         <p className="truncate text-muted-foreground">{productsQuery.isLoading ? "Caricamento…" : `${sortedFiltered.length} prodotti`}{selectedProducts.length ? ` · ${selectedProducts.length} selezionati` : ""}</p>
-        <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{isAdmin && selectedProducts.length ? <Button variant="outline" size="sm" onClick={() => setUnitBatchOpen(true)}><Ruler />Gestisci U.M. vendita</Button> : null}{isAdmin ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
+        <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{isAdmin && selectedProducts.length ? <><Button variant="outline" size="sm" disabled={showcaseMutation.isPending} onClick={() => showcaseMutation.mutate(true)}><Eye />In vetrina</Button><Button variant="outline" size="sm" disabled={showcaseMutation.isPending} onClick={() => showcaseMutation.mutate(false)}><EyeOff />Nascondi</Button><Button variant="outline" size="sm" onClick={() => setUnitBatchOpen(true)}><Ruler />Gestisci U.M. vendita</Button></> : null}{isAdmin ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
       </div>
 
       <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} />
