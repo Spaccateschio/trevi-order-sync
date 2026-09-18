@@ -562,13 +562,160 @@ export function CustomerRecordsPanel({
     .map((result) => `${result.name}\t${result.email}\t${result.link}`)
     .join("\n");
 
+  const columns = CUSTOMER_COLUMNS.filter((column) => visibleColumns.includes(column.key));
+
+  const filtered = useMemo(() => {
+    const list = records.filter((record) => customerMatchesQuery(record, search));
+    const column = CUSTOMER_COLUMNS.find((c) => c.key === sort.key);
+    if (!column) return list;
+    return [...list].sort((a, b) => {
+      const result = column.value(a).localeCompare(column.value(b), "it", { numeric: true });
+      return sort.asc ? result : -result;
+    });
+  }, [records, search, sort]);
+
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((record) => selectedIds.has(record.id));
+
+  function toggleAllFiltered() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) filtered.forEach((record) => next.delete(record.id));
+      else filtered.forEach((record) => next.add(record.id));
+      return next;
+    });
+  }
+
+  function toggleColumn(key: CustomerColumnKey) {
+    setVisibleColumns((prev) => {
+      const next = prev.includes(key)
+        ? prev.filter((item) => item !== key)
+        : [...CUSTOMER_COLUMNS.map((c) => c.key)].filter(
+            (item) => prev.includes(item) || item === key,
+          );
+      const safe = next.includes(LOCKED_CUSTOMER_COLUMN)
+        ? next
+        : [...next, LOCKED_CUSTOMER_COLUMN];
+      saveCustomerColumns(safe);
+      return safe;
+    });
+  }
+
+  function toggleSort(key: CustomerColumnKey) {
+    setSort((prev) => (prev.key === key ? { key, asc: !prev.asc } : { key, asc: true }));
+  }
+
+  /** Riepilogo di riga usato nella lista compatta su smartphone. */
+  function rowInfo(record: CustomerRecord) {
+    const pending = invitations.find(
+      (inv) => inv.customer_record_id === record.id && inv.status === "in_attesa",
+    );
+    // Stessa relazione della pagina Collegamenti, qui solo in lettura.
+    const relation = (identity?.relations ?? []).find(
+      (r) => r.sellerCompanyId === companyId && r.customerRecordId === record.id,
+    );
+    return { pending, link: linkStatusOf(relation, Boolean(pending)) };
+  }
+
+  function RowActions({ record }: { record: CustomerRecord }) {
+    const { pending, link } = rowInfo(record);
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            onClick={(event) => event.stopPropagation()}
+          >
+            Azioni
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+          <DropdownMenuItem onSelect={() => openEdit(record)}>Dettagli</DropdownMenuItem>
+          {link.key === "attivo" || link.key === "sospeso" ? null : (
+            <DropdownMenuItem disabled={!isAdmin} onSelect={() => openInvite(record)}>
+              Invita
+            </DropdownMenuItem>
+          )}
+          {pending ? (
+            <>
+              <DropdownMenuItem disabled={!isAdmin} onSelect={() => void resend(pending.id)}>
+                Reinvia invito
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!isAdmin} onSelect={() => void cancelInvite(pending.id)}>
+                Annulla invito
+              </DropdownMenuItem>
+            </>
+          ) : null}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={!isAdmin} onSelect={() => void toggleStatus(record)}>
+            {record.status === "attivo" ? "Disattiva" : "Riattiva"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  function PriceListCell({ record }: { record: CustomerRecord }) {
+    return (
+      <Select
+        value={
+          record.assigned_price_list_number === null
+            ? "nessuno"
+            : String(record.assigned_price_list_number)
+        }
+        onValueChange={(value) => void assignPriceList(record, value)}
+        disabled={!isAdmin}
+      >
+        <SelectTrigger
+          className="h-7 w-full text-xs"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <SelectValue placeholder="Listino" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
+          {priceLists.map((item) => (
+            <SelectItem key={item.listNumber} value={String(item.listNumber)}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  function LinkCell({ record }: { record: CustomerRecord }) {
+    const { link } = rowInfo(record);
+    return (
+      <Link
+        to="/collegamenti"
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+        title="Stato del collegamento su Trevi Fruit"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span aria-hidden className={`size-2 shrink-0 rounded-full ${link.dotClassName}`} />
+        <span className="truncate">{link.label}</span>
+      </Link>
+    );
+  }
+
+  function cellContent(column: (typeof CUSTOMER_COLUMNS)[number], record: CustomerRecord) {
+    if (column.key === "price_list") return <PriceListCell record={record} />;
+    if (column.key === "link") return <LinkCell record={record} />;
+    if (column.key === "legal_name")
+      return <span className="font-medium">{record.legal_name}</span>;
+    return <span className="text-muted-foreground">{column.value(record) || "—"}</span>;
+  }
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:flex-wrap sm:justify-between">
+        <h2 className="truncate font-display text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Anagrafica clienti
         </h2>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
           <Button size="sm" variant="outline" disabled={!isAdmin} onClick={() => setImportOpen(true)}>
             Importa da Danea
           </Button>
@@ -577,157 +724,173 @@ export function CustomerRecordsPanel({
           </Button>
         </div>
       </div>
-      <p className="text-sm text-muted-foreground">
-        Puoi registrare qui tutti i tuoi clienti, anche quelli che non usano Trevi Fruit.
-      </p>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Cerca per nome, P.IVA, città o codice"
+          className="h-8 w-full max-w-xs text-xs"
+          aria-label="Cerca cliente"
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" className="h-8 text-xs">
+              Colonne
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
+            <DropdownMenuLabel>Dati da visualizzare</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {CUSTOMER_COLUMNS.map((column) => (
+              <DropdownMenuCheckboxItem
+                key={column.key}
+                checked={visibleColumns.includes(column.key)}
+                disabled={column.key === LOCKED_CUSTOMER_COLUMN}
+                onCheckedChange={() => toggleColumn(column.key)}
+                onSelect={(event) => event.preventDefault()}
+              >
+                {column.label}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <p className="ml-auto text-xs text-muted-foreground">
+          {filtered.length} clienti
+          {selectedIds.size ? ` · ${selectedIds.size} selezionati` : ""}
+        </p>
+      </div>
 
       {selectedIds.size ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 p-3">
-          <p className="text-sm">{selectedIds.size} clienti selezionati</p>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 p-2">
+          <p className="text-xs">{selectedIds.size} clienti selezionati</p>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={() => setSelectedIds(new Set())}
+            >
               Annulla selezione
             </Button>
-            <Button size="sm" disabled={busy || !isAdmin} onClick={generateBulkInvites}>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              disabled={busy || !isAdmin}
+              onClick={generateBulkInvites}
+            >
               Genera inviti per i selezionati
             </Button>
           </div>
         </div>
       ) : null}
 
-
       {recordsQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">Caricamento…</p>
-      ) : records.length ? (
-        records.map((record) => {
-          const pending = invitations.find(
-            (inv) => inv.customer_record_id === record.id && inv.status === "in_attesa",
-          );
-          const last = invitations.find((inv) => inv.customer_record_id === record.id);
-          // Stessa relazione della pagina Collegamenti, qui solo in lettura.
-          const relation = (identity?.relations ?? []).find(
-            (r) => r.sellerCompanyId === companyId && r.customerRecordId === record.id,
-          );
-          const link = linkStatusOf(relation, Boolean(pending));
-          return (
-            <section
-              key={record.id}
-              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="flex min-w-0 items-start gap-3">
-                <Checkbox
-                  className="mt-1"
-                  checked={selectedIds.has(record.id)}
-                  onCheckedChange={() => toggleSelect(record.id)}
-                  aria-label={`Seleziona ${record.legal_name}`}
-                />
-                <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-display text-base font-semibold">{record.legal_name}</h3>
-                  <Link
-                    to="/collegamenti"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground"
-                    title="Stato del collegamento su Trevi Fruit"
-                  >
-                    <span
-                      aria-hidden
-                      className={`size-2 rounded-full ${link.dotClassName}`}
-                    />
-                    {link.label}
-                  </Link>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {[
-                    record.vat_number ? `P.IVA ${record.vat_number}` : null,
-                    [record.city, record.province].filter(Boolean).join(" ") || null,
-                    record.status === "attivo" ? null : "Disattivato",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "Dati essenziali da completare"}
-                </p>
-                {last ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {invitationLabel[last.status]} · {last.email}
-                    {last.resend_count ? ` · reinvii: ${last.resend_count}` : ""}
-                  </p>
-                ) : null}
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase text-muted-foreground">Listino</span>
-                  <Select
-                    value={
-                      record.assigned_price_list_number === null
-                        ? "nessuno"
-                        : String(record.assigned_price_list_number)
-                    }
-                    onValueChange={(value) => void assignPriceList(record, value)}
-                    disabled={!isAdmin}
-                  >
-                    <SelectTrigger className="h-8 w-52 text-sm">
-                      <SelectValue placeholder="Listino" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
-                      {priceLists.map((item) => (
-                        <SelectItem key={item.listNumber} value={String(item.listNumber)}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button size="sm" variant="outline" onClick={() => openEdit(record)}>
-                  Dettagli
-                </Button>
-                {link.key === "attivo" || link.key === "sospeso" ? null : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!isAdmin}
-                    onClick={() => openInvite(record)}
-                  >
-                    Invita
-                  </Button>
-                )}
-                {pending ? (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!isAdmin}
-                      onClick={() => resend(pending.id)}
-                    >
-                      Reinvia
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!isAdmin}
-                      onClick={() => cancelInvite(pending.id)}
-                    >
-                      Annulla invito
-                    </Button>
-                  </>
-                ) : null}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={!isAdmin}
-                  onClick={() => toggleStatus(record)}
-                >
-                  {record.status === "attivo" ? "Disattiva" : "Riattiva"}
-                </Button>
-              </div>
-            </section>
-          );
-        })
-      ) : (
+      ) : !records.length ? (
         <p className="text-sm text-muted-foreground">
           Nessun cliente in anagrafica: aggiungi il primo con “Nuovo cliente”.
         </p>
+      ) : !filtered.length ? (
+        <p className="text-sm text-muted-foreground">Nessun cliente corrisponde alla ricerca.</p>
+      ) : (
+        <>
+          {/* Elenco gestionale: una riga per cliente, testo compatto. */}
+          <div className="hidden overflow-x-auto rounded-xl border border-border bg-card sm:block">
+            <Table className="text-xs">
+              <TableHeader className="sticky top-0 z-10 bg-muted/60 backdrop-blur">
+                <TableRow>
+                  <TableHead className="w-8">
+                    <Checkbox
+                      checked={allFilteredSelected}
+                      onCheckedChange={toggleAllFiltered}
+                      aria-label="Seleziona tutti i clienti filtrati"
+                    />
+                  </TableHead>
+                  {columns.map((column) => (
+                    <TableHead
+                      key={column.key}
+                      className={cn(
+                        "h-8 cursor-pointer select-none whitespace-nowrap text-xs",
+                        column.className,
+                      )}
+                      onClick={() => toggleSort(column.key)}
+                    >
+                      {column.label}
+                      {sort.key === column.key ? (sort.asc ? " ▲" : " ▼") : ""}
+                    </TableHead>
+                  ))}
+                  <TableHead className="w-20 text-right text-xs">Azioni</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((record) => (
+                  <TableRow
+                    key={record.id}
+                    className="cursor-pointer odd:bg-muted/20"
+                    onClick={() => openEdit(record)}
+                  >
+                    <TableCell className="py-1" onClick={(event) => event.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.has(record.id)}
+                        onCheckedChange={() => toggleSelect(record.id)}
+                        aria-label={`Seleziona ${record.legal_name}`}
+                      />
+                    </TableCell>
+                    {columns.map((column) => (
+                      <TableCell
+                        key={column.key}
+                        className={cn("max-w-56 truncate py-1", column.className)}
+                      >
+                        {cellContent(column, record)}
+                      </TableCell>
+                    ))}
+                    <TableCell className="py-1 text-right">
+                      <RowActions record={record} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Smartphone: lista compatta con le stesse azioni. */}
+          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card sm:hidden">
+            {filtered.map((record) => (
+              <div
+                key={record.id}
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 p-2"
+                onClick={() => openEdit(record)}
+              >
+                <Checkbox
+                  className="mt-0.5"
+                  checked={selectedIds.has(record.id)}
+                  onCheckedChange={() => toggleSelect(record.id)}
+                  onClick={(event) => event.stopPropagation()}
+                  aria-label={`Seleziona ${record.legal_name}`}
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium">{record.legal_name}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {[
+                      record.internal_reference,
+                      [record.city, record.province].filter(Boolean).join(" "),
+                      record.vat_number,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "Dati essenziali da completare"}
+                  </p>
+                  <div className="mt-1">
+                    <LinkCell record={record} />
+                  </div>
+                </div>
+                <RowActions record={record} />
+              </div>
+            ))}
+          </div>
+        </>
       )}
+
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-3xl overflow-y-auto">
