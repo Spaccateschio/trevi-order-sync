@@ -713,13 +713,11 @@ function DaneaPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="nessuno">Nessuno · primo listino attivo</SelectItem>
-                {(priceLists.data ?? [])
-                  .filter((item) => item.is_active !== false)
-                  .map((item) => (
-                    <SelectItem key={item.list_number} value={String(item.list_number)}>
-                      {item.display_name ?? item.danea_name ?? `Listino ${item.list_number}`}
-                    </SelectItem>
-                  ))}
+                {(priceLists.data ?? []).map((item) => (
+                  <SelectItem key={item.list_number} value={String(item.list_number)}>
+                    {item.display_name ?? item.danea_name ?? `Listino ${item.list_number}`}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
