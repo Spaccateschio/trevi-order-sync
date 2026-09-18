@@ -595,6 +595,30 @@ export function CustomerRecordsPanel({
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase text-muted-foreground">Listino</span>
+                  <Select
+                    value={
+                      record.assigned_price_list_number === null
+                        ? "nessuno"
+                        : String(record.assigned_price_list_number)
+                    }
+                    onValueChange={(value) => void assignPriceList(record, value)}
+                    disabled={!isAdmin}
+                  >
+                    <SelectTrigger className="h-8 w-52 text-sm">
+                      <SelectValue placeholder="Listino" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
+                      {priceLists.map((item) => (
+                        <SelectItem key={item.listNumber} value={String(item.listNumber)}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button size="sm" variant="outline" onClick={() => openEdit(record)}>
                   Dettagli
                 </Button>
