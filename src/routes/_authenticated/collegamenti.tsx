@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Bell, KeyRound, Link2, Mail, QrCode, Search, Sparkles } from "lucide-react";
+import { Bell, KeyRound, Link2, Mail, Search, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -528,20 +528,20 @@ function Collegamenti() {
       title="Collegamenti B2B"
       description="Gestisci i rapporti con le altre aziende della piattaforma Trevi Fruit."
       actions={
-        <>
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <Button
             size="sm"
             variant="outline"
             className={
               view === "richieste"
-                ? undefined
-                : "border-destructive/25 bg-destructive/5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                ? "h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm"
+                : "h-8 border-destructive/25 bg-destructive/5 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive sm:h-9 sm:px-3 sm:text-sm"
             }
             onClick={() => setView(view === "richieste" ? "connessioni" : "richieste")}
           >
-            <Bell className="size-4" />
-            Richieste
-            <span className="ml-1 rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground">
+            <Bell className="size-3.5 sm:size-4" />
+            <span>Richieste</span>
+            <span className="ml-0.5 rounded-full bg-destructive px-1.5 text-[10px] leading-4 text-destructive-foreground sm:ml-1 sm:text-xs">
               {pendingRows.length}
             </span>
           </Button>
@@ -551,97 +551,107 @@ function Collegamenti() {
               variant="outline"
               className={
                 view === "inviti"
-                  ? undefined
-                  : "border-warning/40 bg-warning/10 text-warning-foreground hover:bg-warning/20"
+                  ? "h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm"
+                  : "h-8 border-warning/40 bg-warning/10 px-2 text-xs text-warning-foreground hover:bg-warning/20 sm:h-9 sm:px-3 sm:text-sm"
               }
               onClick={() => setView(view === "inviti" ? "connessioni" : "inviti")}
             >
-              <Mail className="size-4" />
-              Inviti
-              <span className="ml-1 rounded-full bg-warning px-1.5 text-xs text-warning-foreground">
+              <Mail className="size-3.5 sm:size-4" />
+              <span>Inviti</span>
+              <span className="ml-0.5 rounded-full bg-warning px-1.5 text-[10px] leading-4 text-warning-foreground sm:ml-1 sm:text-xs">
                 {pendingInvitations.length}
               </span>
             </Button>
           ) : null}
-        </>
+        </div>
       }
     >
       <div className="space-y-4">
         {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
 
         {/* Barra viste principale: connessioni, ricerca e i due flussi rapidi. */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <Button
             size="sm"
             variant={view === "connessioni" ? "default" : "outline"}
-            className="shrink-0"
+            className="min-w-0 px-2 sm:px-3"
             onClick={() => setView("connessioni")}
           >
-            <Link2 className="size-4" />
-            Le mie connessioni
+            <Link2 className="size-4 shrink-0" />
+            <span className="truncate sm:hidden">Connessioni</span>
+            <span className="hidden sm:inline">Le mie connessioni</span>
           </Button>
           <Button
             size="sm"
             variant={view === "ricerca" ? "default" : "outline"}
-            className="shrink-0"
+            className="min-w-0 px-2 sm:px-3"
             onClick={() => setView("ricerca")}
           >
-            <Search className="size-4" />
-            Cerca azienda
+            <Search className="size-4 shrink-0" />
+            <span className="truncate">Cerca azienda</span>
           </Button>
           {sells ? (
             <Button
               size="sm"
               variant="outline"
-              className="shrink-0"
+              className="min-w-0 px-2 sm:px-3"
               disabled={!isAdmin}
               onClick={() => setInviteOpen(true)}
             >
-              <Sparkles className="size-4" />
-              Invita partner
+              <Sparkles className="size-4 shrink-0" />
+              <span className="truncate sm:hidden">Invita</span>
+              <span className="hidden sm:inline">Invita partner</span>
             </Button>
           ) : null}
           {buys ? (
             <Button
               size="sm"
               variant="outline"
-              className="shrink-0"
+              className="min-w-0 px-2 sm:px-3"
               disabled={!isAdmin}
               onClick={() => setCodeOpen(true)}
             >
-              <KeyRound className="size-4" />
-              Ho un codice
+              <KeyRound className="size-4 shrink-0" />
+              <span className="truncate sm:hidden">Codice</span>
+              <span className="hidden sm:inline">Ho un codice</span>
             </Button>
           ) : null}
         </div>
 
         {view === "connessioni" ? (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
-              <TabsList className="h-auto w-full justify-stretch gap-1 sm:w-auto sm:justify-start">
+              <TabsList className="grid h-9 w-full grid-cols-3 gap-1 p-1 sm:flex sm:h-10 sm:w-auto sm:justify-start">
                 {(Object.keys(tabLabels) as Tab[]).map((key) => (
-                  <TabsTrigger key={key} value={key} className="flex-1 sm:flex-none">
-                    {tabLabels[key]}
-                    <span className="ml-1.5 text-xs text-muted-foreground">
+                  <TabsTrigger
+                    key={key}
+                    value={key}
+                    className="min-w-0 px-2 text-xs sm:flex-none sm:px-3 sm:text-sm"
+                  >
+                    <span className="truncate">{tabLabels[key]}</span>
+                    <span className="ml-1 text-[10px] text-muted-foreground sm:text-xs">
                       {tabCounts[key]}
                     </span>
                   </TabsTrigger>
                 ))}
               </TabsList>
             </Tabs>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-full max-w-sm">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <div className="relative min-w-0 sm:w-full sm:max-w-sm">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground sm:left-3 sm:size-4" />
                 <Input
-                  className="h-9 pl-9"
+                  className="h-8 min-w-0 pl-8 pr-2 text-xs sm:h-9 sm:pl-9 sm:text-sm"
                   value={listSearch}
                   onChange={(event) => setListSearch(event.target.value)}
-                  placeholder="Cerca per ragione sociale o partita IVA…"
+                  placeholder="Cerca cliente…"
                   aria-label="Cerca fra le connessioni"
                 />
               </div>
               <Select value={stato} onValueChange={(value) => setStato(value as StatoFilter)}>
-                <SelectTrigger className="h-9 w-[168px]" aria-label="Filtra per stato">
+                <SelectTrigger
+                  className="h-8 w-full px-2 text-xs sm:h-9 sm:w-[168px] sm:text-sm"
+                  aria-label="Filtra per stato"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -864,61 +874,6 @@ function Collegamenti() {
                 cliente.
               </p>
             )}
-          </div>
-        ) : null}
-
-        {/* Scorciatoie in fondo pagina, come nel nuovo layout. */}
-        {view === "connessioni" ? (
-          <div className="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="flex flex-col rounded-2xl border border-primary/15 bg-primary/5 p-4">
-              <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
-                <Search className="size-5" />
-              </span>
-              <h3 className="mt-3 font-display text-base font-semibold">Cerca azienda</h3>
-              <p className="mt-1 flex-1 text-sm text-muted-foreground">
-                Trova un'azienda già registrata su Trevi Fruit e richiedi il collegamento.
-              </p>
-              <Button className="mt-3 w-full" onClick={() => setView("ricerca")}>
-                Cerca azienda <ArrowRight className="size-4" />
-              </Button>
-            </div>
-            {sells ? (
-              <div className="flex flex-col rounded-2xl border border-success/20 bg-success/5 p-4">
-                <span className="grid size-10 place-items-center rounded-xl bg-success/10 text-success">
-                  <Sparkles className="size-5" />
-                </span>
-                <h3 className="mt-3 font-display text-base font-semibold">Invita partner</h3>
-                <p className="mt-1 flex-1 text-sm text-muted-foreground">
-                  Genera un codice invito da condividere, anche senza avere il partner in
-                  anagrafica.
-                </p>
-                <Button
-                  className="mt-3 w-full bg-success text-success-foreground hover:bg-success/90"
-                  disabled={!isAdmin}
-                  onClick={() => setInviteOpen(true)}
-                >
-                  Invita partner <ArrowRight className="size-4" />
-                </Button>
-              </div>
-            ) : null}
-            {buys ? (
-              <div className="flex flex-col rounded-2xl border border-border bg-accent/30 p-4">
-                <span className="grid size-10 place-items-center rounded-xl bg-accent text-accent-foreground">
-                  <QrCode className="size-5" />
-                </span>
-                <h3 className="mt-3 font-display text-base font-semibold">Ho un codice</h3>
-                <p className="mt-1 flex-1 text-sm text-muted-foreground">
-                  Inserisci il codice invito che hai ricevuto per collegarti con un'azienda.
-                </p>
-                <Button
-                  className="mt-3 w-full"
-                  disabled={!isAdmin}
-                  onClick={() => setCodeOpen(true)}
-                >
-                  Inserisci codice <ArrowRight className="size-4" />
-                </Button>
-              </div>
-            ) : null}
           </div>
         ) : null}
 
