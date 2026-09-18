@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   activeCompany,
   companyBuys,
@@ -84,14 +85,13 @@ type RelationMeta = {
 };
 
 type View = "connessioni" | "ricerca" | "richieste" | "inviti";
-/** Filtro per direzione del rapporto, in sostituzione delle vecchie tab. */
-type RapportoFilter = "tutti" | "vendo" | "compro" | "entrambi";
+/** Tab principali: Clienti (a cui vendo), Fornitori (da cui compro), Entrambi. */
+type Tab = "clienti" | "fornitori" | "entrambi";
 type StatoFilter = "tutti" | "attivi" | "attesa" | "sospesi" | "chiusi";
 
-const rapportoLabels: Record<RapportoFilter, string> = {
-  tutti: "Tutti i rapporti",
-  vendo: "Io vendo a",
-  compro: "Io compro da",
+const tabLabels: Record<Tab, string> = {
+  clienti: "Clienti",
+  fornitori: "Fornitori",
   entrambi: "Entrambi",
 };
 
@@ -122,8 +122,7 @@ function Collegamenti() {
   const queryClient = useQueryClient();
 
   const [view, setView] = useState<View>("connessioni");
-  const [rapporto, setRapporto] = useState<RapportoFilter>("tutti");
-  const [stato, setStato] = useState<StatoFilter>("tutti");
+  const [tab, setTab] = useState<Tab>("clienti");
   /** Link freschi ottenuti dopo un reinvio: il token non è recuperabile dal database. */
   const [freshLinks, setFreshLinks] = useState<Record<string, string>>({});
   const [listSearch, setListSearch] = useState("");
