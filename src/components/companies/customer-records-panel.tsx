@@ -611,7 +611,10 @@ export function CustomerRecordsPanel({
     .map((result) => `${result.name}\t${result.email}\t${result.link}`)
     .join("\n");
 
-  const columns = CUSTOMER_COLUMNS.filter((column) => visibleColumns.includes(column.key));
+  // L'ordine in tabella è quello scelto dall'utente trascinando le intestazioni.
+  const columns = visibleColumns
+    .map((key) => CUSTOMER_COLUMNS.find((column) => column.key === key))
+    .filter((column): column is (typeof CUSTOMER_COLUMNS)[number] => Boolean(column));
 
   const filtered = useMemo(() => {
     const list = records.filter((record) => customerMatchesQuery(record, search));
