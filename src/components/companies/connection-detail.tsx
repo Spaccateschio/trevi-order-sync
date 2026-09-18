@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { identityQueryKey } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -62,16 +63,23 @@ export function ConnectionDetail({ row, isAdmin, dates, onClose }: Props) {
 
   if (!row) return null;
   const relation = row.relation;
-  const partnerEnabled = row.side === "venditore" ? relation.buyerEnabled : relation.sellerEnabled;
+  const partnerEnabled = row.partnerSideEnabled;
   const canDecide =
     relation.status === "in_attesa" &&
     ((relation.origin === "richiesta_cliente" && row.side === "venditore") ||
       (relation.origin === "invito_fornitore" && row.side === "acquirente"));
   const canClose = isAdmin && (relation.status === "attivo" || relation.status === "sospeso");
 
+  /** Cronologia derivata dalle date già presenti sul rapporto: nessun dato nuovo. */
+  const events = [
+    { label: "Richiesta di collegamento", date: dates?.requestedAt ?? null },
+    { label: "Collegamento accettato", date: dates?.acceptedAt ?? null },
+    { label: "Ultima attività", date: dates?.updatedAt ?? null },
+  ].filter((event) => event.date);
+
   return (
     <Sheet open onOpenChange={(open) => (!open ? onClose() : undefined)}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-md">
         <SheetHeader className="space-y-0">
           <div className="flex items-start gap-3">
             <CompanyAvatar className="size-12" />
@@ -90,61 +98,122 @@ export function ConnectionDetail({ row, isAdmin, dates, onClose }: Props) {
           </div>
         </SheetHeader>
 
-        <div className="mt-5">
-          <Field label="Rapporto" value={<RelationPill label={row.relationshipLabel} />} />
-          <Field label="Stato" value={<StatusPill row={row} />} />
-          <Field
-            label="Il mio lato"
-            value={
-              relation.status === "attivo" ? (
-                <span className="flex items-center gap-2">
-                  <Switch
-                    checked={row.mySideEnabled}
-                    disabled={busy || !isAdmin}
-                    aria-label="Il mio lato"
-                    onCheckedChange={(value) =>
-                      void run(
-                        () =>
-                          supabase.rpc("set_relation_side_enabled", {
-                            _relation_id: relation.id,
-                            _enabled: value,
-                          }),
-                        value ? "Il tuo lato è attivo." : "Il tuo lato è sospeso.",
-                      )
-                    }
-                  />
-                  {row.mySideEnabled ? "Attivo" : "Sospeso"}
-                </span>
-              ) : (
-                row.mySideEnabled ? "Attivo" : "Sospeso"
-              )
-            }
-          />
-          <Field label="Lato partner" value={partnerEnabled ? "Attivo" : "Sospeso"} />
-          <Field
-            label="Origine"
-            value={
-              relation.origin === "invito_fornitore"
-                ? "Invito da Trevi Fruit"
-                : "Richiesta dell'acquirente"
-            }
-          />
-          <Field label="Richiesta" value={formatDate(dates?.requestedAt ?? null)} />
-          <Field label="Accettazione" value={formatDate(dates?.acceptedAt ?? null)} />
-          <Field label="Ultima attività" value={formatDate(dates?.updatedAt ?? null)} />
-        </div>
+        <Tabs defaultValue="dettagli" className="mt-4 flex-1">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="dettagli">Dettagli</TabsTrigger>
+            <TabsTrigger value="note">Note</TabsTrigger>
+            <TabsTrigger value="cronologia">Cronologia</TabsTrigger>
+          </TabsList>
 
-        {relation.customerRecordId ? (
-          <div className="mt-5 rounded-xl border border-border p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Cliente associato</p>
-            <Link
-              to="/vendite/clienti"
-              className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium underline"
-            >
-              Vai alla scheda <ExternalLink className="size-3.5" />
-            </Link>
-          </div>
-        ) : null}
+          <TabsContent value="dettagli" className="mt-2">
+            <div>
+              <Field label="Rapporto" value={<RelationPill label={row.relationshipLabel} />} />
+              <Field label="Stato" value={<StatusPill row={row} />} />
+              <Field
+                label="Il mio lato"
+                value={
+                  relation.status === "attivo" ? (
+                    <span className="flex items-center gap-2">
+                      <Switch
+                        checked={row.mySideEnabled}
+                        disabled={busy || !isAdmin}
+                        aria-label="Il mio lato"
+                        onCheckedChange={(value) =>
+                          void run(
+                            () =>
+                              supabase.rpc("set_relation_side_enabled", {
+                                _relation_id: relation.id,
+                                _enabled: value,
+                              }),
+                            value ? "Il tuo lato è attivo." : "Il tuo lato è sospeso.",
+                          )
+                        }
+                      />
+                      {row.mySideEnabled ? "Attivo" : "Sospeso"}
+                    </span>
+                  ) : row.mySideEnabled ? (
+                    "Attivo"
+                  ) : (
+                    "Sospeso"
+                  )
+                }
+              />
+              <Field
+                label="Lato partner"
+                value={
+                  <span className="flex items-center gap-2" title="Gestito dall'azienda partner">
+                    <Switch checked={partnerEnabled} disabled aria-label="Lato partner" />
+                    {partnerEnabled ? "Attivo" : "Sospeso"}
+                  </span>
+                }
+              />
+              <Field
+                label="Origine"
+                value={
+                  relation.origin === "invito_fornitore"
+                    ? "Invito da Trevi Fruit"
+                    : "Richiesta dell'acquirente"
+                }
+              />
+              <Field label="Richiesta" value={formatDate(dates?.requestedAt ?? null)} />
+              <Field label="Accettazione" value={formatDate(dates?.acceptedAt ?? null)} />
+              <Field label="Ultima attività" value={formatDate(dates?.updatedAt ?? null)} />
+            </div>
+
+            {relation.customerRecordId ? (
+              <div className="mt-5 rounded-xl border border-border p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Cliente associato
+                </p>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="truncate text-sm font-medium">{row.partnerName}</span>
+                  <Link
+                    to="/vendite/clienti"
+                    className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-primary underline"
+                  >
+                    Vai alla scheda <ExternalLink className="size-3.5" />
+                  </Link>
+                </div>
+              </div>
+            ) : null}
+          </TabsContent>
+
+          <TabsContent value="note" className="mt-2">
+            <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              Le note sul collegamento arriveranno prossimamente.
+            </p>
+          </TabsContent>
+
+          <TabsContent value="cronologia" className="mt-2">
+            {events.length ? (
+              <ol className="space-y-0">
+                {events.map((event, index) => (
+                  <li key={event.label} className="relative flex gap-3 pb-4 last:pb-0">
+                    <span className="flex flex-col items-center">
+                      <span
+                        className="mt-1.5 size-2 shrink-0 rounded-full bg-primary"
+                        aria-hidden
+                      />
+                      {index < events.length - 1 ? (
+                        <span className="mt-1 w-px flex-1 bg-border" aria-hidden />
+                      ) : null}
+                    </span>
+                    <span>
+                      <span className="block text-sm font-medium">{event.label}</span>
+                      <span className="block text-sm text-muted-foreground">
+                        {formatDate(event.date)}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                Nessun evento registrato per questo collegamento.
+              </p>
+            )}
+          </TabsContent>
+        </Tabs>
 
         <div className="mt-6 space-y-2">
           {canDecide && isAdmin ? (
