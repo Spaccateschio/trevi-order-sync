@@ -63,9 +63,7 @@ function CatalogProductPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select(
-          "id, code, description, description_html, category, subcategory, danea_um, notes, product_images(id), product_sale_units(is_default, conversion_factor, conversion_reference_um, units_of_measure(code, description))",
-        )
+        .select(CATALOG_SELECT)
         .eq("company_id", sellerId)
         .eq("publish_status", "pubblicato")
         .eq("b2b_visible", true)
