@@ -136,6 +136,7 @@ function Collegamenti() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [freeEmail, setFreeEmail] = useState("");
+  const [freePriceList, setFreePriceList] = useState<string>("nessuno");
   const [freeResult, setFreeResult] = useState<{
     code: string;
     link: string;
@@ -469,6 +470,7 @@ function Collegamenti() {
     const { data, error } = await supabase.rpc("create_free_invitation", {
       _seller_company_id: company.companyId,
       ...(freeEmail.trim() === "" ? {} : { _email: freeEmail.trim() }),
+      ...(freePriceList === "nessuno" ? {} : { _price_list_number: Number(freePriceList) }),
     });
     setBusy(false);
     if (error) {
@@ -1022,15 +1024,36 @@ function Collegamenti() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-2">
-              <Label htmlFor="invito-email">Email (opzionale)</Label>
-              <Input
-                id="invito-email"
-                type="email"
-                value={freeEmail}
-                onChange={(event) => setFreeEmail(event.target.value)}
-                placeholder="es. nome@azienda.it"
-              />
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="invito-email">Email (opzionale)</Label>
+                <Input
+                  id="invito-email"
+                  type="email"
+                  value={freeEmail}
+                  onChange={(event) => setFreeEmail(event.target.value)}
+                  placeholder="es. nome@azienda.it"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Listino da assegnare</Label>
+                <Select value={freePriceList} onValueChange={setFreePriceList}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Listino" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
+                    {(priceListsQuery.data ?? []).map((item) => (
+                      <SelectItem key={item.listNumber} value={String(item.listNumber)}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Il listino si applica quando il collegamento viene agganciato a una scheda cliente.
+                </p>
+              </div>
             </div>
           )}
           <DialogFooter>
