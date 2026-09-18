@@ -198,6 +198,8 @@ export function CustomerRecordsPanel({
   const [columnWidths, setColumnWidths] = useState<Record<CustomerColumnKey, number>>(() =>
     loadCustomerColumnWidths(),
   );
+  const [dragColumn, setDragColumn] = useState<CustomerColumnKey | null>(null);
+  const [dropTarget, setDropTarget] = useState<CustomerColumnKey | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkResults, setBulkResults] = useState<
     {
