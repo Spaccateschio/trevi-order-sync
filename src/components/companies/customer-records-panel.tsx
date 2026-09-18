@@ -760,6 +760,13 @@ export function CustomerRecordsPanel({
               value={form.internal_reference}
               onChange={(v) => setForm({ ...form, internal_reference: v })}
             />
+            <Field
+              label="Referente"
+              value={form.contact_name}
+              onChange={(v) => setForm({ ...form, contact_name: v })}
+            />
+            <Field label="Fax" value={form.fax} onChange={(v) => setForm({ ...form, fax: v })} />
+            <Field label="PEC" value={form.pec} onChange={(v) => setForm({ ...form, pec: v })} />
             <div className="grid gap-1.5 sm:col-span-2">
               <Label>Note</Label>
               <Textarea
@@ -768,6 +775,9 @@ export function CustomerRecordsPanel({
               />
             </div>
           </div>
+
+          {editing ? <DaneaAdminBlock record={editing} /> : null}
+
 
           {editing ? (
             <div className="mt-4 border-t border-border pt-4">
