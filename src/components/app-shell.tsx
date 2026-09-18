@@ -159,7 +159,7 @@ export function AppShell({
 
         <main
           className={cn(
-            "mx-auto w-full overflow-x-hidden px-3 pb-28 pt-4 sm:px-5 lg:pb-10",
+            "mx-auto w-full px-3 pb-28 pt-4 sm:px-5 lg:pb-10",
             wide ? "max-w-none lg:px-4" : "max-w-6xl",
             compact ? "lg:pt-3" : "lg:pt-7",
           )}
