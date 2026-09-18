@@ -34,3 +34,5 @@
 - [x] Email di invito collegamento inviate dal mittente notify.suitefficio.com (invito rapido, invito da scheda cliente, inviti multipli, rinnovo)
 - [x] Foglio invito PDF A4 con QR, codice invito, nome di chi invita e contatti aziendali (scheda cliente, inviti multipli, invito rapido in Collegamenti)
 - [x] Fase A marketplace B2B: Acquisti → Catalogo (vetrine fornitori collegati, griglia prodotti, scheda prodotto, preferiti, prezzi solo se listino assegnato) + interruttore "In vetrina B2B" lato venditore (singolo e multiplo)
+
+- [ ] Fase A.2 — Catalogo globale cross-fornitore, listini assegnati (default azienda, invito, assegnazione manuale) e U.M. preferita sticky dell'acquirente. Vincoli: DROP+CREATE delle funzioni invito (no overload), copia listino su tutti i percorsi di accettazione, relation_is_operational solo nella policy INSERT del buyer.
