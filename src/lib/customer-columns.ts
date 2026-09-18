@@ -39,46 +39,48 @@ export type CustomerColumn = {
   value: (record: CustomerRecord) => string;
   /** Colonne strette, allineate a sinistra come nel gestionale. */
   className?: string;
+  /** Peso iniziale usato dalla tabella adattiva. */
+  weight: number;
 };
 
 const text = (value: string | null | undefined) => (value ?? "").trim();
 
 export const CUSTOMER_COLUMNS: CustomerColumn[] = [
-  { key: "internal_reference", label: "Cod.", value: (r) => text(r.internal_reference), className: "w-16" },
-  { key: "legal_name", label: "Denominazione", value: (r) => text(r.legal_name), className: "min-w-52" },
-  { key: "city", label: "Città", value: (r) => text(r.city), className: "w-32" },
-  { key: "province", label: "Prov.", value: (r) => text(r.province), className: "w-14" },
-  { key: "vat_number", label: "Partita IVA", value: (r) => text(r.vat_number), className: "w-28" },
-  { key: "tax_code", label: "Codice fiscale", value: (r) => text(r.tax_code), className: "w-32" },
-  { key: "address_line", label: "Indirizzo", value: (r) => text(r.address_line), className: "min-w-40" },
-  { key: "postal_code", label: "CAP", value: (r) => text(r.postal_code), className: "w-16" },
-  { key: "region", label: "Regione", value: (r) => text(r.region), className: "w-28" },
-  { key: "country", label: "Nazione", value: (r) => text(r.country), className: "w-24" },
-  { key: "sdi_code", label: "Cod. destinatario", value: (r) => text(r.sdi_code), className: "w-28" },
+  { key: "internal_reference", label: "Cod.", value: (r) => text(r.internal_reference), weight: 7 },
+  { key: "legal_name", label: "Denominazione", value: (r) => text(r.legal_name), weight: 20 },
+  { key: "city", label: "Città", value: (r) => text(r.city), weight: 12 },
+  { key: "province", label: "Prov.", value: (r) => text(r.province), weight: 6 },
+  { key: "vat_number", label: "Partita IVA", value: (r) => text(r.vat_number), weight: 12 },
+  { key: "tax_code", label: "Codice fiscale", value: (r) => text(r.tax_code), weight: 13 },
+  { key: "address_line", label: "Indirizzo", value: (r) => text(r.address_line), weight: 18 },
+  { key: "postal_code", label: "CAP", value: (r) => text(r.postal_code), weight: 7 },
+  { key: "region", label: "Regione", value: (r) => text(r.region), weight: 11 },
+  { key: "country", label: "Nazione", value: (r) => text(r.country), weight: 10 },
+  { key: "sdi_code", label: "Cod. destinatario", value: (r) => text(r.sdi_code), weight: 12 },
   {
     key: "sdi_admin_reference",
     label: "Rif. ammin.",
     value: (r) => text(r.sdi_admin_reference),
-    className: "w-28",
+    weight: 12,
   },
-  { key: "contact_name", label: "Referente", value: (r) => text(r.contact_name), className: "w-32" },
-  { key: "phone", label: "Telefono", value: (r) => text(r.phone), className: "w-32" },
-  { key: "email", label: "e-mail", value: (r) => text(r.email), className: "min-w-40" },
-  { key: "fax", label: "Fax", value: (r) => text(r.fax), className: "w-28" },
-  { key: "pec", label: "Pec", value: (r) => text(r.pec), className: "min-w-40" },
-  { key: "discounts", label: "Sconti", value: (r) => text(r.discounts), className: "w-24" },
-  { key: "credit_limit", label: "Fido", value: (r) => text(r.credit_limit), className: "w-24" },
-  { key: "agent", label: "Agente", value: (r) => text(r.agent), className: "w-28" },
-  { key: "payment_terms", label: "Pagamento", value: (r) => text(r.payment_terms), className: "min-w-36" },
-  { key: "bank", label: "Coord. bancarie", value: (r) => text(r.bank), className: "min-w-36" },
-  { key: "our_bank", label: "Ns. banca", value: (r) => text(r.our_bank), className: "w-32" },
-  { key: "price_list", label: "Listino", value: () => "", className: "w-56" },
-  { key: "link", label: "Collegamento", value: () => "", className: "w-36" },
+  { key: "contact_name", label: "Referente", value: (r) => text(r.contact_name), weight: 12 },
+  { key: "phone", label: "Telefono", value: (r) => text(r.phone), weight: 12 },
+  { key: "email", label: "e-mail", value: (r) => text(r.email), weight: 16 },
+  { key: "fax", label: "Fax", value: (r) => text(r.fax), weight: 10 },
+  { key: "pec", label: "Pec", value: (r) => text(r.pec), weight: 16 },
+  { key: "discounts", label: "Sconti", value: (r) => text(r.discounts), weight: 9 },
+  { key: "credit_limit", label: "Fido", value: (r) => text(r.credit_limit), weight: 9 },
+  { key: "agent", label: "Agente", value: (r) => text(r.agent), weight: 11 },
+  { key: "payment_terms", label: "Pagamento", value: (r) => text(r.payment_terms), weight: 14 },
+  { key: "bank", label: "Coord. bancarie", value: (r) => text(r.bank), weight: 15 },
+  { key: "our_bank", label: "Ns. banca", value: (r) => text(r.our_bank), weight: 12 },
+  { key: "price_list", label: "Listino", value: () => "", weight: 13 },
+  { key: "link", label: "Collegamento", value: () => "", weight: 13 },
   {
     key: "status",
     label: "Stato",
     value: (r) => (r.status === "attivo" ? "Attivo" : r.status === "disattivato" ? "Disattivato" : "Revocato"),
-    className: "w-24",
+    weight: 9,
   },
 ];
 
@@ -98,6 +100,7 @@ export const DEFAULT_CUSTOMER_COLUMNS: CustomerColumnKey[] = [
 export const LOCKED_CUSTOMER_COLUMN: CustomerColumnKey = "legal_name";
 
 const STORAGE_KEY = "trevi:clienti:colonne";
+const WIDTHS_STORAGE_KEY = "trevi:clienti:larghezze";
 
 export function loadCustomerColumns(): CustomerColumnKey[] {
   if (typeof window === "undefined") return DEFAULT_CUSTOMER_COLUMNS;
@@ -123,6 +126,40 @@ export function saveCustomerColumns(keys: CustomerColumnKey[]) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
   } catch {
     /* preferenza non salvata: l'elenco resta comunque usabile */
+  }
+}
+
+export function defaultCustomerColumnWidths() {
+  return Object.fromEntries(CUSTOMER_COLUMNS.map((column) => [column.key, column.weight])) as Record<
+    CustomerColumnKey,
+    number
+  >;
+}
+
+export function loadCustomerColumnWidths() {
+  const defaults = defaultCustomerColumnWidths();
+  if (typeof window === "undefined") return defaults;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(WIDTHS_STORAGE_KEY) ?? "{}") as Record<
+      string,
+      unknown
+    >;
+    for (const column of CUSTOMER_COLUMNS) {
+      const value = parsed[column.key];
+      if (typeof value === "number" && Number.isFinite(value) && value >= 3) defaults[column.key] = value;
+    }
+  } catch {
+    return defaults;
+  }
+  return defaults;
+}
+
+export function saveCustomerColumnWidths(widths: Record<CustomerColumnKey, number>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(WIDTHS_STORAGE_KEY, JSON.stringify(widths));
+  } catch {
+    /* preferenza non salvata: le larghezze restano attive fino al cambio pagina */
   }
 }
 
