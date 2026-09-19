@@ -117,7 +117,7 @@ export function InventoryLocationsManager({
         {locations.map((row) => (
           <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
             <div className="min-w-0">
-              <p className="flex items-center gap-2 text-sm font-medium">
+              <div className="flex items-center gap-2 text-sm font-medium">
                 <MapPin className="size-4 text-muted-foreground" aria-hidden="true" />
                 <span className="truncate">{row.name}</span>
                 {row.is_default ? (
@@ -127,7 +127,7 @@ export function InventoryLocationsManager({
                   </Badge>
                 ) : null}
                 {row.status !== "attivo" ? <Badge variant="outline">Disattivata</Badge> : null}
-              </p>
+              </div>
               {row.code || row.notes ? (
                 <p className="truncate text-xs text-muted-foreground">
                   {[row.code, row.notes].filter(Boolean).join(" · ")}
