@@ -1,112 +1,143 @@
-# FASE C — Lista della Spesa + assegnazione fornitori (piano tecnico)
+# FASE D — Ordini fornitore, dichiarazione di consegna, confronto e ricezione
 
-Tutto nasce dalle strutture già in casa: prodotti, archivi Danea, `product_supplier_links` (fornitori del prodotto), `product_supplier_costs` (costo Danea), `units_of_measure`, parametri di magazzino e inventario. Nessuna seconda anagrafica, nessun secondo calcolo del fabbisogno.
+Nessuna implementazione in questa fase: solo piano tecnico.
+Fuori scope: notifiche, previsione automatica, ordini cliente, fatturazione.
 
-## 1. Tabelle
+## Principio guida
 
-### `shopping_lists` — la lista
-azienda, archivio Danea, nome, stato, note, autore, aperta il, confermata il, chiusa il, timestamp.
+Il nostro ordine è congelato. La consegna è una dichiarazione separata.
+Il confronto non riscrive mai l'ordine. Ogni decisione è storicizzata
+(chi, quando, come) e nulla viene cancellato.
 
-- Stati: **aperta** → **confermata** → **chiusa**; più **annullata**.
-- Una sola lista *aperta* per azienda e archivio (regola operativa, come per l'inventario).
-- Una lista confermata o chiusa non viene più riscritta: nessun nuovo inventario la modifica.
+```text
+Lista Spesa confermata
+   -> Ordine fornitore (righe immutabili)
+      -> Consegna 1 (dichiarata) -> confronto -> finestra 30' -> accettata/contestata
+      -> Consegna 2 (residuo)    -> confronto -> finestra 30' -> ...
+         -> quantità accettate -> movimenti di magazzino (append-only)
+```
 
-### `shopping_list_items` — la riga (snapshot della decisione)
-lista, prodotto, U.M. della riga (`unit_id` + codice), **quantità suggerita dal sistema**, **quantità decisa dall'operatore**, origine del suggerimento (`manuale` / `fabbisogno`), motivo della modifica, stato della riga, note, autore, data/ora di inserimento e di ultima modifica.
+## Tabelle proposte
 
-Snapshot del momento dell'inserimento, mai aggiornato in automatico: disponibile, necessario, scorta minima, fabbisogno reale, multiplo applicato. Serve a rispondere a "perché quel giorno avevamo deciso 80".
+**purchase_orders** — ordine verso un fornitore
+company_id, archive_id, supplier_record_id, relation_id (opzionale, B2B),
+shopping_list_id di origine, numero interno, stato, note generali,
+data invio, autore, timestamp.
 
-- Stati riga: **da_assegnare** → **parziale** → **assegnata**.
-- Unico (lista, prodotto) — vedi duplicati.
+**purchase_order_items** — righe immutabili
+order_id, product_id, product_supplier_link_id, quantità ordinata,
+unit_id + unit_code (U.M. ordine), quantità in U.M. acquisto,
+conversion_factor usato, snapshot costo, note interne.
+Dopo l'invio: nessun UPDATE sulle quantità (regola applicata da trigger).
 
-### `shopping_list_item_suppliers` — la ripartizione
-riga, `product_supplier_link_id`, fornitore (`supplier_record_id` ridondato per lettura veloce), quantità assegnata nell'U.M. della riga, eventuale quantità nell'U.M. d'acquisto del fornitore, conversione usata, avviso sotto minimo accettato (sì/no), note, autore, timestamp.
+**purchase_deliveries** — dichiarazione di consegna (una per consegna parziale)
+order_id, progressivo, origine (`fornitore_b2b` | `operatore_interno`),
+stato, nota generale, dichiarata_da, dichiarata_at,
+finestra_minuti (copia del parametro al momento dell'invio),
+scade_at, esito_accettazione (`manuale` | `decorrenza`),
+accettata_da, accettata_at.
 
-- Unico (riga, fornitore): un fornitore compare una volta per riga.
-- Le **percentuali non si salvano**: si calcolano dalle quantità al momento della visualizzazione.
-- Vincolo di coerenza: il fornitore deve appartenere alla stessa azienda e il collegamento prodotto↔fornitore deve essere attivo e riferito a quel prodotto.
+**purchase_delivery_items** — righe consegna
+delivery_id, order_item_id (NULL se aggiunta dal fornitore),
+product_id, tipo riga (`ordinata` | `aggiunta_fornitore` | `sostituzione`),
+sostituisce_order_item_id, quantità dichiarata, unit_id/unit_code,
+quantità equivalente in U.M. ordine, nota riga, motivo mancata consegna,
+stato riga, quantità accettata (definitiva), decisa_da, decisa_at.
 
-Accessi come le altre tabelle: lettura ai membri dell'azienda, scritture solo tramite funzioni protette lato server; operazioni importanti nel registro eventi.
+**purchase_delivery_line_events** — versionamento append-only
+delivery_item_id, tipo evento (`dichiarata`, `modificata`, `contestata`,
+`rettificata`, `accettata`, `rifiutata`), quantità precedente/nuova,
+motivo, nota, attore, created_at. Nessun DELETE/UPDATE.
 
-## 2. Funzioni protette (RPC)
+**purchase_delivery_disputes** — contestazione per riga
+delivery_item_id, motivo (enum: `quantita_inferiore`, `quantita_superiore`,
+`non_consegnato`, `non_ordinato`, `qualita`, `pezzatura`, `altro`),
+nota, stato (`aperta` | `risolta_accettata` | `risolta_rettificata` |
+`risolta_rifiutata`), aperta_da/at, risolta_da/at.
 
-| Funzione | Cosa fa |
-| --- | --- |
-| `manage_shopping_list` | apre, rinomina, conferma, chiude, annulla una lista |
-| `add_shopping_list_items` | aggiunge **uno o più prodotti in una volta** (dal Fabbisogno o a mano), scrivendo suggerito + snapshot; gestisce i duplicati |
-| `set_shopping_list_item_quantity` | cambia la quantità decisa e l'eventuale motivo; il suggerito non si tocca mai |
-| `assign_shopping_list_supplier` | assegna / modifica / rimuove la quantità di un fornitore su una riga, ricalcola lo stato della riga |
-| `remove_shopping_list_item` | rimuove una riga da una lista ancora aperta |
-| `shopping_list_overview` | righe con assegnati, residuo, stato, fornitori disponibili, costi, conversioni e **suggerimento attuale** ricalcolato per confronto |
+**inventory_movements** — registro append-only (creato qui, usato dalla ricezione)
+company_id, archive_id, product_id, location_id, tipo movimento
+(`entrata_acquisto`, e per il futuro `uscita_cliente`, `scarto`, `reso`,
+`trasferimento`, `rettifica`), quantità firmata, unit_id/unit_code,
+riferimento origine (delivery_item_id o altro), autore, created_at.
+Le rettifiche esistenti dell'Inventario non vengono toccate: la ricezione
+aggiunge movimenti, non riscrive i conteggi.
 
-Il fabbisogno continua a venire da `inventory_requirements`: un solo punto di calcolo, già esistente.
+**company_settings** — nuovo campo `delivery_check_window_minutes` (default 30).
 
-## 3. Residuo e stati della riga
+## Confronto ordinato / consegnato
 
-Sempre visibili: **da acquistare** (quantità decisa), **assegnati** (somma), **residuo**.
+Vista/RPC `delivery_comparison(delivery_id)` che per ogni riga restituisce:
+prodotto, ordinato, già consegnato in consegne precedenti, dichiarato ora,
+differenza, equivalente in U.M. ordine, esito
+(`corretta`, `inferiore`, `superiore`, `non_consegnata`,
+`aggiunta_fornitore`, `sostituzione`), note, stato riga, contestazione.
+Le percentuali e le differenze sono calcolate, non salvate.
+La riga `aggiunta_fornitore` è sempre etichettata in modo esplicito e non
+entra nell'ordine originale: può solo essere accettata o contestata.
 
-- assegnati = 0 → *da assegnare*
-- 0 < assegnati < decisa → *parziale*
-- assegnati = decisa → *assegnata*
-- assegnati > decisa → *parziale* con avviso in evidenza, per esempio "110 su 100": il sistema segnala, non corregge.
+## Stati e transizioni
 
-**Mai una redistribuzione automatica**: se porti Rossi da 60 a 70, Bianchi resta 40. La correzione la fai tu.
+Ordine: `bozza` → `inviato` → `parzialmente_consegnato` → `consegnato`
+→ `chiuso`; più `annullato` solo da `bozza`/`inviato` senza consegne.
 
-Una riga può restare incompleta durante la lavorazione. La **conferma della lista** richiede che ogni riga sia *assegnata*: le righe incoerenti vengono elencate e la conferma si blocca finché non sono sistemate.
+Consegna: `bozza` → `dichiarata` (parte la finestra) →
+`in_contestazione` → `accettata_manuale` | `accettata_decorrenza` |
+`chiusa_con_rifiuti`.
 
-## 4. Fornitori mostrati sulla riga
+Riga consegna: `dichiarata` → `accettata` | `contestata` →
+(`rettificata` | `accettata` | `rifiutata`).
 
-Letti solo da `product_supplier_links` (più `product_supplier_costs` per il costo Danea): preferito, costo Danea con data, costo Trevi Fruit con data, U.M. d'acquisto, conversione, quantità minima ordinabile, giorni di consegna, attivo, e se il fornitore è anche collegato in Trevi Fruit.
+Accettazione automatica per decorrenza: nessun job schedulato in questa
+fase; la maturazione è calcolata al momento della lettura e consolidata
+da una RPC idempotente `settle_expired_deliveries` invocata all'apertura
+della pagina consegna. Il tempo residuo è sempre visibile lato interfaccia.
 
-Il **preferito viene proposto** (evidenziato, primo in elenco, precompilato se assegni tutto a uno solo) ma **mai imposto**. Nessuna regola decide quale costo "vale": Danea e Trevi Fruit restano affiancati, come stabilito.
+## RPC e sicurezza
 
-## 5. U.M. e conversioni (approvato con correzioni)
+Tutte `SECURITY DEFINER`, `search_path = public`, company ricavata
+dall'utente autenticato, mai dal browser.
 
-La riga vive nell'U.M. del prodotto (U.M. di magazzino se impostata, altrimenti U.M. Danea). Ogni assegnazione tiene **tre quantità sempre distinte**:
+- `create_purchase_order_from_list(list_id, …)` — genera ordini per fornitore
+- `send_purchase_order(order_id)` — congela le righe
+- `open_delivery(order_id, origine)` / `set_delivery_item(…)` /
+  `submit_delivery(delivery_id)` — imposta `dichiarata_at`, finestra e scadenza
+- `accept_delivery(delivery_id)` / `dispute_delivery_item(item_id, motivo, nota)`
+- `resolve_delivery_dispute(dispute_id, esito, quantita_rettificata, nota)`
+- `settle_expired_deliveries()`
+- `receive_delivery(delivery_id, location_id)` — scrive i movimenti solo
+  per le quantità accettate, idempotente
 
-1. quantità assegnata nell'U.M. della Lista Spesa (per esempio 62 kg);
-2. quantità effettiva nell'U.M. d'acquisto del fornitore, confermata dall'operatore (per esempio 5 casse);
-3. equivalente risultante nell'U.M. della lista (5 × 15 = 75 kg) con l'eccedenza evidenziata (+13 kg).
+RLS: il compratore vede i propri ordini/consegne; il fornitore collegato
+B2B vede solo gli ordini a lui indirizzati e può scrivere unicamente la
+propria dichiarazione di consegna, mai le righe ordine. Fornitore non
+registrato: nessun accesso, la parte “consegnato” la compila l'operatore
+interno con `origine = operatore_interno`; il modello dati è identico.
 
-**Nessun arrotondamento automatico.** Con 62 kg e casse da 15 kg il sistema mostra "62 kg ≈ 4,13 casse · in confezioni intere 5 casse ≈ 75 kg (+13 kg)" come **proposta**: la quantità decisa resta 62 kg finché non confermi tu le casse. Lo storico conserva sempre entrambi i numeri: quello che ci serviva e quello che compriamo davvero.
+## Interfaccia
 
-**Conversione mancante.** Se l'U.M. della lista e l'U.M. d'acquisto del fornitore sono diverse e non esiste una conversione esplicita, nessuna stima viene inventata: puoi preparare l'assegnazione, ma la riga **non può risultare assegnata né confermata** finché non imposti la conversione o scegli un fornitore/U.M. compatibile. Se le due U.M. coincidono non serve nessuna conversione.
+- Elenco ordini con stato, fornitore, consegne, residuo.
+- Scheda ordine: righe ordinate immutabili + elenco consegne.
+- Pagina confronto: tabella compatta su desktop/tablet, schede touch su
+  smartphone, colonne Prodotto | Ordinato | Dichiarato | Differenza | Nota |
+  Stato, badge colore per esito, countdown della finestra, azioni
+  accetta riga / contesta riga / accetta tutto.
+- Compilazione consegna (fornitore B2B o operatore interno) con nota per
+  riga e nota generale, aggiunta articolo fuori ordine.
+- Ricezione: scelta zona e conferma entrata magazzino.
 
-## 6. Quantità minima del fornitore (approvato)
+## Test previsti
 
-Non è la scorta minima: è il minimo ordinabile da quel fornitore, e non cambia mai il fabbisogno del prodotto.
-
-**Avviso superabile, non blocco.** Se assegni 10 kg a Rossi che ha minimo 20 kg il sistema segnala "sotto il minimo di Rossi (20 kg)" e ti lascia proseguire, registrando sull'assegnazione che l'avviso è stato accettato, da chi e quando.
-
-## 7. Duplicati
-
-**Proposta: nessuna riga doppia.** Se aggiungi alla lista aperta un prodotto già presente:
-
-- dal Fabbisogno con selezione multipla: i prodotti già presenti vengono **saltati** e contati nel riepilogo ("18 aggiunti, 2 già in lista"), senza toccare le decisioni già prese;
-- dall'aggiunta singola: compare la scelta esplicita **"È già in lista: vai alla riga"** oppure **"Sostituisci la quantità suggerita con quella attuale"**, e in questo secondo caso la quantità decisa resta tua e il cambiamento viene tracciato.
-
-Nessuna riga separata per lo stesso prodotto nella stessa lista: il caso "due decisioni distinte per lo stesso prodotto" si gestisce con due fornitori sulla stessa riga.
-
-## 8. Suggerimento che cambia nel tempo
-
-La riga conserva il suggerito del momento dell'inserimento. `shopping_list_overview` ricalcola il **suggerimento attuale** e la schermata mostra, solo quando differisce: "suggerito all'inserimento 60 · oggi 45". Nessun valore viene sovrascritto in automatico; puoi allineare la riga con un'azione esplicita.
-
-## 9. Schermate
-
-- **Fabbisogno** (già esistente): caselle di selezione, contatore dei selezionati e pulsante **Aggiungi alla Lista della Spesa** per l'intera selezione, anche 20 prodotti insieme.
-- **Lista della Spesa** — computer e tablet: griglia compatta con codice, descrizione, U.M., suggerito, deciso (modificabile in linea), assegnati, residuo, fornitori assegnati, stato; ricerca rapida; filtri "da assegnare / parziali / complete / per fornitore / per archivio"; riga espandibile con la ripartizione fornitori.
-- **Lista della Spesa** — telefono: schede touch con quantità grande, residuo in evidenza e assegnazione fornitori a pieno schermo.
-- **Ripartizione**: elenco fornitori del prodotto con preferito evidenziato, campo quantità per fornitore, percentuali calcolate, totale assegnato, residuo, avvisi (sotto minimo, conversione mancante, somma oltre la quantità decisa).
-
-## 10. Test previsti
-
-Riga creata a mano; riga creata dal Fabbisogno con suggerito e snapshot corretti; selezione multipla di più prodotti; prodotto già in lista non duplicato; quantità decisa diversa dal suggerito con suggerito conservato; inventario modificato dopo l'inserimento che non cambia la riga e mostra il confronto; assegnazione a un solo fornitore; ripartizione su due fornitori con percentuali coerenti; modifica di un fornitore che non altera l'altro; somma superiore alla quantità decisa segnalata; residuo calcolato; stati da assegnare / parziale / assegnata; avviso sotto il minimo del fornitore; conversione presente che mostra la doppia lettura; conversione assente segnalata senza stime; conferma della lista bloccata con righe incoerenti e riuscita quando sono coerenti; lista confermata non modificata da un nuovo inventario. Nessun dato di prova lasciato nel database.
-
-## 11. Fuori scope in questa fase
-
-Ordine al fornitore, invio B2B, notifiche, motore predittivo, automazioni di acquisto.
-
-## Due decisioni che aspettano la tua conferma
-
-1. Quantità minima del fornitore: **avviso superabile** (proposta) oppure blocco.
-2. Duplicati: **nessuna riga doppia** con salto nella selezione multipla e scelta esplicita nell'aggiunta singola (proposta).
+1. Ordine inviato: tentativo di modifica quantità → rifiutato.
+2. Ordinate 3 kg, dichiarate 2 kg con nota → differenza -1, ordine intatto.
+3. Articolo non consegnato (0) con motivazione → ordinato resta 10 kg.
+4. Articolo aggiunto dal fornitore → etichettato, accettabile o contestabile.
+5. Consegna parziale 6 + 4 su 10 casse: due confronti e due finestre.
+6. Finestra: default 30', parametro modificato a 5', countdown coerente.
+7. Scadenza senza contestazione → `accettata_decorrenza`, distinta dalla manuale.
+8. Contestazione di una sola riga, le altre accettate.
+9. Contestazione risolta come accettata / rettificata / rifiutata, con storico completo.
+10. Ricezione: solo le quantità accettate generano movimenti; doppia chiamata non duplica.
+11. Fornitore non registrato: flusso completo compilato dall'operatore.
+12. RLS: il fornitore B2B non può toccare le righe ordine né altre aziende.
+13. Nessuna riga di storico cancellata o sovrascritta in tutto il flusso.
