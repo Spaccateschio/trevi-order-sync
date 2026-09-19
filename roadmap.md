@@ -11,3 +11,4 @@
 - [ ] FASE B: Inventario (sessione → conteggio → differenza → chiusura non modificabile → rettifiche tracciate)
 - [ ] Lista Spesa e ripartizione quantità tra fornitori (dopo l'Inventario)
 - [ ] Notifiche: badge, avvisi contestuali, notifiche vere (per ultime)
+- [ ] Futuro (non ora): motore di previsione del fabbisogno e suggerimento acquisti con spiegazione del calcolo; FASE A/B devono solo non bloccarlo

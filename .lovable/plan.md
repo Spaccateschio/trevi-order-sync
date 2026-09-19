@@ -99,17 +99,41 @@ Applicato **solo alla fine**, sul fabbisogno già calcolato, mai sui valori di p
 - La **scorta minima** è una politica di magazzino del prodotto, indipendente da qualsiasi fornitore.
 - Il fabbisogno non viene mai memorizzato: è sempre ricalcolato dalla stessa funzione lato server, usata sia dalla vista fabbisogno sia dalla futura Lista Spesa.
 
-## 4. Modello consigliato — Inventario
+## 4. FASE A + FASE B — Parametri magazzino e Inventario
 
 Il gestionale Danea resta il padrone di anagrafiche e documenti, ma **non** è la nostra giacenza operativa: non trasmette quantità. La giacenza operativa nasce quindi dal nostro conteggio fisico. Se in futuro Danea inviasse quantità, andranno tenute come dato informativo a parte, mai sovrascrivendo il conteggio.
 
+### FASE A — Parametri magazzino del prodotto
+
+Valori **impostati dall'azienda**, tenuti in una tabella dedicata di parametri per prodotto (non colonne sparse su `products`, così domani si aggiungono parametri senza toccare il catalogo):
+
+- scorta minima manuale;
+- multiplo di riordino;
+- U.M. di riferimento per il magazzino;
+- opzionale: giorni di copertura desiderati, deperibilità indicativa, note.
+
+Regola di progetto: i valori impostati a mano e quelli che in futuro saranno calcolati dal sistema **non condividono mai la stessa colonna**. I valori calcolati avranno le proprie colonne o la propria tabella, con l'indicazione di come sono stati ottenuti, e non sovrascrivono mai il valore manuale.
+
+### FASE B — Inventario
+
 - **Sessione di inventario**: azienda, archivio Danea, nome, stato (in corso / completata / annullata), inizio, fine, autore, note.
-- **Riga di conteggio**: sessione, prodotto, quantità contata, U.M. usata, quantità precedente, differenza calcolata dal database, data e ora, utente che ha contato, note. Un solo conteggio per prodotto nella stessa sessione.
-- **Parametri del prodotto** (nostri, non Danea): scorta minima, multiplo d'ordine, giorni di riordino, U.M. di riferimento per il magazzino.
-- **Quantità necessaria**: in questa fase inserita a mano nella sessione o nella Lista Spesa; in futuro potrà arrivare dagli ordini clienti.
-- **Fabbisogno**: sempre calcolato, mai memorizzato: `da acquistare = max(0, necessario − disponibile)`, con arrotondamento al multiplo d'ordine quando impostato.
-- **Rettifiche**: non si modifica un conteggio chiuso; si registra una riga di rettifica con motivo, quantità e autore.
-- La giacenza corrente di un prodotto è sempre l'ultimo conteggio valido più eventuali rettifiche: nessun campo "giacenza" sul prodotto.
+- **Riga di conteggio**: sessione, prodotto, quantità contata, U.M. usata, quantità precedente, differenza calcolata dal database, data e ora del conteggio, utente che ha contato, note. Un solo conteggio per prodotto nella stessa sessione.
+- **Chiusura**: una sessione chiusa non è più modificabile. Ogni correzione successiva è una **rettifica** tracciata (prodotto, quantità, motivo, data e ora, autore), che non altera il conteggio originale.
+- **Storico**: tutti i conteggi restano, non solo l'ultimo. Nessuna riga viene sovrascritta o cancellata.
+- **Giacenza corrente**: unica fonte di verità = ultimo conteggio valido + rettifiche successive. Nessun campo "giacenza" modificabile su `products`.
+- **Quantità necessaria**: in questa fase inserita a mano; in futuro potrà arrivare dagli ordini clienti.
+- **Fabbisogno**: sempre calcolato dalla funzione unica della sezione 3, mai memorizzato.
+
+### Predisposizione all'evoluzione futura (non implementata ora)
+
+Trevi Fruit dovrà passare dal semplice controllo della scorta al suggerimento degli acquisti. Il motore predittivo **non** si costruisce ora, ma FASE A e FASE B vengono progettate per non doverle rifare:
+
+- Cinque concetti separati e mai mescolati in un unico numero: **scorta minima manuale**, **disponibile reale**, **necessario certo** (es. ordini clienti), **fabbisogno previsto** (futuro, calcolato), **quantità suggerita da acquistare** (proposta del sistema, sempre modificabile).
+- Ogni conteggio e ogni rettifica conservano data, ora e autore: sono la futura serie storica delle giacenze.
+- Il prodotto resta l'unico punto di aggancio: in futuro vi si collegheranno acquisti, vendite, ordini clienti ricevuti, calendario di scarico dei fornitori, giorni di chiusura, deperibilità e nuovi clienti, senza modificare inventario e parametri.
+- Distinzione permanente tra **suggerimento del sistema** e **decisione dell'operatore**: quando arriverà la Lista Spesa, ogni riga conserverà sia la quantità proposta sia quella confermata, così le correzioni manuali diventeranno materiale di apprendimento invece di andare perse.
+- Il calcolo del fabbisogno vive in un solo punto lato server: domani lo stesso punto potrà restituire, oltre al numero, gli **elementi che lo compongono** (disponibile, consumo previsto, scorta di sicurezza, giorni fino al prossimo scarico), per poter spiegare "perché 60 kg" e non solo mostrarlo.
+- Nessuna struttura di FASE A/B presume un consumo medio costante: stagionalità, giorno della settimana, andamento recente e festività potranno essere introdotti come nuovi dati di ingresso del calcolo, non come modifica dell'inventario.
 
 ## 5. Modello consigliato — Lista della Spesa
 
