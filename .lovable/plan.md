@@ -28,16 +28,24 @@ cliente:
 - nessuna corrispondenza → viene creata la scheda dai dati dell'azienda
   collegata (ragione sociale, P.IVA, indirizzo, contatti), con archivio non
   assegnato e listino predefinito del venditore;
-- più corrispondenze, oppure P.IVA discordante → nessun collegamento
-  automatico: la relazione viene segnata come "anagrafica da associare" e
+- più corrispondenze (anche la stessa P.IVA presente in archivi Danea
+  diversi), oppure P.IVA discordante → nessun collegamento automatico: quel
+  lato della relazione resta segnato come "anagrafica da associare" e
   l'amministratore scegli lui la scheda. Nessuna fusione automatica e nessun
   uso della tabella delle proposte di aggiornamento dati, che ha un altro
   significato.
 
-Precedenza di identificazione: quando esiste il riferimento Danea si usa
-sempre la coppia archivio + codice Danea; P.IVA e codice fiscale sono il
-secondo criterio; ragione sociale e indirizzo non identificano mai una scheda.
-La stessa P.IVA in due archivi Danea resta su schede distinte.
+Identificatori nel riconoscimento B2B: solo dati realmente comuni ai due lati —
+P.IVA normalizzata, in mancanza codice fiscale; mai ragione sociale o
+indirizzo. Il codice Danea non viene usato qui, perché è locale al nostro
+archivio e l'azienda partner non lo possiede. Archivio + codice Danea resta
+invece l'identificatore prioritario quando riconosciamo o aggiorniamo una
+scheda proveniente dallo stesso archivio Danea (import e futuro ritorno degli
+ordini a Danea).
+
+I due lati sono indipendenti: la stessa relazione può avere la scheda cliente
+del venditore risolta e la scheda fornitore dell'acquirente da associare, o
+viceversa.
 
 ## 2. Anagrafica Fornitori (gemella dei Clienti)
 
