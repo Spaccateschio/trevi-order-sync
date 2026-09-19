@@ -45,9 +45,29 @@ La stessa P.IVA in due archivi Danea resta su schede distinte.
 codice Danea, ragione sociale, P.IVA e codice fiscale (con P.IVA normalizzata),
 indirizzo, contatti (referente, telefono, fax, e-mail, PEC), campi
 amministrativi Danea più "altri dati", note, stato attivo/disattivato/revocato.
-Indirizzi e punti di ritiro riusano le tabelle già esistenti di indirizzi e
-destinazioni. Nessuna cancellazione definitiva: eliminazione morbida come per i
-clienti, con recupero.
+Nessuna cancellazione definitiva: eliminazione morbida come per i clienti, con
+recupero.
+
+## 2bis. Indirizzi e destinazioni: una sola struttura per entrambi i lati
+
+Nessuna seconda gestione degli indirizzi. Si generalizzano le strutture
+esistenti invece di duplicarle:
+
+- gli indirizzi restano in un'unica tabella, con le funzioni già previste
+  (sede legale, sede operativa, consegna, ritiro, magazzino): per un fornitore
+  si usano sede, magazzino e ritiro, per un cliente consegna e sedi;
+- le destinazioni operative diventano comuni ai due lati: oggi appartengono al
+  cliente, in più potranno appartenere al fornitore (punti di ritiro), con
+  esattamente un proprietario per riga;
+- ogni indirizzo e ogni destinazione conservano tutti i campi che l'ordine
+  Danea richiede: nome, indirizzo, CAP, città, provincia, nazione, più
+  referente e telefono, così la destinazione scelta in un futuro ordine si
+  traduce direttamente nei dati di consegna Danea;
+- il modello non è disegnato sulla pagina attuale: la destinazione è
+  un'entità con identità stabile, quindi un futuro ordine potrà salvarne una
+  copia immutabile (nome/indirizzo/CAP/città/provincia/nazione) accanto ad
+  archivio e codice cliente Danea, senza dipendere dalle modifiche successive
+  all'anagrafica. Gli ordini e la copia non vengono realizzati adesso.
 
 Simmetria completa: il fornitore ottiene la sua scheda locale quando il
 collegamento diventa attivo, con le stesse regole del punto 1 (P.IVA
