@@ -319,7 +319,7 @@ export function ProductSuppliersManager({
                       .map((supplier) => <SelectItem key={supplier.id} value={supplier.id}>{supplier.legal_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button type="button" size="sm" disabled={busy || !matchChoice[match.id]} onClick={() => matchMutation.mutate({ matchId: match.id, action: "link_existing", supplierRecordId: matchChoice[match.id] })}>Collega</Button>
+                <Button type="button" size="sm" disabled={busy || !matchChoice[match.id]} onClick={() => { const choice = matchChoice[match.id]; if (choice) matchMutation.mutate({ matchId: match.id, action: "link_existing", supplierRecordId: choice }); }}>Collega</Button>
                 <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => matchMutation.mutate({ matchId: match.id, action: "create_supplier" })}>Crea anagrafica</Button>
                 <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => matchMutation.mutate({ matchId: match.id, action: "ignore" })}>Ignora</Button>
               </div>
