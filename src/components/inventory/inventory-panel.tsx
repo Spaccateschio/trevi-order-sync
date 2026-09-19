@@ -36,7 +36,8 @@ export function InventoryPanel({ companyId, isAdmin }: { companyId: string; isAd
   const queryClient = useQueryClient();
   const ensureDefault = useServerFn(ensureDefaultInventoryLocation);
   const runSession = useServerFn(manageInventorySession);
-  const { data: locations = [] } = useInventoryLocations(companyId);
+  const locationsQuery = useInventoryLocations(companyId);
+  const locations = locationsQuery.data ?? [];
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [draft, setDraft] = useState({ name: "", archiveId: "", scope: "generale", locationId: "" });
@@ -71,14 +72,11 @@ export function InventoryPanel({ companyId, isAdmin }: { companyId: string; isAd
 
   // La zona predefinita viene creata al primo ingresso: chi ha un solo magazzino non configura nulla.
   useEffect(() => {
-    if (!isAdmin || !locations.length) {
-      if (isAdmin && locations.length === 0) {
-        void ensureDefault({ data: { companyId } }).then(() =>
-          queryClient.invalidateQueries({ queryKey: ["inventory-locations", companyId] }),
-        );
-      }
-    }
-  }, [isAdmin, locations.length, companyId, ensureDefault, queryClient]);
+    if (!isAdmin || !locationsQuery.isSuccess || locationsQuery.data.length) return;
+    void ensureDefault({ data: { companyId } }).then(() =>
+      queryClient.invalidateQueries({ queryKey: ["inventory-locations", companyId] }),
+    );
+  }, [isAdmin, locationsQuery.isSuccess, locationsQuery.data, companyId, ensureDefault, queryClient]);
 
   useEffect(() => {
     const archives = archivesQuery.data ?? [];
