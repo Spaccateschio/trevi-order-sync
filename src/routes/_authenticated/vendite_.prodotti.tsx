@@ -65,6 +65,8 @@ export const Route = createFileRoute("/_authenticated/vendite_/prodotti")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>): { prodotto?: string } =>
+    typeof search['prodotto'] === "string" && search['prodotto'] ? { prodotto: search['prodotto'] } : {},
   component: ProdottiPage,
 });
 
@@ -97,6 +99,7 @@ function sortProducts(products: ProductRow[], sorting: SortingState, archives: M
 }
 
 function ProdottiPage() {
+  const { prodotto: prodottoParam } = Route.useSearch();
   const { data: identity, isLoading: identityLoading } = useIdentity();
   const company = activeCompany(identity);
   const companyId = company?.companyId ?? null;
@@ -236,6 +239,16 @@ function ProdottiPage() {
   const archiveNameById = useMemo(() => new Map(archives.map((archive) => [archive.id, archive.name])), [archives]);
   const allProducts = useMemo(() => (productsQuery.data ?? []).map((product) => ({ ...product, sale_units: (saleUnitsQuery.data ?? []).filter((row) => row.product_id === product.id).map((row) => ({ code: row.units_of_measure?.code ?? "—", is_default: row.is_default, needs_review: row.needs_review })) })), [productsQuery.data, saleUnitsQuery.data]);
   const currentProduct = selected ? allProducts.find((product) => product.id === selected.id) ?? selected : null;
+  // Apertura diretta della scheda quando si arriva dalla sezione Prodotti forniti del fornitore.
+  const openedFromParam = useRef<string | null>(null);
+  useEffect(() => {
+    if (!prodottoParam || openedFromParam.current === prodottoParam) return;
+    const target = allProducts.find((product) => product.id === prodottoParam);
+    if (!target) return;
+    openedFromParam.current = prodottoParam;
+    setStatus("tutti");
+    setSelected(target);
+  }, [allProducts, prodottoParam]);
   const categories = useMemo(() => [...new Set(allProducts.flatMap((product) => product.category ? [product.category] : []))].sort((a, b) => a.localeCompare(b, "it")), [allProducts]);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();

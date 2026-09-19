@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { AddressManager } from "@/components/companies/address-manager";
 import { SupplierImportDialog } from "@/components/companies/supplier-import-dialog";
 import { SupplierPointsManager } from "@/components/companies/supplier-points-manager";
+import { SupplierProductsManager } from "@/components/products/supplier-products-manager";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -783,6 +784,7 @@ export function SupplierRecordsPanel({
               <TabsTrigger value="anagrafica">Anagrafica</TabsTrigger>
               <TabsTrigger value="commerciale">Rapporti commerciali</TabsTrigger>
               <TabsTrigger value="varie">Varie</TabsTrigger>
+              {editing ? <TabsTrigger value="prodotti">Prodotti forniti</TabsTrigger> : null}
             </TabsList>
 
             <TabsContent value="anagrafica" className="mt-4 space-y-4">
@@ -899,6 +901,17 @@ export function SupplierRecordsPanel({
               </div>
               {editing ? <OtherDaneaData record={editing} /> : null}
             </TabsContent>
+
+            {editing ? (
+              <TabsContent value="prodotti" className="mt-4">
+                <SupplierProductsManager
+                  companyId={companyId}
+                  supplierRecordId={editing.id}
+                  supplierArchiveId={editing.archive_id}
+                  isAdmin={isAdmin}
+                />
+              </TabsContent>
+            ) : null}
           </Tabs>
 
           {editing ? (
