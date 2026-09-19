@@ -29,8 +29,15 @@ cliente:
   collegata (ragione sociale, P.IVA, indirizzo, contatti), con archivio non
   assegnato e listino predefinito del venditore;
 - più corrispondenze, oppure P.IVA discordante → nessun collegamento
-  automatico: resta una proposta da confermare a mano in Clienti, come già
-  avviene per gli aggiornamenti proposti. Nessuna fusione automatica.
+  automatico: la relazione viene segnata come "anagrafica da associare" e
+  l'amministratore scegli lui la scheda. Nessuna fusione automatica e nessun
+  uso della tabella delle proposte di aggiornamento dati, che ha un altro
+  significato.
+
+Precedenza di identificazione: quando esiste il riferimento Danea si usa
+sempre la coppia archivio + codice Danea; P.IVA e codice fiscale sono il
+secondo criterio; ragione sociale e indirizzo non identificano mai una scheda.
+La stessa P.IVA in due archivi Danea resta su schede distinte.
 
 ## 2. Anagrafica Fornitori (gemella dei Clienti)
 
@@ -38,9 +45,29 @@ cliente:
 codice Danea, ragione sociale, P.IVA e codice fiscale (con P.IVA normalizzata),
 indirizzo, contatti (referente, telefono, fax, e-mail, PEC), campi
 amministrativi Danea più "altri dati", note, stato attivo/disattivato/revocato.
-Indirizzi e punti di ritiro riusano le tabelle già esistenti di indirizzi e
-destinazioni. Nessuna cancellazione definitiva: eliminazione morbida come per i
-clienti, con recupero.
+Nessuna cancellazione definitiva: eliminazione morbida come per i clienti, con
+recupero.
+
+## 2bis. Indirizzi e destinazioni: una sola struttura per entrambi i lati
+
+Nessuna seconda gestione degli indirizzi. Si generalizzano le strutture
+esistenti invece di duplicarle:
+
+- gli indirizzi restano in un'unica tabella, con le funzioni già previste
+  (sede legale, sede operativa, consegna, ritiro, magazzino): per un fornitore
+  si usano sede, magazzino e ritiro, per un cliente consegna e sedi;
+- le destinazioni operative diventano comuni ai due lati: oggi appartengono al
+  cliente, in più potranno appartenere al fornitore (punti di ritiro), con
+  esattamente un proprietario per riga;
+- ogni indirizzo e ogni destinazione conservano tutti i campi che l'ordine
+  Danea richiede: nome, indirizzo, CAP, città, provincia, nazione, più
+  referente e telefono, così la destinazione scelta in un futuro ordine si
+  traduce direttamente nei dati di consegna Danea;
+- il modello non è disegnato sulla pagina attuale: la destinazione è
+  un'entità con identità stabile, quindi un futuro ordine potrà salvarne una
+  copia immutabile (nome/indirizzo/CAP/città/provincia/nazione) accanto ad
+  archivio e codice cliente Danea, senza dipendere dalle modifiche successive
+  all'anagrafica. Gli ordini e la copia non vengono realizzati adesso.
 
 Simmetria completa: il fornitore ottiene la sua scheda locale quando il
 collegamento diventa attivo, con le stesse regole del punto 1 (P.IVA
@@ -76,11 +103,12 @@ fornitore locale, mai alla relazione B2B.
 Migrazione 1 — aggancio anagrafica ↔ B2B:
 - `resolve_relation_records(_relation_id)`, `SECURITY DEFINER`,
   `search_path = public`: garantisce `customer_record_id` lato venditore e
-  `supplier_record_id` lato acquirente; match su `vat_normalized`, fallback
-  `tax_code`, solo su schede libere; crea la scheda mancante dai dati di
-  `companies`; su ambiguità inserisce una riga in
-  `customer_record_proposed_updates` (e gemella per i fornitori) invece di
-  decidere; audit su `audit_events`.
+  `supplier_record_id` lato acquirente; match nell'ordine archivio+
+  `internal_reference`, poi `vat_normalized`, poi `tax_code`, solo su schede
+  libere; crea la scheda mancante dai dati di `companies`; su ambiguità nessuna
+  scelta automatica: `supplier_customer_relations.record_match_required boolean`
+  segna il lato da associare a mano (nessun uso di
+  `customer_record_proposed_updates`); audit su `audit_events`.
 - Chiamata da `accept_invitation_row`, `accept_invitation_with_new_company`,
   `decide_company_relation` e `set_relation_side_enabled` quando la relazione
   passa ad `attivo`. Nessuna modifica al modello a doppio consenso, agli stati
@@ -104,11 +132,19 @@ Migrazione 2 — anagrafica fornitori:
   `service_role`, nessun accesso `anon`; RLS abilitata con lettura/scrittura
   ristretta ai membri dell'azienda proprietaria (`is_company_member` /
   `is_company_admin`), scritture solo via RPC.
-- `addresses` e `customer_destinations` estese con `supplier_record_id`
-  nullable (vincolo: esattamente un proprietario tra azienda, cliente e
-  fornitore) così indirizzi e punti di ritiro si riusano senza tabelle nuove.
+- Generalizzazione (nessuna tabella parallela): `addresses`,
+  `address_functions` e `customer_destinations` ottengono
+  `supplier_record_id uuid` nullable, con vincolo di proprietario unico
+  (azienda | cliente | fornitore) e policy RLS aggiornate sullo stesso
+  schema di quelle esistenti. `customer_destinations` diventa la tabella
+  comune dei punti operativi (consegna per i clienti, ritiro/magazzino per i
+  fornitori); il nome resta per non rompere il codice esistente. Si verifica
+  che i campi richiesti dall'ordine Danea (nome, indirizzo, CAP, città,
+  provincia, nazione) siano presenti e non nulli dove servono, così la futura
+  copia immutabile nell'ordine è una semplice lettura.
 - RPC `manage_supplier_record`, `manage_supplier_record_status`,
-  `manage_supplier_destination`, `supplier_record_match_suggestions`, tutte
+  `manage_supplier_destination`, `supplier_record_match_suggestions`,
+  `link_supplier_record_to_relation`, tutte
   `SECURITY DEFINER` con `search_path = public`, controllo `is_company_admin` +
   `company_buys`, `COALESCE` in aggiornamento per non azzerare dati, audit.
 

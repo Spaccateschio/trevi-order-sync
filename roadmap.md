@@ -45,3 +45,5 @@
 - [x] Archivi Danea su clienti e listini: listini univoci per archivio, archive_id sui clienti, selettore archivio obbligatorio in import, listini risolti per archivio (catalogo invariato)
 
 - [ ] Import clienti: abbinamento manuale dei listini non riconosciuti + listino base (primo dell'archivio) come predefinito, modificabile
+
+- [ ] Fornitori: anagrafica supplier_records, aggancio B2B, indirizzi/destinazioni generalizzati (funzioni sede/magazzino/ritiro), riferimento Danea archivio+codice, pronto per snapshot destinazione negli ordini futuri.
