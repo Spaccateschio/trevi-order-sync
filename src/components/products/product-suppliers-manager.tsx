@@ -151,23 +151,22 @@ export function ProductSuppliersManager({
 
   const saveMutation = useMutation({
     mutationFn: async (mode: "create" | "update") => {
+      const supplierRecordId = mode === "create" ? draft.supplierRecordId : "";
+      if (mode === "create" && !supplierRecordId) throw new Error("Scegli un fornitore");
       const payload = {
         _company_id: companyId,
-        _action: mode,
-        _link_id: mode === "update" ? selected?.link_id ?? null : null,
-        _product_id: mode === "create" ? productId : null,
-        _supplier_record_id: mode === "create" ? draft.supplierRecordId || null : null,
+        _action: mode as string,
+        ...(mode === "update" && selected ? { _link_id: selected.link_id } : {}),
+        ...(mode === "create" ? { _product_id: productId, _supplier_record_id: supplierRecordId } : {}),
         _supplier_product_code: draft.supplierProductCode,
-        _purchase_unit_id: draft.purchaseUnitId || null,
-        _conversion_factor: num(draft.conversionFactor),
-        _conversion_reference_um: daneaUm,
-        _manual_cost: num(draft.manualCost),
-        _min_quantity: num(draft.minQuantity),
-        _lead_time_days: num(draft.leadTimeDays),
+        ...(draft.purchaseUnitId ? { _purchase_unit_id: draft.purchaseUnitId } : {}),
+        ...(num(draft.conversionFactor) !== null ? { _conversion_factor: num(draft.conversionFactor) as number } : {}),
+        ...(daneaUm ? { _conversion_reference_um: daneaUm } : {}),
+        ...(num(draft.manualCost) !== null ? { _manual_cost: num(draft.manualCost) as number } : {}),
+        ...(num(draft.minQuantity) !== null ? { _min_quantity: num(draft.minQuantity) as number } : {}),
+        ...(num(draft.leadTimeDays) !== null ? { _lead_time_days: num(draft.leadTimeDays) as number } : {}),
         _notes: draft.notes,
-        _is_preferred: null,
       };
-      if (mode === "create" && !payload._supplier_record_id) throw new Error("Scegli un fornitore");
       const { error } = await supabase.rpc("manage_product_supplier_link", payload);
       if (error) throw new Error(error.message);
     },
