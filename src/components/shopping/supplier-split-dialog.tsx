@@ -1,0 +1,362 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { AlertTriangle, Star, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { parseQuantity, qty } from "@/lib/inventory";
+import { euro } from "@/lib/product-grid";
+import {
+  isTranslatable,
+  packProposal,
+  sharePercent,
+  type AssignmentRow,
+  type OverviewRow,
+} from "@/lib/shopping-list";
+import { assignShoppingListSupplier } from "@/lib/shopping-list.functions";
+
+type SupplierOption = {
+  link_id: string;
+  supplier_record_id: string;
+  supplier_name: string;
+  purchase_unit_code: string | null;
+  conversion_factor: number | null;
+  conversion_reference_um: string | null;
+  manual_cost: number | null;
+  manual_cost_at: string | null;
+  danea_net_cost: number | null;
+  danea_cost_at: string | null;
+  min_quantity: number | null;
+  lead_time_days: number | null;
+  is_preferred: boolean;
+  is_active: boolean;
+};
+
+type Draft = { quantity: string; packs: string; accepted: boolean };
+
+/**
+ * Ripartizione della quantità tra fornitori: nessuna redistribuzione automatica e nessun
+ * arrotondamento imposto. Le confezioni intere restano una proposta da confermare.
+ */
+export function SupplierSplitDialog({
+  companyId,
+  item,
+  open,
+  onOpenChange,
+  editable,
+}: {
+  companyId: string;
+  item: OverviewRow;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editable: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const runAssign = useServerFn(assignShoppingListSupplier);
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+
+  const suppliersQuery = useQuery({
+    queryKey: ["product-supplier-overview", item.product_id],
+    enabled: open,
+    queryFn: async (): Promise<SupplierOption[]> => {
+      const { data, error } = await supabase.rpc("product_supplier_overview", {
+        _product_id: item.product_id,
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as SupplierOption[];
+    },
+  });
+
+  const assignmentsQuery = useQuery({
+    queryKey: ["shopping-list-assignments", item.item_id],
+    enabled: open,
+    queryFn: async (): Promise<AssignmentRow[]> => {
+      const { data, error } = await supabase
+        .from("shopping_list_item_suppliers")
+        .select(
+          "id, item_id, product_supplier_link_id, supplier_record_id, assigned_quantity, purchase_quantity, purchase_unit_code, conversion_factor, min_warning_accepted, notes",
+        )
+        .eq("item_id", item.item_id);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as AssignmentRow[];
+    },
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    const existing = assignmentsQuery.data ?? [];
+    setDrafts(
+      Object.fromEntries(
+        existing.map((row) => [
+          row.product_supplier_link_id,
+          {
+            quantity: String(row.assigned_quantity),
+            packs: row.purchase_quantity !== null ? String(row.purchase_quantity) : "",
+            accepted: row.min_warning_accepted,
+          },
+        ]),
+      ),
+    );
+  }, [open, assignmentsQuery.data]);
+
+  const mutation = useMutation({
+    mutationFn: (input: {
+      action: "set" | "remove";
+      linkId: string;
+      quantity: number | null;
+      packs: number | null;
+      accepted: boolean;
+    }) =>
+      runAssign({
+        data: {
+          companyId,
+          itemId: item.item_id,
+          action: input.action,
+          linkId: input.linkId,
+          assignedQuantity: input.quantity,
+          purchaseQuantity: input.packs,
+          minWarningAccepted: input.accepted,
+          notes: null,
+        },
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", item.item_id] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+      ]);
+      toast.success("Assegnazione aggiornata");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const suppliers = (suppliersQuery.data ?? []).filter((row) => row.is_active);
+  const assignments = assignmentsQuery.data ?? [];
+  const assignedTotal = assignments.reduce((sum, row) => sum + Number(row.assigned_quantity), 0);
+  const remaining = Number(item.decided_quantity) - assignedTotal;
+  const unit = item.unit_code ?? "";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            {item.description ?? item.code} · da acquistare {qty(item.decided_quantity)} {unit}
+          </DialogTitle>
+          <DialogDescription>
+            Assegna la quantità a uno o più fornitori. Cambiare un fornitore non modifica gli altri.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-wrap gap-3 rounded-md border border-border bg-muted/30 p-3 text-sm">
+          <span>
+            Da acquistare <strong>{qty(item.decided_quantity)}</strong> {unit}
+          </span>
+          <span>
+            Assegnati <strong>{qty(assignedTotal)}</strong> {unit}
+          </span>
+          <span className={remaining < 0 ? "font-semibold text-destructive" : ""}>
+            {remaining < 0
+              ? `Assegnati ${qty(assignedTotal)} su ${qty(item.decided_quantity)}: correggi tu le quantità`
+              : `Residuo ${qty(remaining)} ${unit}`}
+          </span>
+        </div>
+
+        {!suppliers.length ? (
+          <p className="text-sm text-muted-foreground">
+            Nessun fornitore attivo per questo prodotto: associane uno dalla scheda prodotto.
+          </p>
+        ) : null}
+
+        <ul className="divide-y divide-border">
+          {suppliers.map((supplier) => {
+            const draft = drafts[supplier.link_id] ?? { quantity: "", packs: "", accepted: false };
+            const existing = assignments.find((row) => row.product_supplier_link_id === supplier.link_id);
+            const quantity = parseQuantity(draft.quantity) ?? 0;
+            const purchaseCode = supplier.purchase_unit_code ?? supplier.conversion_reference_um;
+            const translatable = isTranslatable(item.unit_code, purchaseCode, supplier.conversion_factor);
+            const proposal = packProposal(quantity, supplier.conversion_factor);
+            const belowMin =
+              supplier.min_quantity !== null && quantity > 0 && quantity < Number(supplier.min_quantity);
+
+            return (
+              <li key={supplier.link_id} className="space-y-2 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium">{supplier.supplier_name}</span>
+                  {supplier.is_preferred ? (
+                    <Badge variant="secondary">
+                      <Star className="fill-current" aria-hidden="true" />
+                      Preferito
+                    </Badge>
+                  ) : null}
+                  {existing ? (
+                    <Badge variant="outline">
+                      {qty(existing.assigned_quantity)} {unit} ·{" "}
+                      {sharePercent(Number(existing.assigned_quantity), assignedTotal)}%
+                    </Badge>
+                  ) : null}
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  U.M. acquisto {purchaseCode ?? "—"}
+                  {supplier.conversion_factor
+                    ? ` · 1 ${purchaseCode} ≈ ${qty(supplier.conversion_factor)} ${supplier.conversion_reference_um ?? unit}`
+                    : ""}
+                  {supplier.min_quantity !== null ? ` · minimo ${qty(supplier.min_quantity)}` : ""}
+                  {supplier.lead_time_days !== null ? ` · consegna ${supplier.lead_time_days} gg` : ""}
+                  {supplier.danea_net_cost !== null ? ` · costo Danea ${euro(supplier.danea_net_cost)}` : ""}
+                  {supplier.manual_cost !== null ? ` · costo Trevi Fruit ${euro(supplier.manual_cost)}` : ""}
+                </p>
+
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="text-xs">
+                    Quantità ({unit || "U.M. lista"})
+                    <Input
+                      className="mt-1 h-9 w-28"
+                      inputMode="decimal"
+                      value={draft.quantity}
+                      disabled={!editable}
+                      aria-label={`Quantità ${supplier.supplier_name}`}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [supplier.link_id]: { ...draft, quantity: event.target.value },
+                        }))
+                      }
+                    />
+                  </label>
+                  {supplier.conversion_factor ? (
+                    <label className="text-xs">
+                      Confezioni ({purchaseCode})
+                      <Input
+                        className="mt-1 h-9 w-28"
+                        inputMode="decimal"
+                        value={draft.packs}
+                        disabled={!editable}
+                        aria-label={`Confezioni ${supplier.supplier_name}`}
+                        onChange={(event) =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [supplier.link_id]: { ...draft, packs: event.target.value },
+                          }))
+                        }
+                      />
+                    </label>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={!editable || quantity <= 0 || mutation.isPending}
+                    onClick={() =>
+                      mutation.mutate({
+                        action: "set",
+                        linkId: supplier.link_id,
+                        quantity,
+                        packs: parseQuantity(draft.packs),
+                        accepted: belowMin ? draft.accepted : false,
+                      })
+                    }
+                  >
+                    Salva
+                  </Button>
+                  {existing ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!editable || mutation.isPending}
+                      onClick={() =>
+                        mutation.mutate({
+                          action: "remove",
+                          linkId: supplier.link_id,
+                          quantity: null,
+                          packs: null,
+                          accepted: false,
+                        })
+                      }
+                    >
+                      <Trash2 aria-hidden="true" />
+                      Togli
+                    </Button>
+                  ) : null}
+                </div>
+
+                {proposal && quantity > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {qty(quantity)} {unit} ≈ {qty(Number(proposal.rawPacks.toFixed(2)))} {purchaseCode}
+                    {proposal.exact ? null : (
+                      <>
+                        {" "}
+                        · in confezioni intere {proposal.wholePacks} {purchaseCode} ≈ {qty(proposal.equivalent)}{" "}
+                        {unit} (+{qty(proposal.surplus)} {unit})
+                        {editable ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="ml-1 h-6 px-2"
+                            onClick={() =>
+                              setDrafts((current) => ({
+                                ...current,
+                                [supplier.link_id]: { ...draft, packs: String(proposal.wholePacks) },
+                              }))
+                            }
+                          >
+                            Usa {proposal.wholePacks}
+                          </Button>
+                        ) : null}
+                      </>
+                    )}
+                  </p>
+                ) : null}
+
+                {!translatable ? (
+                  <p className="flex items-center gap-1 text-xs font-medium text-destructive">
+                    <AlertTriangle className="size-3.5" aria-hidden="true" />
+                    Conversione {unit}↔{purchaseCode} mancante: imposta la conversione nella scheda prodotto,
+                    altrimenti la riga non può essere completata.
+                  </p>
+                ) : null}
+
+                {belowMin ? (
+                  <label className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+                    <input
+                      type="checkbox"
+                      checked={draft.accepted}
+                      disabled={!editable}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [supplier.link_id]: { ...draft, accepted: event.target.checked },
+                        }))
+                      }
+                    />
+                    Sotto il minimo di {supplier.supplier_name} ({qty(supplier.min_quantity)} {unit}):
+                    procedo comunque
+                  </label>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Chiudi
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
