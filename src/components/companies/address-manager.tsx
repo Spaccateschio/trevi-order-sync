@@ -62,7 +62,10 @@ type AddressRow = {
   address_functions: AddressFunctionRow[];
 };
 
-type Owner = { companyId: string } | { customerRecordId: string };
+type Owner =
+  | { companyId: string }
+  | { customerRecordId: string }
+  | { supplierRecordId: string };
 
 const emptyForm = {
   label: "",

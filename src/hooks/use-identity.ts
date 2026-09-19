@@ -31,6 +31,8 @@ export type Relation = {
   buyerEnabled: boolean;
   /** Cliente d'anagrafica collegato, quando presente: nessun dato duplicato. */
   customerRecordId: string | null;
+  /** Fornitore d'anagrafica del lato acquirente, quando presente. */
+  supplierRecordId: string | null;
 };
 
 /** Unico punto di calcolo: rapporto realmente utilizzabile. */
