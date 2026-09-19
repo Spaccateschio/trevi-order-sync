@@ -147,8 +147,13 @@ Migrazione 2 — anagrafica fornitori:
   `supplier_record_id uuid` nullable, con vincolo di proprietario unico
   (azienda | cliente | fornitore) e policy RLS aggiornate sullo stesso
   schema di quelle esistenti. `customer_destinations` diventa la tabella
-  comune dei punti operativi (consegna per i clienti, ritiro/magazzino per i
-  fornitori); il nome resta per non rompere il codice esistente. Si verifica
+  comune dei punti operativi (il nome resta per non rompere il codice
+  esistente) e ottiene una funzione esplicita `function address_function`
+  (consegna / ritiro / magazzino / sede), indipendente dal proprietario, più
+  eventuali funzioni aggiuntive tramite `address_functions` sull'indirizzo
+  collegato: così in futuro si potrà dire "Rossi Srl → Magazzino Guidonia →
+  punto di ritiro" e usare quell'indirizzo nell'ordine senza reinterpretazioni.
+  Si verifica
   che i campi richiesti dall'ordine Danea (nome, indirizzo, CAP, città,
   provincia, nazione) siano presenti e non nulli dove servono, così la futura
   copia immutabile nell'ordine è una semplice lettura.
