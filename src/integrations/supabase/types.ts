@@ -1260,6 +1260,70 @@ export type Database = {
           },
         ]
       }
+      product_danea_supplier_matches: {
+        Row: {
+          company_id: string
+          created_at: string
+          danea_supplier_code: string | null
+          danea_supplier_name: string | null
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          product_id: string
+          status: Database["public"]["Enums"]["danea_supplier_match_status"]
+          supplier_record_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          danea_supplier_code?: string | null
+          danea_supplier_name?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          product_id: string
+          status?: Database["public"]["Enums"]["danea_supplier_match_status"]
+          supplier_record_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          danea_supplier_code?: string | null
+          danea_supplier_name?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          product_id?: string
+          status?: Database["public"]["Enums"]["danea_supplier_match_status"]
+          supplier_record_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_danea_supplier_matches_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_danea_supplier_matches_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_danea_supplier_matches_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_images: {
         Row: {
           archive_id: string
@@ -1516,6 +1580,101 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: true
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_supplier_links: {
+        Row: {
+          company_id: string
+          conversion_factor: number | null
+          conversion_reference_um: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          is_preferred: boolean
+          lead_time_days: number | null
+          manual_cost: number | null
+          manual_cost_at: string | null
+          min_quantity: number | null
+          notes: string | null
+          origin: Database["public"]["Enums"]["product_supplier_origin"]
+          product_id: string
+          purchase_unit_id: string | null
+          supplier_product_code: string | null
+          supplier_record_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          conversion_factor?: number | null
+          conversion_reference_um?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_preferred?: boolean
+          lead_time_days?: number | null
+          manual_cost?: number | null
+          manual_cost_at?: string | null
+          min_quantity?: number | null
+          notes?: string | null
+          origin?: Database["public"]["Enums"]["product_supplier_origin"]
+          product_id: string
+          purchase_unit_id?: string | null
+          supplier_product_code?: string | null
+          supplier_record_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          conversion_factor?: number | null
+          conversion_reference_um?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_preferred?: boolean
+          lead_time_days?: number | null
+          manual_cost?: number | null
+          manual_cost_at?: string | null
+          min_quantity?: number | null
+          notes?: string | null
+          origin?: Database["public"]["Enums"]["product_supplier_origin"]
+          product_id?: string
+          purchase_unit_id?: string | null
+          supplier_product_code?: string | null
+          supplier_record_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_supplier_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_supplier_links_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_supplier_links_purchase_unit_id_fkey"
+            columns: ["purchase_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_supplier_links_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
             referencedColumns: ["id"]
           },
         ]
@@ -2276,6 +2435,25 @@ export type Database = {
         }
         Returns: string
       }
+      manage_product_supplier_link: {
+        Args: {
+          _action: string
+          _company_id: string
+          _conversion_factor?: number
+          _conversion_reference_um?: string
+          _is_preferred?: boolean
+          _lead_time_days?: number
+          _link_id?: string
+          _manual_cost?: number
+          _min_quantity?: number
+          _notes?: string
+          _product_id?: string
+          _purchase_unit_id?: string
+          _supplier_product_code?: string
+          _supplier_record_id?: string
+        }
+        Returns: string
+      }
       manage_supplier_destination: {
         Args: {
           _action: string
@@ -2355,6 +2533,32 @@ export type Database = {
         Args: { _supplier_record_id: string }
         Returns: boolean
       }
+      product_supplier_overview: {
+        Args: { _product_id: string }
+        Returns: {
+          b2b_relation_status: Database["public"]["Enums"]["relation_status"]
+          conversion_factor: number
+          conversion_reference_um: string
+          danea_cost_at: string
+          danea_gross_cost: number
+          danea_net_cost: number
+          is_active: boolean
+          is_preferred: boolean
+          lead_time_days: number
+          link_id: string
+          manual_cost: number
+          manual_cost_at: string
+          min_quantity: number
+          notes: string
+          origin: Database["public"]["Enums"]["product_supplier_origin"]
+          purchase_unit_code: string
+          purchase_unit_id: string
+          supplier_internal_reference: string
+          supplier_name: string
+          supplier_product_code: string
+          supplier_record_id: string
+        }[]
+      }
       register_company: {
         Args: {
           _address_line?: string
@@ -2402,6 +2606,16 @@ export type Database = {
           token: string
         }[]
       }
+      resolve_danea_supplier_match: {
+        Args: {
+          _action: string
+          _company_id: string
+          _legal_name?: string
+          _match_id: string
+          _supplier_record_id?: string
+        }
+        Returns: string
+      }
       resolve_default_price_list: {
         Args: { _company_id: string }
         Returns: number
@@ -2433,6 +2647,14 @@ export type Database = {
       }
       set_default_price_list: {
         Args: { _company_id: string; _list_number: number }
+        Returns: undefined
+      }
+      set_preferred_product_supplier: {
+        Args: {
+          _company_id: string
+          _product_id: string
+          _supplier_record_id?: string
+        }
         Returns: undefined
       }
       set_product_b2b_visibility: {
@@ -2482,6 +2704,10 @@ export type Database = {
           vat_number: string
         }[]
       }
+      sync_danea_product_supplier_links: {
+        Args: { _company_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       address_function:
@@ -2492,6 +2718,7 @@ export type Database = {
         | "magazzino"
       app_role: "amministratore" | "operatore" | "trasportatore"
       danea_connection_status: "attivo" | "revocato"
+      danea_supplier_match_status: "da_associare" | "associato" | "ignorato"
       danea_sync_mode: "full" | "incremental"
       danea_sync_outcome: "in_corso" | "completato" | "fallito"
       danea_sync_source: "postazione" | "manuale"
@@ -2502,6 +2729,7 @@ export type Database = {
         | "annullato"
         | "annullato_scaduto"
       product_publish_status: "pubblicato" | "non_pubblicato"
+      product_supplier_origin: "manuale" | "danea"
       proposed_update_status: "in_attesa" | "accettato" | "rifiutato"
       relation_origin: "invito_fornitore" | "richiesta_cliente"
       relation_status:
@@ -2646,6 +2874,7 @@ export const Constants = {
       ],
       app_role: ["amministratore", "operatore", "trasportatore"],
       danea_connection_status: ["attivo", "revocato"],
+      danea_supplier_match_status: ["da_associare", "associato", "ignorato"],
       danea_sync_mode: ["full", "incremental"],
       danea_sync_outcome: ["in_corso", "completato", "fallito"],
       danea_sync_source: ["postazione", "manuale"],
@@ -2657,6 +2886,7 @@ export const Constants = {
         "annullato_scaduto",
       ],
       product_publish_status: ["pubblicato", "non_pubblicato"],
+      product_supplier_origin: ["manuale", "danea"],
       proposed_update_status: ["in_attesa", "accettato", "rifiutato"],
       relation_origin: ["invito_fornitore", "richiesta_cliente"],
       relation_status: [

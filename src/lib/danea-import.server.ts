@@ -225,6 +225,12 @@ export async function importDaneaCatalog(
 
     await applyPrices(supabaseAdmin, companyId, doc, idByCode);
     await applySupplierCosts(supabaseAdmin, companyId, doc, idByCode);
+    // Riconciliazione fornitore Danea: abbina SOLO per archivio + codice fornitore.
+    // Non tocca mai le associazioni/condizioni Trevi Fruit già presenti.
+    {
+      const { error } = await supabaseAdmin.rpc("sync_danea_product_supplier_links", { _company_id: companyId });
+      if (error) throw new Error(`Riconciliazione fornitori: ${error.message}`);
+    }
 
     let unpublished = 0;
     if (doc.mode === "full") {
