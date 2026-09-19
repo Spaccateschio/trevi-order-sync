@@ -66,7 +66,7 @@ export const Route = createFileRoute("/_authenticated/vendite_/prodotti")({
     ],
   }),
   validateSearch: (search: Record<string, unknown>): { prodotto?: string } =>
-    typeof search.prodotto === "string" && search.prodotto ? { prodotto: search.prodotto } : {},
+    typeof search['prodotto'] === "string" && search['prodotto'] ? { prodotto: search['prodotto'] } : {},
   component: ProdottiPage,
 });
 
