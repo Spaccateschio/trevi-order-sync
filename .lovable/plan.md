@@ -133,9 +133,10 @@ Prodotto sotto scorta e prodotto aggiunto alla lista restano contatori/avvisi, n
 
 ## 7. Ordine di implementazione
 
-1. Parametri del prodotto per il magazzino (scorta minima, multiplo d'ordine, giorni di riordino, U.M. di magazzino).
-2. Inventario: sessioni, conteggi, rettifiche, griglia di conteggio con preferenze personali e stampa.
-3. Vista fabbisogno (necessario / disponibile / da acquistare) come lettura calcolata.
+0. Approvazione della formula del fabbisogno (sezione 3). Solo dopo si programma.
+1. **FASE A** — Parametri magazzino del prodotto: scorta minima, multiplo di riordino, U.M. di riferimento (più, opzionale, giorni di riordino).
+2. **FASE B** — Inventario: sessione → conteggio prodotti → quantità precedente → quantità contata → differenza → chiusura sessione non modificabile → rettifiche tracciate; griglia di conteggio con preferenze personali e stampa.
+3. Vista fabbisogno (necessario / disponibile / da acquistare) come lettura calcolata dalla funzione unica.
 4. Lista della Spesa: lista, righe, inserimento manuale e importazione dal fabbisogno.
 5. Assegnazione fornitori con ripartizione e percentuali di aiuto, riusando le associazioni prodotto↔fornitore esistenti.
 6. Contatori e avvisi operativi.
