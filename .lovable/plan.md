@@ -29,8 +29,15 @@ cliente:
   collegata (ragione sociale, P.IVA, indirizzo, contatti), con archivio non
   assegnato e listino predefinito del venditore;
 - più corrispondenze, oppure P.IVA discordante → nessun collegamento
-  automatico: resta una proposta da confermare a mano in Clienti, come già
-  avviene per gli aggiornamenti proposti. Nessuna fusione automatica.
+  automatico: la relazione viene segnata come "anagrafica da associare" e
+  l'amministratore scegli lui la scheda. Nessuna fusione automatica e nessun
+  uso della tabella delle proposte di aggiornamento dati, che ha un altro
+  significato.
+
+Precedenza di identificazione: quando esiste il riferimento Danea si usa
+sempre la coppia archivio + codice Danea; P.IVA e codice fiscale sono il
+secondo criterio; ragione sociale e indirizzo non identificano mai una scheda.
+La stessa P.IVA in due archivi Danea resta su schede distinte.
 
 ## 2. Anagrafica Fornitori (gemella dei Clienti)
 
