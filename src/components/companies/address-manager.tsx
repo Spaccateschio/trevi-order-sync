@@ -62,7 +62,10 @@ type AddressRow = {
   address_functions: AddressFunctionRow[];
 };
 
-type Owner = { companyId: string } | { customerRecordId: string };
+type Owner =
+  | { companyId: string }
+  | { customerRecordId: string }
+  | { supplierRecordId: string };
 
 const emptyForm = {
   label: "",
@@ -95,9 +98,11 @@ function friendlyError(message: string) {
 }
 
 function ownerFilter(owner: Owner) {
-  return "companyId" in owner
-    ? { column: "company_id" as const, value: owner.companyId }
-    : { column: "customer_record_id" as const, value: owner.customerRecordId };
+  if ("companyId" in owner)
+    return { column: "company_id" as const, value: owner.companyId };
+  if ("supplierRecordId" in owner)
+    return { column: "supplier_record_id" as const, value: owner.supplierRecordId };
+  return { column: "customer_record_id" as const, value: owner.customerRecordId };
 }
 
 export function AddressManager({
@@ -211,6 +216,7 @@ export function AddressManager({
         ...payload,
         company_id: "companyId" in owner ? owner.companyId : null,
         customer_record_id: "customerRecordId" in owner ? owner.customerRecordId : null,
+        supplier_record_id: "supplierRecordId" in owner ? owner.supplierRecordId : null,
       };
       const { data, error } = await supabase.from("addresses").insert(insert).select("id").single();
       if (error || !data) {
