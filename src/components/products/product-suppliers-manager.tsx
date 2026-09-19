@@ -203,7 +203,7 @@ export function ProductSuppliersManager({
       const { error } = await supabase.rpc("set_preferred_product_supplier", {
         _company_id: companyId,
         _product_id: productId,
-        _supplier_record_id: supplierRecordId,
+        ...(supplierRecordId ? { _supplier_record_id: supplierRecordId } : {}),
       });
       if (error) throw new Error(error.message);
     },
@@ -220,8 +220,7 @@ export function ProductSuppliersManager({
         _company_id: companyId,
         _match_id: input.matchId,
         _action: input.action,
-        _supplier_record_id: input.supplierRecordId ?? null,
-        _legal_name: null,
+        ...(input.supplierRecordId ? { _supplier_record_id: input.supplierRecordId } : {}),
       });
       if (error) throw new Error(error.message);
     },
