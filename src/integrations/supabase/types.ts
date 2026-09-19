@@ -1260,6 +1260,281 @@ export type Database = {
           },
         ]
       }
+      inventory_adjustments: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          location_id: string
+          notes: string | null
+          product_id: string
+          quantity: number
+          reason: string
+          reference_count_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id: string
+          notes?: string | null
+          product_id: string
+          quantity: number
+          reason: string
+          reference_count_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id?: string
+          notes?: string | null
+          product_id?: string
+          quantity?: number
+          reason?: string
+          reference_count_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_adjustments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_adjustments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_adjustments_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_adjustments_reference_count_id_fkey"
+            columns: ["reference_count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_counts: {
+        Row: {
+          company_id: string
+          counted_at: string
+          counted_by: string | null
+          counted_quantity: number
+          created_at: string
+          difference: number | null
+          id: string
+          location_id: string
+          notes: string | null
+          previous_quantity: number
+          product_id: string
+          session_id: string
+          unit_code: string | null
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          counted_at?: string
+          counted_by?: string | null
+          counted_quantity: number
+          created_at?: string
+          difference?: number | null
+          id?: string
+          location_id: string
+          notes?: string | null
+          previous_quantity?: number
+          product_id: string
+          session_id: string
+          unit_code?: string | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          counted_at?: string
+          counted_by?: string | null
+          counted_quantity?: number
+          created_at?: string
+          difference?: number | null
+          id?: string
+          location_id?: string
+          notes?: string | null
+          previous_quantity?: number
+          product_id?: string
+          session_id?: string
+          unit_code?: string | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_counts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_locations: {
+        Row: {
+          code: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_default: boolean
+          name: string
+          notes: string | null
+          status: Database["public"]["Enums"]["entity_status"]
+          updated_at: string
+        }
+        Insert: {
+          code?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Update: {
+          code?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_locations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_sessions: {
+        Row: {
+          archive_id: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          finished_at: string | null
+          id: string
+          location_id: string | null
+          name: string
+          notes: string | null
+          scope: Database["public"]["Enums"]["inventory_session_scope"]
+          started_at: string
+          status: Database["public"]["Enums"]["inventory_session_status"]
+          updated_at: string
+        }
+        Insert: {
+          archive_id: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          location_id?: string | null
+          name: string
+          notes?: string | null
+          scope?: Database["public"]["Enums"]["inventory_session_scope"]
+          started_at?: string
+          status?: Database["public"]["Enums"]["inventory_session_status"]
+          updated_at?: string
+        }
+        Update: {
+          archive_id?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          location_id?: string | null
+          name?: string
+          notes?: string | null
+          scope?: Database["public"]["Enums"]["inventory_session_scope"]
+          started_at?: string
+          status?: Database["public"]["Enums"]["inventory_session_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_sessions_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_sessions_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_danea_supplier_matches: {
         Row: {
           company_id: string
@@ -1521,6 +1796,76 @@ export type Database = {
           {
             foreignKeyName: "product_sale_units_unit_id_fkey"
             columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_stock_settings: {
+        Row: {
+          company_id: string
+          coverage_days: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          min_stock: number | null
+          notes: string | null
+          order_multiple: number | null
+          perishability: string | null
+          product_id: string
+          stock_unit_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          coverage_days?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          min_stock?: number | null
+          notes?: string | null
+          order_multiple?: number | null
+          perishability?: string | null
+          product_id: string
+          stock_unit_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          coverage_days?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          min_stock?: number | null
+          notes?: string | null
+          order_multiple?: number | null
+          perishability?: string | null
+          product_id?: string
+          stock_unit_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_stock_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_stock_settings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_stock_settings_stock_unit_id_fkey"
+            columns: ["stock_unit_id"]
             isOneToOne: false
             referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
@@ -2273,6 +2618,19 @@ export type Database = {
         Returns: boolean
       }
       company_sells: { Args: { _company_id: string }; Returns: boolean }
+      compute_purchase_need: {
+        Args: {
+          _available: number
+          _min_stock: number
+          _needed: number
+          _order_multiple?: number
+        }
+        Returns: {
+          raw_need: number
+          rounded: boolean
+          suggested: number
+        }[]
+      }
       create_customer_invitation: {
         Args: {
           _customer_record_id: string
@@ -2315,6 +2673,10 @@ export type Database = {
         Args: { _accept: boolean; _proposal_id: string }
         Returns: undefined
       }
+      ensure_default_inventory_location: {
+        Args: { _actor_user_id?: string; _company_id: string }
+        Returns: string
+      }
       generate_invite_code: { Args: never; Returns: string }
       has_active_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
@@ -2326,6 +2688,43 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
         }
         Returns: boolean
+      }
+      inventory_location_stock: {
+        Args: { _location_id: string; _product_id: string }
+        Returns: {
+          counted_at: string
+          counted_by: string
+          has_count: boolean
+          quantity: number
+        }[]
+      }
+      inventory_location_stock_list: {
+        Args: { _archive_id: string; _company_id: string; _location_id: string }
+        Returns: {
+          counted_at: string
+          has_count: boolean
+          product_id: string
+          quantity: number
+        }[]
+      }
+      inventory_requirements: {
+        Args: { _archive_id: string; _company_id: string; _needs?: Json }
+        Returns: {
+          available: number
+          code: string
+          count_status: string
+          counted_locations: number
+          danea_um: string
+          description: string
+          min_stock: number
+          needed: number
+          order_multiple: number
+          product_id: string
+          raw_need: number
+          rounded: boolean
+          suggested: number
+          total_locations: number
+        }[]
       }
       invitation_preview: {
         Args: { _token: string }
@@ -2435,6 +2834,48 @@ export type Database = {
         }
         Returns: string
       }
+      manage_inventory_location: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _code?: string
+          _company_id: string
+          _is_default?: boolean
+          _location_id?: string
+          _name?: string
+          _notes?: string
+        }
+        Returns: string
+      }
+      manage_inventory_session: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _archive_id?: string
+          _company_id: string
+          _location_id?: string
+          _name?: string
+          _notes?: string
+          _scope?: Database["public"]["Enums"]["inventory_session_scope"]
+          _session_id?: string
+        }
+        Returns: string
+      }
+      manage_product_stock_settings: {
+        Args: {
+          _actor_user_id?: string
+          _clear_fields?: string[]
+          _company_id: string
+          _coverage_days?: number
+          _min_stock?: number
+          _notes?: string
+          _order_multiple?: number
+          _perishability?: string
+          _product_ids: string[]
+          _stock_unit_id?: string
+        }
+        Returns: number
+      }
       manage_product_supplier_link: {
         Args: {
           _action: string
@@ -2533,6 +2974,7 @@ export type Database = {
         Args: { _supplier_record_id: string }
         Returns: boolean
       }
+      product_stock_overview: { Args: { _product_id: string }; Returns: Json }
       product_supplier_overview: {
         Args: { _product_id: string }
         Returns: {
@@ -2558,6 +3000,32 @@ export type Database = {
           supplier_product_code: string
           supplier_record_id: string
         }[]
+      }
+      record_inventory_adjustment: {
+        Args: {
+          _actor_user_id?: string
+          _company_id: string
+          _location_id: string
+          _notes?: string
+          _product_id: string
+          _quantity: number
+          _reason: string
+        }
+        Returns: string
+      }
+      record_inventory_count: {
+        Args: {
+          _actor_user_id?: string
+          _company_id: string
+          _counted_quantity: number
+          _location_id: string
+          _notes?: string
+          _product_id: string
+          _session_id: string
+          _unit_code?: string
+          _unit_id?: string
+        }
+        Returns: string
       }
       register_company: {
         Args: {
@@ -2723,6 +3191,8 @@ export type Database = {
       danea_sync_outcome: "in_corso" | "completato" | "fallito"
       danea_sync_source: "postazione" | "manuale"
       entity_status: "attivo" | "disattivato" | "revocato"
+      inventory_session_scope: "generale" | "ubicazione"
+      inventory_session_status: "in_corso" | "completata" | "annullata"
       invitation_status:
         | "in_attesa"
         | "accettato"
@@ -2879,6 +3349,8 @@ export const Constants = {
       danea_sync_outcome: ["in_corso", "completato", "fallito"],
       danea_sync_source: ["postazione", "manuale"],
       entity_status: ["attivo", "disattivato", "revocato"],
+      inventory_session_scope: ["generale", "ubicazione"],
+      inventory_session_status: ["in_corso", "completata", "annullata"],
       invitation_status: [
         "in_attesa",
         "accettato",
