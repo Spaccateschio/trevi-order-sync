@@ -28,16 +28,24 @@ cliente:
 - nessuna corrispondenza → viene creata la scheda dai dati dell'azienda
   collegata (ragione sociale, P.IVA, indirizzo, contatti), con archivio non
   assegnato e listino predefinito del venditore;
-- più corrispondenze, oppure P.IVA discordante → nessun collegamento
-  automatico: la relazione viene segnata come "anagrafica da associare" e
+- più corrispondenze (anche la stessa P.IVA presente in archivi Danea
+  diversi), oppure P.IVA discordante → nessun collegamento automatico: quel
+  lato della relazione resta segnato come "anagrafica da associare" e
   l'amministratore scegli lui la scheda. Nessuna fusione automatica e nessun
   uso della tabella delle proposte di aggiornamento dati, che ha un altro
   significato.
 
-Precedenza di identificazione: quando esiste il riferimento Danea si usa
-sempre la coppia archivio + codice Danea; P.IVA e codice fiscale sono il
-secondo criterio; ragione sociale e indirizzo non identificano mai una scheda.
-La stessa P.IVA in due archivi Danea resta su schede distinte.
+Identificatori nel riconoscimento B2B: solo dati realmente comuni ai due lati —
+P.IVA normalizzata, in mancanza codice fiscale; mai ragione sociale o
+indirizzo. Il codice Danea non viene usato qui, perché è locale al nostro
+archivio e l'azienda partner non lo possiede. Archivio + codice Danea resta
+invece l'identificatore prioritario quando riconosciamo o aggiorniamo una
+scheda proveniente dallo stesso archivio Danea (import e futuro ritorno degli
+ordini a Danea).
+
+I due lati sono indipendenti: la stessa relazione può avere la scheda cliente
+del venditore risolta e la scheda fornitore dell'acquirente da associare, o
+viceversa.
 
 ## 2. Anagrafica Fornitori (gemella dei Clienti)
 
@@ -103,12 +111,14 @@ fornitore locale, mai alla relazione B2B.
 Migrazione 1 — aggancio anagrafica ↔ B2B:
 - `resolve_relation_records(_relation_id)`, `SECURITY DEFINER`,
   `search_path = public`: garantisce `customer_record_id` lato venditore e
-  `supplier_record_id` lato acquirente; match nell'ordine archivio+
-  `internal_reference`, poi `vat_normalized`, poi `tax_code`, solo su schede
-  libere; crea la scheda mancante dai dati di `companies`; su ambiguità nessuna
-  scelta automatica: `supplier_customer_relations.record_match_required boolean`
-  segna il lato da associare a mano (nessun uso di
-  `customer_record_proposed_updates`); audit su `audit_events`.
+  `supplier_record_id` lato acquirente; match solo su `vat_normalized` e, in
+  mancanza, `tax_code` (nessun uso del codice Danea in questa fase), solo su
+  schede libere; crea la scheda mancante dai dati di `companies`; su ambiguità
+  nessuna scelta automatica. Due flag distinti sulla relazione,
+  `customer_record_match_required` e `supplier_record_match_required`, così un
+  lato può essere risolto e l'altro richiedere l'intervento
+  dell'amministratore; nessun uso di `customer_record_proposed_updates`; audit
+  su `audit_events`.
 - Chiamata da `accept_invitation_row`, `accept_invitation_with_new_company`,
   `decide_company_relation` e `set_relation_side_enabled` quando la relazione
   passa ad `attivo`. Nessuna modifica al modello a doppio consenso, agli stati
@@ -137,8 +147,13 @@ Migrazione 2 — anagrafica fornitori:
   `supplier_record_id uuid` nullable, con vincolo di proprietario unico
   (azienda | cliente | fornitore) e policy RLS aggiornate sullo stesso
   schema di quelle esistenti. `customer_destinations` diventa la tabella
-  comune dei punti operativi (consegna per i clienti, ritiro/magazzino per i
-  fornitori); il nome resta per non rompere il codice esistente. Si verifica
+  comune dei punti operativi (il nome resta per non rompere il codice
+  esistente) e ottiene una funzione esplicita `function address_function`
+  (consegna / ritiro / magazzino / sede), indipendente dal proprietario, più
+  eventuali funzioni aggiuntive tramite `address_functions` sull'indirizzo
+  collegato: così in futuro si potrà dire "Rossi Srl → Magazzino Guidonia →
+  punto di ritiro" e usare quell'indirizzo nell'ordine senza reinterpretazioni.
+  Si verifica
   che i campi richiesti dall'ordine Danea (nome, indirizzo, CAP, città,
   provincia, nazione) siano presenti e non nulli dove servono, così la futura
   copia immutabile nell'ordine è una semplice lettura.
