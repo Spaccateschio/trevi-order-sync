@@ -98,9 +98,11 @@ function friendlyError(message: string) {
 }
 
 function ownerFilter(owner: Owner) {
-  return "companyId" in owner
-    ? { column: "company_id" as const, value: owner.companyId }
-    : { column: "customer_record_id" as const, value: owner.customerRecordId };
+  if ("companyId" in owner)
+    return { column: "company_id" as const, value: owner.companyId };
+  if ("supplierRecordId" in owner)
+    return { column: "supplier_record_id" as const, value: owner.supplierRecordId };
+  return { column: "customer_record_id" as const, value: owner.customerRecordId };
 }
 
 export function AddressManager({
