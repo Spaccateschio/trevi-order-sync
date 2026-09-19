@@ -8,6 +8,7 @@ import {
   PlugZap,
   ReceiptText,
   ShoppingBasket,
+  ShoppingCart,
   Store,
   Truck,
   UserRound,
@@ -33,6 +34,7 @@ export type ModuleKey =
   | "comune.account"
   | "acquisti.panoramica"
   | "acquisti.catalogo"
+  | "acquisti.lista-spesa"
   | "acquisti.inventario"
   | "acquisti.fornitori"
   | "vendite.panoramica"
@@ -87,6 +89,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Catalogo",
     short: "Catalogo",
     icon: Package,
+  },
+  {
+    key: "acquisti.lista-spesa",
+    area: "acquisti",
+    to: "/acquisti/lista-spesa",
+    label: "Lista della Spesa",
+    short: "Spesa",
+    icon: ShoppingCart,
   },
   {
     key: "acquisti.inventario",

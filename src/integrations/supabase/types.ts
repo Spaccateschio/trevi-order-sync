@@ -2214,6 +2214,263 @@ export type Database = {
         }
         Relationships: []
       }
+      shopping_list_item_suppliers: {
+        Row: {
+          assigned_quantity: number
+          company_id: string
+          conversion_factor: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          item_id: string
+          min_warning_accepted: boolean
+          min_warning_accepted_at: string | null
+          min_warning_accepted_by: string | null
+          notes: string | null
+          product_supplier_link_id: string
+          purchase_quantity: number | null
+          purchase_unit_code: string | null
+          purchase_unit_id: string | null
+          supplier_record_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_quantity: number
+          company_id: string
+          conversion_factor?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id: string
+          min_warning_accepted?: boolean
+          min_warning_accepted_at?: string | null
+          min_warning_accepted_by?: string | null
+          notes?: string | null
+          product_supplier_link_id: string
+          purchase_quantity?: number | null
+          purchase_unit_code?: string | null
+          purchase_unit_id?: string | null
+          supplier_record_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_quantity?: number
+          company_id?: string
+          conversion_factor?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id?: string
+          min_warning_accepted?: boolean
+          min_warning_accepted_at?: string | null
+          min_warning_accepted_by?: string | null
+          notes?: string | null
+          product_supplier_link_id?: string
+          purchase_quantity?: number | null
+          purchase_unit_code?: string | null
+          purchase_unit_id?: string | null
+          supplier_record_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_item_suppliers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_item_suppliers_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_list_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_item_suppliers_product_supplier_link_id_fkey"
+            columns: ["product_supplier_link_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_item_suppliers_purchase_unit_id_fkey"
+            columns: ["purchase_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_item_suppliers_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_list_items: {
+        Row: {
+          change_reason: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decided_quantity: number
+          id: string
+          list_id: string
+          notes: string | null
+          origin: Database["public"]["Enums"]["shopping_list_item_origin"]
+          product_id: string
+          snapshot_available: number | null
+          snapshot_min_stock: number | null
+          snapshot_needed: number | null
+          snapshot_order_multiple: number | null
+          snapshot_raw_need: number | null
+          suggested_quantity: number | null
+          unit_code: string | null
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          change_reason?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_quantity: number
+          id?: string
+          list_id: string
+          notes?: string | null
+          origin?: Database["public"]["Enums"]["shopping_list_item_origin"]
+          product_id: string
+          snapshot_available?: number | null
+          snapshot_min_stock?: number | null
+          snapshot_needed?: number | null
+          snapshot_order_multiple?: number | null
+          snapshot_raw_need?: number | null
+          suggested_quantity?: number | null
+          unit_code?: string | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          change_reason?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_quantity?: number
+          id?: string
+          list_id?: string
+          notes?: string | null
+          origin?: Database["public"]["Enums"]["shopping_list_item_origin"]
+          product_id?: string
+          snapshot_available?: number | null
+          snapshot_min_stock?: number | null
+          snapshot_needed?: number | null
+          snapshot_order_multiple?: number | null
+          snapshot_raw_need?: number | null
+          suggested_quantity?: number | null
+          unit_code?: string | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_lists: {
+        Row: {
+          archive_id: string
+          closed_at: string | null
+          company_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          notes: string | null
+          status: Database["public"]["Enums"]["shopping_list_status"]
+          updated_at: string
+        }
+        Insert: {
+          archive_id: string
+          closed_at?: string | null
+          company_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["shopping_list_status"]
+          updated_at?: string
+        }
+        Update: {
+          archive_id?: string
+          closed_at?: string | null
+          company_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["shopping_list_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_lists_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_lists_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_customer_relations: {
         Row: {
           accepted_at: string | null
@@ -2548,6 +2805,16 @@ export type Database = {
         }
         Returns: string
       }
+      add_shopping_list_items: {
+        Args: {
+          _actor_user_id?: string
+          _company_id: string
+          _items: Json
+          _list_id: string
+          _replace_existing?: boolean
+        }
+        Returns: Json
+      }
       apply_invitation_price_list: {
         Args: { _invitation_id: string; _relation_id: string }
         Returns: undefined
@@ -2564,6 +2831,20 @@ export type Database = {
           _unit_id: string
         }
         Returns: Json
+      }
+      assign_shopping_list_supplier: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _assigned_quantity?: number
+          _company_id: string
+          _item_id: string
+          _link_id?: string
+          _min_warning_accepted?: boolean
+          _notes?: string
+          _purchase_quantity?: number
+        }
+        Returns: string
       }
       available_buyers: {
         Args: never
@@ -2895,6 +3176,18 @@ export type Database = {
         }
         Returns: string
       }
+      manage_shopping_list: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _archive_id?: string
+          _company_id: string
+          _list_id?: string
+          _name?: string
+          _notes?: string
+        }
+        Returns: string
+      }
       manage_supplier_destination: {
         Args: {
           _action: string
@@ -3063,6 +3356,10 @@ export type Database = {
           old_thumbnail_path: string
         }[]
       }
+      remove_shopping_list_item: {
+        Args: { _actor_user_id?: string; _company_id: string; _item_id: string }
+        Returns: boolean
+      }
       request_supplier_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
         Returns: string
@@ -3160,8 +3457,59 @@ export type Database = {
         Args: { _enabled: boolean; _relation_id: string }
         Returns: undefined
       }
+      set_shopping_list_item_quantity: {
+        Args: {
+          _actor_user_id?: string
+          _company_id: string
+          _decided_quantity: number
+          _item_id: string
+          _notes?: string
+          _reason?: string
+        }
+        Returns: string
+      }
       shares_company_with: { Args: { _user_id: string }; Returns: boolean }
       shares_relation_with: { Args: { _company_id: string }; Returns: boolean }
+      shopping_list_item_state: {
+        Args: { _item_id: string }
+        Returns: {
+          assigned: number
+          remaining: number
+          status: string
+          under_minimum: number
+          untranslatable: number
+        }[]
+      }
+      shopping_list_overview: {
+        Args: { _list_id: string }
+        Returns: {
+          assigned: number
+          change_reason: string
+          code: string
+          created_at: string
+          current_available: number
+          current_min_stock: number
+          current_order_multiple: number
+          current_suggested: number
+          decided_quantity: number
+          description: string
+          item_id: string
+          origin: string
+          product_id: string
+          remaining: number
+          snapshot_available: number
+          snapshot_min_stock: number
+          snapshot_needed: number
+          snapshot_order_multiple: number
+          snapshot_raw_need: number
+          status: string
+          suggested_quantity: number
+          suppliers_available: number
+          under_minimum: number
+          unit_code: string
+          untranslatable: number
+        }[]
+      }
       supplier_record_match_suggestions: {
         Args: { _relation_id: string }
         Returns: {
@@ -3208,6 +3556,8 @@ export type Database = {
         | "sospeso"
         | "revocato"
         | "rifiutato"
+      shopping_list_item_origin: "manuale" | "fabbisogno"
+      shopping_list_status: "aperta" | "confermata" | "chiusa" | "annullata"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3368,6 +3718,8 @@ export const Constants = {
         "revocato",
         "rifiutato",
       ],
+      shopping_list_item_origin: ["manuale", "fabbisogno"],
+      shopping_list_status: ["aperta", "confermata", "chiusa", "annullata"],
     },
   },
 } as const

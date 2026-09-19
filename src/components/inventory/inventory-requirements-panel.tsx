@@ -1,11 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { Search, ShoppingCart } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity, purchaseNeed, qty, STOCK_STATUS_LABEL, type RequirementRow } from "@/lib/inventory";
+import { addShoppingListItems, manageShoppingList } from "@/lib/shopping-list.functions";
 
 /**
  * Vista fabbisogno: disponibile, scorta minima, necessario (per ora inserito a mano) e quantità da acquistare.
@@ -21,6 +25,18 @@ export function InventoryRequirementsPanel({
   const [search, setSearch] = useState("");
   const [needs, setNeeds] = useState<Record<string, string>>({});
   const [onlyNeeded, setOnlyNeeded] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const queryClient = useQueryClient();
+  const runList = useServerFn(manageShoppingList);
+  const runAdd = useServerFn(addShoppingListItems);
+
+  const toggle = (productId: string) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
 
   const query = useQuery({
     queryKey: ["inventory-requirements", companyId, archiveId],
@@ -49,6 +65,55 @@ export function InventoryRequirementsPanel({
     });
   }, [query.data, search, needs, onlyNeeded]);
 
+  // Selezione multipla: 20 prodotti entrano in lista in una volta, con il suggerito del momento.
+  const addToList = useMutation({
+    mutationFn: async () => {
+      const chosen = rows.filter((row) => selected.has(row.product_id) && row.suggested > 0);
+      if (!chosen.length) throw new Error("Nessuna riga con quantità da acquistare selezionata");
+      const { data: open } = await supabase
+        .from("shopping_lists")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("archive_id", archiveId)
+        .eq("status", "aperta")
+        .maybeSingle();
+      const listId =
+        open?.id ??
+        (
+          await runList({
+            data: { companyId, action: "open", listId: null, archiveId, name: null, notes: null },
+          })
+        ).id;
+      return runAdd({
+        data: {
+          companyId,
+          listId,
+          replaceExisting: false,
+          items: chosen.map((row) => ({
+            product_id: row.product_id,
+            suggested_quantity: row.suggested,
+            decided_quantity: row.suggested,
+            origin: "fabbisogno" as const,
+            available: row.available,
+            needed: row.needed,
+            min_stock: row.min_stock,
+            raw_need: row.rawNeed,
+            order_multiple: row.order_multiple,
+          })),
+        },
+      });
+    },
+    onSuccess: async (result) => {
+      setSelected(new Set());
+      await queryClient.invalidateQueries({ queryKey: ["shopping-lists", companyId] });
+      await queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] });
+      toast.success(
+        `${result.added} aggiunti alla Lista della Spesa${result.skipped ? `, ${result.skipped} già in lista` : ""}`,
+      );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -70,12 +135,22 @@ export function InventoryRequirementsPanel({
           />
           Solo da acquistare
         </label>
+        <Button
+          type="button"
+          size="sm"
+          disabled={!selected.size || addToList.isPending}
+          onClick={() => addToList.mutate()}
+        >
+          <ShoppingCart aria-hidden="true" />
+          Aggiungi alla Lista della Spesa{selected.size ? ` (${selected.size})` : ""}
+        </Button>
       </div>
 
       <div className="hidden overflow-hidden rounded-md border border-border md:block">
         <table className="w-full table-fixed text-xs">
           <thead className="bg-muted/50">
             <tr className="[&>th]:border-r [&>th]:border-border [&>th]:px-2 [&>th]:py-2 [&>th]:text-left [&>th:last-child]:border-r-0">
+              <th className="w-8" aria-label="Selezione" />
               <th className="w-24">Codice</th>
               <th>Descrizione</th>
               <th className="w-24">Disponibile</th>
@@ -91,6 +166,14 @@ export function InventoryRequirementsPanel({
                 key={row.product_id}
                 className="border-t border-border [&>td]:border-r [&>td]:border-border [&>td]:px-2 [&>td]:py-1 [&>td:last-child]:border-r-0"
               >
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(row.product_id)}
+                    aria-label={`Seleziona ${row.code}`}
+                    onChange={() => toggle(row.product_id)}
+                  />
+                </td>
                 <td className="truncate font-mono">{row.code}</td>
                 <td className="truncate">{row.description ?? "—"}</td>
                 <td>{row.count_status === "mai_contato" ? "—" : qty(row.available)}</td>
@@ -130,7 +213,14 @@ export function InventoryRequirementsPanel({
         {rows.map((row) => (
           <li key={row.product_id} className="rounded-md border border-border p-3">
             <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
+              <input
+                type="checkbox"
+                className="mt-1 size-4"
+                checked={selected.has(row.product_id)}
+                aria-label={`Seleziona ${row.code}`}
+                onChange={() => toggle(row.product_id)}
+              />
+              <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{row.description ?? row.code}</p>
                 <p className="font-mono text-xs text-muted-foreground">{row.code}</p>
               </div>
