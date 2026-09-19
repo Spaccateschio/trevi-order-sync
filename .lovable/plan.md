@@ -60,7 +60,7 @@ L'import prodotti continua a scrivere `products` e `product_supplier_costs` come
 
 ## Costi e provenienza
 
-Due valori, sempre distinguibili perché stanno in due posti diversi: l'ultimo costo ricevuto da Danea (in `product_supplier_costs`, con la sua data) e il costo concordato da noi (nell'associazione, con la sua data). La scheda prodotto li mostra affiancati con l'etichetta della provenienza e indica quale sta usando. Il costo medio si aggiungerà quando avremo lo storico acquisti.
+Due valori, sempre distinguibili perché stanno in due posti diversi: l'ultimo costo ricevuto da Danea (in `product_supplier_costs`, con la sua data) e il costo concordato da noi (nell'associazione, con la sua data). La scheda prodotto li mostra entrambi con provenienza e data, o solo quello disponibile. In questa fase nessuna regola automatica decide quale dei due "vale": la priorità si definirà nella fase Acquisti. Il costo medio si aggiungerà quando avremo lo storico acquisti.
 
 ## Unità di misura d'acquisto
 
