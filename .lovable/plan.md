@@ -114,15 +114,56 @@ Valori **impostati dall'azienda**, tenuti in una tabella dedicata di parametri p
 
 Regola di progetto: i valori impostati a mano e quelli che in futuro saranno calcolati dal sistema **non condividono mai la stessa colonna**. I valori calcolati avranno le proprie colonne o la propria tabella, con l'indicazione di come sono stati ottenuti, e non sovrascrivono mai il valore manuale.
 
-### FASE B — Inventario
+### FASE B — Inventario con ubicazioni
 
-- **Sessione di inventario**: azienda, archivio Danea, nome, stato (in corso / completata / annullata), inizio, fine, autore, note.
-- **Riga di conteggio**: sessione, prodotto, quantità contata, U.M. usata, quantità precedente, differenza calcolata dal database, data e ora del conteggio, utente che ha contato, note. Un solo conteggio per prodotto nella stessa sessione.
-- **Chiusura**: una sessione chiusa non è più modificabile. Ogni correzione successiva è una **rettifica** tracciata (prodotto, quantità, motivo, data e ora, autore), che non altera il conteggio originale.
-- **Storico**: tutti i conteggi restano, non solo l'ultimo. Nessuna riga viene sovrascritta o cancellata.
-- **Giacenza corrente**: unica fonte di verità = ultimo conteggio valido + rettifiche successive. Nessun campo "giacenza" modificabile su `products`.
-- **Quantità necessaria**: in questa fase inserita a mano; in futuro potrà arrivare dagli ordini clienti.
+Concetti:
+
+- **Ubicazione**: zona fisica configurabile dall'azienda (magazzino, frigo, banco, cella, deposito, qualunque altra). Nessun nome fisso nel codice. All'attivazione dell'inventario viene creata automaticamente una ubicazione predefinita, così chi ha una sola zona non deve configurare niente e non la vede nemmeno nell'interfaccia.
+- **Sessione**: può essere **generale** (tutte le ubicazioni) oppure **riferita a una singola ubicazione**.
+- **Conteggio**: sempre riferito a prodotto + ubicazione. Lo stesso prodotto può avere quantità in più ubicazioni.
+- **Rettifica**: correzione tracciata dopo la chiusura, anch'essa riferita a prodotto + ubicazione.
+
+Regole:
+
+- Una sessione chiusa non è più modificabile: ogni correzione è una rettifica, il conteggio originale resta intatto.
+- Tutti i conteggi restano nello storico: nessuna sovrascrittura, nessuna cancellazione.
+- **Sessioni parziali**: contare solo il frigo non azzera né invalida magazzino e banco. Ogni ubicazione conserva il proprio ultimo conteggio valido.
+- **Giacenza per ubicazione** = ultimo conteggio valido di quella ubicazione (sessione completata, non annullata) + rettifiche successive a quel conteggio.
+- **Giacenza complessiva del prodotto** = somma delle giacenze delle ubicazioni. Nessun secondo valore manuale su `products`.
+- **Mai contato**: un prodotto senza nessun conteggio valido non vale zero, vale "sconosciuto". Nella vista fabbisogno viene trattato come 0 ma marcato "mai contato", perché il numero non è affidabile. Lo stesso per una singola ubicazione mai contata: non entra nella somma come zero certo, ma il prodotto risulta "parzialmente contato".
+- **Quantità necessaria**: in questa fase inserita a mano; in futuro dagli ordini clienti.
 - **Fabbisogno**: sempre calcolato dalla funzione unica della sezione 3, mai memorizzato.
+
+### Tabelle proposte
+
+| Tabella | Contenuto | Vincoli principali |
+| --- | --- | --- |
+| `inventory_locations` | azienda, nome, codice, `is_default`, stato (attivo/disattivato), note, autore, timestamp | nome univoco per azienda; una sola ubicazione predefinita per azienda; una ubicazione usata non si cancella, si disattiva |
+| `inventory_sessions` | azienda, archivio Danea, nome, `scope` (generale / per ubicazione), `location_id` (obbligatorio se per ubicazione, vuoto se generale), stato (in corso / completata / annullata), inizio, fine, autore, note, timestamp | l'archivio della sessione coincide con quello dei prodotti contati; una sola sessione in corso per ubicazione |
+| `inventory_counts` | sessione, prodotto, ubicazione, quantità contata, U.M. usata, quantità precedente, `difference` calcolata dal database, data/ora conteggio, utente che ha contato, note | unico (sessione, prodotto, ubicazione); inserimento e modifica solo a sessione in corso; l'ubicazione deve appartenere all'azienda e, se la sessione è per ubicazione, coincidere con quella della sessione |
+| `inventory_adjustments` | azienda, prodotto, ubicazione, quantità (segno + o −), motivo obbligatorio, conteggio di riferimento, data/ora, autore, note | scrittura solo in aggiunta: nessuna modifica né cancellazione |
+| `product_stock_settings` | azienda, prodotto, scorta minima manuale, multiplo di riordino, U.M. di riferimento, giorni di copertura desiderati, deperibilità indicativa, note, autore, timestamp | unico (azienda, prodotto); solo valori manuali, mai valori calcolati |
+
+Tutte le tabelle: accesso in lettura ai membri dell'azienda, scritture solo tramite funzioni protette (`SECURITY DEFINER`, `search_path = public`), permessi espliciti, come le tabelle già esistenti. Ogni chiusura di sessione e ogni rettifica registrate nel registro eventi.
+
+### Funzioni proposte
+
+| Funzione | Cosa fa |
+| --- | --- |
+| `manage_inventory_location` | crea / modifica / attiva / disattiva una ubicazione |
+| `manage_product_stock_settings` | imposta i parametri di magazzino del prodotto (anche in blocco su più prodotti) |
+| `manage_inventory_session` | apre, rinomina, annulla e **chiude** una sessione; dopo la chiusura ogni scrittura sui conteggi è rifiutata |
+| `record_inventory_count` | registra o corregge un conteggio a sessione aperta, ricavando la quantità precedente dalla giacenza corrente di quella ubicazione |
+| `record_inventory_adjustment` | registra una rettifica tracciata con motivo obbligatorio |
+| `product_stock_overview` | giacenza per ubicazione e complessiva di un prodotto, con date, autori e indicazione "mai contato" |
+| `inventory_requirements` | vista fabbisogno: disponibile, scorta minima, necessario, fabbisogno reale, quantità arrotondata e multiplo applicato; unico punto di calcolo, predisposto a restituire in futuro anche gli elementi della spiegazione |
+
+### Schermate
+
+- **Computer e tablet**: elenco sessioni con stato; dentro la sessione una griglia compatta con colonne configurabili e preferenze personali (come Prodotti e Clienti) — codice, descrizione, ubicazione, quantità precedente, quantità contata, differenza, U.M., stato del conteggio — più ricerca rapida, filtri "non contati / contati / con differenza", stampa e esportazione dei selezionati.
+- **Smartphone**: conteggio a schede, una riga per prodotto, campo quantità grande, pulsanti rapidi di incremento, avanzamento "contati su totale", ubicazione mostrata in testa.
+- **Scheda prodotto**: nuovo riquadro con giacenza per ubicazione, totale, data e autore dell'ultimo conteggio, rettifiche.
+- **Chi usa una sola ubicazione** non vede né selettori né colonne di ubicazione: l'interfaccia si semplifica da sola.
 
 ### Predisposizione all'evoluzione futura (non implementata ora)
 
