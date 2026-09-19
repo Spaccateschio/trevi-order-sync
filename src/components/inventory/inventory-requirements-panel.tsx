@@ -1,11 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { Search, ShoppingCart } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity, purchaseNeed, qty, STOCK_STATUS_LABEL, type RequirementRow } from "@/lib/inventory";
+import { addShoppingListItems, manageShoppingList } from "@/lib/shopping-list.functions";
 
 /**
  * Vista fabbisogno: disponibile, scorta minima, necessario (per ora inserito a mano) e quantità da acquistare.
