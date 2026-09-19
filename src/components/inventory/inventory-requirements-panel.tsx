@@ -135,12 +135,22 @@ export function InventoryRequirementsPanel({
           />
           Solo da acquistare
         </label>
+        <Button
+          type="button"
+          size="sm"
+          disabled={!selected.size || addToList.isPending}
+          onClick={() => addToList.mutate()}
+        >
+          <ShoppingCart aria-hidden="true" />
+          Aggiungi alla Lista della Spesa{selected.size ? ` (${selected.size})` : ""}
+        </Button>
       </div>
 
       <div className="hidden overflow-hidden rounded-md border border-border md:block">
         <table className="w-full table-fixed text-xs">
           <thead className="bg-muted/50">
             <tr className="[&>th]:border-r [&>th]:border-border [&>th]:px-2 [&>th]:py-2 [&>th]:text-left [&>th:last-child]:border-r-0">
+              <th className="w-8" aria-label="Selezione" />
               <th className="w-24">Codice</th>
               <th>Descrizione</th>
               <th className="w-24">Disponibile</th>
@@ -156,6 +166,14 @@ export function InventoryRequirementsPanel({
                 key={row.product_id}
                 className="border-t border-border [&>td]:border-r [&>td]:border-border [&>td]:px-2 [&>td]:py-1 [&>td:last-child]:border-r-0"
               >
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(row.product_id)}
+                    aria-label={`Seleziona ${row.code}`}
+                    onChange={() => toggle(row.product_id)}
+                  />
+                </td>
                 <td className="truncate font-mono">{row.code}</td>
                 <td className="truncate">{row.description ?? "—"}</td>
                 <td>{row.count_status === "mai_contato" ? "—" : qty(row.available)}</td>
