@@ -182,6 +182,7 @@ Trevi Fruit dovrà passare dal semplice controllo della scorta al suggerimento d
 - **Riga prodotto**: lista, prodotto, quantità necessaria, quantità disponibile, quantità da acquistare, U.M., origine (manuale / da inventario), stato (da assegnare / assegnata / ordinata / annullata), note.
 - **Assegnazione al fornitore**: righe figlie, una per fornitore, con fornitore, quantità, U.M. d'acquisto e conversione, costo mostrato (Danea e concordato, distinti, come già fatto nella scheda prodotto), stato. La somma delle quantità figlie non può superare la quantità da acquistare; l'eventuale residuo resta visibile.
 - Il fornitore preferito viene proposto, mai imposto. Le percentuali sono un aiuto di lettura calcolato, non un dato salvato.
+- Ogni riga conserverà separatamente **quantità suggerita dal sistema**, **quantità scelta dall'operatore**, data e ora e motivo della modifica: è il dato che servirà al futuro motore di previsione.
 - Inserimento rapido: ricerca prodotto e quantità, oppure importazione in blocco dal fabbisogno di una sessione di inventario.
 - Scritture sempre tramite operazioni protette lato server, come già fatto per prodotti e fornitori: nessun salvataggio differito nel browser.
 - In questa fase la lista **non** genera nessun ordine al fornitore.
