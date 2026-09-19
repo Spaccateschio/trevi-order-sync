@@ -65,6 +65,55 @@ export function InventoryRequirementsPanel({
     });
   }, [query.data, search, needs, onlyNeeded]);
 
+  // Selezione multipla: 20 prodotti entrano in lista in una volta, con il suggerito del momento.
+  const addToList = useMutation({
+    mutationFn: async () => {
+      const chosen = rows.filter((row) => selected.has(row.product_id) && row.suggested > 0);
+      if (!chosen.length) throw new Error("Nessuna riga con quantità da acquistare selezionata");
+      const { data: open } = await supabase
+        .from("shopping_lists")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("archive_id", archiveId)
+        .eq("status", "aperta")
+        .maybeSingle();
+      const listId =
+        open?.id ??
+        (
+          await runList({
+            data: { companyId, action: "open", listId: null, archiveId, name: null, notes: null },
+          })
+        ).id;
+      return runAdd({
+        data: {
+          companyId,
+          listId,
+          replaceExisting: false,
+          items: chosen.map((row) => ({
+            product_id: row.product_id,
+            suggested_quantity: row.suggested,
+            decided_quantity: row.suggested,
+            origin: "fabbisogno" as const,
+            available: row.available,
+            needed: row.needed,
+            min_stock: row.min_stock,
+            raw_need: row.rawNeed,
+            order_multiple: row.order_multiple,
+          })),
+        },
+      });
+    },
+    onSuccess: async (result) => {
+      setSelected(new Set());
+      await queryClient.invalidateQueries({ queryKey: ["shopping-lists", companyId] });
+      await queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] });
+      toast.success(
+        `${result.added} aggiunti alla Lista della Spesa${result.skipped ? `, ${result.skipped} già in lista` : ""}`,
+      );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
