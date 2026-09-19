@@ -213,7 +213,14 @@ export function InventoryRequirementsPanel({
         {rows.map((row) => (
           <li key={row.product_id} className="rounded-md border border-border p-3">
             <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
+              <input
+                type="checkbox"
+                className="mt-1 size-4"
+                checked={selected.has(row.product_id)}
+                aria-label={`Seleziona ${row.code}`}
+                onChange={() => toggle(row.product_id)}
+              />
+              <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{row.description ?? row.code}</p>
                 <p className="font-mono text-xs text-muted-foreground">{row.code}</p>
               </div>
