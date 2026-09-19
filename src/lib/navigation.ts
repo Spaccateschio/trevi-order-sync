@@ -8,6 +8,7 @@ import {
   PlugZap,
   ReceiptText,
   ShoppingBasket,
+  ShoppingCart,
   Store,
   Truck,
   UserRound,
