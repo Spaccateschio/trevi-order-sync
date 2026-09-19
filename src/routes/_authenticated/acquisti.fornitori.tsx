@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
-import { Button } from "@/components/ui/button";
+import { SupplierRecordsPanel } from "@/components/companies/supplier-records-panel";
+import { activeCompany, companyBuys, hasRole, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/acquisti/fornitori")({
   head: () => ({
@@ -10,13 +11,13 @@ export const Route = createFileRoute("/_authenticated/acquisti/fornitori")({
       {
         name: "description",
         content:
-          "I rapporti con i fornitori si gestiscono nella pagina Collegamenti, insieme a tutti i collegamenti tra aziende.",
+          "L'anagrafica commerciale dei tuoi fornitori: dati, contatti, indirizzi, punti di ritiro e riferimenti Danea.",
       },
       { property: "og:title", content: "Fornitori — Trevi Fruit" },
       {
         property: "og:description",
         content:
-          "I rapporti con i fornitori si gestiscono nella pagina Collegamenti, insieme a tutti i collegamenti tra aziende.",
+          "L'anagrafica commerciale dei tuoi fornitori: dati, contatti, indirizzi, punti di ritiro e riferimenti Danea.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -26,20 +27,30 @@ export const Route = createFileRoute("/_authenticated/acquisti/fornitori")({
 });
 
 function Fornitori() {
+  const { data: identity, isLoading } = useIdentity();
+
+  const company = activeCompany(identity);
+  const isAdmin = hasRole(identity, "amministratore");
+
+  if (!isLoading && !companyBuys(identity)) {
+    return (
+      <AppShell title="Fornitori" description="Area riservata alle aziende che acquistano.">
+        <p className="text-sm text-muted-foreground">
+          Il profilo di acquisto non è attivo per la tua azienda.
+        </p>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell
       title="Fornitori"
-      description="I rapporti tra aziende si gestiscono ora in un unico posto."
+      description="La tua anagrafica commerciale: un fornitore esiste qui anche se non usa Trevi Fruit."
     >
-      <section className="space-y-3 rounded-xl border border-border bg-card p-5 shadow-sm">
-        <p className="text-sm text-muted-foreground">
-          Fornitori collegati, richieste inviate e ricevute, sospensione e riattivazione sono nella
-          pagina Collegamenti.
-        </p>
-        <Button asChild size="sm">
-          <Link to="/collegamenti">Vai a Collegamenti</Link>
-        </Button>
-      </section>
+      <div className="space-y-6">
+        {company ? <SupplierRecordsPanel companyId={company.companyId} isAdmin={isAdmin} /> : null}
+        {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
+      </div>
     </AppShell>
   );
 }
