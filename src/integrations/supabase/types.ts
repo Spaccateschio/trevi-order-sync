@@ -2698,6 +2698,15 @@ export type Database = {
           quantity: number
         }[]
       }
+      inventory_location_stock_list: {
+        Args: { _archive_id: string; _company_id: string; _location_id: string }
+        Returns: {
+          counted_at: string
+          has_count: boolean
+          product_id: string
+          quantity: number
+        }[]
+      }
       inventory_requirements: {
         Args: { _archive_id: string; _company_id: string; _needs?: Json }
         Returns: {
