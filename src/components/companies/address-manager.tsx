@@ -216,6 +216,7 @@ export function AddressManager({
         ...payload,
         company_id: "companyId" in owner ? owner.companyId : null,
         customer_record_id: "customerRecordId" in owner ? owner.customerRecordId : null,
+        supplier_record_id: "supplierRecordId" in owner ? owner.supplierRecordId : null,
       };
       const { data, error } = await supabase.from("addresses").insert(insert).select("id").single();
       if (error || !data) {
