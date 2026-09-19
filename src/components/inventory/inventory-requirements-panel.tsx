@@ -25,6 +25,18 @@ export function InventoryRequirementsPanel({
   const [search, setSearch] = useState("");
   const [needs, setNeeds] = useState<Record<string, string>>({});
   const [onlyNeeded, setOnlyNeeded] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const queryClient = useQueryClient();
+  const runList = useServerFn(manageShoppingList);
+  const runAdd = useServerFn(addShoppingListItems);
+
+  const toggle = (productId: string) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
 
   const query = useQuery({
     queryKey: ["inventory-requirements", companyId, archiveId],
