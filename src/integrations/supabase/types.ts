@@ -23,6 +23,7 @@ export type Database = {
           function: Database["public"]["Enums"]["address_function"]
           id: string
           is_default: boolean
+          supplier_record_id: string | null
         }
         Insert: {
           address_id: string
@@ -32,6 +33,7 @@ export type Database = {
           function: Database["public"]["Enums"]["address_function"]
           id?: string
           is_default?: boolean
+          supplier_record_id?: string | null
         }
         Update: {
           address_id?: string
@@ -41,6 +43,7 @@ export type Database = {
           function?: Database["public"]["Enums"]["address_function"]
           id?: string
           is_default?: boolean
+          supplier_record_id?: string | null
         }
         Relationships: [
           {
@@ -64,6 +67,13 @@ export type Database = {
             referencedRelation: "customer_records"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "address_functions_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
+            referencedColumns: ["id"]
+          },
         ]
       }
       addresses: {
@@ -84,6 +94,7 @@ export type Database = {
           province: string | null
           status: Database["public"]["Enums"]["entity_status"]
           street_number: string | null
+          supplier_record_id: string | null
           updated_at: string
           visible_to_partners: boolean
         }
@@ -104,6 +115,7 @@ export type Database = {
           province?: string | null
           status?: Database["public"]["Enums"]["entity_status"]
           street_number?: string | null
+          supplier_record_id?: string | null
           updated_at?: string
           visible_to_partners?: boolean
         }
@@ -124,6 +136,7 @@ export type Database = {
           province?: string | null
           status?: Database["public"]["Enums"]["entity_status"]
           street_number?: string | null
+          supplier_record_id?: string | null
           updated_at?: string
           visible_to_partners?: boolean
         }
@@ -140,6 +153,13 @@ export type Database = {
             columns: ["customer_record_id"]
             isOneToOne: false
             referencedRelation: "customer_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "addresses_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
             referencedColumns: ["id"]
           },
         ]
@@ -524,56 +544,65 @@ export type Database = {
       customer_destinations: {
         Row: {
           address_id: string | null
+          buyer_company_id: string | null
           contact_name: string | null
           created_at: string
           created_by: string | null
-          customer_record_id: string
+          customer_record_id: string | null
           danea_reference: string | null
+          function: Database["public"]["Enums"]["address_function"]
           id: string
           internal_code: string | null
           is_default: boolean
           label: string
           notes: string | null
           phone: string | null
-          seller_company_id: string
+          seller_company_id: string | null
           separate_documents: boolean
           status: Database["public"]["Enums"]["entity_status"]
+          supplier_record_id: string | null
           updated_at: string
         }
         Insert: {
           address_id?: string | null
+          buyer_company_id?: string | null
           contact_name?: string | null
           created_at?: string
           created_by?: string | null
-          customer_record_id: string
+          customer_record_id?: string | null
           danea_reference?: string | null
+          function?: Database["public"]["Enums"]["address_function"]
           id?: string
           internal_code?: string | null
           is_default?: boolean
           label: string
           notes?: string | null
           phone?: string | null
-          seller_company_id: string
+          seller_company_id?: string | null
           separate_documents?: boolean
           status?: Database["public"]["Enums"]["entity_status"]
+          supplier_record_id?: string | null
           updated_at?: string
         }
         Update: {
           address_id?: string | null
+          buyer_company_id?: string | null
           contact_name?: string | null
           created_at?: string
           created_by?: string | null
-          customer_record_id?: string
+          customer_record_id?: string | null
           danea_reference?: string | null
+          function?: Database["public"]["Enums"]["address_function"]
           id?: string
           internal_code?: string | null
           is_default?: boolean
           label?: string
           notes?: string | null
           phone?: string | null
-          seller_company_id?: string
+          seller_company_id?: string | null
           separate_documents?: boolean
           status?: Database["public"]["Enums"]["entity_status"]
+          supplier_record_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -582,6 +611,13 @@ export type Database = {
             columns: ["address_id"]
             isOneToOne: false
             referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_destinations_buyer_company_id_fkey"
+            columns: ["buyer_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -596,6 +632,13 @@ export type Database = {
             columns: ["seller_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_destinations_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
             referencedColumns: ["id"]
           },
         ]
@@ -1674,6 +1717,7 @@ export type Database = {
           buyer_enabled: boolean
           created_at: string
           customer_record_id: string | null
+          customer_record_match_required: boolean
           decided_at: string | null
           decided_by: string | null
           id: string
@@ -1685,6 +1729,8 @@ export type Database = {
           seller_company_id: string
           seller_enabled: boolean
           status: Database["public"]["Enums"]["relation_status"]
+          supplier_record_id: string | null
+          supplier_record_match_required: boolean
           updated_at: string
         }
         Insert: {
@@ -1693,6 +1739,7 @@ export type Database = {
           buyer_enabled?: boolean
           created_at?: string
           customer_record_id?: string | null
+          customer_record_match_required?: boolean
           decided_at?: string | null
           decided_by?: string | null
           id?: string
@@ -1704,6 +1751,8 @@ export type Database = {
           seller_company_id: string
           seller_enabled?: boolean
           status?: Database["public"]["Enums"]["relation_status"]
+          supplier_record_id?: string | null
+          supplier_record_match_required?: boolean
           updated_at?: string
         }
         Update: {
@@ -1712,6 +1761,7 @@ export type Database = {
           buyer_enabled?: boolean
           created_at?: string
           customer_record_id?: string | null
+          customer_record_match_required?: boolean
           decided_at?: string | null
           decided_by?: string | null
           id?: string
@@ -1723,6 +1773,8 @@ export type Database = {
           seller_company_id?: string
           seller_enabled?: boolean
           status?: Database["public"]["Enums"]["relation_status"]
+          supplier_record_id?: string | null
+          supplier_record_match_required?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -1745,6 +1797,136 @@ export type Database = {
             columns: ["customer_record_id"]
             isOneToOne: false
             referencedRelation: "customer_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_customer_relations_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_records: {
+        Row: {
+          address_line: string | null
+          agent: string | null
+          archive_id: string | null
+          bank: string | null
+          buyer_company_id: string
+          city: string | null
+          contact_name: string | null
+          country: string | null
+          created_at: string
+          created_by: string | null
+          credit_limit: string | null
+          danea_extra: Json | null
+          discounts: string | null
+          email: string | null
+          fax: string | null
+          id: string
+          internal_reference: string | null
+          legal_name: string
+          notes: string | null
+          our_bank: string | null
+          payment_terms: string | null
+          pec: string | null
+          phone: string | null
+          postal_code: string | null
+          province: string | null
+          region: string | null
+          sdi_admin_reference: string | null
+          sdi_code: string | null
+          status: Database["public"]["Enums"]["entity_status"]
+          tax_code: string | null
+          updated_at: string
+          vat_normalized: string | null
+          vat_number: string | null
+        }
+        Insert: {
+          address_line?: string | null
+          agent?: string | null
+          archive_id?: string | null
+          bank?: string | null
+          buyer_company_id: string
+          city?: string | null
+          contact_name?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_limit?: string | null
+          danea_extra?: Json | null
+          discounts?: string | null
+          email?: string | null
+          fax?: string | null
+          id?: string
+          internal_reference?: string | null
+          legal_name: string
+          notes?: string | null
+          our_bank?: string | null
+          payment_terms?: string | null
+          pec?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          province?: string | null
+          region?: string | null
+          sdi_admin_reference?: string | null
+          sdi_code?: string | null
+          status?: Database["public"]["Enums"]["entity_status"]
+          tax_code?: string | null
+          updated_at?: string
+          vat_normalized?: string | null
+          vat_number?: string | null
+        }
+        Update: {
+          address_line?: string | null
+          agent?: string | null
+          archive_id?: string | null
+          bank?: string | null
+          buyer_company_id?: string
+          city?: string | null
+          contact_name?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_limit?: string | null
+          danea_extra?: Json | null
+          discounts?: string | null
+          email?: string | null
+          fax?: string | null
+          id?: string
+          internal_reference?: string | null
+          legal_name?: string
+          notes?: string | null
+          our_bank?: string | null
+          payment_terms?: string | null
+          pec?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          province?: string | null
+          region?: string | null
+          sdi_admin_reference?: string | null
+          sdi_code?: string | null
+          status?: Database["public"]["Enums"]["entity_status"]
+          tax_code?: string | null
+          updated_at?: string
+          vat_normalized?: string | null
+          vat_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_records_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_records_buyer_company_id_fkey"
+            columns: ["buyer_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -1918,6 +2100,10 @@ export type Database = {
         Args: { _customer_record_id: string }
         Returns: boolean
       }
+      can_write_supplier_record: {
+        Args: { _supplier_record_id: string }
+        Returns: boolean
+      }
       cancel_customer_invitation: {
         Args: { _invitation_id: string }
         Returns: undefined
@@ -2021,6 +2207,10 @@ export type Database = {
         Args: { _customer_record_id: string; _relation_id: string }
         Returns: undefined
       }
+      link_supplier_record_to_relation: {
+        Args: { _relation_id: string; _supplier_record_id: string }
+        Returns: string
+      }
       manage_customer_destination: {
         Args: {
           _action: string
@@ -2086,6 +2276,65 @@ export type Database = {
         }
         Returns: string
       }
+      manage_supplier_destination: {
+        Args: {
+          _action: string
+          _address_id?: string
+          _contact_name?: string
+          _danea_reference?: string
+          _destination_id?: string
+          _function?: Database["public"]["Enums"]["address_function"]
+          _internal_code?: string
+          _is_default?: boolean
+          _label?: string
+          _notes?: string
+          _phone?: string
+          _supplier_record_id: string
+        }
+        Returns: string
+      }
+      manage_supplier_record: {
+        Args: {
+          _action: string
+          _address_line?: string
+          _agent?: string
+          _archive_id?: string
+          _bank?: string
+          _buyer_company_id: string
+          _city?: string
+          _contact_name?: string
+          _country?: string
+          _credit_limit?: string
+          _danea_extra?: Json
+          _discounts?: string
+          _email?: string
+          _fax?: string
+          _internal_reference?: string
+          _legal_name?: string
+          _notes?: string
+          _our_bank?: string
+          _payment_terms?: string
+          _pec?: string
+          _phone?: string
+          _postal_code?: string
+          _province?: string
+          _region?: string
+          _sdi_admin_reference?: string
+          _sdi_code?: string
+          _supplier_record_id?: string
+          _tax_code?: string
+          _vat_number?: string
+        }
+        Returns: string
+      }
+      manage_supplier_record_status: {
+        Args: {
+          _action: string
+          _buyer_company_id: string
+          _supplier_record_id: string
+        }
+        Returns: string
+      }
       manage_unit_of_measure: {
         Args: {
           _action: string
@@ -2100,6 +2349,10 @@ export type Database = {
       normalize_vat: { Args: { _value: string }; Returns: string }
       owns_customer_record: {
         Args: { _customer_record_id: string }
+        Returns: boolean
+      }
+      owns_supplier_record: {
+        Args: { _supplier_record_id: string }
         Returns: boolean
       }
       register_company: {
@@ -2152,6 +2405,10 @@ export type Database = {
       resolve_default_price_list: {
         Args: { _company_id: string }
         Returns: number
+      }
+      resolve_relation_records: {
+        Args: { _relation_id: string }
+        Returns: undefined
       }
       revoke_company_relation: {
         Args: { _relation_id: string }
@@ -2215,6 +2472,16 @@ export type Database = {
       }
       shares_company_with: { Args: { _user_id: string }; Returns: boolean }
       shares_relation_with: { Args: { _company_id: string }; Returns: boolean }
+      supplier_record_match_suggestions: {
+        Args: { _relation_id: string }
+        Returns: {
+          city: string
+          id: string
+          internal_reference: string
+          legal_name: string
+          vat_number: string
+        }[]
+      }
     }
     Enums: {
       address_function:
