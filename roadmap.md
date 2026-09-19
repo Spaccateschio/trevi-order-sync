@@ -6,4 +6,8 @@
 
 ## Prossimi passi
 - [ ] Test reale con 2-3 fornitori e prodotti in combinazioni diverse
-- [ ] Lista Spesa e ripartizione quantità tra fornitori (fase Acquisti)
+- [ ] Definire e approvare la formula del fabbisogno (disponibile, scorta minima, necessario, da acquistare, multiplo di riordino) — analisi in `.lovable/plan.md`, nessuna implementazione
+- [ ] FASE A: parametri magazzino del prodotto (scorta minima, multiplo di riordino, U.M. di riferimento)
+- [ ] FASE B: Inventario (sessione → conteggio → differenza → chiusura non modificabile → rettifiche tracciate)
+- [ ] Lista Spesa e ripartizione quantità tra fornitori (dopo l'Inventario)
+- [ ] Notifiche: badge, avvisi contestuali, notifiche vere (per ultime)

@@ -53,7 +53,53 @@ Non esiste ancora nulla di operativo:
 6. Tabella notifiche unica senza tipi controllati e con deduplica sul testo.
 7. Doppio schema per gli ordini e riferimenti incrociati incoerenti.
 
-## 3. Modello consigliato — Inventario
+## 3. Formula del fabbisogno (da approvare prima di programmare)
+
+Quattro valori distinti, mai confusi tra loro:
+
+| Valore | Significato | Origine |
+| --- | --- | --- |
+| **Disponibile** | quantità fisicamente contata nell'ultimo inventario valido, più eventuali rettifiche | conteggio |
+| **Scorta minima** | quantità che vogliamo sempre avere a magazzino per quel prodotto | parametro del prodotto |
+| **Necessario** | quantità richiesta da un'esigenza concreta (oggi a mano, in futuro dagli ordini clienti) | inserimento o ordini |
+| **Da acquistare** | risultato calcolato | regola unica lato server |
+
+**Regola unica:**
+
+```text
+fabbisogno reale  = max(0, necessario + scorta minima − disponibile)
+da acquistare     = arrotonda per eccesso al multiplo di riordino (se impostato)
+```
+
+Valori mancanti trattati come zero: nessuna eccezione, nessuna variante.
+
+### Esempio richiesto
+
+Zucchine: disponibile 30, necessario 70, scorta minima 20 → `70 + 20 − 30 = 60 kg`. Confermato.
+
+### Casi limite
+
+| Caso | Dati | Risultato |
+| --- | --- | --- |
+| Nessun necessario, prodotto sotto scorta | disp. 10, nec. 0, scorta 20 | 10 (solo ripristino scorta) |
+| Disponibile copre gli ordini ma scende sotto scorta | disp. 80, nec. 70, scorta 20 | 10 |
+| Disponibile superiore a necessario + scorta | disp. 120, nec. 70, scorta 20 | 0 (nessuna riga proposta) |
+| Scorta minima non impostata | disp. 30, nec. 70, scorta — | 40 |
+| Necessario non impostato e scorta rispettata | disp. 30, nec. —, scorta 20 | 0 |
+| Né necessario né scorta | disp. qualsiasi | 0, il prodotto non compare nel fabbisogno |
+| Nessun inventario mai fatto | disp. sconosciuto | disponibile trattato come 0 e riga segnalata come "mai contata", perché il numero non è affidabile |
+
+### Multiplo di riordino
+
+Applicato **solo alla fine**, sul fabbisogno già calcolato, mai sui valori di partenza. Quando provoca un arrotondamento vengono mostrati entrambi i numeri: fabbisogno reale e quantità arrotondata, con l'indicazione del multiplo applicato (es. "58 kg → 60 kg, multiplo 10").
+
+### Cose da non confondere
+
+- La **quantità minima del fornitore** (già esistente sull'associazione prodotto↔fornitore) è il minimo acquistabile da quel fornitore: entra in gioco solo quando si assegna la quantità a un fornitore nella Lista Spesa, e non modifica mai il fabbisogno del prodotto.
+- La **scorta minima** è una politica di magazzino del prodotto, indipendente da qualsiasi fornitore.
+- Il fabbisogno non viene mai memorizzato: è sempre ricalcolato dalla stessa funzione lato server, usata sia dalla vista fabbisogno sia dalla futura Lista Spesa.
+
+## 4. Modello consigliato — Inventario
 
 Il gestionale Danea resta il padrone di anagrafiche e documenti, ma **non** è la nostra giacenza operativa: non trasmette quantità. La giacenza operativa nasce quindi dal nostro conteggio fisico. Se in futuro Danea inviasse quantità, andranno tenute come dato informativo a parte, mai sovrascrivendo il conteggio.
 
@@ -65,7 +111,7 @@ Il gestionale Danea resta il padrone di anagrafiche e documenti, ma **non** è l
 - **Rettifiche**: non si modifica un conteggio chiuso; si registra una riga di rettifica con motivo, quantità e autore.
 - La giacenza corrente di un prodotto è sempre l'ultimo conteggio valido più eventuali rettifiche: nessun campo "giacenza" sul prodotto.
 
-## 4. Modello consigliato — Lista della Spesa
+## 5. Modello consigliato — Lista della Spesa
 
 - **Lista** (intestazione): azienda, archivio, data, nome, stato (aperta / confermata / chiusa), autore, note. Una lista di lavoro aperta per archivio, più lo storico.
 - **Riga prodotto**: lista, prodotto, quantità necessaria, quantità disponibile, quantità da acquistare, U.M., origine (manuale / da inventario), stato (da assegnare / assegnata / ordinata / annullata), note.
@@ -75,7 +121,7 @@ Il gestionale Danea resta il padrone di anagrafiche e documenti, ma **non** è l
 - Scritture sempre tramite operazioni protette lato server, come già fatto per prodotti e fornitori: nessun salvataggio differito nel browser.
 - In questa fase la lista **non** genera nessun ordine al fornitore.
 
-## 5. Modello consigliato — Notifiche
+## 6. Modello consigliato — Notifiche
 
 Tre livelli distinti:
 
@@ -85,11 +131,12 @@ Tre livelli distinti:
 
 Prodotto sotto scorta e prodotto aggiunto alla lista restano contatori/avvisi, non notifiche.
 
-## 6. Ordine di implementazione
+## 7. Ordine di implementazione
 
-1. Parametri del prodotto per il magazzino (scorta minima, multiplo d'ordine, giorni di riordino, U.M. di magazzino).
-2. Inventario: sessioni, conteggi, rettifiche, griglia di conteggio con preferenze personali e stampa.
-3. Vista fabbisogno (necessario / disponibile / da acquistare) come lettura calcolata.
+0. Approvazione della formula del fabbisogno (sezione 3). Solo dopo si programma.
+1. **FASE A** — Parametri magazzino del prodotto: scorta minima, multiplo di riordino, U.M. di riferimento (più, opzionale, giorni di riordino).
+2. **FASE B** — Inventario: sessione → conteggio prodotti → quantità precedente → quantità contata → differenza → chiusura sessione non modificabile → rettifiche tracciate; griglia di conteggio con preferenze personali e stampa.
+3. Vista fabbisogno (necessario / disponibile / da acquistare) come lettura calcolata dalla funzione unica.
 4. Lista della Spesa: lista, righe, inserimento manuale e importazione dal fabbisogno.
 5. Assegnazione fornitori con ripartizione e percentuali di aiuto, riusando le associazioni prodotto↔fornitore esistenti.
 6. Contatori e avvisi operativi.
