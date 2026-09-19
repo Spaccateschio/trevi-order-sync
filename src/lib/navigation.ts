@@ -1,4 +1,5 @@
 import {
+  Boxes,
   Building2,
   ClipboardList,
   LayoutDashboard,
@@ -32,6 +33,7 @@ export type ModuleKey =
   | "comune.account"
   | "acquisti.panoramica"
   | "acquisti.catalogo"
+  | "acquisti.inventario"
   | "acquisti.fornitori"
   | "vendite.panoramica"
   | "vendite.clienti"
@@ -85,6 +87,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Catalogo",
     short: "Catalogo",
     icon: Package,
+  },
+  {
+    key: "acquisti.inventario",
+    area: "acquisti",
+    to: "/acquisti/inventario",
+    label: "Inventario",
+    short: "Invent.",
+    icon: Boxes,
   },
   {
     key: "acquisti.fornitori",

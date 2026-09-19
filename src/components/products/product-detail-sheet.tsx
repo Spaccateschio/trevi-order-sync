@@ -13,6 +13,7 @@ import { dateTime, euro, type ProductRow } from "@/lib/product-grid";
 import { SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
 import { ProductImageManager } from "./product-image-manager";
 import { ProductSuppliersManager } from "./product-suppliers-manager";
+import { ProductStockPanel } from "./product-stock-panel";
 
 function Field({ label, value }: { label: string; value: string }) {
   return <div><dt className="text-xs uppercase text-muted-foreground">{label}</dt><dd className="break-words text-sm">{value}</dd></div>;
@@ -76,6 +77,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
       {companyId ? <ShowcaseToggle product={product} companyId={companyId} editable={isAdmin} /> : null}
       {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} /> : null}
       {companyId ? <ProductSuppliersManager companyId={companyId} productId={product.id} productArchiveId={product.archive_id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
+      {companyId ? <ProductStockPanel companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
       <ProductImageManager productId={product.id} image={product.product_images ?? null} editable={isAdmin} />
       <Collapsible open={daneaOpen} onOpenChange={setDaneaOpen} className="border-t border-border pt-2">
         <CollapsibleTrigger asChild><Button type="button" variant="ghost" className="w-full justify-between px-0 text-sm font-semibold" aria-label={`${daneaOpen ? "Chiudi" : "Apri"} dati Danea`}>Dati Danea <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">Sola lettura<ChevronDown className={`transition-transform ${daneaOpen ? "rotate-180" : ""}`} /></span></Button></CollapsibleTrigger>

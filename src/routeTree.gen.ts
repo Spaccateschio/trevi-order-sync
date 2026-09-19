@@ -25,6 +25,7 @@ import { Route as AuthenticatedVenditeRouteImport } from './routes/_authenticate
 import { Route as InvitoTokenRouteImport } from './routes/invito.$token'
 import { Route as AuthenticatedAcquistiIndexRouteImport } from './routes/_authenticated/acquisti.index'
 import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_authenticated/acquisti.fornitori'
+import { Route as AuthenticatedAcquistiInventarioRouteImport } from './routes/_authenticated/acquisti.inventario'
 import { Route as AuthenticatedVenditeClientiRouteImport } from './routes/_authenticated/vendite_.clienti'
 import { Route as AuthenticatedVenditeProdottiRouteImport } from './routes/_authenticated/vendite_.prodotti'
 import { Route as AuthenticatedAcquistiCatalogoIndexRouteImport } from './routes/_authenticated/acquisti.catalogo.index'
@@ -116,6 +117,12 @@ const AuthenticatedAcquistiFornitoriRoute =
     path: '/acquisti/fornitori',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAcquistiInventarioRoute =
+  AuthenticatedAcquistiInventarioRouteImport.update({
+    id: '/acquisti/inventario',
+    path: '/acquisti/inventario',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedVenditeClientiRoute =
   AuthenticatedVenditeClientiRouteImport.update({
     id: '/vendite_/clienti',
@@ -173,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/vendite': typeof AuthenticatedVenditeRoute
   '/invito/$token': typeof InvitoTokenRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti/': typeof AuthenticatedAcquistiIndexRoute
@@ -197,6 +205,7 @@ export interface FileRoutesByTo {
   '/vendite': typeof AuthenticatedVenditeRoute
   '/invito/$token': typeof InvitoTokenRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti': typeof AuthenticatedAcquistiIndexRoute
@@ -223,6 +232,7 @@ export interface FileRoutesById {
   '/_authenticated/vendite': typeof AuthenticatedVenditeRoute
   '/invito/$token': typeof InvitoTokenRoute
   '/_authenticated/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
+  '/_authenticated/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/_authenticated/vendite_/clienti': typeof AuthenticatedVenditeClientiRoute
   '/_authenticated/vendite_/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/_authenticated/acquisti/': typeof AuthenticatedAcquistiIndexRoute
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/vendite'
     | '/invito/$token'
     | '/acquisti/fornitori'
+    | '/acquisti/inventario'
     | '/vendite/clienti'
     | '/vendite/prodotti'
     | '/acquisti/'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/vendite'
     | '/invito/$token'
     | '/acquisti/fornitori'
+    | '/acquisti/inventario'
     | '/vendite/clienti'
     | '/vendite/prodotti'
     | '/acquisti'
@@ -298,6 +310,7 @@ export interface FileRouteTypes {
     | '/_authenticated/vendite'
     | '/invito/$token'
     | '/_authenticated/acquisti/fornitori'
+    | '/_authenticated/acquisti/inventario'
     | '/_authenticated/vendite_/clienti'
     | '/_authenticated/vendite_/prodotti'
     | '/_authenticated/acquisti/'
@@ -432,6 +445,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAcquistiFornitoriRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/acquisti/inventario': {
+      id: '/_authenticated/acquisti/inventario'
+      path: '/acquisti/inventario'
+      fullPath: '/acquisti/inventario'
+      preLoaderRoute: typeof AuthenticatedAcquistiInventarioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/vendite_/clienti': {
       id: '/_authenticated/vendite_/clienti'
       path: '/vendite/clienti'
@@ -495,6 +515,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOperativoRoute: typeof AuthenticatedOperativoRoute
   AuthenticatedVenditeRoute: typeof AuthenticatedVenditeRoute
   AuthenticatedAcquistiFornitoriRoute: typeof AuthenticatedAcquistiFornitoriRoute
+  AuthenticatedAcquistiInventarioRoute: typeof AuthenticatedAcquistiInventarioRoute
   AuthenticatedVenditeClientiRoute: typeof AuthenticatedVenditeClientiRoute
   AuthenticatedVenditeProdottiRoute: typeof AuthenticatedVenditeProdottiRoute
   AuthenticatedAcquistiIndexRoute: typeof AuthenticatedAcquistiIndexRoute
@@ -514,6 +535,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOperativoRoute: AuthenticatedOperativoRoute,
   AuthenticatedVenditeRoute: AuthenticatedVenditeRoute,
   AuthenticatedAcquistiFornitoriRoute: AuthenticatedAcquistiFornitoriRoute,
+  AuthenticatedAcquistiInventarioRoute: AuthenticatedAcquistiInventarioRoute,
   AuthenticatedVenditeClientiRoute: AuthenticatedVenditeClientiRoute,
   AuthenticatedVenditeProdottiRoute: AuthenticatedVenditeProdottiRoute,
   AuthenticatedAcquistiIndexRoute: AuthenticatedAcquistiIndexRoute,
