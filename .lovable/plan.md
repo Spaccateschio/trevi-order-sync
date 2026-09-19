@@ -111,7 +111,7 @@ Il gestionale Danea resta il padrone di anagrafiche e documenti, ma **non** è l
 - **Rettifiche**: non si modifica un conteggio chiuso; si registra una riga di rettifica con motivo, quantità e autore.
 - La giacenza corrente di un prodotto è sempre l'ultimo conteggio valido più eventuali rettifiche: nessun campo "giacenza" sul prodotto.
 
-## 4. Modello consigliato — Lista della Spesa
+## 5. Modello consigliato — Lista della Spesa
 
 - **Lista** (intestazione): azienda, archivio, data, nome, stato (aperta / confermata / chiusa), autore, note. Una lista di lavoro aperta per archivio, più lo storico.
 - **Riga prodotto**: lista, prodotto, quantità necessaria, quantità disponibile, quantità da acquistare, U.M., origine (manuale / da inventario), stato (da assegnare / assegnata / ordinata / annullata), note.
@@ -121,7 +121,7 @@ Il gestionale Danea resta il padrone di anagrafiche e documenti, ma **non** è l
 - Scritture sempre tramite operazioni protette lato server, come già fatto per prodotti e fornitori: nessun salvataggio differito nel browser.
 - In questa fase la lista **non** genera nessun ordine al fornitore.
 
-## 5. Modello consigliato — Notifiche
+## 6. Modello consigliato — Notifiche
 
 Tre livelli distinti:
 
@@ -131,7 +131,7 @@ Tre livelli distinti:
 
 Prodotto sotto scorta e prodotto aggiunto alla lista restano contatori/avvisi, non notifiche.
 
-## 6. Ordine di implementazione
+## 7. Ordine di implementazione
 
 1. Parametri del prodotto per il magazzino (scorta minima, multiplo d'ordine, giorni di riordino, U.M. di magazzino).
 2. Inventario: sessioni, conteggi, rettifiche, griglia di conteggio con preferenze personali e stampa.
