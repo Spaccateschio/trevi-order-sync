@@ -132,11 +132,19 @@ Migrazione 2 — anagrafica fornitori:
   `service_role`, nessun accesso `anon`; RLS abilitata con lettura/scrittura
   ristretta ai membri dell'azienda proprietaria (`is_company_member` /
   `is_company_admin`), scritture solo via RPC.
-- `addresses` e `customer_destinations` estese con `supplier_record_id`
-  nullable (vincolo: esattamente un proprietario tra azienda, cliente e
-  fornitore) così indirizzi e punti di ritiro si riusano senza tabelle nuove.
+- Generalizzazione (nessuna tabella parallela): `addresses`,
+  `address_functions` e `customer_destinations` ottengono
+  `supplier_record_id uuid` nullable, con vincolo di proprietario unico
+  (azienda | cliente | fornitore) e policy RLS aggiornate sullo stesso
+  schema di quelle esistenti. `customer_destinations` diventa la tabella
+  comune dei punti operativi (consegna per i clienti, ritiro/magazzino per i
+  fornitori); il nome resta per non rompere il codice esistente. Si verifica
+  che i campi richiesti dall'ordine Danea (nome, indirizzo, CAP, città,
+  provincia, nazione) siano presenti e non nulli dove servono, così la futura
+  copia immutabile nell'ordine è una semplice lettura.
 - RPC `manage_supplier_record`, `manage_supplier_record_status`,
-  `manage_supplier_destination`, `supplier_record_match_suggestions`, tutte
+  `manage_supplier_destination`, `supplier_record_match_suggestions`,
+  `link_supplier_record_to_relation`, tutte
   `SECURITY DEFINER` con `search_path = public`, controllo `is_company_admin` +
   `company_buys`, `COALESCE` in aggiornamento per non azzerare dati, audit.
 
