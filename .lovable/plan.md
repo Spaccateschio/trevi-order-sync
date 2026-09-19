@@ -111,12 +111,14 @@ fornitore locale, mai alla relazione B2B.
 Migrazione 1 — aggancio anagrafica ↔ B2B:
 - `resolve_relation_records(_relation_id)`, `SECURITY DEFINER`,
   `search_path = public`: garantisce `customer_record_id` lato venditore e
-  `supplier_record_id` lato acquirente; match nell'ordine archivio+
-  `internal_reference`, poi `vat_normalized`, poi `tax_code`, solo su schede
-  libere; crea la scheda mancante dai dati di `companies`; su ambiguità nessuna
-  scelta automatica: `supplier_customer_relations.record_match_required boolean`
-  segna il lato da associare a mano (nessun uso di
-  `customer_record_proposed_updates`); audit su `audit_events`.
+  `supplier_record_id` lato acquirente; match solo su `vat_normalized` e, in
+  mancanza, `tax_code` (nessun uso del codice Danea in questa fase), solo su
+  schede libere; crea la scheda mancante dai dati di `companies`; su ambiguità
+  nessuna scelta automatica. Due flag distinti sulla relazione,
+  `customer_record_match_required` e `supplier_record_match_required`, così un
+  lato può essere risolto e l'altro richiedere l'intervento
+  dell'amministratore; nessun uso di `customer_record_proposed_updates`; audit
+  su `audit_events`.
 - Chiamata da `accept_invitation_row`, `accept_invitation_with_new_company`,
   `decide_company_relation` e `set_relation_side_enabled` quando la relazione
   passa ad `attivo`. Nessuna modifica al modello a doppio consenso, agli stati
