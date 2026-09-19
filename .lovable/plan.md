@@ -1,214 +1,107 @@
-# Inventario → Lista della Spesa → Notifiche (analisi e modello proposto)
+# FASE C — Lista della Spesa + assegnazione fornitori (piano tecnico)
 
-Nessuna modifica a database o interfaccia: questo è solo il progetto del flusso.
+Tutto nasce dalle strutture già in casa: prodotti, archivi Danea, `product_supplier_links` (fornitori del prodotto), `product_supplier_costs` (costo Danea), `units_of_measure`, parametri di magazzino e inventario. Nessuna seconda anagrafica, nessun secondo calcolo del fabbisogno.
 
-## 1. Stato attuale Trevi Fruit
+## 1. Tabelle
 
-Non esiste ancora nulla di operativo:
+### `shopping_lists` — la lista
+azienda, archivio Danea, nome, stato, note, autore, aperta il, confermata il, chiusa il, timestamp.
 
-- Inventario, giacenze, conteggio fisico, scorta minima di magazzino, fabbisogno: assenti (nessuna tabella, nessuna funzione, nessuna schermata).
-- Lista della spesa, righe lista spesa, quantità da acquistare, collegamento riga↔fornitore: assenti. Compaiono solo come testo "In arrivo" nella pagina Acquisti e come voce nella roadmap.
-- Notifiche, avvisi, centro notifiche: assenti. Esiste solo l'etichetta grafica riutilizzabile (nessun dato dietro).
-- I dati del gestionale Danea **non portano nessuna giacenza**: arrivano anagrafica prodotti, unità di misura, listini, fornitore e costo. Nessuna quantità di magazzino.
-- Unico concetto simile già presente: la "quantità minima" sull'associazione prodotto↔fornitore. È la quantità minima ordinabile da quel fornitore, **non** una scorta di magazzino: non va confusa né riusata.
+- Stati: **aperta** → **confermata** → **chiusa**; più **annullata**.
+- Una sola lista *aperta* per azienda e archivio (regola operativa, come per l'inventario).
+- Una lista confermata o chiusa non viene più riscritta: nessun nuovo inventario la modifica.
 
-### Già pronto e riutilizzabile
+### `shopping_list_items` — la riga (snapshot della decisione)
+lista, prodotto, U.M. della riga (`unit_id` + codice), **quantità suggerita dal sistema**, **quantità decisa dall'operatore**, origine del suggerimento (`manuale` / `fabbisogno`), motivo della modifica, stato della riga, note, autore, data/ora di inserimento e di ultima modifica.
 
-| Cosa | Riuso previsto |
-| --- | --- |
-| Prodotti, archivi Danea, anagrafica fornitori | base di ogni riga di inventario e di spesa |
-| Associazioni prodotto↔fornitore (con preferito, costo concordato, U.M. d'acquisto, quantità minima, giorni di consegna) | proposta fornitori nella Lista Spesa |
-| Costi Danea per prodotto/fornitore | costo mostrato accanto al costo concordato |
-| Anagrafica unità di misura e unità di vendita | U.M. e conversioni di inventario e acquisto |
-| Griglia configurabile con preferenze personali (colonne, ordinamento, stampa, esportazione) usata in Prodotti e Clienti | griglia Inventario e griglia Lista Spesa |
-| Pannelli fornitori del prodotto e prodotti del fornitore | modello dell'editor riga con più fornitori |
-| Regole di accesso per azienda e ruolo già in uso | protezione delle nuove tabelle |
-| Registro eventi (audit) | tracciamento rettifiche e conferme |
+Snapshot del momento dell'inserimento, mai aggiornato in automatico: disponibile, necessario, scorta minima, fabbisogno reale, multiplo applicato. Serve a rispondere a "perché quel giorno avevamo deciso 80".
 
-## 2. Come funzionava Efficio
+- Stati riga: **da_assegnare** → **parziale** → **assegnata**.
+- Unico (lista, prodotto) — vedi duplicati.
 
-- **Inventario**: sessioni di conteggio (in corso / completata / annullata) con righe per prodotto: giacenza precedente, giacenza contata, differenza calcolata dal database, data del conteggio, U.M., autore della sessione. Liste predefinite (Frigo, Magazzino, Banco, Congelatore). La giacenza "buona" restava però anche come campo sul prodotto. Nessun legame con Danea.
-- **Quantità da acquistare**: regola base "scorta minima meno giacenza", arrotondata a multipli d'ordine. Era però implementata in **tre posti diversi** (una funzione di database mai chiamata, un calcolo nel browser con media storica a 90 giorni, un terzo calcolo per l'elenco "sotto scorta") con risultati potenzialmente diversi.
-- **Riga della Lista Spesa**: nasceva dal magazzino, manualmente o dal suggerimento sotto scorta. Le modifiche vivevano in una cache nel browser, salvate sul database ogni 2 minuti o a comando: rischio concreto di perdere il lavoro.
-- **Scelta fornitore**: dal legame prodotto↔fornitore; se nessuno era scelto veniva proposto il preferito, altrimenti il primo per prezzo. Per i fornitori collegati B2B il prezzo era in sola lettura.
-- **Ripartizione (FornitoriQuantitaDialog)**: elenco fornitori con prezzo, quantità e percentuale. Aggiungendo un fornitore la quantità veniva ridistribuita proporzionalmente; modificando una quantità la differenza veniva scaricata sul "primo" fornitore o sull'ultimo; conferma ammessa con tolleranza ±1%. Alla conferma la ripartizione restava in memoria; solo al salvataggio successivo nascevano **righe separate per fornitore** (stesso prodotto, fornitore diverso).
-- **Notifiche**: una sola tabella generica, nata per gli avvisi amministrativi e poi riusata per decine di eventi diversi (scorta bassa, ordine ricevuto, arrivo merce atteso, pagamenti in scadenza, richieste di collegamento). Contatore non letto, aggiornamento in tempo reale. Un avviso era generato controllando ogni 30 minuti dal browser, con deduplica basata sul testo del messaggio.
+### `shopping_list_item_suppliers` — la ripartizione
+riga, `product_supplier_link_id`, fornitore (`supplier_record_id` ridondato per lettura veloce), quantità assegnata nell'U.M. della riga, eventuale quantità nell'U.M. d'acquisto del fornitore, conversione usata, avviso sotto minimo accettato (sì/no), note, autore, timestamp.
 
-### Da recuperare
+- Unico (riga, fornitore): un fornitore compare una volta per riga.
+- Le **percentuali non si salvano**: si calcolano dalle quantità al momento della visualizzazione.
+- Vincolo di coerenza: il fornitore deve appartenere alla stessa azienda e il collegamento prodotto↔fornitore deve essere attivo e riferito a quel prodotto.
 
-1. Sessione di conteggio con giacenza precedente, contata e differenza.
-2. Il concetto "necessario / disponibile / da acquistare" mostrato in chiaro.
-3. Proposta del fornitore preferito, sempre modificabile.
-4. Ripartizione su più fornitori con percentuali di aiuto.
-5. Una riga per fornitore come risultato finale della ripartizione.
-6. Contatore delle cose da sistemare e avvisi con collegamento diretto all'elemento.
+Accessi come le altre tabelle: lettura ai membri dell'azienda, scritture solo tramite funzioni protette lato server; operazioni importanti nel registro eventi.
 
-### Da non copiare
-
-1. Tre calcoli diversi della stessa quantità: una sola regola, in un solo punto.
-2. Giacenza duplicata sul prodotto e nei conteggi: una sola fonte.
-3. Lista Spesa salvata nel browser: scrittura diretta sul database.
-4. Ridistribuzione automatica che modifica da sola i numeri già inseriti dall'utente.
-5. Conferma con tolleranza ±1%: la somma deve quadrare, con eventuale residuo esplicito.
-6. Tabella notifiche unica senza tipi controllati e con deduplica sul testo.
-7. Doppio schema per gli ordini e riferimenti incrociati incoerenti.
-
-## 3. Formula del fabbisogno (da approvare prima di programmare)
-
-Quattro valori distinti, mai confusi tra loro:
-
-| Valore | Significato | Origine |
-| --- | --- | --- |
-| **Disponibile** | quantità fisicamente contata nell'ultimo inventario valido, più eventuali rettifiche | conteggio |
-| **Scorta minima** | quantità che vogliamo sempre avere a magazzino per quel prodotto | parametro del prodotto |
-| **Necessario** | quantità richiesta da un'esigenza concreta (oggi a mano, in futuro dagli ordini clienti) | inserimento o ordini |
-| **Da acquistare** | risultato calcolato | regola unica lato server |
-
-**Regola unica:**
-
-```text
-fabbisogno reale  = max(0, necessario + scorta minima − disponibile)
-da acquistare     = arrotonda per eccesso al multiplo di riordino (se impostato)
-```
-
-Valori mancanti trattati come zero: nessuna eccezione, nessuna variante.
-
-### Esempio richiesto
-
-Zucchine: disponibile 30, necessario 70, scorta minima 20 → `70 + 20 − 30 = 60 kg`. Confermato.
-
-### Casi limite
-
-| Caso | Dati | Risultato |
-| --- | --- | --- |
-| Nessun necessario, prodotto sotto scorta | disp. 10, nec. 0, scorta 20 | 10 (solo ripristino scorta) |
-| Disponibile copre gli ordini ma scende sotto scorta | disp. 80, nec. 70, scorta 20 | 10 |
-| Disponibile superiore a necessario + scorta | disp. 120, nec. 70, scorta 20 | 0 (nessuna riga proposta) |
-| Scorta minima non impostata | disp. 30, nec. 70, scorta — | 40 |
-| Necessario non impostato e scorta rispettata | disp. 30, nec. —, scorta 20 | 0 |
-| Né necessario né scorta | disp. qualsiasi | 0, il prodotto non compare nel fabbisogno |
-| Nessun inventario mai fatto | disp. sconosciuto | disponibile trattato come 0 e riga segnalata come "mai contata", perché il numero non è affidabile |
-
-### Multiplo di riordino
-
-Applicato **solo alla fine**, sul fabbisogno già calcolato, mai sui valori di partenza. Quando provoca un arrotondamento vengono mostrati entrambi i numeri: fabbisogno reale e quantità arrotondata, con l'indicazione del multiplo applicato (es. "58 kg → 60 kg, multiplo 10").
-
-### Cose da non confondere
-
-- La **quantità minima del fornitore** (già esistente sull'associazione prodotto↔fornitore) è il minimo acquistabile da quel fornitore: entra in gioco solo quando si assegna la quantità a un fornitore nella Lista Spesa, e non modifica mai il fabbisogno del prodotto.
-- La **scorta minima** è una politica di magazzino del prodotto, indipendente da qualsiasi fornitore.
-- Il fabbisogno non viene mai memorizzato: è sempre ricalcolato dalla stessa funzione lato server, usata sia dalla vista fabbisogno sia dalla futura Lista Spesa.
-
-## 4. FASE A + FASE B — Parametri magazzino e Inventario
-
-Il gestionale Danea resta il padrone di anagrafiche e documenti, ma **non** è la nostra giacenza operativa: non trasmette quantità. La giacenza operativa nasce quindi dal nostro conteggio fisico. Se in futuro Danea inviasse quantità, andranno tenute come dato informativo a parte, mai sovrascrivendo il conteggio.
-
-### FASE A — Parametri magazzino del prodotto
-
-Valori **impostati dall'azienda**, tenuti in una tabella dedicata di parametri per prodotto (non colonne sparse su `products`, così domani si aggiungono parametri senza toccare il catalogo):
-
-- scorta minima manuale;
-- multiplo di riordino;
-- U.M. di riferimento per il magazzino;
-- opzionale: giorni di copertura desiderati, deperibilità indicativa, note.
-
-Regola di progetto: i valori impostati a mano e quelli che in futuro saranno calcolati dal sistema **non condividono mai la stessa colonna**. I valori calcolati avranno le proprie colonne o la propria tabella, con l'indicazione di come sono stati ottenuti, e non sovrascrivono mai il valore manuale.
-
-### FASE B — Inventario con ubicazioni
-
-Concetti:
-
-- **Ubicazione**: zona fisica configurabile dall'azienda (magazzino, frigo, banco, cella, deposito, qualunque altra). Nessun nome fisso nel codice. All'attivazione dell'inventario viene creata automaticamente una ubicazione predefinita, così chi ha una sola zona non deve configurare niente e non la vede nemmeno nell'interfaccia.
-- **Sessione**: può essere **generale** (tutte le ubicazioni) oppure **riferita a una singola ubicazione**.
-- **Conteggio**: sempre riferito a prodotto + ubicazione. Lo stesso prodotto può avere quantità in più ubicazioni.
-- **Rettifica**: correzione tracciata dopo la chiusura, anch'essa riferita a prodotto + ubicazione.
-
-Regole:
-
-- Una sessione chiusa non è più modificabile: ogni correzione è una rettifica, il conteggio originale resta intatto.
-- Tutti i conteggi restano nello storico: nessuna sovrascrittura, nessuna cancellazione.
-- **Sessioni parziali**: contare solo il frigo non azzera né invalida magazzino e banco. Ogni ubicazione conserva il proprio ultimo conteggio valido.
-- **Giacenza per ubicazione** = ultimo conteggio valido di quella ubicazione (sessione completata, non annullata) + rettifiche successive a quel conteggio.
-- **Giacenza complessiva del prodotto** = somma delle giacenze delle ubicazioni. Nessun secondo valore manuale su `products`.
-- **Mai contato**: un prodotto senza nessun conteggio valido non vale zero, vale "sconosciuto". Nella vista fabbisogno viene trattato come 0 ma marcato "mai contato", perché il numero non è affidabile. Lo stesso per una singola ubicazione mai contata: non entra nella somma come zero certo, ma il prodotto risulta "parzialmente contato".
-- **Quantità necessaria**: in questa fase inserita a mano; in futuro dagli ordini clienti.
-- **Fabbisogno**: sempre calcolato dalla funzione unica della sezione 3, mai memorizzato.
-
-### Tabelle proposte
-
-| Tabella | Contenuto | Vincoli principali |
-| --- | --- | --- |
-| `inventory_locations` | azienda, nome, codice, `is_default`, stato (attivo/disattivato), note, autore, timestamp | nome univoco per azienda; una sola ubicazione predefinita per azienda; una ubicazione usata non si cancella, si disattiva |
-| `inventory_sessions` | azienda, archivio Danea, nome, `scope` (generale / per ubicazione), `location_id` (obbligatorio se per ubicazione, vuoto se generale), stato (in corso / completata / annullata), inizio, fine, autore, note, timestamp | l'archivio della sessione coincide con quello dei prodotti contati; una sola sessione in corso per ubicazione |
-| `inventory_counts` | sessione, prodotto, ubicazione, quantità contata, U.M. usata, quantità precedente, `difference` calcolata dal database, data/ora conteggio, utente che ha contato, note | unico (sessione, prodotto, ubicazione); inserimento e modifica solo a sessione in corso; l'ubicazione deve appartenere all'azienda e, se la sessione è per ubicazione, coincidere con quella della sessione |
-| `inventory_adjustments` | azienda, prodotto, ubicazione, quantità (segno + o −), motivo obbligatorio, conteggio di riferimento, data/ora, autore, note | scrittura solo in aggiunta: nessuna modifica né cancellazione |
-| `product_stock_settings` | azienda, prodotto, scorta minima manuale, multiplo di riordino, U.M. di riferimento, giorni di copertura desiderati, deperibilità indicativa, note, autore, timestamp | unico (azienda, prodotto); solo valori manuali, mai valori calcolati |
-
-Tutte le tabelle: accesso in lettura ai membri dell'azienda, scritture solo tramite funzioni protette (`SECURITY DEFINER`, `search_path = public`), permessi espliciti, come le tabelle già esistenti. Ogni chiusura di sessione e ogni rettifica registrate nel registro eventi.
-
-### Funzioni proposte
+## 2. Funzioni protette (RPC)
 
 | Funzione | Cosa fa |
 | --- | --- |
-| `manage_inventory_location` | crea / modifica / attiva / disattiva una ubicazione |
-| `manage_product_stock_settings` | imposta i parametri di magazzino del prodotto (anche in blocco su più prodotti) |
-| `manage_inventory_session` | apre, rinomina, annulla e **chiude** una sessione; dopo la chiusura ogni scrittura sui conteggi è rifiutata |
-| `record_inventory_count` | registra o corregge un conteggio a sessione aperta, ricavando la quantità precedente dalla giacenza corrente di quella ubicazione |
-| `record_inventory_adjustment` | registra una rettifica tracciata con motivo obbligatorio |
-| `product_stock_overview` | giacenza per ubicazione e complessiva di un prodotto, con date, autori e indicazione "mai contato" |
-| `inventory_requirements` | vista fabbisogno: disponibile, scorta minima, necessario, fabbisogno reale, quantità arrotondata e multiplo applicato; unico punto di calcolo, predisposto a restituire in futuro anche gli elementi della spiegazione |
+| `manage_shopping_list` | apre, rinomina, conferma, chiude, annulla una lista |
+| `add_shopping_list_items` | aggiunge **uno o più prodotti in una volta** (dal Fabbisogno o a mano), scrivendo suggerito + snapshot; gestisce i duplicati |
+| `set_shopping_list_item_quantity` | cambia la quantità decisa e l'eventuale motivo; il suggerito non si tocca mai |
+| `assign_shopping_list_supplier` | assegna / modifica / rimuove la quantità di un fornitore su una riga, ricalcola lo stato della riga |
+| `remove_shopping_list_item` | rimuove una riga da una lista ancora aperta |
+| `shopping_list_overview` | righe con assegnati, residuo, stato, fornitori disponibili, costi, conversioni e **suggerimento attuale** ricalcolato per confronto |
 
-### Schermate
+Il fabbisogno continua a venire da `inventory_requirements`: un solo punto di calcolo, già esistente.
 
-- **Computer e tablet**: elenco sessioni con stato; dentro la sessione una griglia compatta con colonne configurabili e preferenze personali (come Prodotti e Clienti) — codice, descrizione, ubicazione, quantità precedente, quantità contata, differenza, U.M., stato del conteggio — più ricerca rapida, filtri "non contati / contati / con differenza", stampa e esportazione dei selezionati.
-- **Smartphone**: conteggio a schede, una riga per prodotto, campo quantità grande, pulsanti rapidi di incremento, avanzamento "contati su totale", ubicazione mostrata in testa.
-- **Scheda prodotto**: nuovo riquadro con giacenza per ubicazione, totale, data e autore dell'ultimo conteggio, rettifiche.
-- **Chi usa una sola ubicazione** non vede né selettori né colonne di ubicazione: l'interfaccia si semplifica da sola.
+## 3. Residuo e stati della riga
 
-### Predisposizione all'evoluzione futura (non implementata ora)
+Sempre visibili: **da acquistare** (quantità decisa), **assegnati** (somma), **residuo**.
 
-Trevi Fruit dovrà passare dal semplice controllo della scorta al suggerimento degli acquisti. Il motore predittivo **non** si costruisce ora, ma FASE A e FASE B vengono progettate per non doverle rifare:
+- assegnati = 0 → *da assegnare*
+- 0 < assegnati < decisa → *parziale*
+- assegnati = decisa → *assegnata*
+- assegnati > decisa → *parziale* con avviso in evidenza, per esempio "110 su 100": il sistema segnala, non corregge.
 
-- Cinque concetti separati e mai mescolati in un unico numero: **scorta minima manuale**, **disponibile reale**, **necessario certo** (es. ordini clienti), **fabbisogno previsto** (futuro, calcolato), **quantità suggerita da acquistare** (proposta del sistema, sempre modificabile).
-- Ogni conteggio e ogni rettifica conservano data, ora e autore: sono la futura serie storica delle giacenze.
-- Il prodotto resta l'unico punto di aggancio: in futuro vi si collegheranno acquisti, vendite, ordini clienti ricevuti, calendario di scarico dei fornitori, giorni di chiusura, deperibilità e nuovi clienti, senza modificare inventario e parametri.
-- Distinzione permanente tra **suggerimento del sistema** e **decisione dell'operatore**: quando arriverà la Lista Spesa, ogni riga conserverà sia la quantità proposta sia quella confermata, così le correzioni manuali diventeranno materiale di apprendimento invece di andare perse.
-- Il calcolo del fabbisogno vive in un solo punto lato server: domani lo stesso punto potrà restituire, oltre al numero, gli **elementi che lo compongono** (disponibile, consumo previsto, scorta di sicurezza, giorni fino al prossimo scarico), per poter spiegare "perché 60 kg" e non solo mostrarlo.
-- Nessuna struttura di FASE A/B presume un consumo medio costante: stagionalità, giorno della settimana, andamento recente e festività potranno essere introdotti come nuovi dati di ingresso del calcolo, non come modifica dell'inventario.
+**Mai una redistribuzione automatica**: se porti Rossi da 60 a 70, Bianchi resta 40. La correzione la fai tu.
 
-## 5. Modello consigliato — Lista della Spesa
+Una riga può restare incompleta durante la lavorazione. La **conferma della lista** richiede che ogni riga sia *assegnata*: le righe incoerenti vengono elencate e la conferma si blocca finché non sono sistemate.
 
-- **Lista** (intestazione): azienda, archivio, data, nome, stato (aperta / confermata / chiusa), autore, note. Una lista di lavoro aperta per archivio, più lo storico.
-- **Riga prodotto**: lista, prodotto, quantità necessaria, quantità disponibile, quantità da acquistare, U.M., origine (manuale / da inventario), stato (da assegnare / assegnata / ordinata / annullata), note.
-- **Assegnazione al fornitore**: righe figlie, una per fornitore, con fornitore, quantità, U.M. d'acquisto e conversione, costo mostrato (Danea e concordato, distinti, come già fatto nella scheda prodotto), stato. La somma delle quantità figlie non può superare la quantità da acquistare; l'eventuale residuo resta visibile.
-- Il fornitore preferito viene proposto, mai imposto. Le percentuali sono un aiuto di lettura calcolato, non un dato salvato.
-- Ogni riga conserverà separatamente **quantità suggerita dal sistema**, **quantità scelta dall'operatore**, data e ora e motivo della modifica: è il dato che servirà al futuro motore di previsione.
-- Inserimento rapido: ricerca prodotto e quantità, oppure importazione in blocco dal fabbisogno di una sessione di inventario.
-- Scritture sempre tramite operazioni protette lato server, come già fatto per prodotti e fornitori: nessun salvataggio differito nel browser.
-- In questa fase la lista **non** genera nessun ordine al fornitore.
+## 4. Fornitori mostrati sulla riga
 
-## 6. Modello consigliato — Notifiche
+Letti solo da `product_supplier_links` (più `product_supplier_costs` per il costo Danea): preferito, costo Danea con data, costo Trevi Fruit con data, U.M. d'acquisto, conversione, quantità minima ordinabile, giorni di consegna, attivo, e se il fornitore è anche collegato in Trevi Fruit.
 
-Tre livelli distinti:
+Il **preferito viene proposto** (evidenziato, primo in elenco, precompilato se assegni tutto a uno solo) ma **mai imposto**. Nessuna regola decide quale costo "vale": Danea e Trevi Fruit restano affiancati, come stabilito.
 
-1. **Contatori (badge)**: conteggi calcolati al volo, nessuna tabella. Esempi: prodotti sotto scorta, fornitori Danea da associare, collegamenti da confermare, righe senza fornitore.
-2. **Avvisi operativi**: mostrati dentro la schermata interessata (riga senza fornitore, riga senza U.M. d'acquisto, quantità non ripartita del tutto). Nessuna notifica, solo segnalazione nel contesto.
-3. **Notifiche vere**: una tabella con tipo controllato da elenco chiuso, azienda, destinatario o ruolo, riferimento all'elemento (tipo + identificativo, mai testo), messaggio, letto, data. Solo per eventi che richiedono attenzione anche fuori dalla schermata: ordine ricevuto, ordine modificato, ordine pronto, problema di consegna, collegamento B2B da confermare. Deduplica sul riferimento, non sul messaggio.
+## 5. U.M. e conversioni
 
-Prodotto sotto scorta e prodotto aggiunto alla lista restano contatori/avvisi, non notifiche.
+La riga vive nell'U.M. del prodotto (U.M. di magazzino se impostata, altrimenti U.M. Danea).
 
-## 7. Ordine di implementazione
+- Se il collegamento fornitore ha U.M. d'acquisto **e** conversione esplicita: mostra entrambe le letture, per esempio "60 kg ≈ 4 casse (1 cassa ≈ 15 kg)", arrotondando per eccesso alle unità intere d'acquisto e dicendolo.
+- Se la conversione manca: **nessuna stima inventata**. La riga mostra "conversione mancante" con collegamento diretto alla scheda prodotto per impostarla. L'assegnazione resta possibile nell'U.M. della riga.
 
-0. Approvazione della formula del fabbisogno (sezione 3). Solo dopo si programma.
-1. **FASE A** — Parametri magazzino del prodotto: scorta minima, multiplo di riordino, U.M. di riferimento (più, opzionale, giorni di riordino).
-2. **FASE B** — Inventario: sessione → conteggio prodotti → quantità precedente → quantità contata → differenza → chiusura sessione non modificabile → rettifiche tracciate; griglia di conteggio con preferenze personali e stampa.
-3. Vista fabbisogno (necessario / disponibile / da acquistare) come lettura calcolata dalla funzione unica.
-4. Lista della Spesa: lista, righe, inserimento manuale e importazione dal fabbisogno.
-5. Assegnazione fornitori con ripartizione e percentuali di aiuto, riusando le associazioni prodotto↔fornitore esistenti.
-6. Contatori e avvisi operativi.
-7. Tabella notifiche con tipi chiusi e centro notifiche.
-8. Solo dopo: ordine al fornitore e invio B2B.
+## 6. Quantità minima del fornitore (da approvare)
 
-## Nota tecnica
+Non è la scorta minima: è il minimo ordinabile da quel fornitore, e non cambia mai il fabbisogno del prodotto.
 
-Tabelle da creare: sessioni inventario, conteggi, rettifiche, parametri magazzino del prodotto (colonne su `products` o tabella dedicata per archivio), liste spesa, righe lista spesa, assegnazioni riga↔fornitore, notifiche. Tutte con accesso per membro dell'azienda, scritture tramite funzioni protette (`SECURITY DEFINER`, `search_path = public`) e permessi espliciti, come le tabelle già esistenti. Riuso diretto di `product_supplier_links`, `product_supplier_costs`, `units_of_measure`, `danea_archives`, `user_grid_preferences`, `audit_events` e degli helper `is_company_member` / `is_company_admin`.
+**Proposta: avviso superabile, non blocco.** Se assegni 10 kg a Rossi che ha minimo 20 kg, il sistema segnala "sotto il minimo di Rossi (20 kg)" e ti lascia proseguire, registrando che l'avviso è stato accettato. Motivo: il minimo è un dato commerciale spesso approssimativo o negoziabile, e un blocco fermerebbe il lavoro quotidiano per un'informazione non sempre esatta. Se preferisci il blocco, si cambia una sola riga di controllo.
+
+## 7. Duplicati
+
+**Proposta: nessuna riga doppia.** Se aggiungi alla lista aperta un prodotto già presente:
+
+- dal Fabbisogno con selezione multipla: i prodotti già presenti vengono **saltati** e contati nel riepilogo ("18 aggiunti, 2 già in lista"), senza toccare le decisioni già prese;
+- dall'aggiunta singola: compare la scelta esplicita **"È già in lista: vai alla riga"** oppure **"Sostituisci la quantità suggerita con quella attuale"**, e in questo secondo caso la quantità decisa resta tua e il cambiamento viene tracciato.
+
+Nessuna riga separata per lo stesso prodotto nella stessa lista: il caso "due decisioni distinte per lo stesso prodotto" si gestisce con due fornitori sulla stessa riga.
+
+## 8. Suggerimento che cambia nel tempo
+
+La riga conserva il suggerito del momento dell'inserimento. `shopping_list_overview` ricalcola il **suggerimento attuale** e la schermata mostra, solo quando differisce: "suggerito all'inserimento 60 · oggi 45". Nessun valore viene sovrascritto in automatico; puoi allineare la riga con un'azione esplicita.
+
+## 9. Schermate
+
+- **Fabbisogno** (già esistente): caselle di selezione, contatore dei selezionati e pulsante **Aggiungi alla Lista della Spesa** per l'intera selezione, anche 20 prodotti insieme.
+- **Lista della Spesa** — computer e tablet: griglia compatta con codice, descrizione, U.M., suggerito, deciso (modificabile in linea), assegnati, residuo, fornitori assegnati, stato; ricerca rapida; filtri "da assegnare / parziali / complete / per fornitore / per archivio"; riga espandibile con la ripartizione fornitori.
+- **Lista della Spesa** — telefono: schede touch con quantità grande, residuo in evidenza e assegnazione fornitori a pieno schermo.
+- **Ripartizione**: elenco fornitori del prodotto con preferito evidenziato, campo quantità per fornitore, percentuali calcolate, totale assegnato, residuo, avvisi (sotto minimo, conversione mancante, somma oltre la quantità decisa).
+
+## 10. Test previsti
+
+Riga creata a mano; riga creata dal Fabbisogno con suggerito e snapshot corretti; selezione multipla di più prodotti; prodotto già in lista non duplicato; quantità decisa diversa dal suggerito con suggerito conservato; inventario modificato dopo l'inserimento che non cambia la riga e mostra il confronto; assegnazione a un solo fornitore; ripartizione su due fornitori con percentuali coerenti; modifica di un fornitore che non altera l'altro; somma superiore alla quantità decisa segnalata; residuo calcolato; stati da assegnare / parziale / assegnata; avviso sotto il minimo del fornitore; conversione presente che mostra la doppia lettura; conversione assente segnalata senza stime; conferma della lista bloccata con righe incoerenti e riuscita quando sono coerenti; lista confermata non modificata da un nuovo inventario. Nessun dato di prova lasciato nel database.
+
+## 11. Fuori scope in questa fase
+
+Ordine al fornitore, invio B2B, notifiche, motore predittivo, automazioni di acquisto.
+
+## Due decisioni che aspettano la tua conferma
+
+1. Quantità minima del fornitore: **avviso superabile** (proposta) oppure blocco.
+2. Duplicati: **nessuna riga doppia** con salto nella selezione multipla e scelta esplicita nell'aggiunta singola (proposta).
