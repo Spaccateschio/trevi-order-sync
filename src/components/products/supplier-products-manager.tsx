@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ExternalLink, Plus, Search, Star } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -480,9 +480,8 @@ export function SupplierProductsManager({
           </thead>
           <tbody>
             {filtered.map((row) => (
-              <>
+              <Fragment key={row.id}>
                 <tr
-                  key={row.id}
                   className="cursor-pointer border-t border-border hover:bg-muted/40 [&>td]:border-r [&>td]:border-border [&>td]:px-2 [&>td]:py-1.5 [&>td:last-child]:border-r-0"
                   onClick={() => setOpenId(openId === row.id ? null : row.id)}
                 >
@@ -523,7 +522,7 @@ export function SupplierProductsManager({
                     </td>
                   </tr>
                 ) : null}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>
