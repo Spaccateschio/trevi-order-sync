@@ -60,18 +60,23 @@ Letti solo da `product_supplier_links` (più `product_supplier_costs` per il cos
 
 Il **preferito viene proposto** (evidenziato, primo in elenco, precompilato se assegni tutto a uno solo) ma **mai imposto**. Nessuna regola decide quale costo "vale": Danea e Trevi Fruit restano affiancati, come stabilito.
 
-## 5. U.M. e conversioni
+## 5. U.M. e conversioni (approvato con correzioni)
 
-La riga vive nell'U.M. del prodotto (U.M. di magazzino se impostata, altrimenti U.M. Danea).
+La riga vive nell'U.M. del prodotto (U.M. di magazzino se impostata, altrimenti U.M. Danea). Ogni assegnazione tiene **tre quantità sempre distinte**:
 
-- Se il collegamento fornitore ha U.M. d'acquisto **e** conversione esplicita: mostra entrambe le letture, per esempio "60 kg ≈ 4 casse (1 cassa ≈ 15 kg)", arrotondando per eccesso alle unità intere d'acquisto e dicendolo.
-- Se la conversione manca: **nessuna stima inventata**. La riga mostra "conversione mancante" con collegamento diretto alla scheda prodotto per impostarla. L'assegnazione resta possibile nell'U.M. della riga.
+1. quantità assegnata nell'U.M. della Lista Spesa (per esempio 62 kg);
+2. quantità effettiva nell'U.M. d'acquisto del fornitore, confermata dall'operatore (per esempio 5 casse);
+3. equivalente risultante nell'U.M. della lista (5 × 15 = 75 kg) con l'eccedenza evidenziata (+13 kg).
 
-## 6. Quantità minima del fornitore (da approvare)
+**Nessun arrotondamento automatico.** Con 62 kg e casse da 15 kg il sistema mostra "62 kg ≈ 4,13 casse · in confezioni intere 5 casse ≈ 75 kg (+13 kg)" come **proposta**: la quantità decisa resta 62 kg finché non confermi tu le casse. Lo storico conserva sempre entrambi i numeri: quello che ci serviva e quello che compriamo davvero.
+
+**Conversione mancante.** Se l'U.M. della lista e l'U.M. d'acquisto del fornitore sono diverse e non esiste una conversione esplicita, nessuna stima viene inventata: puoi preparare l'assegnazione, ma la riga **non può risultare assegnata né confermata** finché non imposti la conversione o scegli un fornitore/U.M. compatibile. Se le due U.M. coincidono non serve nessuna conversione.
+
+## 6. Quantità minima del fornitore (approvato)
 
 Non è la scorta minima: è il minimo ordinabile da quel fornitore, e non cambia mai il fabbisogno del prodotto.
 
-**Proposta: avviso superabile, non blocco.** Se assegni 10 kg a Rossi che ha minimo 20 kg, il sistema segnala "sotto il minimo di Rossi (20 kg)" e ti lascia proseguire, registrando che l'avviso è stato accettato. Motivo: il minimo è un dato commerciale spesso approssimativo o negoziabile, e un blocco fermerebbe il lavoro quotidiano per un'informazione non sempre esatta. Se preferisci il blocco, si cambia una sola riga di controllo.
+**Avviso superabile, non blocco.** Se assegni 10 kg a Rossi che ha minimo 20 kg il sistema segnala "sotto il minimo di Rossi (20 kg)" e ti lascia proseguire, registrando sull'assegnazione che l'avviso è stato accettato, da chi e quando.
 
 ## 7. Duplicati
 
