@@ -1,96 +1,101 @@
-# Prodotto ↔ Fornitori
+# Inventario → Lista della Spesa → Notifiche (analisi e modello proposto)
 
-Un prodotto potrà avere più fornitori, ognuno preso dall'anagrafica fornitori di Trevi Fruit. Quello che arriva da Danea resta una fonte separata e non cancella mai le nostre scelte.
+Nessuna modifica a database o interfaccia: questo è solo il progetto del flusso.
 
-Verificato nel lettore del file prodotti Danea: arrivano solo codice fornitore, nome fornitore, codice articolo presso il fornitore, note fornitore e costo netto/lordo. **La partita IVA del fornitore non è presente**, quindi non viene usata per nessun abbinamento automatico.
+## 1. Stato attuale Trevi Fruit
 
-## Schema database
+Non esiste ancora nulla di operativo:
 
-Nuova tabella `product_supplier_links` (una riga = un fornitore per quel prodotto). Contiene solo le condizioni nostre, nessuna copia dei dati Danea:
+- Inventario, giacenze, conteggio fisico, scorta minima di magazzino, fabbisogno: assenti (nessuna tabella, nessuna funzione, nessuna schermata).
+- Lista della spesa, righe lista spesa, quantità da acquistare, collegamento riga↔fornitore: assenti. Compaiono solo come testo "In arrivo" nella pagina Acquisti e come voce nella roadmap.
+- Notifiche, avvisi, centro notifiche: assenti. Esiste solo l'etichetta grafica riutilizzabile (nessun dato dietro).
+- I dati del gestionale Danea **non portano nessuna giacenza**: arrivano anagrafica prodotti, unità di misura, listini, fornitore e costo. Nessuna quantità di magazzino.
+- Unico concetto simile già presente: la "quantità minima" sull'associazione prodotto↔fornitore. È la quantità minima ordinabile da quel fornitore, **non** una scorta di magazzino: non va confusa né riusata.
 
-- `id`, `company_id`, `product_id`, `supplier_record_id`
-- `supplier_product_code` — codice articolo presso il fornitore (nostro, modificabile)
-- `purchase_unit_id` → `units_of_measure`, facoltativo
-- `conversion_factor` (positivo) e `conversion_reference_um` — solo se inseriti dall'utente, mai dedotti
-- `manual_cost`, `manual_cost_at` — il nostro costo concordato, unico costo memorizzato qui
-- `min_quantity`, `lead_time_days`
-- `is_preferred`, `is_active`, `notes`
-- `origin` (`manuale` / `danea`), `created_by`, `created_at`, `updated_at`
+### Già pronto e riutilizzabile
 
-Nessun `last_cost`, `danea_last_net_cost`, `danea_last_gross_cost` né `average_cost`: il costo Danea si legge dalla sua fonte e il costo medio arriverà quando esisterà lo storico acquisti.
+| Cosa | Riuso previsto |
+| --- | --- |
+| Prodotti, archivi Danea, anagrafica fornitori | base di ogni riga di inventario e di spesa |
+| Associazioni prodotto↔fornitore (con preferito, costo concordato, U.M. d'acquisto, quantità minima, giorni di consegna) | proposta fornitori nella Lista Spesa |
+| Costi Danea per prodotto/fornitore | costo mostrato accanto al costo concordato |
+| Anagrafica unità di misura e unità di vendita | U.M. e conversioni di inventario e acquisto |
+| Griglia configurabile con preferenze personali (colonne, ordinamento, stampa, esportazione) usata in Prodotti e Clienti | griglia Inventario e griglia Lista Spesa |
+| Pannelli fornitori del prodotto e prodotti del fornitore | modello dell'editor riga con più fornitori |
+| Regole di accesso per azienda e ruolo già in uso | protezione delle nuove tabelle |
+| Registro eventi (audit) | tracciamento rettifiche e conferme |
 
-Regole a livello di database:
-- unico `(product_id, supplier_record_id)`: la stessa coppia non può esistere due volte
-- indice unico parziale su `(product_id)` dove `is_preferred` è vero: al massimo un preferito per prodotto, nessuno obbligatorio
-- trigger di coerenza: prodotto e fornitore della stessa azienda; l'archivio del fornitore deve coincidere con quello del prodotto **oppure** essere vuoto (fornitore creato a mano). Mai un fornitore dell'Archivio B su un prodotto dell'Archivio A
-- trigger di conversione: fattore maggiore di zero e U.M. di riferimento indicata
-- accesso consentito solo ai membri dell'azienda; scrittura solo tramite funzioni server agli amministratori
+## 2. Come funzionava Efficio
 
-Coda di riconciliazione `product_danea_supplier_matches`: tabella di decisione, non una copia del dato Danea.
+- **Inventario**: sessioni di conteggio (in corso / completata / annullata) con righe per prodotto: giacenza precedente, giacenza contata, differenza calcolata dal database, data del conteggio, U.M., autore della sessione. Liste predefinite (Frigo, Magazzino, Banco, Congelatore). La giacenza "buona" restava però anche come campo sul prodotto. Nessun legame con Danea.
+- **Quantità da acquistare**: regola base "scorta minima meno giacenza", arrotondata a multipli d'ordine. Era però implementata in **tre posti diversi** (una funzione di database mai chiamata, un calcolo nel browser con media storica a 90 giorni, un terzo calcolo per l'elenco "sotto scorta") con risultati potenzialmente diversi.
+- **Riga della Lista Spesa**: nasceva dal magazzino, manualmente o dal suggerimento sotto scorta. Le modifiche vivevano in una cache nel browser, salvate sul database ogni 2 minuti o a comando: rischio concreto di perdere il lavoro.
+- **Scelta fornitore**: dal legame prodotto↔fornitore; se nessuno era scelto veniva proposto il preferito, altrimenti il primo per prezzo. Per i fornitori collegati B2B il prezzo era in sola lettura.
+- **Ripartizione (FornitoriQuantitaDialog)**: elenco fornitori con prezzo, quantità e percentuale. Aggiungendo un fornitore la quantità veniva ridistribuita proporzionalmente; modificando una quantità la differenza veniva scaricata sul "primo" fornitore o sull'ultimo; conferma ammessa con tolleranza ±1%. Alla conferma la ripartizione restava in memoria; solo al salvataggio successivo nascevano **righe separate per fornitore** (stesso prodotto, fornitore diverso).
+- **Notifiche**: una sola tabella generica, nata per gli avvisi amministrativi e poi riusata per decine di eventi diversi (scorta bassa, ordine ricevuto, arrivo merce atteso, pagamenti in scadenza, richieste di collegamento). Contatore non letto, aggiornamento in tempo reale. Un avviso era generato controllando ogni 30 minuti dal browser, con deduplica basata sul testo del messaggio.
 
-- `id`, `company_id`, `product_id`
-- `danea_supplier_code`, `danea_supplier_name` — solo la chiave con cui riconosciamo di quale fornitore Danea stiamo parlando (serve anche come storico se il gestionale poi cambia fornitore)
-- `status`: `da_associare` / `associato` / `ignorato`
-- `supplier_record_id` risolto, `decided_by`, `decided_at`, `created_at`, `updated_at`
-- unico `(product_id, danea_supplier_code, danea_supplier_name)`
+### Da recuperare
 
-Costo, codice articolo e note Danea restano dove sono già: `product_supplier_costs`, letta al volo insieme alla coda.
+1. Sessione di conteggio con giacenza precedente, contata e differenza.
+2. Il concetto "necessario / disponibile / da acquistare" mostrato in chiaro.
+3. Proposta del fornitore preferito, sempre modificabile.
+4. Ripartizione su più fornitori con percentuali di aiuto.
+5. Una riga per fornitore come risultato finale della ripartizione.
+6. Contatore delle cose da sistemare e avvisi con collegamento diretto all'elemento.
 
-`product_supplier_costs` non viene modificata: resta la fotografia dell'ultimo dato grezzo del gestionale. I vecchi campi fornitore su `products` restano visibili nella griglia come dato Danea.
+### Da non copiare
 
-## Funzioni server (RPC)
+1. Tre calcoli diversi della stessa quantità: una sola regola, in un solo punto.
+2. Giacenza duplicata sul prodotto e nei conteggi: una sola fonte.
+3. Lista Spesa salvata nel browser: scrittura diretta sul database.
+4. Ridistribuzione automatica che modifica da sola i numeri già inseriti dall'utente.
+5. Conferma con tolleranza ±1%: la somma deve quadrare, con eventuale residuo esplicito.
+6. Tabella notifiche unica senza tipi controllati e con deduplica sul testo.
+7. Doppio schema per gli ordini e riferimenti incrociati incoerenti.
 
-Tutte con controllo unico: utente amministratore dell'azienda, prodotto dell'azienda, fornitore dell'azienda, archivio compatibile. Il controllo sul prodotto è obbligatorio e verificato nella stessa funzione del controllo fornitore — è l'errore che vogliamo evitare.
+## 3. Modello consigliato — Inventario
 
-- `manage_product_supplier_link(azione: create | update | activate | deactivate | delete_link, …)`
-- `set_preferred_product_supplier(product_id, supplier_record_id | null)` — azzera il precedente e imposta il nuovo in una sola operazione atomica
-- `set_product_supplier_purchase_unit(link_id, unit_id, fattore, um_riferimento)`
-- `resolve_danea_supplier_match(match_id, azione: link_existing | create_supplier | ignore, …)` — quando crea l'anagrafica usa nome e codice Danea e l'archivio del prodotto
-- `product_supplier_overview(product_id)` — elenco compatto per la scheda prodotto: condizioni nostre, ultimo costo Danea letto dalla sua fonte, stato del collegamento Trevi Fruit del fornitore
+Il gestionale Danea resta il padrone di anagrafiche e documenti, ma **non** è la nostra giacenza operativa: non trasmette quantità. La giacenza operativa nasce quindi dal nostro conteggio fisico. Se in futuro Danea inviasse quantità, andranno tenute come dato informativo a parte, mai sovrascrivendo il conteggio.
 
-## Comportamento dell'import Danea
+- **Sessione di inventario**: azienda, archivio Danea, nome, stato (in corso / completata / annullata), inizio, fine, autore, note.
+- **Riga di conteggio**: sessione, prodotto, quantità contata, U.M. usata, quantità precedente, differenza calcolata dal database, data e ora, utente che ha contato, note. Un solo conteggio per prodotto nella stessa sessione.
+- **Parametri del prodotto** (nostri, non Danea): scorta minima, multiplo d'ordine, giorni di riordino, U.M. di riferimento per il magazzino.
+- **Quantità necessaria**: in questa fase inserita a mano nella sessione o nella Lista Spesa; in futuro potrà arrivare dagli ordini clienti.
+- **Fabbisogno**: sempre calcolato, mai memorizzato: `da acquistare = max(0, necessario − disponibile)`, con arrotondamento al multiplo d'ordine quando impostato.
+- **Rettifiche**: non si modifica un conteggio chiuso; si registra una riga di rettifica con motivo, quantità e autore.
+- La giacenza corrente di un prodotto è sempre l'ultimo conteggio valido più eventuali rettifiche: nessun campo "giacenza" sul prodotto.
 
-L'import prodotti continua a scrivere `products` e `product_supplier_costs` come oggi. In più, senza toccare nulla di nostro:
+## 4. Modello consigliato — Lista della Spesa
 
-1. abbinamento sicuro solo per codice: stesso archivio del prodotto **e** codice fornitore Danea uguale a `internal_reference` della scheda fornitore. Nessun altro criterio automatico.
-2. il nome fornitore non produce mai da solo un'associazione.
-3. abbinamento riuscito → crea l'associazione se manca (origine `danea`) e segna la coda come `associato`. Non tocca preferito, U.M., conversione, costo manuale, quantità minima, tempi, note, né gli altri fornitori del prodotto.
-4. codice assente o senza corrispondenza certa → voce "Fornitore Danea da associare" nella coda. Nessuna associazione creata.
-5. un'associazione creata a mano non viene mai disattivata o cancellata da un import.
+- **Lista** (intestazione): azienda, archivio, data, nome, stato (aperta / confermata / chiusa), autore, note. Una lista di lavoro aperta per archivio, più lo storico.
+- **Riga prodotto**: lista, prodotto, quantità necessaria, quantità disponibile, quantità da acquistare, U.M., origine (manuale / da inventario), stato (da assegnare / assegnata / ordinata / annullata), note.
+- **Assegnazione al fornitore**: righe figlie, una per fornitore, con fornitore, quantità, U.M. d'acquisto e conversione, costo mostrato (Danea e concordato, distinti, come già fatto nella scheda prodotto), stato. La somma delle quantità figlie non può superare la quantità da acquistare; l'eventuale residuo resta visibile.
+- Il fornitore preferito viene proposto, mai imposto. Le percentuali sono un aiuto di lettura calcolato, non un dato salvato.
+- Inserimento rapido: ricerca prodotto e quantità, oppure importazione in blocco dal fabbisogno di una sessione di inventario.
+- Scritture sempre tramite operazioni protette lato server, come già fatto per prodotti e fornitori: nessun salvataggio differito nel browser.
+- In questa fase la lista **non** genera nessun ordine al fornitore.
 
-## Costi e provenienza
+## 5. Modello consigliato — Notifiche
 
-Due valori, sempre distinguibili perché stanno in due posti diversi: l'ultimo costo ricevuto da Danea (in `product_supplier_costs`, con la sua data) e il costo concordato da noi (nell'associazione, con la sua data). La scheda prodotto li mostra entrambi con provenienza e data, o solo quello disponibile. In questa fase nessuna regola automatica decide quale dei due "vale": la priorità si definirà nella fase Acquisti. Il costo medio si aggiungerà quando avremo lo storico acquisti.
+Tre livelli distinti:
 
-## Unità di misura d'acquisto
+1. **Contatori (badge)**: conteggi calcolati al volo, nessuna tabella. Esempi: prodotti sotto scorta, fornitori Danea da associare, collegamenti da confermare, righe senza fornitore.
+2. **Avvisi operativi**: mostrati dentro la schermata interessata (riga senza fornitore, riga senza U.M. d'acquisto, quantità non ripartita del tutto). Nessuna notifica, solo segnalazione nel contesto.
+3. **Notifiche vere**: una tabella con tipo controllato da elenco chiuso, azienda, destinatario o ruolo, riferimento all'elemento (tipo + identificativo, mai testo), messaggio, letto, data. Solo per eventi che richiedono attenzione anche fuori dalla schermata: ordine ricevuto, ordine modificato, ordine pronto, problema di consegna, collegamento B2B da confermare. Deduplica sul riferimento, non sul messaggio.
 
-Danea non trasmette l'U.M. del fornitore, quindi non viene mai dedotta. L'U.M. d'acquisto e l'eventuale conversione (per esempio 1 cs ≈ 15 kg) si impostano a mano, con lo stesso criterio già usato per le U.M. di vendita: fattore positivo, U.M. di riferimento esplicita, valore stimato dichiarato dall'utente.
+Prodotto sotto scorta e prodotto aggiunto alla lista restano contatori/avvisi, non notifiche.
 
-## Interfaccia
+## 6. Ordine di implementazione
 
-Nella scheda prodotto una nuova sezione **Fornitori**, compatta come le altre griglie: fornitore, codice presso il fornitore, U.M. d'acquisto, costo con provenienza, quantità minima, tempi, preferito (stella), stato e indicatore del collegamento Trevi Fruit. Da qui: aggiungi fornitore, modifica, disattiva/riattiva, scegli il preferito.
+1. Parametri del prodotto per il magazzino (scorta minima, multiplo d'ordine, giorni di riordino, U.M. di magazzino).
+2. Inventario: sessioni, conteggi, rettifiche, griglia di conteggio con preferenze personali e stampa.
+3. Vista fabbisogno (necessario / disponibile / da acquistare) come lettura calcolata.
+4. Lista della Spesa: lista, righe, inserimento manuale e importazione dal fabbisogno.
+5. Assegnazione fornitori con ripartizione e percentuali di aiuto, riusando le associazioni prodotto↔fornitore esistenti.
+6. Contatori e avvisi operativi.
+7. Tabella notifiche con tipi chiusi e centro notifiche.
+8. Solo dopo: ordine al fornitore e invio B2B.
 
-Sopra l'elenco, quando esiste, un avviso "Fornitore Danea da associare" con nome, codice e costo ricevuto, e le tre scelte: collega a un fornitore esistente, crea la scheda fornitore, ignora.
+## Nota tecnica
 
-Il percorso inverso (scheda fornitore → prodotti forniti) arriva subito dopo, come sola lettura sugli stessi dati: nessuna struttura aggiuntiva.
-
-## I 14 prodotti già presenti
-
-Nessun dato viene perso. Nella migrazione, per ogni riga di `product_supplier_costs` esistente proviamo l'abbinamento per archivio + codice: oggi l'anagrafica fornitori è vuota e i codici fornitore sui prodotti non sono valorizzati, quindi non nasce nessuna associazione forzata e la coda resta vuota. Le righe Danea restano intatte e verranno riconciliate al primo import successivo o a mano.
-
-## Verifiche previste
-
-- doppia associazione dello stesso fornitore sullo stesso prodotto: rifiutata
-- due preferiti sullo stesso prodotto: rifiutati; cambio del preferito: il precedente si azzera nella stessa operazione
-- fornitore di un altro archivio: rifiutato; fornitore manuale senza archivio: accettato
-- fornitore o prodotto di un'altra azienda: rifiutato, anche mescolando i due
-- utente non amministratore: nessuna scrittura
-- import Danea ripetuto: costo Danea aggiornato nella sua tabella, condizioni nostre e altri fornitori invariati
-- fornitore Danea con codice corrispondente: associato da solo; con solo il nome: finisce nella coda
-- le tre azioni della coda (collega, crea, ignora) funzionano
-- conversione con fattore zero o negativo: rifiutata
-- scheda prodotto su telefono e desktop: sezione leggibile, senza scorrimento orizzontale
-
-## Fuori da questa fase
-
-Ripartizione quantità, Lista Spesa, ordine fornitore, invio B2B, scarico in Danea, calcolo del fabbisogno.
+Tabelle da creare: sessioni inventario, conteggi, rettifiche, parametri magazzino del prodotto (colonne su `products` o tabella dedicata per archivio), liste spesa, righe lista spesa, assegnazioni riga↔fornitore, notifiche. Tutte con accesso per membro dell'azienda, scritture tramite funzioni protette (`SECURITY DEFINER`, `search_path = public`) e permessi espliciti, come le tabelle già esistenti. Riuso diretto di `product_supplier_links`, `product_supplier_costs`, `units_of_measure`, `danea_archives`, `user_grid_preferences`, `audit_events` e degli helper `is_company_member` / `is_company_admin`.
