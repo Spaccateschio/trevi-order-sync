@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { AppShell, PlaceholderCard } from "@/components/app-shell";
 import { AddressManager } from "@/components/companies/address-manager";
 import { UnitCatalogue } from "@/components/company/unit-catalogue";
-import { MockCompanyLocations } from "@/components/inventory/mock-company-locations";
+import { InventoryLocationsManager } from "@/components/inventory/inventory-locations-manager";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -140,7 +140,7 @@ function Amministrazione() {
           </TabsContent>
 
           <TabsContent value="magazzino">
-            <MockCompanyLocations />
+            <InventoryLocationsManager companyId={company.companyId} isAdmin={allowed} />
           </TabsContent>
 
           <TabsContent value="preferenze">

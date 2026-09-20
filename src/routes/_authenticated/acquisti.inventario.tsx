@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
-import { MockInventoryPanel } from "@/components/inventory/mock-inventory-panel";
-import { companyBuys, useIdentity } from "@/hooks/use-identity";
+import { useQuery } from "@tanstack/react-query";
+
+import { InventoryCountPanel } from "@/components/inventory/inventory-count-panel";
+import { supabase } from "@/integrations/supabase/client";
+import { activeCompany, companyBuys, hasRole, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/acquisti/inventario")({
   head: () => ({
@@ -28,6 +31,22 @@ export const Route = createFileRoute("/_authenticated/acquisti/inventario")({
 
 function Inventario() {
   const { data: identity, isLoading } = useIdentity();
+  const company = activeCompany(identity);
+  const isAdmin = hasRole(identity, "amministratore");
+  const archiveQuery = useQuery({
+    queryKey: ["inventory-archive", company?.companyId],
+    enabled: Boolean(company?.companyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("danea_archives")
+        .select("id, name")
+        .eq("company_id", company!.companyId)
+        .order("created_at")
+        .limit(1);
+      if (error) throw new Error(error.message);
+      return data?.[0] ?? null;
+    },
+  });
 
   if (!isLoading && !companyBuys(identity)) {
     return (
@@ -45,7 +64,13 @@ function Inventario() {
       description="Conteggio fisico rapido per zona, con giacenza calcolata sempre visibile."
       wide
     >
-      {!isLoading ? <MockInventoryPanel /> : null}
+      {!isLoading && company ? (
+        <InventoryCountPanel
+          companyId={company.companyId}
+          archiveId={archiveQuery.data?.id ?? null}
+          isAdmin={isAdmin}
+        />
+      ) : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
     </AppShell>
   );

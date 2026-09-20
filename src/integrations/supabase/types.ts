@@ -503,6 +503,45 @@ export type Database = {
           },
         ]
       }
+      company_product_favorites: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          product_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_product_favorites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_product_favorites_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           company_id: string
@@ -1764,6 +1803,62 @@ export type Database = {
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_session_products: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          location_id: string
+          product_id: string
+          session_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          location_id: string
+          product_id: string
+          session_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          product_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_session_products_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_session_products_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_session_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_session_products_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -4009,6 +4104,14 @@ export type Database = {
         Args: { _invitation_id: string }
         Returns: undefined
       }
+      close_general_inventory: {
+        Args: {
+          _actor_user_id?: string
+          _company_id: string
+          _session_id: string
+        }
+        Returns: Json
+      }
       company_buys: { Args: { _company_id: string }; Returns: boolean }
       company_exists_for_vat: {
         Args: { _vat_number: string }
@@ -4203,6 +4306,40 @@ export type Database = {
           total_locations: number
         }[]
       }
+      inventory_session_progress: {
+        Args: { _session_id: string }
+        Returns: Json
+      }
+      inventory_session_rows: {
+        Args: {
+          _category?: string
+          _favorites_only?: boolean
+          _limit?: number
+          _location_id?: string
+          _search?: string
+          _session_id: string
+          _subcategory?: string
+        }
+        Returns: {
+          calculated: number
+          category: string
+          code: string
+          counted: number
+          counted_at: string
+          counted_by: string
+          danea_um: string
+          description: string
+          difference: number
+          image_path: string
+          is_favorite: boolean
+          location_id: string
+          location_name: string
+          note: string
+          product_id: string
+          subcategory: string
+          thumbnail_path: string
+        }[]
+      }
       invitation_preview: {
         Args: { _token: string }
         Returns: {
@@ -4246,6 +4383,15 @@ export type Database = {
       link_supplier_record_to_relation: {
         Args: { _relation_id: string; _supplier_record_id: string }
         Returns: string
+      }
+      manage_company_product_favorite: {
+        Args: {
+          _actor_user_id?: string
+          _company_id: string
+          _favorite: boolean
+          _product_id: string
+        }
+        Returns: boolean
       }
       manage_customer_destination: {
         Args: {
@@ -4855,6 +5001,15 @@ export type Database = {
           unit_code: string
           untranslatable: number
         }[]
+      }
+      start_general_inventory: {
+        Args: {
+          _actor_user_id?: string
+          _archive_id: string
+          _company_id: string
+          _name?: string
+        }
+        Returns: string
       }
       submit_purchase_delivery: {
         Args: {
