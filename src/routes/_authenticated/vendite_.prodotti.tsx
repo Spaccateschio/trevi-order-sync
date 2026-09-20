@@ -279,6 +279,9 @@ function ProdottiPage() {
   const selectedProducts = sortedFiltered.filter((product) => selectedIds.has(product.id));
   const outputProducts = selectedProducts.length ? selectedProducts : sortedFiltered;
   const visibleColumns = columnOrder.map((id) => PRODUCT_COLUMNS.find((column) => column.id === id)).filter((column) => column && visibility[column.id] !== false && (isAdmin || !column.adminOnly));
+  // Le card smartphone usano le stesse preferenze "Colonne" del dispositivo corrente.
+  const mobileColumns = visibleColumns.filter((column): column is ProductColumn => Boolean(column));
+
 
   const listName = (number: number) => {
     const row = priceListsQuery.data?.find((list) => list.list_number === number);
