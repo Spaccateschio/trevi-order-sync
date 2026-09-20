@@ -212,8 +212,13 @@ dall'utente autenticato, mai dal browser; scritture solo via server function.
 RLS: ogni azienda vede solo i propri ordini, consegne, carichi, lotti e
 movimenti. Il fornitore collegato B2B vede l'ordine a lui indirizzato e
 scrive unicamente la propria dichiarazione di consegna: mai le righe ordine,
-mai i carichi, mai i lotti, mai i movimenti. Nessun accesso per il fornitore
-non registrato.
+mai i carichi, mai i lotti, mai i movimenti.
+
+Link esterno: nessuna policy `anon` sulle tabelle. L'accesso passa solo da
+server function/route pubblica che verifica l'hash del token, la scadenza e
+la revoca, e opera con privilegi di servizio limitati a quell'ordine
+(`create_external_declaration`, `revoke_order_share_link`). Nessun dato
+diverso dalle righe dell'ordine viene restituito.
 
 ## 11. Interfaccia
 
