@@ -366,11 +366,17 @@ function ProductCard({ product, value, confirmed, onChange, onConfirm }: { produ
             aria-label={`Quantità fisica ${product.name}`}
           />
         </div>
-
-        <div className="text-right"><p className="text-[9px] leading-none text-muted-foreground">Differenza</p><p className={cn("mt-1 text-sm font-bold leading-none", difference !== null && difference < 0 && "text-destructive", difference !== null && difference > 0 && "text-success")}>{difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, product.unit)}`}</p></div>
+      <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2">
+        {[1, 3, 5, 10].map((increment) => (
+          <Button key={increment} type="button" variant="outline" size="sm" className="h-8 justify-center px-0 text-xs font-bold leading-none" tabIndex={-1} aria-label={`Aggiungi ${increment} a ${product.name}`} onClick={() => onChange(addToQuantity(value, increment))}>+{increment}</Button>
+        ))}
+        <Button type="button" variant="ghost" size="sm" className="h-8 w-11 shrink-0 justify-center px-0" tabIndex={-1} aria-label={`Azzera quantità ${product.name}`} title="Azzera" onClick={() => onChange("")}><Delete className="size-4" /></Button>
+      </div>
+      <div className="text-right"><p className="text-[9px] leading-none text-muted-foreground">Differenza</p><p className={cn("mt-1 text-sm font-bold leading-none", difference !== null && difference < 0 && "text-destructive", difference !== null && difference > 0 && "text-success")}>{difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, product.unit)}`}</p></div>
         <Button className="h-10 px-2 text-[11px] sm:px-3" variant={confirmed !== undefined ? "secondary" : "default"} onClick={onConfirm}><Check className="size-4" /><span className="hidden min-[360px]:inline">Conferma</span></Button>
       </div>
     </article>
+
   );
 }
 
