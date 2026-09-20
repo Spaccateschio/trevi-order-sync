@@ -52,8 +52,9 @@ Consegne parziali: più consegne per lo stesso ordine, ognuna con il proprio con
 **purchase_delivery_items**: delivery_id, order_item_id (NULL se fuori ordine),
 product_id, tipo riga (`ordinata` | `aggiunta_fornitore` | `sostituzione`),
 sostituisce_order_item_id, quantità dichiarata, unit_id/unit_code,
-equivalente in U.M. ordine, nota riga, motivo mancata consegna,
-stato riga, quantità accettata, decisa_da/at.
+equivalente in U.M. ordine, peso dichiarato, produttore dichiarato,
+lotto produttore dichiarato, scadenza dichiarata, nota riga,
+motivo mancata consegna, stato riga, quantità accettata, decisa_da/at.
 
 **purchase_delivery_line_events** (append-only): evento
 (`dichiarata`, `modificata`, `contestata`, `rettificata`, `accettata`, `rifiutata`),
