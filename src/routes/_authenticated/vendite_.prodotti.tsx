@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
-import { Columns3, Download, Eye, EyeOff, FileUp, Printer, Ruler, RotateCcw, Search, SquareCheckBig } from "lucide-react";
+import { Columns3, Download, Eye, EyeOff, FileUp, MoreHorizontal, Printer, Ruler, RotateCcw, Search, SlidersHorizontal, SquareCheckBig } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
