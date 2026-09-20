@@ -54,8 +54,10 @@ import {
   formatGridValue,
   type GridDevice,
   type GridPreferences,
+  type ProductColumn,
   type ProductRow,
 } from "@/lib/product-grid";
+
 
 export const Route = createFileRoute("/_authenticated/vendite_/prodotti")({
   head: () => ({
