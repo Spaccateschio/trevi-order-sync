@@ -151,6 +151,15 @@ function ProdottiPage() {
     return () => window.removeEventListener("resize", update);
   }, []);
 
+  // Header compatto sticky su smartphone: si attiva appena si inizia a scorrere.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+
   useEffect(() => setPreferencesReady(false), [deviceClass, userId]);
 
   const archivesQuery = useQuery({
