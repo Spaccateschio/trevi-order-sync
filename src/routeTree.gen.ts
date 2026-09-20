@@ -15,10 +15,12 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedAmministrazioneRouteImport } from './routes/_authenticated/amministrazione'
+import { Route as AuthenticatedB2bRouteImport } from './routes/_authenticated/b2b'
 import { Route as AuthenticatedCollegamentiRouteImport } from './routes/_authenticated/collegamenti'
 import { Route as AuthenticatedConsegneRouteImport } from './routes/_authenticated/consegne'
 import { Route as AuthenticatedDaneaRouteImport } from './routes/_authenticated/danea'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authenticated/impostazioni'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedOperativoRouteImport } from './routes/_authenticated/operativo'
 import { Route as AuthenticatedVenditeRouteImport } from './routes/_authenticated/vendite'
@@ -29,6 +31,7 @@ import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_au
 import { Route as AuthenticatedAcquistiInventarioRouteImport } from './routes/_authenticated/acquisti.inventario'
 import { Route as AuthenticatedAcquistiListaSpesaRouteImport } from './routes/_authenticated/acquisti.lista-spesa'
 import { Route as AuthenticatedAcquistiOrdiniRouteImport } from './routes/_authenticated/acquisti.ordini'
+import { Route as AuthenticatedImpostazioniNavigazioneRouteImport } from './routes/_authenticated/impostazioni_.navigazione'
 import { Route as AuthenticatedVenditeClientiRouteImport } from './routes/_authenticated/vendite_.clienti'
 import { Route as AuthenticatedVenditeProdottiRouteImport } from './routes/_authenticated/vendite_.prodotti'
 import { Route as AuthenticatedAcquistiCatalogoIndexRouteImport } from './routes/_authenticated/acquisti.catalogo.index'
@@ -67,6 +70,11 @@ const AuthenticatedAmministrazioneRoute =
     path: '/amministrazione',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedB2bRoute = AuthenticatedB2bRouteImport.update({
+  id: '/b2b',
+  path: '/b2b',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCollegamentiRoute =
   AuthenticatedCollegamentiRouteImport.update({
     id: '/collegamenti',
@@ -88,6 +96,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedImpostazioniRoute =
+  AuthenticatedImpostazioniRouteImport.update({
+    id: '/impostazioni',
+    path: '/impostazioni',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
@@ -143,6 +157,12 @@ const AuthenticatedAcquistiOrdiniRoute =
     path: '/acquisti/ordini',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedImpostazioniNavigazioneRoute =
+  AuthenticatedImpostazioniNavigazioneRouteImport.update({
+    id: '/impostazioni_/navigazione',
+    path: '/impostazioni/navigazione',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedVenditeClientiRoute =
   AuthenticatedVenditeClientiRouteImport.update({
     id: '/vendite_/clienti',
@@ -191,10 +211,12 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
+  '/b2b': typeof AuthenticatedB2bRoute
   '/collegamenti': typeof AuthenticatedCollegamentiRoute
   '/consegne': typeof AuthenticatedConsegneRoute
   '/danea': typeof AuthenticatedDaneaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/operativo': typeof AuthenticatedOperativoRoute
   '/vendite': typeof AuthenticatedVenditeRoute
@@ -204,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
   '/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
+  '/impostazioni/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti/': typeof AuthenticatedAcquistiIndexRoute
@@ -219,10 +242,12 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
+  '/b2b': typeof AuthenticatedB2bRoute
   '/collegamenti': typeof AuthenticatedCollegamentiRoute
   '/consegne': typeof AuthenticatedConsegneRoute
   '/danea': typeof AuthenticatedDaneaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/operativo': typeof AuthenticatedOperativoRoute
   '/vendite': typeof AuthenticatedVenditeRoute
@@ -232,6 +257,7 @@ export interface FileRoutesByTo {
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
   '/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
+  '/impostazioni/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti': typeof AuthenticatedAcquistiIndexRoute
@@ -249,10 +275,12 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/amministrazione': typeof AuthenticatedAmministrazioneRoute
+  '/_authenticated/b2b': typeof AuthenticatedB2bRoute
   '/_authenticated/collegamenti': typeof AuthenticatedCollegamentiRoute
   '/_authenticated/consegne': typeof AuthenticatedConsegneRoute
   '/_authenticated/danea': typeof AuthenticatedDaneaRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/operativo': typeof AuthenticatedOperativoRoute
   '/_authenticated/vendite': typeof AuthenticatedVenditeRoute
@@ -262,6 +290,7 @@ export interface FileRoutesById {
   '/_authenticated/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/_authenticated/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
   '/_authenticated/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
+  '/_authenticated/impostazioni_/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/_authenticated/vendite_/clienti': typeof AuthenticatedVenditeClientiRoute
   '/_authenticated/vendite_/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/_authenticated/acquisti/': typeof AuthenticatedAcquistiIndexRoute
@@ -279,10 +308,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/account'
     | '/amministrazione'
+    | '/b2b'
     | '/collegamenti'
     | '/consegne'
     | '/danea'
     | '/dashboard'
+    | '/impostazioni'
     | '/onboarding'
     | '/operativo'
     | '/vendite'
@@ -292,6 +323,7 @@ export interface FileRouteTypes {
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
     | '/acquisti/ordini'
+    | '/impostazioni/navigazione'
     | '/vendite/clienti'
     | '/vendite/prodotti'
     | '/acquisti/'
@@ -307,10 +339,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/account'
     | '/amministrazione'
+    | '/b2b'
     | '/collegamenti'
     | '/consegne'
     | '/danea'
     | '/dashboard'
+    | '/impostazioni'
     | '/onboarding'
     | '/operativo'
     | '/vendite'
@@ -320,6 +354,7 @@ export interface FileRouteTypes {
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
     | '/acquisti/ordini'
+    | '/impostazioni/navigazione'
     | '/vendite/clienti'
     | '/vendite/prodotti'
     | '/acquisti'
@@ -336,10 +371,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/account'
     | '/_authenticated/amministrazione'
+    | '/_authenticated/b2b'
     | '/_authenticated/collegamenti'
     | '/_authenticated/consegne'
     | '/_authenticated/danea'
     | '/_authenticated/dashboard'
+    | '/_authenticated/impostazioni'
     | '/_authenticated/onboarding'
     | '/_authenticated/operativo'
     | '/_authenticated/vendite'
@@ -349,6 +386,7 @@ export interface FileRouteTypes {
     | '/_authenticated/acquisti/inventario'
     | '/_authenticated/acquisti/lista-spesa'
     | '/_authenticated/acquisti/ordini'
+    | '/_authenticated/impostazioni_/navigazione'
     | '/_authenticated/vendite_/clienti'
     | '/_authenticated/vendite_/prodotti'
     | '/_authenticated/acquisti/'
@@ -414,6 +452,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAmministrazioneRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/b2b': {
+      id: '/_authenticated/b2b'
+      path: '/b2b'
+      fullPath: '/b2b'
+      preLoaderRoute: typeof AuthenticatedB2bRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/collegamenti': {
       id: '/_authenticated/collegamenti'
       path: '/collegamenti'
@@ -440,6 +485,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/impostazioni': {
+      id: '/_authenticated/impostazioni'
+      path: '/impostazioni'
+      fullPath: '/impostazioni'
+      preLoaderRoute: typeof AuthenticatedImpostazioniRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/onboarding': {
@@ -512,6 +564,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAcquistiOrdiniRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/impostazioni_/navigazione': {
+      id: '/_authenticated/impostazioni_/navigazione'
+      path: '/impostazioni/navigazione'
+      fullPath: '/impostazioni/navigazione'
+      preLoaderRoute: typeof AuthenticatedImpostazioniNavigazioneRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/vendite_/clienti': {
       id: '/_authenticated/vendite_/clienti'
       path: '/vendite/clienti'
@@ -567,10 +626,12 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedAmministrazioneRoute: typeof AuthenticatedAmministrazioneRoute
+  AuthenticatedB2bRoute: typeof AuthenticatedB2bRoute
   AuthenticatedCollegamentiRoute: typeof AuthenticatedCollegamentiRoute
   AuthenticatedConsegneRoute: typeof AuthenticatedConsegneRoute
   AuthenticatedDaneaRoute: typeof AuthenticatedDaneaRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedImpostazioniRoute: typeof AuthenticatedImpostazioniRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedOperativoRoute: typeof AuthenticatedOperativoRoute
   AuthenticatedVenditeRoute: typeof AuthenticatedVenditeRoute
@@ -578,6 +639,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAcquistiInventarioRoute: typeof AuthenticatedAcquistiInventarioRoute
   AuthenticatedAcquistiListaSpesaRoute: typeof AuthenticatedAcquistiListaSpesaRoute
   AuthenticatedAcquistiOrdiniRoute: typeof AuthenticatedAcquistiOrdiniRoute
+  AuthenticatedImpostazioniNavigazioneRoute: typeof AuthenticatedImpostazioniNavigazioneRoute
   AuthenticatedVenditeClientiRoute: typeof AuthenticatedVenditeClientiRoute
   AuthenticatedVenditeProdottiRoute: typeof AuthenticatedVenditeProdottiRoute
   AuthenticatedAcquistiIndexRoute: typeof AuthenticatedAcquistiIndexRoute
@@ -589,10 +651,12 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedAmministrazioneRoute: AuthenticatedAmministrazioneRoute,
+  AuthenticatedB2bRoute: AuthenticatedB2bRoute,
   AuthenticatedCollegamentiRoute: AuthenticatedCollegamentiRoute,
   AuthenticatedConsegneRoute: AuthenticatedConsegneRoute,
   AuthenticatedDaneaRoute: AuthenticatedDaneaRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedImpostazioniRoute: AuthenticatedImpostazioniRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedOperativoRoute: AuthenticatedOperativoRoute,
   AuthenticatedVenditeRoute: AuthenticatedVenditeRoute,
@@ -600,6 +664,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAcquistiInventarioRoute: AuthenticatedAcquistiInventarioRoute,
   AuthenticatedAcquistiListaSpesaRoute: AuthenticatedAcquistiListaSpesaRoute,
   AuthenticatedAcquistiOrdiniRoute: AuthenticatedAcquistiOrdiniRoute,
+  AuthenticatedImpostazioniNavigazioneRoute:
+    AuthenticatedImpostazioniNavigazioneRoute,
   AuthenticatedVenditeClientiRoute: AuthenticatedVenditeClientiRoute,
   AuthenticatedVenditeProdottiRoute: AuthenticatedVenditeProdottiRoute,
   AuthenticatedAcquistiIndexRoute: AuthenticatedAcquistiIndexRoute,

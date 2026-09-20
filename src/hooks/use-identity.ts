@@ -53,6 +53,8 @@ export type Identity = {
   relations: Relation[];
 };
 
+const ACTIVE_COMPANY_KEY = "trevi-fruit-active-company";
+
 export const identityQueryKey = ["identity"] as const;
 
 async function fetchIdentity(): Promise<Identity | null> {
@@ -167,11 +169,19 @@ async function fetchIdentity(): Promise<Identity | null> {
     supplierRecordId: row.supplier_record_id ?? null,
   }));
 
+  const selectedCompanyId = typeof window === "undefined"
+    ? null
+    : window.localStorage.getItem(`${ACTIVE_COMPANY_KEY}:${user.id}`);
+  const activeMembership = memberships.find((membership) => membership.companyId === selectedCompanyId);
+  const orderedMemberships = activeMembership
+    ? [activeMembership, ...memberships.filter((membership) => membership.companyId !== activeMembership.companyId)]
+    : memberships;
+
   return {
     userId: user.id,
     email: user.email ?? null,
     profile,
-    memberships,
+    memberships: orderedMemberships,
     relations,
   };
 }
@@ -180,13 +190,17 @@ export function useIdentity() {
   return useQuery({ queryKey: identityQueryKey, queryFn: fetchIdentity });
 }
 
+export function selectActiveCompany(userId: string, companyId: string) {
+  window.localStorage.setItem(`${ACTIVE_COMPANY_KEY}:${userId}`, companyId);
+}
+
 /** L'azienda della persona che ha effettuato l'accesso. */
 export function activeCompany(identity: Identity | null | undefined) {
   return identity?.memberships[0] ?? null;
 }
 
 export function hasRole(identity: Identity | null | undefined, role: AppRole) {
-  return Boolean(identity?.memberships.some((m) => m.roles.includes(role)));
+  return Boolean(activeCompany(identity)?.roles.includes(role));
 }
 
 export function companyBuys(identity: Identity | null | undefined) {

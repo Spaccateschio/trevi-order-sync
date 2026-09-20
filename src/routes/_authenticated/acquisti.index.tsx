@@ -1,103 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-
-import { AppShell, PlaceholderCard } from "@/components/app-shell";
-import { Button } from "@/components/ui/button";
-import { activeCompany, companyBuys, useIdentity } from "@/hooks/use-identity";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppShell } from "@/components/app-shell";
+import { DashboardGrid } from "@/components/navigation/dashboard-grid";
+import { companyBuys, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/acquisti/")({
-  head: () => ({
-    meta: [
-      { title: "Acquisti — Trevi Fruit" },
-      {
-        name: "description",
-        content: "Area acquisti: fornitori collegati, cataloghi, ordini di acquisto e consegne ricevute.",
-      },
-      { property: "og:title", content: "Acquisti — Trevi Fruit" },
-      {
-        property: "og:description",
-        content: "Area acquisti: fornitori collegati, cataloghi, ordini di acquisto e consegne ricevute.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
+  head: () => ({ meta: [{ title: "Acquisti — Trevi Fruit" }, { name: "description", content: "Funzioni operative per acquisti, fornitori, inventario e ordini." }, { property: "og:title", content: "Acquisti — Trevi Fruit" }, { property: "og:description", content: "Funzioni operative per acquisti, fornitori, inventario e ordini." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: Acquisti,
 });
-
-const RELATION_LABEL: Record<string, string> = {
-  in_attesa: "In attesa di approvazione",
-  attivo: "Attivo",
-  sospeso: "Sospeso",
-  revocato: "Revocato",
-  rifiutato: "Rifiutato",
-};
-
-function Acquisti() {
-  const { data: identity, isLoading } = useIdentity();
-  const company = activeCompany(identity);
-  const relations = identity?.relations.filter((r) => r.buyerCompanyId === company?.companyId) ?? [];
-
-  if (!isLoading && !companyBuys(identity)) {
-    return (
-      <AppShell title="Acquisti" description="Area riservata alle aziende che acquistano.">
-        <p className="text-sm text-muted-foreground">
-          Il profilo di acquisto non è attivo per la tua azienda. Un amministratore può attivarlo
-          dalla pagina Azienda.
-        </p>
-      </AppShell>
-    );
-  }
-
-  return (
-    <AppShell title="Acquisti" description="I tuoi fornitori e i tuoi ordini di acquisto.">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="font-display text-base font-semibold">Fornitori collegati</h2>
-          {isLoading ? (
-            <p className="mt-2 text-sm text-muted-foreground">Caricamento…</p>
-          ) : relations.length ? (
-            <ul className="mt-3 space-y-2 text-sm">
-              {relations.map((r) => (
-                <li key={r.id}>
-                  <span className="font-medium">{r.sellerCompanyName ?? "Fornitore"}</span>
-                  <span className="block text-muted-foreground">
-                    {RELATION_LABEL[r.status] ?? r.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-sm text-muted-foreground">
-              Nessun fornitore collegato.{" "}
-              <Link to="/acquisti/fornitori" className="underline underline-offset-4">
-                Scegli un fornitore
-              </Link>
-              .
-            </p>
-          )}
-        </section>
-
-        <section className="space-y-3 rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="font-display text-base font-semibold">Catalogo dei fornitori</h2>
-          <p className="text-sm text-muted-foreground">
-            Sfoglia i prodotti in vetrina dei fornitori collegati, con foto, unità di misura e
-            prezzi quando il fornitore ti ha assegnato un listino.
-          </p>
-          <Button asChild size="sm">
-            <Link to="/acquisti/catalogo">Apri il catalogo</Link>
-          </Button>
-        </section>
-
-        <PlaceholderCard
-          title="In arrivo"
-          items={[
-            "Lista della spesa per fornitore",
-            "Inventario con quantità contate e riordino suggerito",
-            "Ordini di acquisto e loro stato",
-            "Consegne ricevute",
-          ]}
-        />
-      </div>
-    </AppShell>
-  );
-}
+function Acquisti() { const { data: identity, isLoading } = useIdentity(); if (!isLoading && !companyBuys(identity)) return <AppShell title="Acquisti"><p className="text-sm text-muted-foreground">Il profilo di acquisto non è attivo per la tua azienda.</p></AppShell>; return <AppShell title="Acquisti" description="Scegli la funzione con cui vuoi lavorare."><DashboardGrid dashboard="acquisti" /></AppShell>; }

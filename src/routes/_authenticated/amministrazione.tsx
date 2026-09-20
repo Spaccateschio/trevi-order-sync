@@ -18,6 +18,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/amministrazione")({
+  validateSearch: (search: Record<string, unknown>): { sezione?: "magazzino" } =>
+    search["sezione"] === "magazzino" ? { sezione: "magazzino" } : {},
   head: () => ({
     meta: [
       { title: "Azienda — Trevi Fruit" },
@@ -38,6 +40,7 @@ export const Route = createFileRoute("/_authenticated/amministrazione")({
 });
 
 function Amministrazione() {
+  const { sezione } = Route.useSearch();
   const { data: identity } = useIdentity();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -73,7 +76,7 @@ function Amministrazione() {
       description="Profilo di utilizzo, persone e rapporti commerciali della tua azienda."
     >
       {allowed && company ? (
-        <Tabs defaultValue="generali" className="space-y-4">
+        <Tabs defaultValue={sezione ?? "generali"} className="space-y-4">
           <TabsList className="max-w-full justify-start overflow-x-auto">
             <TabsTrigger value="generali">Dati generali</TabsTrigger>
             <TabsTrigger value="magazzino">Magazzino</TabsTrigger>

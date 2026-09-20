@@ -92,10 +92,12 @@ export function InventoryCountPanel({
   companyId,
   archiveId,
   isAdmin,
+  initialTab,
 }: {
   companyId: string;
   archiveId: string | null;
   isAdmin: boolean;
+  initialTab?: "fabbisogno";
 }) {
   const queryClient = useQueryClient();
   const start = useServerFn(startGeneralInventory);
@@ -110,7 +112,7 @@ export function InventoryCountPanel({
   const activeLocations = locations.filter((location) => location.status === "attivo");
   const defaultLocation = activeLocations.find((location) => location.is_default) ?? activeLocations[0];
 
-  const [tab, setTab] = useState("conteggio");
+  const [tab, setTab] = useState(initialTab ?? "conteggio");
   const [selectingLocation, setSelectingLocation] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [productView, setProductView] = useState<ProductView>("favorites");

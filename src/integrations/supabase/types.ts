@@ -3954,6 +3954,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_navigation_preferences: {
+        Row: {
+          company_id: string
+          created_at: string
+          dashboard_items: Json
+          id: string
+          sidebar_items: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          dashboard_items?: Json
+          id?: string
+          sidebar_items?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          dashboard_items?: Json
+          id?: string
+          sidebar_items?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_navigation_preferences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

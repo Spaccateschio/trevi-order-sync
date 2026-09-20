@@ -1,0 +1,5 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { AppShell } from "@/components/app-shell";
+import { DashboardGrid } from "@/components/navigation/dashboard-grid";
+export const Route = createFileRoute("/_authenticated/impostazioni")({ head: () => ({ meta: [{ title: "Impostazioni — Trevi Fruit" }, { name: "description", content: "Configurazioni personali, aziendali e tecniche di Trevi Fruit." }, { property: "og:title", content: "Impostazioni — Trevi Fruit" }, { property: "og:description", content: "Configurazioni personali, aziendali e tecniche di Trevi Fruit." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }), component: Impostazioni });
+function Impostazioni() { return <AppShell title="Impostazioni" description="Configura il tuo spazio di lavoro e l’azienda."><DashboardGrid dashboard="impostazioni" /></AppShell>; }
