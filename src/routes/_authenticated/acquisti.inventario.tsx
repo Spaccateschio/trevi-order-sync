@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { activeCompany, companyBuys, hasRole, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/acquisti/inventario")({
+  validateSearch: (search: Record<string, unknown>): { sezione?: "fabbisogno" } =>
+    search["sezione"] === "fabbisogno" ? { sezione: "fabbisogno" } : {},
   head: () => ({
     meta: [
       { title: "Inventario — Trevi Fruit" },
@@ -30,6 +32,7 @@ export const Route = createFileRoute("/_authenticated/acquisti/inventario")({
 });
 
 function Inventario() {
+  const { sezione } = Route.useSearch();
   const { data: identity, isLoading } = useIdentity();
   const company = activeCompany(identity);
   const isAdmin = hasRole(identity, "amministratore");
@@ -69,6 +72,7 @@ function Inventario() {
           companyId={company.companyId}
           archiveId={archiveQuery.data?.id ?? null}
           isAdmin={isAdmin}
+          {...(sezione ? { initialTab: sezione } : {})}
         />
       ) : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}

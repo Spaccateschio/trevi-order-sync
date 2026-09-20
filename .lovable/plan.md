@@ -133,7 +133,9 @@ Creare una tabella dedicata `user_navigation_preferences`, con una riga per uten
 - unicità `(user_id, company_id)`;
 - accesso consentito soltanto al proprietario, all'interno della propria azienda attiva.
 
-La tabella avrà permessi espliciti e protezione per `company_id = get_user_company_id()` insieme a `auth.uid() = user_id`. Non saranno create funzioni con privilegi elevati: lettura, salvataggio e ripristino possono avvenire con l'utente autenticato e le regole del database.
+La tabella avrà permessi espliciti e protezione per `public.is_company_member(company_id)` insieme a `auth.uid() = user_id`. Non saranno create nuove funzioni con privilegi elevati: lettura, salvataggio e ripristino avvengono con l'utente autenticato e le regole del database.
+
+Poiché oggi l'app usa automaticamente la prima azienda associata, viene aggiunto anche un selettore dell'azienda attiva. La scelta è persistente nel browser e riordina il contesto dell'identità già usato dall'app; cambiando azienda vengono ricaricati identità, dati e preferenze della coppia utente+azienda selezionata.
 
 ### Comportamento
 
