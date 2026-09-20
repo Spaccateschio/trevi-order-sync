@@ -150,9 +150,24 @@ export function MockInventoryPanel() {
       toast.error("Inserisci una quantità valida");
       return;
     }
+    if (value !== product.calculated) {
+      setPending({ product, value });
+      setPendingReason(notes[product.id] ?? "");
+      return;
+    }
     setConfirmed((current) => ({ ...current, [product.id]: value }));
     toast.success(`${product.name}: quantità confermata nella demo`);
   };
+
+  const savePendingDifference = () => {
+    if (!pending) return;
+    setConfirmed((current) => ({ ...current, [pending.product.id]: pending.value }));
+    setNotes((current) => ({ ...current, [pending.product.id]: pendingReason.trim() }));
+    toast.success(`${pending.product.name}: differenza confermata con motivazione (demo)`);
+    setPending(null);
+    setPendingReason("");
+  };
+
 
   const confirmAllUnchanged = () => {
     const nextDrafts = { ...drafts };
