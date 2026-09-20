@@ -3988,6 +3988,7 @@ export type Database = {
           product_id: string
         }[]
       }
+      can_declare_on_order: { Args: { _order_id: string }; Returns: boolean }
       can_read_company_address: {
         Args: { _company_id: string; _visible: boolean }
         Returns: boolean
@@ -4237,6 +4238,7 @@ export type Database = {
       }
       is_company_admin: { Args: { _company_id: string }; Returns: boolean }
       is_company_member: { Args: { _company_id: string }; Returns: boolean }
+      is_order_supplier: { Args: { _order_id: string }; Returns: boolean }
       link_customer_record_to_relation: {
         Args: { _customer_record_id: string; _relation_id: string }
         Returns: undefined
@@ -4491,6 +4493,7 @@ export type Database = {
         }
         Returns: string
       }
+      order_supplier_company: { Args: { _order_id: string }; Returns: string }
       owns_customer_record: {
         Args: { _customer_record_id: string }
         Returns: boolean
