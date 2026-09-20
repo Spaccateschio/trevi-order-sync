@@ -6,7 +6,7 @@
 - [x] Mockup Inventario solo frontend: impostazioni zone una tantum, vista operativa e conteggio rapido responsive con dati fittizi e stato locale
 
 ## Prossimi passi
-- [ ] Riorganizzare la navigazione in Panoramica → Acquisti/Vendite/B2B/Impostazioni e aggiungere preferenze persistenti per utente su visibilità e ordine di menu e dashboard; in attesa di approvazione della struttura dati dedicata
+- [ ] Riorganizzare la navigazione in Panoramica → Acquisti/Vendite/B2B/Impostazioni e aggiungere preferenze persistenti per utente e azienda su visibilità e ordine di menu e dashboard; migrazione approvata, includere i test incrociati menu/dashboard, persistenza, cambio azienda, ripristino e divieto Danea ai non amministratori
 - [x] Mockup KDS Inventario solo frontend: tabellone generale fisso indipendente dai filtri, avanzamenti locali, navigazione visuale touch e completamento simulato
 - [x] Compattare il mockup KDS su desktop e smartphone e mostrare foto prodotto esclusivamente dimostrative, senza nuova logica immagini
 - [ ] Test reale con 2-3 fornitori e prodotti in combinazioni diverse
