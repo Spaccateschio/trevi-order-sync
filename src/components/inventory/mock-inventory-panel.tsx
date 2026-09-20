@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CircleAlert,
   ClipboardCheck,
+  Delete,
   LayoutGrid,
   MapPin,
   PackageSearch,
@@ -124,7 +125,7 @@ export function MockInventoryPanel() {
 
   const beginNewCount = () => {
     setSelectedLocationId(defaultLocation?.id ?? "");
-    setDrafts(INITIAL_COUNTS);
+    setDrafts({});
     setConfirmed({});
     setAllMockCompleted(false);
     setProductView("favorites");
