@@ -35,6 +35,7 @@ export type ModuleKey =
   | "acquisti.panoramica"
   | "acquisti.catalogo"
   | "acquisti.lista-spesa"
+  | "acquisti.ordini"
   | "acquisti.inventario"
   | "acquisti.fornitori"
   | "vendite.panoramica"
