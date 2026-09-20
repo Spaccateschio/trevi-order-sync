@@ -60,18 +60,15 @@ const SUBCATEGORY_PROGRESS: Record<string, { completed: number; total: number }>
   Radici: { completed: 12, total: 25 },
 };
 
-const INITIAL_COUNTS: Record<string, string> = {
-  mele: "118,50",
-  "pomodori-grappolo": "82,50",
-  "pomodori-datterino": "28,00",
-  lattuga: "42",
-  carote: "60,00",
-  zucchine: "33,50",
-};
-
 function parseQuantity(value: string) {
   const parsed = Number(value.trim().replace(",", "."));
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function addToQuantity(current: string, increment: number) {
+  const base = parseQuantity(current) ?? 0;
+  const sum = Math.round((base + increment) * 100) / 100;
+  return String(sum).replace(".", ",");
 }
 
 function formatQuantity(value: number, unit: string) {
@@ -94,7 +91,7 @@ export function MockInventoryPanel() {
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, string>>(INITIAL_COUNTS);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState<Record<string, number>>({});
   const [allMockCompleted, setAllMockCompleted] = useState(false);
 
