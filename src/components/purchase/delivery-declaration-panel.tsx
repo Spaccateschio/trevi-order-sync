@@ -110,7 +110,7 @@ export function DeliveryDeclarationPanel({
           declaredQuantity: quantity,
           declaredWeight: null,
           declaredProducer: null,
-          declaredProducerLot: lots[row.id]?.trim() ? lots[row.id].trim() : null,
+          declaredProducerLot: lots[row.id]?.trim() || null,
           declaredExpiry: null,
           lineNotes: null,
           missingReason: quantity === 0 ? "Non disponibile" : null,
