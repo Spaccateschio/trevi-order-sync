@@ -100,6 +100,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: ShoppingCart,
   },
   {
+    key: "acquisti.ordini",
+    area: "acquisti",
+    to: "/acquisti/ordini",
+    label: "Ordini fornitore",
+    short: "Ordini",
+    icon: ClipboardList,
+  },
+  {
     key: "acquisti.inventario",
     area: "acquisti",
     to: "/acquisti/inventario",
