@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import { AppShell, PlaceholderCard } from "@/components/app-shell";
 import { AddressManager } from "@/components/companies/address-manager";
 import { UnitCatalogue } from "@/components/company/unit-catalogue";
+import { MockCompanyLocations } from "@/components/inventory/mock-company-locations";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   activeCompany,
   hasRole,
@@ -71,62 +73,85 @@ function Amministrazione() {
       description="Profilo di utilizzo, persone e rapporti commerciali della tua azienda."
     >
       {allowed && company ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:col-span-2">
-            <h2 className="font-display text-base font-semibold">Come usi Trevi Fruit</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {company.companyName} — profilo attuale: <strong>{profileLabel}</strong>
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Puoi attivare anche l'altra modalità in qualsiasi momento: la tua azienda resta la
-              stessa e nessun dato viene perso.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              {buys ? null : (
-                <Button onClick={() => handleEnable("buys")} disabled={busy}>
-                  Attiva anche COMPRO
-                </Button>
-              )}
-              {sells ? null : (
-                <Button onClick={() => handleEnable("sells")} disabled={busy}>
-                  Attiva anche VENDO
-                </Button>
-              )}
-              {buys && sells ? (
-                <p className="text-sm text-muted-foreground">
-                  Entrambe le modalità sono già attive.
+        <Tabs defaultValue="generali" className="space-y-4">
+          <TabsList className="max-w-full justify-start overflow-x-auto">
+            <TabsTrigger value="generali">Dati generali</TabsTrigger>
+            <TabsTrigger value="magazzino">Magazzino</TabsTrigger>
+            <TabsTrigger value="preferenze">Preferenze</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="generali">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:col-span-2">
+                <h2 className="font-display text-base font-semibold">Come usi Trevi Fruit</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {company.companyName} — profilo attuale: <strong>{profileLabel}</strong>
                 </p>
-              ) : null}
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Puoi attivare anche l'altra modalità in qualsiasi momento: la tua azienda resta la
+                  stessa e nessun dato viene perso.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {buys ? null : (
+                    <Button onClick={() => handleEnable("buys")} disabled={busy}>
+                      Attiva anche COMPRO
+                    </Button>
+                  )}
+                  {sells ? null : (
+                    <Button onClick={() => handleEnable("sells")} disabled={busy}>
+                      Attiva anche VENDO
+                    </Button>
+                  )}
+                  {buys && sells ? (
+                    <p className="text-sm text-muted-foreground">
+                      Entrambe le modalità sono già attive.
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:col-span-2">
+                <h2 className="font-display text-base font-semibold">Indirizzi dell'azienda</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Puoi avere più sedi, più punti di consegna e più punti di ritiro. Ogni indirizzo è
+                  visibile alle aziende collegate solo se lo attivi tu.
+                </p>
+                <div className="mt-4">
+                  <AddressManager owner={{ companyId: company.companyId }} isAdmin={allowed} />
+                </div>
+              </section>
+
+              {sells ? <UnitCatalogue companyId={company.companyId} /> : null}
+
+              <PlaceholderCard
+                title="In arrivo nelle prossime fasi"
+                items={[
+                  "Dati e impostazioni dell'azienda",
+                  "Persone dell'azienda e inviti",
+                  "Ruoli e permessi personalizzati",
+                  "Approvazione dei rapporti commerciali",
+                ]}
+              />
+              <PlaceholderCard
+                title="Non ancora sviluppato"
+                items={["Prodotti e listini di vendita", "Ordini", "Trasportatori"]}
+              />
             </div>
-          </section>
+          </TabsContent>
 
-          <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:col-span-2">
-            <h2 className="font-display text-base font-semibold">Indirizzi dell'azienda</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Puoi avere più sedi, più punti di consegna e più punti di ritiro. Ogni indirizzo è
-              visibile alle aziende collegate solo se lo attivi tu.
-            </p>
-            <div className="mt-4">
-              <AddressManager owner={{ companyId: company.companyId }} isAdmin={allowed} />
-            </div>
-          </section>
+          <TabsContent value="magazzino">
+            <MockCompanyLocations />
+          </TabsContent>
 
-          {sells ? <UnitCatalogue companyId={company.companyId} /> : null}
-
-          <PlaceholderCard
-            title="In arrivo nelle prossime fasi"
-            items={[
-              "Dati e impostazioni dell'azienda",
-              "Persone dell'azienda e inviti",
-              "Ruoli e permessi personalizzati",
-              "Approvazione dei rapporti commerciali",
-            ]}
-          />
-          <PlaceholderCard
-            title="Non ancora sviluppato"
-            items={["Prodotti e listini di vendita", "Ordini", "Trasportatori"]}
-          />
-        </div>
+          <TabsContent value="preferenze">
+            <section className="rounded-lg border border-border bg-card p-5 shadow-sm">
+              <h2 className="font-display text-base font-semibold">Preferenze aziendali</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Questa sezione resta invariata. Il mockup riguarda esclusivamente la configurazione delle zone di magazzino.
+              </p>
+            </section>
+          </TabsContent>
+        </Tabs>
       ) : (
         <p className="text-sm text-muted-foreground">
           Questa area è riservata agli amministratori dell'azienda.

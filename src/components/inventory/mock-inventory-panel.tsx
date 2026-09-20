@@ -7,7 +7,6 @@ import {
   Grid2X2,
   List,
   MapPin,
-  Package,
   Search,
   Star,
   Warehouse,
