@@ -4027,6 +4027,10 @@ export type Database = {
           suggested: number
         }[]
       }
+      confirm_goods_receipt: {
+        Args: { _actor_user_id?: string; _receipt_id: string }
+        Returns: string
+      }
       create_customer_invitation: {
         Args: {
           _customer_record_id: string
@@ -4052,6 +4056,16 @@ export type Database = {
           invite_code: string
           token: string
         }[]
+      }
+      create_order_share_link: {
+        Args: {
+          _actor_user_id?: string
+          _expires_at: string
+          _order_id: string
+          _recipient_label?: string
+          _token_hash: string
+        }
+        Returns: string
       }
       create_purchase_orders_from_list: {
         Args: {
@@ -4120,6 +4134,7 @@ export type Database = {
         Args: { _actor_user_id?: string; _company_id: string }
         Returns: string
       }
+      external_order_snapshot: { Args: { _token_hash: string }; Returns: Json }
       generate_invite_code: { Args: never; Returns: string }
       goods_receipt_history: {
         Args: { _product_id: string }
@@ -4453,6 +4468,19 @@ export type Database = {
         Returns: string
       }
       normalize_vat: { Args: { _value: string }; Returns: string }
+      open_goods_receipt: {
+        Args: { _actor_user_id?: string; _delivery_id: string }
+        Returns: string
+      }
+      open_lot_reconciliation: {
+        Args: {
+          _actor_user_id?: string
+          _location_id: string
+          _notes?: string
+          _product_id: string
+        }
+        Returns: string
+      }
       open_purchase_delivery: {
         Args: {
           _actor_user_id?: string
@@ -4642,6 +4670,21 @@ export type Database = {
         Args: { _company_id: string }
         Returns: number
       }
+      resolve_lot_reconciliation: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _notes?: string
+          _quantity?: number
+          _reconciliation_id: string
+          _stock_lot_id?: string
+        }
+        Returns: string
+      }
+      resolve_order_share_token: {
+        Args: { _token_hash: string }
+        Returns: string
+      }
       resolve_purchase_delivery_dispute: {
         Args: {
           _accepted_quantity?: number
@@ -4659,6 +4702,10 @@ export type Database = {
       revoke_company_relation: {
         Args: { _relation_id: string }
         Returns: undefined
+      }
+      revoke_order_share_link: {
+        Args: { _actor_user_id?: string; _link_id: string }
+        Returns: string
       }
       search_companies: {
         Args: { _query: string; _role: string }
@@ -4680,6 +4727,19 @@ export type Database = {
       set_default_price_list: {
         Args: { _company_id: string; _list_number: number }
         Returns: undefined
+      }
+      set_goods_receipt_item: {
+        Args: {
+          _actor_user_id?: string
+          _expiry_date?: string
+          _notes?: string
+          _producer_lot_code?: string
+          _producer_name?: string
+          _receipt_item_id: string
+          _unit_cost?: number
+          _verified_quantity?: number
+        }
+        Returns: string
       }
       set_preferred_product_supplier: {
         Args: {
