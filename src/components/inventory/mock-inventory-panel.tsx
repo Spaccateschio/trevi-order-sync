@@ -284,7 +284,7 @@ function PhysicalCount({ location, products, productView, search, drafts, confir
     <section className="space-y-3">
       <div className={cn("sticky top-0 z-20 rounded-md border p-4 shadow-sm sm:p-5", allMockCompleted ? "border-success/40 bg-success/10" : "border-primary/20 bg-card")}>
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-          <div className="min-w-0"><p className="text-xs font-semibold uppercase text-muted-foreground">Inventario generale</p><h2 className="truncate font-display text-lg font-bold uppercase sm:text-xl">Inventario Magazzino Mandrione</h2></div>
+          <div className="min-w-0"><p className="text-xs font-semibold uppercase text-muted-foreground">Inventario generale</p><h2 className="font-display text-sm font-bold uppercase leading-tight sm:text-xl">Inventario Magazzino Mandrione</h2></div>
           <div className="shrink-0 text-right"><p className="text-xl font-bold sm:text-2xl">{generalCompleted} / {INVENTORY_TOTAL}</p><p className="text-xs font-semibold text-muted-foreground">{percentage}% completato</p></div>
         </div>
         <Progress value={percentage} className="mt-3 h-3" />
@@ -349,7 +349,7 @@ function ProductCard({ product, value, confirmed, onChange, onConfirm }: { produ
       <div className="p-3">
         <div className="flex items-end justify-between gap-3"><div><p className="text-[11px] text-muted-foreground">Giacenza calcolata</p><p className="text-lg font-bold">{formatQuantity(product.calculated, product.unit)} <small className="text-xs font-normal text-muted-foreground">{product.unit}</small></p></div><div className="text-right"><p className="text-[11px] text-muted-foreground">Differenza</p><p className={cn("text-lg font-bold", difference !== null && difference < 0 && "text-destructive", difference !== null && difference > 0 && "text-success")}>{difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, product.unit)}`} <small className="text-xs font-normal">{product.unit}</small></p></div></div>
         <label className="mt-3 block text-xs font-semibold">Quantità fisica
-          <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] gap-2"><Input className="h-14 text-right text-xl font-bold" inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onConfirm(); }} aria-label={`Quantità fisica ${product.name}`} /><Button className="h-14 px-5" variant={confirmed !== undefined ? "secondary" : "default"} onClick={onConfirm}><Check className="size-5" /><span className="hidden min-[420px]:inline">Conferma</span></Button></div>
+          <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] gap-2"><Input className="h-14 text-right text-xl font-bold" inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onConfirm(); }} aria-label={`Quantità fisica ${product.name}`} /><Button className="h-14 px-3 text-xs sm:px-5 sm:text-sm" variant={confirmed !== undefined ? "secondary" : "default"} onClick={onConfirm}><Check className="size-5" /><span>Conferma</span></Button></div>
         </label>
       </div>
     </article>
