@@ -6,13 +6,14 @@ Trasformare esclusivamente il mockup frontend del Conteggio in una postazione op
 ## Esperienza da realizzare
 1. **Avanzamento sempre visibile**
    - Intestazione “Inventario Magazzino Mandrione”.
-   - Conteggio completati/totale, percentuale, barra evidente e prodotti ancora da controllare.
+   - Tabellone generale fisso con completati/totale, percentuale, barra evidente e prodotti ancora da controllare; il totale generale non cambia con zone, categorie, sottocategorie, preferiti o ricerca.
+   - Avanzamento separato della selezione corrente, mostrato sotto il totale generale.
    - Riepilogo compatto: confermati senza differenze, con differenze, mancanti.
    - Aggiornamento immediato a ogni conferma e stato finale chiaramente completato.
 
 2. **Navigazione visuale touch**
    - Barra permanente con cinque azioni grandi: Zone, Categorie, Sottocategorie, Prodotti, Cerca.
-   - Pannelli visuali con pulsanti/card per zone, categorie e sottocategorie, ciascuno con avanzamento completati/totale.
+   - Pannelli visuali con pulsanti/card per zone, categorie e sottocategorie, ciascuno con avanzamento completati/totale; un click entra direttamente nel livello successivo.
    - Percorso cliccabile sempre visibile, per tornare rapidamente ai livelli precedenti.
    - Ricerca aperta dall’azione Cerca e indipendente dai filtri visuali.
 
