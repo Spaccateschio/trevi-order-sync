@@ -62,6 +62,7 @@ const SUBCATEGORY_PROGRESS: Record<string, { completed: number; total: number }>
 };
 
 function parseQuantity(value: string) {
+  if (!value.trim()) return null;
   const parsed = Number(value.trim().replace(",", "."));
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
