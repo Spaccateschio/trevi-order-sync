@@ -245,6 +245,8 @@ diverso dalle righe dell'ordine viene restituito.
 10. Consegne parziali 6 + 4 su 10 casse, con due carichi distinti.
 11. Contestazione di una sola riga; risoluzione accettata/rettificata/rifiutata con storico completo.
 12. Articolo aggiunto dal fornitore: etichettato, accettabile o contestabile, mai nell'ordine originale.
-13. Fornitore non registrato: flusso completo compilato dall'operatore.
-14. RLS: il fornitore B2B non accede a righe ordine, carichi, lotti, movimenti.
-15. Nessun record di storico cancellato o sovrascritto in tutto il flusso.
+13. Fornitore completamente esterno: flusso compilato dall'operatore.
+14. Dichiarato 20 kg, verificato 19,6 kg → giacenza +19,6, dichiarato conservato.
+15. Link esterno: token valido consente solo la dichiarazione di quell'ordine; token scaduto o revocato rifiutato.
+16. RLS: il fornitore B2B non accede a righe ordine, carichi, lotti, movimenti.
+17. Nessun record di storico cancellato o sovrascritto in tutto il flusso.
