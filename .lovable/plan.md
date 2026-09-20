@@ -1,143 +1,202 @@
-# FASE D — Ordini fornitore, dichiarazione di consegna, confronto e ricezione
+# FASE D — Ordine fornitore, consegna dichiarata, carico merce e provenienza
 
-Nessuna implementazione in questa fase: solo piano tecnico.
-Fuori scope: notifiche, previsione automatica, ordini cliente, fatturazione.
+Solo piano tecnico: nessuna implementazione in questa fase.
+Fuori scope: trasportatori, consegne ai clienti, finestra di 30 minuti,
+pagamenti, notifiche, previsione automatica.
 
-## Principio guida
+## Tre concetti separati
 
-Il nostro ordine è congelato. La consegna è una dichiarazione separata.
-Il confronto non riscrive mai l'ordine. Ogni decisione è storicizzata
-(chi, quando, come) e nulla viene cancellato.
+- **Prodotto**: cosa trattiamo (identità = `product_id` + `archive_id`, mai la descrizione).
+- **Giacenza**: quanto ne abbiamo.
+- **Carico / lotto / provenienza**: da quale arrivo, fornitore e condizioni deriva quella quantità.
 
 ```text
-Lista Spesa confermata
-   -> Ordine fornitore (righe immutabili)
-      -> Consegna 1 (dichiarata) -> confronto -> finestra 30' -> accettata/contestata
-      -> Consegna 2 (residuo)    -> confronto -> finestra 30' -> ...
-         -> quantità accettate -> movimenti di magazzino (append-only)
+Ordine fornitore (destinazione = una zona)   -> nessun movimento
+  -> Consegna dichiarata (fornitore o operatore) -> nessun movimento
+     -> Confronto ordinato/dichiarato -> accettazione o contestazione per riga
+        -> CARICO MERCE (unico evento che muove la giacenza)
+           -> lotto interno + movimento di magazzino append-only
 ```
 
-## Tabelle proposte
+## 1. Ordine fornitore e destinazione
 
-**purchase_orders** — ordine verso un fornitore
-company_id, archive_id, supplier_record_id, relation_id (opzionale, B2B),
-shopping_list_id di origine, numero interno, stato, note generali,
-data invio, autore, timestamp.
+**purchase_orders**: company_id, archive_id, supplier_record_id,
+relation_id (se collegato B2B), shopping_list_id di origine, numero interno,
+stato, `destination_location_id` (zona di ricezione, obbligatoria, default la
+zona predefinita), `destination_address_id` (facoltativa, sede fisica),
+nota generale, inviato_at, autore, timestamp.
 
-**purchase_order_items** — righe immutabili
-order_id, product_id, product_supplier_link_id, quantità ordinata,
-unit_id + unit_code (U.M. ordine), quantità in U.M. acquisto,
-conversion_factor usato, snapshot costo, note interne.
-Dopo l'invio: nessun UPDATE sulle quantità (regola applicata da trigger).
+Una destinazione per ordine: nessuna ripartizione delle righe su più zone.
+Merce necessaria in un'altra sede = altro ordine, o in futuro un trasferimento.
 
-**purchase_deliveries** — dichiarazione di consegna (una per consegna parziale)
-order_id, progressivo, origine (`fornitore_b2b` | `operatore_interno`),
-stato, nota generale, dichiarata_da, dichiarata_at,
-finestra_minuti (copia del parametro al momento dell'invio),
-scade_at, esito_accettazione (`manuale` | `decorrenza`),
-accettata_da, accettata_at.
+**purchase_order_items**: order_id, product_id, product_supplier_link_id,
+quantità ordinata, unit_id/unit_code, quantità in U.M. acquisto,
+conversion_factor usato, snapshot costo, nota interna.
+Dopo l'invio le quantità sono congelate (trigger che blocca l'UPDATE).
 
-**purchase_delivery_items** — righe consegna
-delivery_id, order_item_id (NULL se aggiunta dal fornitore),
+## 2. Ordine ≠ giacenza
+
+Regola tassativa: creazione, invio, dichiarazione del fornitore e arrivo
+fisico **non** generano alcun movimento. Solo il carico merce lo fa.
+Ordinati 100 kg, arrivati 92, caricati 92 → un solo movimento di +92 kg.
+
+## 3. Consegna dichiarata e confronto
+
+**purchase_deliveries**: order_id, progressivo, origine
+(`fornitore_b2b` | `operatore_interno`), stato, nota generale,
+dichiarata_da/at, accettata_da/at. Nessuna scadenza automatica in questa fase:
+la consegna resta aperta finché l'operatore la accetta, contesta o carica.
+Consegne parziali: più consegne per lo stesso ordine, ognuna con il proprio confronto.
+
+**purchase_delivery_items**: delivery_id, order_item_id (NULL se fuori ordine),
 product_id, tipo riga (`ordinata` | `aggiunta_fornitore` | `sostituzione`),
 sostituisce_order_item_id, quantità dichiarata, unit_id/unit_code,
-quantità equivalente in U.M. ordine, nota riga, motivo mancata consegna,
-stato riga, quantità accettata (definitiva), decisa_da, decisa_at.
+equivalente in U.M. ordine, nota riga, motivo mancata consegna,
+stato riga, quantità accettata, decisa_da/at.
 
-**purchase_delivery_line_events** — versionamento append-only
-delivery_item_id, tipo evento (`dichiarata`, `modificata`, `contestata`,
-`rettificata`, `accettata`, `rifiutata`), quantità precedente/nuova,
-motivo, nota, attore, created_at. Nessun DELETE/UPDATE.
+**purchase_delivery_line_events** (append-only): evento
+(`dichiarata`, `modificata`, `contestata`, `rettificata`, `accettata`, `rifiutata`),
+quantità precedente/nuova, motivo, nota, attore, created_at. Nessun UPDATE/DELETE.
 
-**purchase_delivery_disputes** — contestazione per riga
-delivery_item_id, motivo (enum: `quantita_inferiore`, `quantita_superiore`,
-`non_consegnato`, `non_ordinato`, `qualita`, `pezzatura`, `altro`),
-nota, stato (`aperta` | `risolta_accettata` | `risolta_rettificata` |
-`risolta_rifiutata`), aperta_da/at, risolta_da/at.
+**purchase_delivery_disputes**: riga, motivo (enum: quantità inferiore/superiore,
+non consegnato, non ordinato, qualità, pezzatura, altro), nota, stato
+(`aperta` | `risolta_accettata` | `risolta_rettificata` | `risolta_rifiutata`),
+aperta_da/at, risolta_da/at.
 
-**inventory_movements** — registro append-only (creato qui, usato dalla ricezione)
-company_id, archive_id, product_id, location_id, tipo movimento
-(`entrata_acquisto`, e per il futuro `uscita_cliente`, `scarto`, `reso`,
+RPC `delivery_comparison(delivery_id)`: ordinato, già consegnato in precedenza,
+dichiarato ora, differenza, esito (`corretta`, `inferiore`, `superiore`,
+`non_consegnata`, `aggiunta_fornitore`, `sostituzione`), note, stato.
+Differenze e percentuali sono calcolate, non salvate. Le righe aggiunte dal
+fornitore restano etichettate e non entrano mai nell'ordine originale.
+
+Fornitore non registrato: identico modello dati, la parte “consegnato” la
+compila l'operatore interno durante il controllo merce.
+
+## 4. Carico merce
+
+**goods_receipts**: company_id, archive_id, order_id, delivery_id (facoltativo),
+supplier_record_id, `location_id` (dalla destinazione dell'ordine, modificabile
+solo prima della conferma), numero interno, stato (`bozza` | `confermato`),
+nota, ricevuto_at, operatore, timestamp.
+
+**goods_receipt_items**: receipt_id, delivery_item_id (facoltativo),
+order_item_id (facoltativo), product_id, quantità caricata, unit_id/unit_code,
+quantità in U.M. di giacenza + conversion_factor usato, costo unitario
+snapshot (da Danea o manuale), produttore, `producer_lot_code` (facoltativo),
+scadenza (facoltativa), nota.
+
+La conferma del carico è l'unico punto che crea lotti e movimenti, ed è
+idempotente: un carico già confermato non genera un secondo movimento.
+
+## 5. Lotto interno e provenienza
+
+**stock_lots** — lotto interno Trevi Fruit, sempre generato dal carico, anche
+senza lotto produttore: company_id, archive_id, product_id, location_id,
+goods_receipt_item_id, supplier_record_id, codice interno progressivo,
+`producer_name`, `producer_lot_code` (nullable), costo unitario,
+unit_id/unit_code, quantità iniziale, data ingresso, scadenza, stato
+(`disponibile` | `esaurito` | `bloccato`), note.
+
+Il lotto interno è indipendente dal lotto ufficiale del produttore: quando
+quest'ultimo manca la provenienza resta comunque tracciata (fornitore +
+carico + data). L'identità del prodotto resta `product_id` + `archive_id`:
+due articoli con la stessa descrizione e lo stesso prezzo restano distinti.
+Nessuna aggregazione o deduplicazione per nome, mai.
+
+Più carichi dello stesso prodotto → più lotti. Stesso prodotto da fornitori
+diversi → lotti distinti con costo e provenienza propri.
+
+## 6. Registro movimenti append-only
+
+**inventory_movements**: company_id, archive_id, product_id, location_id,
+`stock_lot_id` (nullable per le rettifiche non riferite a un lotto),
+tipo (`entrata_acquisto`; predisposti `uscita_cliente`, `scarto`, `reso`,
 `trasferimento`, `rettifica`), quantità firmata, unit_id/unit_code,
-riferimento origine (delivery_item_id o altro), autore, created_at.
-Le rettifiche esistenti dell'Inventario non vengono toccate: la ricezione
-aggiunge movimenti, non riscrive i conteggi.
+riferimento origine (tabella + id: carico, futuro ordine cliente, rettifica),
+autore, created_at. Nessun UPDATE né DELETE: una correzione è un nuovo movimento.
 
-**company_settings** — nuovo campo `delivery_check_window_minutes` (default 30).
+## 7. Giacenza e compatibilità con l'Inventario
 
-## Confronto ordinato / consegnato
+La formula attuale (ultimo conteggio valido + rettifiche) viene estesa a:
 
-Vista/RPC `delivery_comparison(delivery_id)` che per ogni riga restituisce:
-prodotto, ordinato, già consegnato in consegne precedenti, dichiarato ora,
-differenza, equivalente in U.M. ordine, esito
-(`corretta`, `inferiore`, `superiore`, `non_consegnata`,
-`aggiunta_fornitore`, `sostituzione`), note, stato riga, contestazione.
-Le percentuali e le differenze sono calcolate, non salvate.
-La riga `aggiunta_fornitore` è sempre etichettata in modo esplicito e non
-entra nell'ordine originale: può solo essere accettata o contestata.
+```text
+giacenza(prodotto, zona) = ultimo conteggio valido
+                         + rettifiche successive al conteggio
+                         + movimenti (carichi/uscite) successivi al conteggio
+```
 
-## Stati e transizioni
+Il conteggio fisico resta il riferimento della realtà: azzera il contributo
+dei movimenti precedenti, non li cancella. I conteggi esistenti e le RPC
+`inventory_location_stock` / `product_stock_overview` / `inventory_requirements`
+vengono estese, non riscritte, e la formula del fabbisogno non cambia.
 
-Ordine: `bozza` → `inviato` → `parzialmente_consegnato` → `consegnato`
-→ `chiuso`; più `annullato` solo da `bozza`/`inviato` senza consegne.
+Letture previste:
+- `product_stock_overview` — totale prodotto e per zona (come oggi, con i movimenti).
+- `product_lot_availability(product_id)` — residuo per lotto: quantità iniziale
+  meno le uscite registrate, con fornitore, costo, data, zona, lotto produttore.
+- `goods_receipt_history(product_id)` — storico dei carichi.
 
-Consegna: `bozza` → `dichiarata` (parte la finestra) →
-`in_contestazione` → `accettata_manuale` | `accettata_decorrenza` |
-`chiusa_con_rifiuti`.
+Esempio: Melanzane = 100 kg totali, con lotto Maria 40 kg e lotto Franco 60 kg.
 
-Riga consegna: `dichiarata` → `accettata` | `contestata` →
-(`rettificata` | `accettata` | `rifiutata`).
+## 8. Prelievo futuro da più provenienze
 
-Accettazione automatica per decorrenza: nessun job schedulato in questa
-fase; la maturazione è calcolata al momento della lettura e consolidata
-da una RPC idempotente `settle_expired_deliveries` invocata all'apertura
-della pagina consegna. Il tempo residuo è sempre visibile lato interfaccia.
+La struttura è già pronta: un futuro ordine cliente di 30 kg genererà due
+movimenti `uscita_cliente` (−10 kg sul lotto Maria, −20 kg sul lotto Franco).
+In questa fase non implementiamo né il prelievo né criteri automatici
+(FIFO/scadenza): predisponiamo solo `stock_lot_id` sui movimenti e il calcolo
+del residuo per lotto.
 
-## RPC e sicurezza
+## 9. Stati e transizioni
 
-Tutte `SECURITY DEFINER`, `search_path = public`, company ricavata
-dall'utente autenticato, mai dal browser.
+- Ordine: `bozza` → `inviato` → `parzialmente_consegnato` → `consegnato` → `chiuso`; `annullato` solo senza consegne.
+- Consegna: `bozza` → `dichiarata` → `in_contestazione` → `accettata` | `chiusa_con_rifiuti`.
+- Riga consegna: `dichiarata` → `accettata` | `contestata` → (`rettificata` | `accettata` | `rifiutata`).
+- Carico: `bozza` → `confermato` (immutabile; correzione = nuovo carico o rettifica).
+- Lotto: `disponibile` → `esaurito` | `bloccato`.
 
-- `create_purchase_order_from_list(list_id, …)` — genera ordini per fornitore
-- `send_purchase_order(order_id)` — congela le righe
-- `open_delivery(order_id, origine)` / `set_delivery_item(…)` /
-  `submit_delivery(delivery_id)` — imposta `dichiarata_at`, finestra e scadenza
-- `accept_delivery(delivery_id)` / `dispute_delivery_item(item_id, motivo, nota)`
-- `resolve_delivery_dispute(dispute_id, esito, quantita_rettificata, nota)`
-- `settle_expired_deliveries()`
-- `receive_delivery(delivery_id, location_id)` — scrive i movimenti solo
-  per le quantità accettate, idempotente
+## 10. RPC e sicurezza
 
-RLS: il compratore vede i propri ordini/consegne; il fornitore collegato
-B2B vede solo gli ordini a lui indirizzati e può scrivere unicamente la
-propria dichiarazione di consegna, mai le righe ordine. Fornitore non
-registrato: nessun accesso, la parte “consegnato” la compila l'operatore
-interno con `origine = operatore_interno`; il modello dati è identico.
+Tutte `SECURITY DEFINER`, `search_path = public`, azienda e ruolo ricavati
+dall'utente autenticato, mai dal browser; scritture solo via server function.
 
-## Interfaccia
+`create_purchase_order_from_list`, `send_purchase_order`,
+`open_delivery` / `set_delivery_item` / `submit_delivery`,
+`accept_delivery` / `dispute_delivery_item` / `resolve_delivery_dispute`,
+`open_goods_receipt` / `set_goods_receipt_item` / `confirm_goods_receipt`
+(crea lotti e movimenti, idempotente), `product_lot_availability`,
+`goods_receipt_history`.
 
-- Elenco ordini con stato, fornitore, consegne, residuo.
-- Scheda ordine: righe ordinate immutabili + elenco consegne.
-- Pagina confronto: tabella compatta su desktop/tablet, schede touch su
-  smartphone, colonne Prodotto | Ordinato | Dichiarato | Differenza | Nota |
-  Stato, badge colore per esito, countdown della finestra, azioni
-  accetta riga / contesta riga / accetta tutto.
-- Compilazione consegna (fornitore B2B o operatore interno) con nota per
-  riga e nota generale, aggiunta articolo fuori ordine.
-- Ricezione: scelta zona e conferma entrata magazzino.
+RLS: ogni azienda vede solo i propri ordini, consegne, carichi, lotti e
+movimenti. Il fornitore collegato B2B vede l'ordine a lui indirizzato e
+scrive unicamente la propria dichiarazione di consegna: mai le righe ordine,
+mai i carichi, mai i lotti, mai i movimenti. Nessun accesso per il fornitore
+non registrato.
 
-## Test previsti
+## 11. Interfaccia
 
-1. Ordine inviato: tentativo di modifica quantità → rifiutato.
-2. Ordinate 3 kg, dichiarate 2 kg con nota → differenza -1, ordine intatto.
-3. Articolo non consegnato (0) con motivazione → ordinato resta 10 kg.
-4. Articolo aggiunto dal fornitore → etichettato, accettabile o contestabile.
-5. Consegna parziale 6 + 4 su 10 casse: due confronti e due finestre.
-6. Finestra: default 30', parametro modificato a 5', countdown coerente.
-7. Scadenza senza contestazione → `accettata_decorrenza`, distinta dalla manuale.
-8. Contestazione di una sola riga, le altre accettate.
-9. Contestazione risolta come accettata / rettificata / rifiutata, con storico completo.
-10. Ricezione: solo le quantità accettate generano movimenti; doppia chiamata non duplica.
-11. Fornitore non registrato: flusso completo compilato dall'operatore.
-12. RLS: il fornitore B2B non può toccare le righe ordine né altre aziende.
-13. Nessuna riga di storico cancellata o sovrascritta in tutto il flusso.
+- Elenco ordini: fornitore, destinazione, stato, consegne, residuo.
+- Scheda ordine: righe congelate + consegne + carichi collegati.
+- Confronto: tabella compatta su desktop/tablet, schede touch su smartphone,
+  colonne Prodotto | Ordinato | Dichiarato | Differenza | Nota | Stato,
+  badge per esito, accetta/contesta per riga.
+- Carico merce: quantità realmente ricevuta, zona, produttore, lotto
+  produttore, scadenza, nota; conferma esplicita.
+- Scheda prodotto: nuovo riquadro Provenienze con lotti disponibili e storico carichi.
+
+## 12. Test previsti
+
+1. Ordine creato, inviato e dichiarato: giacenza invariata in ogni passaggio.
+2. Ordinati 100 kg, dichiarati 92, caricati 92 → un solo movimento +92, ordine intatto.
+3. Carico confermato due volte → nessun movimento duplicato.
+4. Destinazione Magazzino X → il carico entra tutto in X.
+5. Due carichi dello stesso prodotto da fornitori diversi → due lotti, totale corretto.
+6. Lotto produttore assente → provenienza comunque tracciata.
+7. Due prodotti con descrizione e prezzo identici → giacenze e lotti separati.
+8. Conteggio fisico dopo un carico → il conteggio diventa il nuovo riferimento, storico conservato.
+9. Carico dopo il conteggio → giacenza = conteggio + carico.
+10. Consegne parziali 6 + 4 su 10 casse, con due carichi distinti.
+11. Contestazione di una sola riga; risoluzione accettata/rettificata/rifiutata con storico completo.
+12. Articolo aggiunto dal fornitore: etichettato, accettabile o contestabile, mai nell'ordine originale.
+13. Fornitore non registrato: flusso completo compilato dall'operatore.
+14. RLS: il fornitore B2B non accede a righe ordine, carichi, lotti, movimenti.
+15. Nessun record di storico cancellato o sovrascritto in tutto il flusso.
