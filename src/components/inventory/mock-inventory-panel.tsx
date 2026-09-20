@@ -341,16 +341,25 @@ function VisualGrid({ title, items, onSelect }: { title: string; items: { id: st
   );
 }
 
-function ProductCard({ product, value, confirmed, onChange, onConfirm }: { product: MockProduct; value: string; confirmed: number | undefined; onChange: (value: string) => void; onConfirm: () => void }) {
+function ProductCard({ product, value, confirmed, note, onNoteChange, onChange, onConfirm }: { product: MockProduct; value: string; confirmed: number | undefined; note: string; onNoteChange: (value: string) => void; onChange: (value: string) => void; onConfirm: () => void }) {
+  const [noteOpen, setNoteOpen] = useState(false);
   const counted = parseQuantity(value);
   const difference = counted === null ? null : counted - product.calculated;
   const hasDifference = confirmed !== undefined && confirmed !== product.calculated;
+  const confirmedDifference = hasDifference ? confirmed - product.calculated : null;
   return (
     <article className={cn("rounded-md border-2 bg-card p-2", confirmed === undefined && "border-border", confirmed !== undefined && !hasDifference && "border-success/50 bg-success/5", hasDifference && "border-destructive/50 bg-destructive/5")}>
       <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
         <img src={product.image} alt="" loading="lazy" width={512} height={512} className="size-12 rounded-sm border border-border object-cover" />
         <div className="min-w-0"><p className="truncate font-display text-sm font-bold uppercase leading-tight">{product.name}</p><p className="text-[11px] leading-tight text-muted-foreground">Cod. {product.code} · {product.unit}</p></div>
-        <span className={cn("shrink-0 rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none", confirmed === undefined && "bg-muted text-muted-foreground", confirmed !== undefined && !hasDifference && "bg-success/15 text-success", hasDifference && "bg-destructive/10 text-destructive")}>{confirmed === undefined ? "Da controllare" : hasDifference ? "Differenza" : "Confermato"}</span>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className={cn("rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none", confirmed === undefined && "bg-muted text-muted-foreground", confirmed !== undefined && !hasDifference && "bg-success/15 text-success", hasDifference && "bg-destructive/10 text-destructive")}>{confirmed === undefined ? "Da controllare" : hasDifference ? "Differenza" : "Confermato"}</span>
+          {hasDifference ? (
+            <Button type="button" variant="ghost" size="sm" className={cn("h-7 w-7 px-0", note && "text-primary")} tabIndex={-1} aria-label={note ? `Nota ${product.name}` : `Aggiungi nota ${product.name}`} title={note ? "Vedi nota" : "Aggiungi nota"} onClick={() => setNoteOpen((open) => !open)}>
+              <StickyNote className={cn("size-3.5", note && "fill-current")} />
+            </Button>
+          ) : null}
+        </div>
       </div>
       <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
         <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">{formatQuantity(product.calculated, product.unit)}</p></div>
@@ -381,9 +390,32 @@ function ProductCard({ product, value, confirmed, onChange, onConfirm }: { produ
         ))}
         <Button type="button" variant="ghost" size="sm" className="h-8 w-11 shrink-0 justify-center px-0" tabIndex={-1} aria-label={`Azzera quantità ${product.name}`} title="Azzera" onClick={() => onChange("")}><Delete className="size-4" /></Button>
       </div>
+      {noteOpen && hasDifference ? (
+        <div className="mt-1.5 space-y-1.5 rounded-sm border border-border bg-muted/30 p-1.5">
+          <p className="text-[9px] font-bold uppercase leading-none text-muted-foreground">Nota differenza — demo locale</p>
+          <textarea
+            className="min-h-14 w-full resize-none rounded-sm border border-border bg-card p-1.5 text-xs leading-snug outline-none focus-visible:border-primary/50"
+            placeholder="Es. buttata una cassa perché deteriorata"
+            value={note}
+            onChange={(event) => onNoteChange(event.target.value)}
+            maxLength={300}
+            aria-label={`Nota differenza ${product.name}`}
+          />
+          {note.trim() && confirmedDifference !== null ? <AiAnalysisDemo product={product} difference={confirmedDifference} note={note.trim()} /> : null}
+        </div>
+      ) : null}
     </article>
+  );
+}
 
-
+function AiAnalysisDemo({ product, difference, note }: { product: MockProduct; difference: number; note: string }) {
+  return (
+    <div className="rounded-sm border border-primary/30 bg-primary/5 p-1.5">
+      <p className="flex items-center gap-1 text-[9px] font-bold uppercase leading-none text-primary"><Sparkles className="size-3" /> Analisi AI — DEMO</p>
+      <p className="mt-1 text-[10px] leading-snug"><strong>Spiegazione:</strong> la differenza di {difference > 0 ? "+" : ""}{formatQuantity(difference, product.unit)} {product.unit} su {product.name} potrebbe essere collegata a: «{note}».</p>
+      <p className="text-[10px] leading-snug"><strong>Azione proposta:</strong> verificare lo scarto indicato e, se corretto, registrare la causale appropriata.</p>
+      <p className="mt-1 text-[9px] leading-snug text-muted-foreground">Simulazione frontend: l'AI, quando verrà collegata, dovrà esclusivamente analizzare e proporre — non modificherà mai automaticamente quantità, inventario, movimenti o provenienze.</p>
+    </div>
   );
 }
 
