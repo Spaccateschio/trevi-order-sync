@@ -181,6 +181,35 @@ Letture previste:
 
 Esempio: Melanzane = 100 kg totali, con lotto Maria 40 kg e lotto Franco 60 kg.
 
+## 7-bis. Riconciliazione conteggio fisico ↔ lotti
+
+Il conteggio fisico riguarda il prodotto nella zona, non i singoli lotti.
+Quindi può divergere dalla somma delle disponibilità teoriche dei lotti.
+
+```text
+differenza da riconciliare = giacenza fisica − somma disponibilità teoriche dei lotti
+93 − 100 = −7 kg     |     105 − 100 = +5 kg
+```
+
+Regole:
+- La giacenza del prodotto diventa quella del conteggio fisico (93 o 105 kg).
+- I lotti **non** vengono toccati automaticamente: nessuna riduzione
+  proporzionale, nessun FIFO, nessuna scadenza, nessun fornitore o lotto inventato.
+- La differenza resta **non attribuita** e visibile come anomalia finché un
+  operatore non esegue una riconciliazione esplicita.
+
+Modello: RPC `product_lot_reconciliation(product_id, location_id)` che calcola
+giacenza fisica, totale teorico dei lotti e differenza (calcolata, non salvata);
+tabella `stock_lot_reconciliations` predisposta (company_id, archive_id,
+product_id, location_id, session_id/count_id di riferimento, differenza
+rilevata, quantità attribuita, stato `aperta` | `riconciliata` | `ignorata`,
+nota, deciso_da/at). L'eventuale riconciliazione genera movimenti
+`rettifica` con `stock_lot_id`, sempre append-only.
+
+In FASE D implementiamo il calcolo, il badge di anomalia e la tabella; la
+schermata completa di riconciliazione può arrivare dopo.
+
+
 ## 8. Prelievo futuro da più provenienze
 
 La struttura è già pronta: un futuro ordine cliente di 30 kg genererà due
