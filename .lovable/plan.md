@@ -1,112 +1,137 @@
-# Inventario reale: collegare il mockup approvato alla logica esistente
+# Riorganizzazione della navigazione Trevi Fruit
 
-Obiettivo: mantenere esattamente l'interfaccia approvata (tabellone, navigazione visuale, card compatte, pulsanti +1/+3/+5/+10, tastierino, filtri) e sostituire i dati finti con quelli reali, riusando tutto ciò che esiste.
+## Obiettivo
 
-## 1. Cosa esiste già e si collega direttamente
-
-- **Zone di magazzino**: già reali (zone aziendali con nome, codice, predefinita, attiva/disattivata) e già gestibili con la funzione esistente e con la schermata reale `inventory-locations-manager`. La schermata Azienda → Magazzino userà quella, sostituendo la versione finta. Nessuna nuova tabella.
-- **Sessione di conteggio**: già esiste (apertura, rinomina, chiusura, annullamento) con il vincolo di una sola sessione aperta per azienda/zona.
-- **Registrazione conteggio**: già esiste ed è **già idempotente**: un solo conteggio per (sessione, prodotto, zona). Premere Conferma due volte aggiorna la stessa riga, non ne crea due, e conserva la giacenza di riferimento originale. Conserva già prodotto, zona, giacenza di riferimento, quantità contata, differenza, operatore, data/ora, nota.
-- **Giacenza calcolata**: già esiste la formula unica (ultimo conteggio valido + rettifiche e movimenti successivi), anche in versione per tutta la zona in una sola lettura. Non verrà scritta nessuna seconda formula.
-- **Categorie e sottocategorie**: già presenti sui prodotti reali.
-- **Immagini prodotto**: già esiste l'archivio immagini unico con miniature; verranno usate quelle (nessun secondo archivio). Le foto finte restano fuori dall'uso operativo.
-- **Nota operatore sulla differenza**: il conteggio ha già un campo nota, quindi la motivazione inserita nella finestra di conferma può essere salvata subito. Nessun collegamento AI: il blocco Analisi AI resta dichiaratamente dimostrativo.
-- **Riconciliazione con lotti/provenienze (FASE D)**: resta separata e invariata.
-- **Fabbisogno**: già reale, resta come è.
-
-## 2. Cosa manca realmente
-
-1. **L'elenco dei prodotti previsti nella sessione.** Oggi non esiste: senza di esso "137 / 200" non ha un totale stabile e i filtri finirebbero per cambiarlo. Serve uno scatto dei prodotti inclusi al momento dell'apertura del conteggio.
-2. **I contatori di avanzamento** generale e per zona/categoria/sottocategoria calcolati sulla sessione.
-3. **Il riepilogo di chiusura** (controllati / invariati / con differenze) e l'elenco dei soli prodotti con differenza.
-4. **Preferiti sui propri prodotti**: NON esistono. L'unico "preferiti" presente è quello dell'acquirente B2B sul catalogo di un fornitore, quindi non è riutilizzabile qui. Vedi punto 5: mi serve una tua decisione.
-5. **Apertura sessione riservata agli amministratori**: oggi solo un amministratore può aprire o chiudere un conteggio, mentre qualsiasi membro può contare. Va bene così o l'operatore deve poter aprire il conteggio?
-
-## 3. Modifiche al database previste (una sola migration)
-
-- Nuova tabella **prodotti previsti nella sessione**: una riga per prodotto+zona da controllare, creata all'apertura del conteggio. È ciò che rende "200" un numero vero e immutabile rispetto ai filtri, anche se il catalogo cambia durante la giornata.
-- Nuova funzione **avanzamento sessione**: restituisce in un'unica lettura, per la sessione corrente, totale previsto, controllati, con differenze, mancanti e gli stessi contatori raggruppati per zona, categoria e sottocategoria.
-- Nuova funzione **righe di conteggio della sessione**: prodotto, codice, U.M., zona, categoria, sottocategoria, giacenza calcolata, quantità contata, differenza, stato, nota, operatore, data/ora — con filtro per zona/categoria/sottocategoria/testo e paginazione.
-- Estensione della chiusura sessione: consentita solo a sessione aperta e con le condizioni previste, restituendo il riepilogo finale. La chiusura non crea movimenti; la giacenza deriva dal conteggio come già previsto.
-- Regole di accesso: lettura ai soli membri dell'azienda, scritture solo dalle funzioni protette, storico dei conteggi non sovrascritto silenziosamente.
-
-Nessuna modifica a conteggi, rettifiche, movimenti, lotti, provenienze, formule di disponibilità, Fabbisogno, Lista della Spesa e FASE D.
-
-## 4. Concorrenza e idempotenza
-
-- Doppia pressione su Conferma, retry di rete, refresh della pagina: la riga di conteggio è unica per sessione+prodotto+zona, quindi si aggiorna, non si duplica. Nessuna rettifica o movimento generato dalla conferma.
-- Due operatori sullo stesso prodotto: vince l'ultima conferma, con operatore e orario aggiornati; il valore di riferimento iniziale non viene riscritto. L'interfaccia rilegge l'avanzamento dal server dopo ogni conferma, quindi il tabellone non dipende dallo stato della pagina.
-- Sessione già chiusa o annullata: il database rifiuta il conteggio con un messaggio chiaro e l'interfaccia riporta l'operatore al riepilogo.
-- Chiusura contemporanea da due amministratori: la seconda chiusura non produce effetti aggiuntivi.
-- "Conferma visibili invariati" invia le singole conferme in blocco tramite la stessa funzione idempotente.
-
-## 5. Decisioni approvate
-
-**Preferiti — opzione (a)**: preferiti aziendali condivisi sui prodotti dell'azienda, distinti dai preferiti B2B già esistenti. L'amministratore aggiunge/rimuove, tutti gli operatori vedono la stessa selezione. Soluzione minima: una riga per azienda+prodotto, nessuna funzione aggiuntiva.
-
-**Permessi**: apertura e chiusura dell'inventario solo all'amministratore; gli operatori partecipano a una sessione già aperta e confermano i conteggi; un operatore non può chiudere l'inventario. È esattamente ciò che il database già impone.
-
-## 5-bis. Verifica architetturale: un solo inventario generale, le zone sono navigazione
-
-Verificato sul database: **non serve nessun contenitore sopra le sessioni** e non ci sarà nessuna somma di sessioni fatta dal frontend.
-
-La sessione di inventario esiste già in due forme alternative:
-
-- **generale**: una sola aperta per azienda e archivio, senza zona propria, e i suoi conteggi possono riferirsi a **qualunque zona** dell'azienda;
-- **per zona**: una sola aperta per singola zona, e i conteggi possono riferirsi solo a quella zona.
-
-Il vincolo "una sola sessione aperta per zona" riguarda solo la seconda forma. Per l'interfaccia approvata useremo **sempre la forma generale**: un unico lavoro di inventario che comprende Mandrione, Frigo, Banco e Cella.
-
-Rapporto rappresentato:
+Separare il lavoro quotidiano dalle configurazioni con la gerarchia:
 
 ```text
-Inventario generale (una sessione aperta per azienda)
-└── Prodotti previsti: elenco fisso creato all'apertura, una riga per prodotto + zona
-    ├── Mandrione   84 / 120
-    ├── Frigo       32 / 40
-    ├── Banco       21 / 25
-    └── Cella        0 / 15
-    Totale generale = numero di righe previste = 200
-    Completati = righe previste che hanno un conteggio confermato nella sessione = 137
+Panoramica
+├── Operatività
+│   ├── Acquisti
+│   ├── Vendite
+│   └── B2B
+└── Sistema
+    └── Impostazioni
 ```
 
-Conseguenze:
+Le pagine, i permessi, i dati e la logica esistenti restano invariati. La futura personalizzazione di visibilità e ordine sarà indipendente dai permessi: in questa fase si prepara una struttura dati di navigazione compatibile, senza costruire ancora l'editor delle preferenze.
 
-- il totale generale è lo scatto dei prodotti previsti al momento dell'apertura: non cambia con filtri, ricerca, Preferiti, né se il catalogo cambia durante il conteggio;
-- zona, categoria e sottocategoria sono raggruppamenti delle stesse righe previste, quindi i loro avanzamenti sono sempre parti dello stesso 137/200 e non inventari separati;
-- l'inventario si può interrompere e riprendere: riaprendo la schermata si ritrova la stessa sessione con lo stesso totale e lo stesso avanzamento;
-- la chiusura è un unico atto sull'inventario generale, non quattro chiusure per zona.
+## Mappa approvabile delle pagine esistenti
 
-Le sessioni per singola zona restano disponibili nell'architettura esistente (per conteggi mirati) ma la nuova interfaccia non le userà.
+| Voce attuale / funzione reale | Nuova categoria | Nuova sottocategoria | Route mantenuta | Stato attuale |
+|---|---|---|---|---|
+| Panoramica | Panoramica | — | `/dashboard` | Funzionante; diventerà dashboard visuale delle aree |
+| Acquisti | Operatività → Acquisti | Dashboard Acquisti | `/acquisti` | Esiste; va sostituito il contenuto obsoleto con card compatte |
+| Lista della Spesa | Acquisti | Lista della Spesa | `/acquisti/lista-spesa` | Funzionante |
+| Ordini fornitore | Acquisti | Ordini fornitore | `/acquisti/ordini` | Funzionante |
+| Inventario | Acquisti | Inventario | `/acquisti/inventario` | Funzionante |
+| Fabbisogno, oggi sezione interna di Inventario | Acquisti | Fabbisogno | `/acquisti/inventario?sezione=fabbisogno` | Funzionante; apertura diretta della sezione, nessuna duplicazione |
+| Fornitori | Acquisti | Fornitori | `/acquisti/fornitori` | Funzionante |
+| Catalogo fornitori | Acquisti | Catalogo fornitori | `/acquisti/catalogo` | Funzionante; scelta confermata in Acquisti |
+| Catalogo del singolo fornitore | Acquisti | Percorso interno al Catalogo | `/acquisti/catalogo/$sellerId` | Funzionante; non diventa voce autonoma |
+| Scheda prodotto del fornitore | Acquisti | Percorso interno al Catalogo | `/acquisti/catalogo/$sellerId/$productId` | Funzionante; non diventa voce autonoma |
+| Vendite | Operatività → Vendite | Dashboard Vendite | `/vendite` | Esiste; va trasformata in dashboard visuale |
+| Ordini clienti | Vendite | Ordini clienti | Nessuna route esistente | Non verrà inventata; card informativa non cliccabile |
+| Clienti | Vendite | Clienti | `/vendite/clienti` | Funzionante |
+| Prodotti | Vendite | Prodotti | `/vendite/prodotti` | Funzionante |
+| Preparazione | Vendite | Preparazione | `/operativo` | Pagina esistente “In arrivo”; resta visibile e cliccabile |
+| Consegne | Vendite | Consegne | `/consegne` | Pagina esistente “In arrivo”; resta visibile e cliccabile |
+| Collegamenti | Operatività → B2B | Collegamenti | `/collegamenti` | Funzionante: connessioni, richieste, ricerca, inviti e codici |
+| B2B | Operatività → B2B | Dashboard B2B | nuova `/b2b` | Nuova sola pagina-indice; nessuna nuova funzione |
+| Azienda | Sistema → Impostazioni | Azienda | `/amministrazione` | Dati generali e indirizzi funzionanti; alcune sezioni future |
+| Magazzino / Zone, oggi sezione interna di Azienda | Impostazioni | Magazzino / Zone | `/amministrazione?sezione=magazzino` | Funzionante; apertura diretta della sezione, nessuna duplicazione |
+| Account | Impostazioni | Account personale | `/account` | Funzionante |
+| Utenti e ruoli | Impostazioni | Utenti e ruoli | Nessuna route esistente | Non verrà creata né mostrata come funzione attiva |
+| Gestionale | Impostazioni | Danea / Gestionale | `/danea` | Funzionante e riservato agli amministratori |
+| Impostazioni | Sistema | Dashboard Impostazioni | nuova `/impostazioni` | Nuova sola pagina-indice verso le configurazioni esistenti |
+| Onboarding | Percorso di sistema | Configurazione iniziale | `/onboarding` | Automatico; non compare nel menu |
 
+Le route pubbliche (`/`, `/auth`, `/reset-password`, `/invito/$token`, `/consegna/$token`) e gli endpoint tecnici restano fuori dal menu autenticato e non vengono modificati.
 
+## Nuovo menu laterale desktop
 
-## 6. Piano di implementazione a step
+```text
+Panoramica
 
-1. **Step 1 — Zone**: Azienda → Magazzino passa alla gestione zone reale (elenco, aggiungi, modifica, attiva/disattiva, predefinita). Conteggio: con una sola zona attiva la usa automaticamente, con più zone propone la predefinita.
-2. **Step 2 — Database**: migration con prodotti previsti nella sessione, avanzamento, righe di conteggio, chiusura con riepilogo.
-3. **Step 3 — Avvio conteggio reale**: Nuovo conteggio apre una sessione vera e crea l'elenco dei prodotti previsti; se una sessione è già aperta la riprende invece di crearne un'altra.
-4. **Step 4 — Card e tabellone reali**: stessa grafica approvata, con giacenza calcolata reale, immagine reale o placeholder neutro, differenza reale; il totale generale resta fisso al variare di zone, categorie, sottocategorie, Preferiti e ricerca.
-5. **Step 5 — Conferma e nota**: conferma prodotto persistente, motivazione salvata sulla differenza, blocco AI solo dimostrativo.
-6. **Step 6 — Filtri e navigazione**: Da controllare | Completati | Differenze e Zone → Categorie → Sottocategorie → Prodotti → Cerca sui dati reali, con avanzamento su ogni card.
-7. **Step 7 — Chiusura**: riepilogo, elenco dei soli prodotti con differenza, conferma finale autorizzata.
+OPERATIVITÀ
+▾ Acquisti                 → /acquisti
+  Lista della Spesa        → /acquisti/lista-spesa
+  Ordini fornitore         → /acquisti/ordini
+  Inventario               → /acquisti/inventario
+  Fabbisogno               → /acquisti/inventario?sezione=fabbisogno
+  Fornitori                → /acquisti/fornitori
+  Catalogo fornitori       → /acquisti/catalogo
 
-## 7. Test previsti
+▾ Vendite                  → /vendite
+  Clienti                  → /vendite/clienti
+  Prodotti                 → /vendite/prodotti
+  Preparazione             → /operativo
+  Consegne                 → /consegne
 
-1. Con una sola zona attiva, Nuovo conteggio entra direttamente nel conteggio.
-2. Con più zone, viene proposta la predefinita e si può cambiare.
-3. Il totale generale non cambia applicando zona, categoria, sottocategoria, ricerca o Preferiti.
-4. La giacenza calcolata coincide con quella mostrata nella scheda prodotto esistente.
-5. Somma pulsanti rapidi: +10 +10 +5 +3 = 28; virgola e punto accettati; azzera svuota.
-6. Conferma con differenza: richiede la motivazione e la salva.
-7. Doppia pressione su Conferma: una sola riga di conteggio, nessun movimento.
-8. Refresh a metà conteggio: avanzamento e quantità confermate ancora presenti.
-9. Due operatori sullo stesso prodotto: nessun duplicato, ultimo valore e autore corretti.
-10. Sessione chiusa: nuovo tentativo di conteggio rifiutato con messaggio chiaro.
-11. Conferma visibili invariati: differenza zero su tutti i prodotti visibili.
-12. Riepilogo finale: controllati / invariati / con differenze coerenti e apertura dei soli prodotti con differenza.
-13. Chiusura doppia: nessun effetto duplicato.
-14. Fabbisogno, Lista della Spesa, ordini, carichi e lotti invariati dopo il conteggio.
-15. Verifica su desktop, tablet e smartphone: densità, tastierino numerico, pulsanti rapidi e immagini come approvato.
+▾ B2B                      → /b2b
+  Collegamenti             → /collegamenti
 
-Mi fermo qui: nessuna migration e nessuna modifica strutturale prima della tua approvazione e della risposta sui Preferiti.
+SISTEMA
+▾ Impostazioni             → /impostazioni
+  Azienda                  → /amministrazione
+  Magazzino / Zone         → /amministrazione?sezione=magazzino
+  Account                  → /account
+  Gestionale / Danea       → /danea
+```
+
+- Il titolo di ogni categoria apre la relativa dashboard.
+- Una freccia separata espande o chiude le sottocategorie, evitando conflitti tra apertura pagina e tendina.
+- Le categorie e sottocategorie rispettano capacità aziendali e ruoli già esistenti.
+- Il menu non concede permessi: mostra solo destinazioni già autorizzate.
+- Le sezioni aperte seguono la posizione corrente, così il percorso resta comprensibile.
+
+## Navigazione smartphone
+
+Nessun menu annidato complesso. La barra inferiore mostra solo gli ingressi principali consentiti:
+
+```text
+Panoramica · Acquisti · Vendite · B2B · Impostazioni
+```
+
+Le funzioni si raggiungono dalle card touch della relativa dashboard. Se lo spazio non consente tutte le aree, le voci saranno selezionate in base alle capacità e ai ruoli già esistenti, senza mostrare funzioni non autorizzate.
+
+## Dashboard visuali
+
+### Panoramica
+Card compatte e cliccabili per Acquisti, Vendite, B2B e Impostazioni. Ogni card mostra icona, nome, breve descrizione e un riepilogo delle funzioni disponibili. Le card Acquisti/Vendite compaiono solo se l'azienda ha la relativa capacità; Impostazioni rispetta i ruoli delle singole destinazioni.
+
+### Acquisti
+Card per Lista della Spesa, Ordini fornitore, Inventario, Fabbisogno, Fornitori e Catalogo fornitori. Fabbisogno apre direttamente la sezione reale dentro Inventario.
+
+### Vendite
+Card per Clienti, Prodotti, Preparazione e Consegne. “Ordini clienti” può essere mostrata come funzione non ancora disponibile, senza creare una route o logica finta.
+
+### B2B
+Card per Collegamenti. La pagina spiega in modo minimo che qui si gestiscono rapporti, richieste e inviti; Catalogo non viene duplicato perché è stato confermato in Acquisti.
+
+### Impostazioni
+Card per Azienda, Magazzino / Zone, Account e Gestionale / Danea. Le card rispettano i ruoli: le destinazioni amministrative non sono mostrate come accessibili a chi non è amministratore.
+
+## Implementazione prevista dopo approvazione
+
+1. Rendere la configurazione della navigazione gerarchica e riutilizzabile, mantenendo separati requisiti di accesso e futura visibilità personalizzata.
+2. Semplificare il menu desktop con categorie espandibili e il menu smartphone con soli ingressi principali.
+3. Trasformare `/dashboard`, `/acquisti` e `/vendite` in dashboard compatte senza testo “In arrivo” ridondante.
+4. Creare le sole pagine-indice `/b2b` e `/impostazioni`, necessarie alla gerarchia richiesta.
+5. Aggiungere l'apertura diretta di Fabbisogno e Magazzino tramite parametro della pagina, senza spostare o duplicare i contenuti.
+6. Verificare desktop e smartphone, navigazione avanti/indietro, evidenziazione corrente, autorizzazioni e tutte le route esistenti.
+
+## File previsti
+
+- `src/lib/navigation.ts`
+- `src/components/app-shell.tsx`
+- `src/routes/_authenticated/dashboard.tsx`
+- `src/routes/_authenticated/acquisti.index.tsx`
+- `src/routes/_authenticated/vendite.tsx`
+- `src/routes/_authenticated/acquisti.inventario.tsx`
+- `src/components/inventory/inventory-count-panel.tsx`
+- `src/routes/_authenticated/amministrazione.tsx`
+- Nuove route: `src/routes/_authenticated/b2b.tsx`, `src/routes/_authenticated/impostazioni.tsx`
+- Eventuali piccoli componenti visuali condivisi creati appositamente per le dashboard
+
+Non sono previste modifiche a database, funzioni server, RPC, formule, import Danea o pagine operative interne.
