@@ -1,46 +1,80 @@
-# Piano — Conteggio inventario visuale stile KDS
+# Inventario reale: collegare il mockup approvato alla logica esistente
 
-## Obiettivo
-Trasformare esclusivamente il mockup frontend del Conteggio in una postazione operativa touch-first, mantenendo dati fittizi e stato React locale. Nessun collegamento o modifica a database, migration, RPC, formule o logiche reali.
+Obiettivo: mantenere esattamente l'interfaccia approvata (tabellone, navigazione visuale, card compatte, pulsanti +1/+3/+5/+10, tastierino, filtri) e sostituire i dati finti con quelli reali, riusando tutto ciò che esiste.
 
-## Esperienza da realizzare
-1. **Avanzamento sempre visibile**
-   - Intestazione “Inventario Magazzino Mandrione”.
-   - Tabellone generale fisso con completati/totale, percentuale, barra evidente e prodotti ancora da controllare; il totale generale non cambia con zone, categorie, sottocategorie, preferiti o ricerca.
-   - Avanzamento separato della selezione corrente, mostrato sotto il totale generale.
-   - Riepilogo compatto: confermati senza differenze, con differenze, mancanti.
-   - Aggiornamento immediato a ogni conferma e stato finale chiaramente completato.
+## 1. Cosa esiste già e si collega direttamente
 
-2. **Navigazione visuale touch**
-   - Barra permanente con cinque azioni grandi: Zone, Categorie, Sottocategorie, Prodotti, Cerca.
-   - Pannelli visuali con pulsanti/card per zone, categorie e sottocategorie, ciascuno con avanzamento completati/totale; un click entra direttamente nel livello successivo.
-   - Percorso cliccabile sempre visibile, per tornare rapidamente ai livelli precedenti.
-   - Ricerca aperta dall’azione Cerca e indipendente dai filtri visuali.
+- **Zone di magazzino**: già reali (zone aziendali con nome, codice, predefinita, attiva/disattivata) e già gestibili con la funzione esistente e con la schermata reale `inventory-locations-manager`. La schermata Azienda → Magazzino userà quella, sostituendo la versione finta. Nessuna nuova tabella.
+- **Sessione di conteggio**: già esiste (apertura, rinomina, chiusura, annullamento) con il vincolo di una sola sessione aperta per azienda/zona.
+- **Registrazione conteggio**: già esiste ed è **già idempotente**: un solo conteggio per (sessione, prodotto, zona). Premere Conferma due volte aggiorna la stessa riga, non ne crea due, e conserva la giacenza di riferimento originale. Conserva già prodotto, zona, giacenza di riferimento, quantità contata, differenza, operatore, data/ora, nota.
+- **Giacenza calcolata**: già esiste la formula unica (ultimo conteggio valido + rettifiche e movimenti successivi), anche in versione per tutta la zona in una sola lettura. Non verrà scritta nessuna seconda formula.
+- **Categorie e sottocategorie**: già presenti sui prodotti reali.
+- **Immagini prodotto**: già esiste l'archivio immagini unico con miniature; verranno usate quelle (nessun secondo archivio). Le foto finte restano fuori dall'uso operativo.
+- **Nota operatore sulla differenza**: il conteggio ha già un campo nota, quindi la motivazione inserita nella finestra di conferma può essere salvata subito. Nessun collegamento AI: il blocco Analisi AI resta dichiaratamente dimostrativo.
+- **Riconciliazione con lotti/provenienze (FASE D)**: resta separata e invariata.
+- **Fabbisogno**: già reale, resta come è.
 
-3. **Flusso prodotti**
-   - Dati mock realistici ampliati per simulare zone, categorie e sottocategorie.
-   - Schede prodotto compatte con foto mock predisposta per la futura immagine associata, nome, codice, U.M., giacenza calcolata, quantità fisica modificabile, differenza e conferma con un tocco.
-   - Informazioni disposte prevalentemente in orizzontale; più colonne su desktop e una scheda bassa per riga su smartphone.
-   - Stati visivi distinti: da controllare, confermato invariato, confermato con differenza.
-   - Filtri rapidi Preferiti/Tutti e Da controllare/Completati/Con differenze; apertura iniziale su Da controllare.
-   - I prodotti confermati restano consultabili nei filtri appropriati.
+## 2. Cosa manca realmente
 
-4. **Completamento simulato**
-   - Riepilogo “Inventario completato” al termine della selezione.
-   - Totali senza differenze e con differenze.
-   - Azione per vedere solo le differenze e conferma finale esclusivamente locale/simulata.
+1. **L'elenco dei prodotti previsti nella sessione.** Oggi non esiste: senza di esso "137 / 200" non ha un totale stabile e i filtri finirebbero per cambiarlo. Serve uno scatto dei prodotti inclusi al momento dell'apertura del conteggio.
+2. **I contatori di avanzamento** generale e per zona/categoria/sottocategoria calcolati sulla sessione.
+3. **Il riepilogo di chiusura** (controllati / invariati / con differenze) e l'elenco dei soli prodotti con differenza.
+4. **Preferiti sui propri prodotti**: NON esistono. L'unico "preferiti" presente è quello dell'acquirente B2B sul catalogo di un fornitore, quindi non è riutilizzabile qui. Vedi punto 5: mi serve una tua decisione.
+5. **Apertura sessione riservata agli amministratori**: oggi solo un amministratore può aprire o chiudere un conteggio, mentre qualsiasi membro può contare. Va bene così o l'operatore deve poter aprire il conteggio?
 
-5. **Responsive e verifica**
-   - Riduzione coordinata di font, altezze, spazi, margini e controlli senza perdere leggibilità o facilità touch.
-   - Tabellone generale e barra di navigazione sensibilmente più bassi, mantenendo invariati contenuti e comportamento.
-   - Layout ad alta densità per desktop/tablet e superfici cliccabili compatte su smartphone.
-   - Verifica del percorso completo a 1280 px e 390 px: navigazione, breadcrumb, ricerca “pom”, modifica quantità, conferma, filtri e completamento.
+## 3. Modifiche al database previste (una sola migration)
 
-## File previsti
-- `src/lib/inventory-mock.ts`: soli dati fittizi aggiuntivi e metadati visuali.
-- `src/components/inventory/mock-inventory-panel.tsx`: nuova esperienza KDS locale.
-- `src/assets/inventory-mock/`: immagini prodotto esclusivamente mock usate nelle schede.
-- `roadmap.md`: aggiornamento dell’attività mockup.
+- Nuova tabella **prodotti previsti nella sessione**: una riga per prodotto+zona da controllare, creata all'apertura del conteggio. È ciò che rende "200" un numero vero e immutabile rispetto ai filtri, anche se il catalogo cambia durante la giornata.
+- Nuova funzione **avanzamento sessione**: restituisce in un'unica lettura, per la sessione corrente, totale previsto, controllati, con differenze, mancanti e gli stessi contatori raggruppati per zona, categoria e sottocategoria.
+- Nuova funzione **righe di conteggio della sessione**: prodotto, codice, U.M., zona, categoria, sottocategoria, giacenza calcolata, quantità contata, differenza, stato, nota, operatore, data/ora — con filtro per zona/categoria/sottocategoria/testo e paginazione.
+- Estensione della chiusura sessione: consentita solo a sessione aperta e con le condizioni previste, restituendo il riepilogo finale. La chiusura non crea movimenti; la giacenza deriva dal conteggio come già previsto.
+- Regole di accesso: lettura ai soli membri dell'azienda, scritture solo dalle funzioni protette, storico dei conteggi non sovrascritto silenziosamente.
 
-## Esclusioni confermate
-Nessuna modifica a database, migration, RPC, funzioni server, formule inventario, logica reale o schermate operative già collegate ai dati reali.
+Nessuna modifica a conteggi, rettifiche, movimenti, lotti, provenienze, formule di disponibilità, Fabbisogno, Lista della Spesa e FASE D.
+
+## 4. Concorrenza e idempotenza
+
+- Doppia pressione su Conferma, retry di rete, refresh della pagina: la riga di conteggio è unica per sessione+prodotto+zona, quindi si aggiorna, non si duplica. Nessuna rettifica o movimento generato dalla conferma.
+- Due operatori sullo stesso prodotto: vince l'ultima conferma, con operatore e orario aggiornati; il valore di riferimento iniziale non viene riscritto. L'interfaccia rilegge l'avanzamento dal server dopo ogni conferma, quindi il tabellone non dipende dallo stato della pagina.
+- Sessione già chiusa o annullata: il database rifiuta il conteggio con un messaggio chiaro e l'interfaccia riporta l'operatore al riepilogo.
+- Chiusura contemporanea da due amministratori: la seconda chiusura non produce effetti aggiuntivi.
+- "Conferma visibili invariati" invia le singole conferme in blocco tramite la stessa funzione idempotente.
+
+## 5. Decisione che mi serve prima di procedere
+
+**Preferiti**: non esiste una persistenza reale dei preferiti sui prodotti dell'azienda. Opzioni:
+- (a) aggiungere una piccola tabella di preferiti aziendali sui propri prodotti (condivisi fra gli operatori dell'azienda);
+- (b) per ora mostrare Preferiti | Tutti con Preferiti vuoto e rimandare la funzione;
+- (c) preferiti personali del singolo operatore.
+
+Dimmi quale preferisci: senza tua indicazione non creo nessuna soluzione parallela.
+
+## 6. Piano di implementazione a step
+
+1. **Step 1 — Zone**: Azienda → Magazzino passa alla gestione zone reale (elenco, aggiungi, modifica, attiva/disattiva, predefinita). Conteggio: con una sola zona attiva la usa automaticamente, con più zone propone la predefinita.
+2. **Step 2 — Database**: migration con prodotti previsti nella sessione, avanzamento, righe di conteggio, chiusura con riepilogo.
+3. **Step 3 — Avvio conteggio reale**: Nuovo conteggio apre una sessione vera e crea l'elenco dei prodotti previsti; se una sessione è già aperta la riprende invece di crearne un'altra.
+4. **Step 4 — Card e tabellone reali**: stessa grafica approvata, con giacenza calcolata reale, immagine reale o placeholder neutro, differenza reale; il totale generale resta fisso al variare di zone, categorie, sottocategorie, Preferiti e ricerca.
+5. **Step 5 — Conferma e nota**: conferma prodotto persistente, motivazione salvata sulla differenza, blocco AI solo dimostrativo.
+6. **Step 6 — Filtri e navigazione**: Da controllare | Completati | Differenze e Zone → Categorie → Sottocategorie → Prodotti → Cerca sui dati reali, con avanzamento su ogni card.
+7. **Step 7 — Chiusura**: riepilogo, elenco dei soli prodotti con differenza, conferma finale autorizzata.
+
+## 7. Test previsti
+
+1. Con una sola zona attiva, Nuovo conteggio entra direttamente nel conteggio.
+2. Con più zone, viene proposta la predefinita e si può cambiare.
+3. Il totale generale non cambia applicando zona, categoria, sottocategoria, ricerca o Preferiti.
+4. La giacenza calcolata coincide con quella mostrata nella scheda prodotto esistente.
+5. Somma pulsanti rapidi: +10 +10 +5 +3 = 28; virgola e punto accettati; azzera svuota.
+6. Conferma con differenza: richiede la motivazione e la salva.
+7. Doppia pressione su Conferma: una sola riga di conteggio, nessun movimento.
+8. Refresh a metà conteggio: avanzamento e quantità confermate ancora presenti.
+9. Due operatori sullo stesso prodotto: nessun duplicato, ultimo valore e autore corretti.
+10. Sessione chiusa: nuovo tentativo di conteggio rifiutato con messaggio chiaro.
+11. Conferma visibili invariati: differenza zero su tutti i prodotti visibili.
+12. Riepilogo finale: controllati / invariati / con differenze coerenti e apertura dei soli prodotti con differenza.
+13. Chiusura doppia: nessun effetto duplicato.
+14. Fabbisogno, Lista della Spesa, ordini, carichi e lotti invariati dopo il conteggio.
+15. Verifica su desktop, tablet e smartphone: densità, tastierino numerico, pulsanti rapidi e immagini come approvato.
+
+Mi fermo qui: nessuna migration e nessuna modifica strutturale prima della tua approvazione e della risposta sui Preferiti.
