@@ -100,7 +100,10 @@ export function MockInventoryPanel() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [pending, setPending] = useState<{ product: MockProduct; value: number } | null>(null);
+  const [pendingReason, setPendingReason] = useState("");
   const [allMockCompleted, setAllMockCompleted] = useState(false);
+
 
   const selectedLocation =
     activeLocations.find((location) => location.id === selectedLocationId) ?? defaultLocation;
