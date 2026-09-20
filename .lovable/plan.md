@@ -43,8 +43,9 @@ Ordinati 100 kg, arrivati 92, caricati 92 → un solo movimento di +92 kg.
 ## 3. Consegna dichiarata e confronto
 
 **purchase_deliveries**: order_id, progressivo, origine
-(`fornitore_b2b` | `operatore_interno`), stato, nota generale,
-dichiarata_da/at, accettata_da/at. Nessuna scadenza automatica in questa fase:
+(`fornitore_b2b` | `fornitore_link_esterno` | `operatore_interno`), stato,
+nota generale, dichiarata_da/at (nullable per il link esterno), dichiarata_da_nome,
+accettata_da/at. Nessuna scadenza automatica in questa fase:
 la consegna resta aperta finché l'operatore la accetta, contesta o carica.
 Consegne parziali: più consegne per lo stesso ordine, ognuna con il proprio confronto.
 
