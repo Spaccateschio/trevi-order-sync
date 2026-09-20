@@ -95,21 +95,27 @@ export function SupplierSplitDialog({
   });
 
   useEffect(() => {
-    if (!open) return;
-    const existing = assignmentsQuery.data ?? [];
-    setDrafts(
-      Object.fromEntries(
-        existing.map((row) => [
-          row.product_supplier_link_id,
-          {
-            quantity: String(row.assigned_quantity),
-            packs: row.purchase_quantity !== null ? String(row.purchase_quantity) : "",
-            accepted: row.min_warning_accepted,
-          },
-        ]),
-      ),
-    );
+    if (!open) {
+      setDrafts({});
+      return;
+    }
+    const existing = assignmentsQuery.data;
+    if (!existing) return;
+    // Le righe già salvate aggiornano i campi; le quantità digitate e non ancora salvate
+    // per gli altri fornitori restano intatte.
+    setDrafts((current) => {
+      const next = { ...current };
+      for (const row of existing) {
+        next[row.product_supplier_link_id] = {
+          quantity: String(row.assigned_quantity),
+          packs: row.purchase_quantity !== null ? String(row.purchase_quantity) : "",
+          accepted: row.min_warning_accepted,
+        };
+      }
+      return next;
+    });
   }, [open, assignmentsQuery.data]);
+
 
   const mutation = useMutation({
     mutationFn: (input: {
