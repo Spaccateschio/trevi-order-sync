@@ -278,4 +278,6 @@ diverso dalle righe dell'ordine viene restituito.
 14. Dichiarato 20 kg, verificato 19,6 kg → giacenza +19,6, dichiarato conservato.
 15. Link esterno: token valido consente solo la dichiarazione di quell'ordine; token scaduto o revocato rifiutato.
 16. RLS: il fornitore B2B non accede a righe ordine, carichi, lotti, movimenti.
-17. Nessun record di storico cancellato o sovrascritto in tutto il flusso.
+17. Lotti teorici 100 kg, conteggio fisico 93 kg → giacenza 93 kg, lotti invariati, differenza −7 kg visibile e non attribuita.
+18. Lotti teorici 100 kg, conteggio fisico 105 kg → giacenza 105 kg, nessun lotto o provenienza inventato, differenza +5 kg visibile.
+19. Nessun record di storico cancellato o sovrascritto in tutto il flusso.
