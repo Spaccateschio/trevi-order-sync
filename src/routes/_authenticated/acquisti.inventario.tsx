@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
-import { InventoryPanel } from "@/components/inventory/inventory-panel";
-import { activeCompany, companyBuys, hasRole, useIdentity } from "@/hooks/use-identity";
+import { MockInventoryPanel } from "@/components/inventory/mock-inventory-panel";
+import { companyBuys, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/acquisti/inventario")({
   head: () => ({
@@ -28,8 +28,6 @@ export const Route = createFileRoute("/_authenticated/acquisti/inventario")({
 
 function Inventario() {
   const { data: identity, isLoading } = useIdentity();
-  const company = activeCompany(identity);
-  const isAdmin = hasRole(identity, "amministratore");
 
   if (!isLoading && !companyBuys(identity)) {
     return (
@@ -44,9 +42,10 @@ function Inventario() {
   return (
     <AppShell
       title="Inventario"
-      description="La giacenza nasce dal conteggio fisico: zona per zona, con storico e rettifiche tracciate."
+      description="Conteggio fisico rapido per zona, con giacenza calcolata sempre visibile."
+      wide
     >
-      {company ? <InventoryPanel companyId={company.companyId} isAdmin={isAdmin} /> : null}
+      {!isLoading ? <MockInventoryPanel /> : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
     </AppShell>
   );
