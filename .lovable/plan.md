@@ -43,16 +43,18 @@ Ordinati 100 kg, arrivati 92, caricati 92 → un solo movimento di +92 kg.
 ## 3. Consegna dichiarata e confronto
 
 **purchase_deliveries**: order_id, progressivo, origine
-(`fornitore_b2b` | `operatore_interno`), stato, nota generale,
-dichiarata_da/at, accettata_da/at. Nessuna scadenza automatica in questa fase:
+(`fornitore_b2b` | `fornitore_link_esterno` | `operatore_interno`), stato,
+nota generale, dichiarata_da/at (nullable per il link esterno), dichiarata_da_nome,
+accettata_da/at. Nessuna scadenza automatica in questa fase:
 la consegna resta aperta finché l'operatore la accetta, contesta o carica.
 Consegne parziali: più consegne per lo stesso ordine, ognuna con il proprio confronto.
 
 **purchase_delivery_items**: delivery_id, order_item_id (NULL se fuori ordine),
 product_id, tipo riga (`ordinata` | `aggiunta_fornitore` | `sostituzione`),
 sostituisce_order_item_id, quantità dichiarata, unit_id/unit_code,
-equivalente in U.M. ordine, nota riga, motivo mancata consegna,
-stato riga, quantità accettata, decisa_da/at.
+equivalente in U.M. ordine, peso dichiarato, produttore dichiarato,
+lotto produttore dichiarato, scadenza dichiarata, nota riga,
+motivo mancata consegna, stato riga, quantità accettata, decisa_da/at.
 
 **purchase_delivery_line_events** (append-only): evento
 (`dichiarata`, `modificata`, `contestata`, `rettificata`, `accettata`, `rifiutata`),
@@ -69,8 +71,49 @@ dichiarato ora, differenza, esito (`corretta`, `inferiore`, `superiore`,
 Differenze e percentuali sono calcolate, non salvate. Le righe aggiunte dal
 fornitore restano etichettate e non entrano mai nell'ordine originale.
 
-Fornitore non registrato: identico modello dati, la parte “consegnato” la
-compila l'operatore interno durante il controllo merce.
+## 3-bis. Tre modalità fornitore, un solo modello dati
+
+La dichiarazione è sempre la stessa tabella: cambia solo il canale, registrato
+in `origine`.
+
+**A. Fornitore registrato B2B** — riceve l'ordine nell'app e dichiara per ogni
+riga quantità, U.M., peso effettivo, produttore, lotto produttore, scadenza,
+mancanze, sostituzioni e note. `origine = fornitore_b2b`, autore = suo utente.
+
+**B. Fornitore non registrato, link esterno sicuro** — nessun account. Modello
+dati predisposto ora, pagina pubblica eventualmente dopo se il perimetro FASE D
+cresce troppo.
+**purchase_order_share_links**: order_id, token_hash (solo hash, mai il token
+in chiaro), scadenza, revocato_at, creato_da/at, ultimo_accesso_at, contatore
+accessi, nome/etichetta del destinatario. Il token dà accesso esclusivamente a
+quell'ordine e solo per creare/inviare la propria dichiarazione: nessuna
+lettura di altri ordini, clienti, costi, carichi o lotti. Pagina pubblica sotto
+`/api/public/*` + route dedicata, molto semplice e usabile da smartphone.
+`origine = fornitore_link_esterno`, autore utente NULL, nome dichiarante salvato.
+
+**C. Fornitore completamente esterno** — nessun canale digitale: l'operatore
+compila la dichiarazione al controllo merce su etichette, DDT e verifica fisica.
+`origine = operatore_interno`.
+
+### Dichiarato ≠ verificato ≠ caricato
+
+```text
+ORDINATO 20 kg
+  -> DICHIARATO dal fornitore 20 kg · Produttore Rossi · Lotto A123
+     -> VERIFICATO da noi 19,6 kg · Produttore Rossi · Lotto A123
+        -> CARICATO 19,6 kg   (solo qui nascono lotto e movimento)
+```
+
+La dichiarazione del fornitore non crea mai giacenza, lotto o movimento.
+La schermata di controllo precompila quantità, peso, produttore, lotto e
+scadenza dichiarati; l'operatore conferma o corregge. In caso di correzione si
+conservano entrambi i valori: il dichiarato resta su `purchase_delivery_items`,
+il verificato su `goods_receipt_items`, con l'evento di modifica nello storico.
+
+Lotto: se il fornitore comunica il lotto produttore viene proposto nel carico;
+altrimenti lo inserisce l'operatore leggendo l'etichetta; se non esiste, il
+carico non si blocca e Trevi Fruit genera comunque il lotto interno collegato a
+fornitore + carico + data + prodotto.
 
 ## 4. Carico merce
 
@@ -169,8 +212,13 @@ dall'utente autenticato, mai dal browser; scritture solo via server function.
 RLS: ogni azienda vede solo i propri ordini, consegne, carichi, lotti e
 movimenti. Il fornitore collegato B2B vede l'ordine a lui indirizzato e
 scrive unicamente la propria dichiarazione di consegna: mai le righe ordine,
-mai i carichi, mai i lotti, mai i movimenti. Nessun accesso per il fornitore
-non registrato.
+mai i carichi, mai i lotti, mai i movimenti.
+
+Link esterno: nessuna policy `anon` sulle tabelle. L'accesso passa solo da
+server function/route pubblica che verifica l'hash del token, la scadenza e
+la revoca, e opera con privilegi di servizio limitati a quell'ordine
+(`create_external_declaration`, `revoke_order_share_link`). Nessun dato
+diverso dalle righe dell'ordine viene restituito.
 
 ## 11. Interfaccia
 
@@ -197,6 +245,8 @@ non registrato.
 10. Consegne parziali 6 + 4 su 10 casse, con due carichi distinti.
 11. Contestazione di una sola riga; risoluzione accettata/rettificata/rifiutata con storico completo.
 12. Articolo aggiunto dal fornitore: etichettato, accettabile o contestabile, mai nell'ordine originale.
-13. Fornitore non registrato: flusso completo compilato dall'operatore.
-14. RLS: il fornitore B2B non accede a righe ordine, carichi, lotti, movimenti.
-15. Nessun record di storico cancellato o sovrascritto in tutto il flusso.
+13. Fornitore completamente esterno: flusso compilato dall'operatore.
+14. Dichiarato 20 kg, verificato 19,6 kg → giacenza +19,6, dichiarato conservato.
+15. Link esterno: token valido consente solo la dichiarazione di quell'ordine; token scaduto o revocato rifiutato.
+16. RLS: il fornitore B2B non accede a righe ordine, carichi, lotti, movimenti.
+17. Nessun record di storico cancellato o sovrascritto in tutto il flusso.
