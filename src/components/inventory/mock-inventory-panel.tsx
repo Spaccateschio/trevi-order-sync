@@ -274,7 +274,44 @@ export function MockInventoryPanel() {
           </table>
         </section>
       </TabsContent>
+
+      <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) { setPending(null); setPendingReason(""); } }}>
+        <DialogContent className="max-w-md">
+          {pending ? (() => {
+            const difference = pending.value - pending.product.calculated;
+            const higher = difference > 0;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-base">{higher ? "Quantità superiore alla calcolata" : "Quantità inferiore alla calcolata"}</DialogTitle>
+                  <DialogDescription className="text-xs">{pending.product.name} · Cod. {pending.product.code}</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-3 divide-x divide-border rounded-md border border-border bg-muted/30 py-2 text-center text-[11px]">
+                  <p><strong className="block text-sm">{formatQuantity(pending.product.calculated, pending.product.unit)}</strong>calcolata</p>
+                  <p><strong className="block text-sm">{formatQuantity(pending.value, pending.product.unit)}</strong>fisica</p>
+                  <p><strong className={cn("block text-sm", higher ? "text-success" : "text-destructive")}>{higher ? "+" : ""}{formatQuantity(difference, pending.product.unit)}</strong>differenza</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold">Motivazione della differenza</p>
+                  <Textarea autoFocus className="min-h-20 text-sm" maxLength={300} placeholder="Es. buttata una cassa perché deteriorata" value={pendingReason} onChange={(event) => setPendingReason(event.target.value)} aria-label="Motivazione della differenza" />
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Merce deteriorata", "Errore di carico", "Reso al fornitore", "Uso interno"].map((reason) => (
+                      <Button key={reason} type="button" size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setPendingReason(reason)}>{reason}</Button>
+                    ))}
+                  </div>
+                </div>
+                {pendingReason.trim() ? <AiAnalysisDemo product={pending.product} difference={difference} note={pendingReason.trim()} /> : null}
+                <DialogFooter className="gap-2 sm:gap-2">
+                  <Button variant="outline" onClick={() => { setPending(null); setPendingReason(""); }}>Annulla</Button>
+                  <Button disabled={!pendingReason.trim()} onClick={savePendingDifference}><Check className="size-4" /> Conferma differenza</Button>
+                </DialogFooter>
+              </>
+            );
+          })() : null}
+        </DialogContent>
+      </Dialog>
     </Tabs>
+
   );
 }
 
