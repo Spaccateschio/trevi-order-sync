@@ -64,11 +64,11 @@ export const ensureDefaultInventoryLocation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ companyId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: member } = await context.supabase.rpc("is_company_member", {
       _company_id: data.companyId,
     });
     if (member !== true) throw new Error("Accesso non consentito");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: id, error } = await supabaseAdmin.rpc("ensure_default_inventory_location", {
       _company_id: data.companyId,
       _actor_user_id: context.userId,
@@ -81,8 +81,7 @@ export const manageInventoryLocation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => locationSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: id, error } = await supabaseAdmin.rpc("manage_inventory_location", {
+    const { data: id, error } = await context.supabase.rpc("manage_inventory_location", {
       _company_id: data.companyId,
       _action: data.action,
       _actor_user_id: context.userId,
@@ -100,8 +99,7 @@ export const manageProductStockSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => stockSettingsSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: changed, error } = await supabaseAdmin.rpc("manage_product_stock_settings", {
+    const { data: changed, error } = await context.supabase.rpc("manage_product_stock_settings", {
       _company_id: data.companyId,
       _product_ids: data.productIds,
       _clear_fields: data.clearFields,
@@ -121,8 +119,7 @@ export const manageInventorySession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => sessionSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: id, error } = await supabaseAdmin.rpc("manage_inventory_session", {
+    const { data: id, error } = await context.supabase.rpc("manage_inventory_session", {
       _company_id: data.companyId,
       _action: data.action,
       _scope: data.scope,
@@ -141,8 +138,7 @@ export const recordInventoryCount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => countSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: id, error } = await supabaseAdmin.rpc("record_inventory_count", {
+    const { data: id, error } = await context.supabase.rpc("record_inventory_count", {
       _company_id: data.companyId,
       _session_id: data.sessionId,
       _product_id: data.productId,
@@ -161,8 +157,7 @@ export const recordInventoryAdjustment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => adjustmentSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: id, error } = await supabaseAdmin.rpc("record_inventory_adjustment", {
+    const { data: id, error } = await context.supabase.rpc("record_inventory_adjustment", {
       _company_id: data.companyId,
       _product_id: data.productId,
       _location_id: data.locationId,
