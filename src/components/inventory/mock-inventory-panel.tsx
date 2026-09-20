@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CircleAlert,
   ClipboardCheck,
+  Delete,
   LayoutGrid,
   MapPin,
   PackageSearch,
@@ -60,18 +61,16 @@ const SUBCATEGORY_PROGRESS: Record<string, { completed: number; total: number }>
   Radici: { completed: 12, total: 25 },
 };
 
-const INITIAL_COUNTS: Record<string, string> = {
-  mele: "118,50",
-  "pomodori-grappolo": "82,50",
-  "pomodori-datterino": "28,00",
-  lattuga: "42",
-  carote: "60,00",
-  zucchine: "33,50",
-};
-
 function parseQuantity(value: string) {
+  if (!value.trim()) return null;
   const parsed = Number(value.trim().replace(",", "."));
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function addToQuantity(current: string, increment: number) {
+  const base = parseQuantity(current) ?? 0;
+  const sum = Math.round((base + increment) * 100) / 100;
+  return String(sum).replace(".", ",");
 }
 
 function formatQuantity(value: number, unit: string) {
@@ -94,7 +93,7 @@ export function MockInventoryPanel() {
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, string>>(INITIAL_COUNTS);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState<Record<string, number>>({});
   const [allMockCompleted, setAllMockCompleted] = useState(false);
 
@@ -127,7 +126,7 @@ export function MockInventoryPanel() {
 
   const beginNewCount = () => {
     setSelectedLocationId(defaultLocation?.id ?? "");
-    setDrafts(INITIAL_COUNTS);
+    setDrafts({});
     setConfirmed({});
     setAllMockCompleted(false);
     setProductView("favorites");
@@ -347,9 +346,32 @@ function ProductCard({ product, value, confirmed, onChange, onConfirm }: { produ
         <div className="min-w-0"><p className="truncate font-display text-sm font-bold uppercase leading-tight">{product.name}</p><p className="text-[11px] leading-tight text-muted-foreground">Cod. {product.code} · {product.unit}</p></div>
         <span className={cn("shrink-0 rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none", confirmed === undefined && "bg-muted text-muted-foreground", confirmed !== undefined && !hasDifference && "bg-success/15 text-success", hasDifference && "bg-destructive/10 text-destructive")}>{confirmed === undefined ? "Da controllare" : hasDifference ? "Differenza" : "Confermato"}</span>
       </div>
-      <div className="mt-2 grid grid-cols-[auto_minmax(72px,1fr)_auto_auto] items-end gap-1.5">
+      <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
         <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">{formatQuantity(product.calculated, product.unit)}</p></div>
-        <label className="min-w-0 text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica<Input className="mt-1 h-10 px-2 text-right text-base font-bold" inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onConfirm(); }} aria-label={`Quantità fisica ${product.name}`} /></label>
+        <div className="min-w-0">
+          <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
+          <Input
+            className="mt-1 h-10 px-2 text-right text-base font-bold"
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9]*[.,]?[0-9]*"
+            enterKeyHint="done"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            onFocus={(event) => event.currentTarget.select()}
+            onKeyDown={(event) => { if (event.key === "Enter") { event.currentTarget.blur(); onConfirm(); } }}
+            aria-label={`Quantità fisica ${product.name}`}
+          />
+          <div className="mt-1 flex gap-1">
+            {[1, 3, 5, 10].map((increment) => (
+              <Button key={increment} type="button" variant="outline" size="sm" className="h-7 min-w-0 flex-1 px-0 text-[11px] font-bold leading-none" tabIndex={-1} aria-label={`Aggiungi ${increment} a ${product.name}`} onClick={() => onChange(addToQuantity(value, increment))}>+{increment}</Button>
+            ))}
+            <Button type="button" variant="ghost" size="sm" className="h-7 w-8 shrink-0 px-0" tabIndex={-1} aria-label={`Azzera quantità ${product.name}`} title="Azzera" onClick={() => onChange("")}><Delete className="size-3.5" /></Button>
+          </div>
+        </div>
         <div className="text-right"><p className="text-[9px] leading-none text-muted-foreground">Differenza</p><p className={cn("mt-1 text-sm font-bold leading-none", difference !== null && difference < 0 && "text-destructive", difference !== null && difference > 0 && "text-success")}>{difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, product.unit)}`}</p></div>
         <Button className="h-10 px-2 text-[11px] sm:px-3" variant={confirmed !== undefined ? "secondary" : "default"} onClick={onConfirm}><Check className="size-4" /><span className="hidden min-[360px]:inline">Conferma</span></Button>
       </div>
