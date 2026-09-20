@@ -124,6 +124,8 @@ function ProdottiPage() {
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(defaults.sizing);
   const [sorting, setSorting] = useState<SortingState>(defaults.sorting);
   const [preferencesReady, setPreferencesReady] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
 
   // Vetrina B2B: products resta in sola scrittura Danea, l'interruttore passa dalla funzione dedicata.
   const showcaseMutation = useMutation({
