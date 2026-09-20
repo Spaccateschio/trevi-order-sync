@@ -38,8 +38,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { activeCompany, companySells, hasRole, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
+
 import type { Json } from "@/integrations/supabase/types";
 import { analyzeDaneaFile, importDaneaFile } from "@/lib/danea.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
