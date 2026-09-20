@@ -1260,6 +1260,212 @@ export type Database = {
           },
         ]
       }
+      goods_receipt_items: {
+        Row: {
+          company_id: string
+          conversion_factor: number | null
+          created_at: string
+          delivery_item_id: string | null
+          expiry_date: string | null
+          id: string
+          notes: string | null
+          order_item_id: string | null
+          producer_lot_code: string | null
+          producer_name: string | null
+          product_id: string
+          receipt_id: string
+          stock_quantity: number | null
+          unit_code: string | null
+          unit_cost: number | null
+          unit_id: string | null
+          updated_at: string
+          verified_quantity: number
+        }
+        Insert: {
+          company_id: string
+          conversion_factor?: number | null
+          created_at?: string
+          delivery_item_id?: string | null
+          expiry_date?: string | null
+          id?: string
+          notes?: string | null
+          order_item_id?: string | null
+          producer_lot_code?: string | null
+          producer_name?: string | null
+          product_id: string
+          receipt_id: string
+          stock_quantity?: number | null
+          unit_code?: string | null
+          unit_cost?: number | null
+          unit_id?: string | null
+          updated_at?: string
+          verified_quantity: number
+        }
+        Update: {
+          company_id?: string
+          conversion_factor?: number | null
+          created_at?: string
+          delivery_item_id?: string | null
+          expiry_date?: string | null
+          id?: string
+          notes?: string | null
+          order_item_id?: string | null
+          producer_lot_code?: string | null
+          producer_name?: string | null
+          product_id?: string
+          receipt_id?: string
+          stock_quantity?: number | null
+          unit_code?: string | null
+          unit_cost?: number | null
+          unit_id?: string | null
+          updated_at?: string
+          verified_quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goods_receipt_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipt_items_delivery_item_id_fkey"
+            columns: ["delivery_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_delivery_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipt_items_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipt_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipt_items_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "goods_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipt_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goods_receipts: {
+        Row: {
+          archive_id: string
+          company_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          created_by: string | null
+          delivery_id: string | null
+          id: string
+          location_id: string
+          notes: string | null
+          number: string
+          order_id: string
+          received_at: string
+          status: Database["public"]["Enums"]["goods_receipt_status"]
+          supplier_record_id: string
+          updated_at: string
+        }
+        Insert: {
+          archive_id: string
+          company_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivery_id?: string | null
+          id?: string
+          location_id: string
+          notes?: string | null
+          number: string
+          order_id: string
+          received_at?: string
+          status?: Database["public"]["Enums"]["goods_receipt_status"]
+          supplier_record_id: string
+          updated_at?: string
+        }
+        Update: {
+          archive_id?: string
+          company_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivery_id?: string | null
+          id?: string
+          location_id?: string
+          notes?: string | null
+          number?: string
+          order_id?: string
+          received_at?: string
+          status?: Database["public"]["Enums"]["goods_receipt_status"]
+          supplier_record_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goods_receipts_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipts_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipts_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipts_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_adjustments: {
         Row: {
           company_id: string
@@ -1461,6 +1667,103 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_movements: {
+        Row: {
+          archive_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          location_id: string
+          movement_type: Database["public"]["Enums"]["inventory_movement_type"]
+          notes: string | null
+          product_id: string
+          quantity: number
+          source_id: string | null
+          source_table: string | null
+          stock_lot_id: string | null
+          unit_code: string | null
+          unit_id: string | null
+        }
+        Insert: {
+          archive_id?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id: string
+          movement_type: Database["public"]["Enums"]["inventory_movement_type"]
+          notes?: string | null
+          product_id: string
+          quantity: number
+          source_id?: string | null
+          source_table?: string | null
+          stock_lot_id?: string | null
+          unit_code?: string | null
+          unit_id?: string | null
+        }
+        Update: {
+          archive_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id?: string
+          movement_type?: Database["public"]["Enums"]["inventory_movement_type"]
+          notes?: string | null
+          product_id?: string
+          quantity?: number
+          source_id?: string | null
+          source_table?: string | null
+          stock_lot_id?: string | null
+          unit_code?: string | null
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_stock_lot_id_fkey"
+            columns: ["stock_lot_id"]
+            isOneToOne: false
+            referencedRelation: "stock_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
         ]
@@ -2214,6 +2517,580 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_deliveries: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          company_id: string
+          created_at: string
+          declared_at: string | null
+          declared_by: string | null
+          declared_by_name: string | null
+          id: string
+          notes: string | null
+          order_id: string
+          origin: Database["public"]["Enums"]["purchase_delivery_origin"]
+          sequence: number
+          status: Database["public"]["Enums"]["purchase_delivery_status"]
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          company_id: string
+          created_at?: string
+          declared_at?: string | null
+          declared_by?: string | null
+          declared_by_name?: string | null
+          id?: string
+          notes?: string | null
+          order_id: string
+          origin: Database["public"]["Enums"]["purchase_delivery_origin"]
+          sequence: number
+          status?: Database["public"]["Enums"]["purchase_delivery_status"]
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          company_id?: string
+          created_at?: string
+          declared_at?: string | null
+          declared_by?: string | null
+          declared_by_name?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string
+          origin?: Database["public"]["Enums"]["purchase_delivery_origin"]
+          sequence?: number
+          status?: Database["public"]["Enums"]["purchase_delivery_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_deliveries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_deliveries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_delivery_disputes: {
+        Row: {
+          company_id: string
+          created_at: string
+          delivery_item_id: string
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by: string | null
+          reason: Database["public"]["Enums"]["purchase_dispute_reason"]
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["purchase_dispute_status"]
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          delivery_item_id: string
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by?: string | null
+          reason: Database["public"]["Enums"]["purchase_dispute_reason"]
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["purchase_dispute_status"]
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          delivery_item_id?: string
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by?: string | null
+          reason?: Database["public"]["Enums"]["purchase_dispute_reason"]
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["purchase_dispute_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_delivery_disputes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_delivery_disputes_delivery_item_id_fkey"
+            columns: ["delivery_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_delivery_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_delivery_items: {
+        Row: {
+          accepted_quantity: number | null
+          company_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          declared_expiry: string | null
+          declared_producer: string | null
+          declared_producer_lot: string | null
+          declared_quantity: number
+          declared_weight: number | null
+          delivery_id: string
+          id: string
+          line_notes: string | null
+          line_type: Database["public"]["Enums"]["purchase_delivery_line_type"]
+          missing_reason: string | null
+          order_item_id: string | null
+          product_id: string
+          replaces_order_item_id: string | null
+          status: Database["public"]["Enums"]["purchase_delivery_line_status"]
+          unit_code: string | null
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          accepted_quantity?: number | null
+          company_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          declared_expiry?: string | null
+          declared_producer?: string | null
+          declared_producer_lot?: string | null
+          declared_quantity?: number
+          declared_weight?: number | null
+          delivery_id: string
+          id?: string
+          line_notes?: string | null
+          line_type?: Database["public"]["Enums"]["purchase_delivery_line_type"]
+          missing_reason?: string | null
+          order_item_id?: string | null
+          product_id: string
+          replaces_order_item_id?: string | null
+          status?: Database["public"]["Enums"]["purchase_delivery_line_status"]
+          unit_code?: string | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accepted_quantity?: number | null
+          company_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          declared_expiry?: string | null
+          declared_producer?: string | null
+          declared_producer_lot?: string | null
+          declared_quantity?: number
+          declared_weight?: number | null
+          delivery_id?: string
+          id?: string
+          line_notes?: string | null
+          line_type?: Database["public"]["Enums"]["purchase_delivery_line_type"]
+          missing_reason?: string | null
+          order_item_id?: string | null
+          product_id?: string
+          replaces_order_item_id?: string | null
+          status?: Database["public"]["Enums"]["purchase_delivery_line_status"]
+          unit_code?: string | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_delivery_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_delivery_items_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_delivery_items_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_delivery_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_delivery_items_replaces_order_item_id_fkey"
+            columns: ["replaces_order_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_delivery_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_delivery_line_events: {
+        Row: {
+          actor_label: string | null
+          actor_user_id: string | null
+          company_id: string
+          created_at: string
+          delivery_item_id: string
+          event_type: Database["public"]["Enums"]["delivery_line_event_type"]
+          id: string
+          new_quantity: number | null
+          notes: string | null
+          previous_quantity: number | null
+          reason: string | null
+        }
+        Insert: {
+          actor_label?: string | null
+          actor_user_id?: string | null
+          company_id: string
+          created_at?: string
+          delivery_item_id: string
+          event_type: Database["public"]["Enums"]["delivery_line_event_type"]
+          id?: string
+          new_quantity?: number | null
+          notes?: string | null
+          previous_quantity?: number | null
+          reason?: string | null
+        }
+        Update: {
+          actor_label?: string | null
+          actor_user_id?: string | null
+          company_id?: string
+          created_at?: string
+          delivery_item_id?: string
+          event_type?: Database["public"]["Enums"]["delivery_line_event_type"]
+          id?: string
+          new_quantity?: number | null
+          notes?: string | null
+          previous_quantity?: number | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_delivery_line_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_delivery_line_events_delivery_item_id_fkey"
+            columns: ["delivery_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_delivery_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_order_items: {
+        Row: {
+          company_id: string
+          conversion_factor: number | null
+          created_at: string
+          id: string
+          notes: string | null
+          order_id: string
+          ordered_quantity: number
+          product_id: string
+          product_supplier_link_id: string | null
+          purchase_quantity: number | null
+          purchase_unit_code: string | null
+          purchase_unit_id: string | null
+          supplier_product_code: string | null
+          unit_code: string | null
+          unit_cost: number | null
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          conversion_factor?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id: string
+          ordered_quantity: number
+          product_id: string
+          product_supplier_link_id?: string | null
+          purchase_quantity?: number | null
+          purchase_unit_code?: string | null
+          purchase_unit_id?: string | null
+          supplier_product_code?: string | null
+          unit_code?: string | null
+          unit_cost?: number | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          conversion_factor?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id?: string
+          ordered_quantity?: number
+          product_id?: string
+          product_supplier_link_id?: string | null
+          purchase_quantity?: number | null
+          purchase_unit_code?: string | null
+          purchase_unit_id?: string | null
+          supplier_product_code?: string | null
+          unit_code?: string | null
+          unit_cost?: number | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_product_supplier_link_id_fkey"
+            columns: ["product_supplier_link_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_unit_id_fkey"
+            columns: ["purchase_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_order_share_links: {
+        Row: {
+          access_count: number
+          company_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          last_access_at: string | null
+          order_id: string
+          recipient_label: string | null
+          revoked_at: string | null
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          access_count?: number
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          last_access_at?: string | null
+          order_id: string
+          recipient_label?: string | null
+          revoked_at?: string | null
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          access_count?: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          last_access_at?: string | null
+          order_id?: string
+          recipient_label?: string | null
+          revoked_at?: string | null
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_share_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_share_links_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          archive_id: string
+          closed_at: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          destination_address_id: string | null
+          destination_location_id: string
+          id: string
+          notes: string | null
+          number: string
+          relation_id: string | null
+          sent_at: string | null
+          shopping_list_id: string | null
+          status: Database["public"]["Enums"]["purchase_order_status"]
+          supplier_record_id: string
+          updated_at: string
+        }
+        Insert: {
+          archive_id: string
+          closed_at?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          destination_address_id?: string | null
+          destination_location_id: string
+          id?: string
+          notes?: string | null
+          number: string
+          relation_id?: string | null
+          sent_at?: string | null
+          shopping_list_id?: string | null
+          status?: Database["public"]["Enums"]["purchase_order_status"]
+          supplier_record_id: string
+          updated_at?: string
+        }
+        Update: {
+          archive_id?: string
+          closed_at?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          destination_address_id?: string | null
+          destination_location_id?: string
+          id?: string
+          notes?: string | null
+          number?: string
+          relation_id?: string | null
+          sent_at?: string | null
+          shopping_list_id?: string | null
+          status?: Database["public"]["Enums"]["purchase_order_status"]
+          supplier_record_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_destination_address_id_fkey"
+            columns: ["destination_address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_destination_location_id_fkey"
+            columns: ["destination_location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_relation_id_fkey"
+            columns: ["relation_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_customer_relations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_shopping_list_id_fkey"
+            columns: ["shopping_list_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shopping_list_item_suppliers: {
         Row: {
           assigned_quantity: number
@@ -2467,6 +3344,222 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_lot_reconciliations: {
+        Row: {
+          archive_id: string | null
+          attributed_quantity: number
+          company_id: string
+          count_id: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          detected_difference: number
+          id: string
+          location_id: string
+          notes: string | null
+          product_id: string
+          session_id: string | null
+          status: Database["public"]["Enums"]["lot_reconciliation_status"]
+          updated_at: string
+        }
+        Insert: {
+          archive_id?: string | null
+          attributed_quantity?: number
+          company_id: string
+          count_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          detected_difference: number
+          id?: string
+          location_id: string
+          notes?: string | null
+          product_id: string
+          session_id?: string | null
+          status?: Database["public"]["Enums"]["lot_reconciliation_status"]
+          updated_at?: string
+        }
+        Update: {
+          archive_id?: string | null
+          attributed_quantity?: number
+          company_id?: string
+          count_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          detected_difference?: number
+          id?: string
+          location_id?: string
+          notes?: string | null
+          product_id?: string
+          session_id?: string | null
+          status?: Database["public"]["Enums"]["lot_reconciliation_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_lot_reconciliations_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lot_reconciliations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lot_reconciliations_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lot_reconciliations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lot_reconciliations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lot_reconciliations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_lots: {
+        Row: {
+          archive_id: string
+          company_id: string
+          created_at: string
+          entered_at: string
+          expiry_date: string | null
+          goods_receipt_item_id: string
+          id: string
+          initial_quantity: number
+          internal_code: string
+          location_id: string
+          notes: string | null
+          producer_lot_code: string | null
+          producer_name: string | null
+          product_id: string
+          status: Database["public"]["Enums"]["stock_lot_status"]
+          supplier_record_id: string | null
+          unit_code: string | null
+          unit_cost: number | null
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          archive_id: string
+          company_id: string
+          created_at?: string
+          entered_at?: string
+          expiry_date?: string | null
+          goods_receipt_item_id: string
+          id?: string
+          initial_quantity: number
+          internal_code: string
+          location_id: string
+          notes?: string | null
+          producer_lot_code?: string | null
+          producer_name?: string | null
+          product_id: string
+          status?: Database["public"]["Enums"]["stock_lot_status"]
+          supplier_record_id?: string | null
+          unit_code?: string | null
+          unit_cost?: number | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          archive_id?: string
+          company_id?: string
+          created_at?: string
+          entered_at?: string
+          expiry_date?: string | null
+          goods_receipt_item_id?: string
+          id?: string
+          initial_quantity?: number
+          internal_code?: string
+          location_id?: string
+          notes?: string | null
+          producer_lot_code?: string | null
+          producer_name?: string | null
+          product_id?: string
+          status?: Database["public"]["Enums"]["stock_lot_status"]
+          supplier_record_id?: string | null
+          unit_code?: string | null
+          unit_cost?: number | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_lots_archive_id_fkey"
+            columns: ["archive_id"]
+            isOneToOne: false
+            referencedRelation: "danea_archives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lots_goods_receipt_item_id_fkey"
+            columns: ["goods_receipt_item_id"]
+            isOneToOne: true
+            referencedRelation: "goods_receipt_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lots_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lots_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lots_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lots_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
         ]
@@ -2805,6 +3898,28 @@ export type Database = {
         }
         Returns: string
       }
+      accept_purchase_delivery: {
+        Args: { _actor_user_id?: string; _delivery_id: string }
+        Returns: string
+      }
+      add_purchase_delivery_extra_item: {
+        Args: {
+          _actor_label?: string
+          _actor_user_id?: string
+          _declared_producer?: string
+          _declared_producer_lot?: string
+          _declared_quantity: number
+          _delivery_id: string
+          _line_notes?: string
+          _line_type?: Database["public"]["Enums"]["purchase_delivery_line_type"]
+          _product_id: string
+          _replaces_order_item_id?: string
+          _skip_access_check?: boolean
+          _unit_code?: string
+          _unit_id?: string
+        }
+        Returns: string
+      }
       add_shopping_list_items: {
         Args: {
           _actor_user_id?: string
@@ -2873,6 +3988,7 @@ export type Database = {
           product_id: string
         }[]
       }
+      can_declare_on_order: { Args: { _order_id: string }; Returns: boolean }
       can_read_company_address: {
         Args: { _company_id: string; _visible: boolean }
         Returns: boolean
@@ -2912,6 +4028,10 @@ export type Database = {
           suggested: number
         }[]
       }
+      confirm_goods_receipt: {
+        Args: { _actor_user_id?: string; _receipt_id: string }
+        Returns: string
+      }
       create_customer_invitation: {
         Args: {
           _customer_record_id: string
@@ -2938,6 +4058,25 @@ export type Database = {
           token: string
         }[]
       }
+      create_order_share_link: {
+        Args: {
+          _actor_user_id?: string
+          _expires_at: string
+          _order_id: string
+          _recipient_label?: string
+          _token_hash: string
+        }
+        Returns: string
+      }
+      create_purchase_orders_from_list: {
+        Args: {
+          _actor_user_id?: string
+          _company_id: string
+          _destination_location_id?: string
+          _list_id: string
+        }
+        Returns: Json
+      }
       customer_record_match_suggestions: {
         Args: { _customer_record_id: string }
         Returns: {
@@ -2954,11 +4093,68 @@ export type Database = {
         Args: { _accept: boolean; _proposal_id: string }
         Returns: undefined
       }
+      delivery_comparison: {
+        Args: { _delivery_id: string }
+        Returns: {
+          accepted_quantity: number
+          code: string
+          declared: number
+          declared_expiry: string
+          declared_producer: string
+          declared_producer_lot: string
+          declared_weight: number
+          delivery_item_id: string
+          description: string
+          difference: number
+          dispute_id: string
+          dispute_notes: string
+          dispute_reason: string
+          dispute_status: string
+          line_notes: string
+          line_type: string
+          missing_reason: string
+          order_item_id: string
+          ordered: number
+          outcome: string
+          previously_declared: number
+          product_id: string
+          status: string
+          unit_code: string
+        }[]
+      }
+      dispute_purchase_delivery_item: {
+        Args: {
+          _actor_user_id?: string
+          _delivery_item_id: string
+          _notes?: string
+          _reason: Database["public"]["Enums"]["purchase_dispute_reason"]
+        }
+        Returns: string
+      }
       ensure_default_inventory_location: {
         Args: { _actor_user_id?: string; _company_id: string }
         Returns: string
       }
+      external_order_snapshot: { Args: { _token_hash: string }; Returns: Json }
       generate_invite_code: { Args: never; Returns: string }
+      goods_receipt_history: {
+        Args: { _product_id: string }
+        Returns: {
+          location_name: string
+          order_id: string
+          order_number: string
+          producer_lot_code: string
+          producer_name: string
+          receipt_id: string
+          receipt_number: string
+          received_at: string
+          status: string
+          supplier_name: string
+          unit_code: string
+          unit_cost: number
+          verified_quantity: number
+        }[]
+      }
       has_active_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
         Returns: boolean
@@ -3042,6 +4238,7 @@ export type Database = {
       }
       is_company_admin: { Args: { _company_id: string }; Returns: boolean }
       is_company_member: { Args: { _company_id: string }; Returns: boolean }
+      is_order_supplier: { Args: { _order_id: string }; Returns: boolean }
       link_customer_record_to_relation: {
         Args: { _customer_record_id: string; _relation_id: string }
         Returns: undefined
@@ -3176,6 +4373,16 @@ export type Database = {
         }
         Returns: string
       }
+      manage_purchase_order: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _destination_location_id?: string
+          _notes?: string
+          _order_id: string
+        }
+        Returns: string
+      }
       manage_shopping_list: {
         Args: {
           _action: string
@@ -3258,7 +4465,35 @@ export type Database = {
         }
         Returns: string
       }
+      next_document_number: {
+        Args: { _company_id: string; _prefix: string }
+        Returns: string
+      }
       normalize_vat: { Args: { _value: string }; Returns: string }
+      open_goods_receipt: {
+        Args: { _actor_user_id?: string; _delivery_id: string }
+        Returns: string
+      }
+      open_lot_reconciliation: {
+        Args: {
+          _actor_user_id?: string
+          _location_id: string
+          _notes?: string
+          _product_id: string
+        }
+        Returns: string
+      }
+      open_purchase_delivery: {
+        Args: {
+          _actor_user_id?: string
+          _declared_by_name?: string
+          _order_id: string
+          _origin?: Database["public"]["Enums"]["purchase_delivery_origin"]
+          _skip_access_check?: boolean
+        }
+        Returns: string
+      }
+      order_supplier_company: { Args: { _order_id: string }; Returns: string }
       owns_customer_record: {
         Args: { _customer_record_id: string }
         Returns: boolean
@@ -3266,6 +4501,37 @@ export type Database = {
       owns_supplier_record: {
         Args: { _supplier_record_id: string }
         Returns: boolean
+      }
+      product_lot_availability: {
+        Args: { _product_id: string }
+        Returns: {
+          entered_at: string
+          expiry_date: string
+          initial_quantity: number
+          internal_code: string
+          location_id: string
+          location_name: string
+          lot_id: string
+          producer_lot_code: string
+          producer_name: string
+          remaining_quantity: number
+          status: string
+          supplier_name: string
+          supplier_record_id: string
+          unit_code: string
+          unit_cost: number
+        }[]
+      }
+      product_lot_reconciliation: {
+        Args: { _location_id?: string; _product_id: string }
+        Returns: {
+          difference: number
+          has_count: boolean
+          location_id: string
+          location_name: string
+          lots_theoretical: number
+          physical: number
+        }[]
       }
       product_stock_overview: { Args: { _product_id: string }; Returns: Json }
       product_supplier_overview: {
@@ -3291,6 +4557,28 @@ export type Database = {
           supplier_internal_reference: string
           supplier_name: string
           supplier_product_code: string
+          supplier_record_id: string
+        }[]
+      }
+      purchase_order_overview: {
+        Args: { _company_id: string }
+        Returns: {
+          archive_id: string
+          created_at: string
+          declared_total: number
+          deliveries: number
+          destination_location_id: string
+          destination_name: string
+          lines: number
+          notes: string
+          number: string
+          open_disputes: number
+          order_id: string
+          ordered_total: number
+          received_total: number
+          sent_at: string
+          status: string
+          supplier_name: string
           supplier_record_id: string
         }[]
       }
@@ -3385,6 +4673,31 @@ export type Database = {
         Args: { _company_id: string }
         Returns: number
       }
+      resolve_lot_reconciliation: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _notes?: string
+          _quantity?: number
+          _reconciliation_id: string
+          _stock_lot_id?: string
+        }
+        Returns: string
+      }
+      resolve_order_share_token: {
+        Args: { _token_hash: string }
+        Returns: string
+      }
+      resolve_purchase_delivery_dispute: {
+        Args: {
+          _accepted_quantity?: number
+          _actor_user_id?: string
+          _dispute_id: string
+          _notes?: string
+          _resolution: string
+        }
+        Returns: string
+      }
       resolve_relation_records: {
         Args: { _relation_id: string }
         Returns: undefined
@@ -3392,6 +4705,10 @@ export type Database = {
       revoke_company_relation: {
         Args: { _relation_id: string }
         Returns: undefined
+      }
+      revoke_order_share_link: {
+        Args: { _actor_user_id?: string; _link_id: string }
+        Returns: string
       }
       search_companies: {
         Args: { _query: string; _role: string }
@@ -3413,6 +4730,19 @@ export type Database = {
       set_default_price_list: {
         Args: { _company_id: string; _list_number: number }
         Returns: undefined
+      }
+      set_goods_receipt_item: {
+        Args: {
+          _actor_user_id?: string
+          _expiry_date?: string
+          _notes?: string
+          _producer_lot_code?: string
+          _producer_name?: string
+          _receipt_item_id: string
+          _unit_cost?: number
+          _verified_quantity?: number
+        }
+        Returns: string
       }
       set_preferred_product_supplier: {
         Args: {
@@ -3452,6 +4782,22 @@ export type Database = {
           old_image_path: string
           old_thumbnail_path: string
         }[]
+      }
+      set_purchase_delivery_item: {
+        Args: {
+          _actor_label?: string
+          _actor_user_id?: string
+          _declared_expiry?: string
+          _declared_producer?: string
+          _declared_producer_lot?: string
+          _declared_quantity?: number
+          _declared_weight?: number
+          _delivery_item_id: string
+          _line_notes?: string
+          _missing_reason?: string
+          _skip_access_check?: boolean
+        }
+        Returns: string
       }
       set_relation_side_enabled: {
         Args: { _enabled: boolean; _relation_id: string }
@@ -3510,6 +4856,16 @@ export type Database = {
           untranslatable: number
         }[]
       }
+      submit_purchase_delivery: {
+        Args: {
+          _actor_label?: string
+          _actor_user_id?: string
+          _delivery_id: string
+          _notes?: string
+          _skip_access_check?: boolean
+        }
+        Returns: string
+      }
       supplier_record_match_suggestions: {
         Args: { _relation_id: string }
         Returns: {
@@ -3538,7 +4894,22 @@ export type Database = {
       danea_sync_mode: "full" | "incremental"
       danea_sync_outcome: "in_corso" | "completato" | "fallito"
       danea_sync_source: "postazione" | "manuale"
+      delivery_line_event_type:
+        | "dichiarata"
+        | "modificata"
+        | "contestata"
+        | "rettificata"
+        | "accettata"
+        | "rifiutata"
       entity_status: "attivo" | "disattivato" | "revocato"
+      goods_receipt_status: "bozza" | "confermato"
+      inventory_movement_type:
+        | "entrata_acquisto"
+        | "uscita_cliente"
+        | "scarto"
+        | "reso"
+        | "trasferimento"
+        | "rettifica"
       inventory_session_scope: "generale" | "ubicazione"
       inventory_session_status: "in_corso" | "completata" | "annullata"
       invitation_status:
@@ -3546,9 +4917,50 @@ export type Database = {
         | "accettato"
         | "annullato"
         | "annullato_scaduto"
+      lot_reconciliation_status: "aperta" | "riconciliata" | "ignorata"
       product_publish_status: "pubblicato" | "non_pubblicato"
       product_supplier_origin: "manuale" | "danea"
       proposed_update_status: "in_attesa" | "accettato" | "rifiutato"
+      purchase_delivery_line_status:
+        | "dichiarata"
+        | "accettata"
+        | "contestata"
+        | "rettificata"
+        | "rifiutata"
+      purchase_delivery_line_type:
+        | "ordinata"
+        | "aggiunta_fornitore"
+        | "sostituzione"
+      purchase_delivery_origin:
+        | "fornitore_b2b"
+        | "fornitore_link_esterno"
+        | "operatore_interno"
+      purchase_delivery_status:
+        | "bozza"
+        | "dichiarata"
+        | "in_contestazione"
+        | "accettata"
+        | "chiusa_con_rifiuti"
+      purchase_dispute_reason:
+        | "quantita_inferiore"
+        | "quantita_superiore"
+        | "non_consegnato"
+        | "non_ordinato"
+        | "qualita"
+        | "pezzatura"
+        | "altro"
+      purchase_dispute_status:
+        | "aperta"
+        | "risolta_accettata"
+        | "risolta_rettificata"
+        | "risolta_rifiutata"
+      purchase_order_status:
+        | "bozza"
+        | "inviato"
+        | "parzialmente_consegnato"
+        | "consegnato"
+        | "chiuso"
+        | "annullato"
       relation_origin: "invito_fornitore" | "richiesta_cliente"
       relation_status:
         | "in_attesa"
@@ -3558,6 +4970,7 @@ export type Database = {
         | "rifiutato"
       shopping_list_item_origin: "manuale" | "fabbisogno"
       shopping_list_status: "aperta" | "confermata" | "chiusa" | "annullata"
+      stock_lot_status: "disponibile" | "esaurito" | "bloccato"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3698,7 +5111,24 @@ export const Constants = {
       danea_sync_mode: ["full", "incremental"],
       danea_sync_outcome: ["in_corso", "completato", "fallito"],
       danea_sync_source: ["postazione", "manuale"],
+      delivery_line_event_type: [
+        "dichiarata",
+        "modificata",
+        "contestata",
+        "rettificata",
+        "accettata",
+        "rifiutata",
+      ],
       entity_status: ["attivo", "disattivato", "revocato"],
+      goods_receipt_status: ["bozza", "confermato"],
+      inventory_movement_type: [
+        "entrata_acquisto",
+        "uscita_cliente",
+        "scarto",
+        "reso",
+        "trasferimento",
+        "rettifica",
+      ],
       inventory_session_scope: ["generale", "ubicazione"],
       inventory_session_status: ["in_corso", "completata", "annullata"],
       invitation_status: [
@@ -3707,9 +5137,57 @@ export const Constants = {
         "annullato",
         "annullato_scaduto",
       ],
+      lot_reconciliation_status: ["aperta", "riconciliata", "ignorata"],
       product_publish_status: ["pubblicato", "non_pubblicato"],
       product_supplier_origin: ["manuale", "danea"],
       proposed_update_status: ["in_attesa", "accettato", "rifiutato"],
+      purchase_delivery_line_status: [
+        "dichiarata",
+        "accettata",
+        "contestata",
+        "rettificata",
+        "rifiutata",
+      ],
+      purchase_delivery_line_type: [
+        "ordinata",
+        "aggiunta_fornitore",
+        "sostituzione",
+      ],
+      purchase_delivery_origin: [
+        "fornitore_b2b",
+        "fornitore_link_esterno",
+        "operatore_interno",
+      ],
+      purchase_delivery_status: [
+        "bozza",
+        "dichiarata",
+        "in_contestazione",
+        "accettata",
+        "chiusa_con_rifiuti",
+      ],
+      purchase_dispute_reason: [
+        "quantita_inferiore",
+        "quantita_superiore",
+        "non_consegnato",
+        "non_ordinato",
+        "qualita",
+        "pezzatura",
+        "altro",
+      ],
+      purchase_dispute_status: [
+        "aperta",
+        "risolta_accettata",
+        "risolta_rettificata",
+        "risolta_rifiutata",
+      ],
+      purchase_order_status: [
+        "bozza",
+        "inviato",
+        "parzialmente_consegnato",
+        "consegnato",
+        "chiuso",
+        "annullato",
+      ],
       relation_origin: ["invito_fornitore", "richiesta_cliente"],
       relation_status: [
         "in_attesa",
@@ -3720,6 +5198,7 @@ export const Constants = {
       ],
       shopping_list_item_origin: ["manuale", "fabbisogno"],
       shopping_list_status: ["aperta", "confermata", "chiusa", "annullata"],
+      stock_lot_status: ["disponibile", "esaurito", "bloccato"],
     },
   },
 } as const
