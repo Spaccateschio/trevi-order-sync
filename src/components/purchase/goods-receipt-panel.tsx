@@ -75,7 +75,7 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
           receiptItemId: row.id,
           verifiedQuantity: quantity,
           producerName: null,
-          producerLotCode: lots[row.id]?.trim() ? lots[row.id].trim() : null,
+          producerLotCode: lots[row.id]?.trim() || null,
           expiryDate: null,
           unitCost: null,
           notes: null,

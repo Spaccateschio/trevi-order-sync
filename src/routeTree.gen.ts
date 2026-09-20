@@ -22,11 +22,13 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedOperativoRouteImport } from './routes/_authenticated/operativo'
 import { Route as AuthenticatedVenditeRouteImport } from './routes/_authenticated/vendite'
+import { Route as ConsegnaTokenRouteImport } from './routes/consegna.$token'
 import { Route as InvitoTokenRouteImport } from './routes/invito.$token'
 import { Route as AuthenticatedAcquistiIndexRouteImport } from './routes/_authenticated/acquisti.index'
 import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_authenticated/acquisti.fornitori'
 import { Route as AuthenticatedAcquistiInventarioRouteImport } from './routes/_authenticated/acquisti.inventario'
 import { Route as AuthenticatedAcquistiListaSpesaRouteImport } from './routes/_authenticated/acquisti.lista-spesa'
+import { Route as AuthenticatedAcquistiOrdiniRouteImport } from './routes/_authenticated/acquisti.ordini'
 import { Route as AuthenticatedVenditeClientiRouteImport } from './routes/_authenticated/vendite_.clienti'
 import { Route as AuthenticatedVenditeProdottiRouteImport } from './routes/_authenticated/vendite_.prodotti'
 import { Route as AuthenticatedAcquistiCatalogoIndexRouteImport } from './routes/_authenticated/acquisti.catalogo.index'
@@ -101,6 +103,11 @@ const AuthenticatedVenditeRoute = AuthenticatedVenditeRouteImport.update({
   path: '/vendite',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ConsegnaTokenRoute = ConsegnaTokenRouteImport.update({
+  id: '/consegna/$token',
+  path: '/consegna/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InvitoTokenRoute = InvitoTokenRouteImport.update({
   id: '/invito/$token',
   path: '/invito/$token',
@@ -128,6 +135,12 @@ const AuthenticatedAcquistiListaSpesaRoute =
   AuthenticatedAcquistiListaSpesaRouteImport.update({
     id: '/acquisti/lista-spesa',
     path: '/acquisti/lista-spesa',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAcquistiOrdiniRoute =
+  AuthenticatedAcquistiOrdiniRouteImport.update({
+    id: '/acquisti/ordini',
+    path: '/acquisti/ordini',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedVenditeClientiRoute =
@@ -185,10 +198,12 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/operativo': typeof AuthenticatedOperativoRoute
   '/vendite': typeof AuthenticatedVenditeRoute
+  '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
+  '/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti/': typeof AuthenticatedAcquistiIndexRoute
@@ -211,10 +226,12 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/operativo': typeof AuthenticatedOperativoRoute
   '/vendite': typeof AuthenticatedVenditeRoute
+  '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
+  '/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti': typeof AuthenticatedAcquistiIndexRoute
@@ -239,10 +256,12 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/operativo': typeof AuthenticatedOperativoRoute
   '/_authenticated/vendite': typeof AuthenticatedVenditeRoute
+  '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
   '/_authenticated/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/_authenticated/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/_authenticated/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
+  '/_authenticated/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
   '/_authenticated/vendite_/clienti': typeof AuthenticatedVenditeClientiRoute
   '/_authenticated/vendite_/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/_authenticated/acquisti/': typeof AuthenticatedAcquistiIndexRoute
@@ -267,10 +286,12 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/operativo'
     | '/vendite'
+    | '/consegna/$token'
     | '/invito/$token'
     | '/acquisti/fornitori'
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
+    | '/acquisti/ordini'
     | '/vendite/clienti'
     | '/vendite/prodotti'
     | '/acquisti/'
@@ -293,10 +314,12 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/operativo'
     | '/vendite'
+    | '/consegna/$token'
     | '/invito/$token'
     | '/acquisti/fornitori'
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
+    | '/acquisti/ordini'
     | '/vendite/clienti'
     | '/vendite/prodotti'
     | '/acquisti'
@@ -320,10 +343,12 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/_authenticated/operativo'
     | '/_authenticated/vendite'
+    | '/consegna/$token'
     | '/invito/$token'
     | '/_authenticated/acquisti/fornitori'
     | '/_authenticated/acquisti/inventario'
     | '/_authenticated/acquisti/lista-spesa'
+    | '/_authenticated/acquisti/ordini'
     | '/_authenticated/vendite_/clienti'
     | '/_authenticated/vendite_/prodotti'
     | '/_authenticated/acquisti/'
@@ -339,6 +364,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ConsegnaTokenRoute: typeof ConsegnaTokenRoute
   InvitoTokenRoute: typeof InvitoTokenRoute
   ApiPublicDaneaProductsRoute: typeof ApiPublicDaneaProductsRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
@@ -437,6 +463,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVenditeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/consegna/$token': {
+      id: '/consegna/$token'
+      path: '/consegna/$token'
+      fullPath: '/consegna/$token'
+      preLoaderRoute: typeof ConsegnaTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invito/$token': {
       id: '/invito/$token'
       path: '/invito/$token'
@@ -470,6 +503,13 @@ declare module '@tanstack/react-router' {
       path: '/acquisti/lista-spesa'
       fullPath: '/acquisti/lista-spesa'
       preLoaderRoute: typeof AuthenticatedAcquistiListaSpesaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/acquisti/ordini': {
+      id: '/_authenticated/acquisti/ordini'
+      path: '/acquisti/ordini'
+      fullPath: '/acquisti/ordini'
+      preLoaderRoute: typeof AuthenticatedAcquistiOrdiniRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/vendite_/clienti': {
@@ -537,6 +577,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAcquistiFornitoriRoute: typeof AuthenticatedAcquistiFornitoriRoute
   AuthenticatedAcquistiInventarioRoute: typeof AuthenticatedAcquistiInventarioRoute
   AuthenticatedAcquistiListaSpesaRoute: typeof AuthenticatedAcquistiListaSpesaRoute
+  AuthenticatedAcquistiOrdiniRoute: typeof AuthenticatedAcquistiOrdiniRoute
   AuthenticatedVenditeClientiRoute: typeof AuthenticatedVenditeClientiRoute
   AuthenticatedVenditeProdottiRoute: typeof AuthenticatedVenditeProdottiRoute
   AuthenticatedAcquistiIndexRoute: typeof AuthenticatedAcquistiIndexRoute
@@ -558,6 +599,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAcquistiFornitoriRoute: AuthenticatedAcquistiFornitoriRoute,
   AuthenticatedAcquistiInventarioRoute: AuthenticatedAcquistiInventarioRoute,
   AuthenticatedAcquistiListaSpesaRoute: AuthenticatedAcquistiListaSpesaRoute,
+  AuthenticatedAcquistiOrdiniRoute: AuthenticatedAcquistiOrdiniRoute,
   AuthenticatedVenditeClientiRoute: AuthenticatedVenditeClientiRoute,
   AuthenticatedVenditeProdottiRoute: AuthenticatedVenditeProdottiRoute,
   AuthenticatedAcquistiIndexRoute: AuthenticatedAcquistiIndexRoute,
@@ -577,6 +619,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ConsegnaTokenRoute: ConsegnaTokenRoute,
   InvitoTokenRoute: InvitoTokenRoute,
   ApiPublicDaneaProductsRoute: ApiPublicDaneaProductsRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,

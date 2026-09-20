@@ -35,6 +35,7 @@ export type ModuleKey =
   | "acquisti.panoramica"
   | "acquisti.catalogo"
   | "acquisti.lista-spesa"
+  | "acquisti.ordini"
   | "acquisti.inventario"
   | "acquisti.fornitori"
   | "vendite.panoramica"
@@ -97,6 +98,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Lista della Spesa",
     short: "Spesa",
     icon: ShoppingCart,
+  },
+  {
+    key: "acquisti.ordini",
+    area: "acquisti",
+    to: "/acquisti/ordini",
+    label: "Ordini fornitore",
+    short: "Ordini",
+    icon: ClipboardList,
   },
   {
     key: "acquisti.inventario",
