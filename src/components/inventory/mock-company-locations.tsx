@@ -1,8 +1,7 @@
-import { CheckCircle2, CircleAlert, MapPin, Pencil, Plus, Power, Star } from "lucide-react";
+import { CheckCircle2, Pencil, Plus, Power } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -59,18 +58,18 @@ export function MockCompanyLocations() {
         </div>
         <Button size="sm" onClick={startCreate}>
           <Plus aria-hidden="true" />
-          <span className="hidden sm:inline">Aggiungi zona</span>
-          <span className="sm:hidden">Aggiungi</span>
+          Aggiungi zona
         </Button>
       </div>
 
-      <div className="hidden md:block">
+      <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/60 text-left text-xs text-muted-foreground">
             <tr>
               <th className="px-5 py-2.5 font-medium">Nome</th>
               <th className="px-3 py-2.5 font-medium">Codice</th>
               <th className="px-3 py-2.5 font-medium">Predefinita</th>
+              <th className="px-3 py-2.5 font-medium">Stato</th>
               <th className="px-5 py-2.5 text-right font-medium">Azioni</th>
             </tr>
           </thead>
@@ -93,6 +92,7 @@ export function MockCompanyLocations() {
                     {location.isDefault ? <CheckCircle2 className="size-5 text-primary" /> : <span className="size-4 rounded-full border-2 border-input" />}
                   </button>
                 </td>
+                <td className="px-3 py-3">{location.active ? "Attiva" : "Disattivata"}</td>
                 <td className="px-5 py-3">
                   <div className="flex justify-end gap-1">
                     <Button size="icon" variant="ghost" onClick={() => startEdit(location)} aria-label={`Modifica ${location.name}`}>
@@ -116,32 +116,6 @@ export function MockCompanyLocations() {
             ))}
           </tbody>
         </table>
-      </div>
-
-      <ul className="divide-y divide-border md:hidden">
-        {locations.map((location) => (
-          <li key={location.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <MapPin className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{location.name}</p>
-                <p className="text-xs text-muted-foreground">Codice {location.code}</p>
-                <div className="mt-1 flex gap-1">
-                  {location.isDefault ? <Badge variant="secondary"><Star aria-hidden="true" /> Predefinita</Badge> : null}
-                  {!location.active ? <Badge variant="outline">Disattivata</Badge> : null}
-                </div>
-              </div>
-            </div>
-            <Button size="icon" variant="ghost" onClick={() => startEdit(location)} aria-label={`Modifica ${location.name}`}>
-              <Pencil aria-hidden="true" />
-            </Button>
-          </li>
-        ))}
-      </ul>
-
-      <div className="flex gap-3 border-t border-border bg-secondary/70 p-4 text-sm text-secondary-foreground">
-        <CircleAlert className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-        <p>La zona predefinita viene proposta nei nuovi conteggi e nei movimenti di magazzino, ma può essere cambiata.</p>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
