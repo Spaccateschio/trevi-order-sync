@@ -40,14 +40,46 @@ Nessuna modifica a conteggi, rettifiche, movimenti, lotti, provenienze, formule 
 - Chiusura contemporanea da due amministratori: la seconda chiusura non produce effetti aggiuntivi.
 - "Conferma visibili invariati" invia le singole conferme in blocco tramite la stessa funzione idempotente.
 
-## 5. Decisione che mi serve prima di procedere
+## 5. Decisioni approvate
 
-**Preferiti**: non esiste una persistenza reale dei preferiti sui prodotti dell'azienda. Opzioni:
-- (a) aggiungere una piccola tabella di preferiti aziendali sui propri prodotti (condivisi fra gli operatori dell'azienda);
-- (b) per ora mostrare Preferiti | Tutti con Preferiti vuoto e rimandare la funzione;
-- (c) preferiti personali del singolo operatore.
+**Preferiti — opzione (a)**: preferiti aziendali condivisi sui prodotti dell'azienda, distinti dai preferiti B2B già esistenti. L'amministratore aggiunge/rimuove, tutti gli operatori vedono la stessa selezione. Soluzione minima: una riga per azienda+prodotto, nessuna funzione aggiuntiva.
 
-Dimmi quale preferisci: senza tua indicazione non creo nessuna soluzione parallela.
+**Permessi**: apertura e chiusura dell'inventario solo all'amministratore; gli operatori partecipano a una sessione già aperta e confermano i conteggi; un operatore non può chiudere l'inventario. È esattamente ciò che il database già impone.
+
+## 5-bis. Verifica architetturale: un solo inventario generale, le zone sono navigazione
+
+Verificato sul database: **non serve nessun contenitore sopra le sessioni** e non ci sarà nessuna somma di sessioni fatta dal frontend.
+
+La sessione di inventario esiste già in due forme alternative:
+
+- **generale**: una sola aperta per azienda e archivio, senza zona propria, e i suoi conteggi possono riferirsi a **qualunque zona** dell'azienda;
+- **per zona**: una sola aperta per singola zona, e i conteggi possono riferirsi solo a quella zona.
+
+Il vincolo "una sola sessione aperta per zona" riguarda solo la seconda forma. Per l'interfaccia approvata useremo **sempre la forma generale**: un unico lavoro di inventario che comprende Mandrione, Frigo, Banco e Cella.
+
+Rapporto rappresentato:
+
+```text
+Inventario generale (una sessione aperta per azienda)
+└── Prodotti previsti: elenco fisso creato all'apertura, una riga per prodotto + zona
+    ├── Mandrione   84 / 120
+    ├── Frigo       32 / 40
+    ├── Banco       21 / 25
+    └── Cella        0 / 15
+    Totale generale = numero di righe previste = 200
+    Completati = righe previste che hanno un conteggio confermato nella sessione = 137
+```
+
+Conseguenze:
+
+- il totale generale è lo scatto dei prodotti previsti al momento dell'apertura: non cambia con filtri, ricerca, Preferiti, né se il catalogo cambia durante il conteggio;
+- zona, categoria e sottocategoria sono raggruppamenti delle stesse righe previste, quindi i loro avanzamenti sono sempre parti dello stesso 137/200 e non inventari separati;
+- l'inventario si può interrompere e riprendere: riaprendo la schermata si ritrova la stessa sessione con lo stesso totale e lo stesso avanzamento;
+- la chiusura è un unico atto sull'inventario generale, non quattro chiusure per zona.
+
+Le sessioni per singola zona restano disponibili nell'architettura esistente (per conteggi mirati) ma la nuova interfaccia non le userà.
+
+
 
 ## 6. Piano di implementazione a step
 
