@@ -10,7 +10,9 @@ import {
   MapPin,
   PackageSearch,
   Search,
+  Sparkles,
   Star,
+  StickyNote,
   Tags,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -95,6 +97,7 @@ export function MockInventoryPanel() {
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState<Record<string, number>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [allMockCompleted, setAllMockCompleted] = useState(false);
 
   const selectedLocation =
@@ -128,6 +131,7 @@ export function MockInventoryPanel() {
     setSelectedLocationId(defaultLocation?.id ?? "");
     setDrafts({});
     setConfirmed({});
+    setNotes({});
     setAllMockCompleted(false);
     setProductView("favorites");
     setWorkFilter("pending");
@@ -192,6 +196,8 @@ export function MockInventoryPanel() {
             search={search}
             drafts={drafts}
             confirmed={confirmed}
+            notes={notes}
+            onNoteChange={(id, value) => setNotes((current) => ({ ...current, [id]: value }))}
             generalCompleted={generalCompleted}
             generalDifferences={generalDifferences}
             allMockCompleted={allMockCompleted}
@@ -270,7 +276,7 @@ function LocationSelection({ locations, selectedId, onSelected, onCancel, onCont
   );
 }
 
-function PhysicalCount({ location, products, productView, search, drafts, confirmed, generalCompleted, generalDifferences, allMockCompleted, navigationMode, category, subcategory, workFilter, onViewChange, onWorkFilterChange, onNavigationModeChange, onLocationChange, onCategoryChange, onSubcategoryChange, onSearchChange, onDraftChange, onConfirm, onConfirmAll, onCompleteMock }: { location: MockLocation | undefined; products: MockProduct[]; productView: ProductView; search: string; drafts: Record<string, string>; confirmed: Record<string, number>; generalCompleted: number; generalDifferences: number; allMockCompleted: boolean; navigationMode: NavigationMode; category: string | null; subcategory: string | null; workFilter: WorkFilter; onViewChange: (value: ProductView) => void; onWorkFilterChange: (value: WorkFilter) => void; onNavigationModeChange: (value: NavigationMode) => void; onLocationChange: (id: string) => void; onCategoryChange: (value: string) => void; onSubcategoryChange: (value: string) => void; onSearchChange: (value: string) => void; onDraftChange: (id: string, value: string) => void; onConfirm: (product: MockProduct) => void; onConfirmAll: () => void; onCompleteMock: () => void }) {
+function PhysicalCount({ location, products, productView, search, drafts, confirmed, notes, onNoteChange, generalCompleted, generalDifferences, allMockCompleted, navigationMode, category, subcategory, workFilter, onViewChange, onWorkFilterChange, onNavigationModeChange, onLocationChange, onCategoryChange, onSubcategoryChange, onSearchChange, onDraftChange, onConfirm, onConfirmAll, onCompleteMock }: { location: MockLocation | undefined; products: MockProduct[]; productView: ProductView; search: string; drafts: Record<string, string>; confirmed: Record<string, number>; notes: Record<string, string>; onNoteChange: (id: string, value: string) => void; generalCompleted: number; generalDifferences: number; allMockCompleted: boolean; navigationMode: NavigationMode; category: string | null; subcategory: string | null; workFilter: WorkFilter; onViewChange: (value: ProductView) => void; onWorkFilterChange: (value: WorkFilter) => void; onNavigationModeChange: (value: NavigationMode) => void; onLocationChange: (id: string) => void; onCategoryChange: (value: string) => void; onSubcategoryChange: (value: string) => void; onSearchChange: (value: string) => void; onDraftChange: (id: string, value: string) => void; onConfirm: (product: MockProduct) => void; onConfirmAll: () => void; onCompleteMock: () => void }) {
   const locations = useMockLocations().filter((item) => item.active);
   const completedWithoutDifferences = generalCompleted - generalDifferences;
   const percentage = Math.round((generalCompleted / INVENTORY_TOTAL) * 100);
@@ -318,7 +324,7 @@ function PhysicalCount({ location, products, productView, search, drafts, confir
           <div className="grid grid-cols-3 rounded-md border border-border p-0.5"><Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "ghost"} onClick={() => onWorkFilterChange("pending")}>Da controllare</Button><Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "completed" ? "default" : "ghost"} onClick={() => onWorkFilterChange("completed")}>Completati</Button><Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "differences" ? "default" : "ghost"} onClick={() => onWorkFilterChange("differences")}>Differenze</Button></div>
         </div>
 
-        <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">{products.map((product) => <ProductCard key={product.id} product={product} value={drafts[product.id] ?? ""} confirmed={confirmed[product.id]} onChange={(value) => onDraftChange(product.id, value)} onConfirm={() => onConfirm(product)} />)}</div>
+        <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">{products.map((product) => <ProductCard key={product.id} product={product} value={drafts[product.id] ?? ""} confirmed={confirmed[product.id]} note={notes[product.id] ?? ""} onNoteChange={(value) => onNoteChange(product.id, value)} onChange={(value) => onDraftChange(product.id, value)} onConfirm={() => onConfirm(product)} />)}</div>
         {!products.length ? <div className="p-8 text-center"><PackageSearch className="mx-auto size-8 text-muted-foreground" /><p className="mt-2 text-sm font-medium">Nessun prodotto in questa vista</p><p className="text-xs text-muted-foreground">Cambia filtro o selezione per continuare.</p></div> : null}
 
         <div className="grid gap-2 border-t border-border p-2 sm:flex sm:justify-end"><Button size="sm" variant="outline" onClick={onConfirmAll}><CheckCheck /> Conferma visibili invariati</Button><Button size="sm" onClick={onCompleteMock}><ClipboardCheck /> Simula completamento inventario</Button></div>
@@ -335,16 +341,25 @@ function VisualGrid({ title, items, onSelect }: { title: string; items: { id: st
   );
 }
 
-function ProductCard({ product, value, confirmed, onChange, onConfirm }: { product: MockProduct; value: string; confirmed: number | undefined; onChange: (value: string) => void; onConfirm: () => void }) {
+function ProductCard({ product, value, confirmed, note, onNoteChange, onChange, onConfirm }: { product: MockProduct; value: string; confirmed: number | undefined; note: string; onNoteChange: (value: string) => void; onChange: (value: string) => void; onConfirm: () => void }) {
+  const [noteOpen, setNoteOpen] = useState(false);
   const counted = parseQuantity(value);
   const difference = counted === null ? null : counted - product.calculated;
   const hasDifference = confirmed !== undefined && confirmed !== product.calculated;
+  const confirmedDifference = hasDifference ? confirmed - product.calculated : null;
   return (
     <article className={cn("rounded-md border-2 bg-card p-2", confirmed === undefined && "border-border", confirmed !== undefined && !hasDifference && "border-success/50 bg-success/5", hasDifference && "border-destructive/50 bg-destructive/5")}>
       <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
         <img src={product.image} alt="" loading="lazy" width={512} height={512} className="size-12 rounded-sm border border-border object-cover" />
         <div className="min-w-0"><p className="truncate font-display text-sm font-bold uppercase leading-tight">{product.name}</p><p className="text-[11px] leading-tight text-muted-foreground">Cod. {product.code} · {product.unit}</p></div>
-        <span className={cn("shrink-0 rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none", confirmed === undefined && "bg-muted text-muted-foreground", confirmed !== undefined && !hasDifference && "bg-success/15 text-success", hasDifference && "bg-destructive/10 text-destructive")}>{confirmed === undefined ? "Da controllare" : hasDifference ? "Differenza" : "Confermato"}</span>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className={cn("rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none", confirmed === undefined && "bg-muted text-muted-foreground", confirmed !== undefined && !hasDifference && "bg-success/15 text-success", hasDifference && "bg-destructive/10 text-destructive")}>{confirmed === undefined ? "Da controllare" : hasDifference ? "Differenza" : "Confermato"}</span>
+          {hasDifference ? (
+            <Button type="button" variant="ghost" size="sm" className={cn("h-7 w-7 px-0", note && "text-primary")} tabIndex={-1} aria-label={note ? `Nota ${product.name}` : `Aggiungi nota ${product.name}`} title={note ? "Vedi nota" : "Aggiungi nota"} onClick={() => setNoteOpen((open) => !open)}>
+              <StickyNote className={cn("size-3.5", note && "fill-current")} />
+            </Button>
+          ) : null}
+        </div>
       </div>
       <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
         <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">{formatQuantity(product.calculated, product.unit)}</p></div>
@@ -375,9 +390,32 @@ function ProductCard({ product, value, confirmed, onChange, onConfirm }: { produ
         ))}
         <Button type="button" variant="ghost" size="sm" className="h-8 w-11 shrink-0 justify-center px-0" tabIndex={-1} aria-label={`Azzera quantità ${product.name}`} title="Azzera" onClick={() => onChange("")}><Delete className="size-4" /></Button>
       </div>
+      {noteOpen && hasDifference ? (
+        <div className="mt-1.5 space-y-1.5 rounded-sm border border-border bg-muted/30 p-1.5">
+          <p className="text-[9px] font-bold uppercase leading-none text-muted-foreground">Nota differenza — demo locale</p>
+          <textarea
+            className="min-h-14 w-full resize-none rounded-sm border border-border bg-card p-1.5 text-xs leading-snug outline-none focus-visible:border-primary/50"
+            placeholder="Es. buttata una cassa perché deteriorata"
+            value={note}
+            onChange={(event) => onNoteChange(event.target.value)}
+            maxLength={300}
+            aria-label={`Nota differenza ${product.name}`}
+          />
+          {note.trim() && confirmedDifference !== null ? <AiAnalysisDemo product={product} difference={confirmedDifference} note={note.trim()} /> : null}
+        </div>
+      ) : null}
     </article>
+  );
+}
 
-
+function AiAnalysisDemo({ product, difference, note }: { product: MockProduct; difference: number; note: string }) {
+  return (
+    <div className="rounded-sm border border-primary/30 bg-primary/5 p-1.5">
+      <p className="flex items-center gap-1 text-[9px] font-bold uppercase leading-none text-primary"><Sparkles className="size-3" /> Analisi AI — DEMO</p>
+      <p className="mt-1 text-[10px] leading-snug"><strong>Spiegazione:</strong> la differenza di {difference > 0 ? "+" : ""}{formatQuantity(difference, product.unit)} {product.unit} su {product.name} potrebbe essere collegata a: «{note}».</p>
+      <p className="text-[10px] leading-snug"><strong>Azione proposta:</strong> verificare lo scarto indicato e, se corretto, registrare la causale appropriata.</p>
+      <p className="mt-1 text-[9px] leading-snug text-muted-foreground">Simulazione frontend: l'AI, quando verrà collegata, dovrà esclusivamente analizzare e proporre — non modificherà mai automaticamente quantità, inventario, movimenti o provenienze.</p>
+    </div>
   );
 }
 
