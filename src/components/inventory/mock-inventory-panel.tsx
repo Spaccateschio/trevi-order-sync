@@ -330,7 +330,7 @@ function PhysicalCount({ location, products, productView, search, drafts, confir
   );
 }
 
-function VisualGrid({ title, items, onSelect }: { title: string; items: { id: string; name: string; progress?: { completed: number; total: number } }[]; onSelect: (id: string) => void }) {
+function VisualGrid({ title, items, onSelect }: { title: string; items: { id: string; name: string; progress: { completed: number; total: number } | undefined }[]; onSelect: (id: string) => void }) {
   return (
     <section className="rounded-md border border-border bg-card p-3 sm:p-4"><h3 className="mb-3 font-display text-base font-semibold">{title}</h3><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{items.map((item) => { const percentage = item.progress ? Math.round((item.progress.completed / item.progress.total) * 100) : 0; return <Button key={item.id} variant="outline" className="h-auto min-h-24 flex-col items-stretch justify-between gap-3 p-3 text-left" onClick={() => onSelect(item.id)}><span className="line-clamp-2 font-semibold">{item.name}</span>{item.progress ? <span><span className="mb-1 flex justify-between text-xs text-muted-foreground"><span>{item.progress.completed} / {item.progress.total}</span><span>{percentage}%</span></span><Progress value={percentage} className="h-2" /></span> : null}</Button> })}</div></section>
   );
