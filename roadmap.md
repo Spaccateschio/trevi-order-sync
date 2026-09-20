@@ -16,3 +16,4 @@
 - [ ] Test reale della Lista della Spesa con 2-3 fornitori e confezioni differenti
 - [ ] FASE D (solo piano, non implementare): ordine fornitore con destinazione di ricezione, dichiarazione di consegna, confronto ordinato/consegnato, contestazioni per riga, carico merce come unico evento che aumenta la giacenza, lotti/provenienza interni + lotto produttore opzionale, registro movimenti append-only compatibile con Inventario
 - [ ] Rinviato alla fase Vendite: finestra di 30 minuti dopo la conferma di scarico del trasportatore (conferma o contestazione del cliente, conformità per decorrenza, collegamento al pagamento)
+- [ ] FASE D — tre modalità fornitore (registrato B2B, link esterno tokenizzato senza account, completamente esterno compilato dall'operatore) con unico modello dati; catena ordinato → dichiarato → verificato → caricato; solo il carico verificato crea lotto e movimento; pagina pubblica del link eventualmente successiva
