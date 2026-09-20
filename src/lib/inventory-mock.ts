@@ -18,17 +18,26 @@ export type MockProduct = {
   calculated: number;
   favorite: boolean;
   icon: string;
+  locationId: string;
+  category: string;
+  subcategory: string;
 };
 
 export const MOCK_PRODUCTS: MockProduct[] = [
-  { id: "mele", name: "Mele Golden", code: "0246", unit: "kg", calculated: 120, favorite: true, icon: "🍏" },
-  { id: "pomodori", name: "Pomodori", code: "0247", unit: "kg", calculated: 85, favorite: true, icon: "🍅" },
-  { id: "lattuga", name: "Lattuga", code: "0255", unit: "pz", calculated: 40, favorite: true, icon: "🥬" },
-  { id: "carote", name: "Carote", code: "0312", unit: "kg", calculated: 60, favorite: true, icon: "🥕" },
-  { id: "zucchine", name: "Zucchine", code: "0433", unit: "kg", calculated: 35, favorite: true, icon: "🥒" },
-  { id: "melanzane", name: "Melanzane", code: "0446", unit: "kg", calculated: 100, favorite: false, icon: "🍆" },
-  { id: "limoni", name: "Limoni", code: "0510", unit: "kg", calculated: 48, favorite: false, icon: "🍋" },
-  { id: "patate", name: "Patate novelle", code: "0612", unit: "kg", calculated: 72, favorite: false, icon: "🥔" },
+  { id: "mele", name: "Mele Golden", code: "0246", unit: "kg", calculated: 120, favorite: true, icon: "", locationId: "mandrione", category: "Frutta", subcategory: "Mele" },
+  { id: "pere", name: "Pere Abate", code: "0248", unit: "kg", calculated: 64, favorite: false, icon: "", locationId: "frigo", category: "Frutta", subcategory: "Pere" },
+  { id: "limoni", name: "Limoni primo fiore", code: "0510", unit: "kg", calculated: 48, favorite: false, icon: "", locationId: "mandrione", category: "Frutta", subcategory: "Agrumi" },
+  { id: "pomodori-grappolo", name: "Pomodori a grappolo", code: "0247", unit: "kg", calculated: 85, favorite: true, icon: "", locationId: "mandrione", category: "Verdura", subcategory: "Pomodori" },
+  { id: "pomodori-datterino", name: "Pomodori datterino", code: "0250", unit: "kg", calculated: 28, favorite: true, icon: "", locationId: "frigo", category: "Verdura", subcategory: "Pomodori" },
+  { id: "lattuga", name: "Lattuga romana", code: "0255", unit: "pz", calculated: 40, favorite: true, icon: "", locationId: "frigo", category: "Verdura", subcategory: "Insalate" },
+  { id: "rucola", name: "Rucola in cassetta", code: "0257", unit: "kg", calculated: 12, favorite: false, icon: "", locationId: "frigo", category: "Verdura", subcategory: "Insalate" },
+  { id: "zucchine", name: "Zucchine verdi", code: "0433", unit: "kg", calculated: 35, favorite: true, icon: "", locationId: "mandrione", category: "Verdura", subcategory: "Zucchine" },
+  { id: "melanzane", name: "Melanzane viola", code: "0446", unit: "kg", calculated: 100, favorite: false, icon: "", locationId: "mandrione", category: "Verdura", subcategory: "Melanzane" },
+  { id: "basilico", name: "Basilico fresco", code: "0520", unit: "pz", calculated: 32, favorite: true, icon: "", locationId: "banco", category: "Erbe aromatiche", subcategory: "Basilico" },
+  { id: "prezzemolo", name: "Prezzemolo liscio", code: "0521", unit: "pz", calculated: 45, favorite: false, icon: "", locationId: "banco", category: "Erbe aromatiche", subcategory: "Prezzemolo" },
+  { id: "patate", name: "Patate novelle", code: "0612", unit: "kg", calculated: 72, favorite: false, icon: "", locationId: "mandrione", category: "Patate e cipolle", subcategory: "Patate" },
+  { id: "cipolle", name: "Cipolle dorate", code: "0614", unit: "kg", calculated: 54, favorite: true, icon: "", locationId: "mandrione", category: "Patate e cipolle", subcategory: "Cipolle" },
+  { id: "carote", name: "Carote sfuse", code: "0312", unit: "kg", calculated: 60, favorite: true, icon: "", locationId: "cella", category: "Altro", subcategory: "Radici" },
 ];
 
 let locations: MockLocation[] = [
