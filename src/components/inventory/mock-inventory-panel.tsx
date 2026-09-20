@@ -10,7 +10,9 @@ import {
   MapPin,
   PackageSearch,
   Search,
+  Sparkles,
   Star,
+  StickyNote,
   Tags,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -95,6 +97,7 @@ export function MockInventoryPanel() {
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState<Record<string, number>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [allMockCompleted, setAllMockCompleted] = useState(false);
 
   const selectedLocation =
@@ -128,6 +131,7 @@ export function MockInventoryPanel() {
     setSelectedLocationId(defaultLocation?.id ?? "");
     setDrafts({});
     setConfirmed({});
+    setNotes({});
     setAllMockCompleted(false);
     setProductView("favorites");
     setWorkFilter("pending");
@@ -192,6 +196,8 @@ export function MockInventoryPanel() {
             search={search}
             drafts={drafts}
             confirmed={confirmed}
+            notes={notes}
+            onNoteChange={(id, value) => setNotes((current) => ({ ...current, [id]: value }))}
             generalCompleted={generalCompleted}
             generalDifferences={generalDifferences}
             allMockCompleted={allMockCompleted}
@@ -270,7 +276,7 @@ function LocationSelection({ locations, selectedId, onSelected, onCancel, onCont
   );
 }
 
-function PhysicalCount({ location, products, productView, search, drafts, confirmed, generalCompleted, generalDifferences, allMockCompleted, navigationMode, category, subcategory, workFilter, onViewChange, onWorkFilterChange, onNavigationModeChange, onLocationChange, onCategoryChange, onSubcategoryChange, onSearchChange, onDraftChange, onConfirm, onConfirmAll, onCompleteMock }: { location: MockLocation | undefined; products: MockProduct[]; productView: ProductView; search: string; drafts: Record<string, string>; confirmed: Record<string, number>; generalCompleted: number; generalDifferences: number; allMockCompleted: boolean; navigationMode: NavigationMode; category: string | null; subcategory: string | null; workFilter: WorkFilter; onViewChange: (value: ProductView) => void; onWorkFilterChange: (value: WorkFilter) => void; onNavigationModeChange: (value: NavigationMode) => void; onLocationChange: (id: string) => void; onCategoryChange: (value: string) => void; onSubcategoryChange: (value: string) => void; onSearchChange: (value: string) => void; onDraftChange: (id: string, value: string) => void; onConfirm: (product: MockProduct) => void; onConfirmAll: () => void; onCompleteMock: () => void }) {
+function PhysicalCount({ location, products, productView, search, drafts, confirmed, notes, onNoteChange, generalCompleted, generalDifferences, allMockCompleted, navigationMode, category, subcategory, workFilter, onViewChange, onWorkFilterChange, onNavigationModeChange, onLocationChange, onCategoryChange, onSubcategoryChange, onSearchChange, onDraftChange, onConfirm, onConfirmAll, onCompleteMock }: { location: MockLocation | undefined; products: MockProduct[]; productView: ProductView; search: string; drafts: Record<string, string>; confirmed: Record<string, number>; notes: Record<string, string>; onNoteChange: (id: string, value: string) => void; generalCompleted: number; generalDifferences: number; allMockCompleted: boolean; navigationMode: NavigationMode; category: string | null; subcategory: string | null; workFilter: WorkFilter; onViewChange: (value: ProductView) => void; onWorkFilterChange: (value: WorkFilter) => void; onNavigationModeChange: (value: NavigationMode) => void; onLocationChange: (id: string) => void; onCategoryChange: (value: string) => void; onSubcategoryChange: (value: string) => void; onSearchChange: (value: string) => void; onDraftChange: (id: string, value: string) => void; onConfirm: (product: MockProduct) => void; onConfirmAll: () => void; onCompleteMock: () => void }) {
   const locations = useMockLocations().filter((item) => item.active);
   const completedWithoutDifferences = generalCompleted - generalDifferences;
   const percentage = Math.round((generalCompleted / INVENTORY_TOTAL) * 100);
@@ -318,7 +324,7 @@ function PhysicalCount({ location, products, productView, search, drafts, confir
           <div className="grid grid-cols-3 rounded-md border border-border p-0.5"><Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "ghost"} onClick={() => onWorkFilterChange("pending")}>Da controllare</Button><Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "completed" ? "default" : "ghost"} onClick={() => onWorkFilterChange("completed")}>Completati</Button><Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "differences" ? "default" : "ghost"} onClick={() => onWorkFilterChange("differences")}>Differenze</Button></div>
         </div>
 
-        <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">{products.map((product) => <ProductCard key={product.id} product={product} value={drafts[product.id] ?? ""} confirmed={confirmed[product.id]} onChange={(value) => onDraftChange(product.id, value)} onConfirm={() => onConfirm(product)} />)}</div>
+        <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">{products.map((product) => <ProductCard key={product.id} product={product} value={drafts[product.id] ?? ""} confirmed={confirmed[product.id]} note={notes[product.id] ?? ""} onNoteChange={(value) => onNoteChange(product.id, value)} onChange={(value) => onDraftChange(product.id, value)} onConfirm={() => onConfirm(product)} />)}</div>
         {!products.length ? <div className="p-8 text-center"><PackageSearch className="mx-auto size-8 text-muted-foreground" /><p className="mt-2 text-sm font-medium">Nessun prodotto in questa vista</p><p className="text-xs text-muted-foreground">Cambia filtro o selezione per continuare.</p></div> : null}
 
         <div className="grid gap-2 border-t border-border p-2 sm:flex sm:justify-end"><Button size="sm" variant="outline" onClick={onConfirmAll}><CheckCheck /> Conferma visibili invariati</Button><Button size="sm" onClick={onCompleteMock}><ClipboardCheck /> Simula completamento inventario</Button></div>
