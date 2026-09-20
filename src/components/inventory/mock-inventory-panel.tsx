@@ -162,7 +162,7 @@ export function MockInventoryPanel() {
   };
 
   return (
-    <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+    <Tabs value={tab} onValueChange={setTab} className="space-y-2">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <TabsList className="max-w-full justify-start overflow-x-auto">
           <TabsTrigger value="conteggio">Conteggio</TabsTrigger>
@@ -281,48 +281,48 @@ function PhysicalCount({ location, products, productView, search, drafts, confir
   const subcategoryNames = Array.from(new Set(MOCK_PRODUCTS.filter((product) => !category || product.category === category).map((product) => product.subcategory)));
 
   return (
-    <section className="space-y-3">
-      <div className={cn("sticky top-0 z-20 rounded-md border p-4 shadow-sm sm:p-5", allMockCompleted ? "border-success/40 bg-success/10" : "border-primary/20 bg-card")}>
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-          <div className="min-w-0"><p className="text-xs font-semibold uppercase text-muted-foreground">Inventario generale</p><h2 className="font-display text-sm font-bold uppercase leading-tight sm:text-xl">Inventario Magazzino Mandrione</h2></div>
-          <div className="shrink-0 text-right"><p className="text-xl font-bold sm:text-2xl">{generalCompleted} / {INVENTORY_TOTAL}</p><p className="text-xs font-semibold text-muted-foreground">{percentage}% completato</p></div>
+    <section className="space-y-2">
+      <div className={cn("sticky top-0 z-20 rounded-md border px-3 py-2 shadow-sm", allMockCompleted ? "border-success/40 bg-success/10" : "border-primary/20 bg-card")}>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <div className="min-w-0"><p className="text-[10px] font-semibold uppercase leading-none text-muted-foreground">Inventario generale</p><h2 className="truncate font-display text-sm font-bold uppercase leading-tight sm:text-base">Inventario Magazzino Mandrione</h2></div>
+          <div className="flex shrink-0 items-baseline gap-1.5"><p className="text-lg font-bold leading-none sm:text-xl">{generalCompleted} / {INVENTORY_TOTAL}</p><p className="text-[10px] font-semibold text-muted-foreground">{percentage}%</p></div>
         </div>
-        <Progress value={percentage} className="mt-3 h-3" />
-        <div className="mt-3 grid grid-cols-3 divide-x divide-border text-center text-xs sm:text-sm"><p><strong className="block text-base sm:inline">{completedWithoutDifferences}</strong> confermati</p><p><strong className="block text-base text-destructive sm:inline">{generalDifferences}</strong> con differenze</p><p><strong className="block text-base text-primary sm:inline">{INVENTORY_TOTAL - generalCompleted}</strong> mancanti</p></div>
+        <Progress value={percentage} className="mt-1.5 h-2" />
+        <div className="mt-1.5 grid grid-cols-3 divide-x divide-border text-center text-[10px] leading-tight sm:text-xs"><p><strong className="mr-1 text-sm sm:text-base">{completedWithoutDifferences}</strong>confermati</p><p><strong className="mr-1 text-sm text-destructive sm:text-base">{generalDifferences}</strong>differenze</p><p><strong className="mr-1 text-sm text-primary sm:text-base">{INVENTORY_TOTAL - generalCompleted}</strong>mancanti</p></div>
       </div>
 
-      <div className="rounded-md border border-border bg-card p-2">
+      <div className="rounded-md border border-border bg-card p-1">
         <div className="grid grid-cols-5 gap-1">
           {([
             ["zones", MapPin, "Zone"], ["categories", LayoutGrid, "Categorie"], ["subcategories", Tags, "Sottocategorie"], ["products", Boxes, "Prodotti"], ["search", Search, "Cerca"],
-          ] as const).map(([mode, Icon, label]) => <Button key={mode} variant={navigationMode === mode ? "default" : "ghost"} className="h-16 min-w-0 flex-col gap-1 px-1 text-[10px] sm:h-14 sm:flex-row sm:text-sm" onClick={() => onNavigationModeChange(mode)}><Icon className="size-5 shrink-0" /><span className="truncate">{label}</span></Button>)}
+          ] as const).map(([mode, Icon, label]) => <Button key={mode} variant={navigationMode === mode ? "default" : "ghost"} className="h-11 min-w-0 flex-col gap-0 px-1 text-[9px] sm:h-10 sm:flex-row sm:gap-1.5 sm:text-xs" onClick={() => onNavigationModeChange(mode)}><Icon className="size-4 shrink-0" /><span className="truncate">{label}</span></Button>)}
         </div>
       </div>
 
-      <div className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-md border border-border bg-card px-3 py-2 text-sm">
-        <Button size="sm" variant="ghost" className="shrink-0 px-2" onClick={() => { onNavigationModeChange("zones"); }}>Tutte le zone</Button>
-        {location ? <><ChevronRight className="size-4 shrink-0 text-muted-foreground" /><Button size="sm" variant="ghost" className="shrink-0 px-2" onClick={() => onNavigationModeChange("categories")}>{location.name}</Button></> : null}
-        {category ? <><ChevronRight className="size-4 shrink-0 text-muted-foreground" /><Button size="sm" variant="ghost" className="shrink-0 px-2" onClick={() => onNavigationModeChange("subcategories")}>{category}</Button></> : null}
-        {subcategory ? <><ChevronRight className="size-4 shrink-0 text-muted-foreground" /><Button size="sm" variant="ghost" className="shrink-0 px-2" onClick={() => onNavigationModeChange("products")}>{subcategory}</Button></> : null}
+      <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-md border border-border bg-card px-2 py-1 text-xs">
+        <Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => { onNavigationModeChange("zones"); }}>Tutte le zone</Button>
+        {location ? <><ChevronRight className="size-3 shrink-0 text-muted-foreground" /><Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => onNavigationModeChange("categories")}>{location.name}</Button></> : null}
+        {category ? <><ChevronRight className="size-3 shrink-0 text-muted-foreground" /><Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => onNavigationModeChange("subcategories")}>{category}</Button></> : null}
+        {subcategory ? <><ChevronRight className="size-3 shrink-0 text-muted-foreground" /><Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => onNavigationModeChange("products")}>{subcategory}</Button></> : null}
       </div>
 
       {navigationMode === "zones" ? <VisualGrid title="Scegli una zona" items={[{ id: "all", name: "Tutte", progress: { completed: generalCompleted, total: INVENTORY_TOTAL } }, ...locations.map((item) => ({ id: item.id, name: item.name, progress: ZONE_PROGRESS[item.id] }))]} onSelect={(id) => { if (id === "all") { onNavigationModeChange("categories"); } else { onLocationChange(id); } }} /> : null}
       {navigationMode === "categories" ? <VisualGrid title={location ? `Categorie · ${location.name}` : "Categorie"} items={categoryNames.map((name) => ({ id: name, name, progress: CATEGORY_PROGRESS[name] }))} onSelect={onCategoryChange} /> : null}
       {navigationMode === "subcategories" ? <VisualGrid title={category ? `Sottocategorie · ${category}` : "Sottocategorie"} items={subcategoryNames.map((name) => ({ id: name, name, progress: SUBCATEGORY_PROGRESS[name] }))} onSelect={onSubcategoryChange} /> : null}
 
-      {navigationMode === "search" ? <div className="relative rounded-md border border-border bg-card p-3"><Search className="absolute left-6 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" /><Input autoFocus className="h-12 pl-10 text-base" value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto" /></div> : null}
+      {navigationMode === "search" ? <div className="relative rounded-md border border-border bg-card p-2"><Search className="absolute left-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input autoFocus className="h-10 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto" /></div> : null}
 
       {(navigationMode === "products" || (navigationMode === "search" && search.trim())) ? <div className="overflow-hidden rounded-md border border-border bg-card">
-        <div className="grid gap-3 border-b border-border p-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
+        <div className="grid gap-1.5 border-b border-border p-2 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
           <div className="min-w-0"><p className="font-display font-semibold">{scope}</p><p className="text-xs text-muted-foreground">Selezione corrente: <strong>{scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? products.length}</strong> completati</p></div>
-          <div className="grid grid-cols-2 rounded-md border border-border p-0.5"><Button size="sm" variant={productView === "favorites" ? "default" : "ghost"} onClick={() => onViewChange("favorites")}><Star className="size-4" /> Preferiti</Button><Button size="sm" variant={productView === "all" ? "default" : "ghost"} onClick={() => onViewChange("all")}>Tutti</Button></div>
-          <div className="grid grid-cols-3 rounded-md border border-border p-0.5"><Button size="sm" variant={workFilter === "pending" ? "default" : "ghost"} onClick={() => onWorkFilterChange("pending")}>Da controllare</Button><Button size="sm" variant={workFilter === "completed" ? "default" : "ghost"} onClick={() => onWorkFilterChange("completed")}>Completati</Button><Button size="sm" variant={workFilter === "differences" ? "default" : "ghost"} onClick={() => onWorkFilterChange("differences")}>Differenze</Button></div>
+          <div className="grid grid-cols-2 rounded-md border border-border p-0.5"><Button size="sm" className="h-8 text-xs" variant={productView === "favorites" ? "default" : "ghost"} onClick={() => onViewChange("favorites")}><Star className="size-3.5" /> Preferiti</Button><Button size="sm" className="h-8 text-xs" variant={productView === "all" ? "default" : "ghost"} onClick={() => onViewChange("all")}>Tutti</Button></div>
+          <div className="grid grid-cols-3 rounded-md border border-border p-0.5"><Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "ghost"} onClick={() => onWorkFilterChange("pending")}>Da controllare</Button><Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "completed" ? "default" : "ghost"} onClick={() => onWorkFilterChange("completed")}>Completati</Button><Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "differences" ? "default" : "ghost"} onClick={() => onWorkFilterChange("differences")}>Differenze</Button></div>
         </div>
 
-        <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <ProductCard key={product.id} product={product} value={drafts[product.id] ?? ""} confirmed={confirmed[product.id]} onChange={(value) => onDraftChange(product.id, value)} onConfirm={() => onConfirm(product)} />)}</div>
+        <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">{products.map((product) => <ProductCard key={product.id} product={product} value={drafts[product.id] ?? ""} confirmed={confirmed[product.id]} onChange={(value) => onDraftChange(product.id, value)} onConfirm={() => onConfirm(product)} />)}</div>
         {!products.length ? <div className="p-8 text-center"><PackageSearch className="mx-auto size-8 text-muted-foreground" /><p className="mt-2 text-sm font-medium">Nessun prodotto in questa vista</p><p className="text-xs text-muted-foreground">Cambia filtro o selezione per continuare.</p></div> : null}
 
-        <div className="grid gap-2 border-t border-border p-3 sm:flex sm:justify-end"><Button variant="outline" onClick={onConfirmAll}><CheckCheck /> Conferma visibili invariati</Button><Button onClick={onCompleteMock}><ClipboardCheck /> Simula completamento inventario</Button></div>
+        <div className="grid gap-2 border-t border-border p-2 sm:flex sm:justify-end"><Button size="sm" variant="outline" onClick={onConfirmAll}><CheckCheck /> Conferma visibili invariati</Button><Button size="sm" onClick={onCompleteMock}><ClipboardCheck /> Simula completamento inventario</Button></div>
       </div> : null}
 
       {allMockCompleted ? <CompletionSummary completedWithoutDifferences={INVENTORY_TOTAL - generalDifferences} differences={generalDifferences} onShowDifferences={() => { onNavigationModeChange("products"); onWorkFilterChange("differences"); }} /> : null}
@@ -332,7 +332,7 @@ function PhysicalCount({ location, products, productView, search, drafts, confir
 
 function VisualGrid({ title, items, onSelect }: { title: string; items: { id: string; name: string; progress: { completed: number; total: number } | undefined }[]; onSelect: (id: string) => void }) {
   return (
-    <section className="rounded-md border border-border bg-card p-3 sm:p-4"><h3 className="mb-3 font-display text-base font-semibold">{title}</h3><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{items.map((item) => { const percentage = item.progress ? Math.round((item.progress.completed / item.progress.total) * 100) : 0; return <Button key={item.id} variant="outline" className="h-auto min-h-24 flex-col items-stretch justify-between gap-3 p-3 text-left" onClick={() => onSelect(item.id)}><span className="line-clamp-2 font-semibold">{item.name}</span>{item.progress ? <span><span className="mb-1 flex justify-between text-xs text-muted-foreground"><span>{item.progress.completed} / {item.progress.total}</span><span>{percentage}%</span></span><Progress value={percentage} className="h-2" /></span> : null}</Button> })}</div></section>
+    <section className="rounded-md border border-border bg-card p-2 sm:p-3"><h3 className="mb-2 font-display text-sm font-semibold">{title}</h3><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{items.map((item) => { const percentage = item.progress ? Math.round((item.progress.completed / item.progress.total) * 100) : 0; return <Button key={item.id} variant="outline" className="h-auto min-h-16 flex-col items-stretch justify-between gap-1.5 p-2 text-left" onClick={() => onSelect(item.id)}><span className="line-clamp-1 text-xs font-semibold sm:text-sm">{item.name}</span>{item.progress ? <span><span className="mb-1 flex justify-between text-[10px] text-muted-foreground"><span>{item.progress.completed} / {item.progress.total}</span><span>{percentage}%</span></span><Progress value={percentage} className="h-1.5" /></span> : null}</Button> })}</div></section>
   );
 }
 
@@ -341,16 +341,17 @@ function ProductCard({ product, value, confirmed, onChange, onConfirm }: { produ
   const difference = counted === null ? null : counted - product.calculated;
   const hasDifference = confirmed !== undefined && confirmed !== product.calculated;
   return (
-    <article className={cn("overflow-hidden rounded-md border-2 bg-card", confirmed === undefined && "border-border", confirmed !== undefined && !hasDifference && "border-success/50 bg-success/5", hasDifference && "border-destructive/50 bg-destructive/5")}>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 border-b border-border p-3">
-        <div className="min-w-0"><p className="truncate font-display text-base font-bold uppercase">{product.name}</p><p className="text-xs text-muted-foreground">Cod. {product.code} · U.M. {product.unit}</p></div>
-        <span className={cn("shrink-0 rounded-sm px-2 py-1 text-[10px] font-bold uppercase", confirmed === undefined && "bg-muted text-muted-foreground", confirmed !== undefined && !hasDifference && "bg-success/15 text-success", hasDifference && "bg-destructive/10 text-destructive")}>{confirmed === undefined ? "Da controllare" : hasDifference ? "Differenza" : "Confermato"}</span>
+    <article className={cn("rounded-md border-2 bg-card p-2", confirmed === undefined && "border-border", confirmed !== undefined && !hasDifference && "border-success/50 bg-success/5", hasDifference && "border-destructive/50 bg-destructive/5")}>
+      <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
+        <img src={product.image} alt="" loading="lazy" width={512} height={512} className="size-12 rounded-sm border border-border object-cover" />
+        <div className="min-w-0"><p className="truncate font-display text-sm font-bold uppercase leading-tight">{product.name}</p><p className="text-[11px] leading-tight text-muted-foreground">Cod. {product.code} · {product.unit}</p></div>
+        <span className={cn("shrink-0 rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none", confirmed === undefined && "bg-muted text-muted-foreground", confirmed !== undefined && !hasDifference && "bg-success/15 text-success", hasDifference && "bg-destructive/10 text-destructive")}>{confirmed === undefined ? "Da controllare" : hasDifference ? "Differenza" : "Confermato"}</span>
       </div>
-      <div className="p-3">
-        <div className="flex items-end justify-between gap-3"><div><p className="text-[11px] text-muted-foreground">Giacenza calcolata</p><p className="text-lg font-bold">{formatQuantity(product.calculated, product.unit)} <small className="text-xs font-normal text-muted-foreground">{product.unit}</small></p></div><div className="text-right"><p className="text-[11px] text-muted-foreground">Differenza</p><p className={cn("text-lg font-bold", difference !== null && difference < 0 && "text-destructive", difference !== null && difference > 0 && "text-success")}>{difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, product.unit)}`} <small className="text-xs font-normal">{product.unit}</small></p></div></div>
-        <label className="mt-3 block text-xs font-semibold">Quantità fisica
-          <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] gap-2"><Input className="h-14 text-right text-xl font-bold" inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onConfirm(); }} aria-label={`Quantità fisica ${product.name}`} /><Button className="h-14 px-3 text-xs sm:px-5 sm:text-sm" variant={confirmed !== undefined ? "secondary" : "default"} onClick={onConfirm}><Check className="size-5" /><span>Conferma</span></Button></div>
-        </label>
+      <div className="mt-2 grid grid-cols-[auto_minmax(72px,1fr)_auto_auto] items-end gap-1.5">
+        <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">{formatQuantity(product.calculated, product.unit)}</p></div>
+        <label className="min-w-0 text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica<Input className="mt-1 h-10 px-2 text-right text-base font-bold" inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onConfirm(); }} aria-label={`Quantità fisica ${product.name}`} /></label>
+        <div className="text-right"><p className="text-[9px] leading-none text-muted-foreground">Differenza</p><p className={cn("mt-1 text-sm font-bold leading-none", difference !== null && difference < 0 && "text-destructive", difference !== null && difference > 0 && "text-success")}>{difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, product.unit)}`}</p></div>
+        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={confirmed !== undefined ? "secondary" : "default"} onClick={onConfirm}><Check className="size-4" /><span className="hidden min-[360px]:inline">Conferma</span></Button>
       </div>
     </article>
   );
