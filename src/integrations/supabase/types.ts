@@ -3898,6 +3898,28 @@ export type Database = {
         }
         Returns: string
       }
+      accept_purchase_delivery: {
+        Args: { _actor_user_id?: string; _delivery_id: string }
+        Returns: string
+      }
+      add_purchase_delivery_extra_item: {
+        Args: {
+          _actor_label?: string
+          _actor_user_id?: string
+          _declared_producer?: string
+          _declared_producer_lot?: string
+          _declared_quantity: number
+          _delivery_id: string
+          _line_notes?: string
+          _line_type?: Database["public"]["Enums"]["purchase_delivery_line_type"]
+          _product_id: string
+          _replaces_order_item_id?: string
+          _skip_access_check?: boolean
+          _unit_code?: string
+          _unit_id?: string
+        }
+        Returns: string
+      }
       add_shopping_list_items: {
         Args: {
           _actor_user_id?: string
@@ -4084,6 +4106,15 @@ export type Database = {
           status: string
           unit_code: string
         }[]
+      }
+      dispute_purchase_delivery_item: {
+        Args: {
+          _actor_user_id?: string
+          _delivery_item_id: string
+          _notes?: string
+          _reason: Database["public"]["Enums"]["purchase_dispute_reason"]
+        }
+        Returns: string
       }
       ensure_default_inventory_location: {
         Args: { _actor_user_id?: string; _company_id: string }
@@ -4325,6 +4356,16 @@ export type Database = {
         }
         Returns: string
       }
+      manage_purchase_order: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _destination_location_id?: string
+          _notes?: string
+          _order_id: string
+        }
+        Returns: string
+      }
       manage_shopping_list: {
         Args: {
           _action: string
@@ -4412,6 +4453,16 @@ export type Database = {
         Returns: string
       }
       normalize_vat: { Args: { _value: string }; Returns: string }
+      open_purchase_delivery: {
+        Args: {
+          _actor_user_id?: string
+          _declared_by_name?: string
+          _order_id: string
+          _origin?: Database["public"]["Enums"]["purchase_delivery_origin"]
+          _skip_access_check?: boolean
+        }
+        Returns: string
+      }
       owns_customer_record: {
         Args: { _customer_record_id: string }
         Returns: boolean
@@ -4591,6 +4642,16 @@ export type Database = {
         Args: { _company_id: string }
         Returns: number
       }
+      resolve_purchase_delivery_dispute: {
+        Args: {
+          _accepted_quantity?: number
+          _actor_user_id?: string
+          _dispute_id: string
+          _notes?: string
+          _resolution: string
+        }
+        Returns: string
+      }
       resolve_relation_records: {
         Args: { _relation_id: string }
         Returns: undefined
@@ -4659,6 +4720,22 @@ export type Database = {
           old_thumbnail_path: string
         }[]
       }
+      set_purchase_delivery_item: {
+        Args: {
+          _actor_label?: string
+          _actor_user_id?: string
+          _declared_expiry?: string
+          _declared_producer?: string
+          _declared_producer_lot?: string
+          _declared_quantity?: number
+          _declared_weight?: number
+          _delivery_item_id: string
+          _line_notes?: string
+          _missing_reason?: string
+          _skip_access_check?: boolean
+        }
+        Returns: string
+      }
       set_relation_side_enabled: {
         Args: { _enabled: boolean; _relation_id: string }
         Returns: undefined
@@ -4715,6 +4792,16 @@ export type Database = {
           unit_code: string
           untranslatable: number
         }[]
+      }
+      submit_purchase_delivery: {
+        Args: {
+          _actor_label?: string
+          _actor_user_id?: string
+          _delivery_id: string
+          _notes?: string
+          _skip_access_check?: boolean
+        }
+        Returns: string
       }
       supplier_record_match_suggestions: {
         Args: { _relation_id: string }
