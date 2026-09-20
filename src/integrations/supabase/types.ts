@@ -4031,6 +4031,15 @@ export type Database = {
           token: string
         }[]
       }
+      create_purchase_orders_from_list: {
+        Args: {
+          _actor_user_id?: string
+          _company_id: string
+          _destination_location_id?: string
+          _list_id: string
+        }
+        Returns: Json
+      }
       customer_record_match_suggestions: {
         Args: { _customer_record_id: string }
         Returns: {
@@ -4396,6 +4405,10 @@ export type Database = {
           _description?: string
           _unit_id: string
         }
+        Returns: string
+      }
+      next_document_number: {
+        Args: { _company_id: string; _prefix: string }
         Returns: string
       }
       normalize_vat: { Args: { _value: string }; Returns: string }
