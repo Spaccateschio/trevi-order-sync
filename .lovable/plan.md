@@ -19,7 +19,8 @@ Trasformare esclusivamente il mockup frontend del Conteggio in una postazione op
 
 3. **Flusso prodotti**
    - Dati mock realistici ampliati per simulare zone, categorie e sottocategorie.
-   - Schede prodotto touch-friendly con giacenza calcolata, quantità fisica modificabile, differenza e conferma con un tocco.
+   - Schede prodotto compatte con foto mock predisposta per la futura immagine associata, nome, codice, U.M., giacenza calcolata, quantità fisica modificabile, differenza e conferma con un tocco.
+   - Informazioni disposte prevalentemente in orizzontale; più colonne su desktop e una scheda bassa per riga su smartphone.
    - Stati visivi distinti: da controllare, confermato invariato, confermato con differenza.
    - Filtri rapidi Preferiti/Tutti e Da controllare/Completati/Con differenze; apertura iniziale su Da controllare.
    - I prodotti confermati restano consultabili nei filtri appropriati.
@@ -30,12 +31,15 @@ Trasformare esclusivamente il mockup frontend del Conteggio in una postazione op
    - Azione per vedere solo le differenze e conferma finale esclusivamente locale/simulata.
 
 5. **Responsive e verifica**
-   - Layout compatto per desktop/tablet e grandi superfici cliccabili su smartphone.
+   - Riduzione coordinata di font, altezze, spazi, margini e controlli senza perdere leggibilità o facilità touch.
+   - Tabellone generale e barra di navigazione sensibilmente più bassi, mantenendo invariati contenuti e comportamento.
+   - Layout ad alta densità per desktop/tablet e superfici cliccabili compatte su smartphone.
    - Verifica del percorso completo a 1280 px e 390 px: navigazione, breadcrumb, ricerca “pom”, modifica quantità, conferma, filtri e completamento.
 
 ## File previsti
 - `src/lib/inventory-mock.ts`: soli dati fittizi aggiuntivi e metadati visuali.
 - `src/components/inventory/mock-inventory-panel.tsx`: nuova esperienza KDS locale.
+- `src/assets/inventory-mock/`: immagini prodotto esclusivamente mock usate nelle schede.
 - `roadmap.md`: aggiornamento dell’attività mockup.
 
 ## Esclusioni confermate
