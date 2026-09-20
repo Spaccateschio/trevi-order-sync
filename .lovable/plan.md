@@ -71,8 +71,49 @@ dichiarato ora, differenza, esito (`corretta`, `inferiore`, `superiore`,
 Differenze e percentuali sono calcolate, non salvate. Le righe aggiunte dal
 fornitore restano etichettate e non entrano mai nell'ordine originale.
 
-Fornitore non registrato: identico modello dati, la parte “consegnato” la
-compila l'operatore interno durante il controllo merce.
+## 3-bis. Tre modalità fornitore, un solo modello dati
+
+La dichiarazione è sempre la stessa tabella: cambia solo il canale, registrato
+in `origine`.
+
+**A. Fornitore registrato B2B** — riceve l'ordine nell'app e dichiara per ogni
+riga quantità, U.M., peso effettivo, produttore, lotto produttore, scadenza,
+mancanze, sostituzioni e note. `origine = fornitore_b2b`, autore = suo utente.
+
+**B. Fornitore non registrato, link esterno sicuro** — nessun account. Modello
+dati predisposto ora, pagina pubblica eventualmente dopo se il perimetro FASE D
+cresce troppo.
+**purchase_order_share_links**: order_id, token_hash (solo hash, mai il token
+in chiaro), scadenza, revocato_at, creato_da/at, ultimo_accesso_at, contatore
+accessi, nome/etichetta del destinatario. Il token dà accesso esclusivamente a
+quell'ordine e solo per creare/inviare la propria dichiarazione: nessuna
+lettura di altri ordini, clienti, costi, carichi o lotti. Pagina pubblica sotto
+`/api/public/*` + route dedicata, molto semplice e usabile da smartphone.
+`origine = fornitore_link_esterno`, autore utente NULL, nome dichiarante salvato.
+
+**C. Fornitore completamente esterno** — nessun canale digitale: l'operatore
+compila la dichiarazione al controllo merce su etichette, DDT e verifica fisica.
+`origine = operatore_interno`.
+
+### Dichiarato ≠ verificato ≠ caricato
+
+```text
+ORDINATO 20 kg
+  -> DICHIARATO dal fornitore 20 kg · Produttore Rossi · Lotto A123
+     -> VERIFICATO da noi 19,6 kg · Produttore Rossi · Lotto A123
+        -> CARICATO 19,6 kg   (solo qui nascono lotto e movimento)
+```
+
+La dichiarazione del fornitore non crea mai giacenza, lotto o movimento.
+La schermata di controllo precompila quantità, peso, produttore, lotto e
+scadenza dichiarati; l'operatore conferma o corregge. In caso di correzione si
+conservano entrambi i valori: il dichiarato resta su `purchase_delivery_items`,
+il verificato su `goods_receipt_items`, con l'evento di modifica nello storico.
+
+Lotto: se il fornitore comunica il lotto produttore viene proposto nel carico;
+altrimenti lo inserisce l'operatore leggendo l'etichetta; se non esiste, il
+carico non si blocca e Trevi Fruit genera comunque il lotto interno collegato a
+fornitore + carico + data + prodotto.
 
 ## 4. Carico merce
 
