@@ -148,13 +148,35 @@ export function InternalProductDialog({
           </div>
           <div className="sm:col-span-1">
             <Label htmlFor="ip-um">Unità di misura</Label>
-            <Input
-              id="ip-um"
-              value={um}
-              onChange={(event) => setUm(event.target.value)}
-              placeholder="kg, pz, cassa…"
-              className="mt-1"
-            />
+            <div className="mt-1 flex items-center gap-2">
+              <Select value={um} onValueChange={setUm}>
+                <SelectTrigger id="ip-um" className="flex-1" aria-label="Unità di misura">
+                  <SelectValue placeholder="Scegli U.M." />
+                </SelectTrigger>
+                <SelectContent>
+                  {unitOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                asChild
+                size="icon"
+                variant="outline"
+                title="Gestisci le unità di misura nelle impostazioni"
+              >
+                <Link to="/amministrazione" onClick={() => onOpenChange(false)}>
+                  <Settings2 className="size-4" />
+                </Link>
+              </Button>
+            </div>
+            {unitOptions.length === 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Nessuna unità di misura in anagrafica: creala nelle impostazioni dell'azienda.
+              </p>
+            ) : null}
           </div>
           <div className="sm:col-span-2">
             <Label htmlFor="ip-description">Descrizione</Label>
