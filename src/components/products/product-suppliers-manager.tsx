@@ -282,7 +282,7 @@ export function ProductSuppliersManager({
     return "Collegamento chiuso";
   };
 
-  const fields = (
+  const fieldsFor = (mode: "create" | "update") => (
     <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div className="space-y-1">
         <Label className="text-xs">Codice articolo presso il fornitore</Label>
