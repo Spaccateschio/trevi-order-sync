@@ -156,6 +156,7 @@ export function SupplierRecordsPanel({
   const [editing, setEditing] = useState<SupplierRecord | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [delivery, setDelivery] = useState<DeliverySchedule>(DEFAULT_SCHEDULE);
   const [busy, setBusy] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
