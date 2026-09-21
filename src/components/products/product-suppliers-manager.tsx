@@ -325,9 +325,10 @@ export function ProductSuppliersManager({
             <Label className="text-xs">Conversione (facoltativa) verso {daneaUm ?? "U.M. prodotto"}</Label>
             <div className="grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2">
               <span className="text-sm">1 {draft.purchaseUnitId ? purchaseUnits.find((unit) => unit.id === draft.purchaseUnitId)?.code ?? "U.M." : "U.M."} ≈</span>
-              <Input inputMode="decimal" aria-label="Conversione stimata" value={draft.conversionFactor} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, conversionFactor: event.target.value }))} />
+              <Input inputMode="decimal" aria-label="Conversione stimata" aria-invalid={isInvalidNumber(draft.conversionFactor)} className={invalidClass(draft.conversionFactor)} value={draft.conversionFactor} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, conversionFactor: event.target.value }))} />
               <span className="truncate text-sm">{daneaUm ?? "U.M. prodotto"}</span>
             </div>
+            {numberError(draft.conversionFactor)}
             <p className="text-xs text-muted-foreground">Compila solo se l’equivalenza è certa: senza conversione il sistema non calcola equivalenti.</p>
           </div>
         </>
