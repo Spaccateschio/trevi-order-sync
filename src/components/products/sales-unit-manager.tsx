@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
+import { supabase } from "@/integrations/supabase/client";
 import { applyProductSaleUnitBatch } from "@/lib/sales-units.functions";
 
 export type CompanyUnit = { id: string; code: string; description: string; status: "attivo" | "disattivato" | "revocato"; usage?: "acquisto" | "vendita" | "entrambi" };
