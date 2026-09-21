@@ -239,11 +239,26 @@ export function SupplierRecordsPanel({
       _fax: form.fax,
       _pec: form.pec,
     });
-    setBusy(false);
     if (error) {
+      setBusy(false);
       toast.error(error.message);
       return;
     }
+    // Giorni di consegna: dato informativo salvato a parte, non tocca gli altri campi.
+    const supplierId = editing?.id ?? ((savedId as string | null) ?? null);
+    if (supplierId) {
+      const { error: scheduleError } = await supabase.rpc("set_supplier_delivery_schedule", {
+        _supplier_record_id: supplierId,
+        _weekdays: delivery.weekdays,
+        _month_day: delivery.monthDay,
+      });
+      if (scheduleError) {
+        setBusy(false);
+        toast.error(scheduleError.message);
+        return;
+      }
+    }
+    setBusy(false);
     setFormOpen(false);
     await refresh();
     toast.success(editing ? "Fornitore aggiornato." : "Fornitore aggiunto all'anagrafica.");
