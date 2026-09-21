@@ -9,8 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { DeliveryDaysPicker, DeliveryHintBadge } from "@/components/suppliers/delivery-days-picker";
 import { supabase } from "@/integrations/supabase/client";
+import { DEFAULT_SCHEDULE, type DeliverySchedule } from "@/lib/delivery-schedule";
 import { dateTime, euro } from "@/lib/product-grid";
+import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
 import type { CompanyUnit } from "./sales-unit-manager";
 
 /** U.M. con cui si può acquistare una singola referenza fornitore. */
@@ -161,11 +165,15 @@ export function ProductSuppliersManager({
     });
   }, [selected]);
 
+  const deliveryQuery = useDeliverySchedules(productId);
+  const deliveries = deliveryQuery.data ?? {};
+
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["product-supplier-links", productId] }),
       queryClient.invalidateQueries({ queryKey: ["product-danea-supplier-matches", productId] }),
       queryClient.invalidateQueries({ queryKey: ["supplier-options", companyId] }),
+      queryClient.invalidateQueries({ queryKey: ["product-supplier-delivery", productId] }),
     ]);
   };
 
@@ -403,6 +411,7 @@ export function ProductSuppliersManager({
                   {row.sourcing_priority !== null ? <Badge><Star className="fill-current" aria-hidden="true" />Priorità {row.sourcing_priority}</Badge> : null}
                   {!row.is_active ? <Badge variant="outline">Disattivato</Badge> : null}
                   {label ? <Badge variant="secondary"><Link2 aria-hidden="true" />{label}</Badge> : null}
+                  {deliveries[row.link_id] ? <DeliveryHintBadge schedule={deliveries[row.link_id]!.schedule} /> : null}
                 </div>
                 <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
                   <div><dt className="text-muted-foreground">Cod. fornitore</dt><dd className="font-mono">{row.supplier_product_code ?? "—"}</dd></div>
@@ -425,6 +434,12 @@ export function ProductSuppliersManager({
                     baseUm={daneaUm}
                     assigned={row.purchase_units ?? []}
                     units={purchaseUnits}
+                    disabled={busy}
+                    onChanged={refresh}
+                  />
+                  <LinkDeliveryEditor
+                    linkId={row.link_id}
+                    delivery={deliveries[row.link_id] ?? null}
                     disabled={busy}
                     onChanged={refresh}
                   />
@@ -485,6 +500,82 @@ export function ProductSuppliersManager({
         </div>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Giorni di consegna della singola referenza: normalmente ereditati dal fornitore,
+ * con la possibilità di impostare un'eccezione valida solo per questo prodotto.
+ */
+function LinkDeliveryEditor({
+  linkId,
+  delivery,
+  disabled,
+  onChanged,
+}: {
+  linkId: string;
+  delivery: { schedule: DeliverySchedule; isOverride: boolean; supplierSchedule: DeliverySchedule } | null;
+  disabled?: boolean;
+  onChanged: () => Promise<void>;
+}) {
+  const [override, setOverride] = useState(delivery?.isOverride ?? false);
+  const [schedule, setSchedule] = useState<DeliverySchedule>(delivery?.schedule ?? DEFAULT_SCHEDULE);
+
+  useEffect(() => {
+    setOverride(delivery?.isOverride ?? false);
+    setSchedule(delivery?.schedule ?? DEFAULT_SCHEDULE);
+  }, [delivery?.isOverride, delivery?.schedule]);
+
+  const save = useMutation({
+    mutationFn: async (input: { inherit: boolean; schedule: DeliverySchedule }) => {
+      const { error } = await supabase.rpc("set_product_supplier_delivery_schedule", {
+        _link_id: linkId,
+        _inherit: input.inherit,
+        ...(input.inherit ? {} : { _weekdays: input.schedule.weekdays }),
+        ...(!input.inherit && input.schedule.monthDay !== null ? { _month_day: input.schedule.monthDay } : {}),
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: async () => {
+      await onChanged();
+      toast.success("Giorni di consegna aggiornati");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const busy = disabled || save.isPending;
+
+  return (
+    <div className="mt-3 space-y-2 rounded-md border border-border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-semibold">Giorni di consegna</span>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Switch
+            checked={override}
+            disabled={busy}
+            onCheckedChange={(next) => {
+              setOverride(next);
+              if (!next) save.mutate({ inherit: true, schedule });
+            }}
+          />
+          Eccezione per questo prodotto
+        </label>
+      </div>
+      {override ? (
+        <>
+          <DeliveryDaysPicker schedule={schedule} onChange={setSchedule} disabled={busy} label="Giorni validi per questo prodotto" />
+          <div className="flex justify-end">
+            <Button type="button" size="sm" disabled={busy} onClick={() => save.mutate({ inherit: false, schedule })}>
+              Salva giorni
+            </Button>
+          </div>
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Eredita i giorni impostati nella scheda del fornitore. Solo informativo: non blocca gli ordini.
+        </p>
+      )}
+    </div>
   );
 }
 

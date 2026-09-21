@@ -2404,6 +2404,8 @@ export type Database = {
           conversion_reference_um: string | null
           created_at: string
           created_by: string | null
+          delivery_month_day: number | null
+          delivery_weekdays: number[] | null
           id: string
           is_active: boolean
           is_preferred: boolean
@@ -2427,6 +2429,8 @@ export type Database = {
           conversion_reference_um?: string | null
           created_at?: string
           created_by?: string | null
+          delivery_month_day?: number | null
+          delivery_weekdays?: number[] | null
           id?: string
           is_active?: boolean
           is_preferred?: boolean
@@ -2450,6 +2454,8 @@ export type Database = {
           conversion_reference_um?: string | null
           created_at?: string
           created_by?: string | null
+          delivery_month_day?: number | null
+          delivery_weekdays?: number[] | null
           id?: string
           is_active?: boolean
           is_preferred?: boolean
@@ -3872,6 +3878,8 @@ export type Database = {
           created_by: string | null
           credit_limit: string | null
           danea_extra: Json | null
+          delivery_month_day: number | null
+          delivery_weekdays: number[]
           discounts: string | null
           email: string | null
           fax: string | null
@@ -3907,6 +3915,8 @@ export type Database = {
           created_by?: string | null
           credit_limit?: string | null
           danea_extra?: Json | null
+          delivery_month_day?: number | null
+          delivery_weekdays?: number[]
           discounts?: string | null
           email?: string | null
           fax?: string | null
@@ -3942,6 +3952,8 @@ export type Database = {
           created_by?: string | null
           credit_limit?: string | null
           danea_extra?: Json | null
+          delivery_month_day?: number | null
+          delivery_weekdays?: number[]
           discounts?: string | null
           email?: string | null
           fax?: string | null
@@ -4813,6 +4825,10 @@ export type Database = {
         Args: { _company_id: string }
         Returns: string
       }
+      normalize_delivery_weekdays: {
+        Args: { _weekdays: number[] }
+        Returns: number[]
+      }
       normalize_vat: { Args: { _value: string }; Returns: string }
       open_goods_receipt: {
         Args: { _actor_user_id?: string; _delivery_id: string }
@@ -5146,6 +5162,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_product_supplier_delivery_schedule: {
+        Args: {
+          _inherit?: boolean
+          _link_id: string
+          _month_day?: number
+          _weekdays?: number[]
+        }
+        Returns: string
+      }
       set_purchase_delivery_item: {
         Args: {
           _actor_label?: string
@@ -5174,6 +5199,14 @@ export type Database = {
           _item_id: string
           _notes?: string
           _reason?: string
+        }
+        Returns: string
+      }
+      set_supplier_delivery_schedule: {
+        Args: {
+          _month_day?: number
+          _supplier_record_id: string
+          _weekdays?: number[]
         }
         Returns: string
       }

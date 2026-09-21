@@ -15,7 +15,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DeliveryHintBadge } from "@/components/suppliers/delivery-days-picker";
 import { supabase } from "@/integrations/supabase/client";
+import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
 import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
 import {
@@ -92,6 +94,9 @@ export function SupplierSplitDialog({
       return (data ?? []) as unknown as SupplierOption[];
     },
   });
+
+  // Giorni di consegna: sola segnalazione, nessun filtro sulle righe.
+  const deliveries = useDeliverySchedules(item.product_id, open).data ?? {};
 
   const assignmentsQuery = useQuery({
     queryKey: ["shopping-list-assignments", item.item_id],
@@ -239,6 +244,9 @@ export function SupplierSplitDialog({
                       {qty(existing.assigned_quantity)} {unit} ·{" "}
                       {sharePercent(Number(existing.assigned_quantity), assignedTotal)}%
                     </Badge>
+                  ) : null}
+                  {deliveries[supplier.link_id] ? (
+                    <DeliveryHintBadge schedule={deliveries[supplier.link_id]!.schedule} />
                   ) : null}
                 </div>
 

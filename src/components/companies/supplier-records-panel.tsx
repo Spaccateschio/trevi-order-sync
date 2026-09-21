@@ -8,6 +8,8 @@ import { AddressManager } from "@/components/companies/address-manager";
 import { SupplierImportDialog } from "@/components/companies/supplier-import-dialog";
 import { SupplierPointsManager } from "@/components/companies/supplier-points-manager";
 import { SupplierProductsManager } from "@/components/products/supplier-products-manager";
+import { DeliveryDaysPicker } from "@/components/suppliers/delivery-days-picker";
+import { DEFAULT_SCHEDULE, toSchedule, type DeliverySchedule } from "@/lib/delivery-schedule";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,6 +100,8 @@ export type SupplierRecord = {
   danea_extra: Record<string, string> | null;
   status: "attivo" | "disattivato" | "revocato";
   archive_id: string | null;
+  delivery_weekdays: number[] | null;
+  delivery_month_day: number | null;
 };
 
 const emptyForm = {
@@ -152,6 +156,7 @@ export function SupplierRecordsPanel({
   const [editing, setEditing] = useState<SupplierRecord | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [delivery, setDelivery] = useState<DeliverySchedule>(DEFAULT_SCHEDULE);
   const [busy, setBusy] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -183,7 +188,7 @@ export function SupplierRecordsPanel({
       const { data, error } = await supabase
         .from("supplier_records")
         .select(
-          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, fax, pec, contact_name, address_line, postal_code, city, province, region, country, sdi_code, sdi_admin_reference, payment_terms, bank, our_bank, agent, discounts, credit_limit, internal_reference, notes, danea_extra, status, archive_id",
+          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, fax, pec, contact_name, address_line, postal_code, city, province, region, country, sdi_code, sdi_admin_reference, payment_terms, bank, our_bank, agent, discounts, credit_limit, internal_reference, notes, danea_extra, status, archive_id, delivery_weekdays, delivery_month_day",
         )
         .eq("buyer_company_id", companyId)
         .order("legal_name");
@@ -203,18 +208,20 @@ export function SupplierRecordsPanel({
   function openNew() {
     setEditing(null);
     setForm(emptyForm);
+    setDelivery(DEFAULT_SCHEDULE);
     setFormOpen(true);
   }
 
   function openEdit(record: SupplierRecord) {
     setEditing(record);
     setForm(toForm(record));
+    setDelivery(toSchedule(record.delivery_weekdays, record.delivery_month_day));
     setFormOpen(true);
   }
 
   async function save() {
     setBusy(true);
-    const { error } = await supabase.rpc("manage_supplier_record", {
+    const { data: savedId, error } = await supabase.rpc("manage_supplier_record", {
       _buyer_company_id: companyId,
       _action: editing ? "update" : "create",
       ...(editing ? { _supplier_record_id: editing.id } : {}),
@@ -233,11 +240,26 @@ export function SupplierRecordsPanel({
       _fax: form.fax,
       _pec: form.pec,
     });
-    setBusy(false);
     if (error) {
+      setBusy(false);
       toast.error(error.message);
       return;
     }
+    // Giorni di consegna: dato informativo salvato a parte, non tocca gli altri campi.
+    const supplierId = editing?.id ?? ((savedId as string | null) ?? null);
+    if (supplierId) {
+      const { error: scheduleError } = await supabase.rpc("set_supplier_delivery_schedule", {
+        _supplier_record_id: supplierId,
+        _weekdays: delivery.weekdays,
+        ...(delivery.monthDay !== null ? { _month_day: delivery.monthDay } : {}),
+      });
+      if (scheduleError) {
+        setBusy(false);
+        toast.error(scheduleError.message);
+        return;
+      }
+    }
+    setBusy(false);
     setFormOpen(false);
     await refresh();
     toast.success(editing ? "Fornitore aggiornato." : "Fornitore aggiunto all'anagrafica.");
@@ -891,6 +913,12 @@ export function SupplierRecordsPanel({
             </TabsContent>
 
             <TabsContent value="varie" className="mt-4 space-y-4">
+              <div className="rounded-md border border-border p-3">
+                <DeliveryDaysPicker schedule={delivery} onChange={setDelivery} disabled={busy || !isAdmin} />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Serve solo come promemoria in inventario e lista della spesa: non blocca né filtra nulla.
+                </p>
+              </div>
               {editing ? <ExtraFields record={editing} group="varie" /> : null}
               <div className="grid gap-1.5">
                 <Label>Note</Label>
