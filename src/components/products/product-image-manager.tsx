@@ -73,7 +73,7 @@ async function optimize(file: File) {
   }
 }
 
-export function ProductImageManager({ productId, image, editable }: { productId: string; image: ImageMeta; editable: boolean }) {
+export function ProductImageManager({ productId, image, editable, top = false }: { productId: string; image: ImageMeta; editable: boolean; top?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const getUrls = useServerFn(getProductImageUrls);
@@ -105,7 +105,7 @@ export function ProductImageManager({ productId, image, editable }: { productId:
   });
   const busy = saveMutation.isPending || removeMutation.isPending;
 
-  return <section aria-labelledby="product-image-heading" className="border-t border-border pt-3">
+  return <section aria-labelledby="product-image-heading" className={top ? "" : "border-t border-border pt-3"}>
     <div className="flex items-center justify-between gap-3">
       <h3 id="product-image-heading" className="text-sm font-semibold">Immagine prodotto</h3>
       {busy ? <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />Elaborazione…</span> : null}

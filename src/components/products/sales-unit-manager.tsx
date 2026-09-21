@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
+import { supabase } from "@/integrations/supabase/client";
 import { applyProductSaleUnitBatch } from "@/lib/sales-units.functions";
 
 export type CompanyUnit = { id: string; code: string; description: string; status: "attivo" | "disattivato" | "revocato"; usage?: "acquisto" | "vendita" | "entrambi" };
@@ -73,6 +74,17 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
 
   const busy = mutation.isPending || saveMutation.isPending;
 
+  // Sola lettura: le U.M. con cui il prodotto si acquista arrivano dalle referenze fornitore.
+  const purchaseQuery = useQuery({
+    queryKey: ["product-supplier-links", productId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("product_supplier_overview", { _product_id: productId });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as { supplier_name: string; is_active: boolean; purchase_units: { code: string; is_default: boolean; is_active: boolean }[] | null }[];
+    },
+  });
+  const purchaseRows = (purchaseQuery.data ?? []).filter((row) => row.is_active);
+
   const requestRemoval = (row: ProductSaleUnit) => {
     setOfferDeactivation(row.is_default);
     setRemoveTarget(row);
@@ -93,11 +105,26 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
 
   return <section aria-labelledby="sale-units-title">
     <div className="flex items-center justify-between gap-2">
-      <h3 id="sale-units-title" className="text-sm font-semibold">Impostazioni Trevi Fruit</h3>
-      <Badge variant="secondary" className="shrink-0">{editable ? "Modificabili" : "Sola lettura"}</Badge>
+      <h3 id="sale-units-title" className="text-sm font-semibold">U.M. del prodotto</h3>
+      <Badge variant="secondary" className="shrink-0">{editable ? "Vendita modificabile" : "Sola lettura"}</Badge>
     </div>
 
-    <div className="mt-2 flex flex-wrap items-center gap-2" aria-label="U.M. vendita associate">
+    <div className="mt-2 grid gap-3 sm:grid-cols-2">
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase text-muted-foreground">Acquisto</p>
+        {purchaseRows.length ? <ul className="mt-1 space-y-1 text-sm">
+          {purchaseRows.map((row, index) => {
+            const codes = (row.purchase_units ?? []).filter((unit) => unit.is_active);
+            return <li key={`${row.supplier_name}-${index}`} className="min-w-0">
+              <span className="font-medium">{codes.length ? codes.map((unit) => `${unit.code}${unit.is_default ? " ★" : ""}`).join(" · ") : "—"}</span>
+              <span className="ml-1 text-muted-foreground">{row.supplier_name}</span>
+            </li>;
+          })}
+        </ul> : <p className="mt-1 text-sm text-muted-foreground">Nessuna U.M. di acquisto</p>}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase text-muted-foreground">Vendita</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2" aria-label="U.M. vendita associate">
       {assignments.map((row) => {
         const code = row.units_of_measure?.code ?? "—";
         const isSelected = selectedId === row.id;
@@ -124,9 +151,11 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
       </Popover> : null}
       {!assignments.length && !available.length ? <p className="text-sm text-muted-foreground">Nessuna U.M. disponibile.</p> : null}
       {!assignments.length && available.length ? <p className="text-sm text-muted-foreground">Aggiungi la prima U.M. con +.</p> : null}
+        </div>
+      </div>
     </div>
 
-    {selected ? <div className="mt-4 rounded-md border border-border bg-muted/30 p-3">
+    {selected ? <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
       <div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{selected.units_of_measure?.code ?? "—"} — {selected.units_of_measure?.description ?? ""}</strong>{selected.needs_review ? <Badge variant="destructive"><AlertTriangle />U.M. Danea cambiata: verifica la stima</Badge> : null}</div>
       <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
         <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy} checked={draft.active} onCheckedChange={(active) => setDraft((current) => ({ ...current, active, isDefault: active ? current.isDefault : false }))} />Attiva</label>

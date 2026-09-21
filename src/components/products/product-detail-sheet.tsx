@@ -40,11 +40,11 @@ function InfoHint({ text }: { text: string }) {
 function SettingRow({ title, info, children }: { title: string; info: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-        <span className="truncate">{title}</span>
+      <p className="flex shrink-0 items-center gap-1.5 text-sm font-medium">
+        <span>{title}</span>
         <InfoHint text={info} />
       </p>
-      <div className="shrink-0">{children}</div>
+      <div className="min-w-0 sm:flex sm:justify-end">{children}</div>
     </div>
   );
 }
@@ -136,6 +136,24 @@ function PriceUnitSelector({ product, companyId, companyUnits, editable }: { pro
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Sui prodotti che arrivano da Danea la U.M. del prezzo è quella ricevuta con articoli e listini.
+  const fromDanea = Boolean(product.danea_internal_id);
+  const manualUnit = product.price_unit_id ? companyUnits.find((unit) => unit.id === product.price_unit_id) ?? null : null;
+
+  if (fromDanea) {
+    return (
+      <SettingRow title="U.M. del prezzo" info="Arriva da Danea insieme ad articoli e listini: non si imposta qui.">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="font-mono">{product.danea_um ?? "—"}</Badge>
+          {manualUnit ? <>
+            <Badge variant="secondary">{manualUnit.code} · impostata manualmente</Badge>
+            {editable ? <Button type="button" size="sm" variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate("base")}>Usa quella di Danea</Button> : null}
+          </> : null}
+        </div>
+      </SettingRow>
+    );
+  }
+
   return (
     <SettingRow title="U.M. del prezzo" info="Tutti i listini del prodotto si leggono su questa U.M. Il prezzo resta lo stesso qualunque formato il cliente ordini; peso e totale definitivi nascono dalla pesatura.">
       <Select
@@ -173,6 +191,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
     </SheetHeader>
     <TooltipProvider delayDuration={150}>
       <div className="mt-3 space-y-4">
+        <ProductImageManager productId={product.id} image={product.product_images ?? null} editable={isAdmin} top />
         {companyId ? (
           <div className="divide-y divide-border/60 rounded-lg border border-border px-3">
             <ShowcaseToggle product={product} companyId={companyId} editable={isAdmin} />
@@ -184,7 +203,6 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
         {companyId ? <ProductSuppliersManager companyId={companyId} productId={product.id} productArchiveId={product.archive_id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
         {companyId ? <ProductStockPanel companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
         {companyId ? <ProductProvenancePanel productId={product.id} editable={isAdmin} /> : null}
-        <ProductImageManager productId={product.id} image={product.product_images ?? null} editable={isAdmin} />
         <Collapsible open={daneaOpen} onOpenChange={setDaneaOpen} className="border-t border-border pt-2">
           <CollapsibleTrigger asChild><Button type="button" variant="ghost" className="w-full justify-between px-0 text-sm font-semibold" aria-label={`${daneaOpen ? "Chiudi" : "Apri"} dati Danea`}>Dati Danea <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">Sola lettura<ChevronDown className={`transition-transform ${daneaOpen ? "rotate-180" : ""}`} /></span></Button></CollapsibleTrigger>
           <CollapsibleContent className="space-y-5 pt-3">
