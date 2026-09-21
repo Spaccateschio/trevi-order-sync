@@ -165,11 +165,15 @@ export function ProductSuppliersManager({
     });
   }, [selected]);
 
+  const deliveryQuery = useDeliverySchedules(productId);
+  const deliveries = deliveryQuery.data ?? {};
+
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["product-supplier-links", productId] }),
       queryClient.invalidateQueries({ queryKey: ["product-danea-supplier-matches", productId] }),
       queryClient.invalidateQueries({ queryKey: ["supplier-options", companyId] }),
+      queryClient.invalidateQueries({ queryKey: ["product-supplier-delivery", productId] }),
     ]);
   };
 
