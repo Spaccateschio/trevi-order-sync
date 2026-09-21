@@ -467,3 +467,153 @@ export function ProductSuppliersManager({
     </section>
   );
 }
+
+/**
+ * U.M. con cui è possibile acquistare una singola referenza fornitore.
+ * La predefinita è facoltativa: una referenza può restare senza U.M. preferita.
+ */
+function PurchaseUnitsEditor({
+  companyId,
+  linkId,
+  baseUm,
+  assigned,
+  units,
+  disabled,
+  onChanged,
+}: {
+  companyId: string;
+  linkId: string;
+  baseUm: string | null;
+  assigned: PurchaseUnit[];
+  units: CompanyUnit[];
+  disabled: boolean;
+  onChanged: () => Promise<void>;
+}) {
+  const [addOpen, setAddOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [factor, setFactor] = useState("");
+  const [conversionType, setConversionType] = useState<"esatta" | "indicativa">("indicativa");
+
+  const selected = assigned.find((row) => row.id === selectedId) ?? null;
+  useEffect(() => {
+    if (!selected) return;
+    setFactor(selected.conversion_factor?.toString() ?? "");
+    setConversionType(selected.conversion_type);
+  }, [selected]);
+
+  const mutation = useMutation({
+    mutationFn: async (input: {
+      unitId: string;
+      action: "add" | "remove" | "set_default" | "clear_default" | "set_conversion";
+      conversionFactor?: number | null;
+      conversionType?: "esatta" | "indicativa";
+    }) => {
+      const { error } = await supabase.rpc("manage_product_supplier_link_unit", {
+        _company_id: companyId,
+        _link_id: linkId,
+        _unit_id: input.unitId,
+        _action: input.action,
+        ...(input.conversionFactor !== null && input.conversionFactor !== undefined ? { _conversion_factor: input.conversionFactor } : {}),
+        ...(input.conversionType ? { _conversion_type: input.conversionType } : {}),
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: async () => {
+      await onChanged();
+      toast.success("U.M. di acquisto aggiornate");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const busy = disabled || mutation.isPending;
+  const available = units.filter((unit) => !assigned.some((row) => row.unit_id === unit.id));
+
+  return (
+    <div className="rounded-md border border-border bg-muted/30 p-3">
+      <p className="text-xs font-semibold">U.M. con cui posso acquistare questa referenza</p>
+      <p className="text-xs text-muted-foreground">La predefinita (★) è facoltativa: se manca, la sceglierai nella Lista della Spesa.</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {assigned.map((row) => (
+          <Button
+            key={row.id}
+            type="button"
+            size="sm"
+            variant={selectedId === row.id ? "default" : "outline"}
+            aria-pressed={selectedId === row.id}
+            aria-label={`${row.code}${row.is_default ? ", predefinita" : ""}`}
+            disabled={busy}
+            onClick={() => setSelectedId(selectedId === row.id ? null : row.id)}
+          >
+            {row.code}
+            {row.is_default ? <Star className="fill-current" aria-hidden="true" /> : null}
+          </Button>
+        ))}
+        {available.length ? (
+          <Popover open={addOpen} onOpenChange={setAddOpen}>
+            <PopoverTrigger asChild>
+              <Button type="button" size="icon" variant="outline" aria-label="Aggiungi U.M. di acquisto" disabled={busy}><Plus /></Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-2">
+              <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">Aggiungi U.M. di acquisto</p>
+              <div className="max-h-64 space-y-1 overflow-y-auto">
+                {available.map((unit) => (
+                  <Button
+                    key={unit.id}
+                    type="button"
+                    variant="ghost"
+                    className="h-auto w-full justify-start py-2 text-left"
+                    disabled={busy}
+                    onClick={async () => { await mutation.mutateAsync({ unitId: unit.id, action: "add" }); setAddOpen(false); }}
+                  >
+                    <span><strong>{unit.code}</strong><span className="ml-2 text-muted-foreground">{unit.description}</span></span>
+                  </Button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        ) : null}
+        {!assigned.length ? <span className="text-xs text-muted-foreground">Nessuna U.M. di acquisto: aggiungila con +.</span> : null}
+      </div>
+
+      {selected ? (
+        <div className="mt-3 space-y-2 border-t border-border pt-3">
+          <Label className="text-xs">Conversione (facoltativa) verso {baseUm ?? "U.M. prodotto"}</Label>
+          <div className="grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2">
+            <span className="text-sm">1 {selected.code} {conversionType === "esatta" ? "=" : "≈"}</span>
+            <Input inputMode="decimal" aria-label={`Conversione ${selected.code}`} value={factor} disabled={busy} placeholder="Nessuna" onChange={(event) => setFactor(event.target.value)} />
+            <span className="truncate text-sm">{baseUm ?? "U.M. prodotto"}</span>
+          </div>
+          {factor.trim() ? (
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant={conversionType === "esatta" ? "default" : "outline"} aria-pressed={conversionType === "esatta"} disabled={busy} onClick={() => setConversionType("esatta")}>Esatta</Button>
+              <Button type="button" size="sm" variant={conversionType === "indicativa" ? "default" : "outline"} aria-pressed={conversionType === "indicativa"} disabled={busy} onClick={() => setConversionType("indicativa")}>Indicativa</Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Senza conversione il sistema non calcola equivalenti: fabbisogno e quantità acquistata restano separati.</p>
+          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            {selected.is_default ? (
+              <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => mutation.mutate({ unitId: selected.unit_id, action: "clear_default" })}><Star aria-hidden="true" />Togli predefinita</Button>
+            ) : (
+              <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => mutation.mutate({ unitId: selected.unit_id, action: "set_default" })}><Star className="fill-current" aria-hidden="true" />Predefinita</Button>
+            )}
+            <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => { mutation.mutate({ unitId: selected.unit_id, action: "remove" }); setSelectedId(null); }}><Trash2 aria-hidden="true" />Rimuovi</Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                const normalized = factor.trim().replace(",", ".");
+                const value = normalized ? Number(normalized) : null;
+                if (value !== null && (!Number.isFinite(value) || value <= 0)) { toast.error("La conversione deve essere maggiore di zero"); return; }
+                mutation.mutate({ unitId: selected.unit_id, action: "set_conversion", conversionFactor: value, conversionType });
+              }}
+            >
+              Salva conversione
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
