@@ -40,7 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { activeCompany, companySells, hasRole, useIdentity } from "@/hooks/use-identity";
+import { activeCompany, companyBuys, companySells, hasRole, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -330,7 +330,9 @@ function ProdottiPage() {
     URL.revokeObjectURL(url);
   }
 
-  if (!identityLoading && !companySells(identity)) return <AppShell title="Prodotti" description="Area riservata alle aziende che vendono."><p className="text-sm text-muted-foreground">Il profilo di vendita non è attivo per la tua azienda.</p></AppShell>;
+  // FASE 1: i prodotti propri esistono anche senza profilo di vendita (prodotti manuali e
+  // referenze aggiunte dai cataloghi fornitore), quindi la pagina è aperta anche a chi compra.
+  if (!identityLoading && !companySells(identity) && !companyBuys(identity)) return <AppShell title="Prodotti" description="Area non disponibile."><p className="text-sm text-muted-foreground">Nessun profilo di acquisto o vendita attivo per la tua azienda.</p></AppShell>;
 
   const filterSelects = (stacked: boolean) => {
     const triggerClass = (width: string) => cn("h-9", stacked ? "w-full" : `${width} shrink-0`);
@@ -386,6 +388,7 @@ function ProdottiPage() {
 
     <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => setSelected(null)} />
     {companyId ? <SalesUnitBatchDialog open={unitBatchOpen} onOpenChange={setUnitBatchOpen} companyId={companyId} productIds={selectedProducts.map((product) => product.id)} units={companyUnitsQuery.data ?? []} /> : null}
+    <InternalProductDialog open={newProductOpen} onOpenChange={setNewProductOpen} companyId={companyId} userId={userId} />
     <ImportDialog open={importOpen} onOpenChange={setImportOpen} companyId={companyId} archives={archives.filter((archive) => archive.status === "attivo").map((archive) => ({ id: archive.id, name: archive.name, isDefault: archive.is_default }))} onImported={() => { void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] }); void queryClient.invalidateQueries({ queryKey: ["danea-listini", companyId] }); }} />
   </AppShell>;
 }
