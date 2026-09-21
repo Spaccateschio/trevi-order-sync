@@ -92,20 +92,24 @@ export function InternalProductDialog({
     mutationFn: async () => {
       if (!companyId) throw new Error("Azienda non disponibile");
       if (!description.trim()) throw new Error("La descrizione è obbligatoria");
-      const { data, error } = await supabase.rpc("manage_internal_product", {
+      const args: Record<string, string> = {
         _company_id: companyId,
         _action: editing ? "update" : "create",
-        _product_id: product?.id ?? undefined,
-        _code: code.trim() || undefined,
         _description: description.trim(),
-        _category: category.trim() || undefined,
-        _subcategory: subcategory.trim() || undefined,
-        _danea_um: um.trim() || undefined,
-        _barcode: barcode.trim() || undefined,
-        _producer_name: producer.trim() || undefined,
-        _notes: notes.trim() || undefined,
-        ...(userId ? { _actor_user_id: userId } : {}),
-      });
+      };
+      if (product?.id) args["_product_id"] = product.id;
+      if (code.trim()) args["_code"] = code.trim();
+      if (category.trim()) args["_category"] = category.trim();
+      if (subcategory.trim()) args["_subcategory"] = subcategory.trim();
+      if (um.trim()) args["_danea_um"] = um.trim();
+      if (barcode.trim()) args["_barcode"] = barcode.trim();
+      if (producer.trim()) args["_producer_name"] = producer.trim();
+      if (notes.trim()) args["_notes"] = notes.trim();
+      if (userId) args["_actor_user_id"] = userId;
+      const { data, error } = await supabase.rpc(
+        "manage_internal_product",
+        args as unknown as { _company_id: string; _action: string },
+      );
       if (error) throw new Error(error.message);
       return data as string;
     },

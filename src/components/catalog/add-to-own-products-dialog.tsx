@@ -64,14 +64,22 @@ export function AddToOwnProductsDialog({
     mutationFn: async () => {
       if (!buyerCompanyId) throw new Error("Azienda non disponibile");
       if (mode === "esistente" && !ownProductId) throw new Error("Scegli un tuo prodotto");
-      const { data, error } = await supabase.rpc("add_catalog_product_to_own_products", {
+      const args: Record<string, string> = {
         _buyer_company_id: buyerCompanyId,
         _seller_company_id: sellerCompanyId,
         _seller_product_id: sellerProduct.id,
-        _own_product_id: mode === "esistente" ? (ownProductId ?? undefined) : undefined,
-        _supplier_product_code: supplierCode.trim() || undefined,
-        ...(userId ? { _actor_user_id: userId } : {}),
-      });
+      };
+      if (mode === "esistente" && ownProductId) args["_own_product_id"] = ownProductId;
+      if (supplierCode.trim()) args["_supplier_product_code"] = supplierCode.trim();
+      if (userId) args["_actor_user_id"] = userId;
+      const { data, error } = await supabase.rpc(
+        "add_catalog_product_to_own_products",
+        args as unknown as {
+          _buyer_company_id: string;
+          _seller_company_id: string;
+          _seller_product_id: string;
+        },
+      );
       if (error) throw new Error(error.message);
       return data as { created_product?: boolean; created_link?: boolean };
     },
