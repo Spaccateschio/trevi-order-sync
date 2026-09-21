@@ -173,7 +173,7 @@ function PriceUnitSelector({ product, companyId, companyUnits, editable }: { pro
   );
 }
 
-function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, companyId, companyUnits, saleUnits }: {
+function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, companyId, companyUnits, saleUnits, initialTab }: {
   product: ProductRow;
   archiveName: string;
   listName: (number: number) => string;
@@ -182,53 +182,85 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
   companyId: string | null;
   companyUnits: CompanyUnit[];
   saleUnits: ProductSaleUnit[];
+  initialTab: ProductDetailTab;
 }) {
   const [daneaOpen, setDaneaOpen] = useState(false);
   return <>
     <SheetHeader className="pr-8 text-left">
-      <div className="flex items-center gap-2"><Badge variant="outline">Prodotto</Badge><span className="font-mono text-xs text-muted-foreground">{product.code}</span></div>
+      <div className="flex items-center gap-2"><Badge variant="outline">{product.danea_internal_id ? "Danea" : "Interno"}</Badge><span className="font-mono text-xs text-muted-foreground">{product.code}</span></div>
       <SheetTitle>{product.description ?? product.code}</SheetTitle>
     </SheetHeader>
     <TooltipProvider delayDuration={150}>
-      <div className="mt-3 space-y-4">
-        <ProductImageManager productId={product.id} image={product.product_images ?? null} editable={isAdmin} top />
-        {companyId ? (
-          <div className="divide-y divide-border/60 rounded-lg border border-border px-3">
-            <ShowcaseToggle product={product} companyId={companyId} editable={isAdmin} />
-            <AvailabilitySelector product={product} companyId={companyId} editable={isAdmin} />
-            <PriceUnitSelector product={product} companyId={companyId} companyUnits={companyUnits} editable={isAdmin} />
-          </div>
-        ) : null}
-        {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} /> : null}
-        {companyId ? <ProductSuppliersManager companyId={companyId} productId={product.id} productArchiveId={product.archive_id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
-        {companyId ? <ProductStockPanel companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
-        {companyId ? <ProductProvenancePanel productId={product.id} editable={isAdmin} /> : null}
-        <Collapsible open={daneaOpen} onOpenChange={setDaneaOpen} className="border-t border-border pt-2">
-          <CollapsibleTrigger asChild><Button type="button" variant="ghost" className="w-full justify-between px-0 text-sm font-semibold" aria-label={`${daneaOpen ? "Chiudi" : "Apri"} dati Danea`}>Dati Danea <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">Sola lettura<ChevronDown className={`transition-transform ${daneaOpen ? "rotate-180" : ""}`} /></span></Button></CollapsibleTrigger>
-          <CollapsibleContent className="space-y-5 pt-3">
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-              <Field label="Archivio" value={archiveName} />
-              <Field label="InternalID" value={product.danea_internal_id ?? "—"} />
-              <Field label="Categoria" value={product.category ?? "—"} />
-              <Field label="Sottocategoria" value={product.subcategory ?? "—"} />
-              <Field label="U.M. Danea" value={product.danea_um ?? "—"} />
-              <Field label="IVA" value={product.vat_perc !== null ? `${product.vat_perc}% ${product.vat_description ?? ""}`.trim() : product.vat_code ?? "—"} />
-              <Field label="Stato" value={product.publish_status === "pubblicato" ? "Pubblicato" : "Non pubblicato"} />
-              <Field label="Ultimo aggiornamento" value={dateTime(product.last_received_at)} />
-            </dl>
-            <section className="border-t border-border pt-4">
-              <h3 className="text-sm font-semibold">Listini ricevuti</h3>
-              {product.product_prices.length ? <div className="mt-2 divide-y divide-border">
-                {[...product.product_prices].sort((a, b) => a.list_number - b.list_number).map((price) => (
-                  <div key={price.list_number} className="flex justify-between gap-4 py-2 text-sm"><span className="text-muted-foreground">{listName(price.list_number)}</span><span>{euro(price.net_price)}{price.gross_price !== null ? ` · ivato ${euro(price.gross_price)}` : ""}</span></div>
-                ))}
-              </div> : <p className="mt-2 text-sm text-muted-foreground">Nessun prezzo ricevuto.</p>}
-            </section>
-            {isAdmin ? <section className="border-t border-border pt-4"><h3 className="text-sm font-semibold">Fornitore e costo</h3><dl className="mt-2 grid grid-cols-2 gap-3"><Field label="Fornitore" value={cost?.supplier_name ?? product.supplier_name ?? "—"} /><Field label="Codice fornitore" value={cost?.supplier_code ?? product.supplier_code ?? "—"} /><Field label="Codice prodotto" value={cost?.supplier_product_code ?? product.supplier_product_code ?? "—"} /><Field label="Costo netto" value={euro(cost?.supplier_net_price)} /></dl></section> : null}
-            <section className="border-t border-border pt-4"><h3 className="text-sm font-semibold">Altri dati Danea</h3><dl className="mt-2 grid grid-cols-2 gap-3"><Field label="Note" value={product.notes ?? "—"} /><Field label="Nome immagine" value={product.image_file_name ?? "—"} /><Field label="Cartella immagine" value={product.image_folder ?? "—"} /><Field label="Barcode" value={product.barcode ?? "—"} /><Field label="Produttore" value={product.producer_name ?? "—"} /><Field label="Tipo prodotto" value={product.product_type ?? "—"} /></dl></section>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
+      <Tabs defaultValue={initialTab} className="mt-3 gap-3">
+        <TabsList className="w-full">
+          <TabsTrigger value="prodotto">Prodotto</TabsTrigger>
+          <TabsTrigger value="vendita">Vendita</TabsTrigger>
+          <TabsTrigger value="acquisto">Acquisto</TabsTrigger>
+          <TabsTrigger value="inventario">Inventario</TabsTrigger>
+        </TabsList>
+
+        {/* Prodotto: anagrafica generale e dati originali Danea. */}
+        <TabsContent value="prodotto" className="space-y-3">
+          <ProductImageManager productId={product.id} image={product.product_images ?? null} editable={isAdmin} top />
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <Field label="Codice" value={product.code} />
+            <Field label="U.M. base" value={product.danea_um ?? "—"} />
+            <Field label="Descrizione" value={product.description ?? "—"} />
+            <Field label="Categoria" value={product.category ?? "—"} />
+            <Field label="Sottocategoria" value={product.subcategory ?? "—"} />
+            <Field label="Archivio" value={archiveName} />
+            <Field label="Origine" value={product.danea_internal_id ? "Danea" : "Creato in Trevi Fruit"} />
+            <Field label="Stato" value={product.publish_status === "pubblicato" ? "Pubblicato" : "Non pubblicato"} />
+          </dl>
+          <Collapsible open={daneaOpen} onOpenChange={setDaneaOpen} className="border-t border-border pt-2">
+            <CollapsibleTrigger asChild><Button type="button" variant="ghost" className="w-full justify-between px-0 text-sm font-semibold" aria-label={`${daneaOpen ? "Chiudi" : "Apri"} dati Danea`}>Dati Danea <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">Sola lettura<ChevronDown className={`transition-transform ${daneaOpen ? "rotate-180" : ""}`} /></span></Button></CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                <Field label="InternalID" value={product.danea_internal_id ?? "—"} />
+                <Field label="IVA" value={product.vat_perc !== null ? `${product.vat_perc}% ${product.vat_description ?? ""}`.trim() : product.vat_code ?? "—"} />
+                <Field label="Ultimo aggiornamento" value={dateTime(product.last_received_at)} />
+                <Field label="Barcode" value={product.barcode ?? "—"} />
+                <Field label="Produttore" value={product.producer_name ?? "—"} />
+                <Field label="Tipo prodotto" value={product.product_type ?? "—"} />
+                <Field label="Note" value={product.notes ?? "—"} />
+                <Field label="Nome immagine" value={product.image_file_name ?? "—"} />
+              </dl>
+            </CollapsibleContent>
+          </Collapsible>
+        </TabsContent>
+
+        {/* Vendita: vetrina, disponibilità, U.M. del prezzo, U.M. ordinabili, listini. */}
+        <TabsContent value="vendita" className="space-y-3">
+          {companyId ? (
+            <div className="divide-y divide-border/60 rounded-lg border border-border px-3">
+              <ShowcaseToggle product={product} companyId={companyId} editable={isAdmin} />
+              <AvailabilitySelector product={product} companyId={companyId} editable={isAdmin} />
+              <PriceUnitSelector product={product} companyId={companyId} companyUnits={companyUnits} editable={isAdmin} />
+            </div>
+          ) : null}
+          {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} showPurchase={false} /> : null}
+          <section className="border-t border-border pt-2">
+            <h3 className="text-sm font-semibold">Listini</h3>
+            {product.product_prices.length ? <div className="mt-1 divide-y divide-border">
+              {[...product.product_prices].sort((a, b) => a.list_number - b.list_number).map((price) => (
+                <div key={price.list_number} className="flex justify-between gap-4 py-1.5 text-sm"><span className="text-muted-foreground">{listName(price.list_number)}</span><span>{euro(price.net_price)}{price.gross_price !== null ? ` · ivato ${euro(price.gross_price)}` : ""}</span></div>
+              ))}
+            </div> : <p className="mt-1 text-sm text-muted-foreground">Nessun prezzo ricevuto.</p>}
+          </section>
+        </TabsContent>
+
+        {/* Acquisto: fornitori, referenze, priorità, U.M. acquistabili, costi. */}
+        <TabsContent value="acquisto" className="space-y-3">
+          {companyId ? <ProductSuppliersManager companyId={companyId} productId={product.id} productArchiveId={product.archive_id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
+          {isAdmin ? <section className="border-t border-border pt-2"><h3 className="text-sm font-semibold">Costo ricevuto da Danea</h3><dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-2"><Field label="Fornitore" value={cost?.supplier_name ?? product.supplier_name ?? "—"} /><Field label="Codice fornitore" value={cost?.supplier_code ?? product.supplier_code ?? "—"} /><Field label="Codice prodotto" value={cost?.supplier_product_code ?? product.supplier_product_code ?? "—"} /><Field label="Costo netto" value={euro(cost?.supplier_net_price)} /></dl></section> : null}
+        </TabsContent>
+
+        {/* Inventario: giacenza, zone, scorta minima, fabbisogno, conteggi e provenienze dei carichi. */}
+        <TabsContent value="inventario" className="space-y-3">
+          {companyId ? <ProductStockPanel companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
+          {companyId ? <ProductProvenancePanel productId={product.id} editable={isAdmin} /> : null}
+        </TabsContent>
+      </Tabs>
     </TooltipProvider>
   </>;
 }
