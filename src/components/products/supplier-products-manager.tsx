@@ -502,12 +502,7 @@ export function SupplierProductsManager({
                   <td className="max-w-[18rem] truncate">{row.products?.description ?? "—"}</td>
                   <td>{archiveName(row.products?.archive_id ?? null)}</td>
                   <td className="font-mono">{row.supplier_product_code ?? "—"}</td>
-                  <td>
-                    {row.units_of_measure?.code ?? "—"}
-                    {row.conversion_factor
-                      ? ` · 1 ≈ ${row.conversion_factor} ${row.conversion_reference_um ?? ""}`
-                      : ""}
-                  </td>
+                  <td>{purchaseUnitsLabel(row)}</td>
                   <td>{costCell(row)}</td>
                   <td>
                     {row.manual_cost !== null ? `${euro(Number(row.manual_cost))} · ${dateTime(row.manual_cost_at)}` : "—"}
