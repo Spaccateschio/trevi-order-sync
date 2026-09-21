@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link2, Plus, Star, Truck } from "lucide-react";
+import { Link2, Plus, Star, Trash2, Truck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -7,10 +7,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { dateTime, euro } from "@/lib/product-grid";
 import type { CompanyUnit } from "./sales-unit-manager";
+
+/** U.M. con cui si può acquistare una singola referenza fornitore. */
+export type PurchaseUnit = {
+  id: string;
+  unit_id: string;
+  code: string;
+  description: string;
+  is_default: boolean;
+  is_active: boolean;
+  conversion_factor: number | null;
+  conversion_type: "esatta" | "indicativa";
+};
 
 type Overview = {
   link_id: string;
@@ -36,6 +49,7 @@ type Overview = {
   notes: string | null;
   origin: "manuale" | "danea";
   b2b_relation_status: string | null;
+  purchase_units: PurchaseUnit[];
 };
 
 type PendingMatch = {
