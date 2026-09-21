@@ -225,8 +225,17 @@ function CatalogProductPage() {
               {price === null ? (
                 <p className="text-sm">Prezzo confermato dal fornitore in fase d'ordine.</p>
               ) : (
-                <p className="text-2xl font-semibold tabular-nums">{euro(price)}</p>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {euro(price)}
+                  {priceUnitCode(product) ? (
+                    <span className="text-base font-medium">/{priceUnitCode(product)}</span>
+                  ) : null}
+                </p>
               )}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Il prezzo resta riferito a questa U.M. qualunque sia il formato ordinato. Peso e
+                totale definitivi sono determinati alla preparazione.
+              </p>
             </div>
 
             <div className="rounded-xl border border-border bg-card p-4">
@@ -241,23 +250,25 @@ function CatalogProductPage() {
               </div>
               {units.length ? (
                 <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                  {units.map((unit, index) => (
-                    <li key={unit.id ?? index}>
-                      <span className="font-medium text-foreground">
-                        {unit.units_of_measure?.code ?? "—"}
-                      </span>
-                      {unit.units_of_measure?.description
-                        ? ` · ${unit.units_of_measure.description}`
-                        : ""}
-                      {unit.is_default ? " · predefinita del fornitore" : ""}
-                      {unit.conversion_factor
-                        ? ` · circa ${unit.conversion_factor} ${unit.conversion_reference_um ?? ""}`.trimEnd()
-                        : ""}
-                    </li>
-                  ))}
+                  {units.map((unit, index) => {
+                    const conversion = conversionLabel(unit, product.danea_um);
+                    return (
+                      <li key={unit.id ?? index}>
+                        <span className="font-medium text-foreground">
+                          {unit.units_of_measure?.code ?? "—"}
+                        </span>
+                        {unit.units_of_measure?.description
+                          ? ` · ${unit.units_of_measure.description}`
+                          : ""}
+                        {unit.is_default ? " · predefinita del fornitore" : ""}
+                        {conversion ? ` · ${conversion}` : ""}
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : null}
             </div>
+
 
             {product.description_html || product.notes ? (
               <div className="rounded-xl border border-border bg-card p-4 text-sm">
