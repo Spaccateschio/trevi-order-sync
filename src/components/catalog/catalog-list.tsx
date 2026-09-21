@@ -17,6 +17,13 @@ export type CatalogProduct = {
   units: CatalogSaleUnit[];
   selectedUnitId: string | null;
   price: number | null;
+  availability: "available" | "on_order" | "temporarily_unavailable";
+};
+
+const AVAILABILITY_NOTE: Record<CatalogProduct["availability"], string | null> = {
+  available: null,
+  on_order: "Su ordinazione",
+  temporarily_unavailable: "Temporaneamente non disponibile",
 };
 
 /**
@@ -94,6 +101,9 @@ export function CatalogList({
                   >
                     <span className="font-mono text-xs text-muted-foreground">{product.code}</span>
                     <span className="block font-medium">{product.description ?? product.code}</span>
+                    {AVAILABILITY_NOTE[product.availability] ? (
+                      <span className="block text-xs text-muted-foreground">{AVAILABILITY_NOTE[product.availability]}</span>
+                    ) : null}
                   </Link>
                 </td>
                 {showSeller ? (
@@ -156,6 +166,9 @@ export function CatalogList({
                   <span className="block truncate text-sm font-medium">
                     {product.description ?? product.code}
                   </span>
+                  {AVAILABILITY_NOTE[product.availability] ? (
+                    <span className="block truncate text-xs text-muted-foreground">{AVAILABILITY_NOTE[product.availability]}</span>
+                  ) : null}
                   <span className="block truncate font-mono text-[11px] text-muted-foreground">
                     {product.code}
                     {showSeller ? ` · ${product.sellerName}` : ""}
