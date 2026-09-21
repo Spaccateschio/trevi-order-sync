@@ -955,6 +955,7 @@ export type Database = {
           created_by: string | null
           id: string
           is_default: boolean
+          is_internal: boolean
           name: string
           notes: string | null
           status: Database["public"]["Enums"]["entity_status"]
@@ -966,6 +967,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_default?: boolean
+          is_internal?: boolean
           name: string
           notes?: string | null
           status?: Database["public"]["Enums"]["entity_status"]
@@ -977,6 +979,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_default?: boolean
+          is_internal?: boolean
           name?: string
           notes?: string | null
           status?: Database["public"]["Enums"]["entity_status"]
@@ -2431,6 +2434,8 @@ export type Database = {
           code: string
           company_id: string
           created_at: string
+          created_from_company_id: string | null
+          created_from_product_id: string | null
           custom_field_1: string | null
           custom_field_2: string | null
           custom_field_3: string | null
@@ -2443,10 +2448,12 @@ export type Database = {
           id: string
           image_file_name: string | null
           image_folder: string | null
+          is_managed: boolean
           last_received_at: string
           last_sync_run_id: string | null
           link: string | null
           notes: string | null
+          origin: Database["public"]["Enums"]["product_origin"]
           producer_name: string | null
           product_type: string | null
           publish_status: Database["public"]["Enums"]["product_publish_status"]
@@ -2474,6 +2481,8 @@ export type Database = {
           code: string
           company_id: string
           created_at?: string
+          created_from_company_id?: string | null
+          created_from_product_id?: string | null
           custom_field_1?: string | null
           custom_field_2?: string | null
           custom_field_3?: string | null
@@ -2486,10 +2495,12 @@ export type Database = {
           id?: string
           image_file_name?: string | null
           image_folder?: string | null
+          is_managed?: boolean
           last_received_at?: string
           last_sync_run_id?: string | null
           link?: string | null
           notes?: string | null
+          origin?: Database["public"]["Enums"]["product_origin"]
           producer_name?: string | null
           product_type?: string | null
           publish_status?: Database["public"]["Enums"]["product_publish_status"]
@@ -2517,6 +2528,8 @@ export type Database = {
           code?: string
           company_id?: string
           created_at?: string
+          created_from_company_id?: string | null
+          created_from_product_id?: string | null
           custom_field_1?: string | null
           custom_field_2?: string | null
           custom_field_3?: string | null
@@ -2529,10 +2542,12 @@ export type Database = {
           id?: string
           image_file_name?: string | null
           image_folder?: string | null
+          is_managed?: boolean
           last_received_at?: string
           last_sync_run_id?: string | null
           link?: string | null
           notes?: string | null
+          origin?: Database["public"]["Enums"]["product_origin"]
           producer_name?: string | null
           product_type?: string | null
           publish_status?: Database["public"]["Enums"]["product_publish_status"]
@@ -4035,6 +4050,19 @@ export type Database = {
         Args: { _actor_user_id?: string; _delivery_id: string }
         Returns: string
       }
+      add_catalog_product_to_own_products: {
+        Args: {
+          _actor_user_id?: string
+          _buyer_company_id: string
+          _conversion_factor?: number
+          _own_product_id?: string
+          _purchase_unit_id?: string
+          _seller_company_id: string
+          _seller_product_id: string
+          _supplier_product_code?: string
+        }
+        Returns: Json
+      }
       add_purchase_delivery_extra_item: {
         Args: {
           _actor_label?: string
@@ -4276,6 +4304,10 @@ export type Database = {
         Args: { _actor_user_id?: string; _company_id: string }
         Returns: string
       }
+      ensure_internal_archive: {
+        Args: { _actor_user_id?: string; _company_id: string }
+        Returns: string
+      }
       external_order_snapshot: { Args: { _token_hash: string }; Returns: Json }
       generate_invite_code: { Args: never; Returns: string }
       goods_receipt_history: {
@@ -4496,6 +4528,23 @@ export type Database = {
         }
         Returns: string
       }
+      manage_internal_product: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _barcode?: string
+          _category?: string
+          _code?: string
+          _company_id: string
+          _danea_um?: string
+          _description?: string
+          _notes?: string
+          _producer_name?: string
+          _product_id?: string
+          _subcategory?: string
+        }
+        Returns: string
+      }
       manage_inventory_location: {
         Args: {
           _action: string
@@ -4651,6 +4700,10 @@ export type Database = {
       }
       next_document_number: {
         Args: { _company_id: string; _prefix: string }
+        Returns: string
+      }
+      next_internal_product_code: {
+        Args: { _company_id: string }
         Returns: string
       }
       normalize_vat: { Args: { _value: string }; Returns: string }
@@ -5043,7 +5096,7 @@ export type Database = {
       start_general_inventory: {
         Args: {
           _actor_user_id?: string
-          _archive_id: string
+          _archive_id?: string
           _company_id: string
           _name?: string
         }
@@ -5111,6 +5164,7 @@ export type Database = {
         | "annullato"
         | "annullato_scaduto"
       lot_reconciliation_status: "aperta" | "riconciliata" | "ignorata"
+      product_origin: "danea" | "interno"
       product_publish_status: "pubblicato" | "non_pubblicato"
       product_supplier_origin: "manuale" | "danea"
       proposed_update_status: "in_attesa" | "accettato" | "rifiutato"
@@ -5331,6 +5385,7 @@ export const Constants = {
         "annullato_scaduto",
       ],
       lot_reconciliation_status: ["aperta", "riconciliata", "ignorata"],
+      product_origin: ["danea", "interno"],
       product_publish_status: ["pubblicato", "non_pubblicato"],
       product_supplier_origin: ["manuale", "danea"],
       proposed_update_status: ["in_attesa", "accettato", "rifiutato"],
