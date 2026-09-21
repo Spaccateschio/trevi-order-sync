@@ -19,6 +19,12 @@ export const Route = createFileRoute("/_authenticated/impostazioni_/navigazione"
 
 function move(keys: ModuleKey[], key: ModuleKey, direction: -1 | 1) { const index = keys.indexOf(key); const target = index + direction; if (index < 0 || target < 0 || target >= keys.length) return keys; const current = keys[index]; const replacement = keys[target]; if (!current || !replacement) return keys; const next = [...keys]; next[index] = replacement; next[target] = current; return next; }
 
+/** Unisce l'ordine di una sezione con quello già salvato per le altre sezioni, così nessun ordine viene perso. */
+function mergeSectionOrder(previousOrder: ModuleKey[], sectionKeys: ModuleKey[], sectionOrder: ModuleKey[]) {
+  const section = new Set(sectionKeys);
+  return [...sectionOrder, ...previousOrder.filter((key) => !section.has(key))];
+}
+
 function PreferenceRows({ items, hidden, order, onChange }: { items: NavItem[]; hidden: ModuleKey[]; order: ModuleKey[]; onChange: (value: { hidden: ModuleKey[]; order: ModuleKey[] }) => void }) {
   const itemMap = new Map(items.map((item) => [item.key, item]));
   const keys = orderedKeys(items.map((item) => item.key), { hidden, order });
