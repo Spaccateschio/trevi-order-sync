@@ -2135,6 +2135,7 @@ export type Database = {
           company_id: string
           conversion_factor: number | null
           conversion_reference_um: string | null
+          conversion_type: Database["public"]["Enums"]["sale_conversion_type"]
           created_at: string
           created_by: string | null
           id: string
@@ -2151,6 +2152,7 @@ export type Database = {
           company_id: string
           conversion_factor?: number | null
           conversion_reference_um?: string | null
+          conversion_type?: Database["public"]["Enums"]["sale_conversion_type"]
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2167,6 +2169,7 @@ export type Database = {
           company_id?: string
           conversion_factor?: number | null
           conversion_reference_um?: string | null
+          conversion_type?: Database["public"]["Enums"]["sale_conversion_type"]
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2461,6 +2464,7 @@ export type Database = {
           link: string | null
           notes: string | null
           origin: Database["public"]["Enums"]["product_origin"]
+          price_unit_id: string | null
           producer_name: string | null
           product_type: string | null
           publish_status: Database["public"]["Enums"]["product_publish_status"]
@@ -2509,6 +2513,7 @@ export type Database = {
           link?: string | null
           notes?: string | null
           origin?: Database["public"]["Enums"]["product_origin"]
+          price_unit_id?: string | null
           producer_name?: string | null
           product_type?: string | null
           publish_status?: Database["public"]["Enums"]["product_publish_status"]
@@ -2557,6 +2562,7 @@ export type Database = {
           link?: string | null
           notes?: string | null
           origin?: Database["public"]["Enums"]["product_origin"]
+          price_unit_id?: string | null
           producer_name?: string | null
           product_type?: string | null
           publish_status?: Database["public"]["Enums"]["product_publish_status"]
@@ -2596,6 +2602,13 @@ export type Database = {
             columns: ["last_sync_run_id"]
             isOneToOne: false
             referencedRelation: "danea_sync_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_price_unit_id_fkey"
+            columns: ["price_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
         ]
@@ -3914,6 +3927,7 @@ export type Database = {
           id: string
           status: Database["public"]["Enums"]["entity_status"]
           updated_at: string
+          usage: Database["public"]["Enums"]["unit_usage"]
         }
         Insert: {
           code: string
@@ -3924,6 +3938,7 @@ export type Database = {
           id?: string
           status?: Database["public"]["Enums"]["entity_status"]
           updated_at?: string
+          usage?: Database["public"]["Enums"]["unit_usage"]
         }
         Update: {
           code?: string
@@ -3934,6 +3949,7 @@ export type Database = {
           id?: string
           status?: Database["public"]["Enums"]["entity_status"]
           updated_at?: string
+          usage?: Database["public"]["Enums"]["unit_usage"]
         }
         Relationships: [
           {
@@ -4110,6 +4126,7 @@ export type Database = {
           _boolean_value?: boolean
           _company_id: string
           _conversion_factor?: number
+          _conversion_type?: string
           _operation: string
           _overwrite?: boolean
           _product_ids: string[]
@@ -4548,6 +4565,7 @@ export type Database = {
           _danea_um?: string
           _description?: string
           _notes?: string
+          _price_unit_id?: string
           _producer_name?: string
           _product_id?: string
           _subcategory?: string
@@ -4706,6 +4724,7 @@ export type Database = {
           _company_id: string
           _description?: string
           _unit_id: string
+          _usage?: string
         }
         Returns: string
       }
@@ -5041,6 +5060,14 @@ export type Database = {
           old_thumbnail_path: string
         }[]
       }
+      set_product_price_unit: {
+        Args: {
+          _company_id: string
+          _price_unit_id: string
+          _product_id: string
+        }
+        Returns: undefined
+      }
       set_purchase_delivery_item: {
         Args: {
           _actor_label?: string
@@ -5240,9 +5267,11 @@ export type Database = {
         | "sospeso"
         | "revocato"
         | "rifiutato"
+      sale_conversion_type: "esatta" | "indicativa"
       shopping_list_item_origin: "manuale" | "fabbisogno"
       shopping_list_status: "aperta" | "confermata" | "chiusa" | "annullata"
       stock_lot_status: "disponibile" | "esaurito" | "bloccato"
+      unit_usage: "acquisto" | "vendita" | "entrambi"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5474,9 +5503,11 @@ export const Constants = {
         "revocato",
         "rifiutato",
       ],
+      sale_conversion_type: ["esatta", "indicativa"],
       shopping_list_item_origin: ["manuale", "fabbisogno"],
       shopping_list_status: ["aperta", "confermata", "chiusa", "annullata"],
       stock_lot_status: ["disponibile", "esaurito", "bloccato"],
+      unit_usage: ["acquisto", "vendita", "entrambi"],
     },
   },
 } as const
