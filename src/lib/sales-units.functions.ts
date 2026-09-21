@@ -45,10 +45,12 @@ export const manageUnitOfMeasure = createServerFn({ method: "POST" })
       _actor_user_id: context.userId,
       ...(data.code === null ? {} : { _code: data.code }),
       ...(data.description === null ? {} : { _description: data.description }),
+      ...(data.usage === null ? {} : { _usage: data.usage }),
     });
     if (error) throw new Error(error.message);
     return { id: result };
   });
+
 
 export const applyProductSaleUnitBatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -65,7 +67,9 @@ export const applyProductSaleUnitBatch = createServerFn({ method: "POST" })
       _actor_user_id: context.userId,
       ...(data.booleanValue === null ? {} : { _boolean_value: data.booleanValue }),
       ...(data.conversionFactor === null ? {} : { _conversion_factor: data.conversionFactor }),
+      ...(data.conversionType === null ? {} : { _conversion_type: data.conversionType }),
     });
+
     if (error) throw new Error(error.message);
     return result as { requested: number; changed: number; unchanged: number };
   });
