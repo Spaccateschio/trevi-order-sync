@@ -41,6 +41,8 @@ type SupplierOption = {
   min_quantity: number | null;
   lead_time_days: number | null;
   is_preferred: boolean;
+  sourcing_priority: number | null;
+  supplier_reference_label: string | null;
   is_active: boolean;
 };
 
@@ -200,10 +202,13 @@ export function SupplierSplitDialog({
               <li key={supplier.link_id} className="space-y-2 py-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium">{supplier.supplier_name}</span>
-                  {supplier.is_preferred ? (
+                  {supplier.supplier_reference_label ? (
+                    <span className="text-xs text-muted-foreground">{supplier.supplier_reference_label}</span>
+                  ) : null}
+                  {supplier.sourcing_priority !== null ? (
                     <Badge variant="secondary">
                       <Star className="fill-current" aria-hidden="true" />
-                      Preferito
+                      Priorità {supplier.sourcing_priority}
                     </Badge>
                   ) : null}
                   {existing ? (
