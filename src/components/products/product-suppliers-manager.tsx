@@ -283,6 +283,15 @@ export function ProductSuppliersManager({
     return "Collegamento chiuso";
   };
 
+  /** Segnala subito i campi numerici compilati con testo: contorno rosso + messaggio sotto il campo. */
+  const isInvalidNumber = (value: string) => {
+    const normalized = value.trim().replace(",", ".");
+    return normalized !== "" && !Number.isFinite(Number(normalized));
+  };
+  const invalidClass = (value: string) => (isInvalidNumber(value) ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : "");
+  const numberError = (value: string) => (isInvalidNumber(value) ? <p className="text-xs font-medium text-destructive">Inserisci solo un numero</p> : null);
+  const hasFieldErrors = [draft.sourcingPriority, draft.conversionFactor, draft.manualCost, draft.minQuantity, draft.leadTimeDays].some(isInvalidNumber);
+
   const fieldsFor = (mode: "create" | "update") => (
     <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div className="space-y-1">
