@@ -140,9 +140,11 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
       </Popover> : null}
       {!assignments.length && !available.length ? <p className="text-sm text-muted-foreground">Nessuna U.M. disponibile.</p> : null}
       {!assignments.length && available.length ? <p className="text-sm text-muted-foreground">Aggiungi la prima U.M. con +.</p> : null}
+        </div>
+      </div>
     </div>
 
-    {selected ? <div className="mt-4 rounded-md border border-border bg-muted/30 p-3">
+    {selected ? <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
       <div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{selected.units_of_measure?.code ?? "—"} — {selected.units_of_measure?.description ?? ""}</strong>{selected.needs_review ? <Badge variant="destructive"><AlertTriangle />U.M. Danea cambiata: verifica la stima</Badge> : null}</div>
       <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
         <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy} checked={draft.active} onCheckedChange={(active) => setDraft((current) => ({ ...current, active, isDefault: active ? current.isDefault : false }))} />Attiva</label>
