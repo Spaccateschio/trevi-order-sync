@@ -262,6 +262,15 @@ export function ProductSuppliersManager({
         <Input value={draft.supplierProductCode} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, supplierProductCode: event.target.value }))} />
       </div>
       <div className="space-y-1">
+        <Label className="text-xs">Descrizione della referenza del fornitore</Label>
+        <Input value={draft.referenceLabel} disabled={busy} placeholder="Es. sacco 10 kg" onChange={(event) => setDraft((current) => ({ ...current, referenceLabel: event.target.value }))} />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Priorità di approvvigionamento (facoltativa)</Label>
+        <Input inputMode="numeric" value={draft.sourcingPriority} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
+        <p className="text-xs text-muted-foreground">Più fonti possono avere la stessa priorità: la scelta finale resta nella Lista della Spesa.</p>
+      </div>
+      <div className="space-y-1">
         <Label className="text-xs">U.M. di acquisto</Label>
         <Select value={draft.purchaseUnitId || "nessuna"} disabled={busy} onValueChange={(value) => setDraft((current) => ({ ...current, purchaseUnitId: value === "nessuna" ? "" : value }))}>
           <SelectTrigger><SelectValue placeholder="Nessuna" /></SelectTrigger>
