@@ -251,7 +251,7 @@ export function SupplierRecordsPanel({
       const { error: scheduleError } = await supabase.rpc("set_supplier_delivery_schedule", {
         _supplier_record_id: supplierId,
         _weekdays: delivery.weekdays,
-        _month_day: delivery.monthDay ?? undefined,
+        ...(delivery.monthDay !== null ? { _month_day: delivery.monthDay } : {}),
       });
       if (scheduleError) {
         setBusy(false);
