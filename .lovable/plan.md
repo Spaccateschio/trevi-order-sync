@@ -1,67 +1,65 @@
-# Unità di misura: acquisto, vendita, prezzo e conversioni
+# U.M. semplificate: ordinabili in vendita, più U.M. d'acquisto per referenza
 
-## Principio guida
+## Verifica di quanto già implementato
 
-- Il **prezzo unitario è certo** e riferito a **una sola U.M. del prodotto** (POMODORI = €2,00/kg), qualunque sia l'U.M. scelta per ordinare.
-- Le **U.M. ordinabili** possono essere più di una (kg, cassa, pezzo, mazzo). "Cassa" descrive **come il cliente vuole ricevere** la merce, non un prezzo diverso.
-- Ogni conversione prodotto ↔ U.M. è **esplicitamente esatta o indicativa**, scelta a mano, mai dedotta dall'U.M.:
-  - esatta → "1 cartone = 12 pz"
-  - indicativa → "1 cassa ≈ 8 kg"
-- Con conversione indicativa non si mostra mai €16 come prezzo della cassa: resta €2,00/kg. Il definitivo nasce dalla pesatura (8,35 kg × €2,00 = €16,70).
+| Cosa esiste oggi | Esito |
+| --- | --- |
+| `units_of_measure.usage` (acquisto/vendita/entrambi) | **Si mantiene**: serve proprio a proporre le U.M. giuste nei due lati |
+| `products.price_unit_id` (U.M. del prezzo, normalmente KG da Danea) | **Si mantiene**: è il cardine del modello ("€2,00/kg") |
+| `product_sale_units` = U.M. ordinabili dal cliente, con + | **Si mantiene**: già oggi `conversion_factor` è **facoltativo** (nullable) |
+| `product_sale_units.conversion_type` (esatta/indicativa) | **Diventa opzionale** e usato solo se la conversione è compilata |
+| `product_supplier_links.purchase_unit_id` (una sola U.M. per referenza) | **Unico vero limite da superare** |
+| Giacenza/inventario sull'U.M. base del prodotto | **Invariato**: nessuna somma fra U.M. diverse |
+| `shopping_list_item_suppliers.purchase_unit_id/_code/conversion_factor` | **Invariato**: l'assegnazione continua a registrare la singola U.M. scelta |
+| `purchase_order_items.purchase_unit_id/_code/conversion_factor` | **Invariato** |
 
-## Vincolo documentato sui listini
-
-**Tutti i prezzi/listini di un prodotto sono interpretati rispetto alla stessa U.M. prezzo** (`products.price_unit_id`). Nel modello attuale (Danea incluso) i listini sono prezzi diversi dello **stesso** prodotto con la stessa U.M., quindi una sola U.M. prezzo per prodotto è corretta. `product_prices` **non viene modificato**. Se in futuro servirà un prezzo riferito a U.M. diverse per listino, si estenderà il modello senza alterare questa fase.
+Nessuna conversione è oggi obbligatoria a livello di database: l'obbligo percepito è solo nell'interfaccia (campo sempre in evidenza, tipo conversione sempre chiesto). Quindi la vendita si risolve con un intervento di sola interfaccia.
 
 ## Interventi
 
-### 1. Uso dell'unità di misura (acquisto / vendita / entrambi)
-Campo `usage` sull'anagrafica U.M., default `entrambi` (nessun dato esistente cambia). In Impostazioni → Unità di misura: pulsanti per l'uso + colonna "Uso". I selettori filtrano per comodità, **senza blocchi retroattivi**: U.M. ordinabili → `vendita`/`entrambi`; U.M. d'acquisto referenza → `acquisto`/`entrambi`; U.M. base → tutte.
+### 1. Vendita — nessuna conversione richiesta (solo interfaccia)
+- Scheda prodotto: "U.M. del prezzo" resta in cima (precompilata dall'U.M. Danea quando presente), poi l'elenco delle **U.M. ordinabili** aggiungibili con `+`.
+- La conversione diventa un riquadro richiudibile "Conversione (opzionale)": vuota per definizione, con nota "Compila solo se l'equivalenza è certa (es. 1 cartone = 6 bottiglie). I prodotti che si pesano non richiedono conversione".
+- Il selettore esatta/indicativa appare **solo** se la conversione è compilata.
+- Catalogo cliente: "POMODORI — €2,00/kg · Puoi ordinare: KG · CASSA · PEZZO" + nota "Peso e importo definitivo determinati in preparazione". L'etichetta "1 cassa ≈ 8 kg" compare solo se la conversione esiste. Nessun totale teorico calcolato da una conversione.
 
-### 2. U.M. di riferimento del prezzo
-`products.price_unit_id` (FK U.M., nullable; se vuota il prezzo si intende sull'U.M. base). Selezionabile nella scheda prodotto. Il catalogo mostra "€2,00/kg".
+### 2. Acquisto — più U.M. per la stessa referenza fornitore (database)
+Nuova tabella `product_supplier_link_units`: una riga per ogni U.M. con cui si può acquistare quella referenza.
 
-### 3. Tipo di conversione esplicito
-`product_sale_units.conversion_type` = `esatta` | `indicativa`, **scelta dall'utente**, nessuna deduzione dall'U.M. Etichette: "1 cartone = 12 pz" / "1 cassa ≈ 8 kg".
+- Colonne: `link_id`, `unit_id`, `is_default`, `conversion_factor` (nullable), `conversion_type`, `is_active`, `company_id`, timestamp.
+- Unicità `(link_id, unit_id)`; una sola predefinita per referenza.
+- `product_supplier_links.purchase_unit_id` **resta** e continua a indicare l'U.M. predefinita della referenza: così FASE C/D (Lista della Spesa, ordini, ricevute, lotti) non cambiano di una riga. Un trigger la tiene allineata alla riga `is_default`.
+- Migrazione dati: per ogni referenza con `purchase_unit_id` valorizzata si crea la riga corrispondente come predefinita, con la conversione già presente. Nessun dato perso, nessuna conversione inventata.
 
-### 4. Preparazione: solo semantica documentata
-Nessuna tabella né UI di ordini/preparazione in questa fase. Vincolo futuro registrato in roadmap:
+### 3. Interfaccia acquisto
+- Scheda prodotto → Prezzi/Referenze fornitori: al posto del singolo selettore "U.M. d'acquisto", l'elenco a pulsanti delle U.M. acquistabili con `+` (filtrate su uso acquisto/entrambi), stella sulla predefinita, conversione opzionale per singola U.M.
+- Stessa modifica nella vista fornitore → prodotti.
+- Lista della Spesa (ripartizione fra fornitori): per ogni referenza si scelgono **U.M. e quantità** fra le U.M. dichiarate dal fornitore. Se non esiste conversione certa non si propone nessuna traduzione automatica (niente "62 kg = 4,13 casse"): l'operatore decide "5 sacchi" oppure "62 kg". La proposta a confezioni intere resta solo dove la conversione è compilata.
 
-```text
-quantità richiesta -> quantità preparata/pesata -> quantità fatturabile -> totale definitivo
-```
-Prima della preparazione esisterà solo un **totale stimato**, chiaramente distinto.
-
-## Le sei grandezze separate
-
-| Concetto | Dove vive |
-| --- | --- |
-| U.M. base prodotto | `products.um` |
-| U.M. acquisto referenza fornitore | `product_supplier_links.purchase_unit_id` |
-| U.M. ordinabili dal cliente | `product_sale_units` |
-| U.M. di riferimento del prezzo | nuova `products.price_unit_id` |
-| Conversione esatta o indicativa | `product_sale_units.conversion_factor` + `conversion_type` |
-| Quantità/peso effettivo | futuro modulo preparazione (solo semantica) |
-
-## Invariato
-
-FASE A/B/C/D; inventario su U.M. base con una riga per prodotto e fotografia immutabile; formule giacenza e fabbisogno; Lista della Spesa sulla singola referenza; ordini fornitore, ricevute, lotti; Danea read-only (non tocca uso U.M., U.M. prezzo, unità di vendita, prodotti interni); `product_prices`; permessi, route, layout.
+### 4. Inventario e formule
+Invariati: una riga per prodotto, giacenza nell'U.M. base, fotografia immutabile, formula `max(0, needed+min−disponibile)` con multiplo. Nessuna somma automatica fra U.M. diverse.
 
 ## Dettagli tecnici
 
-- Enum `unit_usage` (`acquisto`,`vendita`,`entrambi`) + colonna su `units_of_measure`, default `entrambi`.
-- Enum `sale_conversion_type` (`esatta`,`indicativa`) + colonna su `product_sale_units`, default `indicativa` solo come valore iniziale, modificabile sempre a mano.
-- Colonna `products.price_unit_id` FK `units_of_measure(id)`.
-- RPC: `manage_unit_of_measure` (+ uso), `apply_product_sale_unit_batch` (+ operazione `conversion_type`), `manage_internal_product` (+ U.M. prezzo). SECURITY DEFINER, `search_path = public`, solo amministratori.
-- UI: `unit-catalogue.tsx`, `sales-unit-manager.tsx`, `internal-product-dialog.tsx`, `product-detail-sheet.tsx`, catalogo cliente per l'etichetta prezzo/conversione.
+- Migrazione: `CREATE TABLE public.product_supplier_link_units` + GRANT (`authenticated`, `service_role`) + RLS `company_id = get_user_company_id()`-equivalente del progetto + policy allineate a `product_supplier_links`; indice unico `(link_id, unit_id)`; indice unico parziale `(link_id) WHERE is_default`; trigger `sync_supplier_link_default_unit` che aggiorna `purchase_unit_id`/`conversion_factor` della referenza; trigger `updated_at`.
+- RPC `manage_product_supplier_link_unit(_company_id,_link_id,_unit_id,_action,_conversion_factor,_conversion_type,_actor_user_id)` con azioni `add | remove | set_default | set_conversion | activate | deactivate`; SECURITY DEFINER, `search_path = public`, solo amministratori; audit su `audit_events`.
+- `product_supplier_overview` estesa con l'elenco delle U.M. acquistabili (aggregato jsonb), ordinamento attuale invariato.
+- File toccati: `src/components/products/product-suppliers-manager.tsx`, `supplier-products-manager.tsx`, `sales-unit-manager.tsx`, `product-detail-sheet.tsx`, `src/components/shopping/supplier-split-dialog.tsx`, `src/lib/sales-units.functions.ts`, `src/lib/catalog.ts`, `src/lib/shopping-list.ts`, catalogo cliente (`acquisti.catalogo.*`).
+- `is_preferred` non viene toccato in questa fase.
+
+## Invariato (nessuna regressione)
+
+FASE A (giacenza = ultimo conteggio + rettifiche append-only), FASE B (sessione generale unica, fotografia immutabile), FASE C (snapshot Lista della Spesa immutabili, split senza ridistribuzione, dedup), FASE D (ordini con una destinazione, movimento solo da ricevuta confermata, identità prodotto product_id+archive_id, nessun FIFO); Danea read-only e limitato a `origin = danea`; listini e `product_prices`; priorità di approvvigionamento e disponibilità commerciale; permessi, route, layout.
 
 ## Test (transazionali, con rollback)
 
-1. U.M. "cassa" marcata `acquisto`: assente tra le U.M. ordinabili, presente tra le referenze fornitore.
-2. U.M. già assegnata e poi ristretta: assegnazione esistente valida e funzionante.
-3. POMODORI €2,00/kg con kg/cassa/pezzo: prezzo sempre €2,00/kg, "1 cassa ≈ 8 kg", mai €16 come prezzo.
-4. Cartone con conversione esatta: etichetta "= 12 pz", nessun "≈".
-5. Nessun importo definitivo derivato da una conversione.
-6. Inventario: una riga per prodotto, fotografia immutabile, U.M. base invariata.
-7. Import Danea: nessuna modifica a uso U.M., U.M. prezzo, unità di vendita, prodotti interni.
-8. Nessuna regressione su fabbisogno, Lista della Spesa, ordini fornitore, ricevute, lotti.
+1. Referenza fornitore con KG + CASSA + SACCO: tre U.M. acquistabili, una predefinita, `purchase_unit_id` allineata.
+2. Rimozione dell'U.M. predefinita: richiesta nuova predefinita, referenza mai senza U.M.
+3. Migrazione: ogni referenza esistente ottiene esattamente una U.M. acquistabile con la conversione di prima.
+4. POMODORI con U.M. prezzo KG e ordinabili KG/CASSA/PEZZO **senza nessuna conversione**: salvataggio riuscito, catalogo mostra €2,00/kg e le tre U.M., nessun totale teorico.
+5. Cartone con conversione esatta 1 = 6 bottiglie: etichetta "= 6" mostrata.
+6. Lista della Spesa su referenza con tre U.M. e nessuna conversione: nessuna proposta automatica di confezioni, scelta libera di U.M. e quantità, ordine generato coerente.
+7. Fornitore locale/non B2B: stesso comportamento.
+8. Inventario: una riga per prodotto, U.M. base invariata, fotografia stabile.
+9. Import Danea: nessuna modifica a U.M. acquistabili, U.M. prezzo, unità di vendita, prodotti interni.
+10. Nessuna regressione su fabbisogno, ordini fornitore, ricevute, lotti.
