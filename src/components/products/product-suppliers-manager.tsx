@@ -411,6 +411,7 @@ export function ProductSuppliersManager({
                   {row.sourcing_priority !== null ? <Badge><Star className="fill-current" aria-hidden="true" />Priorità {row.sourcing_priority}</Badge> : null}
                   {!row.is_active ? <Badge variant="outline">Disattivato</Badge> : null}
                   {label ? <Badge variant="secondary"><Link2 aria-hidden="true" />{label}</Badge> : null}
+                  {deliveries[row.link_id] ? <DeliveryHintBadge schedule={deliveries[row.link_id]!.schedule} /> : null}
                 </div>
                 <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
                   <div><dt className="text-muted-foreground">Cod. fornitore</dt><dd className="font-mono">{row.supplier_product_code ?? "—"}</dd></div>
