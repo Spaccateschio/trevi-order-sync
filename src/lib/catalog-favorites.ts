@@ -3,8 +3,9 @@ import type { QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export type FavoriteToggleResult =
-  | { action: "added"; createdProduct: boolean; createdLink: boolean }
+  | { action: "added"; createdProduct: boolean; createdLink: boolean; warning?: string }
   | { action: "removed" };
+
 
 type ToggleInput = {
   buyerCompanyId: string;
