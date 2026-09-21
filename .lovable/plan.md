@@ -1,70 +1,59 @@
-# Prodotti interni, fornitori multipli, Preferiti, Inventario e raggruppamento — proposta finale
+# Fase 1 — Prodotti interni, prodotti manuali, N fornitori, Inventario
 
-Nessuna modifica eseguita, nessuna migrazione. Di seguito cosa cambia rispetto al piano precedente e la proposta sul raggruppamento.
+Raggruppamento (`product_groups`) escluso da questa fase.
 
-## A. Cosa cambia rispetto al piano precedente
+## A. Verifica richiesta sul punto 1 (collegamenti fornitore)
 
-1. **Il prodotto interno non dipende più dal fornitore che l'ha originato.** Via `source_seller_company_id` come vincolo funzionale: la provenienza iniziale resta solo come informazione storica (prodotto e azienda di origine, senza alcun effetto sul funzionamento).
-2. **Un prodotto interno, molti fornitori.** Struttura già esistente e sufficiente: `product_supplier_links` collega il nostro prodotto a N schede fornitore, ognuna con il proprio codice fornitore, unità e conversione, costo, minimo d'ordine, tempi di consegna, fornitore preferito. Nessuna nuova tabella.
-3. **La stella non crea più automaticamente un prodotto.** Mettendo la stella su un articolo di catalogo l'utente scegle esplicitamente: *Crea nuovo prodotto* oppure *Collega a un mio prodotto esistente*. Nessun abbinamento automatico per nome o codice simile.
-4. **Preferito e prodotto gestito sono separati.** Togliere la stella riguarda solo l'interesse verso quell'articolo di quel fornitore: non disattiva il nostro prodotto, non rimuove il collegamento fornitore, non tocca lo storico. Disattivare un nostro prodotto è un'azione separata ed esplicita.
-5. **Fornitori non B2B pienamente supportati.** Già oggi il collegamento punta alla scheda fornitore della nostra anagrafica: il rapporto B2B è opzionale e aggiunge solo dati e automazione.
-6. Resta confermato: prodotti manuali senza Danea, archivio interno "Prodotti propri", codici `00-001` progressivi e alfanumerici ammessi, inventario disponibile anche alle aziende che vendono, fotografia dell'inventario immutabile all'apertura.
+Verificato sul database: **oggi non esiste alcun vincolo di unicità** su `product_supplier_links`, e la funzione di gestione esistente inserisce liberamente. Quindi **più referenze dello stesso fornitore sullo stesso nostro prodotto sono già possibili**: `0255 PATATE BN IT` e `0832 PATATE BIANCHE SACCO 10 KG` possono convivere sotto `00-001`, ognuna con codice, unità d'acquisto, conversione, costo, minimo e tempi propri. Un solo collegamento per prodotto può essere "preferito", e questo resta.
 
-## B. Raggruppamento di denominazioni equivalenti
+**Decisione: non introduco `UNIQUE (product_id, supplier_record_id)`.** L'unico duplicato da evitare è la stessa referenza aggiunta due volte: l'azione "Aggiungi ai miei prodotti" riusa il collegamento se esistono già stesso prodotto + stesso fornitore + stesso codice fornitore, altrimenti ne crea uno nuovo. Nessun vincolo nuovo sul database, così la gestione manuale resta libera.
 
-**Esiste già qualcosa?** No. Nel prodotto ci sono solo categoria, sottocategoria e livelli di sottocategoria: nessun concetto di prodotto principale, variante o equivalenza. Le funzioni esistenti non ne hanno traccia.
+Nessun altro conflitto strutturale: si può procedere con la Fase 1.
 
-**Modello minimo proposto (da implementare solo dopo la tua approvazione, in una fase successiva):**
-- una tabella `product_groups` per azienda: denominazione commerciale principale, note, stato;
-- un riferimento facoltativo al gruppo sul prodotto (`product_group_id`), più un flag "denominazione principale del gruppo";
-- nessuna fusione: codici, prezzi, U.M., fornitori, immagini, provenienza e storico dei prodotti restano distinti e separati;
-- il raggruppamento è **sempre deciso dall'azienda**: nessun abbinamento automatico per somiglianza.
+## B. Cosa faremo
 
-**Convivenza con il resto:**
-- **Inventario e Fabbisogno** continuano a lavorare sul singolo prodotto interno: il gruppo non somma e non unifica giacenze;
-- **Lista della Spesa e ordini** restano sul prodotto e scelgono il fornitore fra i collegamenti di quel prodotto;
-- **pagina Prodotti** può mostrare i prodotti raggruppati sotto la denominazione principale, per ridurre il rumore visivo;
-- **catalogo cliente** può esporre la denominazione principale con le varianti sotto, senza toccare prezzi e listini.
-
-Nota: nella maggior parte dei casi l'esigenza "decine di articoli quasi identici" è già risolta dal punto A3 — collegando più articoli di fornitori diversi allo stesso prodotto interno. Il raggruppamento serve invece quando vogliamo mantenere prodotti interni distinti (pezzature, qualità, provenienze diverse) ma presentarli sotto un'unica denominazione. Suggerisco quindi di trattarlo come fase separata, dopo prodotti manuali + fornitori multipli + inventario.
-
-## C. Piano operativo (fase 1, senza raggruppamento)
-
-**1. Prodotti propri e archivio interno**
-- Origine del prodotto: `danea` oppure `interno` (creato da noi, a mano o partendo da un catalogo). L'origine descrive solo **come è nato** il prodotto.
+**1. Prodotti interni e archivio separato**
+- Origine prodotto: `danea` oppure `interno` (descrive solo come è nato).
 - Archivio interno "Prodotti propri" per azienda, creato al bisogno, non utilizzabile dalle postazioni Danea.
-- L'importazione Danea opera esclusivamente sui prodotti di origine `danea`: non modifica e non depubblica mai i prodotti interni, anche a parità di codice.
-- Codice interno proposto automaticamente (`00-001`, `00-002`, …), modificabile, anche alfanumerico, con controllo di unicità.
+- Importazione Danea (completa e incrementale) limitata ai prodotti `danea`: un codice interno uguale a un codice Danea non causa aggiornamenti, fusioni o depubblicazioni. Nessun'altra modifica alle regole Danea.
+- Codice interno proposto `00-001`, `00-002`, … modificabile, anche alfanumerico, con controllo di unicità.
 
 **2. Pagina Prodotti**
-- "Nuovo prodotto": codice precompilato, descrizione, categoria, sottocategoria, U.M., produttore, barcode, note. Immagini e unità di vendita con le schermate esistenti.
-- I prodotti interni sono riconoscibili nell'elenco; disattivazione del prodotto come azione esplicita.
-- Nella scheda prodotto, l'elenco dei fornitori collegati (gestione già esistente) con possibilità di aggiungerne altri, B2B o non B2B.
+- "Nuovo prodotto" disponibile anche senza Danea: codice precompilato, descrizione, categoria, sottocategoria, U.M., produttore, barcode, note. Immagini e unità di vendita con le schermate esistenti.
+- Un prodotto può avere zero, uno o più fornitori; senza fornitore partecipa comunque a Inventario e Fabbisogno, e il fornitore si assegna poi in Lista della Spesa.
+- Disattivazione del prodotto come azione esplicita e separata.
 
-**3. Stella nel catalogo fornitori**
-- La stella registra l'interesse verso quell'articolo di quel fornitore (struttura esistente, invariata).
-- Accanto alla stella, azione "Aggiungi ai miei prodotti" con due strade: *Crea nuovo prodotto* (dati precompilati dal catalogo) oppure *Collega a un mio prodotto esistente* (ricerca fra i miei prodotti). In entrambi i casi viene creato il collegamento fornitore con il codice del fornitore; se il collegamento esiste già viene riusato, mai duplicato.
-- Togliere la stella non tocca prodotto, collegamenti, giacenze, storico.
+**3. Stella e "Aggiungi ai miei prodotti": azioni indipendenti**
+- La stella resta solo un segnalibro nel catalogo del fornitore. Non è richiesta per aggiungere un articolo ai propri prodotti e togliendola non cambia nulla su prodotti interni, collegamenti fornitore, inventario e storico.
+- "Aggiungi ai miei prodotti" su una referenza di catalogo offre due strade:
+  - **Crea nuovo prodotto**: prodotto nell'archivio interno, codice proposto, descrizione e dati compatibili precompilati dal catalogo, più il collegamento a quella specifica referenza del fornitore;
+  - **Collega a prodotto esistente**: ricerca fra i miei prodotti, nessun prodotto creato, solo il collegamento a quella referenza.
+- Nessun abbinamento automatico per descrizione o codice.
 
 **4. Inventario**
-- Solo prodotti dell'azienda che conta, attivi e gestiti; nessun prodotto di altre aziende.
-- Disponibile anche a chi solo vende; archivio Danea non più necessario per aprire.
-- Righe con i fornitori collegati come informazione; giacenza, conteggi, differenze, note, chiusura invariati.
-- Fotografia scritta una sola volta all'apertura: 50 restano 50.
+- Solo prodotti dell'azienda che conta, attivi e gestiti; nessun prodotto appartenente ai fornitori.
+- Un prodotto compare una sola volta, qualunque sia il numero di fornitori collegati; i fornitori sono solo informazione e non moltiplicano le righe.
+- Funziona per profilo acquisto, vendita, entrambi, con e senza Danea.
+- Fotografia invariata: una sessione aperta con 50 prodotti resta a 50.
 
-**5. Non viene toccato**
-Formule di giacenza, Fabbisogno, Lista della Spesa, Ordini fornitore, ricevute, lotti, provenienza, listini, immagini, permessi, route, layout approvati.
+**5. Fabbisogno e Lista della Spesa**
+Nessuna modifica alle formule; solo verifica end-to-end del percorso prodotto → fabbisogno → lista → scelta fornitore (anche non B2B) → ordine.
 
-## D. Dettagli tecnici
+**6. Fuori da questa fase**
+Raggruppamento di denominazioni equivalenti: fase successiva, non influenza questa implementazione.
 
-- `products`: `origin` (enum `product_origin`: `danea`, `interno`) default `danea` + backfill; `is_managed boolean not null default true` (anagrafica operativa, indipendente dai preferiti); provenienza storica `created_from_product_id`, `created_from_company_id` nullable e **senza** uso funzionale; nessun vincolo di unicità che leghi il prodotto a un fornitore.
-- `danea_archives`: `is_internal`; `ensure_internal_archive(company_id)`; guard postazioni esteso.
+## C. Dettagli tecnici
+
+- `products`: `origin` (enum `product_origin`: `danea`, `interno`) default `danea` + backfill; `is_managed boolean not null default true`, indipendente dai preferiti; provenienza storica `created_from_product_id` e `created_from_company_id` nullable, senza uso funzionale; nessun vincolo che leghi il prodotto a un fornitore.
+- `danea_archives`: `is_internal`; `ensure_internal_archive(company_id)`; guard postazioni esteso per vietare archivi interni.
 - `danea-import.server.ts`: filtro `origin = 'danea'` su lettura esistenti, upsert, depubblicazione per assenza e DeletedProducts.
-- Nuove RPC (SECURITY DEFINER, `search_path = public`, controllo ruolo/appartenenza): `next_internal_product_code`, `manage_internal_product` (crea/modifica/disattiva), `link_catalog_product_to_own_product(buyer, seller, seller_product_id, own_product_id | null)` che crea al massimo un prodotto e un `product_supplier_links` verso la scheda fornitore del rapporto (creata/risolta con le funzioni esistenti), idempotente.
-- `buyer_product_favorites`: invariata; nessuna cancellazione a cascata verso prodotti o collegamenti.
-- `product_supplier_links`: nessuna modifica strutturale; si aggiunge solo un vincolo di unicità su (product_id, supplier_record_id) se non presente, per evitare doppioni.
-- `start_general_inventory`: archivio opzionale (interno come ripiego); insieme = prodotti dell'azienda pubblicati e `is_managed = true`; scrittura della fotografia una sola volta, invariata; nessuna colonna nuova su `inventory_session_products`.
-- `inventory_session_rows` / `inventory_session_progress`: aggiungono i fornitori collegati come informazione; aggregazioni sulle stesse righe.
-- `record_inventory_count`, `close_general_inventory`, formule giacenza/fabbisogno: invariati.
-- Test: prodotto manuale senza Danea; importazione completa che non tocca i prodotti interni nemmeno a codice uguale; stessa patata collegata a tre fornitori con una sola riga di inventario; stella su secondo fornitore che collega senza creare un secondo prodotto; rimozione stella che lascia prodotto, collegamenti e storico intatti; fornitore non B2B utilizzabile in Lista della Spesa; inventario di azienda solo-vendita; fotografia aperta che non cambia con stelle aggiunte o rimosse; nessuna regressione su Fabbisogno, Lista della Spesa, Ordini, Danea, listini.
+- `product_supplier_links`: **nessun cambio strutturale, nessun vincolo di unicità nuovo**; deduplica applicativa su (product_id, supplier_record_id, supplier_product_code).
+- Nuove RPC (SECURITY DEFINER, `search_path = public`, controllo appartenenza/ruolo): `next_internal_product_code`, `manage_internal_product` (crea/modifica/disattiva), `add_catalog_product_to_own_products(buyer, seller, seller_product_id, own_product_id | null, …)` che crea al massimo un prodotto e un collegamento, idempotente, con risoluzione della scheda fornitore tramite le funzioni esistenti.
+- `buyer_product_favorites`: invariata; nessun effetto a cascata.
+- `start_general_inventory`: archivio opzionale con ripiego sull'archivio interno; insieme = prodotti dell'azienda pubblicati e `is_managed = true`; fotografia scritta una sola volta; nessuna colonna nuova su `inventory_session_products`.
+- `inventory_session_rows` / `inventory_session_progress`: fornitori collegati come informazione, aggregazioni sulle stesse righe.
+- `record_inventory_count`, `close_general_inventory`, formule giacenza e fabbisogno: invariati.
+
+## D. Test finali (report separato per area)
+
+Database → Backend/RPC → Interfaccia → Danea → Inventario → Fabbisogno/Lista della Spesa → regressioni. Casi: prodotto manuale senza Danea; due referenze dello stesso fornitore sullo stesso prodotto; tre fornitori diversi su un solo prodotto con una sola riga di inventario; stella indipendente dall'aggiunta ai propri prodotti e rimozione stella senza effetti; importazione completa che non tocca i prodotti interni nemmeno a codice uguale; inventario per azienda solo-vendita e senza Danea; fotografia aperta che non cambia; percorso fabbisogno → lista → fornitore non B2B → ordine; nessuna regressione su Ordini, ricevute, lotti, listini, layout approvati.
