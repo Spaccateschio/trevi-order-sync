@@ -216,7 +216,27 @@ export function InternalProductDialog({
                 Nessuna unità di misura in anagrafica: creala nelle impostazioni dell'azienda.
               </p>
             ) : null}
+            <p className="mt-1 text-xs text-muted-foreground">U.M. base: giacenze e conteggi.</p>
           </div>
+          <div className="sm:col-span-1">
+            <Label htmlFor="ip-price-um">U.M. del prezzo</Label>
+            <Select value={priceUnitId} onValueChange={setPriceUnitId}>
+              <SelectTrigger id="ip-price-um" className="mt-1" aria-label="U.M. del prezzo">
+                <SelectValue placeholder="Come l'U.M. base" />
+              </SelectTrigger>
+              <SelectContent>
+                {(unitsQuery.data ?? []).map((unit) => (
+                  <SelectItem key={unit.id} value={unit.id}>
+                    {unit.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Tutti i listini del prodotto si leggono su questa U.M. (es. €2,00/kg).
+            </p>
+          </div>
+
           <div className="sm:col-span-2">
             <Label htmlFor="ip-description">Descrizione</Label>
             <Input
