@@ -11,7 +11,7 @@ import { FavoriteButton } from "@/components/catalog/favorite-button";
 import { UnitPicker } from "@/components/catalog/unit-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { activeCompany, isRelationOperational, useIdentity } from "@/hooks/use-identity";
+import { activeCompany, hasRole, isRelationOperational, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CATALOG_SELECT,
@@ -53,6 +53,8 @@ function CatalogProductPage() {
   const company = activeCompany(identity);
   const buyerId = company?.companyId ?? null;
   const signImages = useServerFn(getCatalogImageUrls);
+  const isAdmin = hasRole(identity, "amministratore");
+  const [addOpen, setAddOpen] = useState(false);
 
   const relation = (identity?.relations ?? []).find(
     (r) => r.buyerCompanyId === buyerId && r.sellerCompanyId === sellerId,
