@@ -240,12 +240,10 @@ export function ProductSuppliersManager({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const busy = saveMutation.isPending || statusMutation.isPending || preferredMutation.isPending || matchMutation.isPending;
+  const busy = saveMutation.isPending || statusMutation.isPending || priorityMutation.isPending || matchMutation.isPending;
   const activeUnits = units.filter((unit) => unit.status === "attivo");
   const availableSuppliers = (suppliersQuery.data ?? []).filter(
-    (supplier) =>
-      (supplier.archive_id === null || supplier.archive_id === productArchiveId) &&
-      !links.some((row) => row.supplier_record_id === supplier.id),
+    (supplier) => supplier.archive_id === null || supplier.archive_id === productArchiveId,
   );
   const pending = matchesQuery.data ?? [];
 
