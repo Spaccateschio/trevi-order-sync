@@ -124,6 +124,7 @@ export function SupplierSplitDialog({
           quantity: String(row.assigned_quantity),
           packs: row.purchase_quantity !== null ? String(row.purchase_quantity) : "",
           accepted: row.min_warning_accepted,
+          unitId: next[row.product_supplier_link_id]?.unitId ?? "",
         };
       }
       return next;
@@ -138,6 +139,7 @@ export function SupplierSplitDialog({
       quantity: number | null;
       packs: number | null;
       accepted: boolean;
+      unitId?: string | null;
     }) =>
       runAssign({
         data: {
@@ -149,6 +151,7 @@ export function SupplierSplitDialog({
           purchaseQuantity: input.packs,
           minWarningAccepted: input.accepted,
           notes: null,
+          purchaseUnitId: input.unitId ?? null,
         },
       }),
     onSuccess: async () => {
