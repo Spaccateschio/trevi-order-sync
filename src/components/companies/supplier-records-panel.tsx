@@ -100,6 +100,8 @@ export type SupplierRecord = {
   danea_extra: Record<string, string> | null;
   status: "attivo" | "disattivato" | "revocato";
   archive_id: string | null;
+  delivery_weekdays: number[] | null;
+  delivery_month_day: number | null;
 };
 
 const emptyForm = {
