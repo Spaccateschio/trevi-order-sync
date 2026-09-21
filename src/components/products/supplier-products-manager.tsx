@@ -41,6 +41,8 @@ type LinkRow = {
   min_quantity: number | null;
   lead_time_days: number | null;
   is_preferred: boolean;
+  sourcing_priority: number | null;
+  supplier_reference_label: string | null;
   is_active: boolean;
   notes: string | null;
   origin: "manuale" | "danea";
@@ -99,7 +101,7 @@ export function SupplierProductsManager({
       const { data, error } = await supabase
         .from("product_supplier_links")
         .select(
-          "id, product_id, supplier_product_code, purchase_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, is_active, notes, origin, products(code, description, archive_id, danea_um), units_of_measure(code)",
+          "id, product_id, supplier_product_code, purchase_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, sourcing_priority, supplier_reference_label, is_active, notes, origin, products(code, description, archive_id, danea_um), units_of_measure(code)",
         )
         .eq("supplier_record_id", supplierRecordId);
       if (error) throw new Error(error.message);
@@ -229,17 +231,18 @@ export function SupplierProductsManager({
   });
 
   const preferredMutation = useMutation({
-    mutationFn: async (input: { productId: string; makePreferred: boolean }) => {
-      const { error } = await supabase.rpc("set_preferred_product_supplier", {
+    mutationFn: async (input: { linkId: string; priority: number | null }) => {
+      const { error } = await supabase.rpc("manage_product_supplier_link", {
         _company_id: companyId,
-        _product_id: input.productId,
-        ...(input.makePreferred ? { _supplier_record_id: supplierRecordId } : {}),
+        _action: "set_priority",
+        _link_id: input.linkId,
+        ...(input.priority !== null ? { _sourcing_priority: input.priority } : {}),
       });
       if (error) throw new Error(error.message);
     },
     onSuccess: async () => {
       await refresh();
-      toast.success("Fornitore preferito aggiornato");
+      toast.success("Priorità di approvvigionamento aggiornata");
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -275,7 +278,7 @@ export function SupplierProductsManager({
       .filter((row) => {
         if (statusFilter === "attivi" && !row.is_active) return false;
         if (statusFilter === "non_attivi" && row.is_active) return false;
-        if (statusFilter === "preferiti" && !row.is_preferred) return false;
+        if (statusFilter === "preferiti" && row.sourcing_priority === null) return false;
         if (!needle) return true;
         return (
           (row.products?.code ?? "").toLowerCase().includes(needle) ||
@@ -392,10 +395,10 @@ export function SupplierProductsManager({
           size="sm"
           variant="ghost"
           disabled={busy}
-          onClick={() => preferredMutation.mutate({ productId: row.product_id, makePreferred: !row.is_preferred })}
+          onClick={() => preferredMutation.mutate({ linkId: row.id, priority: row.sourcing_priority === null ? 1 : null })}
         >
-          <Star className={row.is_preferred ? "fill-current" : ""} aria-hidden="true" />
-          {row.is_preferred ? "Togli preferito" : "Imposta preferito"}
+          <Star className={row.sourcing_priority !== null ? "fill-current" : ""} aria-hidden="true" />
+          {row.sourcing_priority !== null ? "Togli priorità" : "Priorità 1"}
         </Button>
         <Button
           type="button"
@@ -502,10 +505,10 @@ export function SupplierProductsManager({
                   <td>{row.min_quantity ?? "—"}</td>
                   <td>{row.lead_time_days !== null ? `${row.lead_time_days} gg` : "—"}</td>
                   <td className="whitespace-nowrap">
-                    {row.is_preferred ? (
+                    {row.sourcing_priority !== null ? (
                       <Badge className="mr-1">
                         <Star className="fill-current" aria-hidden="true" />
-                        Preferito
+                        Priorità {row.sourcing_priority}
                       </Badge>
                     ) : null}
                     {row.is_active ? (
@@ -543,10 +546,10 @@ export function SupplierProductsManager({
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs">{row.products?.code ?? "—"}</span>
-                {row.is_preferred ? (
+                {row.sourcing_priority !== null ? (
                   <Badge>
                     <Star className="fill-current" aria-hidden="true" />
-                    Preferito
+                    Priorità {row.sourcing_priority}
                   </Badge>
                 ) : null}
                 {!row.is_active ? <Badge variant="outline">Non attivo</Badge> : null}

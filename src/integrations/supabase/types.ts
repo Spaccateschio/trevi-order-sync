@@ -2348,8 +2348,10 @@ export type Database = {
           origin: Database["public"]["Enums"]["product_supplier_origin"]
           product_id: string
           purchase_unit_id: string | null
+          sourcing_priority: number | null
           supplier_product_code: string | null
           supplier_record_id: string
+          supplier_reference_label: string | null
           updated_at: string
         }
         Insert: {
@@ -2369,8 +2371,10 @@ export type Database = {
           origin?: Database["public"]["Enums"]["product_supplier_origin"]
           product_id: string
           purchase_unit_id?: string | null
+          sourcing_priority?: number | null
           supplier_product_code?: string | null
           supplier_record_id: string
+          supplier_reference_label?: string | null
           updated_at?: string
         }
         Update: {
@@ -2390,8 +2394,10 @@ export type Database = {
           origin?: Database["public"]["Enums"]["product_supplier_origin"]
           product_id?: string
           purchase_unit_id?: string | null
+          sourcing_priority?: number | null
           supplier_product_code?: string | null
           supplier_record_id?: string
+          supplier_reference_label?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2432,6 +2438,7 @@ export type Database = {
           barcode: string | null
           category: string | null
           code: string
+          commercial_availability: Database["public"]["Enums"]["product_commercial_availability"]
           company_id: string
           created_at: string
           created_from_company_id: string | null
@@ -2479,6 +2486,7 @@ export type Database = {
           barcode?: string | null
           category?: string | null
           code: string
+          commercial_availability?: Database["public"]["Enums"]["product_commercial_availability"]
           company_id: string
           created_at?: string
           created_from_company_id?: string | null
@@ -2526,6 +2534,7 @@ export type Database = {
           barcode?: string | null
           category?: string | null
           code?: string
+          commercial_availability?: Database["public"]["Enums"]["product_commercial_availability"]
           company_id?: string
           created_at?: string
           created_from_company_id?: string | null
@@ -4601,8 +4610,10 @@ export type Database = {
           _notes?: string
           _product_id?: string
           _purchase_unit_id?: string
+          _sourcing_priority?: number
           _supplier_product_code?: string
           _supplier_record_id?: string
+          _supplier_reference_label?: string
         }
         Returns: string
       }
@@ -4791,10 +4802,12 @@ export type Database = {
           origin: Database["public"]["Enums"]["product_supplier_origin"]
           purchase_unit_code: string
           purchase_unit_id: string
+          sourcing_priority: number
           supplier_internal_reference: string
           supplier_name: string
           supplier_product_code: string
           supplier_record_id: string
+          supplier_reference_label: string
         }[]
       }
       purchase_order_overview: {
@@ -4998,6 +5011,14 @@ export type Database = {
         }
         Returns: number
       }
+      set_product_commercial_availability: {
+        Args: {
+          _availability: Database["public"]["Enums"]["product_commercial_availability"]
+          _company_id: string
+          _product_id: string
+        }
+        Returns: undefined
+      }
       set_product_image: {
         Args: {
           _actor_user_id: string
@@ -5164,6 +5185,10 @@ export type Database = {
         | "annullato"
         | "annullato_scaduto"
       lot_reconciliation_status: "aperta" | "riconciliata" | "ignorata"
+      product_commercial_availability:
+        | "available"
+        | "on_order"
+        | "temporarily_unavailable"
       product_origin: "danea" | "interno"
       product_publish_status: "pubblicato" | "non_pubblicato"
       product_supplier_origin: "manuale" | "danea"
@@ -5385,6 +5410,11 @@ export const Constants = {
         "annullato_scaduto",
       ],
       lot_reconciliation_status: ["aperta", "riconciliata", "ignorata"],
+      product_commercial_availability: [
+        "available",
+        "on_order",
+        "temporarily_unavailable",
+      ],
       product_origin: ["danea", "interno"],
       product_publish_status: ["pubblicato", "non_pubblicato"],
       product_supplier_origin: ["manuale", "danea"],

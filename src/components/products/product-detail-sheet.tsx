@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { dateTime, euro, type ProductRow } from "@/lib/product-grid";
+import { AVAILABILITY_LABELS, dateTime, euro, type ProductRow } from "@/lib/product-grid";
 import { SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
 import { ProductImageManager } from "./product-image-manager";
 import { ProductSuppliersManager } from "./product-suppliers-manager";
@@ -57,6 +58,48 @@ function ShowcaseToggle({ product, companyId, editable }: { product: ProductRow;
   );
 }
 
+function AvailabilitySelector({ product, companyId, editable }: { product: ProductRow; companyId: string; editable: boolean }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: async (value: ProductRow["commercial_availability"]) => {
+      const { error } = await supabase.rpc("set_product_commercial_availability", {
+        _company_id: companyId,
+        _product_id: product.id,
+        _availability: value,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      toast.success("Disponibilità commerciale aggiornata");
+      void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  return (
+    <section className="space-y-2 rounded-lg border border-border p-3">
+      <div>
+        <p className="text-sm font-semibold">Disponibilità commerciale</p>
+        <p className="text-xs text-muted-foreground">
+          Decide se e come il cliente può ordinare. Scelta manuale: non cambia in base a giacenza, fabbisogno o fornitori.
+        </p>
+      </div>
+      <Select
+        value={product.commercial_availability}
+        disabled={!editable || mutation.isPending}
+        onValueChange={(value) => mutation.mutate(value as ProductRow["commercial_availability"])}
+      >
+        <SelectTrigger aria-label="Disponibilità commerciale"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {(Object.keys(AVAILABILITY_LABELS) as ProductRow["commercial_availability"][]).map((key) => (
+            <SelectItem key={key} value={key}>{AVAILABILITY_LABELS[key]}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </section>
+  );
+}
+
 function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, companyId, companyUnits, saleUnits }: {
   product: ProductRow;
   archiveName: string;
@@ -76,6 +119,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
     </SheetHeader>
     <div className="mt-6 space-y-6">
       {companyId ? <ShowcaseToggle product={product} companyId={companyId} editable={isAdmin} /> : null}
+      {companyId ? <AvailabilitySelector product={product} companyId={companyId} editable={isAdmin} /> : null}
       {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} /> : null}
       {companyId ? <ProductSuppliersManager companyId={companyId} productId={product.id} productArchiveId={product.archive_id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
       {companyId ? <ProductStockPanel companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}

@@ -18,6 +18,8 @@ type Overview = {
   supplier_name: string;
   supplier_internal_reference: string | null;
   supplier_product_code: string | null;
+  supplier_reference_label: string | null;
+  sourcing_priority: number | null;
   purchase_unit_id: string | null;
   purchase_unit_code: string | null;
   conversion_factor: number | null;
@@ -48,6 +50,8 @@ type SupplierOption = { id: string; legal_name: string; internal_reference: stri
 const EMPTY_DRAFT = {
   supplierRecordId: "",
   supplierProductCode: "",
+  referenceLabel: "",
+  sourcingPriority: "",
   purchaseUnitId: "",
   conversionFactor: "",
   manualCost: "",
@@ -132,6 +136,8 @@ export function ProductSuppliersManager({
     setDraft({
       supplierRecordId: selected.supplier_record_id,
       supplierProductCode: selected.supplier_product_code ?? "",
+      referenceLabel: selected.supplier_reference_label ?? "",
+      sourcingPriority: selected.sourcing_priority?.toString() ?? "",
       purchaseUnitId: selected.purchase_unit_id ?? "",
       conversionFactor: selected.conversion_factor?.toString() ?? "",
       manualCost: selected.manual_cost?.toString() ?? "",
@@ -159,6 +165,8 @@ export function ProductSuppliersManager({
         ...(mode === "update" && selected ? { _link_id: selected.link_id } : {}),
         ...(mode === "create" ? { _product_id: productId, _supplier_record_id: supplierRecordId } : {}),
         _supplier_product_code: draft.supplierProductCode,
+        _supplier_reference_label: draft.referenceLabel,
+        ...(num(draft.sourcingPriority) !== null ? { _sourcing_priority: num(draft.sourcingPriority) as number } : {}),
         ...(draft.purchaseUnitId ? { _purchase_unit_id: draft.purchaseUnitId } : {}),
         ...(num(draft.conversionFactor) !== null ? { _conversion_factor: num(draft.conversionFactor) as number } : {}),
         ...(daneaUm ? { _conversion_reference_um: daneaUm } : {}),
@@ -198,18 +206,19 @@ export function ProductSuppliersManager({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const preferredMutation = useMutation({
-    mutationFn: async (supplierRecordId: string | null) => {
-      const { error } = await supabase.rpc("set_preferred_product_supplier", {
+  const priorityMutation = useMutation({
+    mutationFn: async (input: { linkId: string; priority: number | null }) => {
+      const { error } = await supabase.rpc("manage_product_supplier_link", {
         _company_id: companyId,
-        _product_id: productId,
-        ...(supplierRecordId ? { _supplier_record_id: supplierRecordId } : {}),
+        _action: "set_priority",
+        _link_id: input.linkId,
+        ...(input.priority !== null ? { _sourcing_priority: input.priority } : {}),
       });
       if (error) throw new Error(error.message);
     },
     onSuccess: async () => {
       await refresh();
-      toast.success("Fornitore preferito aggiornato");
+      toast.success("Priorità di approvvigionamento aggiornata");
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -231,12 +240,10 @@ export function ProductSuppliersManager({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const busy = saveMutation.isPending || statusMutation.isPending || preferredMutation.isPending || matchMutation.isPending;
+  const busy = saveMutation.isPending || statusMutation.isPending || priorityMutation.isPending || matchMutation.isPending;
   const activeUnits = units.filter((unit) => unit.status === "attivo");
   const availableSuppliers = (suppliersQuery.data ?? []).filter(
-    (supplier) =>
-      (supplier.archive_id === null || supplier.archive_id === productArchiveId) &&
-      !links.some((row) => row.supplier_record_id === supplier.id),
+    (supplier) => supplier.archive_id === null || supplier.archive_id === productArchiveId,
   );
   const pending = matchesQuery.data ?? [];
 
@@ -253,6 +260,15 @@ export function ProductSuppliersManager({
       <div className="space-y-1">
         <Label className="text-xs">Codice articolo presso il fornitore</Label>
         <Input value={draft.supplierProductCode} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, supplierProductCode: event.target.value }))} />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Descrizione della referenza del fornitore</Label>
+        <Input value={draft.referenceLabel} disabled={busy} placeholder="Es. sacco 10 kg" onChange={(event) => setDraft((current) => ({ ...current, referenceLabel: event.target.value }))} />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Priorità di approvvigionamento (facoltativa)</Label>
+        <Input inputMode="numeric" value={draft.sourcingPriority} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
+        <p className="text-xs text-muted-foreground">Più fonti possono avere la stessa priorità: la scelta finale resta nella Lista della Spesa.</p>
       </div>
       <div className="space-y-1">
         <Label className="text-xs">U.M. di acquisto</Label>
@@ -338,12 +354,14 @@ export function ProductSuppliersManager({
                 <div className="flex flex-wrap items-center gap-2">
                   <Truck aria-hidden="true" className="size-4 text-muted-foreground" />
                   <strong className="text-sm">{row.supplier_name}</strong>
-                  {row.is_preferred ? <Badge><Star className="fill-current" aria-hidden="true" />Preferito</Badge> : null}
+                  {row.supplier_reference_label ? <span className="text-xs text-muted-foreground">{row.supplier_reference_label}</span> : null}
+                  {row.sourcing_priority !== null ? <Badge><Star className="fill-current" aria-hidden="true" />Priorità {row.sourcing_priority}</Badge> : null}
                   {!row.is_active ? <Badge variant="outline">Disattivato</Badge> : null}
                   {label ? <Badge variant="secondary"><Link2 aria-hidden="true" />{label}</Badge> : null}
                 </div>
                 <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
                   <div><dt className="text-muted-foreground">Cod. fornitore</dt><dd className="font-mono">{row.supplier_product_code ?? "—"}</dd></div>
+                  <div><dt className="text-muted-foreground">Priorità</dt><dd>{row.sourcing_priority ?? "—"}</dd></div>
                   <div><dt className="text-muted-foreground">U.M. acquisto</dt><dd>{row.purchase_unit_code ?? "—"}{row.conversion_factor ? ` · 1 ≈ ${row.conversion_factor} ${row.conversion_reference_um ?? ""}` : ""}</dd></div>
                   <div><dt className="text-muted-foreground">Costo Danea</dt><dd>{row.danea_net_cost !== null ? `${euro(row.danea_net_cost)} · ${dateTime(row.danea_cost_at)}` : "—"}</dd></div>
                   <div><dt className="text-muted-foreground">Costo Trevi Fruit</dt><dd>{row.manual_cost !== null ? `${euro(row.manual_cost)} · ${dateTime(row.manual_cost_at)}` : "—"}</dd></div>
@@ -358,7 +376,11 @@ export function ProductSuppliersManager({
                 <div className="mt-3 border-t border-border pt-3">
                   {fields}
                   <div className="mt-3 flex flex-wrap justify-end gap-2">
-                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => preferredMutation.mutate(row.is_preferred ? null : row.supplier_record_id)}><Star className={row.is_preferred ? "fill-current" : ""} aria-hidden="true" />{row.is_preferred ? "Togli preferito" : "Imposta preferito"}</Button>
+                    {row.sourcing_priority !== null ? (
+                      <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => priorityMutation.mutate({ linkId: row.link_id, priority: null })}><Star aria-hidden="true" />Togli priorità</Button>
+                    ) : (
+                      <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => priorityMutation.mutate({ linkId: row.link_id, priority: 1 })}><Star className="fill-current" aria-hidden="true" />Priorità 1</Button>
+                    )}
                     <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => statusMutation.mutate({ linkId: row.link_id, action: row.is_active ? "deactivate" : "activate" })}>{row.is_active ? "Disattiva" : "Riattiva"}</Button>
                     <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate("update")}>Salva</Button>
                   </div>
