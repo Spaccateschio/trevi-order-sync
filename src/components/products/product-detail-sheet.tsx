@@ -16,7 +16,7 @@ import { ChevronDown, Info } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AVAILABILITY_LABELS, dateTime, euro, type ProductRow } from "@/lib/product-grid";
-import { SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
+import { PurchaseUnitsOverview, SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
 import { ProductImageManager } from "./product-image-manager";
 import { ProductSuppliersManager } from "./product-suppliers-manager";
 import { ProductProvenancePanel } from "./product-provenance-panel";
