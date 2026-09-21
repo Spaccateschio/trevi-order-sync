@@ -102,11 +102,15 @@ export async function importDaneaCatalog(
 
     await syncPriceListNames(supabaseAdmin, companyId, archiveId, doc);
 
+    // FASE 1: l'importazione Danea vede e tocca SOLO i prodotti di origine Danea.
+    // I prodotti interni (creati a mano o aggiunti da un catalogo fornitore) restano
+    // invisibili alla sincronizzazione anche a parità di codice.
     const { data: existingRows, error: existingError } = await supabaseAdmin
       .from("products")
       .select("id, code, danea_internal_id, danea_um")
       .eq("company_id", companyId)
-      .eq("archive_id", archiveId);
+      .eq("archive_id", archiveId)
+      .eq("origin", "danea");
     if (existingError) throw new Error(existingError.message);
 
     const byInternalId = new Map<string, { id: string; code: string; daneaUm: string | null }>();
