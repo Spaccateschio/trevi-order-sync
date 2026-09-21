@@ -1,187 +1,63 @@
-# Riorganizzazione della navigazione Trevi Fruit
+# Prodotti propri, prodotti manuali, Preferiti e Inventario — analisi e proposta
 
-## Obiettivo
+Nessuna modifica eseguita: sotto ci sono le risposte alle otto domande, verificate sul database e sul codice attuale, e la proposta.
 
-Separare il lavoro quotidiano dalle configurazioni con la gerarchia:
+## A. Risposte alla verifica
 
-```text
-Panoramica
-├── Operatività
-│   ├── Acquisti
-│   ├── Vendite
-│   └── B2B
-└── Sistema
-    └── Impostazioni
-```
+**1. Come vengono identificati oggi i prodotti Danea**
+L'identità è la coppia archivio + codice, con l'InternalID Danea come chiave preferita: esistono due vincoli di unicità, uno su (azienda, archivio, codice) e uno su (azienda, archivio, InternalID). L'importazione cerca prima per InternalID, allinea il codice se è cambiato, poi scrive in blocco usando come chiave (azienda, archivio, codice).
 
-Le pagine, i permessi e la logica operativa esistenti restano invariati. In questa fase viene realizzata anche la personalizzazione persistente della navigazione per singolo utente. Permessi e personalizzazione restano rigorosamente separati: le preferenze possono soltanto nascondere, mostrare o riordinare destinazioni già autorizzate.
+**2. Possiamo già creare prodotti manuali?**
+Strutturalmente quasi: il prodotto ha già descrizione, categoria, sottocategoria, U.M., note, barcode, produttore, IVA, immagini, unità di vendita, prezzi. Mancano due cose:
+- il prodotto richiede obbligatoriamente un archivio Danea, quindi un'azienda senza Danea oggi non può avere prodotti;
+- non esiste alcun campo che dica "questo prodotto è stato creato a mano": non c'è nessuna colonna di origine. E nell'app non esiste nessuna schermata di creazione prodotto (nessun "Nuovo prodotto").
 
-## Mappa approvabile delle pagine esistenti
+**3. Collisione fra codice manuale e codice Danea — il rischio è reale**
+Confermato: se un prodotto manuale vivesse nello stesso archivio dei prodotti Danea, un'importazione con lo stesso codice lo sovrascriverebbe, e un invio completo lo depubblicherebbe perché "assente dal file". L'attuale identità archivio+codice NON è sufficiente. Serve una separazione esplicita (proposta al punto 1 sotto).
 
-| Voce attuale / funzione reale | Nuova categoria | Nuova sottocategoria | Route mantenuta | Stato attuale |
-|---|---|---|---|---|
-| Panoramica | Panoramica | — | `/dashboard` | Funzionante; diventerà dashboard visuale delle aree |
-| Acquisti | Operatività → Acquisti | Dashboard Acquisti | `/acquisti` | Esiste; va sostituito il contenuto obsoleto con card compatte |
-| Lista della Spesa | Acquisti | Lista della Spesa | `/acquisti/lista-spesa` | Funzionante |
-| Ordini fornitore | Acquisti | Ordini fornitore | `/acquisti/ordini` | Funzionante |
-| Inventario | Acquisti | Inventario | `/acquisti/inventario` | Funzionante |
-| Fabbisogno, oggi sezione interna di Inventario | Acquisti | Fabbisogno | `/acquisti/inventario?sezione=fabbisogno` | Funzionante; apertura diretta della sezione, nessuna duplicazione |
-| Fornitori | Acquisti | Fornitori | `/acquisti/fornitori` | Funzionante |
-| Catalogo fornitori | Acquisti | Catalogo fornitori | `/acquisti/catalogo` | Funzionante; scelta confermata in Acquisti |
-| Catalogo del singolo fornitore | Acquisti | Percorso interno al Catalogo | `/acquisti/catalogo/$sellerId` | Funzionante; non diventa voce autonoma |
-| Scheda prodotto del fornitore | Acquisti | Percorso interno al Catalogo | `/acquisti/catalogo/$sellerId/$productId` | Funzionante; non diventa voce autonoma |
-| Vendite | Operatività → Vendite | Dashboard Vendite | `/vendite` | Esiste; va trasformata in dashboard visuale |
-| Ordini clienti | Vendite | Ordini clienti | Nessuna route esistente | Non verrà inventata; card informativa non cliccabile |
-| Clienti | Vendite | Clienti | `/vendite/clienti` | Funzionante |
-| Prodotti | Vendite | Prodotti | `/vendite/prodotti` | Funzionante |
-| Preparazione | Vendite | Preparazione | `/operativo` | Pagina esistente “In arrivo”; resta visibile e cliccabile |
-| Consegne | Vendite | Consegne | `/consegne` | Pagina esistente “In arrivo”; resta visibile e cliccabile |
-| Collegamenti | Operatività → B2B | Collegamenti | `/collegamenti` | Funzionante: connessioni, richieste, ricerca, inviti e codici |
-| B2B | Operatività → B2B | Dashboard B2B | nuova `/b2b` | Nuova sola pagina-indice; nessuna nuova funzione |
-| Azienda | Sistema → Impostazioni | Azienda | `/amministrazione` | Dati generali e indirizzi funzionanti; alcune sezioni future |
-| Magazzino / Zone, oggi sezione interna di Azienda | Impostazioni | Magazzino / Zone | `/amministrazione?sezione=magazzino` | Funzionante; apertura diretta della sezione, nessuna duplicazione |
-| Account | Impostazioni | Account personale | `/account` | Funzionante |
-| Utenti e ruoli | Impostazioni | Utenti e ruoli | Nessuna route esistente | Non verrà creata né mostrata come funzione attiva |
-| Gestionale | Impostazioni | Danea / Gestionale | `/danea` | Funzionante e riservato agli amministratori |
-| Personalizzazione navigazione | Impostazioni | Personalizzazione → Navigazione | nuova `/impostazioni/navigazione` | Nuova schermata per menu laterale e dashboard |
-| Impostazioni | Sistema | Dashboard Impostazioni | nuova `/impostazioni` | Nuova sola pagina-indice verso le configurazioni esistenti |
-| Onboarding | Percorso di sistema | Configurazione iniziale | `/onboarding` | Automatico; non compare nel menu |
+**4. Perché l'Inventario è oggi riservato a chi compra**
+È un semplice blocco di schermata: la pagina Inventario controlla il profilo di acquisto e, se assente, mostra il messaggio. Il database non ha questo limite. Si corregge solo lato interfaccia.
 
-Le route pubbliche (`/`, `/auth`, `/reset-password`, `/invito/$token`, `/consegna/$token`) e gli endpoint tecnici restano fuori dal menu autenticato e non vengono modificati.
+**5. Quali prodotti entrano oggi nella fotografia dell'inventario**
+All'apertura vengono inseriti tutti i prodotti pubblicati dell'azienda per quell'archivio, abbinati alle zone dove il prodotto risulta già presente (conteggi chiusi, rettifiche, movimenti, lotti) e, se non risulta da nessuna parte, alla zona predefinita. Nessun prodotto di altre aziende, quindi oggi i Preferiti di catalogo non entrano.
 
-## Nuovo menu laterale desktop
+**6. Preferiti B2B → insieme inventariabile, senza duplicare**
+I Preferiti di catalogo sono già registrati con acquirente + fornitore + prodotto, e puntano al prodotto reale del fornitore. Quindi si possono aggiungere alla fotografia dell'inventario senza creare copie: si aggiunge alla fotografia il riferimento al prodotto del fornitore più il fornitore di provenienza. Nessuna fusione per codice o descrizione simile.
 
-```text
-Panoramica
+**7. Se un Preferito viene tolto a inventario aperto**
+Nessun effetto sull'inventario in corso: la fotografia viene scritta una volta sola all'apertura e, se esiste già, l'apertura la restituisce senza toccarla. Un inventario aperto con 50 righe resta a 50; un Preferito aggiunto o rimosso dopo conta solo dal prossimo inventario. Questo principio resta invariato.
 
-OPERATIVITÀ
-▾ Acquisti                 → /acquisti
-  Lista della Spesa        → /acquisti/lista-spesa
-  Ordini fornitore         → /acquisti/ordini
-  Inventario               → /acquisti/inventario
-  Fabbisogno               → /acquisti/inventario?sezione=fabbisogno
-  Fornitori                → /acquisti/fornitori
-  Catalogo fornitori       → /acquisti/catalogo
+**8. Cosa serve davvero**
+Tre interventi mirati, elencati sotto.
 
-▾ Vendite                  → /vendite
-  Clienti                  → /vendite/clienti
-  Prodotti                 → /vendite/prodotti
-  Preparazione             → /operativo
-  Consegne                 → /consegne
+## B. Proposta
 
-▾ B2B                      → /b2b
-  Collegamenti             → /collegamenti
+**1. Origine del prodotto e archivio interno (database)**
+- Nuova colonna di origine sul prodotto: `manuale` o `danea`, con valore `danea` per tutto l'esistente.
+- Ogni azienda ottiene un archivio interno dedicato "Prodotti propri", creato automaticamente al bisogno e non utilizzabile dalle postazioni Danea. I prodotti manuali vivono lì: i codici manuali non possono più incrociare quelli Danea, nemmeno per errore.
+- L'importazione Danea (completa e incrementale) viene limitata ai prodotti di origine `danea`: nessun prodotto manuale può essere modificato o depubblicato da una sincronizzazione. Restano invariate le regole già approvate sull'allineamento Danea.
+- Funzione di creazione/modifica prodotto manuale con proposta automatica del prossimo codice (`00-001`, `00-002`, …) e possibilità di scriverne uno diverso, anche alfanumerico, con controllo di unicità.
 
-SISTEMA
-▾ Impostazioni             → /impostazioni
-  Azienda                  → /amministrazione
-  Magazzino / Zone         → /amministrazione?sezione=magazzino
-  Account                  → /account
-  Gestionale / Danea       → /danea
-  Personalizzazione        → /impostazioni/navigazione
-```
+**2. Nuovo prodotto nella pagina Prodotti (interfaccia)**
+Pulsante "Nuovo prodotto" con scheda: codice (precompilato), descrizione, categoria, sottocategoria, U.M., produttore, note, barcode. Immagini e unità di vendita si gestiscono con le schermate già esistenti dopo il salvataggio. I prodotti manuali sono riconoscibili nell'elenco. Danea resta una fonte di importazione, non un requisito.
 
-- Il titolo di ogni categoria apre la relativa dashboard.
-- Una freccia separata espande o chiude le sottocategorie, evitando conflitti tra apertura pagina e tendina.
-- Le categorie e sottocategorie rispettano capacità aziendali e ruoli già esistenti.
-- Il menu non concede permessi: mostra solo destinazioni già autorizzate.
-- Le sezioni aperte seguono la posizione corrente, così il percorso resta comprensibile.
-- Una voce nascosta dall'utente resta disponibile nella schermata Personalizzazione, se l'utente è ancora autorizzato, così può essere riattivata.
+**3. Inventario: chi può farlo e cosa contiene**
+- Rimozione del blocco sul profilo di acquisto: anche un'azienda che vende (Trevi) fa inventario sui propri prodotti.
+- L'apertura non richiede più un archivio Danea: in assenza, si usa l'archivio interno dei prodotti propri.
+- La fotografia dell'inventario diventa: prodotti propri (Danea + manuali) **più** i prodotti messi tra i Preferiti nei cataloghi dei fornitori collegati. Ogni riga porta con sé il fornitore di provenienza, così prodotti di fornitori diversi restano distinti anche con codici o descrizioni simili. I prodotti di catalogo non preferiti non entrano.
+- Le righe dell'inventario mostrano il fornitore di provenienza; giacenza, conteggi, rettifiche, differenze, note e chiusura restano esattamente come oggi.
 
-## Navigazione smartphone
+**4. Cosa non viene toccato**
+Formule di giacenza, Fabbisogno, Lista della Spesa, Ordini fornitore, ricevute, lotti, provenienza, listini, immagini, permessi, route, layout approvati (inventario e card mobile).
 
-Nessun menu annidato complesso. La barra inferiore mostra solo gli ingressi principali consentiti:
+## C. Dettagli tecnici
 
-```text
-Panoramica · Acquisti · Vendite · B2B · Impostazioni
-```
-
-Le funzioni si raggiungono dalle card touch della relativa dashboard. Se lo spazio non consente tutte le aree, le voci saranno selezionate in base alle capacità e ai ruoli già esistenti, senza mostrare funzioni non autorizzate.
-
-## Dashboard visuali
-
-### Panoramica
-Card compatte e cliccabili per Acquisti, Vendite, B2B e Impostazioni. Ogni card mostra icona, nome, breve descrizione e un riepilogo delle funzioni disponibili. Le card Acquisti/Vendite compaiono solo se l'azienda ha la relativa capacità; Impostazioni rispetta i ruoli delle singole destinazioni.
-
-### Acquisti
-Card per Lista della Spesa, Ordini fornitore, Inventario, Fabbisogno, Fornitori e Catalogo fornitori. Fabbisogno apre direttamente la sezione reale dentro Inventario.
-
-### Vendite
-Card per Clienti, Prodotti, Preparazione e Consegne. “Ordini clienti” può essere mostrata come funzione non ancora disponibile, senza creare una route o logica finta.
-
-### B2B
-Card per Collegamenti. La pagina spiega in modo minimo che qui si gestiscono rapporti, richieste e inviti; Catalogo non viene duplicato perché è stato confermato in Acquisti.
-
-### Impostazioni
-Card per Azienda, Magazzino / Zone, Account, Gestionale / Danea e Personalizzazione. Le card rispettano i ruoli: le destinazioni amministrative non sono mostrate come accessibili a chi non è amministratore. La card Personalizzazione resta sempre raggiungibile, per evitare che un utente perda il modo di riattivare ciò che ha nascosto.
-
-## Personalizzazione per singolo utente
-
-### Verifica della struttura esistente
-
-Esiste già `user_grid_preferences`, usata dalla griglia Prodotti. Non è adatta a essere estesa: identifica una griglia e un tipo di dispositivo e salva specificamente colonne, dimensioni e ordinamento della tabella. Inserirvi menu e dashboard mescolerebbe preferenze con significati diversi e renderebbe fragile l'evoluzione di entrambe.
-
-### Struttura dati proposta — richiede approvazione prima della migrazione
-
-Creare una tabella dedicata `user_navigation_preferences`, con una riga per utente e azienda attiva:
-
-- `user_id`: proprietario delle preferenze;
-- `company_id`: contesto aziendale, perché le funzioni autorizzate dipendono dall'azienda e dal ruolo ricoperto;
-- `sidebar_items`: ordine e visibilità delle categorie/sottocategorie del menu;
-- `dashboard_items`: ordine e visibilità delle card delle dashboard;
-- date di creazione e aggiornamento;
-- unicità `(user_id, company_id)`;
-- accesso consentito soltanto al proprietario, all'interno della propria azienda attiva.
-
-La tabella avrà permessi espliciti e protezione per `public.is_company_member(company_id)` insieme a `auth.uid() = user_id`. Non saranno create nuove funzioni con privilegi elevati: lettura, salvataggio e ripristino avvengono con l'utente autenticato e le regole del database.
-
-Poiché oggi l'app usa automaticamente la prima azienda associata, viene aggiunto anche un selettore dell'azienda attiva. La scelta è persistente nel browser e riordina il contesto dell'identità già usato dall'app; cambiando azienda vengono ricaricati identità, dati e preferenze della coppia utente+azienda selezionata.
-
-### Comportamento
-
-- **Menu laterale**: mostra/nascondi e riordina categorie e sottocategorie autorizzate.
-- **Dashboard**: mostra/nascondi e riordina le card autorizzate, sia nella Panoramica sia nelle dashboard di area.
-- **Ripristina predefiniti**: elimina la preferenza salvata e torna all'ordine ufficiale Trevi Fruit.
-- Le nuove funzioni aggiunte in futuro entrano con il valore predefinito definito dall'app, senza invalidare preferenze più vecchie.
-- Le preferenze memorizzano chiavi stabili delle voci, mai URL arbitrari.
-- Prima di mostrare o salvare una voce, l'app ricalcola sempre le autorizzazioni correnti. Una chiave non autorizzata viene ignorata anche se presente nei dati salvati.
-- Nascondere non revoca permessi; mostrare non concede permessi; l'accesso diretto alle route continua a dipendere esclusivamente dai controlli esistenti.
-- Preparazione e Consegne restano visibili e cliccabili per impostazione predefinita, ma l'utente può nasconderle.
-- Ordini clienti resta una card informativa non cliccabile; può essere mostrata, nascosta e riordinata come le altre card.
-
-### Schermata Impostazioni → Personalizzazione → Navigazione
-
-Due sezioni semplici:
-
-1. **Menu laterale** — elenco gerarchico delle sole voci autorizzate, interruttore mostra/nascondi e comandi di riordino.
-2. **Dashboard** — card raggruppate per dashboard, interruttore mostra/nascondi e comandi di riordino.
-
-Un comando “Ripristina predefiniti” richiede conferma e ripristina entrambe le sezioni. Su smartphone il riordino usa pulsanti su/giù, non trascinamenti difficili da usare; su desktop si mantiene lo stesso comportamento chiaro e accessibile.
-
-## Implementazione prevista dopo approvazione
-
-1. Creare la preferenza di navigazione per utente e azienda, con protezioni che impediscono accessi incrociati.
-2. Rendere la configurazione della navigazione gerarchica e riutilizzabile, separando requisiti di accesso e preferenze personali.
-3. Creare la schermata `/impostazioni/navigazione` con mostra/nascondi, riordino e ripristino.
-4. Semplificare il menu desktop con categorie espandibili e il menu smartphone con soli ingressi principali personalizzati.
-5. Trasformare `/dashboard`, `/acquisti` e `/vendite` in dashboard compatte e personalizzabili, senza testo “In arrivo” ridondante.
-6. Creare le sole pagine-indice `/b2b` e `/impostazioni`, necessarie alla gerarchia richiesta.
-7. Aggiungere l'apertura diretta di Fabbisogno e Magazzino tramite parametro della pagina, senza spostare o duplicare i contenuti.
-8. Verificare desktop e smartphone, persistenza dopo nuovo accesso, ripristino, navigazione, autorizzazioni e tutte le route esistenti.
-
-## File previsti
-
-- `src/lib/navigation.ts`
-- Nuova gestione delle preferenze di navigazione lato interfaccia
-- `src/components/app-shell.tsx`
-- `src/routes/_authenticated/dashboard.tsx`
-- `src/routes/_authenticated/acquisti.index.tsx`
-- `src/routes/_authenticated/vendite.tsx`
-- `src/routes/_authenticated/acquisti.inventario.tsx`
-- `src/components/inventory/inventory-count-panel.tsx`
-- `src/routes/_authenticated/amministrazione.tsx`
-- Nuove route: `src/routes/_authenticated/b2b.tsx`, `src/routes/_authenticated/impostazioni.tsx`, `src/routes/_authenticated/impostazioni.navigazione.tsx`
-- Eventuali piccoli componenti visuali condivisi creati appositamente per le dashboard
-- Una migrazione per `user_navigation_preferences`, solo dopo approvazione esplicita della struttura proposta
-
-Non sono previste modifiche a funzioni server, RPC, formule, import Danea o pagine operative interne. L'unica modifica al database proposta è la tabella dedicata alle preferenze personali descritta sopra.
+- `products`: nuova colonna `origin` (enum `product_origin`: `danea`, `manuale`), default `danea`, backfill dell'esistente; nuovo indice unico parziale su (company_id, code) per i soli prodotti manuali.
+- `danea_archives`: flag `is_internal` per l'archivio "Prodotti propri"; funzione `ensure_internal_archive(company_id)`; `danea_stations` non può puntare a un archivio interno (guard esistente estesa).
+- `danea-import.server.ts`: filtri `origin = 'danea'` su lettura esistenti, upsert, depubblicazione per assenza e depubblicazione da DeletedProducts; nessuna altra modifica alla logica di sincronizzazione.
+- Nuove RPC `manage_manual_product` e `next_manual_product_code` (SECURITY DEFINER, `search_path = public`, solo amministratori dell'azienda).
+- `inventory_session_products`: nuova colonna `source_seller_company_id` (nullable = prodotto proprio); chiave unica estesa a (session_id, product_id, location_id, source_seller_company_id).
+- `start_general_inventory`: archivio opzionale; la CTE dei prodotti diventa unione fra prodotti propri pubblicati e prodotti dei `buyer_product_favorites` con rapporto B2B operativo; invariata la scrittura una-sola-volta della fotografia.
+- `inventory_session_rows` / `inventory_session_progress`: restituiscono il fornitore di provenienza; aggregazioni per zona/categoria/sottocategoria calcolate sulle stesse righe della fotografia.
+- `record_inventory_count` e `close_general_inventory`: nessun cambio di formula, solo compatibilità con la chiave estesa.
+- Test finali: creazione prodotto manuale senza Danea; importazione completa che non tocca né depubblica i manuali; codice manuale uguale a uno Danea senza collisione; inventario aperto da azienda solo-vendita; fotografia = propri + preferiti di più fornitori senza duplicati; aggiunta/rimozione preferito a inventario aperto che non cambia il totale; refresh e rientro sulla stessa sessione; nessuna regressione su Fabbisogno, Lista della Spesa, Ordini, Danea.
