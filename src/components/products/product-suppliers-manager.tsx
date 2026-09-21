@@ -295,8 +295,8 @@ export function ProductSuppliersManager({
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Priorità di approvvigionamento (facoltativa)</Label>
-        <Input inputMode="numeric" value={draft.sourcingPriority} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
-        <p className="text-xs text-muted-foreground">Più fonti possono avere la stessa priorità: la scelta finale resta nella Lista della Spesa.</p>
+        <Input type="number" min={1} step={1} inputMode="numeric" value={draft.sourcingPriority} disabled={busy} placeholder="Es. 1 (prima scelta)" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
+        <p className="text-xs text-muted-foreground">Solo un numero: 1 = prima scelta. Più fonti possono avere la stessa priorità, la scelta finale resta nella Lista della Spesa.</p>
       </div>
       {mode === "create" ? (
         <>
