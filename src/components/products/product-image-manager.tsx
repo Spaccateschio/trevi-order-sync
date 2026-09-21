@@ -73,7 +73,7 @@ async function optimize(file: File) {
   }
 }
 
-export function ProductImageManager({ productId, image, editable }: { productId: string; image: ImageMeta; editable: boolean }) {
+export function ProductImageManager({ productId, image, editable, top = false }: { productId: string; image: ImageMeta; editable: boolean; top?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const getUrls = useServerFn(getProductImageUrls);
