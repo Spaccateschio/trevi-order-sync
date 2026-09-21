@@ -144,6 +144,25 @@ export function InventoryCountPanel({
   });
   const sessionId = sessionQuery.data?.id ?? null;
 
+  // Senza conteggio aperto mostriamo comunque i prodotti gestiti dall'azienda
+  // (tutti gli archivi), con "Mai contato" al posto della quantità.
+  const catalogPreviewQuery = useQuery({
+    queryKey: ["inventario-prodotti", companyId],
+    enabled: !sessionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, code, description, category, danea_um")
+        .eq("company_id", companyId)
+        .order("code")
+        .limit(300);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const catalogPreview = catalogPreviewQuery.data ?? [];
+
+
   const progressQuery = useQuery({
     queryKey: ["inventory-progress", sessionId],
     enabled: Boolean(sessionId),
