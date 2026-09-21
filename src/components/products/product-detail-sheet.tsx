@@ -136,6 +136,24 @@ function PriceUnitSelector({ product, companyId, companyUnits, editable }: { pro
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Sui prodotti che arrivano da Danea la U.M. del prezzo è quella ricevuta con articoli e listini.
+  const fromDanea = Boolean(product.danea_internal_id);
+  const manualUnit = product.price_unit_id ? companyUnits.find((unit) => unit.id === product.price_unit_id) ?? null : null;
+
+  if (fromDanea) {
+    return (
+      <SettingRow title="U.M. del prezzo" info="Arriva da Danea insieme ad articoli e listini: non si imposta qui.">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="font-mono">{product.danea_um ?? "—"}</Badge>
+          {manualUnit ? <>
+            <Badge variant="secondary">{manualUnit.code} · impostata manualmente</Badge>
+            {editable ? <Button type="button" size="sm" variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate("base")}>Usa quella di Danea</Button> : null}
+          </> : null}
+        </div>
+      </SettingRow>
+    );
+  }
+
   return (
     <SettingRow title="U.M. del prezzo" info="Tutti i listini del prodotto si leggono su questa U.M. Il prezzo resta lo stesso qualunque formato il cliente ordini; peso e totale definitivi nascono dalla pesatura.">
       <Select
