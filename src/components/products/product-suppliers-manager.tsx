@@ -408,7 +408,16 @@ export function ProductSuppliersManager({
 
               {isSelected && editable ? (
                 <div className="mt-3 border-t border-border pt-3">
-                  {fields}
+                  <PurchaseUnitsEditor
+                    companyId={companyId}
+                    linkId={row.link_id}
+                    baseUm={daneaUm}
+                    assigned={row.purchase_units ?? []}
+                    units={purchaseUnits}
+                    disabled={busy}
+                    onChanged={refresh}
+                  />
+                  {fieldsFor("update")}
                   <div className="mt-3 flex flex-wrap justify-end gap-2">
                     {row.sourcing_priority !== null ? (
                       <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => priorityMutation.mutate({ linkId: row.link_id, priority: null })}><Star aria-hidden="true" />Togli priorità</Button>
