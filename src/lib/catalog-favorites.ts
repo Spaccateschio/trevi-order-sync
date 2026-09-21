@@ -59,7 +59,11 @@ export async function toggleCatalogFavorite(
       _seller_product_id: string;
     },
   );
-  if (rpcError) throw new Error(rpcError.message);
+  // La stella resta salvata anche se l'aggiunta ai propri prodotti non è permessa
+  // (per esempio a un operatore non amministratore): si segnala solo l'avviso.
+  if (rpcError) {
+    return { action: "added", createdProduct: false, createdLink: false, warning: rpcError.message };
+  }
 
   const result = (data ?? {}) as { created_product?: boolean; created_link?: boolean };
   return {
@@ -73,6 +77,9 @@ export function favoriteToggleMessage(result: FavoriteToggleResult): string {
   if (result.action === "removed") {
     return "Rimosso dai preferiti: il prodotto resta fra i tuoi prodotti";
   }
+  if (result.warning) {
+    return `Aggiunto ai preferiti, ma non fra i tuoi prodotti: ${result.warning}`;
+  }
   if (result.createdProduct) {
     return "Aggiunto ai preferiti e fra i tuoi prodotti, con il fornitore collegato";
   }
@@ -81,6 +88,7 @@ export function favoriteToggleMessage(result: FavoriteToggleResult): string {
   }
   return "Aggiunto ai preferiti: già presente fra i tuoi prodotti";
 }
+
 
 export function invalidateAfterFavoriteChange(
   queryClient: QueryClient,
