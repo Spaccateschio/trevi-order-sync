@@ -4596,47 +4596,27 @@ export type Database = {
         }
         Returns: number
       }
-      manage_product_supplier_link:
-        | {
-            Args: {
-              _action: string
-              _company_id: string
-              _conversion_factor?: number
-              _conversion_reference_um?: string
-              _is_preferred?: boolean
-              _lead_time_days?: number
-              _link_id?: string
-              _manual_cost?: number
-              _min_quantity?: number
-              _notes?: string
-              _product_id?: string
-              _purchase_unit_id?: string
-              _supplier_product_code?: string
-              _supplier_record_id?: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              _action: string
-              _company_id: string
-              _conversion_factor?: number
-              _conversion_reference_um?: string
-              _is_preferred?: boolean
-              _lead_time_days?: number
-              _link_id?: string
-              _manual_cost?: number
-              _min_quantity?: number
-              _notes?: string
-              _product_id?: string
-              _purchase_unit_id?: string
-              _sourcing_priority?: number
-              _supplier_product_code?: string
-              _supplier_record_id?: string
-              _supplier_reference_label?: string
-            }
-            Returns: string
-          }
+      manage_product_supplier_link: {
+        Args: {
+          _action: string
+          _company_id: string
+          _conversion_factor?: number
+          _conversion_reference_um?: string
+          _is_preferred?: boolean
+          _lead_time_days?: number
+          _link_id?: string
+          _manual_cost?: number
+          _min_quantity?: number
+          _notes?: string
+          _product_id?: string
+          _purchase_unit_id?: string
+          _sourcing_priority?: number
+          _supplier_product_code?: string
+          _supplier_record_id?: string
+          _supplier_reference_label?: string
+        }
+        Returns: string
+      }
       manage_purchase_order: {
         Args: {
           _action: string
