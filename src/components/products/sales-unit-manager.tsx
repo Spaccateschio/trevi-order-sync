@@ -32,7 +32,7 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
   const [addOpen, setAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<ProductSaleUnit | null>(null);
   const [offerDeactivation, setOfferDeactivation] = useState(false);
-  const [draft, setDraft] = useState({ active: true, visible: true, isDefault: false, factor: "" });
+  const [draft, setDraft] = useState<{ active: boolean; visible: boolean; isDefault: boolean; factor: string; conversionType: "esatta" | "indicativa" }>({ active: true, visible: true, isDefault: false, factor: "", conversionType: "indicativa" });
 
   const selected = useMemo(() => assignments.find((row) => row.id === selectedId) ?? null, [assignments, selectedId]);
   useEffect(() => {
@@ -133,7 +133,15 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
         <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy} checked={draft.visible} onCheckedChange={(visible) => setDraft((current) => ({ ...current, visible, isDefault: visible ? current.isDefault : false }))} />Visibile cliente</label>
         <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy || selected.is_default} checked={draft.isDefault} onCheckedChange={(isDefault) => setDraft((current) => ({ ...current, isDefault, active: isDefault ? true : current.active, visible: isDefault ? true : current.visible }))} />Predefinita</label>
       </div>
-      <div className="mt-4 grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2"><span className="text-sm">1 {selected.units_of_measure?.code ?? "U.M."} ≈</span><Input aria-label={`Conversione stimata ${selected.units_of_measure?.code ?? "U.M."}`} inputMode="decimal" disabled={!editable || busy} value={draft.factor} onChange={(event) => setDraft((current) => ({ ...current, factor: event.target.value }))} placeholder="Nessuna"/><span className="truncate text-sm">{daneaUm ?? "U.M. Danea"}</span></div>
+      <div className="mt-4 grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2"><span className="text-sm">1 {selected.units_of_measure?.code ?? "U.M."} {draft.conversionType === "esatta" ? "=" : "≈"}</span><Input aria-label={`Conversione ${selected.units_of_measure?.code ?? "U.M."}`} inputMode="decimal" disabled={!editable || busy} value={draft.factor} onChange={(event) => setDraft((current) => ({ ...current, factor: event.target.value }))} placeholder="Nessuna"/><span className="truncate text-sm">{daneaUm ?? "U.M. Danea"}</span></div>
+      <div className="mt-3">
+        <p className="text-xs text-muted-foreground">Tipo di conversione: una conversione indicativa non determina il totale definitivo, che nasce dalla pesatura in preparazione.</p>
+        <div className="mt-2 flex gap-2">
+          <Button type="button" size="sm" variant={draft.conversionType === "esatta" ? "default" : "outline"} aria-pressed={draft.conversionType === "esatta"} disabled={!editable || busy} onClick={() => setDraft((current) => ({ ...current, conversionType: "esatta" }))}>Esatta (= 12 pz)</Button>
+          <Button type="button" size="sm" variant={draft.conversionType === "indicativa" ? "default" : "outline"} aria-pressed={draft.conversionType === "indicativa"} disabled={!editable || busy} onClick={() => setDraft((current) => ({ ...current, conversionType: "indicativa" }))}>Indicativa (≈ 8 kg)</Button>
+        </div>
+      </div>
+
       {editable ? <div className="mt-4 flex flex-wrap justify-end gap-2">
         <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => requestRemoval(selected)}><Trash2 aria-hidden="true" />Rimuovi U.M.</Button>
         <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate()}>Salva</Button>
