@@ -9,8 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { DeliveryDaysPicker, DeliveryHintBadge } from "@/components/suppliers/delivery-days-picker";
 import { supabase } from "@/integrations/supabase/client";
+import { DEFAULT_SCHEDULE, type DeliverySchedule } from "@/lib/delivery-schedule";
 import { dateTime, euro } from "@/lib/product-grid";
+import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
 import type { CompanyUnit } from "./sales-unit-manager";
 
 /** U.M. con cui si può acquistare una singola referenza fornitore. */
