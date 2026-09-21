@@ -48,6 +48,7 @@ type LinkRow = {
   origin: "manuale" | "danea";
   products: { code: string; description: string | null; archive_id: string | null; danea_um: string | null } | null;
   units_of_measure: { code: string } | null;
+  product_supplier_link_units: { id: string; is_default: boolean; units_of_measure: { code: string } | null }[] | null;
 };
 
 type ProductOption = {
