@@ -267,10 +267,27 @@ function CatalogProductPage() {
                 label={favoriteQuery.data ? "Nei preferiti" : "Preferito"}
                 onToggle={() => toggleFavorite.mutate()}
               />
+              {isAdmin ? (
+                <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+                  <PackagePlus className="h-4 w-4" aria-hidden="true" />
+                  Aggiungi ai miei prodotti
+                </Button>
+              ) : null}
               <Button variant="outline" size="sm" disabled title="Disponibile a breve">
                 <ShoppingCart className="h-4 w-4" aria-hidden="true" />
                 Aggiungi alla lista della spesa · a breve
               </Button>
+            </div>
+
+            <div>
+              <AddToOwnProductsDialog
+                open={addOpen}
+                onOpenChange={setAddOpen}
+                buyerCompanyId={buyerId}
+                sellerCompanyId={sellerId}
+                sellerProduct={{ id: productId, code: product.code, description: product.description }}
+                userId={identity?.userId ?? null}
+              />
             </div>
           </div>
         </div>
