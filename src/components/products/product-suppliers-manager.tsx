@@ -206,18 +206,19 @@ export function ProductSuppliersManager({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const preferredMutation = useMutation({
-    mutationFn: async (supplierRecordId: string | null) => {
-      const { error } = await supabase.rpc("set_preferred_product_supplier", {
+  const priorityMutation = useMutation({
+    mutationFn: async (input: { linkId: string; priority: number | null }) => {
+      const { error } = await supabase.rpc("manage_product_supplier_link", {
         _company_id: companyId,
-        _product_id: productId,
-        ...(supplierRecordId ? { _supplier_record_id: supplierRecordId } : {}),
+        _action: "set_priority",
+        _link_id: input.linkId,
+        ...(input.priority !== null ? { _sourcing_priority: input.priority } : {}),
       });
       if (error) throw new Error(error.message);
     },
     onSuccess: async () => {
       await refresh();
-      toast.success("Fornitore preferito aggiornato");
+      toast.success("Priorità di approvvigionamento aggiornata");
     },
     onError: (error: Error) => toast.error(error.message),
   });
