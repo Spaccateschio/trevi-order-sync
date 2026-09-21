@@ -376,7 +376,11 @@ export function ProductSuppliersManager({
                 <div className="mt-3 border-t border-border pt-3">
                   {fields}
                   <div className="mt-3 flex flex-wrap justify-end gap-2">
-                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => preferredMutation.mutate(row.is_preferred ? null : row.supplier_record_id)}><Star className={row.is_preferred ? "fill-current" : ""} aria-hidden="true" />{row.is_preferred ? "Togli preferito" : "Imposta preferito"}</Button>
+                    {row.sourcing_priority !== null ? (
+                      <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => priorityMutation.mutate({ linkId: row.link_id, priority: null })}><Star aria-hidden="true" />Togli priorità</Button>
+                    ) : (
+                      <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => priorityMutation.mutate({ linkId: row.link_id, priority: 1 })}><Star className="fill-current" aria-hidden="true" />Priorità 1</Button>
+                    )}
                     <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => statusMutation.mutate({ linkId: row.link_id, action: row.is_active ? "deactivate" : "activate" })}>{row.is_active ? "Disattiva" : "Riattiva"}</Button>
                     <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate("update")}>Salva</Button>
                   </div>
