@@ -5063,7 +5063,7 @@ export type Database = {
       set_product_price_unit: {
         Args: {
           _company_id: string
-          _price_unit_id: string
+          _price_unit_id?: string
           _product_id: string
         }
         Returns: undefined
