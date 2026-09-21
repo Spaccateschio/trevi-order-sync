@@ -29,6 +29,7 @@ export type ModuleKey =
   | "acquisti.inventario"
   | "acquisti.fabbisogno"
   | "acquisti.fornitori"
+  | "acquisti.prodotti"
   | "acquisti.catalogo"
   | "vendite"
   | "vendite.ordini-clienti"
@@ -69,6 +70,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "acquisti.inventario", group: "acquisti", to: "/acquisti/inventario", label: "Inventario", short: "Inventario", description: "Conta i prodotti per zona di magazzino.", icon: Boxes, capability: "buys", menu: true, dashboard: "acquisti" },
   { key: "acquisti.fabbisogno", group: "acquisti", to: "/acquisti/inventario", search: { sezione: "fabbisogno" }, label: "Fabbisogno", short: "Fabbisogno", description: "Consulta le quantità necessarie da acquistare.", icon: ReceiptText, capability: "buys", menu: true, dashboard: "acquisti" },
   { key: "acquisti.fornitori", group: "acquisti", to: "/acquisti/fornitori", label: "Fornitori", short: "Fornitori", description: "Gestisci anagrafiche e rapporti di fornitura.", icon: Store, capability: "buys", menu: true, dashboard: "acquisti" },
+  { key: "acquisti.prodotti", group: "acquisti", to: "/acquisti/prodotti", label: "Prodotti", short: "Prodotti", description: "Gli stessi prodotti visti dal lato approvvigionamento.", icon: Package, capability: "buys", menu: true, dashboard: "acquisti" },
   { key: "acquisti.catalogo", group: "acquisti", to: "/acquisti/catalogo", label: "Catalogo fornitori", short: "Catalogo", description: "Sfoglia i prodotti dei fornitori collegati.", icon: Package, capability: "buys", menu: true, dashboard: "acquisti" },
   { key: "vendite", group: "vendite", to: "/vendite", label: "Vendite", short: "Vendite", description: "Clienti, prodotti, preparazione e consegne.", icon: ReceiptText, capability: "sells", menu: true, dashboard: "main" },
   { key: "vendite.ordini-clienti", group: "vendite", label: "Ordini clienti", short: "Ordini", description: "Funzione prevista per una fase successiva.", icon: ShoppingCart, capability: "sells", menu: false, dashboard: "vendite" },

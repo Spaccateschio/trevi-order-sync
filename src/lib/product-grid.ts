@@ -147,10 +147,12 @@ export const PRODUCT_COLUMNS: ProductColumn[] = [
 export const DEFAULT_COLUMN_ORDER = PRODUCT_COLUMNS.map((column) => column.id);
 export const DEFAULT_VISIBLE_COLUMNS = ["code", "description", "category", "danea_um", "price_1"];
 
-export function defaultGridPreferences(): GridPreferences {
+/** Colonne iniziali: ogni vista operativa (vendite/acquisti) può proporne un elenco diverso. */
+export function defaultGridPreferences(visibleColumns: string[] = DEFAULT_VISIBLE_COLUMNS): GridPreferences {
+  const wanted = visibleColumns.length ? visibleColumns : DEFAULT_VISIBLE_COLUMNS;
   return {
-    visibility: Object.fromEntries(PRODUCT_COLUMNS.map((column) => [column.id, DEFAULT_VISIBLE_COLUMNS.includes(column.id)])),
-    order: [...DEFAULT_COLUMN_ORDER],
+    visibility: Object.fromEntries(PRODUCT_COLUMNS.map((column) => [column.id, wanted.includes(column.id)])),
+    order: [...wanted.filter((id) => DEFAULT_COLUMN_ORDER.includes(id)), ...DEFAULT_COLUMN_ORDER.filter((id) => !wanted.includes(id))],
     sizing: Object.fromEntries(PRODUCT_COLUMNS.map((column) => [column.id, column.size])),
     sorting: [],
   };

@@ -31,6 +31,7 @@ import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_au
 import { Route as AuthenticatedAcquistiInventarioRouteImport } from './routes/_authenticated/acquisti.inventario'
 import { Route as AuthenticatedAcquistiListaSpesaRouteImport } from './routes/_authenticated/acquisti.lista-spesa'
 import { Route as AuthenticatedAcquistiOrdiniRouteImport } from './routes/_authenticated/acquisti.ordini'
+import { Route as AuthenticatedAcquistiProdottiRouteImport } from './routes/_authenticated/acquisti_.prodotti'
 import { Route as AuthenticatedImpostazioniNavigazioneRouteImport } from './routes/_authenticated/impostazioni_.navigazione'
 import { Route as AuthenticatedVenditeClientiRouteImport } from './routes/_authenticated/vendite_.clienti'
 import { Route as AuthenticatedVenditeProdottiRouteImport } from './routes/_authenticated/vendite_.prodotti'
@@ -157,6 +158,12 @@ const AuthenticatedAcquistiOrdiniRoute =
     path: '/acquisti/ordini',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAcquistiProdottiRoute =
+  AuthenticatedAcquistiProdottiRouteImport.update({
+    id: '/acquisti_/prodotti',
+    path: '/acquisti/prodotti',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedImpostazioniNavigazioneRoute =
   AuthenticatedImpostazioniNavigazioneRouteImport.update({
     id: '/impostazioni_/navigazione',
@@ -226,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
   '/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
+  '/acquisti/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/impostazioni/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
@@ -257,6 +265,7 @@ export interface FileRoutesByTo {
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
   '/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
+  '/acquisti/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/impostazioni/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
@@ -290,6 +299,7 @@ export interface FileRoutesById {
   '/_authenticated/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/_authenticated/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
   '/_authenticated/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
+  '/_authenticated/acquisti_/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/_authenticated/impostazioni_/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/_authenticated/vendite_/clienti': typeof AuthenticatedVenditeClientiRoute
   '/_authenticated/vendite_/prodotti': typeof AuthenticatedVenditeProdottiRoute
@@ -323,6 +333,7 @@ export interface FileRouteTypes {
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
     | '/acquisti/ordini'
+    | '/acquisti/prodotti'
     | '/impostazioni/navigazione'
     | '/vendite/clienti'
     | '/vendite/prodotti'
@@ -354,6 +365,7 @@ export interface FileRouteTypes {
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
     | '/acquisti/ordini'
+    | '/acquisti/prodotti'
     | '/impostazioni/navigazione'
     | '/vendite/clienti'
     | '/vendite/prodotti'
@@ -386,6 +398,7 @@ export interface FileRouteTypes {
     | '/_authenticated/acquisti/inventario'
     | '/_authenticated/acquisti/lista-spesa'
     | '/_authenticated/acquisti/ordini'
+    | '/_authenticated/acquisti_/prodotti'
     | '/_authenticated/impostazioni_/navigazione'
     | '/_authenticated/vendite_/clienti'
     | '/_authenticated/vendite_/prodotti'
@@ -564,6 +577,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAcquistiOrdiniRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/acquisti_/prodotti': {
+      id: '/_authenticated/acquisti_/prodotti'
+      path: '/acquisti/prodotti'
+      fullPath: '/acquisti/prodotti'
+      preLoaderRoute: typeof AuthenticatedAcquistiProdottiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/impostazioni_/navigazione': {
       id: '/_authenticated/impostazioni_/navigazione'
       path: '/impostazioni/navigazione'
@@ -639,6 +659,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAcquistiInventarioRoute: typeof AuthenticatedAcquistiInventarioRoute
   AuthenticatedAcquistiListaSpesaRoute: typeof AuthenticatedAcquistiListaSpesaRoute
   AuthenticatedAcquistiOrdiniRoute: typeof AuthenticatedAcquistiOrdiniRoute
+  AuthenticatedAcquistiProdottiRoute: typeof AuthenticatedAcquistiProdottiRoute
   AuthenticatedImpostazioniNavigazioneRoute: typeof AuthenticatedImpostazioniNavigazioneRoute
   AuthenticatedVenditeClientiRoute: typeof AuthenticatedVenditeClientiRoute
   AuthenticatedVenditeProdottiRoute: typeof AuthenticatedVenditeProdottiRoute
@@ -664,6 +685,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAcquistiInventarioRoute: AuthenticatedAcquistiInventarioRoute,
   AuthenticatedAcquistiListaSpesaRoute: AuthenticatedAcquistiListaSpesaRoute,
   AuthenticatedAcquistiOrdiniRoute: AuthenticatedAcquistiOrdiniRoute,
+  AuthenticatedAcquistiProdottiRoute: AuthenticatedAcquistiProdottiRoute,
   AuthenticatedImpostazioniNavigazioneRoute:
     AuthenticatedImpostazioniNavigazioneRoute,
   AuthenticatedVenditeClientiRoute: AuthenticatedVenditeClientiRoute,

@@ -33,4 +33,5 @@
 - [ ] Vincolo documentato: tutti i listini di un prodotto sono interpretati rispetto alla stessa U.M. prezzo (products.price_unit_id); product_prices non modificato. Conversione prodotto/U.M. esplicitamente esatta o indicativa, mai dedotta dall'U.M.
 - [x] Più U.M. d'acquisto per la stessa referenza fornitore (KG · CASSA · SACCO), U.M. predefinita facoltativa (purchase_unit_id può restare NULL), conversioni opzionali e mai obbligatorie
 - [x] Nessuna falsa equivalenza fabbisogno ↔ acquisto: senza conversione certa non calcolare equivalente, copertura, residuo o eccedenza; fabbisogno e decisione d'acquisto restano due dati separati
-- [ ] Acquisti → Prodotti come vista operativa dello stesso catalogo (nessuna seconda anagrafica): griglia riusata con colonne d'approvvigionamento e scheda prodotto unica a tab Prodotto | Vendita | Acquisto | Inventario, con tab iniziale dipendente dal contesto (Vendite → Vendita, Acquisti → Acquisto)
+- [x] Acquisti → Prodotti come vista operativa dello stesso catalogo (nessuna seconda anagrafica): griglia riusata con colonne d'approvvigionamento e scheda prodotto unica a tab Prodotto | Vendita | Acquisto | Inventario, con tab iniziale dipendente dal contesto (Vendite → Vendita, Acquisti → Acquisto)
+- [ ] Colonne aggregate della griglia prodotti (U.M. acquistabili, priorità, giacenza, fabbisogno): intervento successivo dedicato
