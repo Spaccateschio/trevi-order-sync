@@ -165,6 +165,8 @@ export function ProductSuppliersManager({
         ...(mode === "update" && selected ? { _link_id: selected.link_id } : {}),
         ...(mode === "create" ? { _product_id: productId, _supplier_record_id: supplierRecordId } : {}),
         _supplier_product_code: draft.supplierProductCode,
+        _supplier_reference_label: draft.referenceLabel,
+        ...(num(draft.sourcingPriority) !== null ? { _sourcing_priority: num(draft.sourcingPriority) as number } : {}),
         ...(draft.purchaseUnitId ? { _purchase_unit_id: draft.purchaseUnitId } : {}),
         ...(num(draft.conversionFactor) !== null ? { _conversion_factor: num(draft.conversionFactor) as number } : {}),
         ...(daneaUm ? { _conversion_reference_um: daneaUm } : {}),
