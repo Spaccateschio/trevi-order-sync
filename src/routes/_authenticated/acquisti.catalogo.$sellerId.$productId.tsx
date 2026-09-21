@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ImageOff, ShoppingCart } from "lucide-react";
+import { ImageOff, PackagePlus, ShoppingCart } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
+import { AddToOwnProductsDialog } from "@/components/catalog/add-to-own-products-dialog";
 import { FavoriteButton } from "@/components/catalog/favorite-button";
 import { UnitPicker } from "@/components/catalog/unit-picker";
 import { Badge } from "@/components/ui/badge";
