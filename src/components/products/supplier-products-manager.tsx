@@ -139,18 +139,6 @@ export function SupplierProductsManager({
     queryFn: () => fetchDaneaArchives(companyId),
   });
 
-  const unitsQuery = useQuery({
-    queryKey: ["company-units", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("units_of_measure")
-        .select("id, code, description, status")
-        .eq("company_id", companyId)
-        .order("code");
-      if (error) throw new Error(error.message);
-      return (data ?? []) as CompanyUnit[];
-    },
-  });
 
   const productsQuery = useQuery({
     queryKey: ["supplier-addable-products", companyId, supplierArchiveId],
