@@ -31,5 +31,5 @@
 
 - [ ] U.M. e prezzi: distinguere U.M. base prodotto, U.M. acquisto referenza fornitore, U.M. ordinabili dal cliente, U.M. di riferimento del prezzo, conversioni indicative e quantità/peso effettivo della preparazione. Il prezzo resta riferito a una sola U.M. (es. €/kg); le conversioni non determinano il totale definitivo. Il futuro modulo ordini/preparazione dovrà distinguere quantità richiesta → preparata/pesata → fatturabile → importo definitivo (totale solo come stima prima della preparazione).
 - [ ] Vincolo documentato: tutti i listini di un prodotto sono interpretati rispetto alla stessa U.M. prezzo (products.price_unit_id); product_prices non modificato. Conversione prodotto/U.M. esplicitamente esatta o indicativa, mai dedotta dall'U.M.
-- [ ] Più U.M. d'acquisto per la stessa referenza fornitore (KG · CASSA · SACCO), U.M. predefinita facoltativa (purchase_unit_id può restare NULL), conversioni opzionali e mai obbligatorie
+- [x] Più U.M. d'acquisto per la stessa referenza fornitore (KG · CASSA · SACCO), U.M. predefinita facoltativa (purchase_unit_id può restare NULL), conversioni opzionali e mai obbligatorie
 - [ ] Nessuna falsa equivalenza fabbisogno ↔ acquisto: senza conversione certa non calcolare equivalente, copertura, residuo o eccedenza; fabbisogno e decisione d'acquisto restano due dati separati
