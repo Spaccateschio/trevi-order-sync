@@ -210,6 +210,7 @@ export async function importDaneaCatalog(
         supplier_product_code: product.supplierProductCode,
         image_file_name: product.imageFileName,
         image_folder: product.imageFileName ? doc.imageFolder : null,
+        origin: "danea" as const,
         publish_status: "pubblicato" as const,
         unpublished_at: null,
         last_received_at: now,
@@ -266,6 +267,7 @@ export async function importDaneaCatalog(
           .update({ publish_status: "non_pubblicato", unpublished_at: now })
           .eq("company_id", companyId)
           .eq("archive_id", archiveId)
+          .eq("origin", "danea")
           .eq("publish_status", "pubblicato")
           .neq("last_sync_run_id", runId)
           .select("id");
@@ -285,6 +287,7 @@ export async function importDaneaCatalog(
         .update({ publish_status: "non_pubblicato", unpublished_at: now, last_sync_run_id: runId })
         .eq("company_id", companyId)
         .eq("archive_id", archiveId)
+        .eq("origin", "danea")
         .in("code", doc.deletedCodes)
         .select("id");
       if (error) throw new Error(`Depubblicazione: ${error.message}`);
@@ -368,7 +371,8 @@ export async function analyzeDaneaCatalog(
     .from("products")
     .select("id, code, danea_internal_id, publish_status, last_sync_run_id")
     .eq("company_id", companyId)
-    .eq("archive_id", archiveId);
+    .eq("archive_id", archiveId)
+    .eq("origin", "danea");
   if (error) throw new Error(error.message);
 
   const byInternalId = new Set<string>();
