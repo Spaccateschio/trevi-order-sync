@@ -104,13 +104,15 @@ function PriceUnitSelector({ product, companyId, companyUnits, editable }: { pro
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: async (value: string) => {
-      const { error } = await supabase.rpc("set_product_price_unit", {
-        _company_id: companyId,
-        _product_id: product.id,
-        _price_unit_id: value === "base" ? null : value,
-      });
+      const args: Record<string, string> = { _company_id: companyId, _product_id: product.id };
+      if (value !== "base") args["_price_unit_id"] = value;
+      const { error } = await supabase.rpc(
+        "set_product_price_unit",
+        args as unknown as { _company_id: string; _product_id: string; _price_unit_id: string },
+      );
       if (error) throw new Error(error.message);
     },
+
     onSuccess: () => {
       toast.success("U.M. del prezzo aggiornata");
       void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] });
