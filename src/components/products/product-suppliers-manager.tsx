@@ -74,11 +74,11 @@ const EMPTY_DRAFT = {
   notes: "",
 };
 
-function num(value: string): number | null {
+function num(value: string, field?: string): number | null {
   const normalized = value.trim().replace(",", ".");
   if (!normalized) return null;
   const parsed = Number(normalized);
-  if (!Number.isFinite(parsed)) throw new Error("Valore numerico non valido");
+  if (!Number.isFinite(parsed)) throw new Error(field ? `“${field}” accetta solo numeri: correggi il valore “${value.trim()}”.` : "Valore numerico non valido");
   return parsed;
 }
 
