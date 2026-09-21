@@ -330,37 +330,12 @@ export function SupplierProductsManager({
             onChange={(event) => setDraft((current) => ({ ...current, supplierProductCode: event.target.value }))}
           />
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">U.M. di acquisto</Label>
-          <Select
-            value={draft.purchaseUnitId || "nessuna"}
-            disabled={busy}
-            onValueChange={(value) =>
-              setDraft((current) => ({ ...current, purchaseUnitId: value === "nessuna" ? "" : value }))
-            }
-          >
-            <SelectTrigger><SelectValue placeholder="Nessuna" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nessuna">Nessuna</SelectItem>
-              {activeUnits.map((unit) => (
-                <SelectItem key={unit.id} value={unit.id}>
-                  {unit.code} · {unit.description}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">
-            Conversione {row.products?.danea_um ? `(1 U.M. acquisto ≈ … ${row.products.danea_um})` : ""}
-          </Label>
-          <Input
-            inputMode="decimal"
-            value={draft.conversionFactor}
-            disabled={busy}
-            placeholder="Da inserire manualmente"
-            onChange={(event) => setDraft((current) => ({ ...current, conversionFactor: event.target.value }))}
-          />
+        <div className="space-y-1 sm:col-span-2">
+          <Label className="text-xs">U.M. acquistabili</Label>
+          <p className="text-sm">{purchaseUnitsLabel(row)}</p>
+          <p className="text-xs text-muted-foreground">
+            Le U.M. con cui acquisti questa referenza e le eventuali conversioni si gestiscono nella scheda del prodotto.
+          </p>
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Costo manuale Trevi Fruit</Label>
