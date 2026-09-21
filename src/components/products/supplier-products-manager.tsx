@@ -570,13 +570,8 @@ export function SupplierProductsManager({
                   <dd className="font-mono">{row.supplier_product_code ?? "—"}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">U.M. acquisto</dt>
-                  <dd>
-                    {row.units_of_measure?.code ?? "—"}
-                    {row.conversion_factor
-                      ? ` · 1 ≈ ${row.conversion_factor} ${row.conversion_reference_um ?? ""}`
-                      : ""}
-                  </dd>
+                  <dt className="text-muted-foreground">U.M. acquistabili</dt>
+                  <dd>{purchaseUnitsLabel(row)}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Costo Danea</dt>
