@@ -531,7 +531,8 @@ function LinkDeliveryEditor({
       const { error } = await supabase.rpc("set_product_supplier_delivery_schedule", {
         _link_id: linkId,
         _inherit: input.inherit,
-        ...(input.inherit ? {} : { _weekdays: input.schedule.weekdays, _month_day: input.schedule.monthDay ?? undefined }),
+        ...(input.inherit ? {} : { _weekdays: input.schedule.weekdays }),
+        ...(!input.inherit && input.schedule.monthDay !== null ? { _month_day: input.schedule.monthDay } : {}),
       });
       if (error) throw new Error(error.message);
     },
