@@ -191,6 +191,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
     </SheetHeader>
     <TooltipProvider delayDuration={150}>
       <div className="mt-3 space-y-4">
+        <ProductImageManager productId={product.id} image={product.product_images ?? null} editable={isAdmin} top />
         {companyId ? (
           <div className="divide-y divide-border/60 rounded-lg border border-border px-3">
             <ShowcaseToggle product={product} companyId={companyId} editable={isAdmin} />
