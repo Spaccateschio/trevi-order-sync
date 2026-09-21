@@ -49,6 +49,18 @@ export async function importDaneaCatalog(
   const companyId = origin.kind === "station" ? origin.station.company_id : origin.companyId;
   const archiveId = origin.kind === "station" ? origin.station.archive_id : origin.archiveId;
 
+  // L'archivio interno "Prodotti propri" non è mai una destinazione Danea.
+  {
+    const { data: archive } = await supabaseAdmin
+      .from("danea_archives")
+      .select("is_internal")
+      .eq("id", archiveId)
+      .maybeSingle();
+    if (archive?.is_internal) {
+      throw new Error("L'archivio dei prodotti propri non può ricevere importazioni da Danea");
+    }
+  }
+
   const payloadHash = await sha256Hex(xml);
   const doc = parseDaneaProducts(xml);
 
