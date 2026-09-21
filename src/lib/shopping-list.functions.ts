@@ -50,6 +50,8 @@ const assignSchema = z.object({
   purchaseQuantity: z.number().positive().nullable(),
   minWarningAccepted: z.boolean(),
   notes: z.string().trim().max(500).nullable(),
+  // U.M. con cui si acquista: facoltativa, deve essere abilitata sulla referenza.
+  purchaseUnitId: z.string().uuid().nullable().optional(),
 });
 
 export const manageShoppingList = createServerFn({ method: "POST" })
