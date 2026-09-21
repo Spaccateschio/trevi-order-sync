@@ -4209,6 +4209,7 @@ export type Database = {
           _min_warning_accepted?: boolean
           _notes?: string
           _purchase_quantity?: number
+          _purchase_unit_id?: string
         }
         Returns: string
       }
