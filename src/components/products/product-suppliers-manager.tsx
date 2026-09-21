@@ -268,7 +268,8 @@ export function ProductSuppliersManager({
   });
 
   const busy = saveMutation.isPending || statusMutation.isPending || priorityMutation.isPending || matchMutation.isPending;
-  const activeUnits = units.filter((unit) => unit.status === "attivo");
+  // U.M. proponibili per l'acquisto: uso "acquisto" o "entrambi".
+  const purchaseUnits = units.filter((unit) => unit.status === "attivo" && (unit.usage ?? "entrambi") !== "vendita");
   const availableSuppliers = (suppliersQuery.data ?? []).filter(
     (supplier) => supplier.archive_id === null || supplier.archive_id === productArchiveId,
   );
