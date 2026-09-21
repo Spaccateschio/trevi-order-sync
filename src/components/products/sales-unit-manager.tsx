@@ -104,16 +104,9 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
     <div className={showPurchase ? "mt-2 grid gap-3 sm:grid-cols-2" : "mt-2"}>
       {showPurchase ? <div className="min-w-0">
         <p className="text-xs font-medium uppercase text-muted-foreground">Acquisto</p>
-        {purchaseRows.length ? <ul className="mt-1 space-y-1 text-sm">
-          {purchaseRows.map((row, index) => {
-            const codes = (row.purchase_units ?? []).filter((unit) => unit.is_active);
-            return <li key={`${row.supplier_name}-${index}`} className="min-w-0">
-              <span className="font-medium">{codes.length ? codes.map((unit) => `${unit.code}${unit.is_default ? " ★" : ""}`).join(" · ") : "—"}</span>
-              <span className="ml-1 text-muted-foreground">{row.supplier_name}</span>
-            </li>;
-          })}
-        </ul> : <p className="mt-1 text-sm text-muted-foreground">Nessuna U.M. di acquisto</p>}
+        <PurchaseUnitsOverview productId={productId} />
       </div> : null}
+
       <div className="min-w-0">
         {showPurchase ? <p className="text-xs font-medium uppercase text-muted-foreground">Vendita</p> : null}
         <div className="mt-1 flex flex-wrap items-center gap-2" aria-label="U.M. vendita associate">
