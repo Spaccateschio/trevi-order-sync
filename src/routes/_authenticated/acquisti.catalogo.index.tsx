@@ -239,6 +239,7 @@ function CatalogoIndex() {
           units: sortedSaleUnits(product),
           selectedUnitId: resolveSaleUnit(product, preferences.get(product.id))?.id ?? null,
           price,
+          priceUnit: priceUnitCode(product),
           availability: product.commercial_availability,
         });
       }
