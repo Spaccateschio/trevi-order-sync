@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { dateTime, euro, type ProductRow } from "@/lib/product-grid";
+import { AVAILABILITY_LABELS, dateTime, euro, type ProductRow } from "@/lib/product-grid";
 import { SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
 import { ProductImageManager } from "./product-image-manager";
 import { ProductSuppliersManager } from "./product-suppliers-manager";
@@ -118,6 +119,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
     </SheetHeader>
     <div className="mt-6 space-y-6">
       {companyId ? <ShowcaseToggle product={product} companyId={companyId} editable={isAdmin} /> : null}
+      {companyId ? <AvailabilitySelector product={product} companyId={companyId} editable={isAdmin} /> : null}
       {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} /> : null}
       {companyId ? <ProductSuppliersManager companyId={companyId} productId={product.id} productArchiveId={product.archive_id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
       {companyId ? <ProductStockPanel companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
