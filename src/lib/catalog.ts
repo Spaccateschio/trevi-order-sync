@@ -5,6 +5,7 @@ export type CatalogSaleUnit = {
   is_default: boolean;
   conversion_factor: number | null;
   conversion_reference_um: string | null;
+  conversion_type: "esatta" | "indicativa";
   units_of_measure: { code: string; description: string } | null;
 };
 
@@ -18,12 +19,34 @@ export type CatalogProductRow = {
   danea_um: string | null;
   notes: string | null;
   commercial_availability: "available" | "on_order" | "temporarily_unavailable";
+  price_unit: { code: string } | null;
   product_images: { id: string } | null;
   product_sale_units: CatalogSaleUnit[];
 };
 
 export const CATALOG_SELECT =
-  "id, code, description, description_html, category, subcategory, danea_um, notes, commercial_availability, product_images(id), product_sale_units(id, is_default, conversion_factor, conversion_reference_um, units_of_measure(code, description))";
+  "id, code, description, description_html, category, subcategory, danea_um, notes, commercial_availability, price_unit:units_of_measure!price_unit_id(code), product_images(id), product_sale_units(id, is_default, conversion_factor, conversion_reference_um, conversion_type, units_of_measure(code, description))";
+
+/**
+ * U.M. a cui è riferito il prezzo del prodotto: tutti i listini del prodotto
+ * si leggono rispetto a questa unità (es. €2,00/kg). Se non impostata, si usa l'U.M. base.
+ */
+export function priceUnitCode(product: CatalogProductRow) {
+  return product.price_unit?.code ?? product.danea_um ?? null;
+}
+
+/**
+ * Conversione dichiarata esatta ("1 cartone = 12 pz") oppure indicativa
+ * ("1 cassa ≈ 8 kg"): quella indicativa non determina mai un totale definitivo.
+ */
+export function conversionLabel(unit: CatalogSaleUnit, baseUm: string | null) {
+  const code = unit.units_of_measure?.code;
+  const reference = unit.conversion_reference_um ?? baseUm;
+  if (!code || unit.conversion_factor === null || !reference) return null;
+  const sign = unit.conversion_type === "esatta" ? "=" : "≈";
+  return `1 ${code} ${sign} ${unit.conversion_factor} ${reference}`;
+}
+
 
 /** Prodotti in vetrina di un fornitore: le RLS lasciano passare solo i collegamenti operativi. */
 export async function fetchSellerCatalogue(sellerCompanyId: string) {
