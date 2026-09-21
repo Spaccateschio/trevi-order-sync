@@ -354,7 +354,8 @@ export function ProductSuppliersManager({
                 <div className="flex flex-wrap items-center gap-2">
                   <Truck aria-hidden="true" className="size-4 text-muted-foreground" />
                   <strong className="text-sm">{row.supplier_name}</strong>
-                  {row.is_preferred ? <Badge><Star className="fill-current" aria-hidden="true" />Preferito</Badge> : null}
+                  {row.supplier_reference_label ? <span className="text-xs text-muted-foreground">{row.supplier_reference_label}</span> : null}
+                  {row.sourcing_priority !== null ? <Badge><Star className="fill-current" aria-hidden="true" />Priorità {row.sourcing_priority}</Badge> : null}
                   {!row.is_active ? <Badge variant="outline">Disattivato</Badge> : null}
                   {label ? <Badge variant="secondary"><Link2 aria-hidden="true" />{label}</Badge> : null}
                 </div>
