@@ -2,9 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 
 import { InventoryCountPanel } from "@/components/inventory/inventory-count-panel";
-import { supabase } from "@/integrations/supabase/client";
+import { ensureInventoryArchive } from "@/lib/inventory.functions";
 import { activeCompany, companyBuys, hasRole, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/acquisti/inventario")({
@@ -36,19 +37,11 @@ function Inventario() {
   const { data: identity, isLoading } = useIdentity();
   const company = activeCompany(identity);
   const isAdmin = hasRole(identity, "amministratore");
+  const ensureArchive = useServerFn(ensureInventoryArchive);
   const archiveQuery = useQuery({
     queryKey: ["inventory-archive", company?.companyId],
     enabled: Boolean(company?.companyId),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("danea_archives")
-        .select("id, name")
-        .eq("company_id", company!.companyId)
-        .order("created_at")
-        .limit(1);
-      if (error) throw new Error(error.message);
-      return data?.[0] ?? null;
-    },
+    queryFn: () => ensureArchive({ data: { companyId: company!.companyId } }),
   });
 
   if (!isLoading && !companyBuys(identity)) {
