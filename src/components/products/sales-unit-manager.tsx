@@ -42,6 +42,7 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
       visible: selected.is_customer_visible,
       isDefault: selected.is_default,
       factor: selected.conversion_factor?.toString() ?? "",
+      conversionType: selected.conversion_type,
     });
   }, [selected]);
 
@@ -61,12 +62,15 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
       if (draft.visible !== selected.is_customer_visible) await run({ data: { companyId, productIds: [productId], unitId: selected.unit_id, operation: "visible", booleanValue: draft.visible, conversionFactor: null, overwrite: true } });
       if (draft.isDefault && !selected.is_default) await run({ data: { companyId, productIds: [productId], unitId: selected.unit_id, operation: "default", booleanValue: null, conversionFactor: null, overwrite: true } });
       if (factor !== selected.conversion_factor || selected.needs_review) await run({ data: { companyId, productIds: [productId], unitId: selected.unit_id, operation: "factor", booleanValue: null, conversionFactor: factor, overwrite: true } });
+      if (draft.conversionType !== selected.conversion_type) await run({ data: { companyId, productIds: [productId], unitId: selected.unit_id, operation: "conversion_type", booleanValue: null, conversionFactor: null, conversionType: draft.conversionType, overwrite: true } });
     },
     onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["product-sale-units", companyId] }); toast.success("Configurazione U.M. salvata"); },
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const available = units.filter((unit) => unit.status === "attivo" && !assignments.some((row) => row.unit_id === unit.id));
+  // Solo le U.M. dell'anagrafica destinate alla vendita (o a entrambi gli usi).
+  const available = units.filter((unit) => unit.status === "attivo" && (unit.usage ?? "entrambi") !== "acquisto" && !assignments.some((row) => row.unit_id === unit.id));
+
   const busy = mutation.isPending || saveMutation.isPending;
 
   const requestRemoval = (row: ProductSaleUnit) => {
