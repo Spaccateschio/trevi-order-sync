@@ -18,6 +18,8 @@ type Overview = {
   supplier_name: string;
   supplier_internal_reference: string | null;
   supplier_product_code: string | null;
+  supplier_reference_label: string | null;
+  sourcing_priority: number | null;
   purchase_unit_id: string | null;
   purchase_unit_code: string | null;
   conversion_factor: number | null;
@@ -48,6 +50,8 @@ type SupplierOption = { id: string; legal_name: string; internal_reference: stri
 const EMPTY_DRAFT = {
   supplierRecordId: "",
   supplierProductCode: "",
+  referenceLabel: "",
+  sourcingPriority: "",
   purchaseUnitId: "",
   conversionFactor: "",
   manualCost: "",
