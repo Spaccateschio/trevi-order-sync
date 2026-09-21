@@ -162,6 +162,20 @@ export function InventoryCountPanel({
   });
   const catalogPreview = catalogPreviewQuery.data ?? [];
 
+  const previewImagesQuery = useQuery({
+    queryKey: ["inventario-prodotti-immagini", companyId, catalogPreview.length],
+    enabled: !sessionId && catalogPreview.length > 0,
+    staleTime: 8 * 60 * 1000,
+    queryFn: () =>
+      getImageUrls({ data: { productIds: catalogPreview.slice(0, 50).map((p) => p.id), thumbnail: true } }),
+  });
+  const previewImages = useMemo(
+    () => new Map((previewImagesQuery.data ?? []).map((image) => [image.productId, image.url])),
+    [previewImagesQuery.data],
+  );
+
+
+
 
   const progressQuery = useQuery({
     queryKey: ["inventory-progress", sessionId],
