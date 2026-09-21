@@ -37,19 +37,11 @@ function Inventario() {
   const { data: identity, isLoading } = useIdentity();
   const company = activeCompany(identity);
   const isAdmin = hasRole(identity, "amministratore");
+  const ensureArchive = useServerFn(ensureInventoryArchive);
   const archiveQuery = useQuery({
     queryKey: ["inventory-archive", company?.companyId],
     enabled: Boolean(company?.companyId),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("danea_archives")
-        .select("id, name")
-        .eq("company_id", company!.companyId)
-        .order("created_at")
-        .limit(1);
-      if (error) throw new Error(error.message);
-      return data?.[0] ?? null;
-    },
+    queryFn: () => ensureArchive({ data: { companyId: company!.companyId } }),
   });
 
   if (!isLoading && !companyBuys(identity)) {
