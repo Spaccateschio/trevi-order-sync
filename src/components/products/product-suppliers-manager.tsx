@@ -504,6 +504,81 @@ export function ProductSuppliersManager({
 }
 
 /**
+ * Giorni di consegna della singola referenza: normalmente ereditati dal fornitore,
+ * con la possibilità di impostare un'eccezione valida solo per questo prodotto.
+ */
+function LinkDeliveryEditor({
+  linkId,
+  delivery,
+  disabled,
+  onChanged,
+}: {
+  linkId: string;
+  delivery: { schedule: DeliverySchedule; isOverride: boolean; supplierSchedule: DeliverySchedule } | null;
+  disabled?: boolean;
+  onChanged: () => Promise<void>;
+}) {
+  const [override, setOverride] = useState(delivery?.isOverride ?? false);
+  const [schedule, setSchedule] = useState<DeliverySchedule>(delivery?.schedule ?? DEFAULT_SCHEDULE);
+
+  useEffect(() => {
+    setOverride(delivery?.isOverride ?? false);
+    setSchedule(delivery?.schedule ?? DEFAULT_SCHEDULE);
+  }, [delivery?.isOverride, delivery?.schedule]);
+
+  const save = useMutation({
+    mutationFn: async (input: { inherit: boolean; schedule: DeliverySchedule }) => {
+      const { error } = await supabase.rpc("set_product_supplier_delivery_schedule", {
+        _link_id: linkId,
+        _inherit: input.inherit,
+        ...(input.inherit ? {} : { _weekdays: input.schedule.weekdays, _month_day: input.schedule.monthDay }),
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: async () => {
+      await onChanged();
+      toast.success("Giorni di consegna aggiornati");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const busy = disabled || save.isPending;
+
+  return (
+    <div className="mt-3 space-y-2 rounded-md border border-border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-semibold">Giorni di consegna</span>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Switch
+            checked={override}
+            disabled={busy}
+            onCheckedChange={(next) => {
+              setOverride(next);
+              if (!next) save.mutate({ inherit: true, schedule });
+            }}
+          />
+          Eccezione per questo prodotto
+        </label>
+      </div>
+      {override ? (
+        <>
+          <DeliveryDaysPicker schedule={schedule} onChange={setSchedule} disabled={busy} label="Giorni validi per questo prodotto" />
+          <div className="flex justify-end">
+            <Button type="button" size="sm" disabled={busy} onClick={() => save.mutate({ inherit: false, schedule })}>
+              Salva giorni
+            </Button>
+          </div>
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Eredita i giorni impostati nella scheda del fornitore. Solo informativo: non blocca gli ordini.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * U.M. con cui è possibile acquistare una singola referenza fornitore.
  * La predefinita è facoltativa: una referenza può restare senza U.M. preferita.
  */
