@@ -24,6 +24,11 @@ import {
   sortedSaleUnits,
   type CatalogProductRow,
 } from "@/lib/catalog";
+import {
+  favoriteToggleMessage,
+  invalidateAfterFavoriteChange,
+  toggleCatalogFavorite,
+} from "@/lib/catalog-favorites";
 
 import { getCatalogImageUrls } from "@/lib/catalog.functions";
 import { euro } from "@/lib/product-grid";
@@ -140,29 +145,21 @@ function CatalogProductPage() {
   const toggleFavorite = useMutation({
     mutationFn: async () => {
       if (!buyerId) throw new Error("Azienda non disponibile");
-      if (favoriteQuery.data) {
-        const { error } = await supabase
-          .from("buyer_product_favorites")
-          .delete()
-          .eq("buyer_company_id", buyerId)
-          .eq("product_id", productId);
-        if (error) throw new Error(error.message);
-        return;
-      }
-      const { error } = await supabase.from("buyer_product_favorites").insert({
-        buyer_company_id: buyerId,
-        seller_company_id: sellerId,
-        product_id: productId,
-        created_by: identity?.userId ?? null,
+      return toggleCatalogFavorite({
+        buyerCompanyId: buyerId,
+        sellerCompanyId: sellerId,
+        productId,
+        userId: identity?.userId ?? null,
+        isFavorite: Boolean(favoriteQuery.data),
       });
-      if (error) throw new Error(error.message);
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["catalogo-preferito", buyerId, productId] });
-      void queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti", buyerId, sellerId] });
+    onSuccess: (result) => {
+      toast.success(favoriteToggleMessage(result));
+      invalidateAfterFavoriteChange(queryClient, buyerId);
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
 
   if (!operational) {
     return (
