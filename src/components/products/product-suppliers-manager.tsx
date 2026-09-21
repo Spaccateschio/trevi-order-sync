@@ -297,24 +297,30 @@ export function ProductSuppliersManager({
         <Input inputMode="numeric" value={draft.sourcingPriority} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
         <p className="text-xs text-muted-foreground">Più fonti possono avere la stessa priorità: la scelta finale resta nella Lista della Spesa.</p>
       </div>
-      <div className="space-y-1">
-        <Label className="text-xs">U.M. di acquisto</Label>
-        <Select value={draft.purchaseUnitId || "nessuna"} disabled={busy} onValueChange={(value) => setDraft((current) => ({ ...current, purchaseUnitId: value === "nessuna" ? "" : value }))}>
-          <SelectTrigger><SelectValue placeholder="Nessuna" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="nessuna">Nessuna</SelectItem>
-            {activeUnits.map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.code} — {unit.description}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1 sm:col-span-2">
-        <Label className="text-xs">Conversione verso la U.M. del prodotto ({daneaUm ?? "—"})</Label>
-        <div className="grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2">
-          <span className="text-sm">1 {draft.purchaseUnitId ? activeUnits.find((unit) => unit.id === draft.purchaseUnitId)?.code ?? "U.M." : "U.M."} ≈</span>
-          <Input inputMode="decimal" aria-label="Conversione stimata" value={draft.conversionFactor} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, conversionFactor: event.target.value }))} />
-          <span className="truncate text-sm">{daneaUm ?? "U.M. prodotto"}</span>
-        </div>
-      </div>
+      {mode === "create" ? (
+        <>
+          <div className="space-y-1">
+            <Label className="text-xs">Prima U.M. di acquisto (facoltativa)</Label>
+            <Select value={draft.purchaseUnitId || "nessuna"} disabled={busy} onValueChange={(value) => setDraft((current) => ({ ...current, purchaseUnitId: value === "nessuna" ? "" : value }))}>
+              <SelectTrigger><SelectValue placeholder="Nessuna" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nessuna">Nessuna</SelectItem>
+                {purchaseUnits.map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.code} — {unit.description}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Dopo il salvataggio potrai aggiungere altre U.M. con cui acquistare questa referenza.</p>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Conversione (facoltativa) verso {daneaUm ?? "U.M. prodotto"}</Label>
+            <div className="grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2">
+              <span className="text-sm">1 {draft.purchaseUnitId ? purchaseUnits.find((unit) => unit.id === draft.purchaseUnitId)?.code ?? "U.M." : "U.M."} ≈</span>
+              <Input inputMode="decimal" aria-label="Conversione stimata" value={draft.conversionFactor} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, conversionFactor: event.target.value }))} />
+              <span className="truncate text-sm">{daneaUm ?? "U.M. prodotto"}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Compila solo se l’equivalenza è certa: senza conversione il sistema non calcola equivalenti.</p>
+          </div>
+        </>
+      ) : null}
       <div className="space-y-1">
         <Label className="text-xs">Costo concordato (Trevi Fruit)</Label>
         <Input inputMode="decimal" value={draft.manualCost} disabled={busy} placeholder="Nessuno" onChange={(event) => setDraft((current) => ({ ...current, manualCost: event.target.value }))} />
