@@ -33,6 +33,11 @@ import {
   sortedSaleUnits,
   type CatalogProductRow,
 } from "@/lib/catalog";
+import {
+  favoriteToggleMessage,
+  invalidateAfterFavoriteChange,
+  toggleCatalogFavorite,
+} from "@/lib/catalog-favorites";
 import { getCatalogImageUrls } from "@/lib/catalog.functions";
 
 export const Route = createFileRoute("/_authenticated/acquisti/catalogo/")({
