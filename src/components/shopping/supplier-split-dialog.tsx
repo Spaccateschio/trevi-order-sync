@@ -242,6 +242,9 @@ export function SupplierSplitDialog({
                       {sharePercent(Number(existing.assigned_quantity), assignedTotal)}%
                     </Badge>
                   ) : null}
+                  {deliveries[supplier.link_id] ? (
+                    <DeliveryHintBadge schedule={deliveries[supplier.link_id]!.schedule} />
+                  ) : null}
                 </div>
 
                 <p className="text-xs text-muted-foreground">
