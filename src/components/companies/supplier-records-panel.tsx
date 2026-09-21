@@ -913,6 +913,12 @@ export function SupplierRecordsPanel({
             </TabsContent>
 
             <TabsContent value="varie" className="mt-4 space-y-4">
+              <div className="rounded-md border border-border p-3">
+                <DeliveryDaysPicker schedule={delivery} onChange={setDelivery} disabled={busy || !isAdmin} />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Serve solo come promemoria in inventario e lista della spesa: non blocca né filtra nulla.
+                </p>
+              </div>
               {editing ? <ExtraFields record={editing} group="varie" /> : null}
               <div className="grid gap-1.5">
                 <Label>Note</Label>
