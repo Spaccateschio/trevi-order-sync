@@ -8,6 +8,8 @@ import { AddressManager } from "@/components/companies/address-manager";
 import { SupplierImportDialog } from "@/components/companies/supplier-import-dialog";
 import { SupplierPointsManager } from "@/components/companies/supplier-points-manager";
 import { SupplierProductsManager } from "@/components/products/supplier-products-manager";
+import { DeliveryDaysPicker } from "@/components/suppliers/delivery-days-picker";
+import { DEFAULT_SCHEDULE, toSchedule, type DeliverySchedule } from "@/lib/delivery-schedule";
 import {
   AlertDialog,
   AlertDialogAction,
