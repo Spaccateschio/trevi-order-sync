@@ -1,51 +1,86 @@
-# Unità di misura: distinguere acquisto e vendita
+# Unità di misura: acquisto, vendita, prezzo e peso effettivo
+
+## Principio guida (dal chiarimento)
+
+- Il **prezzo unitario è certo** e riferito a **una sola U.M.** (es. POMODORI = €2,00/kg), indipendentemente dall'U.M. scelta per ordinare.
+- Le **U.M. ordinabili** possono essere più di una (kg, cassa, pezzo, mazzo).
+- Le **conversioni** (1 cassa ≈ 8 kg) sono **indicative**: servono a informare, preparare e stimare il fabbisogno, **non certificano il peso** e **non determinano il totale definitivo**.
+- Il **totale definitivo nasce solo dalla preparazione/pesatura** (8,35 kg × €2,00 = €16,70). Prima di allora si può mostrare solo un **totale stimato**, etichettato come stima.
+- Vale anche ordinando a kg: richiesti 3 kg, preparati 3,08 kg → il definitivo è 3,08 kg.
 
 ## Situazione attuale (verificata)
 
-- L'anagrafica `units_of_measure` è **un unico elenco aziendale** (sigla, descrizione, stato). Non dice se una U.M. serve per comprare o per vendere.
-- La distinzione però **esiste già dove conta**:
-  - **Vendita** → `product_sale_units`: per ogni prodotto puoi assegnare più U.M. di vendita (cassa, kg, pezzo) con conversione, visibilità al cliente e una predefinita.
-  - **Acquisto** → `product_supplier_links.purchase_unit_id`: ogni referenza fornitore ha la propria unità d'acquisto con conversione verso l'U.M. base.
-- Manca invece: (a) poter marcare a catalogo l'uso previsto di ogni U.M., (b) poter dire "vendo a cassa ma il prezzo è al kg".
+- `units_of_measure`: unico elenco aziendale (sigla, descrizione, stato). Non distingue l'uso.
+- **Vendita** → `product_sale_units`: più U.M. per prodotto con conversione, visibilità al cliente, predefinita. Già la struttura giusta per le U.M. ordinabili.
+- **Acquisto** → `product_supplier_links.purchase_unit_id`: U.M. e conversione della singola referenza fornitore.
+- **Prezzo** → `product_prices` (listino, netto/lordo) **non dice a quale U.M. si riferisce**: è il buco da chiudere.
+- Nessun modulo ordini clienti esiste ancora: la semantica richiesta va **fissata nel modello ora**, applicata poi.
 
 ## Cosa propongo
 
 ### 1. Uso dell'unità di misura (acquisto / vendita / entrambi)
 
-- Nuovo campo sull'anagrafica U.M.: uso = `acquisto`, `vendita`, `entrambi` (predefinito `entrambi`; tutte le U.M. esistenti diventano `entrambi`, nessun dato cambia).
-- Nella schermata Impostazioni → Unità di misura: pulsanti/segmenti per scegliere l'uso, colonna "Uso" in elenco.
-- I selettori filtrano di conseguenza:
-  - U.M. di vendita del prodotto → solo `vendita` + `entrambi`.
-  - U.M. d'acquisto della referenza fornitore → solo `acquisto` + `entrambi`.
-  - U.M. base del prodotto (scheda Nuovo prodotto) → tutte.
-- È un **filtro di comodità, non un blocco retroattivo**: le assegnazioni già esistenti restano valide anche se l'uso viene poi ristretto.
+Nuovo campo sull'anagrafica U.M.: `acquisto`, `vendita`, `entrambi` (predefinito `entrambi`, nessun dato esistente cambia). In Impostazioni → Unità di misura: pulsanti per l'uso + colonna "Uso".
 
-### 2. Prezzo espresso su un'unità diversa da quella di vendita
+I selettori filtrano per comodità, **senza blocchi retroattivi**:
+- U.M. ordinabili del prodotto → `vendita` + `entrambi`
+- U.M. d'acquisto della referenza fornitore → `acquisto` + `entrambi`
+- U.M. base del prodotto → tutte
 
-Sul singolo abbinamento prodotto ↔ U.M. di vendita si aggiunge:
-- modalità prezzo: **per unità di vendita** (es. € a cassa) oppure **per U.M. base** (es. € al kg, moltiplicato dal fattore di conversione);
-- l'U.M. di riferimento del prezzo quando la modalità è "per U.M. base".
+### 2. U.M. di riferimento del prezzo (separata dalle U.M. ordinabili)
 
-Così "vendo a cassa, prezzo al kg" diventa configurabile per prodotto, senza duplicare prodotti né listini.
+Sul prodotto: **U.M. a cui è riferito il prezzo** (`price_unit_id`, es. kg). Il prezzo di listino si legge sempre come "€ per quella U.M.".
+- Non si aggiunge nessun prezzo per singola U.M. di vendita: un solo prezzo certo, una sola U.M. di riferimento.
+- Il catalogo cliente mostrerà "€2,00/kg" e, per ogni U.M. ordinabile diversa dalla U.M. prezzo, la conversione indicativa: "1 cassa ≈ 8 kg".
 
-Nota: i listini (`product_prices`) restano invariati in questa fase — la modalità dice **come si legge** il prezzo, non cambia come è memorizzato. Se serve un prezzo diverso per ogni U.M. di vendita, è una fase successiva da concordare.
+### 3. Le conversioni restano dichiaratamente indicative
+
+`product_sale_units.conversion_factor` resta, ma con semantica esplicita:
+- nuovo flag **peso variabile** sull'abbinamento prodotto ↔ U.M. ordinabile: quando è attivo, la conversione è una stima e il totale non è determinabile prima della pesatura;
+- l'etichetta mostrata al cliente usa sempre "≈" quando la conversione è indicativa.
+
+### 4. Semantica ordini/preparazione fissata ora (nessuna UI in questa fase)
+
+Il modello dei futuri ordini cliente dovrà distinguere quattro grandezze, che documento adesso come vincolo di progetto:
+
+```text
+quantità + U.M. richieste dal cliente   (1 cassa)
+   -> quantità/peso effettivo preparato  (8,35 kg)
+      -> quantità fatturabile            (8,35 kg)
+         -> importo definitivo           (8,35 x 2,00 = 16,70)
+```
+
+Prima della preparazione si calcola solo un **totale stimato** (1 cassa ≈ 8 kg → ≈ €16,00), sempre etichettato come stima e mai salvato come importo definitivo.
+
+## Le sei grandezze tenute separate
+
+| Concetto | Dove vive |
+| --- | --- |
+| U.M. base prodotto | `products.um` |
+| U.M. acquisto referenza fornitore | `product_supplier_links.purchase_unit_id` |
+| U.M. ordinabili dal cliente | `product_sale_units` |
+| U.M. di riferimento del prezzo | nuova `products.price_unit_id` |
+| Conversioni indicative | `product_sale_units.conversion_factor` + flag peso variabile |
+| Quantità/peso effettivo | futuro modulo preparazione (solo semantica fissata ora) |
 
 ## Cosa resta invariato
 
-FASE A/B/C/D, inventario (sempre su U.M. base, una riga per prodotto), fabbisogno, Lista della Spesa (referenza singola), Danea (import read-only, non tocca l'uso delle U.M. né i prodotti interni), permessi, route, layout approvati.
+FASE A/B/C/D; inventario sempre su U.M. base con una riga per prodotto e fotografia immutabile; formule di giacenza e fabbisogno; Lista della Spesa sulla singola referenza; ordini fornitore, ricevute, lotti; Danea (import read-only, non tocca uso U.M., U.M. prezzo, unità di vendita né prodotti interni); listini `product_prices` nella struttura attuale; permessi, route e layout approvati.
 
 ## Dettagli tecnici
 
-- Nuovo enum `unit_usage` (`acquisto`,`vendita`,`entrambi`) + colonna su `units_of_measure` con default `entrambi`.
-- Nuovo enum `sale_price_mode` (`per_unita_vendita`,`per_um_base`) + colonne `price_mode` e `price_reference_unit_id` su `product_sale_units`.
-- RPC aggiornate: `manage_unit_of_measure` (parametro uso), `apply_product_sale_unit_batch` (operazioni `price_mode` / `price_reference`). SECURITY DEFINER, `search_path = public`, solo amministratori come oggi.
-- UI toccata: `unit-catalogue.tsx`, `sales-unit-manager.tsx`, `unit-picker.tsx`, `product-suppliers-manager.tsx`, `internal-product-dialog.tsx`.
+- Nuovo enum `unit_usage` (`acquisto`,`vendita`,`entrambi`) + colonna su `units_of_measure`, default `entrambi`.
+- Nuova colonna `products.price_unit_id` (FK `units_of_measure`, nullable; se vuota il prezzo si intende sull'U.M. base).
+- Nuova colonna `product_sale_units.is_estimated_conversion` (boolean, default true quando la conversione è verso un'U.M. a peso).
+- RPC aggiornate: `manage_unit_of_measure` (uso), `manage_internal_product` (U.M. prezzo), `apply_product_sale_unit_batch` (operazione `estimated`). SECURITY DEFINER, `search_path = public`, solo amministratori come oggi.
+- UI toccata: `unit-catalogue.tsx`, `unit-picker.tsx`, `sales-unit-manager.tsx`, `internal-product-dialog.tsx`, `product-detail-sheet.tsx`, catalogo cliente (`acquisti.catalogo.*`) per l'etichetta "€2,00/kg · 1 cassa ≈ 8 kg".
 
 ## Test previsti (transazionali, con rollback)
 
-1. U.M. "cassa" marcata `acquisto`: non appare tra le U.M. di vendita, appare tra le referenze fornitore.
-2. U.M. già assegnata e poi ristretta: l'assegnazione esistente resta e continua a funzionare.
-3. Prodotto con tre U.M. di vendita (cassa, kg, pezzo) e prezzo in modalità "al kg": conversioni corrette.
-4. Inventario: una sola riga per prodotto, fotografia immutabile.
-5. Import Danea: nessuna modifica a uso U.M., unità di vendita, prodotti interni.
-6. Nessuna regressione su Lista della Spesa, ordini, ricevute, lotti.
+1. U.M. "cassa" marcata `acquisto`: assente tra le U.M. ordinabili, presente tra le referenze fornitore.
+2. U.M. già assegnata e poi ristretta: l'assegnazione esistente resta valida e funzionante.
+3. POMODORI con prezzo €2,00/kg e U.M. ordinabili kg/cassa/pezzo: il catalogo mostra sempre €2,00/kg e "1 cassa ≈ 8 kg", mai €16,00 come prezzo.
+4. Nessun importo definitivo viene calcolato o salvato da una conversione indicativa.
+5. Inventario: una sola riga per prodotto, fotografia immutabile, U.M. base invariata.
+6. Import Danea: nessuna modifica a uso U.M., U.M. prezzo, unità di vendita, prodotti interni.
+7. Nessuna regressione su fabbisogno, Lista della Spesa, ordini fornitore, ricevute, lotti.
