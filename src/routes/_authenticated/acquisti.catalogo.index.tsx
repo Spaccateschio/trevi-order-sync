@@ -27,6 +27,7 @@ import {
   fetchAssignedPrices,
   fetchSellerCatalogue,
   fetchUnitPreferences,
+  priceUnitCode,
   resolveSaleUnit,
   saveUnitPreference,
   sortedSaleUnits,
