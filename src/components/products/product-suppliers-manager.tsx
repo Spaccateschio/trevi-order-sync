@@ -335,15 +335,18 @@ export function ProductSuppliersManager({
       ) : null}
       <div className="space-y-1">
         <Label className="text-xs">Costo concordato (Trevi Fruit)</Label>
-        <Input inputMode="decimal" value={draft.manualCost} disabled={busy} placeholder="Nessuno" onChange={(event) => setDraft((current) => ({ ...current, manualCost: event.target.value }))} />
+        <Input inputMode="decimal" aria-invalid={isInvalidNumber(draft.manualCost)} className={invalidClass(draft.manualCost)} value={draft.manualCost} disabled={busy} placeholder="Nessuno" onChange={(event) => setDraft((current) => ({ ...current, manualCost: event.target.value }))} />
+        {numberError(draft.manualCost)}
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Quantità minima</Label>
-        <Input inputMode="decimal" value={draft.minQuantity} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, minQuantity: event.target.value }))} />
+        <Input inputMode="decimal" aria-invalid={isInvalidNumber(draft.minQuantity)} className={invalidClass(draft.minQuantity)} value={draft.minQuantity} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, minQuantity: event.target.value }))} />
+        {numberError(draft.minQuantity)}
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Giorni di consegna</Label>
-        <Input type="number" min={0} step={1} inputMode="numeric" value={draft.leadTimeDays} disabled={busy} placeholder="Es. 2" onChange={(event) => setDraft((current) => ({ ...current, leadTimeDays: event.target.value }))} />
+        <Input type="number" min={0} step={1} inputMode="numeric" aria-invalid={isInvalidNumber(draft.leadTimeDays)} className={invalidClass(draft.leadTimeDays)} value={draft.leadTimeDays} disabled={busy} placeholder="Es. 2" onChange={(event) => setDraft((current) => ({ ...current, leadTimeDays: event.target.value }))} />
+        {numberError(draft.leadTimeDays)}
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Note</Label>
