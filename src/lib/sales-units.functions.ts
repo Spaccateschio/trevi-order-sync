@@ -6,20 +6,23 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const unitActionSchema = z.object({
   companyId: z.string().uuid(),
   unitId: z.string().uuid().nullable(),
-  action: z.enum(["create", "update", "activate", "deactivate", "delete"]),
+  action: z.enum(["create", "update", "activate", "deactivate", "delete", "set_usage"]),
   code: z.string().trim().max(20).nullable(),
   description: z.string().trim().max(100).nullable(),
+  usage: z.enum(["acquisto", "vendita", "entrambi"]).nullable().default(null),
 });
 
 const batchSchema = z.object({
   companyId: z.string().uuid(),
   productIds: z.array(z.string().uuid()).min(1).max(10000),
   unitId: z.string().uuid(),
-  operation: z.enum(["add", "visible", "active", "factor", "default", "remove"]),
+  operation: z.enum(["add", "visible", "active", "factor", "default", "remove", "conversion_type"]),
   booleanValue: z.boolean().nullable(),
   conversionFactor: z.number().positive().nullable(),
+  conversionType: z.enum(["esatta", "indicativa"]).nullable().default(null),
   overwrite: z.boolean(),
 });
+
 
 async function assertAdmin(
   supabase: { rpc: (fn: "is_company_admin", args: { _company_id: string }) => PromiseLike<{ data: unknown }> },
