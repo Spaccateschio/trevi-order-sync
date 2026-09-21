@@ -342,17 +342,14 @@ export function ProductSuppliersManager({
   );
 
   return (
-    <section aria-labelledby="product-suppliers-title" className="border-t border-border pt-4">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-        <div className="min-w-0">
-          <h3 id="product-suppliers-title" className="text-sm font-semibold">Fornitori</h3>
-          <p className="text-xs text-muted-foreground">Anagrafica fornitori Trevi Fruit · U.M. prodotto Danea: {daneaUm ?? "—"}</p>
-        </div>
+    <section aria-labelledby="product-suppliers-title" className="border-t border-border pt-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 id="product-suppliers-title" className="text-sm font-semibold">Fornitori</h3>
         <Badge variant="secondary" className="shrink-0">{editable ? "Modificabili" : "Sola lettura"}</Badge>
       </div>
 
       {editable && pending.length ? (
-        <div className="mt-3 space-y-3 rounded-md border border-dashed border-border bg-muted/30 p-3">
+        <div className="mt-2 space-y-3 rounded-md border border-dashed border-border bg-muted/30 p-3">
           <p className="text-sm font-semibold">Fornitore Danea da associare</p>
           {pending.map((match) => (
             <div key={match.id} className="space-y-2 border-t border-border pt-2 first:border-0 first:pt-0">
@@ -378,7 +375,7 @@ export function ProductSuppliersManager({
         </div>
       ) : null}
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-2 space-y-2">
         {links.map((row) => {
           const isSelected = row.link_id === selectedLinkId;
           const label = linkedLabel(row.b2b_relation_status);
@@ -432,11 +429,20 @@ export function ProductSuppliersManager({
             </div>
           );
         })}
-        {!links.length ? <p className="text-sm text-muted-foreground">Nessun fornitore associato a questo prodotto.</p> : null}
+        {!links.length && !adding ? (
+          editable ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">Nessun fornitore associato</p>
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setSelectedLinkId(null); setDraft(EMPTY_DRAFT); setAdding(true); }}><Plus aria-hidden="true" />Aggiungi</Button>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Nessun fornitore associato</p>
+          )
+        ) : null}
       </div>
 
       {editable ? (
-        <div className="mt-3">
+        <div className="mt-2">
           {adding ? (
             <div className="rounded-md border border-border bg-muted/30 p-3">
               <div className="space-y-1">
@@ -459,9 +465,9 @@ export function ProductSuppliersManager({
                 <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate("create")}>Aggiungi</Button>
               </div>
             </div>
-          ) : (
+          ) : links.length ? (
             <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setSelectedLinkId(null); setDraft(EMPTY_DRAFT); setAdding(true); }}><Plus aria-hidden="true" />Aggiungi fornitore</Button>
-          )}
+          ) : null}
         </div>
       ) : null}
     </section>
