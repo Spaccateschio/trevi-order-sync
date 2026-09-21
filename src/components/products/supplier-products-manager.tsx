@@ -483,7 +483,7 @@ export function SupplierProductsManager({
               <th>Descrizione</th>
               <th>Archivio</th>
               <th>Cod. fornitore</th>
-              <th>U.M. acquisto</th>
+              <th>U.M. acquistabili</th>
               <th>Costo Danea</th>
               <th>Costo Trevi Fruit</th>
               <th>Q.tà min.</th>
