@@ -1,71 +1,51 @@
-# Piano tecnico — Prodotto commerciale, referenze fornitore, disponibilità
+# Unità di misura: distinguere acquisto e vendita
 
-Nessuna modifica al database in questa fase: solo analisi e proposta. FASE A, B, C e D restano intatte.
+## Situazione attuale (verificata)
 
-## 1. Cosa c'è oggi (verificato sul database)
+- L'anagrafica `units_of_measure` è **un unico elenco aziendale** (sigla, descrizione, stato). Non dice se una U.M. serve per comprare o per vendere.
+- La distinzione però **esiste già dove conta**:
+  - **Vendita** → `product_sale_units`: per ogni prodotto puoi assegnare più U.M. di vendita (cassa, kg, pezzo) con conversione, visibilità al cliente e una predefinita.
+  - **Acquisto** → `product_supplier_links.purchase_unit_id`: ogni referenza fornitore ha la propria unità d'acquisto con conversione verso l'U.M. base.
+- Manca invece: (a) poter marcare a catalogo l'uso previsto di ogni U.M., (b) poter dire "vendo a cassa ma il prezzo è al kg".
 
-**Prodotto commerciale — `products`**
-Il prodotto è già un'entità autonoma dell'azienda: codice, descrizione, categoria/sottocategoria, U.M., barcode, produttore, immagine, unità di vendita, listini, `publish_status` (pubblicato / non pubblicato), `b2b_visible` (in vetrina verso i clienti collegati), `origin` (danea / interno) e `is_managed`. Nessun campo lega il prodotto all'esistenza di un fornitore: disattivando tutti i fornitori il prodotto **oggi non sparisce già adesso**, né dal catalogo né dall'inventario. Questo punto è già corretto.
+## Cosa propongo
 
-**Referenze d'acquisto — `product_supplier_links`**
-Ogni riga rappresenta la referenza di un fornitore: codice articolo del fornitore, U.M. d'acquisto, fattore di conversione, costo manuale, quantità minima, giorni di consegna, note, attiva/disattiva, `is_preferred`.
+### 1. Uso dell'unità di misura (acquisto / vendita / entrambi)
 
-**Due limiti reali, trovati durante i test**
-1. Esiste un indice unico non documentato `product_supplier_links_unique (product_id, supplier_record_id)`: **un solo fornitore può comparire una sola volta per prodotto**, quindi 0255 e 0832 dello stesso fornitore non convivono. (La verifica precedente guardava solo i vincoli dichiarati e non gli indici: correzione mia.)
-2. Esiste `product_supplier_links_one_preferred (product_id) WHERE is_preferred`: un solo "preferito" booleano, senza ordine fra le altre fonti.
+- Nuovo campo sull'anagrafica U.M.: uso = `acquisto`, `vendita`, `entrambi` (predefinito `entrambi`; tutte le U.M. esistenti diventano `entrambi`, nessun dato cambia).
+- Nella schermata Impostazioni → Unità di misura: pulsanti/segmenti per scegliere l'uso, colonna "Uso" in elenco.
+- I selettori filtrano di conseguenza:
+  - U.M. di vendita del prodotto → solo `vendita` + `entrambi`.
+  - U.M. d'acquisto della referenza fornitore → solo `acquisto` + `entrambi`.
+  - U.M. base del prodotto (scheda Nuovo prodotto) → tutte.
+- È un **filtro di comodità, non un blocco retroattivo**: le assegnazioni già esistenti restano valide anche se l'uso viene poi ristretto.
 
-**Danea**
-L'importazione lavora ora esclusivamente sui prodotti `origin = 'danea'` e non tocca i prodotti interni nemmeno a codice uguale. Non produce né cancella referenze fornitore dei prodotti interni. Nessuna modifica prevista.
+### 2. Prezzo espresso su un'unità diversa da quella di vendita
 
-**Lista della spesa**
-`shopping_list_item_suppliers` punta già alla singola referenza (`product_supplier_links`), quindi la scelta della fonte per riga è già modellata: serve solo mostrare più fonti confrontabili.
+Sul singolo abbinamento prodotto ↔ U.M. di vendita si aggiunge:
+- modalità prezzo: **per unità di vendita** (es. € a cassa) oppure **per U.M. base** (es. € al kg, moltiplicato dal fattore di conversione);
+- l'U.M. di riferimento del prezzo quando la modalità è "per U.M. base".
 
-## 2. Separazione proposta
+Così "vendo a cassa, prezzo al kg" diventa configurabile per prodotto, senza duplicare prodotti né listini.
 
-Tre concetti distinti, nessuna fusione automatica:
+Nota: i listini (`product_prices`) restano invariati in questa fase — la modalità dice **come si legge** il prezzo, non cambia come è memorizzato. Se serve un prezzo diverso per ogni U.M. di vendita, è una fase successiva da concordare.
 
-```text
-PRODOTTO COMMERCIALE        →  REFERENZE D'ACQUISTO            →  DISPONIBILITÀ
-(cosa vede e ordina         (come lo compro: fornitore,        (se e come è
- il cliente)                 codice, confezione, costo)         ordinabile oggi)
-PATATE BIANCHE                 A · 0255 · kg · 0,72              Disponibile
-                               B · 0832 · sacco 10 kg · 0,76
-                               C · PAT-BIA-10 · 15 kg · 0,69
-                               D · 458 · kg · 0,81
-PATATE BIANCHE FRANCIA         (prodotto separato, proprie referenze)
-```
+## Cosa resta invariato
 
-**Prodotto commerciale.** Resta `products`. Nessun raggruppamento e nessuna unione automatica per descrizione o codice: varianti come ITALIA/FRANCIA, ROSSE, NOVELLE, DA FRITTURA restano prodotti distinti perché sono scelte commerciali. L'unione avviene solo per decisione esplicita, collegando la referenza a un prodotto esistente.
+FASE A/B/C/D, inventario (sempre su U.M. base, una riga per prodotto), fabbisogno, Lista della Spesa (referenza singola), Danea (import read-only, non tocca l'uso delle U.M. né i prodotti interni), permessi, route, layout approvati.
 
-**Referenza del fornitore.** Resta `product_supplier_links`, ma diventa realmente "una referenza per riga": si rimuove l'indice unico su (prodotto, fornitore) e si aggiunge una descrizione della referenza del fornitore (il testo con cui il fornitore la chiama), così le quattro fonti delle patate convivono e restano riconoscibili. L'unico duplicato impedito è la referenza identica: stesso prodotto + stesso fornitore + stesso codice articolo; con codice vuoto il confronto avviene sulla descrizione della referenza e, se anche quella è vuota, si riusa la riga senza codice già presente — nessun codice inventato, nessun nuovo collegamento a ogni salvataggio.
+## Dettagli tecnici
 
-**Priorità di approvvigionamento.** Il singolo `is_preferred` viene sostituito da una priorità numerica **facoltativa e non esclusiva** per riga: due fonti equivalenti possono avere entrambe priorità 1, altre possono non averne nessuna. È un'indicazione, non un vincolo: nessun indice unico sulla priorità. Ordinamento in elenco: priorità indicata prima (crescente), a pari priorità per costo e fornitore, poi le fonti senza priorità. Il preferito attuale diventa priorità 1, così nulla si perde. La scelta concreta resta della Lista della Spesa, in base a costo, disponibilità, confezione e quantità.
+- Nuovo enum `unit_usage` (`acquisto`,`vendita`,`entrambi`) + colonna su `units_of_measure` con default `entrambi`.
+- Nuovo enum `sale_price_mode` (`per_unita_vendita`,`per_um_base`) + colonne `price_mode` e `price_reference_unit_id` su `product_sale_units`.
+- RPC aggiornate: `manage_unit_of_measure` (parametro uso), `apply_product_sale_unit_batch` (operazioni `price_mode` / `price_reference`). SECURITY DEFINER, `search_path = public`, solo amministratori come oggi.
+- UI toccata: `unit-catalogue.tsx`, `sales-unit-manager.tsx`, `unit-picker.tsx`, `product-suppliers-manager.tsx`, `internal-product-dialog.tsx`.
 
-**Disponibilità commerciale.** Tre concetti separati, senza sovrapposizioni:
+## Test previsti (transazionali, con rollback)
 
-| Campo | Decide |
-| --- | --- |
-| `publish_status` | se il prodotto è pubblicato |
-| `b2b_visible` | se il cliente lo vede |
-| `commercial_availability` | se e come il cliente può ordinarlo |
-
-Stati di `commercial_availability`, con semantica fissata già ora:
-
-- `available` — visibile e ordinabile;
-- `on_order` — visibile e ordinabile, presentato come "Su ordinazione";
-- `temporarily_unavailable` — visibile ma **non** ordinabile.
-
-Nessuno stato "non vendibile": quel caso è già coperto da `publish_status` e `b2b_visible`. Lo stato è **manuale** e non cambia mai automaticamente per giacenza, fabbisogno o numero di fornitori attivi: disattivando tutte le referenze fornitore il prodotto commerciale resta e il suo stato non si muove. Il futuro modulo ordini clienti dovrà rispettare questa semantica senza ulteriori modifiche al database.
-
-## 3. Dettagli tecnici della proposta (da approvare, non ancora applicati)
-
-- `product_supplier_links`: eliminare l'indice unico `(product_id, supplier_record_id)`; nuovo indice unico parziale su `(product_id, supplier_record_id, supplier_product_code)` **solo quando il codice è valorizzato**; aggiungere `supplier_reference_label text` e `sourcing_priority smallint` nullable; eliminare l'indice `one_preferred` **senza sostituirlo**: nessun vincolo di unicità sulla priorità, più fonti possono condividere lo stesso livello. Semplice indice non unico su `(product_id, sourcing_priority)` per l'ordinamento. `is_preferred` resta per compatibilità, allineato a priorità 1, e verrà rimosso in una fase successiva.
-- Deduplica sicura, senza inventare codici: con codice articolo valorizzato la chiave è prodotto + fornitore + codice; con codice vuoto si confronta la descrizione della referenza; se anche quella è vuota si riusa l'unica riga senza codice di quel fornitore. Ripetere l'azione non crea righe nuove e il codice può essere inserito o modificato in seguito.
-- `products`: nuova colonna `commercial_availability` (enum dedicato: `available`, `on_order`, `temporarily_unavailable`; default `available`), indipendente da `publish_status` e `b2b_visible`, senza trigger o automatismi.
-- RPC: `manage_product_supplier_link` accetta descrizione referenza e priorità e applica la nuova deduplica; nuova azione per impostare/azzerare la priorità; `add_catalog_product_to_own_products` riusa la stessa deduplica; nuova azione per cambiare la disponibilità commerciale del prodotto. Tutte SECURITY DEFINER con `search_path = public` e controllo amministratore.
-- Interfaccia: nella scheda prodotto le fonti diventano un elenco con priorità facoltativa e ripetibile, codice e descrizione del fornitore, confezione/U.M. e costo; selettore di disponibilità commerciale nella scheda prodotto; etichetta dello stato nel catalogo del cliente, con gli articoli "temporaneamente non disponibili" visibili e già marcati come non ordinabili.
-- Invariati: FASE A, B, C e D; Danea; formule di giacenza e fabbisogno; inventario, che continua a lavorare sul prodotto commerciale con **una sola riga per prodotto** qualunque sia il numero di fonti; Lista della Spesa, che continua a lavorare sulla singola referenza `product_supplier_links`; ordini, ricevute, lotti, listini, immagini, permessi, route e layout approvati.
-
-## 4. Test previsti dopo l'approvazione
-
-Prodotto commerciale con tre referenze (stesso fornitore con due codici diversi + un secondo fornitore) e una sola riga di inventario; due fonti con la stessa priorità 1 e una senza priorità; referenza senza codice articolo ripetuta due volte senza duplicati; disattivazione di tutte le referenze con prodotto e stato commerciale invariati; i tre stati di disponibilità nel catalogo del cliente; importazione Danea che non tocca prodotti interni, referenze e stati; nessuna regressione su fabbisogno, Lista della Spesa, ordini, ricevute e lotti. Dati di prova transazionali con annullamento.
+1. U.M. "cassa" marcata `acquisto`: non appare tra le U.M. di vendita, appare tra le referenze fornitore.
+2. U.M. già assegnata e poi ristretta: l'assegnazione esistente resta e continua a funzionare.
+3. Prodotto con tre U.M. di vendita (cassa, kg, pezzo) e prezzo in modalità "al kg": conversioni corrette.
+4. Inventario: una sola riga per prodotto, fotografia immutabile.
+5. Import Danea: nessuna modifica a uso U.M., unità di vendita, prodotti interni.
+6. Nessuna regressione su Lista della Spesa, ordini, ricevute, lotti.
