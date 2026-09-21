@@ -1,59 +1,58 @@
-# Fase 1 — Prodotti interni, prodotti manuali, N fornitori, Inventario
+# Piano tecnico — Prodotto commerciale, referenze fornitore, disponibilità
 
-Raggruppamento (`product_groups`) escluso da questa fase.
+Nessuna modifica al database in questa fase: solo analisi e proposta. FASE A, B, C e D restano intatte.
 
-## A. Verifica richiesta sul punto 1 (collegamenti fornitore)
+## 1. Cosa c'è oggi (verificato sul database)
 
-Verificato sul database: **oggi non esiste alcun vincolo di unicità** su `product_supplier_links`, e la funzione di gestione esistente inserisce liberamente. Quindi **più referenze dello stesso fornitore sullo stesso nostro prodotto sono già possibili**: `0255 PATATE BN IT` e `0832 PATATE BIANCHE SACCO 10 KG` possono convivere sotto `00-001`, ognuna con codice, unità d'acquisto, conversione, costo, minimo e tempi propri. Un solo collegamento per prodotto può essere "preferito", e questo resta.
+**Prodotto commerciale — `products`**
+Il prodotto è già un'entità autonoma dell'azienda: codice, descrizione, categoria/sottocategoria, U.M., barcode, produttore, immagine, unità di vendita, listini, `publish_status` (pubblicato / non pubblicato), `b2b_visible` (in vetrina verso i clienti collegati), `origin` (danea / interno) e `is_managed`. Nessun campo lega il prodotto all'esistenza di un fornitore: disattivando tutti i fornitori il prodotto **oggi non sparisce già adesso**, né dal catalogo né dall'inventario. Questo punto è già corretto.
 
-**Decisione: non introduco `UNIQUE (product_id, supplier_record_id)`.** L'unico duplicato da evitare è la stessa referenza aggiunta due volte: l'azione "Aggiungi ai miei prodotti" riusa il collegamento se esistono già stesso prodotto + stesso fornitore + stesso codice fornitore, altrimenti ne crea uno nuovo. Nessun vincolo nuovo sul database, così la gestione manuale resta libera.
+**Referenze d'acquisto — `product_supplier_links`**
+Ogni riga rappresenta la referenza di un fornitore: codice articolo del fornitore, U.M. d'acquisto, fattore di conversione, costo manuale, quantità minima, giorni di consegna, note, attiva/disattiva, `is_preferred`.
 
-Nessun altro conflitto strutturale: si può procedere con la Fase 1.
+**Due limiti reali, trovati durante i test**
+1. Esiste un indice unico non documentato `product_supplier_links_unique (product_id, supplier_record_id)`: **un solo fornitore può comparire una sola volta per prodotto**, quindi 0255 e 0832 dello stesso fornitore non convivono. (La verifica precedente guardava solo i vincoli dichiarati e non gli indici: correzione mia.)
+2. Esiste `product_supplier_links_one_preferred (product_id) WHERE is_preferred`: un solo "preferito" booleano, senza ordine fra le altre fonti.
 
-## B. Cosa faremo
+**Danea**
+L'importazione lavora ora esclusivamente sui prodotti `origin = 'danea'` e non tocca i prodotti interni nemmeno a codice uguale. Non produce né cancella referenze fornitore dei prodotti interni. Nessuna modifica prevista.
 
-**1. Prodotti interni e archivio separato**
-- Origine prodotto: `danea` oppure `interno` (descrive solo come è nato).
-- Archivio interno "Prodotti propri" per azienda, creato al bisogno, non utilizzabile dalle postazioni Danea.
-- Importazione Danea (completa e incrementale) limitata ai prodotti `danea`: un codice interno uguale a un codice Danea non causa aggiornamenti, fusioni o depubblicazioni. Nessun'altra modifica alle regole Danea.
-- Codice interno proposto `00-001`, `00-002`, … modificabile, anche alfanumerico, con controllo di unicità.
+**Lista della spesa**
+`shopping_list_item_suppliers` punta già alla singola referenza (`product_supplier_links`), quindi la scelta della fonte per riga è già modellata: serve solo mostrare più fonti confrontabili.
 
-**2. Pagina Prodotti**
-- "Nuovo prodotto" disponibile anche senza Danea: codice precompilato, descrizione, categoria, sottocategoria, U.M., produttore, barcode, note. Immagini e unità di vendita con le schermate esistenti.
-- Un prodotto può avere zero, uno o più fornitori; senza fornitore partecipa comunque a Inventario e Fabbisogno, e il fornitore si assegna poi in Lista della Spesa.
-- Disattivazione del prodotto come azione esplicita e separata.
+## 2. Separazione proposta
 
-**3. Stella e "Aggiungi ai miei prodotti": azioni indipendenti**
-- La stella resta solo un segnalibro nel catalogo del fornitore. Non è richiesta per aggiungere un articolo ai propri prodotti e togliendola non cambia nulla su prodotti interni, collegamenti fornitore, inventario e storico.
-- "Aggiungi ai miei prodotti" su una referenza di catalogo offre due strade:
-  - **Crea nuovo prodotto**: prodotto nell'archivio interno, codice proposto, descrizione e dati compatibili precompilati dal catalogo, più il collegamento a quella specifica referenza del fornitore;
-  - **Collega a prodotto esistente**: ricerca fra i miei prodotti, nessun prodotto creato, solo il collegamento a quella referenza.
-- Nessun abbinamento automatico per descrizione o codice.
+Tre concetti distinti, nessuna fusione automatica:
 
-**4. Inventario**
-- Solo prodotti dell'azienda che conta, attivi e gestiti; nessun prodotto appartenente ai fornitori.
-- Un prodotto compare una sola volta, qualunque sia il numero di fornitori collegati; i fornitori sono solo informazione e non moltiplicano le righe.
-- Funziona per profilo acquisto, vendita, entrambi, con e senza Danea.
-- Fotografia invariata: una sessione aperta con 50 prodotti resta a 50.
+```text
+PRODOTTO COMMERCIALE        →  REFERENZE D'ACQUISTO            →  DISPONIBILITÀ
+(cosa vede e ordina         (come lo compro: fornitore,        (se e come è
+ il cliente)                 codice, confezione, costo)         ordinabile oggi)
+PATATE BIANCHE                 A · 0255 · kg · 0,72              Disponibile
+                               B · 0832 · sacco 10 kg · 0,76
+                               C · PAT-BIA-10 · 15 kg · 0,69
+                               D · 458 · kg · 0,81
+PATATE BIANCHE FRANCIA         (prodotto separato, proprie referenze)
+```
 
-**5. Fabbisogno e Lista della Spesa**
-Nessuna modifica alle formule; solo verifica end-to-end del percorso prodotto → fabbisogno → lista → scelta fornitore (anche non B2B) → ordine.
+**Prodotto commerciale.** Resta `products`. Nessun raggruppamento e nessuna unione automatica per descrizione o codice: varianti come ITALIA/FRANCIA, ROSSE, NOVELLE, DA FRITTURA restano prodotti distinti perché sono scelte commerciali. L'unione avviene solo per decisione esplicita, collegando la referenza a un prodotto esistente.
 
-**6. Fuori da questa fase**
-Raggruppamento di denominazioni equivalenti: fase successiva, non influenza questa implementazione.
+**Referenza del fornitore.** Resta `product_supplier_links`, ma diventa realmente "una referenza per riga": si rimuove l'indice unico su (prodotto, fornitore) e si aggiunge una descrizione della referenza del fornitore (il testo con cui il fornitore la chiama), così le quattro fonti delle patate convivono e restano riconoscibili. L'unico duplicato impedito è la referenza identica: stesso prodotto + stesso fornitore + stesso codice articolo; con codice vuoto il confronto avviene sulla descrizione della referenza e, se anche quella è vuota, si riusa la riga senza codice già presente — nessun codice inventato, nessun nuovo collegamento a ogni salvataggio.
 
-## C. Dettagli tecnici
+**Priorità di approvvigionamento.** Il singolo `is_preferred` viene sostituito da una priorità numerica facoltativa per riga (1, 2, 3…, oppure nessuna). Nessun obbligo: chi decide giorno per giorno su prezzo e qualità lascia tutto senza priorità. Ordinamento in lista: priorità indicata prima (crescente), poi le fonti senza priorità. Il preferito attuale diventa priorità 1, così nulla si perde.
 
-- `products`: `origin` (enum `product_origin`: `danea`, `interno`) default `danea` + backfill; `is_managed boolean not null default true`, indipendente dai preferiti; provenienza storica `created_from_product_id` e `created_from_company_id` nullable, senza uso funzionale; nessun vincolo che leghi il prodotto a un fornitore.
-- `danea_archives`: `is_internal`; `ensure_internal_archive(company_id)`; guard postazioni esteso per vietare archivi interni.
-- `danea-import.server.ts`: filtro `origin = 'danea'` su lettura esistenti, upsert, depubblicazione per assenza e DeletedProducts.
-- `product_supplier_links`: **nessun cambio strutturale, nessun vincolo di unicità nuovo**; deduplica applicativa su (product_id, supplier_record_id, supplier_product_code).
-- Nuove RPC (SECURITY DEFINER, `search_path = public`, controllo appartenenza/ruolo): `next_internal_product_code`, `manage_internal_product` (crea/modifica/disattiva), `add_catalog_product_to_own_products(buyer, seller, seller_product_id, own_product_id | null, …)` che crea al massimo un prodotto e un collegamento, idempotente, con risoluzione della scheda fornitore tramite le funzioni esistenti.
-- `buyer_product_favorites`: invariata; nessun effetto a cascata.
-- `start_general_inventory`: archivio opzionale con ripiego sull'archivio interno; insieme = prodotti dell'azienda pubblicati e `is_managed = true`; fotografia scritta una sola volta; nessuna colonna nuova su `inventory_session_products`.
-- `inventory_session_rows` / `inventory_session_progress`: fornitori collegati come informazione, aggregazioni sulle stesse righe.
-- `record_inventory_count`, `close_general_inventory`, formule giacenza e fabbisogno: invariati.
+**Disponibilità commerciale.** Nuovo stato del prodotto verso i clienti, **indipendente dai fornitori**: disponibile · temporaneamente non disponibile · su ordinazione · non vendibile. Lo decide l'azienda, non il numero di fornitori attivi: spegnere tutte le fonti non cambia la vetrina. Il catalogo del cliente mostra sempre il prodotto pubblicato e in vetrina, con l'etichetta dello stato; solo "disponibile" e "su ordinazione" saranno ordinabili quando arriveranno gli ordini clienti. Nessun calcolo automatico dello stato in questa fase.
 
-## D. Test finali (report separato per area)
+## 3. Dettagli tecnici della proposta (da approvare, non ancora applicati)
 
-Database → Backend/RPC → Interfaccia → Danea → Inventario → Fabbisogno/Lista della Spesa → regressioni. Casi: prodotto manuale senza Danea; due referenze dello stesso fornitore sullo stesso prodotto; tre fornitori diversi su un solo prodotto con una sola riga di inventario; stella indipendente dall'aggiunta ai propri prodotti e rimozione stella senza effetti; importazione completa che non tocca i prodotti interni nemmeno a codice uguale; inventario per azienda solo-vendita e senza Danea; fotografia aperta che non cambia; percorso fabbisogno → lista → fornitore non B2B → ordine; nessuna regressione su Ordini, ricevute, lotti, listini, layout approvati.
+- `product_supplier_links`: eliminare l'indice unico `(product_id, supplier_record_id)`; nuovo indice unico parziale su `(product_id, supplier_record_id, supplier_product_code)` solo quando il codice è valorizzato; aggiungere `supplier_reference_label text` e `sourcing_priority smallint` nullable; sostituire l'indice `one_preferred` con un unico indice su `(product_id, sourcing_priority)` quando la priorità è valorizzata (una sola fonte per livello di priorità). `is_preferred` resta per compatibilità, allineato a priorità 1, e verrà rimosso in una fase successiva.
+- `products`: nuova colonna di disponibilità commerciale (enum dedicato, default disponibile), indipendente da `publish_status` e `b2b_visible`.
+- RPC: `manage_product_supplier_link` accetta descrizione referenza e priorità e applica la nuova deduplica; nuova azione per impostare/azzerare la priorità; `add_catalog_product_to_own_products` riusa la stessa deduplica; nuova azione per cambiare la disponibilità commerciale del prodotto. Tutte SECURITY DEFINER con `search_path = public` e controllo amministratore.
+- Interfaccia: nella scheda prodotto le fonti diventano un elenco ordinabile con priorità facoltativa, codice e descrizione del fornitore, confezione/U.M. e costo; nella scheda prodotto un selettore di disponibilità commerciale; nel catalogo del cliente l'etichetta dello stato.
+- Invariati: Danea, formule di giacenza e fabbisogno, inventario (una riga per prodotto qualunque sia il numero di fonti), lista della spesa e ordini, listini, immagini, permessi, route e layout approvati.
+
+## 4. Da chiarire prima di procedere
+
+1. La priorità è per prodotto (una sola scala 1,2,3… fra tutte le fonti, come negli esempi) — confermi?
+2. La disponibilità commerciale la imposti a mano sul prodotto, senza alcun automatismo legato ai fornitori o alla giacenza — confermi?
+3. Gli stati "su ordinazione" e "temporaneamente non disponibile" per ora sono solo etichette informative nel catalogo: il blocco dell'ordine arriverà con gli ordini clienti — va bene?
