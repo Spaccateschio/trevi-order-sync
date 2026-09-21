@@ -15,13 +15,16 @@ import { activeCompany, hasRole, isRelationOperational, useIdentity } from "@/ho
 import { supabase } from "@/integrations/supabase/client";
 import {
   CATALOG_SELECT,
+  conversionLabel,
   fetchAssignedPrices,
   fetchUnitPreferences,
+  priceUnitCode,
   resolveSaleUnit,
   saveUnitPreference,
   sortedSaleUnits,
   type CatalogProductRow,
 } from "@/lib/catalog";
+
 import { getCatalogImageUrls } from "@/lib/catalog.functions";
 import { euro } from "@/lib/product-grid";
 
