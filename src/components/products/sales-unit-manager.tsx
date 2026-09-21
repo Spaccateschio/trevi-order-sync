@@ -94,11 +94,26 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
 
   return <section aria-labelledby="sale-units-title">
     <div className="flex items-center justify-between gap-2">
-      <h3 id="sale-units-title" className="text-sm font-semibold">Impostazioni Trevi Fruit</h3>
-      <Badge variant="secondary" className="shrink-0">{editable ? "Modificabili" : "Sola lettura"}</Badge>
+      <h3 id="sale-units-title" className="text-sm font-semibold">U.M. del prodotto</h3>
+      <Badge variant="secondary" className="shrink-0">{editable ? "Vendita modificabile" : "Sola lettura"}</Badge>
     </div>
 
-    <div className="mt-2 flex flex-wrap items-center gap-2" aria-label="U.M. vendita associate">
+    <div className="mt-2 grid gap-3 sm:grid-cols-2">
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase text-muted-foreground">Acquisto</p>
+        {purchaseRows.length ? <ul className="mt-1 space-y-1 text-sm">
+          {purchaseRows.map((row, index) => {
+            const codes = (row.purchase_units ?? []).filter((unit) => unit.is_active);
+            return <li key={`${row.supplier_name}-${index}`} className="min-w-0">
+              <span className="font-medium">{codes.length ? codes.map((unit) => `${unit.code}${unit.is_default ? " ★" : ""}`).join(" · ") : "—"}</span>
+              <span className="ml-1 text-muted-foreground">{row.supplier_name}</span>
+            </li>;
+          })}
+        </ul> : <p className="mt-1 text-sm text-muted-foreground">Nessuna U.M. di acquisto</p>}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase text-muted-foreground">Vendita</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2" aria-label="U.M. vendita associate">
       {assignments.map((row) => {
         const code = row.units_of_measure?.code ?? "—";
         const isSelected = selectedId === row.id;
