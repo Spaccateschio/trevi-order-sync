@@ -2,9 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 
 import { InventoryCountPanel } from "@/components/inventory/inventory-count-panel";
-import { supabase } from "@/integrations/supabase/client";
+import { ensureInventoryArchive } from "@/lib/inventory.functions";
 import { activeCompany, companyBuys, hasRole, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/acquisti/inventario")({

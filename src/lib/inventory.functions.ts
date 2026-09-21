@@ -60,6 +60,29 @@ const adjustmentSchema = z.object({
   notes: z.string().trim().max(500).nullable(),
 });
 
+/** L'inventario non richiede Danea: se manca un archivio si usa quello interno dei prodotti propri. */
+export const ensureInventoryArchive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ companyId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: existing, error: readError } = await context.supabase
+      .from("danea_archives")
+      .select("id")
+      .eq("company_id", data.companyId)
+      .order("is_internal", { ascending: true })
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (readError) throw new Error(readError.message);
+    if (existing?.[0]) return { id: existing[0].id as string };
+
+    const { data: id, error } = await context.supabase.rpc("ensure_internal_archive", {
+      _company_id: data.companyId,
+      _actor_user_id: context.userId,
+    });
+    if (error) throw new Error(error.message);
+    return { id: id as string };
+  });
+
 export const ensureDefaultInventoryLocation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ companyId: z.string().uuid() }).parse(input))
