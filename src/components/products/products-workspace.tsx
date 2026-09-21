@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
@@ -60,24 +59,10 @@ import {
 } from "@/lib/product-grid";
 
 
-export const Route = createFileRoute("/_authenticated/vendite_/prodotti")({
-  head: () => ({
-    meta: [
-      { title: "Prodotti da Danea — Trevi Fruit" },
-      { name: "description", content: "Griglia operativa dei prodotti ricevuti da Danea Easyfatt." },
-      { property: "og:title", content: "Prodotti da Danea — Trevi Fruit" },
-      { property: "og:description", content: "Griglia operativa dei prodotti ricevuti da Danea Easyfatt." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
-  validateSearch: (search: Record<string, unknown>): { prodotto?: string } =>
-    typeof search['prodotto'] === "string" && search['prodotto'] ? { prodotto: search['prodotto'] } : {},
-  component: ProdottiPage,
-});
 
 const PAGE_SIZE = 50;
-const GRID_KEY = "vendite.prodotti";
+
+export type ProductsWorkspaceTab = "prodotto" | "vendita" | "acquisto" | "inventario";
 
 function getDeviceClass(): GridDevice {
   if (typeof window === "undefined") return "desktop";
@@ -104,15 +89,24 @@ function sortProducts(products: ProductRow[], sorting: SortingState, archives: M
   });
 }
 
-function ProdottiPage() {
-  const { prodotto: prodottoParam } = Route.useSearch();
+/**
+ * Unica pagina Prodotti: la usano sia Vendite → Prodotti sia Acquisti → Prodotti.
+ * Cambiano solo la vista salvata delle colonne (gridKey), le colonne iniziali e il tab
+ * su cui si apre la scheda. I prodotti, le query e la scheda sono gli stessi.
+ */
+export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialVisibleColumns }: {
+  gridKey: string;
+  prodottoParam?: string | undefined;
+  initialTab: ProductsWorkspaceTab;
+  initialVisibleColumns?: string[];
+}) {
   const { data: identity, isLoading: identityLoading } = useIdentity();
   const company = activeCompany(identity);
   const companyId = company?.companyId ?? null;
   const userId = identity?.userId ?? null;
   const isAdmin = hasRole(identity, "amministratore");
   const queryClient = useQueryClient();
-  const defaults = useMemo(() => defaultGridPreferences(), []);
+  const defaults = useMemo(() => defaultGridPreferences(initialVisibleColumns), [initialVisibleColumns]);
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("tutte");
@@ -207,11 +201,11 @@ function ProdottiPage() {
   });
 
   const preferencesQuery = useQuery({
-    queryKey: ["product-grid-preferences", userId, deviceClass],
+    queryKey: ["product-grid-preferences", gridKey, userId, deviceClass],
     enabled: Boolean(userId),
     queryFn: async () => {
       if (!userId) return null;
-      const { data, error } = await supabase.from("user_grid_preferences").select("columns, sort").eq("user_id", userId).eq("grid_key", GRID_KEY).eq("device_class", deviceClass).maybeSingle();
+      const { data, error } = await supabase.from("user_grid_preferences").select("columns, sort").eq("user_id", userId).eq("grid_key", gridKey).eq("device_class", deviceClass).maybeSingle();
       if (error) throw new Error(error.message);
       return data;
     },
@@ -234,11 +228,11 @@ function ProdottiPage() {
     if (!preferencesReady || !userId) return;
     const timer = window.setTimeout(async () => {
       const columns = { visibility, order: columnOrder, sizing: columnSizing };
-      const { error } = await supabase.from("user_grid_preferences").upsert({ user_id: userId, grid_key: GRID_KEY, device_class: deviceClass, columns: columns as Json, sort: sorting as unknown as Json }, { onConflict: "user_id,grid_key,device_class" });
+      const { error } = await supabase.from("user_grid_preferences").upsert({ user_id: userId, grid_key: gridKey, device_class: deviceClass, columns: columns as Json, sort: sorting as unknown as Json }, { onConflict: "user_id,grid_key,device_class" });
       if (error) toast.error("Impossibile salvare le preferenze della griglia");
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [columnOrder, columnSizing, deviceClass, preferencesReady, sorting, userId, visibility]);
+  }, [columnOrder, columnSizing, deviceClass, gridKey, preferencesReady, sorting, userId, visibility]);
 
   const costsQuery = useQuery({
     queryKey: ["danea-costi", companyId, selected?.id],
@@ -307,7 +301,7 @@ function ProdottiPage() {
   };
 
   function resetPreferences() {
-    const next = defaultGridPreferences();
+    const next = defaultGridPreferences(initialVisibleColumns);
     setVisibility(next.visibility);
     setColumnOrder(next.order);
     setColumnSizing(next.sizing);
@@ -386,7 +380,7 @@ function ProdottiPage() {
 
     <div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column ? columnLabel(column, listName) : ""}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>
 
-    <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => setSelected(null)} />
+    <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => setSelected(null)} initialTab={initialTab} />
     {companyId ? <SalesUnitBatchDialog open={unitBatchOpen} onOpenChange={setUnitBatchOpen} companyId={companyId} productIds={selectedProducts.map((product) => product.id)} units={companyUnitsQuery.data ?? []} /> : null}
     <InternalProductDialog open={newProductOpen} onOpenChange={setNewProductOpen} companyId={companyId} userId={userId} />
     <ImportDialog open={importOpen} onOpenChange={setImportOpen} companyId={companyId} archives={archives.filter((archive) => archive.status === "attivo").map((archive) => ({ id: archive.id, name: archive.name, isDefault: archive.is_default }))} onImported={() => { void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] }); void queryClient.invalidateQueries({ queryKey: ["danea-listini", companyId] }); }} />
