@@ -82,6 +82,30 @@ export function InternalProductDialog({
     },
   });
 
+  // Le U.M. provengono dall'anagrafica aziendale: qui si scelgono, non si scrivono.
+  const unitsQuery = useQuery({
+    queryKey: ["company-units", companyId],
+    enabled: open && Boolean(companyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("units_of_measure")
+        .select("id, code, status")
+        .eq("company_id", companyId!)
+        .eq("status", "attivo")
+        .order("code");
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { id: string; code: string; status: string }[];
+    },
+  });
+
+  const unitOptions = useMemo(() => {
+    const codes = (unitsQuery.data ?? []).map((unit) => unit.code);
+    if (um && !codes.includes(um)) codes.unshift(um);
+    return codes;
+  }, [um, unitsQuery.data]);
+
+
+
   useEffect(() => {
     if (!open) return;
     setCode(product?.code ?? "");
