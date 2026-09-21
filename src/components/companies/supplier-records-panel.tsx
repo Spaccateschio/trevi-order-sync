@@ -187,7 +187,7 @@ export function SupplierRecordsPanel({
       const { data, error } = await supabase
         .from("supplier_records")
         .select(
-          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, fax, pec, contact_name, address_line, postal_code, city, province, region, country, sdi_code, sdi_admin_reference, payment_terms, bank, our_bank, agent, discounts, credit_limit, internal_reference, notes, danea_extra, status, archive_id",
+          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, fax, pec, contact_name, address_line, postal_code, city, province, region, country, sdi_code, sdi_admin_reference, payment_terms, bank, our_bank, agent, discounts, credit_limit, internal_reference, notes, danea_extra, status, archive_id, delivery_weekdays, delivery_month_day",
         )
         .eq("buyer_company_id", companyId)
         .order("legal_name");
