@@ -189,8 +189,21 @@ export function ProductSuppliersManager({
         ...(num(draft.leadTimeDays) !== null ? { _lead_time_days: num(draft.leadTimeDays) as number } : {}),
         _notes: draft.notes,
       };
-      const { error } = await supabase.rpc("manage_product_supplier_link", payload);
+      const { data: linkId, error } = await supabase.rpc("manage_product_supplier_link", payload);
       if (error) throw new Error(error.message);
+      // In creazione la U.M. scelta (facoltativa) diventa la prima U.M. acquistabile, predefinita.
+      if (mode === "create" && linkId && draft.purchaseUnitId) {
+        const args = { _company_id: companyId, _link_id: linkId as string, _unit_id: draft.purchaseUnitId };
+        const factor = num(draft.conversionFactor);
+        const { error: addError } = await supabase.rpc("manage_product_supplier_link_unit", {
+          ...args,
+          _action: "add",
+          ...(factor !== null ? { _conversion_factor: factor } : {}),
+        });
+        if (addError) throw new Error(addError.message);
+        const { error: defaultError } = await supabase.rpc("manage_product_supplier_link_unit", { ...args, _action: "set_default" });
+        if (defaultError) throw new Error(defaultError.message);
+      }
     },
     onSuccess: async (_data, mode) => {
       await refresh();
