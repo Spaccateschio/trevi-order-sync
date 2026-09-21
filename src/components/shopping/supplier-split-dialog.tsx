@@ -27,6 +27,17 @@ import {
 } from "@/lib/shopping-list";
 import { assignShoppingListSupplier } from "@/lib/shopping-list.functions";
 
+type PurchaseUnit = {
+  id: string;
+  unit_id: string;
+  code: string;
+  description: string | null;
+  is_default: boolean;
+  is_active: boolean;
+  conversion_factor: number | null;
+  conversion_type: "esatta" | "indicativa";
+};
+
 type SupplierOption = {
   link_id: string;
   supplier_record_id: string;
@@ -44,9 +55,10 @@ type SupplierOption = {
   sourcing_priority: number | null;
   supplier_reference_label: string | null;
   is_active: boolean;
+  purchase_units: PurchaseUnit[] | null;
 };
 
-type Draft = { quantity: string; packs: string; accepted: boolean };
+type Draft = { quantity: string; packs: string; accepted: boolean; unitId: string };
 
 /**
  * Ripartizione della quantità tra fornitori: nessuna redistribuzione automatica e nessun
