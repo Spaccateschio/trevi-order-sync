@@ -125,9 +125,15 @@ export function CatalogList({
                   {product.price === null ? (
                     <span className="text-xs text-muted-foreground">Su richiesta</span>
                   ) : (
-                    euro(product.price)
+                    <>
+                      {euro(product.price)}
+                      {product.priceUnit ? (
+                        <span className="text-xs text-muted-foreground">/{product.priceUnit}</span>
+                      ) : null}
+                    </>
                   )}
                 </td>
+
                 <td className="px-3 py-2 text-right">
                   <FavoriteButton
                     active={favorites.has(product.id)}
