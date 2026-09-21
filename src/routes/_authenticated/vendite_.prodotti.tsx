@@ -2,13 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
-import { Columns3, Download, Eye, EyeOff, FileUp, MoreHorizontal, Printer, Ruler, RotateCcw, Search, SlidersHorizontal, SquareCheckBig } from "lucide-react";
+import { Columns3, Download, Eye, EyeOff, FileUp, MoreHorizontal, PackagePlus, Printer, Ruler, RotateCcw, Search, SlidersHorizontal, SquareCheckBig } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { ProductDetailSheet } from "@/components/products/product-detail-sheet";
 import { ProductGrid } from "@/components/products/product-grid";
+import { InternalProductDialog } from "@/components/products/internal-product-dialog";
 import { ProductMobileList } from "@/components/products/product-mobile-list";
 import { SalesUnitBatchDialog } from "@/components/products/sales-unit-batch-dialog";
 import type { CompanyUnit, ProductSaleUnit } from "@/components/products/sales-unit-manager";
@@ -122,6 +123,7 @@ function ProdottiPage() {
   const [selected, setSelected] = useState<ProductRow | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
+  const [newProductOpen, setNewProductOpen] = useState(false);
   const [unitBatchOpen, setUnitBatchOpen] = useState(false);
   const [deviceClass, setDeviceClass] = useState<GridDevice>("desktop");
   const [visibility, setVisibility] = useState<VisibilityState>(defaults.visibility);
@@ -351,7 +353,7 @@ function ProdottiPage() {
           <div className="relative min-w-0 flex-1"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input aria-label="Cerca prodotti" className="h-9 pl-8" placeholder="Cerca" value={search} onChange={(event) => { setSearch(event.target.value); setPage(0); }} /></div>
           <Popover><PopoverTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Filtri"><SlidersHorizontal /></Button></PopoverTrigger><PopoverContent align="end" className="w-64 space-y-2">{filterSelects(true)}</PopoverContent></Popover>
           {columnsMenu(true)}
-          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Altre azioni"><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setSelectedIds(new Set(visible.map((product) => product.id)))}>Seleziona questa pagina ({visible.length})</DropdownMenuItem><DropdownMenuItem disabled={!selectedIds.size} onSelect={() => setSelectedIds(new Set())}>Azzera selezione</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem disabled={!outputProducts.length} onSelect={() => window.print()}><Printer />Stampa</DropdownMenuItem><DropdownMenuItem disabled={!outputProducts.length} onSelect={exportCsv}><Download />Esporta</DropdownMenuItem>{isAdmin ? <DropdownMenuItem onSelect={() => setImportOpen(true)}><FileUp />Importa da Danea</DropdownMenuItem> : null}</DropdownMenuContent></DropdownMenu>
+          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Altre azioni"><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">{isAdmin ? <><DropdownMenuItem onSelect={() => setNewProductOpen(true)}><PackagePlus />Nuovo prodotto</DropdownMenuItem><DropdownMenuSeparator /></> : null}<DropdownMenuItem onSelect={() => setSelectedIds(new Set(visible.map((product) => product.id)))}>Seleziona questa pagina ({visible.length})</DropdownMenuItem><DropdownMenuItem disabled={!selectedIds.size} onSelect={() => setSelectedIds(new Set())}>Azzera selezione</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem disabled={!outputProducts.length} onSelect={() => window.print()}><Printer />Stampa</DropdownMenuItem><DropdownMenuItem disabled={!outputProducts.length} onSelect={exportCsv}><Download />Esporta</DropdownMenuItem>{isAdmin ? <DropdownMenuItem onSelect={() => setImportOpen(true)}><FileUp />Importa da Danea</DropdownMenuItem> : null}</DropdownMenuContent></DropdownMenu>
         </div>
       </div>
 
