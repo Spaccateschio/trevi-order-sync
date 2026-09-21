@@ -39,20 +39,33 @@ PATATE BIANCHE FRANCIA         (prodotto separato, proprie referenze)
 
 **Referenza del fornitore.** Resta `product_supplier_links`, ma diventa realmente "una referenza per riga": si rimuove l'indice unico su (prodotto, fornitore) e si aggiunge una descrizione della referenza del fornitore (il testo con cui il fornitore la chiama), così le quattro fonti delle patate convivono e restano riconoscibili. L'unico duplicato impedito è la referenza identica: stesso prodotto + stesso fornitore + stesso codice articolo; con codice vuoto il confronto avviene sulla descrizione della referenza e, se anche quella è vuota, si riusa la riga senza codice già presente — nessun codice inventato, nessun nuovo collegamento a ogni salvataggio.
 
-**Priorità di approvvigionamento.** Il singolo `is_preferred` viene sostituito da una priorità numerica facoltativa per riga (1, 2, 3…, oppure nessuna). Nessun obbligo: chi decide giorno per giorno su prezzo e qualità lascia tutto senza priorità. Ordinamento in lista: priorità indicata prima (crescente), poi le fonti senza priorità. Il preferito attuale diventa priorità 1, così nulla si perde.
+**Priorità di approvvigionamento.** Il singolo `is_preferred` viene sostituito da una priorità numerica **facoltativa e non esclusiva** per riga: due fonti equivalenti possono avere entrambe priorità 1, altre possono non averne nessuna. È un'indicazione, non un vincolo: nessun indice unico sulla priorità. Ordinamento in elenco: priorità indicata prima (crescente), a pari priorità per costo e fornitore, poi le fonti senza priorità. Il preferito attuale diventa priorità 1, così nulla si perde. La scelta concreta resta della Lista della Spesa, in base a costo, disponibilità, confezione e quantità.
 
-**Disponibilità commerciale.** Nuovo stato del prodotto verso i clienti, **indipendente dai fornitori**: disponibile · temporaneamente non disponibile · su ordinazione · non vendibile. Lo decide l'azienda, non il numero di fornitori attivi: spegnere tutte le fonti non cambia la vetrina. Il catalogo del cliente mostra sempre il prodotto pubblicato e in vetrina, con l'etichetta dello stato; solo "disponibile" e "su ordinazione" saranno ordinabili quando arriveranno gli ordini clienti. Nessun calcolo automatico dello stato in questa fase.
+**Disponibilità commerciale.** Tre concetti separati, senza sovrapposizioni:
+
+| Campo | Decide |
+| --- | --- |
+| `publish_status` | se il prodotto è pubblicato |
+| `b2b_visible` | se il cliente lo vede |
+| `commercial_availability` | se e come il cliente può ordinarlo |
+
+Stati di `commercial_availability`, con semantica fissata già ora:
+
+- `available` — visibile e ordinabile;
+- `on_order` — visibile e ordinabile, presentato come "Su ordinazione";
+- `temporarily_unavailable` — visibile ma **non** ordinabile.
+
+Nessuno stato "non vendibile": quel caso è già coperto da `publish_status` e `b2b_visible`. Lo stato è **manuale** e non cambia mai automaticamente per giacenza, fabbisogno o numero di fornitori attivi: disattivando tutte le referenze fornitore il prodotto commerciale resta e il suo stato non si muove. Il futuro modulo ordini clienti dovrà rispettare questa semantica senza ulteriori modifiche al database.
 
 ## 3. Dettagli tecnici della proposta (da approvare, non ancora applicati)
 
-- `product_supplier_links`: eliminare l'indice unico `(product_id, supplier_record_id)`; nuovo indice unico parziale su `(product_id, supplier_record_id, supplier_product_code)` solo quando il codice è valorizzato; aggiungere `supplier_reference_label text` e `sourcing_priority smallint` nullable; sostituire l'indice `one_preferred` con un unico indice su `(product_id, sourcing_priority)` quando la priorità è valorizzata (una sola fonte per livello di priorità). `is_preferred` resta per compatibilità, allineato a priorità 1, e verrà rimosso in una fase successiva.
-- `products`: nuova colonna di disponibilità commerciale (enum dedicato, default disponibile), indipendente da `publish_status` e `b2b_visible`.
+- `product_supplier_links`: eliminare l'indice unico `(product_id, supplier_record_id)`; nuovo indice unico parziale su `(product_id, supplier_record_id, supplier_product_code)` **solo quando il codice è valorizzato**; aggiungere `supplier_reference_label text` e `sourcing_priority smallint` nullable; eliminare l'indice `one_preferred` **senza sostituirlo**: nessun vincolo di unicità sulla priorità, più fonti possono condividere lo stesso livello. Semplice indice non unico su `(product_id, sourcing_priority)` per l'ordinamento. `is_preferred` resta per compatibilità, allineato a priorità 1, e verrà rimosso in una fase successiva.
+- Deduplica sicura, senza inventare codici: con codice articolo valorizzato la chiave è prodotto + fornitore + codice; con codice vuoto si confronta la descrizione della referenza; se anche quella è vuota si riusa l'unica riga senza codice di quel fornitore. Ripetere l'azione non crea righe nuove e il codice può essere inserito o modificato in seguito.
+- `products`: nuova colonna `commercial_availability` (enum dedicato: `available`, `on_order`, `temporarily_unavailable`; default `available`), indipendente da `publish_status` e `b2b_visible`, senza trigger o automatismi.
 - RPC: `manage_product_supplier_link` accetta descrizione referenza e priorità e applica la nuova deduplica; nuova azione per impostare/azzerare la priorità; `add_catalog_product_to_own_products` riusa la stessa deduplica; nuova azione per cambiare la disponibilità commerciale del prodotto. Tutte SECURITY DEFINER con `search_path = public` e controllo amministratore.
-- Interfaccia: nella scheda prodotto le fonti diventano un elenco ordinabile con priorità facoltativa, codice e descrizione del fornitore, confezione/U.M. e costo; nella scheda prodotto un selettore di disponibilità commerciale; nel catalogo del cliente l'etichetta dello stato.
-- Invariati: Danea, formule di giacenza e fabbisogno, inventario (una riga per prodotto qualunque sia il numero di fonti), lista della spesa e ordini, listini, immagini, permessi, route e layout approvati.
+- Interfaccia: nella scheda prodotto le fonti diventano un elenco con priorità facoltativa e ripetibile, codice e descrizione del fornitore, confezione/U.M. e costo; selettore di disponibilità commerciale nella scheda prodotto; etichetta dello stato nel catalogo del cliente, con gli articoli "temporaneamente non disponibili" visibili e già marcati come non ordinabili.
+- Invariati: FASE A, B, C e D; Danea; formule di giacenza e fabbisogno; inventario, che continua a lavorare sul prodotto commerciale con **una sola riga per prodotto** qualunque sia il numero di fonti; Lista della Spesa, che continua a lavorare sulla singola referenza `product_supplier_links`; ordini, ricevute, lotti, listini, immagini, permessi, route e layout approvati.
 
-## 4. Da chiarire prima di procedere
+## 4. Test previsti dopo l'approvazione
 
-1. La priorità è per prodotto (una sola scala 1,2,3… fra tutte le fonti, come negli esempi) — confermi?
-2. La disponibilità commerciale la imposti a mano sul prodotto, senza alcun automatismo legato ai fornitori o alla giacenza — confermi?
-3. Gli stati "su ordinazione" e "temporaneamente non disponibile" per ora sono solo etichette informative nel catalogo: il blocco dell'ordine arriverà con gli ordini clienti — va bene?
+Prodotto commerciale con tre referenze (stesso fornitore con due codici diversi + un secondo fornitore) e una sola riga di inventario; due fonti con la stessa priorità 1 e una senza priorità; referenza senza codice articolo ripetuta due volte senza duplicati; disattivazione di tutte le referenze con prodotto e stato commerciale invariati; i tre stati di disponibilità nel catalogo del cliente; importazione Danea che non tocca prodotti interni, referenze e stati; nessuna regressione su fabbisogno, Lista della Spesa, ordini, ricevute e lotti. Dati di prova transazionali con annullamento.

@@ -26,3 +26,4 @@
 - [ ] FASE D — pagina pubblica del link fornitore: prova reale su smartphone con un fornitore non registrato
 - [x] Inventario reale: UI KDS collegata alla logica esistente (snapshot sessione, preferiti aziendali condivisi, apertura/chiusura solo amministratore, conteggio agli operatori, un solo inventario generale con avanzamento per zona) — verificato con 15+ test e prova su desktop e smartphone
 - [ ] Modello prodotto commerciale ↔ referenze fornitore: separare prodotto venduto al cliente, referenze d'acquisto (anche più dello stesso fornitore), priorità di approvvigionamento ordinabile e facoltativa, disponibilità commerciale indipendente dai fornitori; piano tecnico prima di qualsiasi migrazione
+- [ ] Disponibilità commerciale del prodotto (disponibile / su ordinazione / temporaneamente non disponibile) manuale e indipendente da giacenza e fornitori; semantica di ordinabilità fissata ora, applicata dal futuro modulo ordini clienti
