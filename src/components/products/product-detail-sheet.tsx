@@ -250,6 +250,8 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
               ))}
             </div> : <p className="mt-1 text-sm text-muted-foreground">Nessun prezzo ricevuto.</p>}
           </section>
+          {/* U.M. ordinabili dal cliente: impostazioni di vendita, indipendenti da quelle d'acquisto. */}
+          {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} showPurchase={false} /> : null}
         </TabsContent>
 
         {/* Acquisto: fornitori, referenze, priorità, U.M. acquistabili, costi. */}
