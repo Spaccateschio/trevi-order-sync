@@ -189,7 +189,7 @@ function ProdottiPage() {
     refetchOnWindowFocus: true,
     queryFn: async () => {
       if (!companyId) return [];
-      const { data, error } = await supabase.from("products").select("id, archive_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, b2b_visible, commercial_availability, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price), product_images(id)").eq("company_id", companyId).order("code");
+      const { data, error } = await supabase.from("products").select("id, archive_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, b2b_visible, commercial_availability, price_unit_id, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price), product_images(id)").eq("company_id", companyId).order("code");
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as ProductRow[];
     },
@@ -250,8 +250,8 @@ function ProdottiPage() {
     },
   });
 
-  const companyUnitsQuery = useQuery({ queryKey: ["company-units", companyId], enabled: Boolean(companyId), queryFn: async () => { if (!companyId) return []; const { data, error } = await supabase.from("units_of_measure").select("id, code, description, status").eq("company_id", companyId).order("code"); if (error) throw new Error(error.message); return data as CompanyUnit[]; } });
-  const saleUnitsQuery = useQuery({ queryKey: ["product-sale-units", companyId], enabled: Boolean(companyId), queryFn: async () => { if (!companyId) return []; const { data, error } = await supabase.from("product_sale_units").select("id, product_id, unit_id, is_active, is_customer_visible, is_default, conversion_factor, conversion_reference_um, needs_review, units_of_measure(code, description)").eq("company_id", companyId); if (error) throw new Error(error.message); return data as ProductSaleUnit[]; } });
+  const companyUnitsQuery = useQuery({ queryKey: ["company-units", companyId], enabled: Boolean(companyId), queryFn: async () => { if (!companyId) return []; const { data, error } = await supabase.from("units_of_measure").select("id, code, description, status, usage").eq("company_id", companyId).order("code"); if (error) throw new Error(error.message); return data as CompanyUnit[]; } });
+  const saleUnitsQuery = useQuery({ queryKey: ["product-sale-units", companyId], enabled: Boolean(companyId), queryFn: async () => { if (!companyId) return []; const { data, error } = await supabase.from("product_sale_units").select("id, product_id, unit_id, is_active, is_customer_visible, is_default, conversion_factor, conversion_reference_um, conversion_type, needs_review, units_of_measure(code, description)").eq("company_id", companyId); if (error) throw new Error(error.message); return data as ProductSaleUnit[]; } });
 
   const archives = archivesQuery.data ?? [];
   const archiveNameById = useMemo(() => new Map(archives.map((archive) => [archive.id, archive.name])), [archives]);

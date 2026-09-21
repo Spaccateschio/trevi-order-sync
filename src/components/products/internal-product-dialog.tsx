@@ -36,6 +36,7 @@ export type InternalProductDraft = {
   barcode?: string | null;
   producer_name?: string | null;
   notes?: string | null;
+  price_unit_id?: string | null;
 };
 
 /**
@@ -69,6 +70,8 @@ export function InternalProductDialog({
   const [barcode, setBarcode] = useState("");
   const [producer, setProducer] = useState("");
   const [notes, setNotes] = useState("");
+  // U.M. a cui è riferito il prezzo: tutti i listini del prodotto si leggono su questa U.M.
+  const [priceUnitId, setPriceUnitId] = useState("");
 
   const nextCodeQuery = useQuery({
     queryKey: ["prossimo-codice-interno", companyId],
@@ -89,12 +92,12 @@ export function InternalProductDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("units_of_measure")
-        .select("id, code, status")
+        .select("id, code, status, usage")
         .eq("company_id", companyId!)
         .eq("status", "attivo")
         .order("code");
       if (error) throw new Error(error.message);
-      return (data ?? []) as { id: string; code: string; status: string }[];
+      return (data ?? []) as { id: string; code: string; status: string; usage: "acquisto" | "vendita" | "entrambi" }[];
     },
   });
 
@@ -116,6 +119,7 @@ export function InternalProductDialog({
     setBarcode(product?.barcode ?? "");
     setProducer(product?.producer_name ?? "");
     setNotes(product?.notes ?? "");
+    setPriceUnitId(product?.price_unit_id ?? "");
   }, [open, product]);
 
   useEffect(() => {
@@ -139,6 +143,7 @@ export function InternalProductDialog({
       if (barcode.trim()) args["_barcode"] = barcode.trim();
       if (producer.trim()) args["_producer_name"] = producer.trim();
       if (notes.trim()) args["_notes"] = notes.trim();
+      if (priceUnitId) args["_price_unit_id"] = priceUnitId;
       if (userId) args["_actor_user_id"] = userId;
       const { data, error } = await supabase.rpc(
         "manage_internal_product",
@@ -211,7 +216,27 @@ export function InternalProductDialog({
                 Nessuna unità di misura in anagrafica: creala nelle impostazioni dell'azienda.
               </p>
             ) : null}
+            <p className="mt-1 text-xs text-muted-foreground">U.M. base: giacenze e conteggi.</p>
           </div>
+          <div className="sm:col-span-1">
+            <Label htmlFor="ip-price-um">U.M. del prezzo</Label>
+            <Select value={priceUnitId} onValueChange={setPriceUnitId}>
+              <SelectTrigger id="ip-price-um" className="mt-1" aria-label="U.M. del prezzo">
+                <SelectValue placeholder="Come l'U.M. base" />
+              </SelectTrigger>
+              <SelectContent>
+                {(unitsQuery.data ?? []).map((unit) => (
+                  <SelectItem key={unit.id} value={unit.id}>
+                    {unit.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Tutti i listini del prodotto si leggono su questa U.M. (es. €2,00/kg).
+            </p>
+          </div>
+
           <div className="sm:col-span-2">
             <Label htmlFor="ip-description">Descrizione</Label>
             <Input

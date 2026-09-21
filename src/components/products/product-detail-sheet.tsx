@@ -100,6 +100,51 @@ function AvailabilitySelector({ product, companyId, editable }: { product: Produ
   );
 }
 
+function PriceUnitSelector({ product, companyId, companyUnits, editable }: { product: ProductRow; companyId: string; companyUnits: CompanyUnit[]; editable: boolean }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: async (value: string) => {
+      const args: Record<string, string> = { _company_id: companyId, _product_id: product.id };
+      if (value !== "base") args["_price_unit_id"] = value;
+      const { error } = await supabase.rpc(
+        "set_product_price_unit",
+        args as unknown as { _company_id: string; _product_id: string; _price_unit_id: string },
+      );
+      if (error) throw new Error(error.message);
+    },
+
+    onSuccess: () => {
+      toast.success("U.M. del prezzo aggiornata");
+      void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  return (
+    <section className="space-y-2 rounded-lg border border-border p-3">
+      <div>
+        <p className="text-sm font-semibold">U.M. del prezzo</p>
+        <p className="text-xs text-muted-foreground">
+          Tutti i listini del prodotto si leggono su questa U.M. Il prezzo resta lo stesso qualunque formato il cliente ordini; peso e totale definitivi nascono dalla pesatura.
+        </p>
+      </div>
+      <Select
+        value={product.price_unit_id ?? "base"}
+        disabled={!editable || mutation.isPending}
+        onValueChange={(value) => mutation.mutate(value)}
+      >
+        <SelectTrigger aria-label="U.M. del prezzo"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="base">Come U.M. base{product.danea_um ? ` (${product.danea_um})` : ""}</SelectItem>
+          {companyUnits.filter((unit) => unit.status === "attivo").map((unit) => (
+            <SelectItem key={unit.id} value={unit.id}>{unit.code}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </section>
+  );
+}
+
 function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, companyId, companyUnits, saleUnits }: {
   product: ProductRow;
   archiveName: string;
@@ -120,6 +165,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
     <div className="mt-6 space-y-6">
       {companyId ? <ShowcaseToggle product={product} companyId={companyId} editable={isAdmin} /> : null}
       {companyId ? <AvailabilitySelector product={product} companyId={companyId} editable={isAdmin} /> : null}
+      {companyId ? <PriceUnitSelector product={product} companyId={companyId} companyUnits={companyUnits} editable={isAdmin} /> : null}
       {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} /> : null}
       {companyId ? <ProductSuppliersManager companyId={companyId} productId={product.id} productArchiveId={product.archive_id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
       {companyId ? <ProductStockPanel companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}

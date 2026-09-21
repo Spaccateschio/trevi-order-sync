@@ -17,8 +17,11 @@ export type CatalogProduct = {
   units: CatalogSaleUnit[];
   selectedUnitId: string | null;
   price: number | null;
+  /** U.M. a cui è riferito il prezzo (es. kg): resta la stessa per ogni formato ordinato. */
+  priceUnit: string | null;
   availability: "available" | "on_order" | "temporarily_unavailable";
 };
+
 
 const AVAILABILITY_NOTE: Record<CatalogProduct["availability"], string | null> = {
   available: null,
@@ -122,9 +125,15 @@ export function CatalogList({
                   {product.price === null ? (
                     <span className="text-xs text-muted-foreground">Su richiesta</span>
                   ) : (
-                    euro(product.price)
+                    <>
+                      {euro(product.price)}
+                      {product.priceUnit ? (
+                        <span className="text-xs text-muted-foreground">/{product.priceUnit}</span>
+                      ) : null}
+                    </>
                   )}
                 </td>
+
                 <td className="px-3 py-2 text-right">
                   <FavoriteButton
                     active={favorites.has(product.id)}
@@ -177,9 +186,15 @@ export function CatalogList({
                     {product.price === null ? (
                       <span className="text-xs text-muted-foreground">Prezzo su richiesta</span>
                     ) : (
-                      euro(product.price)
+                      <>
+                        {euro(product.price)}
+                        {product.priceUnit ? (
+                          <span className="text-xs text-muted-foreground">/{product.priceUnit}</span>
+                        ) : null}
+                      </>
                     )}
                   </span>
+
                 </span>
               </Link>
               <FavoriteButton

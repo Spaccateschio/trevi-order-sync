@@ -21,6 +21,7 @@ import {
   fetchAssignedPrices,
   fetchSellerCatalogue,
   fetchUnitPreferences,
+  priceUnitCode,
   resolveSaleUnit,
   saveUnitPreference,
   sortedSaleUnits,
@@ -197,6 +198,7 @@ function SellerCatalogue() {
         units: sortedSaleUnits(product),
         selectedUnitId: resolveSaleUnit(product, preferences.get(product.id))?.id ?? null,
         price: pricesQuery.data?.get(product.id) ?? null,
+        priceUnit: priceUnitCode(product),
         availability: product.commercial_availability,
       }));
   }, [

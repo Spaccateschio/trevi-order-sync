@@ -6,20 +6,23 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const unitActionSchema = z.object({
   companyId: z.string().uuid(),
   unitId: z.string().uuid().nullable(),
-  action: z.enum(["create", "update", "activate", "deactivate", "delete"]),
+  action: z.enum(["create", "update", "activate", "deactivate", "delete", "set_usage"]),
   code: z.string().trim().max(20).nullable(),
   description: z.string().trim().max(100).nullable(),
+  usage: z.enum(["acquisto", "vendita", "entrambi"]).nullable().default(null),
 });
 
 const batchSchema = z.object({
   companyId: z.string().uuid(),
   productIds: z.array(z.string().uuid()).min(1).max(10000),
   unitId: z.string().uuid(),
-  operation: z.enum(["add", "visible", "active", "factor", "default", "remove"]),
+  operation: z.enum(["add", "visible", "active", "factor", "default", "remove", "conversion_type"]),
   booleanValue: z.boolean().nullable(),
   conversionFactor: z.number().positive().nullable(),
+  conversionType: z.enum(["esatta", "indicativa"]).nullable().default(null),
   overwrite: z.boolean(),
 });
+
 
 async function assertAdmin(
   supabase: { rpc: (fn: "is_company_admin", args: { _company_id: string }) => PromiseLike<{ data: unknown }> },
@@ -42,10 +45,12 @@ export const manageUnitOfMeasure = createServerFn({ method: "POST" })
       _actor_user_id: context.userId,
       ...(data.code === null ? {} : { _code: data.code }),
       ...(data.description === null ? {} : { _description: data.description }),
+      ...(data.usage === null ? {} : { _usage: data.usage }),
     });
     if (error) throw new Error(error.message);
     return { id: result };
   });
+
 
 export const applyProductSaleUnitBatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -62,7 +67,9 @@ export const applyProductSaleUnitBatch = createServerFn({ method: "POST" })
       _actor_user_id: context.userId,
       ...(data.booleanValue === null ? {} : { _boolean_value: data.booleanValue }),
       ...(data.conversionFactor === null ? {} : { _conversion_factor: data.conversionFactor }),
+      ...(data.conversionType === null ? {} : { _conversion_type: data.conversionType }),
     });
+
     if (error) throw new Error(error.message);
     return result as { requested: number; changed: number; unchanged: number };
   });
