@@ -25,6 +25,32 @@ import { applyProductSaleUnitBatch } from "@/lib/sales-units.functions";
 export type CompanyUnit = { id: string; code: string; description: string; status: "attivo" | "disattivato" | "revocato"; usage?: "acquisto" | "vendita" | "entrambi" };
 export type ProductSaleUnit = { id: string; product_id: string; unit_id: string; is_active: boolean; is_customer_visible: boolean; is_default: boolean; conversion_factor: number | null; conversion_reference_um: string | null; conversion_type: "esatta" | "indicativa"; needs_review: boolean; units_of_measure: { code: string; description: string } | null };
 
+/**
+ * Panoramica in sola lettura delle U.M. con cui il prodotto si acquista:
+ * arrivano dalle referenze fornitore, non sono modificabili da qui (★ = predefinita).
+ */
+export function PurchaseUnitsOverview({ productId }: { productId: string }) {
+  const purchaseQuery = useQuery({
+    queryKey: ["product-supplier-links", productId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("product_supplier_overview", { _product_id: productId });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as { supplier_name: string; is_active: boolean; purchase_units: { code: string; is_default: boolean; is_active: boolean }[] | null }[];
+    },
+  });
+  const purchaseRows = (purchaseQuery.data ?? []).filter((row) => row.is_active);
+  if (!purchaseRows.length) return <p className="mt-1 text-sm text-muted-foreground">Nessuna U.M. di acquisto</p>;
+  return <ul className="mt-1 space-y-1 text-sm">
+    {purchaseRows.map((row, index) => {
+      const codes = (row.purchase_units ?? []).filter((unit) => unit.is_active);
+      return <li key={`${row.supplier_name}-${index}`} className="min-w-0">
+        <span className="font-medium">{codes.length ? codes.map((unit) => `${unit.code}${unit.is_default ? " ★" : ""}`).join(" · ") : "—"}</span>
+        <span className="ml-1 text-muted-foreground">{row.supplier_name}</span>
+      </li>;
+    })}
+  </ul>;
+}
+
 
 export function SalesUnitManager({ companyId, productId, daneaUm, units, assignments, editable, showPurchase = true }: { companyId: string; productId: string; daneaUm: string | null; units: CompanyUnit[]; assignments: ProductSaleUnit[]; editable: boolean; /** Nella scheda a tab le U.M. d'acquisto vivono nel tab Acquisto. */ showPurchase?: boolean }) {
   const run = useServerFn(applyProductSaleUnitBatch);
@@ -75,16 +101,7 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
   const busy = mutation.isPending || saveMutation.isPending;
 
   // Sola lettura: le U.M. con cui il prodotto si acquista arrivano dalle referenze fornitore.
-  const purchaseQuery = useQuery({
-    enabled: showPurchase,
-    queryKey: ["product-supplier-links", productId],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("product_supplier_overview", { _product_id: productId });
-      if (error) throw new Error(error.message);
-      return (data ?? []) as unknown as { supplier_name: string; is_active: boolean; purchase_units: { code: string; is_default: boolean; is_active: boolean }[] | null }[];
-    },
-  });
-  const purchaseRows = (purchaseQuery.data ?? []).filter((row) => row.is_active);
+
 
   const requestRemoval = (row: ProductSaleUnit) => {
     setOfferDeactivation(row.is_default);
@@ -113,16 +130,9 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
     <div className={showPurchase ? "mt-2 grid gap-3 sm:grid-cols-2" : "mt-2"}>
       {showPurchase ? <div className="min-w-0">
         <p className="text-xs font-medium uppercase text-muted-foreground">Acquisto</p>
-        {purchaseRows.length ? <ul className="mt-1 space-y-1 text-sm">
-          {purchaseRows.map((row, index) => {
-            const codes = (row.purchase_units ?? []).filter((unit) => unit.is_active);
-            return <li key={`${row.supplier_name}-${index}`} className="min-w-0">
-              <span className="font-medium">{codes.length ? codes.map((unit) => `${unit.code}${unit.is_default ? " ★" : ""}`).join(" · ") : "—"}</span>
-              <span className="ml-1 text-muted-foreground">{row.supplier_name}</span>
-            </li>;
-          })}
-        </ul> : <p className="mt-1 text-sm text-muted-foreground">Nessuna U.M. di acquisto</p>}
+        <PurchaseUnitsOverview productId={productId} />
       </div> : null}
+
       <div className="min-w-0">
         {showPurchase ? <p className="text-xs font-medium uppercase text-muted-foreground">Vendita</p> : null}
         <div className="mt-1 flex flex-wrap items-center gap-2" aria-label="U.M. vendita associate">

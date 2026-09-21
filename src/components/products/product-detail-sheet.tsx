@@ -16,7 +16,7 @@ import { ChevronDown, Info } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AVAILABILITY_LABELS, dateTime, euro, type ProductRow } from "@/lib/product-grid";
-import { SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
+import { PurchaseUnitsOverview, SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
 import { ProductImageManager } from "./product-image-manager";
 import { ProductSuppliersManager } from "./product-suppliers-manager";
 import { ProductProvenancePanel } from "./product-provenance-panel";
@@ -255,7 +255,12 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
 
         {/* Acquisto: fornitori, referenze, priorità, U.M. acquistabili, costi. */}
         <TabsContent value="acquisto" className="space-y-3">
+          <section aria-labelledby="purchase-units-title">
+            <h3 id="purchase-units-title" className="text-sm font-semibold">U.M. di acquisto</h3>
+            <PurchaseUnitsOverview productId={product.id} />
+          </section>
           {companyId ? <ProductSuppliersManager companyId={companyId} productId={product.id} productArchiveId={product.archive_id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
+
           {isAdmin ? <section className="border-t border-border pt-2"><h3 className="text-sm font-semibold">Costo ricevuto da Danea</h3><dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-2"><Field label="Fornitore" value={cost?.supplier_name ?? product.supplier_name ?? "—"} /><Field label="Codice fornitore" value={cost?.supplier_code ?? product.supplier_code ?? "—"} /><Field label="Codice prodotto" value={cost?.supplier_product_code ?? product.supplier_product_code ?? "—"} /><Field label="Costo netto" value={euro(cost?.supplier_net_price)} /></dl></section> : null}
         </TabsContent>
 
