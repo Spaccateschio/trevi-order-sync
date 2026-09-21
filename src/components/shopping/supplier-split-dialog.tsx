@@ -204,12 +204,20 @@ export function SupplierSplitDialog({
 
         <ul className="divide-y divide-border">
           {suppliers.map((supplier) => {
-            const draft = drafts[supplier.link_id] ?? { quantity: "", packs: "", accepted: false };
+            const draft = drafts[supplier.link_id] ?? { quantity: "", packs: "", accepted: false, unitId: "" };
             const existing = assignments.find((row) => row.product_supplier_link_id === supplier.link_id);
             const quantity = parseQuantity(draft.quantity) ?? 0;
-            const purchaseCode = supplier.purchase_unit_code ?? supplier.conversion_reference_um;
-            const translatable = isTranslatable(item.unit_code, purchaseCode, supplier.conversion_factor);
-            const proposal = packProposal(quantity, supplier.conversion_factor);
+            // U.M. acquistabili della referenza: la scelta è dell'operatore, la predefinita è solo un suggerimento.
+            const purchaseUnits = (supplier.purchase_units ?? []).filter((row) => row.is_active);
+            const chosen =
+              purchaseUnits.find((row) => row.unit_id === draft.unitId) ??
+              purchaseUnits.find((row) => row.is_default) ??
+              (purchaseUnits.length === 1 ? purchaseUnits[0] : null);
+            const purchaseCode = chosen?.code ?? supplier.purchase_unit_code ?? supplier.conversion_reference_um;
+            // Senza conversione registrata non esistono equivalenze: nessuna proposta a confezioni.
+            const factor = chosen ? chosen.conversion_factor : supplier.conversion_factor;
+            const translatable = isTranslatable(item.unit_code, purchaseCode, factor);
+            const proposal = packProposal(quantity, factor);
             const belowMin =
               supplier.min_quantity !== null && quantity > 0 && quantity < Number(supplier.min_quantity);
 
