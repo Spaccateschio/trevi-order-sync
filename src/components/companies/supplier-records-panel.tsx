@@ -207,18 +207,20 @@ export function SupplierRecordsPanel({
   function openNew() {
     setEditing(null);
     setForm(emptyForm);
+    setDelivery(DEFAULT_SCHEDULE);
     setFormOpen(true);
   }
 
   function openEdit(record: SupplierRecord) {
     setEditing(record);
     setForm(toForm(record));
+    setDelivery(toSchedule(record.delivery_weekdays, record.delivery_month_day));
     setFormOpen(true);
   }
 
   async function save() {
     setBusy(true);
-    const { error } = await supabase.rpc("manage_supplier_record", {
+    const { data: savedId, error } = await supabase.rpc("manage_supplier_record", {
       _buyer_company_id: companyId,
       _action: editing ? "update" : "create",
       ...(editing ? { _supplier_record_id: editing.id } : {}),
