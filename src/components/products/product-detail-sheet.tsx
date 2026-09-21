@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+/** Quattro contesti della stessa scheda prodotto. */
+export type ProductDetailTab = "prodotto" | "vendita" | "acquisto" | "inventario";
 import { ChevronDown, Info } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -275,6 +279,7 @@ export function ProductDetailSheet({
   companyId,
   companyUnits,
   saleUnits,
+  initialTab = "prodotto",
 }: {
   product: ProductRow | null;
   archiveName: string;
@@ -285,11 +290,13 @@ export function ProductDetailSheet({
   companyId: string | null;
   companyUnits: CompanyUnit[];
   saleUnits: ProductSaleUnit[];
+  /** Tab iniziale: Vendite → Prodotti apre "vendita", Acquisti → Prodotti apre "acquisto". */
+  initialTab?: ProductDetailTab;
 }) {
   return (
     <Sheet open={Boolean(product)} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-full max-w-none overflow-y-auto p-4 sm:w-[560px] sm:max-w-[560px] sm:p-6">
-        {product ? <ProductDetailContent key={product.id} product={product} archiveName={archiveName} listName={listName} isAdmin={isAdmin} cost={cost} companyId={companyId} companyUnits={companyUnits} saleUnits={saleUnits} /> : null}
+        {product ? <ProductDetailContent key={product.id} product={product} archiveName={archiveName} listName={listName} isAdmin={isAdmin} cost={cost} companyId={companyId} companyUnits={companyUnits} saleUnits={saleUnits} initialTab={initialTab} /> : null}
       </SheetContent>
     </Sheet>
   );
