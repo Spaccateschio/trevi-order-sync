@@ -57,6 +57,48 @@ function ShowcaseToggle({ product, companyId, editable }: { product: ProductRow;
   );
 }
 
+function AvailabilitySelector({ product, companyId, editable }: { product: ProductRow; companyId: string; editable: boolean }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: async (value: ProductRow["commercial_availability"]) => {
+      const { error } = await supabase.rpc("set_product_commercial_availability", {
+        _company_id: companyId,
+        _product_id: product.id,
+        _availability: value,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      toast.success("Disponibilità commerciale aggiornata");
+      void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  return (
+    <section className="space-y-2 rounded-lg border border-border p-3">
+      <div>
+        <p className="text-sm font-semibold">Disponibilità commerciale</p>
+        <p className="text-xs text-muted-foreground">
+          Decide se e come il cliente può ordinare. Scelta manuale: non cambia in base a giacenza, fabbisogno o fornitori.
+        </p>
+      </div>
+      <Select
+        value={product.commercial_availability}
+        disabled={!editable || mutation.isPending}
+        onValueChange={(value) => mutation.mutate(value as ProductRow["commercial_availability"])}
+      >
+        <SelectTrigger aria-label="Disponibilità commerciale"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {(Object.keys(AVAILABILITY_LABELS) as ProductRow["commercial_availability"][]).map((key) => (
+            <SelectItem key={key} value={key}>{AVAILABILITY_LABELS[key]}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </section>
+  );
+}
+
 function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, companyId, companyUnits, saleUnits }: {
   product: ProductRow;
   archiveName: string;
