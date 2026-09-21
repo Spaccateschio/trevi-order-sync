@@ -26,7 +26,7 @@ export type CompanyUnit = { id: string; code: string; description: string; statu
 export type ProductSaleUnit = { id: string; product_id: string; unit_id: string; is_active: boolean; is_customer_visible: boolean; is_default: boolean; conversion_factor: number | null; conversion_reference_um: string | null; conversion_type: "esatta" | "indicativa"; needs_review: boolean; units_of_measure: { code: string; description: string } | null };
 
 
-export function SalesUnitManager({ companyId, productId, daneaUm, units, assignments, editable }: { companyId: string; productId: string; daneaUm: string | null; units: CompanyUnit[]; assignments: ProductSaleUnit[]; editable: boolean }) {
+export function SalesUnitManager({ companyId, productId, daneaUm, units, assignments, editable, showPurchase = true }: { companyId: string; productId: string; daneaUm: string | null; units: CompanyUnit[]; assignments: ProductSaleUnit[]; editable: boolean; /** Nella scheda a tab le U.M. d'acquisto vivono nel tab Acquisto. */ showPurchase?: boolean }) {
   const run = useServerFn(applyProductSaleUnitBatch);
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -76,6 +76,7 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
 
   // Sola lettura: le U.M. con cui il prodotto si acquista arrivano dalle referenze fornitore.
   const purchaseQuery = useQuery({
+    enabled: showPurchase,
     queryKey: ["product-supplier-links", productId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("product_supplier_overview", { _product_id: productId });
@@ -105,12 +106,12 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
 
   return <section aria-labelledby="sale-units-title">
     <div className="flex items-center justify-between gap-2">
-      <h3 id="sale-units-title" className="text-sm font-semibold">U.M. del prodotto</h3>
-      <Badge variant="secondary" className="shrink-0">{editable ? "Vendita modificabile" : "Sola lettura"}</Badge>
+      <h3 id="sale-units-title" className="text-sm font-semibold">{showPurchase ? "U.M. del prodotto" : "U.M. ordinabili"}</h3>
+      {showPurchase ? <Badge variant="secondary" className="shrink-0">{editable ? "Vendita modificabile" : "Sola lettura"}</Badge> : null}
     </div>
 
-    <div className="mt-2 grid gap-3 sm:grid-cols-2">
-      <div className="min-w-0">
+    <div className={showPurchase ? "mt-2 grid gap-3 sm:grid-cols-2" : "mt-2"}>
+      {showPurchase ? <div className="min-w-0">
         <p className="text-xs font-medium uppercase text-muted-foreground">Acquisto</p>
         {purchaseRows.length ? <ul className="mt-1 space-y-1 text-sm">
           {purchaseRows.map((row, index) => {
@@ -121,9 +122,9 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
             </li>;
           })}
         </ul> : <p className="mt-1 text-sm text-muted-foreground">Nessuna U.M. di acquisto</p>}
-      </div>
+      </div> : null}
       <div className="min-w-0">
-        <p className="text-xs font-medium uppercase text-muted-foreground">Vendita</p>
+        {showPurchase ? <p className="text-xs font-medium uppercase text-muted-foreground">Vendita</p> : null}
         <div className="mt-1 flex flex-wrap items-center gap-2" aria-label="U.M. vendita associate">
       {assignments.map((row) => {
         const code = row.units_of_measure?.code ?? "—";
