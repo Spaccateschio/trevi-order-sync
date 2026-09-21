@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { Settings2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -71,6 +81,30 @@ export function InternalProductDialog({
       return (data as string) ?? "";
     },
   });
+
+  // Le U.M. provengono dall'anagrafica aziendale: qui si scelgono, non si scrivono.
+  const unitsQuery = useQuery({
+    queryKey: ["company-units", companyId],
+    enabled: open && Boolean(companyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("units_of_measure")
+        .select("id, code, status")
+        .eq("company_id", companyId!)
+        .eq("status", "attivo")
+        .order("code");
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { id: string; code: string; status: string }[];
+    },
+  });
+
+  const unitOptions = useMemo(() => {
+    const codes = (unitsQuery.data ?? []).map((unit) => unit.code);
+    if (um && !codes.includes(um)) codes.unshift(um);
+    return codes;
+  }, [um, unitsQuery.data]);
+
+
 
   useEffect(() => {
     if (!open) return;
@@ -148,13 +182,35 @@ export function InternalProductDialog({
           </div>
           <div className="sm:col-span-1">
             <Label htmlFor="ip-um">Unità di misura</Label>
-            <Input
-              id="ip-um"
-              value={um}
-              onChange={(event) => setUm(event.target.value)}
-              placeholder="kg, pz, cassa…"
-              className="mt-1"
-            />
+            <div className="mt-1 flex items-center gap-2">
+              <Select value={um} onValueChange={setUm}>
+                <SelectTrigger id="ip-um" className="flex-1" aria-label="Unità di misura">
+                  <SelectValue placeholder="Scegli U.M." />
+                </SelectTrigger>
+                <SelectContent>
+                  {unitOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                asChild
+                size="icon"
+                variant="outline"
+                title="Gestisci le unità di misura nelle impostazioni"
+              >
+                <Link to="/amministrazione" onClick={() => onOpenChange(false)}>
+                  <Settings2 className="size-4" />
+                </Link>
+              </Button>
+            </div>
+            {unitOptions.length === 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Nessuna unità di misura in anagrafica: creala nelle impostazioni dell'azienda.
+              </p>
+            ) : null}
           </div>
           <div className="sm:col-span-2">
             <Label htmlFor="ip-description">Descrizione</Label>
