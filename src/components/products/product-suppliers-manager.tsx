@@ -361,6 +361,7 @@ export function ProductSuppliersManager({
                 </div>
                 <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
                   <div><dt className="text-muted-foreground">Cod. fornitore</dt><dd className="font-mono">{row.supplier_product_code ?? "—"}</dd></div>
+                  <div><dt className="text-muted-foreground">Priorità</dt><dd>{row.sourcing_priority ?? "—"}</dd></div>
                   <div><dt className="text-muted-foreground">U.M. acquisto</dt><dd>{row.purchase_unit_code ?? "—"}{row.conversion_factor ? ` · 1 ≈ ${row.conversion_factor} ${row.conversion_reference_um ?? ""}` : ""}</dd></div>
                   <div><dt className="text-muted-foreground">Costo Danea</dt><dd>{row.danea_net_cost !== null ? `${euro(row.danea_net_cost)} · ${dateTime(row.danea_cost_at)}` : "—"}</dd></div>
                   <div><dt className="text-muted-foreground">Costo Trevi Fruit</dt><dd>{row.manual_cost !== null ? `${euro(row.manual_cost)} · ${dateTime(row.manual_cost_at)}` : "—"}</dd></div>
