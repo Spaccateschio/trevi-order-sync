@@ -1,15 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ImageOff, ShoppingCart } from "lucide-react";
+import { ImageOff, PackagePlus, ShoppingCart } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
+import { AddToOwnProductsDialog } from "@/components/catalog/add-to-own-products-dialog";
 import { FavoriteButton } from "@/components/catalog/favorite-button";
 import { UnitPicker } from "@/components/catalog/unit-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { activeCompany, isRelationOperational, useIdentity } from "@/hooks/use-identity";
+import { activeCompany, hasRole, isRelationOperational, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CATALOG_SELECT,
@@ -51,6 +53,8 @@ function CatalogProductPage() {
   const company = activeCompany(identity);
   const buyerId = company?.companyId ?? null;
   const signImages = useServerFn(getCatalogImageUrls);
+  const isAdmin = hasRole(identity, "amministratore");
+  const [addOpen, setAddOpen] = useState(false);
 
   const relation = (identity?.relations ?? []).find(
     (r) => r.buyerCompanyId === buyerId && r.sellerCompanyId === sellerId,
@@ -267,10 +271,27 @@ function CatalogProductPage() {
                 label={favoriteQuery.data ? "Nei preferiti" : "Preferito"}
                 onToggle={() => toggleFavorite.mutate()}
               />
+              {isAdmin ? (
+                <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+                  <PackagePlus className="h-4 w-4" aria-hidden="true" />
+                  Aggiungi ai miei prodotti
+                </Button>
+              ) : null}
               <Button variant="outline" size="sm" disabled title="Disponibile a breve">
                 <ShoppingCart className="h-4 w-4" aria-hidden="true" />
                 Aggiungi alla lista della spesa · a breve
               </Button>
+            </div>
+
+            <div>
+              <AddToOwnProductsDialog
+                open={addOpen}
+                onOpenChange={setAddOpen}
+                buyerCompanyId={buyerId}
+                sellerCompanyId={sellerId}
+                sellerProduct={{ id: productId, code: product.code, description: product.description }}
+                userId={identity?.userId ?? null}
+              />
             </div>
           </div>
         </div>
