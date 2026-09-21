@@ -242,7 +242,6 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
               <PriceUnitSelector product={product} companyId={companyId} companyUnits={companyUnits} editable={isAdmin} />
             </div>
           ) : null}
-          {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} showPurchase={false} /> : null}
           <section className="border-t border-border pt-2">
             <h3 className="text-sm font-semibold">Listini</h3>
             {product.product_prices.length ? <div className="mt-1 divide-y divide-border">
