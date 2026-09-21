@@ -51,6 +51,15 @@ type LinkRow = {
   product_supplier_link_units: { id: string; is_default: boolean; units_of_measure: { code: string } | null }[] | null;
 };
 
+/** Elenco delle U.M. con cui si può acquistare la referenza (★ = predefinita, facoltativa). */
+function purchaseUnitsLabel(row: LinkRow) {
+  const codes = (row.product_supplier_link_units ?? [])
+    .slice()
+    .sort((a, b) => Number(b.is_default) - Number(a.is_default))
+    .map((unit) => `${unit.units_of_measure?.code ?? "—"}${unit.is_default ? " ★" : ""}`);
+  return codes.length ? codes.join(" · ") : "—";
+}
+
 type ProductOption = {
   id: string;
   code: string;
