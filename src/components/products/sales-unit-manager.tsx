@@ -92,12 +92,12 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
   };
 
   return <section aria-labelledby="sale-units-title">
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-      <div className="min-w-0"><h3 id="sale-units-title" className="text-sm font-semibold">Impostazioni Trevi Fruit</h3><p className="text-xs text-muted-foreground">U.M. vendita · riferimento Danea: {daneaUm ?? "—"}</p></div>
+    <div className="flex items-center justify-between gap-2">
+      <h3 id="sale-units-title" className="text-sm font-semibold">Impostazioni Trevi Fruit</h3>
       <Badge variant="secondary" className="shrink-0">{editable ? "Modificabili" : "Sola lettura"}</Badge>
     </div>
 
-    <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="U.M. vendita associate">
+    <div className="mt-2 flex flex-wrap items-center gap-2" aria-label="U.M. vendita associate">
       {assignments.map((row) => {
         const code = row.units_of_measure?.code ?? "—";
         const isSelected = selectedId === row.id;

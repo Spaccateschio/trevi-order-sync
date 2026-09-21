@@ -147,16 +147,11 @@ export function ProductStockPanel({
     : null;
 
   return (
-    <section aria-labelledby="stock-title" className="rounded-lg border border-border p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 id="stock-title" className="text-sm font-semibold">
-            Inventario
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            Giacenza dal conteggio fisico, zona per zona. Danea non invia quantità.
-          </p>
-        </div>
+    <section aria-labelledby="stock-title">
+      <div className="flex items-center justify-between gap-2">
+        <h3 id="stock-title" className="text-sm font-semibold">
+          Inventario
+        </h3>
         {overview ? (
           <Badge variant={overview.status === "completo" ? "secondary" : "outline"}>
             {STOCK_STATUS_LABEL[overview.status]}

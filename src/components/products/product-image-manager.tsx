@@ -105,7 +105,7 @@ export function ProductImageManager({ productId, image, editable }: { productId:
   });
   const busy = saveMutation.isPending || removeMutation.isPending;
 
-  return <section aria-labelledby="product-image-heading" className="border-t border-border pt-4">
+  return <section aria-labelledby="product-image-heading" className="border-t border-border pt-3">
     <div className="flex items-center justify-between gap-3">
       <h3 id="product-image-heading" className="text-sm font-semibold">Immagine prodotto</h3>
       {busy ? <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />Elaborazione…</span> : null}
@@ -115,7 +115,7 @@ export function ProductImageManager({ productId, image, editable }: { productId:
       event.currentTarget.value = "";
       if (file) saveMutation.mutate(file);
     }} />
-    <div className="mt-3 flex min-h-24 items-center gap-3 border border-border bg-muted/30 p-3">
+    <div className="mt-2 flex min-h-20 items-center gap-3 border border-border bg-muted/30 p-2">
       {image && imageQuery.data?.url ? <img src={imageQuery.data.url} alt="Immagine del prodotto" className="h-24 w-24 shrink-0 object-contain" /> : <div className="grid h-20 w-20 shrink-0 place-items-center border border-dashed border-border text-muted-foreground"><ImageIcon className="h-6 w-6" /></div>}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{image ? imageQuery.isLoading ? "Caricamento immagine…" : "Immagine Trevi Fruit" : "Nessuna immagine"}</p>
