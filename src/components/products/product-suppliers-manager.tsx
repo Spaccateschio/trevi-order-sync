@@ -283,6 +283,15 @@ export function ProductSuppliersManager({
     return "Collegamento chiuso";
   };
 
+  /** Segnala subito i campi numerici compilati con testo: contorno rosso + messaggio sotto il campo. */
+  const isInvalidNumber = (value: string) => {
+    const normalized = value.trim().replace(",", ".");
+    return normalized !== "" && !Number.isFinite(Number(normalized));
+  };
+  const invalidClass = (value: string) => (isInvalidNumber(value) ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : "");
+  const numberError = (value: string) => (isInvalidNumber(value) ? <p className="text-xs font-medium text-destructive">Inserisci solo un numero</p> : null);
+  const hasFieldErrors = [draft.sourcingPriority, draft.conversionFactor, draft.manualCost, draft.minQuantity, draft.leadTimeDays].some(isInvalidNumber);
+
   const fieldsFor = (mode: "create" | "update") => (
     <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div className="space-y-1">
@@ -295,7 +304,8 @@ export function ProductSuppliersManager({
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Priorità di approvvigionamento (facoltativa)</Label>
-        <Input type="number" min={1} step={1} inputMode="numeric" value={draft.sourcingPriority} disabled={busy} placeholder="Es. 1 (prima scelta)" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
+        <Input type="number" min={1} step={1} inputMode="numeric" aria-invalid={isInvalidNumber(draft.sourcingPriority)} className={invalidClass(draft.sourcingPriority)} value={draft.sourcingPriority} disabled={busy} placeholder="Es. 1 (prima scelta)" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
+        {numberError(draft.sourcingPriority)}
         <p className="text-xs text-muted-foreground">Solo un numero: 1 = prima scelta. Più fonti possono avere la stessa priorità, la scelta finale resta nella Lista della Spesa.</p>
       </div>
       {mode === "create" ? (
@@ -315,24 +325,28 @@ export function ProductSuppliersManager({
             <Label className="text-xs">Conversione (facoltativa) verso {daneaUm ?? "U.M. prodotto"}</Label>
             <div className="grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2">
               <span className="text-sm">1 {draft.purchaseUnitId ? purchaseUnits.find((unit) => unit.id === draft.purchaseUnitId)?.code ?? "U.M." : "U.M."} ≈</span>
-              <Input inputMode="decimal" aria-label="Conversione stimata" value={draft.conversionFactor} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, conversionFactor: event.target.value }))} />
+              <Input inputMode="decimal" aria-label="Conversione stimata" aria-invalid={isInvalidNumber(draft.conversionFactor)} className={invalidClass(draft.conversionFactor)} value={draft.conversionFactor} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, conversionFactor: event.target.value }))} />
               <span className="truncate text-sm">{daneaUm ?? "U.M. prodotto"}</span>
             </div>
+            {numberError(draft.conversionFactor)}
             <p className="text-xs text-muted-foreground">Compila solo se l’equivalenza è certa: senza conversione il sistema non calcola equivalenti.</p>
           </div>
         </>
       ) : null}
       <div className="space-y-1">
         <Label className="text-xs">Costo concordato (Trevi Fruit)</Label>
-        <Input inputMode="decimal" value={draft.manualCost} disabled={busy} placeholder="Nessuno" onChange={(event) => setDraft((current) => ({ ...current, manualCost: event.target.value }))} />
+        <Input inputMode="decimal" aria-invalid={isInvalidNumber(draft.manualCost)} className={invalidClass(draft.manualCost)} value={draft.manualCost} disabled={busy} placeholder="Nessuno" onChange={(event) => setDraft((current) => ({ ...current, manualCost: event.target.value }))} />
+        {numberError(draft.manualCost)}
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Quantità minima</Label>
-        <Input inputMode="decimal" value={draft.minQuantity} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, minQuantity: event.target.value }))} />
+        <Input inputMode="decimal" aria-invalid={isInvalidNumber(draft.minQuantity)} className={invalidClass(draft.minQuantity)} value={draft.minQuantity} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, minQuantity: event.target.value }))} />
+        {numberError(draft.minQuantity)}
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Giorni di consegna</Label>
-        <Input type="number" min={0} step={1} inputMode="numeric" value={draft.leadTimeDays} disabled={busy} placeholder="Es. 2" onChange={(event) => setDraft((current) => ({ ...current, leadTimeDays: event.target.value }))} />
+        <Input type="number" min={0} step={1} inputMode="numeric" aria-invalid={isInvalidNumber(draft.leadTimeDays)} className={invalidClass(draft.leadTimeDays)} value={draft.leadTimeDays} disabled={busy} placeholder="Es. 2" onChange={(event) => setDraft((current) => ({ ...current, leadTimeDays: event.target.value }))} />
+        {numberError(draft.leadTimeDays)}
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Note</Label>
@@ -422,7 +436,7 @@ export function ProductSuppliersManager({
                       <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => priorityMutation.mutate({ linkId: row.link_id, priority: 1 })}><Star className="fill-current" aria-hidden="true" />Priorità 1</Button>
                     )}
                     <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => statusMutation.mutate({ linkId: row.link_id, action: row.is_active ? "deactivate" : "activate" })}>{row.is_active ? "Disattiva" : "Riattiva"}</Button>
-                    <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate("update")}>Salva</Button>
+                    <Button type="button" size="sm" disabled={busy || hasFieldErrors} onClick={() => saveMutation.mutate("update")}>Salva</Button>
                   </div>
                 </div>
               ) : null}
@@ -462,7 +476,7 @@ export function ProductSuppliersManager({
               {fieldsFor("create")}
               <div className="mt-3 flex flex-wrap justify-end gap-2">
                 <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => { setAdding(false); setDraft(EMPTY_DRAFT); }}>Annulla</Button>
-                <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate("create")}>Aggiungi</Button>
+                <Button type="button" size="sm" disabled={busy || hasFieldErrors} onClick={() => saveMutation.mutate("create")}>Aggiungi</Button>
               </div>
             </div>
           ) : links.length ? (
