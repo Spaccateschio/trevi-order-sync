@@ -436,7 +436,7 @@ export function ProductSuppliersManager({
                       <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => priorityMutation.mutate({ linkId: row.link_id, priority: 1 })}><Star className="fill-current" aria-hidden="true" />Priorità 1</Button>
                     )}
                     <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => statusMutation.mutate({ linkId: row.link_id, action: row.is_active ? "deactivate" : "activate" })}>{row.is_active ? "Disattiva" : "Riattiva"}</Button>
-                    <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate("update")}>Salva</Button>
+                    <Button type="button" size="sm" disabled={busy || hasFieldErrors} onClick={() => saveMutation.mutate("update")}>Salva</Button>
                   </div>
                 </div>
               ) : null}
@@ -476,7 +476,7 @@ export function ProductSuppliersManager({
               {fieldsFor("create")}
               <div className="mt-3 flex flex-wrap justify-end gap-2">
                 <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => { setAdding(false); setDraft(EMPTY_DRAFT); }}>Annulla</Button>
-                <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate("create")}>Aggiungi</Button>
+                <Button type="button" size="sm" disabled={busy || hasFieldErrors} onClick={() => saveMutation.mutate("create")}>Aggiungi</Button>
               </div>
             </div>
           ) : links.length ? (
