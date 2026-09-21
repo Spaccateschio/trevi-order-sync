@@ -95,16 +95,16 @@ export function InternalProductDialog({
       const { data, error } = await supabase.rpc("manage_internal_product", {
         _company_id: companyId,
         _action: editing ? "update" : "create",
-        _product_id: product?.id ?? null,
-        _code: code.trim() || null,
+        _product_id: product?.id ?? undefined,
+        _code: code.trim() || undefined,
         _description: description.trim(),
-        _category: category.trim() || null,
-        _subcategory: subcategory.trim() || null,
-        _danea_um: um.trim() || null,
-        _barcode: barcode.trim() || null,
-        _producer_name: producer.trim() || null,
-        _notes: notes.trim() || null,
-        _actor_user_id: userId,
+        _category: category.trim() || undefined,
+        _subcategory: subcategory.trim() || undefined,
+        _danea_um: um.trim() || undefined,
+        _barcode: barcode.trim() || undefined,
+        _producer_name: producer.trim() || undefined,
+        _notes: notes.trim() || undefined,
+        _actor_user_id: userId ?? undefined,
       });
       if (error) throw new Error(error.message);
       return data as string;

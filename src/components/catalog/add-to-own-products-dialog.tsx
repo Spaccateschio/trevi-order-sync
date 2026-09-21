@@ -68,9 +68,9 @@ export function AddToOwnProductsDialog({
         _buyer_company_id: buyerCompanyId,
         _seller_company_id: sellerCompanyId,
         _seller_product_id: sellerProduct.id,
-        _own_product_id: mode === "esistente" ? ownProductId : null,
-        _supplier_product_code: supplierCode.trim() || null,
-        _actor_user_id: userId,
+        _own_product_id: mode === "esistente" ? (ownProductId ?? undefined) : undefined,
+        _supplier_product_code: supplierCode.trim() || undefined,
+        _actor_user_id: userId ?? undefined,
       });
       if (error) throw new Error(error.message);
       return data as { created_product?: boolean; created_link?: boolean };
