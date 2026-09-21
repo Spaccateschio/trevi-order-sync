@@ -162,6 +162,20 @@ export function InventoryCountPanel({
   });
   const catalogPreview = catalogPreviewQuery.data ?? [];
 
+  const previewImagesQuery = useQuery({
+    queryKey: ["inventario-prodotti-immagini", companyId, catalogPreview.length],
+    enabled: !sessionId && catalogPreview.length > 0,
+    staleTime: 8 * 60 * 1000,
+    queryFn: () =>
+      getImageUrls({ data: { productIds: catalogPreview.slice(0, 50).map((p) => p.id), thumbnail: true } }),
+  });
+  const previewImages = useMemo(
+    () => new Map((previewImagesQuery.data ?? []).map((image) => [image.productId, image.url])),
+    [previewImagesQuery.data],
+  );
+
+
+
 
   const progressQuery = useQuery({
     queryKey: ["inventory-progress", sessionId],
@@ -372,30 +386,55 @@ export function InventoryCountPanel({
               </p>
             </div>
             {catalogPreview.length ? (
-              <div className="rounded-md border border-border bg-card">
+              <div className="overflow-hidden rounded-md border border-border bg-card">
                 <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
                   Prodotti della tua azienda ({catalogPreview.length}) — verranno inclusi nel prossimo
                   conteggio
                 </p>
-                <ul className="divide-y divide-border">
-                  {catalogPreview.map((product) => (
-                    <li key={product.id} className="flex items-center justify-between gap-3 px-4 py-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {product.description ?? product.code}
-                        </p>
-                        <p className="truncate font-mono text-xs text-muted-foreground">
-                          {product.code}
-                          {product.category ? ` · ${product.category}` : ""}
-                          {product.danea_um ? ` · ${product.danea_um}` : ""}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">Mai contato</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
+                  {catalogPreview.map((product) => {
+                    const image = previewImages.get(product.id);
+                    const unit = product.danea_um?.trim() ?? "";
+                    return (
+                      <article key={product.id} className="rounded-md border-2 border-border bg-card p-2">
+                        <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
+                          {image ? (
+                            <img
+                              src={image}
+                              alt=""
+                              loading="lazy"
+                              className="size-12 rounded-sm border border-border object-cover"
+                            />
+                          ) : (
+                            <span className="grid size-12 place-items-center rounded-sm border border-border bg-muted">
+                              <Package className="size-5 text-muted-foreground" aria-hidden="true" />
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <p className="truncate font-display text-sm font-bold uppercase leading-tight">
+                              {product.description ?? product.code}
+                            </p>
+                            <p className="text-[11px] leading-tight text-muted-foreground">
+                              Cod. {product.code}
+                              {unit ? ` · ${unit}` : ""}
+                            </p>
+                            {product.category ? (
+                              <p className="truncate text-[11px] leading-tight text-muted-foreground">
+                                {product.category}
+                              </p>
+                            ) : null}
+                          </div>
+                          <span className="shrink-0 rounded-sm bg-muted px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-muted-foreground">
+                            Mai contato
+                          </span>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
               </div>
             ) : null}
+
           </section>
         ) : selectingLocation ? (
 
