@@ -186,9 +186,15 @@ export function CatalogList({
                     {product.price === null ? (
                       <span className="text-xs text-muted-foreground">Prezzo su richiesta</span>
                     ) : (
-                      euro(product.price)
+                      <>
+                        {euro(product.price)}
+                        {product.priceUnit ? (
+                          <span className="text-xs text-muted-foreground">/{product.priceUnit}</span>
+                        ) : null}
+                      </>
                     )}
                   </span>
+
                 </span>
               </Link>
               <FavoriteButton
