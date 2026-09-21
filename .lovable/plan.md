@@ -1,63 +1,64 @@
-# Prodotti propri, prodotti manuali, Preferiti e Inventario — analisi e proposta
+# Prodotti propri, prodotti manuali, Preferiti e Inventario — analisi e proposta rivista
 
-Nessuna modifica eseguita: sotto ci sono le risposte alle otto domande, verificate sul database e sul codice attuale, e la proposta.
+Nessuna modifica eseguita. Hai ragione sull'obiezione: l'inventario non deve contenere righe di prodotti appartenenti al fornitore. Sotto le risposte verificate e la proposta corretta.
 
-## A. Risposte alla verifica
+## A. Risposta alle quattro domande di verifica
 
-**1. Come vengono identificati oggi i prodotti Danea**
-L'identità è la coppia archivio + codice, con l'InternalID Danea come chiave preferita: esistono due vincoli di unicità, uno su (azienda, archivio, codice) e uno su (azienda, archivio, InternalID). L'importazione cerca prima per InternalID, allinea il codice se è cambiato, poi scrive in blocco usando come chiave (azienda, archivio, codice).
+**1. Esiste già una struttura per "prodotto del fornitore gestito dall'acquirente"? Sì.**
+L'architettura attuale la ha già e non serve inventarne una nuova:
+- il prodotto è sempre di proprietà dell'azienda (azienda + archivio + codice);
+- `product_supplier_links` collega un **prodotto dell'acquirente** a una **scheda fornitore dell'acquirente** e contiene già: codice prodotto del fornitore, unità di acquisto, fattore di conversione e U.M. di riferimento, costo manuale, quantità minima, tempi di consegna, fornitore preferito, attivo/non attivo, origine (manuale o Danea);
+- la scheda fornitore può già essere agganciata al rapporto B2B con il fornitore reale (funzione di collegamento scheda↔rapporto già presente);
+- `shopping_list_item_suppliers` punta già a `product_supplier_links`: il percorso Fabbisogno → Lista della Spesa → Ordine fornitore passa da lì, oggi.
 
-**2. Possiamo già creare prodotti manuali?**
-Strutturalmente quasi: il prodotto ha già descrizione, categoria, sottocategoria, U.M., note, barcode, produttore, IVA, immagini, unità di vendita, prezzi. Mancano due cose:
-- il prodotto richiede obbligatoriamente un archivio Danea, quindi un'azienda senza Danea oggi non può avere prodotti;
-- non esiste alcun campo che dica "questo prodotto è stato creato a mano": non c'è nessuna colonna di origine. E nell'app non esiste nessuna schermata di creazione prodotto (nessun "Nuovo prodotto").
+Quindi il Preferito di catalogo non deve entrare nell'inventario: deve **generare l'articolo gestito dell'acquirente** (prodotto proprio) più il collegamento al fornitore.
 
-**3. Collisione fra codice manuale e codice Danea — il rischio è reale**
-Confermato: se un prodotto manuale vivesse nello stesso archivio dei prodotti Danea, un'importazione con lo stesso codice lo sovrascriverebbe, e un invio completo lo depubblicherebbe perché "assente dal file". L'attuale identità archivio+codice NON è sufficiente. Serve una separazione esplicita (proposta al punto 1 sotto).
+**2. Chi è il proprietario di stock e conteggi**
+Sempre l'azienda che conta. Giacenze, conteggi, rettifiche, movimenti e lotti restano legati a un prodotto dell'azienda acquirente. Il prodotto del fornitore resta il riferimento di provenienza (catalogo, codice fornitore, prezzo), non l'oggetto inventariato.
 
-**4. Perché l'Inventario è oggi riservato a chi compra**
-È un semplice blocco di schermata: la pagina Inventario controlla il profilo di acquisto e, se assente, mostra il messaggio. Il database non ha questo limite. Si corregge solo lato interfaccia.
+**3. Come arriva a Fabbisogno → Lista della Spesa → Ordine**
+Attraverso la catena che esiste già: prodotto dell'acquirente → collegamento fornitore (codice + conversione + costo) → riga di lista con fornitore scelto → ordine al fornitore corretto. Poiché il collegamento porta il rapporto B2B, l'ordine arriverà al fornitore giusto senza logiche nuove.
 
-**5. Quali prodotti entrano oggi nella fotografia dell'inventario**
-All'apertura vengono inseriti tutti i prodotti pubblicati dell'azienda per quell'archivio, abbinati alle zone dove il prodotto risulta già presente (conteggi chiusi, rettifiche, movimenti, lotti) e, se non risulta da nessuna parte, alla zona predefinita. Nessun prodotto di altre aziende, quindi oggi i Preferiti di catalogo non entrano.
+**4. Cosa succede allo storico se togli il Preferito**
+Niente si perde, per costruzione: il prodotto dell'acquirente e i suoi conteggi/movimenti sono suoi e restano. Togliere il Preferito significa solo "non lo tratto più abitualmente": l'articolo viene marcato non più gestito e non entrerà nelle **prossime** fotografie di inventario. L'inventario già aperto non cambia mai: la fotografia viene scritta una sola volta all'apertura.
 
-**6. Preferiti B2B → insieme inventariabile, senza duplicare**
-I Preferiti di catalogo sono già registrati con acquirente + fornitore + prodotto, e puntano al prodotto reale del fornitore. Quindi si possono aggiungere alla fotografia dell'inventario senza creare copie: si aggiunge alla fotografia il riferimento al prodotto del fornitore più il fornitore di provenienza. Nessuna fusione per codice o descrizione simile.
+## B. Proposta rivista
 
-**7. Se un Preferito viene tolto a inventario aperto**
-Nessun effetto sull'inventario in corso: la fotografia viene scritta una volta sola all'apertura e, se esiste già, l'apertura la restituisce senza toccarla. Un inventario aperto con 50 righe resta a 50; un Preferito aggiunto o rimosso dopo conta solo dal prossimo inventario. Questo principio resta invariato.
+**1. Origine del prodotto e archivio interno (confermato)**
+- Nuova origine sul prodotto: `danea`, `manuale`, `catalogo` (derivato da un preferito di catalogo).
+- Archivio interno "Prodotti propri" per azienda, creato al bisogno, non utilizzabile dalle postazioni Danea: i prodotti manuali e quelli derivati da catalogo vivono lì, separati dagli archivi Danea.
+- L'importazione Danea lavora solo sui prodotti di origine `danea`: non modifica e non depubblica mai gli altri.
+- Codici manuali: proposta automatica `00-001`, `00-002`, … modificabili, anche alfanumerici, con controllo di unicità.
 
-**8. Cosa serve davvero**
-Tre interventi mirati, elencati sotto.
+**2. Nuovo prodotto nella pagina Prodotti (confermato)**
+Pulsante "Nuovo prodotto" con codice precompilato, descrizione, categoria, sottocategoria, U.M., produttore, barcode, note. Immagini e unità di vendita con le schermate esistenti. Danea diventa una fonte di importazione, non un requisito.
 
-## B. Proposta
+**3. Preferito di catalogo → articolo gestito dall'acquirente (punto corretto)**
+Quando l'acquirente mette la stella su un prodotto del fornitore:
+- se non esiste già, viene creato **un prodotto dell'azienda acquirente** nell'archivio interno, con descrizione, categoria, U.M. e immagine di riferimento copiate dal prodotto di catalogo, codice proprio proposto automaticamente, origine `catalogo` e provenienza registrata (prodotto originale del fornitore + azienda fornitrice);
+- viene creato/riattivato il **collegamento fornitore** sull'articolo, con codice prodotto del fornitore, unità e conversione se disponibili, agganciato alla scheda fornitore del rapporto B2B;
+- l'articolo risulta "gestito/inventariabile";
+- togliendo la stella l'articolo viene solo marcato non gestito: prodotto, collegamento fornitore e storico restano. Rimettendo la stella si riattiva lo stesso articolo, senza duplicati.
+Un prodotto solo visibile nel catalogo, senza stella, non diventa articolo e non è inventariabile.
 
-**1. Origine del prodotto e archivio interno (database)**
-- Nuova colonna di origine sul prodotto: `manuale` o `danea`, con valore `danea` per tutto l'esistente.
-- Ogni azienda ottiene un archivio interno dedicato "Prodotti propri", creato automaticamente al bisogno e non utilizzabile dalle postazioni Danea. I prodotti manuali vivono lì: i codici manuali non possono più incrociare quelli Danea, nemmeno per errore.
-- L'importazione Danea (completa e incrementale) viene limitata ai prodotti di origine `danea`: nessun prodotto manuale può essere modificato o depubblicato da una sincronizzazione. Restano invariate le regole già approvate sull'allineamento Danea.
-- Funzione di creazione/modifica prodotto manuale con proposta automatica del prossimo codice (`00-001`, `00-002`, …) e possibilità di scriverne uno diverso, anche alfanumerico, con controllo di unicità.
+**4. Inventario**
+- Nessun prodotto di altre aziende nella fotografia: solo prodotti dell'azienda che conta (Danea + manuali + derivati da catalogo e ancora gestiti).
+- Via il blocco sul profilo d'acquisto: anche un'azienda che vende (Trevi) fa inventario sui propri prodotti.
+- L'apertura non richiede più un archivio Danea: in mancanza, si usa l'archivio interno.
+- Le righe mostrano il fornitore di riferimento quando esiste. Giacenza, conteggi, differenze, note e chiusura restano identici.
+- Fotografia immutabile confermata: 50 all'apertura restano 50; stelle aggiunte o togliate dopo valgono dal prossimo inventario.
 
-**2. Nuovo prodotto nella pagina Prodotti (interfaccia)**
-Pulsante "Nuovo prodotto" con scheda: codice (precompilato), descrizione, categoria, sottocategoria, U.M., produttore, note, barcode. Immagini e unità di vendita si gestiscono con le schermate già esistenti dopo il salvataggio. I prodotti manuali sono riconoscibili nell'elenco. Danea resta una fonte di importazione, non un requisito.
-
-**3. Inventario: chi può farlo e cosa contiene**
-- Rimozione del blocco sul profilo di acquisto: anche un'azienda che vende (Trevi) fa inventario sui propri prodotti.
-- L'apertura non richiede più un archivio Danea: in assenza, si usa l'archivio interno dei prodotti propri.
-- La fotografia dell'inventario diventa: prodotti propri (Danea + manuali) **più** i prodotti messi tra i Preferiti nei cataloghi dei fornitori collegati. Ogni riga porta con sé il fornitore di provenienza, così prodotti di fornitori diversi restano distinti anche con codici o descrizioni simili. I prodotti di catalogo non preferiti non entrano.
-- Le righe dell'inventario mostrano il fornitore di provenienza; giacenza, conteggi, rettifiche, differenze, note e chiusura restano esattamente come oggi.
-
-**4. Cosa non viene toccato**
-Formule di giacenza, Fabbisogno, Lista della Spesa, Ordini fornitore, ricevute, lotti, provenienza, listini, immagini, permessi, route, layout approvati (inventario e card mobile).
+**5. Non viene toccato**
+Formule di giacenza, Fabbisogno, Lista della Spesa, Ordini fornitore, ricevute, lotti, provenienza, listini, immagini, permessi, route, layout approvati.
 
 ## C. Dettagli tecnici
 
-- `products`: nuova colonna `origin` (enum `product_origin`: `danea`, `manuale`), default `danea`, backfill dell'esistente; nuovo indice unico parziale su (company_id, code) per i soli prodotti manuali.
-- `danea_archives`: flag `is_internal` per l'archivio "Prodotti propri"; funzione `ensure_internal_archive(company_id)`; `danea_stations` non può puntare a un archivio interno (guard esistente estesa).
-- `danea-import.server.ts`: filtri `origin = 'danea'` su lettura esistenti, upsert, depubblicazione per assenza e depubblicazione da DeletedProducts; nessuna altra modifica alla logica di sincronizzazione.
-- Nuove RPC `manage_manual_product` e `next_manual_product_code` (SECURITY DEFINER, `search_path = public`, solo amministratori dell'azienda).
-- `inventory_session_products`: nuova colonna `source_seller_company_id` (nullable = prodotto proprio); chiave unica estesa a (session_id, product_id, location_id, source_seller_company_id).
-- `start_general_inventory`: archivio opzionale; la CTE dei prodotti diventa unione fra prodotti propri pubblicati e prodotti dei `buyer_product_favorites` con rapporto B2B operativo; invariata la scrittura una-sola-volta della fotografia.
-- `inventory_session_rows` / `inventory_session_progress`: restituiscono il fornitore di provenienza; aggregazioni per zona/categoria/sottocategoria calcolate sulle stesse righe della fotografia.
-- `record_inventory_count` e `close_general_inventory`: nessun cambio di formula, solo compatibilità con la chiave estesa.
-- Test finali: creazione prodotto manuale senza Danea; importazione completa che non tocca né depubblica i manuali; codice manuale uguale a uno Danea senza collisione; inventario aperto da azienda solo-vendita; fotografia = propri + preferiti di più fornitori senza duplicati; aggiunta/rimozione preferito a inventario aperto che non cambia il totale; refresh e rientro sulla stessa sessione; nessuna regressione su Fabbisogno, Lista della Spesa, Ordini, Danea.
+- `products`: colonna `origin` (enum `product_origin`: `danea`, `manuale`, `catalogo`), default `danea` e backfill; colonne di provenienza `source_product_id` + `source_seller_company_id` (nullable, valorizzate per l'origine `catalogo`); `is_managed boolean not null default true` per "articolo gestito"; indice unico parziale su (company_id, source_seller_company_id, source_product_id) per impedire doppioni da catalogo; nessun cambio a `products_archive_code_unique`.
+- `danea_archives`: flag `is_internal`; `ensure_internal_archive(company_id)`; guard postazioni esteso per vietare archivi interni.
+- `danea-import.server.ts`: filtro `origin = 'danea'` su lettura esistenti, upsert, depubblicazione per assenza e DeletedProducts. Nessun'altra modifica alla sincronizzazione.
+- Nuove RPC: `manage_manual_product`, `next_manual_product_code`, `ensure_managed_catalog_product(buyer, seller, product_id)` chiamata dal toggle Preferito (crea prodotto + `product_supplier_links` verso la scheda fornitore del rapporto, riusa la riga esistente se c'è, riattiva `is_managed`), e disattivazione di `is_managed` alla rimozione della stella. Tutte SECURITY DEFINER con `search_path = public` e controllo rapporto B2B operativo.
+- `buyer_product_favorites` resta la sorgente della scelta; nessuna duplicazione con `company_product_favorites` (che resta la stella aziendale sui prodotti propri).
+- `start_general_inventory`: archivio opzionale; insieme prodotti = prodotti dell'azienda pubblicati con `is_managed = true`; scrittura della fotografia una sola volta (invariata). Nessuna colonna nuova su `inventory_session_products`.
+- `inventory_session_rows`/`inventory_session_progress`: aggiungono il fornitore di riferimento letto dal collegamento fornitore; aggregazioni sempre sulle stesse righe della fotografia.
+- `record_inventory_count`, `close_general_inventory`, formule di giacenza: invariati.
+- Test finali: prodotto manuale senza Danea; importazione completa che non tocca manuali/catalogo; codice manuale uguale a uno Danea senza collisione; inventario di azienda solo-vendita; stella su prodotto di catalogo che crea un solo articolo gestito con fornitore corretto; seconda stella/rimozione/ristella senza duplicati e con storico intatto; preferiti di più fornitori distinti; fotografia aperta che non cambia; Fabbisogno/Lista della Spesa che propongono il fornitore corretto per l'articolo derivato; nessuna regressione su Ordini, Danea, listini.
