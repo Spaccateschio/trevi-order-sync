@@ -136,6 +136,8 @@ export function ProductSuppliersManager({
     setDraft({
       supplierRecordId: selected.supplier_record_id,
       supplierProductCode: selected.supplier_product_code ?? "",
+      referenceLabel: selected.supplier_reference_label ?? "",
+      sourcingPriority: selected.sourcing_priority?.toString() ?? "",
       purchaseUnitId: selected.purchase_unit_id ?? "",
       conversionFactor: selected.conversion_factor?.toString() ?? "",
       manualCost: selected.manual_cost?.toString() ?? "",
