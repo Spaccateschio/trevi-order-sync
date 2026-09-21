@@ -304,7 +304,8 @@ export function ProductSuppliersManager({
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Priorità di approvvigionamento (facoltativa)</Label>
-        <Input type="number" min={1} step={1} inputMode="numeric" value={draft.sourcingPriority} disabled={busy} placeholder="Es. 1 (prima scelta)" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
+        <Input type="number" min={1} step={1} inputMode="numeric" aria-invalid={isInvalidNumber(draft.sourcingPriority)} className={invalidClass(draft.sourcingPriority)} value={draft.sourcingPriority} disabled={busy} placeholder="Es. 1 (prima scelta)" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
+        {numberError(draft.sourcingPriority)}
         <p className="text-xs text-muted-foreground">Solo un numero: 1 = prima scelta. Più fonti possono avere la stessa priorità, la scelta finale resta nella Lista della Spesa.</p>
       </div>
       {mode === "create" ? (
