@@ -33,6 +33,11 @@ import {
   sortedSaleUnits,
   type CatalogProductRow,
 } from "@/lib/catalog";
+import {
+  favoriteToggleMessage,
+  invalidateAfterFavoriteChange,
+  toggleCatalogFavorite,
+} from "@/lib/catalog-favorites";
 import { getCatalogImageUrls } from "@/lib/catalog.functions";
 
 export const Route = createFileRoute("/_authenticated/acquisti/catalogo/")({
@@ -156,29 +161,21 @@ function CatalogoIndex() {
   const toggleFavorite = useMutation({
     mutationFn: async (product: CatalogProduct) => {
       if (!buyerId) throw new Error("Azienda non disponibile");
-      if (favoritesQuery.data?.has(product.id)) {
-        const { error } = await supabase
-          .from("buyer_product_favorites")
-          .delete()
-          .eq("buyer_company_id", buyerId)
-          .eq("product_id", product.id);
-        if (error) throw new Error(error.message);
-        return;
-      }
-      const { error } = await supabase.from("buyer_product_favorites").insert({
-        buyer_company_id: buyerId,
-        seller_company_id: product.sellerId,
-        product_id: product.id,
-        created_by: identity?.userId ?? null,
+      return toggleCatalogFavorite({
+        buyerCompanyId: buyerId,
+        sellerCompanyId: product.sellerId,
+        productId: product.id,
+        userId: identity?.userId ?? null,
+        isFavorite: Boolean(favoritesQuery.data?.has(product.id)),
       });
-      if (error) throw new Error(error.message);
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti-tutti", buyerId] });
-      void queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti", buyerId] });
+    onSuccess: (result) => {
+      toast.success(favoriteToggleMessage(result));
+      invalidateAfterFavoriteChange(queryClient, buyerId);
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
 
   const chooseUnit = useMutation({
     mutationFn: async (input: { product: CatalogProduct; productSaleUnitId: string }) => {

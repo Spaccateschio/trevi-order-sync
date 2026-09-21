@@ -144,6 +144,25 @@ export function InventoryCountPanel({
   });
   const sessionId = sessionQuery.data?.id ?? null;
 
+  // Senza conteggio aperto mostriamo comunque i prodotti gestiti dall'azienda
+  // (tutti gli archivi), con "Mai contato" al posto della quantità.
+  const catalogPreviewQuery = useQuery({
+    queryKey: ["inventario-prodotti", companyId],
+    enabled: !sessionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, code, description, category, danea_um")
+        .eq("company_id", companyId)
+        .order("code")
+        .limit(300);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const catalogPreview = catalogPreviewQuery.data ?? [];
+
+
   const progressQuery = useQuery({
     queryKey: ["inventory-progress", sessionId],
     enabled: Boolean(sessionId),
@@ -342,16 +361,44 @@ export function InventoryCountPanel({
 
       <TabsContent value="conteggio">
         {!sessionId ? (
-          <section className="rounded-md border border-border bg-card p-6 text-center">
-            <ClipboardCheck className="mx-auto size-8 text-muted-foreground" />
-            <p className="mt-2 text-sm font-semibold">Nessun inventario generale aperto</p>
-            <p className="text-xs text-muted-foreground">
-              {isAdmin
-                ? "Premi Nuovo conteggio per avviare l'inventario generale su tutte le zone attive."
-                : "Un amministratore deve avviare l'inventario: poi potrai partecipare al conteggio."}
-            </p>
+          <section className="space-y-3">
+            <div className="rounded-md border border-border bg-card p-6 text-center">
+              <ClipboardCheck className="mx-auto size-8 text-muted-foreground" />
+              <p className="mt-2 text-sm font-semibold">Nessun inventario generale aperto</p>
+              <p className="text-xs text-muted-foreground">
+                {isAdmin
+                  ? "Premi Nuovo conteggio per avviare l'inventario generale su tutte le zone attive."
+                  : "Un amministratore deve avviare l'inventario: poi potrai partecipare al conteggio."}
+              </p>
+            </div>
+            {catalogPreview.length ? (
+              <div className="rounded-md border border-border bg-card">
+                <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+                  Prodotti della tua azienda ({catalogPreview.length}) — verranno inclusi nel prossimo
+                  conteggio
+                </p>
+                <ul className="divide-y divide-border">
+                  {catalogPreview.map((product) => (
+                    <li key={product.id} className="flex items-center justify-between gap-3 px-4 py-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {product.description ?? product.code}
+                        </p>
+                        <p className="truncate font-mono text-xs text-muted-foreground">
+                          {product.code}
+                          {product.category ? ` · ${product.category}` : ""}
+                          {product.danea_um ? ` · ${product.danea_um}` : ""}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-xs text-muted-foreground">Mai contato</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
         ) : selectingLocation ? (
+
           <LocationSelection
             locations={activeLocations.map((location) => ({
               id: location.id,

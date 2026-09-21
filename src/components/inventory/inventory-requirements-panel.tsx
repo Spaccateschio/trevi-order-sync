@@ -38,17 +38,41 @@ export function InventoryRequirementsPanel({
       return next;
     });
 
-  const query = useQuery({
-    queryKey: ["inventory-requirements", companyId, archiveId],
-    queryFn: async (): Promise<RequirementRow[]> => {
-      const { data, error } = await supabase.rpc("inventory_requirements", {
-        _company_id: companyId,
-        _archive_id: archiveId,
-      });
+  // I prodotti dell'azienda possono stare su più archivi (Danea e interno):
+  // il fabbisogno li legge tutti, così nessun prodotto gestito resta fuori.
+  const archivesQuery = useQuery({
+    queryKey: ["inventory-archivi", companyId],
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from("danea_archives")
+        .select("id")
+        .eq("company_id", companyId);
       if (error) throw new Error(error.message);
-      return (data ?? []) as unknown as RequirementRow[];
+      const ids = (data ?? []).map((row) => row.id);
+      return ids.length ? ids : [archiveId];
     },
   });
+  const archiveIds = archivesQuery.data ?? [];
+
+  const query = useQuery({
+    queryKey: ["inventory-requirements", companyId, archiveIds.join("|")],
+    enabled: archiveIds.length > 0,
+    queryFn: async (): Promise<RequirementRow[]> => {
+      const merged = new Map<string, RequirementRow>();
+      for (const id of archiveIds) {
+        const { data, error } = await supabase.rpc("inventory_requirements", {
+          _company_id: companyId,
+          _archive_id: id,
+        });
+        if (error) throw new Error(error.message);
+        for (const row of (data ?? []) as unknown as RequirementRow[]) {
+          if (!merged.has(row.product_id)) merged.set(row.product_id, row);
+        }
+      }
+      return Array.from(merged.values()).sort((a, b) => a.code.localeCompare(b.code));
+    },
+  });
+
 
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase();
