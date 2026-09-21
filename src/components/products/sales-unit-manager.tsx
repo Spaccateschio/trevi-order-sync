@@ -74,6 +74,17 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
 
   const busy = mutation.isPending || saveMutation.isPending;
 
+  // Sola lettura: le U.M. con cui il prodotto si acquista arrivano dalle referenze fornitore.
+  const purchaseQuery = useQuery({
+    queryKey: ["product-supplier-links", productId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("product_supplier_overview", { _product_id: productId });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as { supplier_name: string; is_active: boolean; purchase_units: { code: string; is_default: boolean; is_active: boolean }[] | null }[];
+    },
+  });
+  const purchaseRows = (purchaseQuery.data ?? []).filter((row) => row.is_active);
+
   const requestRemoval = (row: ProductSaleUnit) => {
     setOfferDeactivation(row.is_default);
     setRemoveTarget(row);
