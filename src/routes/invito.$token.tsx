@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { activeCompany, hasRole, identityQueryKey, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import { forgetInviteToken, rememberInviteToken } from "@/lib/invite-token";
+import { getInvitationPreview } from "@/lib/invitation-preview.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/invito/$token")({
   ssr: false,
@@ -94,13 +96,11 @@ function InvitoPage() {
     rememberInviteToken(token);
   }, [token]);
 
+  const fetchPreview = useServerFn(getInvitationPreview);
   const previewQuery = useQuery({
     queryKey: ["invitation-preview", token],
-    queryFn: async (): Promise<Preview | null> => {
-      const { data, error } = await supabase.rpc("invitation_preview", { _token: token });
-      if (error) throw error;
-      return ((data ?? []) as Preview[])[0] ?? null;
-    },
+    queryFn: async (): Promise<Preview | null> =>
+      ((await fetchPreview({ data: { token } })) as Preview | null) ?? null,
   });
 
   const preview = previewQuery.data ?? null;
