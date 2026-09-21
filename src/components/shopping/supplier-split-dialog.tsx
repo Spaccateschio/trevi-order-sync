@@ -244,14 +244,39 @@ export function SupplierSplitDialog({
 
                 <p className="text-xs text-muted-foreground">
                   U.M. acquisto {purchaseCode ?? "—"}
-                  {supplier.conversion_factor
-                    ? ` · 1 ${purchaseCode} ≈ ${qty(supplier.conversion_factor)} ${supplier.conversion_reference_um ?? unit}`
-                    : ""}
+                  {factor
+                    ? ` · 1 ${purchaseCode} ${chosen?.conversion_type === "esatta" ? "=" : "≈"} ${qty(factor)} ${supplier.conversion_reference_um ?? unit}`
+                    : " · nessuna conversione"}
                   {supplier.min_quantity !== null ? ` · minimo ${qty(supplier.min_quantity)}` : ""}
                   {supplier.lead_time_days !== null ? ` · consegna ${supplier.lead_time_days} gg` : ""}
                   {supplier.danea_net_cost !== null ? ` · costo Danea ${euro(supplier.danea_net_cost)}` : ""}
                   {supplier.manual_cost !== null ? ` · costo Trevi Fruit ${euro(supplier.manual_cost)}` : ""}
                 </p>
+
+                {purchaseUnits.length > 1 ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Acquisto in:</span>
+                    {purchaseUnits.map((row) => (
+                      <Button
+                        key={row.id}
+                        type="button"
+                        size="sm"
+                        variant={chosen?.unit_id === row.unit_id ? "default" : "outline"}
+                        aria-pressed={chosen?.unit_id === row.unit_id}
+                        disabled={!editable || mutation.isPending}
+                        onClick={() =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [supplier.link_id]: { ...draft, unitId: row.unit_id, packs: "" },
+                          }))
+                        }
+                      >
+                        {row.code}
+                        {row.is_default ? <Star className="fill-current" aria-hidden="true" /> : null}
+                      </Button>
+                    ))}
+                  </div>
+                ) : null}
 
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="text-xs">
@@ -270,24 +295,22 @@ export function SupplierSplitDialog({
                       }
                     />
                   </label>
-                  {supplier.conversion_factor ? (
-                    <label className="text-xs">
-                      Confezioni ({purchaseCode})
-                      <Input
-                        className="mt-1 h-9 w-28"
-                        inputMode="decimal"
-                        value={draft.packs}
-                        disabled={!editable}
-                        aria-label={`Confezioni ${supplier.supplier_name}`}
-                        onChange={(event) =>
-                          setDrafts((current) => ({
-                            ...current,
-                            [supplier.link_id]: { ...draft, packs: event.target.value },
-                          }))
-                        }
-                      />
-                    </label>
-                  ) : null}
+                  <label className="text-xs">
+                    Quantità da acquistare ({purchaseCode ?? "U.M. acquisto"})
+                    <Input
+                      className="mt-1 h-9 w-28"
+                      inputMode="decimal"
+                      value={draft.packs}
+                      disabled={!editable}
+                      aria-label={`Quantità da acquistare ${supplier.supplier_name}`}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [supplier.link_id]: { ...draft, packs: event.target.value },
+                        }))
+                      }
+                    />
+                  </label>
                   <Button
                     type="button"
                     size="sm"
@@ -299,6 +322,7 @@ export function SupplierSplitDialog({
                         quantity,
                         packs: parseQuantity(draft.packs),
                         accepted: belowMin ? draft.accepted : false,
+                        unitId: chosen?.unit_id ?? null,
                       })
                     }
                   >
