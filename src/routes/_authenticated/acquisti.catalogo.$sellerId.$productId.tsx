@@ -214,6 +214,10 @@ function CatalogProductPage() {
                 {product.code}
               </Badge>
               {product.category ? <Badge variant="secondary">{product.category}</Badge> : null}
+              {product.commercial_availability === "on_order" ? <Badge variant="secondary">Su ordinazione</Badge> : null}
+              {product.commercial_availability === "temporarily_unavailable" ? (
+                <Badge variant="outline">Temporaneamente non disponibile · non ordinabile</Badge>
+              ) : null}
             </div>
 
             <div className="rounded-xl border border-border bg-card p-4">
