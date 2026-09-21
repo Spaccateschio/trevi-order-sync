@@ -138,6 +138,7 @@ export const assignShoppingListSupplier = createServerFn({ method: "POST" })
       ...(data.assignedQuantity === null ? {} : { _assigned_quantity: data.assignedQuantity }),
       ...(data.purchaseQuantity === null ? {} : { _purchase_quantity: data.purchaseQuantity }),
       ...(data.notes === null ? {} : { _notes: data.notes }),
+      ...(data.purchaseUnitId ? { _purchase_unit_id: data.purchaseUnitId } : {}),
     });
     if (error) throw new Error(error.message);
     return { ok: true };
