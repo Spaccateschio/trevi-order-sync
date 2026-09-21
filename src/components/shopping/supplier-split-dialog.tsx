@@ -15,7 +15,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DeliveryHintBadge } from "@/components/suppliers/delivery-days-picker";
 import { supabase } from "@/integrations/supabase/client";
+import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
 import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
 import {
