@@ -70,7 +70,7 @@ export function AddToOwnProductsDialog({
         _seller_product_id: sellerProduct.id,
         _own_product_id: mode === "esistente" ? (ownProductId ?? undefined) : undefined,
         _supplier_product_code: supplierCode.trim() || undefined,
-        _actor_user_id: userId ?? undefined,
+        ...(userId ? { _actor_user_id: userId } : {}),
       });
       if (error) throw new Error(error.message);
       return data as { created_product?: boolean; created_link?: boolean };

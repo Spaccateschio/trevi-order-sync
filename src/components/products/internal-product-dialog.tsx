@@ -104,7 +104,7 @@ export function InternalProductDialog({
         _barcode: barcode.trim() || undefined,
         _producer_name: producer.trim() || undefined,
         _notes: notes.trim() || undefined,
-        _actor_user_id: userId ?? undefined,
+        ...(userId ? { _actor_user_id: userId } : {}),
       });
       if (error) throw new Error(error.message);
       return data as string;
