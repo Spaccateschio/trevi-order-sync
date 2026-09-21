@@ -74,11 +74,11 @@ const EMPTY_DRAFT = {
   notes: "",
 };
 
-function num(value: string): number | null {
+function num(value: string, field?: string): number | null {
   const normalized = value.trim().replace(",", ".");
   if (!normalized) return null;
   const parsed = Number(normalized);
-  if (!Number.isFinite(parsed)) throw new Error("Valore numerico non valido");
+  if (!Number.isFinite(parsed)) throw new Error(field ? `“${field}” accetta solo numeri: correggi il valore “${value.trim()}”.` : "Valore numerico non valido");
   return parsed;
 }
 
@@ -180,13 +180,13 @@ export function ProductSuppliersManager({
         ...(mode === "create" ? { _product_id: productId, _supplier_record_id: supplierRecordId } : {}),
         _supplier_product_code: draft.supplierProductCode,
         _supplier_reference_label: draft.referenceLabel,
-        ...(num(draft.sourcingPriority) !== null ? { _sourcing_priority: num(draft.sourcingPriority) as number } : {}),
+        ...(num(draft.sourcingPriority, "Priorità di approvvigionamento") !== null ? { _sourcing_priority: num(draft.sourcingPriority, "Priorità di approvvigionamento") as number } : {}),
         ...(draft.purchaseUnitId ? { _purchase_unit_id: draft.purchaseUnitId } : {}),
-        ...(num(draft.conversionFactor) !== null ? { _conversion_factor: num(draft.conversionFactor) as number } : {}),
+        ...(num(draft.conversionFactor, "Conversione") !== null ? { _conversion_factor: num(draft.conversionFactor, "Conversione") as number } : {}),
         ...(daneaUm ? { _conversion_reference_um: daneaUm } : {}),
-        ...(num(draft.manualCost) !== null ? { _manual_cost: num(draft.manualCost) as number } : {}),
-        ...(num(draft.minQuantity) !== null ? { _min_quantity: num(draft.minQuantity) as number } : {}),
-        ...(num(draft.leadTimeDays) !== null ? { _lead_time_days: num(draft.leadTimeDays) as number } : {}),
+        ...(num(draft.manualCost, "Costo concordato") !== null ? { _manual_cost: num(draft.manualCost, "Costo concordato") as number } : {}),
+        ...(num(draft.minQuantity, "Quantità minima") !== null ? { _min_quantity: num(draft.minQuantity, "Quantità minima") as number } : {}),
+        ...(num(draft.leadTimeDays, "Giorni di consegna") !== null ? { _lead_time_days: num(draft.leadTimeDays, "Giorni di consegna") as number } : {}),
         _notes: draft.notes,
       };
       const { data: linkId, error } = await supabase.rpc("manage_product_supplier_link", payload);
@@ -295,8 +295,8 @@ export function ProductSuppliersManager({
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Priorità di approvvigionamento (facoltativa)</Label>
-        <Input inputMode="numeric" value={draft.sourcingPriority} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
-        <p className="text-xs text-muted-foreground">Più fonti possono avere la stessa priorità: la scelta finale resta nella Lista della Spesa.</p>
+        <Input type="number" min={1} step={1} inputMode="numeric" value={draft.sourcingPriority} disabled={busy} placeholder="Es. 1 (prima scelta)" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
+        <p className="text-xs text-muted-foreground">Solo un numero: 1 = prima scelta. Più fonti possono avere la stessa priorità, la scelta finale resta nella Lista della Spesa.</p>
       </div>
       {mode === "create" ? (
         <>
@@ -332,7 +332,7 @@ export function ProductSuppliersManager({
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Giorni di consegna</Label>
-        <Input inputMode="numeric" value={draft.leadTimeDays} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, leadTimeDays: event.target.value }))} />
+        <Input type="number" min={0} step={1} inputMode="numeric" value={draft.leadTimeDays} disabled={busy} placeholder="Es. 2" onChange={(event) => setDraft((current) => ({ ...current, leadTimeDays: event.target.value }))} />
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Note</Label>
