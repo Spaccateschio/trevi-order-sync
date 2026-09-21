@@ -311,7 +311,6 @@ export function SupplierProductsManager({
     });
   }, [addTerm, productsQuery.data, rows]);
 
-  const activeUnits = (unitsQuery.data ?? []).filter((unit) => unit.status === "attivo");
 
   const costCell = (row: LinkRow) => {
     const cost = costByProduct.get(row.product_id);
