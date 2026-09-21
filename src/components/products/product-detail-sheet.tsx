@@ -40,11 +40,11 @@ function InfoHint({ text }: { text: string }) {
 function SettingRow({ title, info, children }: { title: string; info: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-        <span className="truncate">{title}</span>
+      <p className="flex shrink-0 items-center gap-1.5 text-sm font-medium">
+        <span>{title}</span>
         <InfoHint text={info} />
       </p>
-      <div className="shrink-0">{children}</div>
+      <div className="min-w-0 sm:flex sm:justify-end">{children}</div>
     </div>
   );
 }
