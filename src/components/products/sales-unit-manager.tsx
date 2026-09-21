@@ -21,8 +21,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Switch } from "@/components/ui/switch";
 import { applyProductSaleUnitBatch } from "@/lib/sales-units.functions";
 
-export type CompanyUnit = { id: string; code: string; description: string; status: "attivo" | "disattivato" | "revocato" };
-export type ProductSaleUnit = { id: string; product_id: string; unit_id: string; is_active: boolean; is_customer_visible: boolean; is_default: boolean; conversion_factor: number | null; conversion_reference_um: string | null; needs_review: boolean; units_of_measure: { code: string; description: string } | null };
+export type CompanyUnit = { id: string; code: string; description: string; status: "attivo" | "disattivato" | "revocato"; usage?: "acquisto" | "vendita" | "entrambi" };
+export type ProductSaleUnit = { id: string; product_id: string; unit_id: string; is_active: boolean; is_customer_visible: boolean; is_default: boolean; conversion_factor: number | null; conversion_reference_um: string | null; conversion_type: "esatta" | "indicativa"; needs_review: boolean; units_of_measure: { code: string; description: string } | null };
+
 
 export function SalesUnitManager({ companyId, productId, daneaUm, units, assignments, editable }: { companyId: string; productId: string; daneaUm: string | null; units: CompanyUnit[]; assignments: ProductSaleUnit[]; editable: boolean }) {
   const run = useServerFn(applyProductSaleUnitBatch);
