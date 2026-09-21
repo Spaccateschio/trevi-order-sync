@@ -250,6 +250,8 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
               ))}
             </div> : <p className="mt-1 text-sm text-muted-foreground">Nessun prezzo ricevuto.</p>}
           </section>
+          {/* U.M. ordinabili dal cliente: impostazioni di vendita, indipendenti da quelle d'acquisto. */}
+          {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} showPurchase={false} /> : null}
         </TabsContent>
 
         {/* Acquisto: fornitori, referenze, priorità, U.M. acquistabili, costi. */}
@@ -258,8 +260,6 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
             <h3 id="purchase-units-title" className="text-sm font-semibold">U.M. di acquisto</h3>
             <PurchaseUnitsOverview productId={product.id} />
           </section>
-          {/* U.M. ordinabili: gestite qui, nel contesto d'acquisto. */}
-          {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} showPurchase={false} /> : null}
 
           {companyId ? <ProductSuppliersManager companyId={companyId} productId={product.id} productArchiveId={product.archive_id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
 
