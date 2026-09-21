@@ -95,6 +95,9 @@ export function SupplierSplitDialog({
     },
   });
 
+  // Giorni di consegna: sola segnalazione, nessun filtro sulle righe.
+  const deliveries = useDeliverySchedules(item.product_id, open).data ?? {};
+
   const assignmentsQuery = useQuery({
     queryKey: ["shopping-list-assignments", item.item_id],
     enabled: open,
