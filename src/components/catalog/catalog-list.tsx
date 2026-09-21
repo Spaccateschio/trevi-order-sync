@@ -17,8 +17,11 @@ export type CatalogProduct = {
   units: CatalogSaleUnit[];
   selectedUnitId: string | null;
   price: number | null;
+  /** U.M. a cui è riferito il prezzo (es. kg): resta la stessa per ogni formato ordinato. */
+  priceUnit: string | null;
   availability: "available" | "on_order" | "temporarily_unavailable";
 };
+
 
 const AVAILABILITY_NOTE: Record<CatalogProduct["availability"], string | null> = {
   available: null,
