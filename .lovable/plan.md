@@ -27,14 +27,15 @@ Nessuna conversione è oggi obbligatoria a livello di database: l'obbligo percep
 Nuova tabella `product_supplier_link_units`: una riga per ogni U.M. con cui si può acquistare quella referenza.
 
 - Colonne: `link_id`, `unit_id`, `is_default`, `conversion_factor` (nullable), `conversion_type`, `is_active`, `company_id`, timestamp.
-- Unicità `(link_id, unit_id)`; una sola predefinita per referenza.
-- `product_supplier_links.purchase_unit_id` **resta** e continua a indicare l'U.M. predefinita della referenza: così FASE C/D (Lista della Spesa, ordini, ricevute, lotti) non cambiano di una riga. Un trigger la tiene allineata alla riga `is_default`.
-- Migrazione dati: per ogni referenza con `purchase_unit_id` valorizzata si crea la riga corrispondente come predefinita, con la conversione già presente. Nessun dato perso, nessuna conversione inventata.
+- Unicità `(link_id, unit_id)`; **al massimo una** predefinita per referenza, ma anche **zero**: la predefinita è facoltativa.
+- `product_supplier_links.purchase_unit_id` **resta** per compatibilità con FASE C/D e significa "U.M. preferita, se configurata": **può essere NULL**. Un trigger la allinea alla riga `is_default` e la porta a NULL quando quella riga viene rimossa o disattivata, senza obbligare a scegliere subito un'altra U.M.
+- Migrazione dati: per ogni referenza con `purchase_unit_id` valorizzata si crea la riga corrispondente come predefinita, con la conversione già presente. Nessun dato perso, nessuna conversione inventata, nessuna predefinita creata dove non c'era.
 
 ### 3. Interfaccia acquisto
-- Scheda prodotto → Prezzi/Referenze fornitori: al posto del singolo selettore "U.M. d'acquisto", l'elenco a pulsanti delle U.M. acquistabili con `+` (filtrate su uso acquisto/entrambi), stella sulla predefinita, conversione opzionale per singola U.M.
+- Scheda prodotto → Prezzi/Referenze fornitori: al posto del singolo selettore "U.M. d'acquisto", l'elenco a pulsanti delle U.M. acquistabili con `+` (filtrate su uso acquisto/entrambi), stella per l'eventuale predefinita (attivabile e disattivabile, "nessuna" è uno stato valido), conversione opzionale per singola U.M.
 - Stessa modifica nella vista fornitore → prodotti.
-- Lista della Spesa (ripartizione fra fornitori): per ogni referenza si scelgono **U.M. e quantità** fra le U.M. dichiarate dal fornitore. Se non esiste conversione certa non si propone nessuna traduzione automatica (niente "62 kg = 4,13 casse"): l'operatore decide "5 sacchi" oppure "62 kg". La proposta a confezioni intere resta solo dove la conversione è compilata.
+- Lista della Spesa (ripartizione fra fornitori): per ogni referenza si scelgono **U.M. e quantità** fra le U.M. dichiarate dal fornitore; se esiste una predefinita viene proposta inizialmente e resta modificabile, se non esiste l'operatore scegle liberamente.
+- **Nessuna falsa equivalenza**: fabbisogno/quantità decisa (62 KG) e decisione d'acquisto (5 SACCHI) restano due dati separati. Senza conversione esplicita non si calcola equivalente, copertura, percentuale, residuo convertito o eccedenza, e non si propone nessuna traduzione a confezioni; l'operatore conferma consapevolmente nell'U.M. scelta, senza che l'assenza di conversione blocchi la conferma. Con conversione esplicita (1 cartone = 6 bottiglie) equivalenza, copertura, confezioni ed eccedenza funzionano come oggi.
 
 ### 4. Inventario e formule
 Invariati: una riga per prodotto, giacenza nell'U.M. base, fotografia immutabile, formula `max(0, needed+min−disponibile)` con multiplo. Nessuna somma automatica fra U.M. diverse.
