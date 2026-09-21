@@ -24,6 +24,8 @@ export type ProductRow = {
   publish_status: "pubblicato" | "non_pubblicato";
   b2b_visible: boolean;
   commercial_availability: "available" | "on_order" | "temporarily_unavailable";
+  /** U.M. a cui è riferito il prezzo del prodotto (null = come U.M. base). */
+  price_unit_id: string | null;
   danea_internal_id: string | null;
   notes: string | null;
   image_file_name: string | null;
