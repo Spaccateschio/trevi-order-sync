@@ -17,12 +17,13 @@ export type CatalogProductRow = {
   subcategory: string | null;
   danea_um: string | null;
   notes: string | null;
+  commercial_availability: "available" | "on_order" | "temporarily_unavailable";
   product_images: { id: string } | null;
   product_sale_units: CatalogSaleUnit[];
 };
 
 export const CATALOG_SELECT =
-  "id, code, description, description_html, category, subcategory, danea_um, notes, product_images(id), product_sale_units(id, is_default, conversion_factor, conversion_reference_um, units_of_measure(code, description))";
+  "id, code, description, description_html, category, subcategory, danea_um, notes, commercial_availability, product_images(id), product_sale_units(id, is_default, conversion_factor, conversion_reference_um, units_of_measure(code, description))";
 
 /** Prodotti in vetrina di un fornitore: le RLS lasciano passare solo i collegamenti operativi. */
 export async function fetchSellerCatalogue(sellerCompanyId: string) {
