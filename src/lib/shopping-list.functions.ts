@@ -50,6 +50,8 @@ const assignSchema = z.object({
   purchaseQuantity: z.number().positive().nullable(),
   minWarningAccepted: z.boolean(),
   notes: z.string().trim().max(500).nullable(),
+  // U.M. con cui si acquista: facoltativa, deve essere abilitata sulla referenza.
+  purchaseUnitId: z.string().uuid().nullable().optional(),
 });
 
 export const manageShoppingList = createServerFn({ method: "POST" })
@@ -138,6 +140,7 @@ export const assignShoppingListSupplier = createServerFn({ method: "POST" })
       ...(data.assignedQuantity === null ? {} : { _assigned_quantity: data.assignedQuantity }),
       ...(data.purchaseQuantity === null ? {} : { _purchase_quantity: data.purchaseQuantity }),
       ...(data.notes === null ? {} : { _notes: data.notes }),
+      ...(data.purchaseUnitId ? { _purchase_unit_id: data.purchaseUnitId } : {}),
     });
     if (error) throw new Error(error.message);
     return { ok: true };

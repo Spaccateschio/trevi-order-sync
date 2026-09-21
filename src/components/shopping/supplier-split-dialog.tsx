@@ -27,6 +27,17 @@ import {
 } from "@/lib/shopping-list";
 import { assignShoppingListSupplier } from "@/lib/shopping-list.functions";
 
+type PurchaseUnit = {
+  id: string;
+  unit_id: string;
+  code: string;
+  description: string | null;
+  is_default: boolean;
+  is_active: boolean;
+  conversion_factor: number | null;
+  conversion_type: "esatta" | "indicativa";
+};
+
 type SupplierOption = {
   link_id: string;
   supplier_record_id: string;
@@ -44,9 +55,10 @@ type SupplierOption = {
   sourcing_priority: number | null;
   supplier_reference_label: string | null;
   is_active: boolean;
+  purchase_units: PurchaseUnit[] | null;
 };
 
-type Draft = { quantity: string; packs: string; accepted: boolean };
+type Draft = { quantity: string; packs: string; accepted: boolean; unitId: string };
 
 /**
  * Ripartizione della quantità tra fornitori: nessuna redistribuzione automatica e nessun
@@ -112,6 +124,7 @@ export function SupplierSplitDialog({
           quantity: String(row.assigned_quantity),
           packs: row.purchase_quantity !== null ? String(row.purchase_quantity) : "",
           accepted: row.min_warning_accepted,
+          unitId: next[row.product_supplier_link_id]?.unitId ?? "",
         };
       }
       return next;
@@ -126,6 +139,7 @@ export function SupplierSplitDialog({
       quantity: number | null;
       packs: number | null;
       accepted: boolean;
+      unitId?: string | null;
     }) =>
       runAssign({
         data: {
@@ -137,6 +151,7 @@ export function SupplierSplitDialog({
           purchaseQuantity: input.packs,
           minWarningAccepted: input.accepted,
           notes: null,
+          purchaseUnitId: input.unitId ?? null,
         },
       }),
     onSuccess: async () => {
@@ -189,12 +204,20 @@ export function SupplierSplitDialog({
 
         <ul className="divide-y divide-border">
           {suppliers.map((supplier) => {
-            const draft = drafts[supplier.link_id] ?? { quantity: "", packs: "", accepted: false };
+            const draft = drafts[supplier.link_id] ?? { quantity: "", packs: "", accepted: false, unitId: "" };
             const existing = assignments.find((row) => row.product_supplier_link_id === supplier.link_id);
             const quantity = parseQuantity(draft.quantity) ?? 0;
-            const purchaseCode = supplier.purchase_unit_code ?? supplier.conversion_reference_um;
-            const translatable = isTranslatable(item.unit_code, purchaseCode, supplier.conversion_factor);
-            const proposal = packProposal(quantity, supplier.conversion_factor);
+            // U.M. acquistabili della referenza: la scelta è dell'operatore, la predefinita è solo un suggerimento.
+            const purchaseUnits = (supplier.purchase_units ?? []).filter((row) => row.is_active);
+            const chosen =
+              purchaseUnits.find((row) => row.unit_id === draft.unitId) ??
+              purchaseUnits.find((row) => row.is_default) ??
+              (purchaseUnits.length === 1 ? purchaseUnits[0] : null);
+            const purchaseCode = chosen?.code ?? supplier.purchase_unit_code ?? supplier.conversion_reference_um;
+            // Senza conversione registrata non esistono equivalenze: nessuna proposta a confezioni.
+            const factor = chosen ? chosen.conversion_factor : supplier.conversion_factor;
+            const translatable = isTranslatable(item.unit_code, purchaseCode, factor);
+            const proposal = packProposal(quantity, factor);
             const belowMin =
               supplier.min_quantity !== null && quantity > 0 && quantity < Number(supplier.min_quantity);
 
@@ -221,14 +244,39 @@ export function SupplierSplitDialog({
 
                 <p className="text-xs text-muted-foreground">
                   U.M. acquisto {purchaseCode ?? "—"}
-                  {supplier.conversion_factor
-                    ? ` · 1 ${purchaseCode} ≈ ${qty(supplier.conversion_factor)} ${supplier.conversion_reference_um ?? unit}`
-                    : ""}
+                  {factor
+                    ? ` · 1 ${purchaseCode} ${chosen?.conversion_type === "esatta" ? "=" : "≈"} ${qty(factor)} ${supplier.conversion_reference_um ?? unit}`
+                    : " · nessuna conversione"}
                   {supplier.min_quantity !== null ? ` · minimo ${qty(supplier.min_quantity)}` : ""}
                   {supplier.lead_time_days !== null ? ` · consegna ${supplier.lead_time_days} gg` : ""}
                   {supplier.danea_net_cost !== null ? ` · costo Danea ${euro(supplier.danea_net_cost)}` : ""}
                   {supplier.manual_cost !== null ? ` · costo Trevi Fruit ${euro(supplier.manual_cost)}` : ""}
                 </p>
+
+                {purchaseUnits.length > 1 ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Acquisto in:</span>
+                    {purchaseUnits.map((row) => (
+                      <Button
+                        key={row.id}
+                        type="button"
+                        size="sm"
+                        variant={chosen?.unit_id === row.unit_id ? "default" : "outline"}
+                        aria-pressed={chosen?.unit_id === row.unit_id}
+                        disabled={!editable || mutation.isPending}
+                        onClick={() =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [supplier.link_id]: { ...draft, unitId: row.unit_id, packs: "" },
+                          }))
+                        }
+                      >
+                        {row.code}
+                        {row.is_default ? <Star className="fill-current" aria-hidden="true" /> : null}
+                      </Button>
+                    ))}
+                  </div>
+                ) : null}
 
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="text-xs">
@@ -247,24 +295,22 @@ export function SupplierSplitDialog({
                       }
                     />
                   </label>
-                  {supplier.conversion_factor ? (
-                    <label className="text-xs">
-                      Confezioni ({purchaseCode})
-                      <Input
-                        className="mt-1 h-9 w-28"
-                        inputMode="decimal"
-                        value={draft.packs}
-                        disabled={!editable}
-                        aria-label={`Confezioni ${supplier.supplier_name}`}
-                        onChange={(event) =>
-                          setDrafts((current) => ({
-                            ...current,
-                            [supplier.link_id]: { ...draft, packs: event.target.value },
-                          }))
-                        }
-                      />
-                    </label>
-                  ) : null}
+                  <label className="text-xs">
+                    Quantità da acquistare ({purchaseCode ?? "U.M. acquisto"})
+                    <Input
+                      className="mt-1 h-9 w-28"
+                      inputMode="decimal"
+                      value={draft.packs}
+                      disabled={!editable}
+                      aria-label={`Quantità da acquistare ${supplier.supplier_name}`}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [supplier.link_id]: { ...draft, packs: event.target.value },
+                        }))
+                      }
+                    />
+                  </label>
                   <Button
                     type="button"
                     size="sm"
@@ -276,6 +322,7 @@ export function SupplierSplitDialog({
                         quantity,
                         packs: parseQuantity(draft.packs),
                         accepted: belowMin ? draft.accepted : false,
+                        unitId: chosen?.unit_id ?? null,
                       })
                     }
                   >

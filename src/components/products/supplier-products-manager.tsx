@@ -21,7 +21,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { dateTime, euro } from "@/lib/product-grid";
 import { fetchDaneaArchives } from "@/lib/price-lists";
-import type { CompanyUnit } from "./sales-unit-manager";
 
 /**
  * Vista inversa Fornitore → Prodotti forniti.
@@ -48,7 +47,17 @@ type LinkRow = {
   origin: "manuale" | "danea";
   products: { code: string; description: string | null; archive_id: string | null; danea_um: string | null } | null;
   units_of_measure: { code: string } | null;
+  product_supplier_link_units: { id: string; is_default: boolean; units_of_measure: { code: string } | null }[] | null;
 };
+
+/** Elenco delle U.M. con cui si può acquistare la referenza (★ = predefinita, facoltativa). */
+function purchaseUnitsLabel(row: LinkRow) {
+  const codes = (row.product_supplier_link_units ?? [])
+    .slice()
+    .sort((a, b) => Number(b.is_default) - Number(a.is_default))
+    .map((unit) => `${unit.units_of_measure?.code ?? "—"}${unit.is_default ? " ★" : ""}`);
+  return codes.length ? codes.join(" · ") : "—";
+}
 
 type ProductOption = {
   id: string;
@@ -101,7 +110,7 @@ export function SupplierProductsManager({
       const { data, error } = await supabase
         .from("product_supplier_links")
         .select(
-          "id, product_id, supplier_product_code, purchase_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, sourcing_priority, supplier_reference_label, is_active, notes, origin, products(code, description, archive_id, danea_um), units_of_measure(code)",
+          "id, product_id, supplier_product_code, purchase_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, sourcing_priority, supplier_reference_label, is_active, notes, origin, products(code, description, archive_id, danea_um), units_of_measure(code), product_supplier_link_units(id, is_default, units_of_measure(code))",
         )
         .eq("supplier_record_id", supplierRecordId);
       if (error) throw new Error(error.message);
@@ -129,18 +138,6 @@ export function SupplierProductsManager({
     queryFn: () => fetchDaneaArchives(companyId),
   });
 
-  const unitsQuery = useQuery({
-    queryKey: ["company-units", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("units_of_measure")
-        .select("id, code, description, status")
-        .eq("company_id", companyId)
-        .order("code");
-      if (error) throw new Error(error.message);
-      return (data ?? []) as CompanyUnit[];
-    },
-  });
 
   const productsQuery = useQuery({
     queryKey: ["supplier-addable-products", companyId, supplierArchiveId],
@@ -301,7 +298,6 @@ export function SupplierProductsManager({
     });
   }, [addTerm, productsQuery.data, rows]);
 
-  const activeUnits = (unitsQuery.data ?? []).filter((unit) => unit.status === "attivo");
 
   const costCell = (row: LinkRow) => {
     const cost = costByProduct.get(row.product_id);
@@ -320,37 +316,12 @@ export function SupplierProductsManager({
             onChange={(event) => setDraft((current) => ({ ...current, supplierProductCode: event.target.value }))}
           />
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">U.M. di acquisto</Label>
-          <Select
-            value={draft.purchaseUnitId || "nessuna"}
-            disabled={busy}
-            onValueChange={(value) =>
-              setDraft((current) => ({ ...current, purchaseUnitId: value === "nessuna" ? "" : value }))
-            }
-          >
-            <SelectTrigger><SelectValue placeholder="Nessuna" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nessuna">Nessuna</SelectItem>
-              {activeUnits.map((unit) => (
-                <SelectItem key={unit.id} value={unit.id}>
-                  {unit.code} · {unit.description}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">
-            Conversione {row.products?.danea_um ? `(1 U.M. acquisto ≈ … ${row.products.danea_um})` : ""}
-          </Label>
-          <Input
-            inputMode="decimal"
-            value={draft.conversionFactor}
-            disabled={busy}
-            placeholder="Da inserire manualmente"
-            onChange={(event) => setDraft((current) => ({ ...current, conversionFactor: event.target.value }))}
-          />
+        <div className="space-y-1 sm:col-span-2">
+          <Label className="text-xs">U.M. acquistabili</Label>
+          <p className="text-sm">{purchaseUnitsLabel(row)}</p>
+          <p className="text-xs text-muted-foreground">
+            Le U.M. con cui acquisti questa referenza e le eventuali conversioni si gestiscono nella scheda del prodotto.
+          </p>
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Costo manuale Trevi Fruit</Label>
@@ -473,7 +444,7 @@ export function SupplierProductsManager({
               <th>Descrizione</th>
               <th>Archivio</th>
               <th>Cod. fornitore</th>
-              <th>U.M. acquisto</th>
+              <th>U.M. acquistabili</th>
               <th>Costo Danea</th>
               <th>Costo Trevi Fruit</th>
               <th>Q.tà min.</th>
@@ -492,12 +463,7 @@ export function SupplierProductsManager({
                   <td className="max-w-[18rem] truncate">{row.products?.description ?? "—"}</td>
                   <td>{archiveName(row.products?.archive_id ?? null)}</td>
                   <td className="font-mono">{row.supplier_product_code ?? "—"}</td>
-                  <td>
-                    {row.units_of_measure?.code ?? "—"}
-                    {row.conversion_factor
-                      ? ` · 1 ≈ ${row.conversion_factor} ${row.conversion_reference_um ?? ""}`
-                      : ""}
-                  </td>
+                  <td>{purchaseUnitsLabel(row)}</td>
                   <td>{costCell(row)}</td>
                   <td>
                     {row.manual_cost !== null ? `${euro(Number(row.manual_cost))} · ${dateTime(row.manual_cost_at)}` : "—"}
@@ -565,13 +531,8 @@ export function SupplierProductsManager({
                   <dd className="font-mono">{row.supplier_product_code ?? "—"}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">U.M. acquisto</dt>
-                  <dd>
-                    {row.units_of_measure?.code ?? "—"}
-                    {row.conversion_factor
-                      ? ` · 1 ≈ ${row.conversion_factor} ${row.conversion_reference_um ?? ""}`
-                      : ""}
-                  </dd>
+                  <dt className="text-muted-foreground">U.M. acquistabili</dt>
+                  <dd>{purchaseUnitsLabel(row)}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Costo Danea</dt>

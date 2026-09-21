@@ -2333,6 +2333,70 @@ export type Database = {
           },
         ]
       }
+      product_supplier_link_units: {
+        Row: {
+          company_id: string
+          conversion_factor: number | null
+          conversion_type: Database["public"]["Enums"]["sale_conversion_type"]
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          link_id: string
+          unit_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          conversion_factor?: number | null
+          conversion_type?: Database["public"]["Enums"]["sale_conversion_type"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          link_id: string
+          unit_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          conversion_factor?: number | null
+          conversion_type?: Database["public"]["Enums"]["sale_conversion_type"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          link_id?: string
+          unit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_supplier_link_units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_supplier_link_units_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_supplier_link_units_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_supplier_links: {
         Row: {
           company_id: string
@@ -4145,6 +4209,7 @@ export type Database = {
           _min_warning_accepted?: boolean
           _notes?: string
           _purchase_quantity?: number
+          _purchase_unit_id?: string
         }
         Returns: string
       }
@@ -4635,6 +4700,18 @@ export type Database = {
         }
         Returns: string
       }
+      manage_product_supplier_link_unit: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _company_id: string
+          _conversion_factor?: number
+          _conversion_type?: Database["public"]["Enums"]["sale_conversion_type"]
+          _link_id: string
+          _unit_id: string
+        }
+        Returns: string
+      }
       manage_purchase_order: {
         Args: {
           _action: string
@@ -4821,6 +4898,7 @@ export type Database = {
           origin: Database["public"]["Enums"]["product_supplier_origin"]
           purchase_unit_code: string
           purchase_unit_id: string
+          purchase_units: Json
           sourcing_priority: number
           supplier_internal_reference: string
           supplier_name: string

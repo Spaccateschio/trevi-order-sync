@@ -57,7 +57,7 @@ FASE A (giacenza = ultimo conteggio + rettifiche append-only), FASE B (sessione 
 1. Referenza fornitore con KG + CASSA + SACCO: tre U.M. acquistabili, sia con predefinita (`purchase_unit_id` allineata) sia **senza** predefinita (`purchase_unit_id` NULL), referenza valida in entrambi i casi.
 2. Rimozione/disattivazione dell'U.M. predefinita → `purchase_unit_id = NULL`; le altre U.M. acquistabili restano valide e la referenza continua a funzionare, senza obbligo di nuova predefinita.
 2b. Fabbisogno 62 KG → operatore scegle 5 SACCHI senza conversione → ordine consentito, 62 KG originali preservati, 5 SACCHI preservati, nessuna equivalenza/copertura/residuo/eccedenza inventata.
-3. Migrazione: ogni referenza esistente ottiene esattamente una U.M. acquistabile con la conversione di prima.
+3. Migrazione: ogni referenza esistente **con `purchase_unit_id` valorizzata** ottiene esattamente una corrispondente U.M. acquistabile (predefinita, con la conversione di prima); le referenze con `purchase_unit_id = NULL` restano senza U.M. acquistabili e senza predefinita, senza inventare alcun dato.
 4. POMODORI con U.M. prezzo KG e ordinabili KG/CASSA/PEZZO **senza nessuna conversione**: salvataggio riuscito, catalogo mostra €2,00/kg e le tre U.M., nessun totale teorico.
 5. Cartone con conversione esatta 1 = 6 bottiglie: etichetta "= 6" mostrata.
 6. Lista della Spesa su referenza con tre U.M. e nessuna conversione: nessuna proposta automatica di confezioni, scelta libera di U.M. e quantità, ordine generato coerente.
