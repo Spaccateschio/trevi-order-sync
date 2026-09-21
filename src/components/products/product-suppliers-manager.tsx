@@ -180,13 +180,13 @@ export function ProductSuppliersManager({
         ...(mode === "create" ? { _product_id: productId, _supplier_record_id: supplierRecordId } : {}),
         _supplier_product_code: draft.supplierProductCode,
         _supplier_reference_label: draft.referenceLabel,
-        ...(num(draft.sourcingPriority) !== null ? { _sourcing_priority: num(draft.sourcingPriority) as number } : {}),
+        ...(num(draft.sourcingPriority, "Priorità di approvvigionamento") !== null ? { _sourcing_priority: num(draft.sourcingPriority, "Priorità di approvvigionamento") as number } : {}),
         ...(draft.purchaseUnitId ? { _purchase_unit_id: draft.purchaseUnitId } : {}),
-        ...(num(draft.conversionFactor) !== null ? { _conversion_factor: num(draft.conversionFactor) as number } : {}),
+        ...(num(draft.conversionFactor, "Conversione") !== null ? { _conversion_factor: num(draft.conversionFactor, "Conversione") as number } : {}),
         ...(daneaUm ? { _conversion_reference_um: daneaUm } : {}),
-        ...(num(draft.manualCost) !== null ? { _manual_cost: num(draft.manualCost) as number } : {}),
-        ...(num(draft.minQuantity) !== null ? { _min_quantity: num(draft.minQuantity) as number } : {}),
-        ...(num(draft.leadTimeDays) !== null ? { _lead_time_days: num(draft.leadTimeDays) as number } : {}),
+        ...(num(draft.manualCost, "Costo concordato") !== null ? { _manual_cost: num(draft.manualCost, "Costo concordato") as number } : {}),
+        ...(num(draft.minQuantity, "Quantità minima") !== null ? { _min_quantity: num(draft.minQuantity, "Quantità minima") as number } : {}),
+        ...(num(draft.leadTimeDays, "Giorni di consegna") !== null ? { _lead_time_days: num(draft.leadTimeDays, "Giorni di consegna") as number } : {}),
         _notes: draft.notes,
       };
       const { data: linkId, error } = await supabase.rpc("manage_product_supplier_link", payload);
