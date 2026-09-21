@@ -332,7 +332,7 @@ export function ProductSuppliersManager({
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Giorni di consegna</Label>
-        <Input inputMode="numeric" value={draft.leadTimeDays} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, leadTimeDays: event.target.value }))} />
+        <Input type="number" min={0} step={1} inputMode="numeric" value={draft.leadTimeDays} disabled={busy} placeholder="Es. 2" onChange={(event) => setDraft((current) => ({ ...current, leadTimeDays: event.target.value }))} />
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Note</Label>
