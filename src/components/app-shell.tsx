@@ -14,8 +14,13 @@ import { authorizedNavItems, NAV_GROUPS, type NavGroupKey, type NavItem } from "
 import { cn } from "@/lib/utils";
 
 function NavLink({ item, pathname, nested = false }: { item: NavItem; pathname: string; nested?: boolean }) {
+  const searchStr = useRouterState({ select: (state) => state.location.searchStr });
   if (!item.to) return null;
-  const active = pathname === item.to && (!item.search || Object.entries(item.search).every(([key, value]) => new URLSearchParams(window.location.search).get(key) === value));
+  // Le sotto-viste usano il parametro "sezione": la voce senza parametro resta attiva solo sulla vista base.
+  const params = new URLSearchParams(searchStr.startsWith("?") ? searchStr.slice(1) : searchStr);
+  const active = pathname === item.to && (item.search
+    ? Object.entries(item.search).every(([key, value]) => params.get(key) === value)
+    : !params.get("sezione"));
   const className = cn("flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors", nested && "ml-4 py-1.5 text-xs", active ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground");
   const content = <><item.icon className={cn("shrink-0", nested ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden="true" /><span className="truncate">{item.label}</span></>;
   return item.search ? <Link to={item.to} search={item.search} className={className}>{content}</Link> : <Link to={item.to} className={className}>{content}</Link>;
