@@ -453,7 +453,7 @@ export function ProductSuppliersManager({
                 </Select>
                 {!availableSuppliers.length ? <p className="text-xs text-muted-foreground">Nessun fornitore disponibile per questo archivio.</p> : null}
               </div>
-              {fields}
+              {fieldsFor("create")}
               <div className="mt-3 flex flex-wrap justify-end gap-2">
                 <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => { setAdding(false); setDraft(EMPTY_DRAFT); }}>Annulla</Button>
                 <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate("create")}>Aggiungi</Button>
