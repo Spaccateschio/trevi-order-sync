@@ -437,6 +437,12 @@ export function ProductSuppliersManager({
                     disabled={busy}
                     onChanged={refresh}
                   />
+                  <LinkDeliveryEditor
+                    linkId={row.link_id}
+                    delivery={deliveries[row.link_id] ?? null}
+                    disabled={busy}
+                    onChanged={refresh}
+                  />
                   {fieldsFor("update")}
                   <div className="mt-3 flex flex-wrap justify-end gap-2">
                     {row.sourcing_priority !== null ? (
