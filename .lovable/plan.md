@@ -1,43 +1,74 @@
-# Inventario: stati del prodotto e cosa aggiungere
+# Inventario: revisione del concetto (piano tecnico, nessuna implementazione)
 
-Le tue osservazioni sono corrette. Le divido in due gruppi: quello che appartiene al **conteggio** (lo faccio subito) e quello che appartiene alla **lista della spesa / acquisto** (viene dopo il conteggio, sarebbe sbagliato metterlo dentro la scheda di conteggio).
+Ho analizzato dati e funzioni esistenti. Qui sotto le risposte alle tue sei domande e il piano.
 
-## Gruppo 1 — Conteggio (intervento immediato)
+## 1. Colonne già disponibili oggi (nessun dato nuovo)
 
-1. **Riapri conteggio su un singolo prodotto**
-   Dopo aver confermato una quantità, sulla scheda compare "Riapri" che riporta il prodotto in bozza con la quantità già scritta, pronta da correggere. Serve quando un cliente ha ritirato merce o il prodotto risulta non conforme. Lo storico non viene cancellato: ogni nuova conferma resta registrata, l'ultima vale come quantità valida.
+Dalla funzione `inventory_session_rows` e dalle tabelle collegate:
 
-2. **Stato "Da ricontare"**
-   Nuovo stato visibile sulla scheda e come filtro accanto a "Da controllare / Completati / Differenze". Un prodotto riaperto finisce lì, così prima di chiudere l'inventario vedi subito cosa resta in sospeso.
+- Prodotto (codice, descrizione, U.M.), foto
+- Giacenza calcolata (`inventory_location_stock`: ultimo conteggio valido + rettifiche + movimenti)
+- Quantità fisica, Differenza, Nota, Ultimo conteggio (data e autore)
+- Zona, Categoria, Sottocategoria
+- Preferito (già collegato alle stelle del catalogo)
+- Distinzione **Mai contato** vs **Zero verificato**: esiste già, è il campo `has_count`; oggi non è mostrato come stato a sé
 
-3. **Note su più o meno: confermato come è oggi**
-   La nota si apre quando la quantità è diversa dalla calcolata; resta obbligatoria con le scorciatoie (merce deteriorata, errore di carico, reso al fornitore, uso interno). Aggiungo la possibilità di scrivere una nota anche quando la quantità coincide (facoltativa), per annotare "prodotto non a norma".
+## 2. Colonne che richiedono aggregazioni (dati presenti, calcolo aggiuntivo)
 
-4. **Mai contato e contato a zero → segnale per la spesa**
-   Sulla scheda distinguo chiaramente:
-   - **Mai contato**: nessuno ha ancora verificato.
-   - **Zero verificato**: contato e finito.
-   In entrambi i casi appare un segno "da comprare" e, chiudendo l'inventario, questi prodotti vengono proposti in blocco per la lista della spesa (non creata automaticamente: la confermi tu).
+- **Fornitore** e **Prezzo acquisto**: collegamento prodotto→referenza fornitore, poi listino assegnato. Già fatto nella pagina Prodotti: riuso la stessa logica, non ne scrivo una seconda.
+- **Scorta minima / Necessario / Fabbisogno**: calcolati da `inventory_requirements` (formula già approvata). Nel Conteggio entrano come colonne di sola lettura: nessuna formula nuova, nessuna decisione d'acquisto.
 
-5. **Preferito dalla scheda**
-   La stella c'è già nella scheda a conteggio aperto; la aggiungo anche nelle schede prima dell'avvio, così togli o metti il preferito senza uscire dall'Inventario.
+## 3. Colonne che richiedono dati nuovi
 
-## Gruppo 2 — Lista della spesa (intervento successivo, da concordare)
+Quattro informazioni oggi non esistono nel database:
 
-Queste tre cose non sono stati dell'inventario, sono decisioni d'acquisto e vanno sulla riga della lista della spesa:
+1. **Storico dei riconteggi**: `inventory_counts` ha un vincolo unico per sessione+prodotto+zona e la registrazione **sovrascrive** il valore precedente. Quindi oggi 07:00 = 10 e 07:10 = 8 non convivono: resta solo 8.
+2. **Da ricontare** (richiesta esplicita di ricontrollo).
+3. **Non conforme** + motivazione.
+4. **Da proporre per acquisto** (segnalazione dell'operatore, non un ordine).
 
-- **Prezzo del fornitore**: già letto dal listino che il fornitore ti ha assegnato; da rendere modificabile sulla riga di spesa quando il prezzo concordato è diverso.
-- **Più fornitori in percentuale**: dividere la quantità da comprare fra due o più fornitori (es. 60% / 40%), senza ridistribuzione automatica.
-- **Data in cui vuoi la merce**: data richiesta di consegna sulla riga, confrontata con i giorni di consegna del fornitore già impostati.
+## 4. Come implementerei "Da ricontare" e il riconteggio append-only
 
-Propongo di fare prima il Gruppo 1 e poi affrontare il Gruppo 2 con un piano dedicato.
+- Nuova tabella `inventory_count_entries`: una riga per ogni conferma (prodotto, zona, sessione, quantità, U.M., nota, chi, quando), **solo inserimenti**, nessuna modifica né cancellazione.
+- `inventory_counts` resta com'è e continua a rappresentare **l'ultima fotografia** di quella sessione/zona: la giacenza calcolata non cambia comportamento, FASE B resta intatta.
+- "Riconta" non cancella niente: chiede la nuova quantità, scrive una nuova riga nello storico e aggiorna l'ultima fotografia. Sulla scheda compare "Ricontato · ultimo alle 07:10" e uno storico apribile (10 → 8).
+- **Da ricontare** = campo `recount_requested_at` (+ chi) sulla fotografia corrente: si accende quando l'operatore chiede il ricontrollo, si spegne alla nuova conferma. Nessuno stato combinato: gli stati restano i tuoi quattro (Mai contato, Da controllare, Confermato, Da ricontare) e la conferma è qualificata come coincidente / surplus / mancanza / zero verificato.
 
-## Dettagli tecnici
+## 5. Come gestirei "Non conforme" (proposta da approvare)
 
-- Modifiche a `src/components/inventory/inventory-count-panel.tsx` (azione Riapri sulla scheda, nuovo stato locale `reopened`, filtro aggiuntivo, nota facoltativa, stella nelle schede in bozza) e a `src/lib/inventory-count.functions.ts` (lettura dello stato "da ricontare" e elenco dei prodotti a zero / mai contati alla chiusura).
-- Il riconteggio riusa `record_inventory_count`, già append-only: nessuna cancellazione di righe, nessuna nuova tabella.
-- Nessuna modifica a database, permessi, RPC, formule di giacenza/fabbisogno, Fabbisogno, ordini, ricevute o FASE A/B/C/D.
+Principio: **la segnalazione non tocca la giacenza**. La quantità fisica resta una sola quantità: quella che c'è in magazzino.
+
+- Sulla riga del conteggio: `non_compliant` (sì/no), `non_compliant_note` (obbligatoria se sì) e, facoltativa, `non_compliant_quantity` come **quantità segnalata**, puramente informativa.
+- La giacenza resta la quantità fisica contata: non sottraggo niente automaticamente.
+- Lo scarto vero è una decisione separata e già esistente: una **rettifica** (movimento di scarto) che l'operatore o l'amministratore registra esplicitamente. Solo lì la giacenza scende, e resta tracciata.
+- In questo modo non introduco il concetto "vendibile vs da scartare" dentro l'inventario: se in futuro serve, lo si aggiunge come dato commerciale, non come seconda giacenza.
+
+Alternativa più semplice, se preferisci: solo flag + nota, senza quantità segnalata. Dimmi quale delle due.
+
+## 6. Preferenze della griglia: nessun secondo sistema
+
+Uso **la stessa tabella** `user_grid_preferences` già usata dalla griglia Prodotti (utente + chiave vista + tipo dispositivo, con visibilità, ordine e larghezza delle colonne nello stesso campo). Cambia solo la chiave della vista, ad esempio `inventario-conteggio`. Nessuna migrazione, nessuna tabella nuova, nessuna logica duplicata: "Ripristina predefinite" funziona come in Prodotti.
+
+## 7. Griglia e filtri (interfaccia)
+
+- Griglia configurabile con colonne fondamentali sempre presenti (Prodotto | Giacenza calcolata | Quantità fisica | Differenza | Stato/Conferma) e colonne opzionali: Preferito, Zona, Categoria, Sottocategoria, Fornitore, Prezzo acquisto, Scorta minima, Necessario, Fabbisogno, Nota, Ultimo conteggio, Non conforme.
+- Su smartphone la stessa vista resta a schede compatte (come oggi in Prodotti), con i campi scelti dall'utente.
+- Barra principale: Preferiti | Tutti | Da controllare | Da ricontare | Differenze + ricerca. Un pulsante **Filtri** per Zona, Fornitore, Categoria, Sottocategoria, Stato conteggio.
+- Le azioni sulla riga restano poche: Conferma, Riconta, e un menu con Preferito, Non conforme, Da proporre per acquisto.
+
+## 8. Confini
+
+Nessuna logica di acquisto dentro l'inventario: niente ripartizione percentuale fra fornitori, niente ordini, niente creazione automatica di righe di spesa. "Da proporre per acquisto" è solo una segnalazione che la Lista della Spesa (FASE C) leggerà come proposta da confermare.
+
+## Ordine di lavoro proposto
+
+1. Database: storico append-only dei conteggi, "Da ricontare", "Non conforme", "Da proporre per acquisto" (una sola migrazione, con permessi).
+2. Conteggio: Riconta con storico, i quattro stati, segnalazioni, preferito dalla scheda.
+3. Griglia configurabile + nuova barra filtri sulla stessa tabella di preferenze.
+4. Colonne di acquisto e fabbisogno in sola lettura.
 
 ## Fuori scope
 
-Nuovo componente grafico condiviso dell'elenco prodotti, listini, unità di misura, Fabbisogno.
+Fabbisogno (formule), Lista della Spesa, ordini, ricevute, FASE A/B/C/D, listini, U.M.
+
+Confermi l'impostazione — in particolare la scelta sul punto 5 (con o senza quantità segnalata)?
