@@ -661,7 +661,9 @@ export function InventoryCountPanel({
                 </div>
               </div>
             ) : null}
-            {renderCatalogBlock(draftLocation ? { id: draftLocation.id, name: draftLocation.name } : null)}
+            {productView === "all"
+              ? renderCatalogBlock(draftLocation ? { id: draftLocation.id, name: draftLocation.name } : null)
+              : null}
           </section>
         ) : selectingLocation ? (
 
