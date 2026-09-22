@@ -1567,42 +1567,59 @@ function PhysicalCount({
             </p>
           </div>
 
-          <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
-            {visibleRows.map((row) => (
-              <ProductCard
-                key={rowKey(row)}
-                row={row}
-                imageUrl={imageUrls.get(row.product_id)}
-                value={drafts[rowKey(row)] ?? ""}
-                isAdmin={isAdmin}
-                actionsEnabled={sessionActive}
-                supplier={supplierInfo.get(row.product_id) ?? null}
-                isVisible={fieldPreferences.isVisible}
-                onChange={(value) => onDraftChange(rowKey(row), value)}
-                onConfirm={() => onConfirm(row)}
-                onToggleFavorite={() => onToggleFavorite(row)}
-                onRecount={() => onRecount(row)}
-                onNonCompliance={() => onNonCompliance(row)}
-                onRevokeNonCompliance={() => onRevokeNonCompliance(row)}
-                onProposal={() => onProposal(row)}
-                onHistory={() => onHistory(row)}
-              />
-            ))}
-          </div>
-
-          {catalogCandidates.length ? (
-            <div className="grid gap-2 border-t border-border p-2 md:grid-cols-2 xl:grid-cols-3">
-              {catalogCandidates.map((candidate) => (
-                <CatalogProductCard key={candidate.sellerProductId} candidate={candidate}
-                  imageUrl={catalogImages.get(candidate.sellerProductId)}
-                  value={catalogDrafts[candidate.sellerProductId] ?? ""}
-                  disabled={!isAdmin}
-                  onChange={(value) => onCatalogDraftChange(candidate.sellerProductId, value)}
-                  onConfirm={() => onCatalogConfirm(candidate)}
-                  onToggleFavorite={() => onToggleCatalogFavorite(candidate)} />
-              ))}
+          {visibleRows.length || catalogCandidates.length ? (
+            <div className="grid auto-rows-fr items-stretch gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
+              {[
+                ...visibleRows.map((row) => ({
+                  key: rowKey(row),
+                  description: row.description,
+                  code: row.code,
+                  node: (
+                    <ProductCard
+                      row={row}
+                      imageUrl={imageUrls.get(row.product_id)}
+                      value={drafts[rowKey(row)] ?? ""}
+                      isAdmin={isAdmin}
+                      actionsEnabled={sessionActive}
+                      supplier={supplierInfo.get(row.product_id) ?? null}
+                      isVisible={fieldPreferences.isVisible}
+                      onChange={(value) => onDraftChange(rowKey(row), value)}
+                      onConfirm={() => onConfirm(row)}
+                      onToggleFavorite={() => onToggleFavorite(row)}
+                      onRecount={() => onRecount(row)}
+                      onNonCompliance={() => onNonCompliance(row)}
+                      onRevokeNonCompliance={() => onRevokeNonCompliance(row)}
+                      onProposal={() => onProposal(row)}
+                      onHistory={() => onHistory(row)}
+                    />
+                  ),
+                })),
+                ...catalogCandidates.map((candidate) => ({
+                  key: `catalogo-${candidate.sellerProductId}`,
+                  description: candidate.description,
+                  code: candidate.code,
+                  node: (
+                    <CatalogProductCard
+                      candidate={candidate}
+                      imageUrl={catalogImages.get(candidate.sellerProductId)}
+                      value={catalogDrafts[candidate.sellerProductId] ?? ""}
+                      disabled={!isAdmin}
+                      onChange={(value) => onCatalogDraftChange(candidate.sellerProductId, value)}
+                      onConfirm={() => onCatalogConfirm(candidate)}
+                      onToggleFavorite={() => onToggleCatalogFavorite(candidate)}
+                    />
+                  ),
+                })),
+              ]
+                .sort((left, right) => byName(left.description, left.code, right.description, right.code))
+                .map((item) => (
+                  <div key={item.key} className="flex h-full min-w-0 flex-col">
+                    {item.node}
+                  </div>
+                ))}
             </div>
           ) : null}
+
 
           {!visibleRows.length && !catalogCandidates.length ? (
             <div className="p-8 text-center">
@@ -1697,7 +1714,7 @@ function ProductCard({
   return (
     <article
       className={cn(
-        "rounded-md border-2 bg-card p-2",
+        "flex h-full flex-col rounded-md border-2 bg-card p-2",
         !isConfirmed && "border-border",
         isConfirmed && !hasDifference && "border-success/50 bg-success/5",
         hasDifference && "border-destructive/50 bg-destructive/5",
@@ -1949,7 +1966,7 @@ function CatalogProductCard({
   const name = candidate.description?.trim() || candidate.code;
   const unit = candidate.danea_um?.trim() ?? "";
   return (
-    <article className="rounded-md border-2 border-border bg-card p-2">
+    <article className="flex h-full flex-col rounded-md border-2 border-border bg-card p-2">
       <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
         {imageUrl ? (
           <img src={imageUrl} alt="" loading="lazy" className="size-12 rounded-sm border border-border object-cover" />
