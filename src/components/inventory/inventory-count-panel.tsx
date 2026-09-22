@@ -1,16 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  Boxes,
   Check,
   CheckCheck,
-  ChevronRight,
   CircleAlert,
   ClipboardCheck,
   Columns3,
   Delete,
   History,
-  LayoutGrid,
   MapPin,
   MoreVertical,
   Package,
@@ -22,11 +19,10 @@ import {
   Sparkles,
   Star,
   StickyNote,
-  Tags,
   TriangleAlert,
 } from "lucide-react";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -66,6 +62,7 @@ import {
   getInventoryProgress,
   getInventoryRows,
   getSupplierCatalogCandidates,
+  manageCatalogProductFavorite,
   manageCompanyProductFavorite,
   managePurchaseProposal,
   recordCountEntry,
@@ -75,7 +72,6 @@ import {
   type InventoryCountRow,
   type InventoryProgress,
 } from "@/lib/inventory-count.functions";
-import { recordInventoryCount } from "@/lib/inventory.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
 
@@ -92,8 +88,6 @@ const ENTRY_LABELS: Record<string, string> = {
   richiesta_riconteggio: "Segnato da ricontare",
 };
 
-
-type NavigationMode = "zones" | "categories" | "subcategories" | "products" | "search";
 
 const NO_CATEGORY = "Senza categoria";
 const NO_SUBCATEGORY = "Senza sottocategoria";
@@ -145,11 +139,11 @@ export function InventoryCountPanel({
   const close = useServerFn(closeGeneralInventory);
   const readProgress = useServerFn(getInventoryProgress);
   const readRows = useServerFn(getInventoryRows);
-  const saveCount = useServerFn(recordInventoryCount);
   const saveEntry = useServerFn(recordCountEntry);
   const readHistory = useServerFn(getCountHistory);
   const manageProposal = useServerFn(managePurchaseProposal);
   const toggleFavorite = useServerFn(manageCompanyProductFavorite);
+  const toggleCatalogFavorite = useServerFn(manageCatalogProductFavorite);
   const getImageUrls = useServerFn(getProductImageUrls);
   const getSellerImageUrls = useServerFn(getCatalogImageUrls);
   const readCatalogCandidates = useServerFn(getSupplierCatalogCandidates);
@@ -165,9 +159,9 @@ export function InventoryCountPanel({
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [productView, setProductView] = useState<ProductView>("all");
   const [workFilter, setWorkFilter] = useState<WorkFilter>("pending");
-  const [navigationMode, setNavigationMode] = useState<NavigationMode>("products");
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
+  const [supplierFilter, setSupplierFilter] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<{ row: InventoryCountRow; value: number } | null>(null);
@@ -212,7 +206,7 @@ export function InventoryCountPanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, code, description, category, danea_um")
+        .select("id, code, description, category, subcategory, danea_um")
         .eq("company_id", companyId)
         .order("code")
         .limit(300);
@@ -221,13 +215,25 @@ export function InventoryCountPanel({
     },
   });
   const catalogPreview = catalogPreviewQuery.data ?? [];
+  const previewFavoriteQuery = useQuery({
+    queryKey: ["inventario-preferiti-prodotti", companyId, catalogPreview.length],
+    enabled: !sessionId && catalogPreview.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("company_product_favorites").select("product_id")
+        .eq("company_id", companyId).in("product_id", catalogPreview.map((product) => product.id));
+      if (error) throw new Error(error.message);
+      return new Set((data ?? []).map((favorite) => favorite.product_id));
+    },
+  });
   const previewProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return catalogPreview;
-    return catalogPreview.filter((product) =>
-      `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term),
-    );
-  }, [catalogPreview, search]);
+    return catalogPreview.filter((product) => {
+      if (productView === "favorites" && !previewFavoriteQuery.data?.has(product.id)) return false;
+      if (category && (product.category ?? NO_CATEGORY) !== category) return false;
+      if (subcategory && (product.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
+      return !term || `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term);
+    });
+  }, [catalogPreview, category, previewFavoriteQuery.data, productView, search, subcategory]);
 
   const previewImagesQuery = useQuery({
     queryKey: ["inventario-prodotti-immagini", companyId, catalogPreview.length],
@@ -250,6 +256,17 @@ export function InventoryCountPanel({
     queryFn: () => readCatalogCandidates({ data: { companyId } }),
   });
   const catalogCandidates: CatalogCandidate[] = catalogCandidatesQuery.data ?? [];
+  const visibleCatalogCandidates = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return catalogCandidates.filter((candidate) => {
+      if (productView === "favorites" && !candidate.isFavorite) return false;
+      if (supplierFilter && candidate.sellerCompanyName !== supplierFilter) return false;
+      if (category && (candidate.category ?? NO_CATEGORY) !== category) return false;
+      if (subcategory && (candidate.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
+      if (workFilter !== "pending") return false;
+      return !term || `${candidate.code} ${candidate.description ?? ""}`.toLowerCase().includes(term);
+    });
+  }, [catalogCandidates, category, productView, search, subcategory, supplierFilter, workFilter]);
 
   const catalogImagesQuery = useQuery({
     queryKey: ["inventario-catalogo-immagini", companyId, catalogCandidates.length],
@@ -285,7 +302,7 @@ export function InventoryCountPanel({
   });
   const progress: InventoryProgress | undefined = progressQuery.data;
 
-  const searching = navigationMode === "search" && search.trim().length > 0;
+  const searching = search.trim().length > 0;
   const rowsQuery = useQuery({
     queryKey: [
       "inventory-rows",
@@ -380,7 +397,6 @@ export function InventoryCountPanel({
       setCategory(null);
       setSubcategory(null);
       setSearch("");
-      setNavigationMode("products");
       setSelectedLocationId(activeLocations.length > 1 ? (defaultLocation?.id ?? null) : (defaultLocation?.id ?? null));
       setSelectingLocation(activeLocations.length > 1);
       toast.success("Inventario generale aperto");
@@ -397,16 +413,18 @@ export function InventoryCountPanel({
       value: number;
     }) => {
       const session = await start({ data: { companyId, archiveId: archiveId!, name: null } });
-      await saveCount({
+      await saveEntry({
         data: {
           companyId,
           sessionId: session.id,
           productId: input.productId,
           locationId: input.locationId,
+          entryType: "conteggio",
           countedQuantity: input.value,
-          unitId: null,
           unitCode: input.unit || null,
           notes: null,
+          nonCompliant: null,
+          nonCompliantQuantity: null,
         },
       });
       return input.locationId;
@@ -423,7 +441,6 @@ export function InventoryCountPanel({
       setCategory(null);
       setSubcategory(null);
       setSearch("");
-      setNavigationMode("products");
       setSelectedLocationId(locationId);
       setSelectingLocation(false);
       toast.success("Conteggio avviato e quantità salvata");
@@ -444,16 +461,18 @@ export function InventoryCountPanel({
       });
       const activeSessionId =
         sessionId ?? (await start({ data: { companyId, archiveId: archiveId!, name: null } })).id;
-      await saveCount({
+      await saveEntry({
         data: {
           companyId,
           sessionId: activeSessionId,
           productId,
           locationId: input.locationId,
+          entryType: "conteggio",
           countedQuantity: input.value,
-          unitId: null,
           unitCode: input.candidate.danea_um?.trim() || null,
           notes: null,
+          nonCompliant: null,
+          nonCompliantQuantity: null,
         },
       });
       return input.locationId;
@@ -623,6 +642,23 @@ export function InventoryCountPanel({
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti-tutti"] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferito"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventario-preferiti-prodotti"] }),
+      ]);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const catalogFavoriteMutation = useMutation({
+    mutationFn: (candidate: CatalogCandidate) => toggleCatalogFavorite({ data: {
+      companyId,
+      sellerCompanyId: candidate.sellerCompanyId,
+      sellerProductId: candidate.sellerProductId,
+      favorite: !candidate.isFavorite,
+    } }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["inventario-catalogo-candidati", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
+        queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti-tutti"] }),
       ]);
     },
     onError: (error: Error) => toast.error(error.message),
@@ -668,54 +704,6 @@ export function InventoryCountPanel({
       : (activeLocations.find((location) => location.id === draftZoneId) ?? null);
   const zoneProgress = new Map((progress?.zones ?? []).map((zone) => [zone.location_id, zone]));
 
-  const renderCatalogBlock = (countLocation: { id: string; name: string } | null) => {
-    if (!catalogCandidates.length) return null;
-    return (
-      <div className="overflow-hidden rounded-md border border-border bg-card">
-        <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
-          Catalogo dei fornitori ({catalogCandidates.length}) — scrivendo una quantità l'articolo entra fra i tuoi
-          prodotti
-        </p>
-        <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
-          {catalogCandidates.map((candidate) => (
-            <DraftCountCard
-              key={candidate.sellerProductId}
-              name={candidate.description ?? candidate.code}
-              code={candidate.code}
-              unit={candidate.danea_um?.trim() ?? ""}
-              category={
-                candidate.category
-                  ? `${candidate.category} · ${candidate.sellerCompanyName}`
-                  : candidate.sellerCompanyName
-              }
-              badge="Da catalogo"
-              image={catalogImages.get(candidate.sellerProductId) ?? null}
-              value={catalogDrafts[candidate.sellerProductId] ?? ""}
-              disabled={!isAdmin || !archiveId || !countLocation || catalogCount.isPending}
-              onChange={(value) =>
-                setCatalogDrafts((current) => ({ ...current, [candidate.sellerProductId]: value }))
-              }
-              onConfirm={() => {
-                const value = parseQuantity(catalogDrafts[candidate.sellerProductId] ?? "");
-                if (value === null) {
-                  toast.error("Inserisci una quantità valida");
-                  return;
-                }
-                if (!countLocation) {
-                  toast.error("Scegli prima la zona");
-                  return;
-                }
-                catalogCount.mutate({ candidate, locationId: countLocation.id, value });
-              }}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-
-
   return (
     <Tabs value={tab} onValueChange={setTab} className="space-y-2">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
@@ -724,15 +712,7 @@ export function InventoryCountPanel({
           <TabsTrigger value="fabbisogno">Fabbisogno</TabsTrigger>
           <TabsTrigger value="zone">Zone</TabsTrigger>
         </TabsList>
-        {sessionId ? (
-          activeLocations.length > 1 ? (
-            <Button size="sm" variant="outline" onClick={() => setNavigationMode("zones")}>
-              <MapPin aria-hidden="true" />
-              <span className="hidden sm:inline">Cambia zona</span>
-              <span className="sm:hidden">Zone</span>
-            </Button>
-          ) : null
-        ) : (
+        {!sessionId ? (
           <Button
             size="sm"
             onClick={() => startMutation.mutate()}
@@ -743,114 +723,11 @@ export function InventoryCountPanel({
             <span className="hidden sm:inline">Nuovo conteggio</span>
             <span className="sm:hidden">Nuovo</span>
           </Button>
-        )}
+        ) : null}
       </div>
 
       <TabsContent value="conteggio">
-        {!sessionId ? (
-          <section className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-card px-3 py-2">
-              <p className="text-xs text-muted-foreground">
-                {isAdmin
-                  ? "Conteggio non ancora iniziato: scrivi le quantità, si apre da solo alla prima conferma."
-                  : "Conteggio non ancora iniziato: un amministratore deve avviarlo."}
-              </p>
-              {activeLocations.length > 1 ? (
-                <div className="flex flex-wrap items-center gap-1">
-                  <span className="text-xs font-semibold">Zona:</span>
-                  {activeLocations.map((location) => (
-                    <Button
-                      key={location.id}
-                      size="sm"
-                      variant={draftZoneId === location.id ? "default" : "outline"}
-                      onClick={() => setDraftZoneId(location.id)}
-                    >
-                      {location.name}
-                    </Button>
-                  ))}
-                </div>
-              ) : draftLocation ? (
-                <p className="text-xs font-semibold">
-                  <MapPin className="mr-1 inline size-3" aria-hidden="true" />
-                  {draftLocation.name}
-                </p>
-              ) : null}
-            </div>
-            {activeLocations.length > 1 && !draftZoneId ? (
-              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                Scegli la zona in cui stai contando per abilitare i campi.
-              </p>
-            ) : null}
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
-              <div className="flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant={productView === "favorites" ? "default" : "outline"}
-                  onClick={() => setProductView("favorites")}
-                >
-                  Preferiti
-                </Button>
-                <Button
-                  size="sm"
-                  variant={productView === "all" ? "default" : "outline"}
-                  onClick={() => setProductView("all")}
-                >
-                  Tutti
-                </Button>
-              </div>
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Cerca per codice o descrizione"
-                className="h-9 w-full sm:w-64"
-              />
-            </div>
-            {previewProducts.length ? (
-              <div className="overflow-hidden rounded-md border border-border bg-card">
-                <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
-                  Prodotti della tua azienda ({previewProducts.length})
-                </p>
-                <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
-                  {previewProducts.map((product) => (
-                    <DraftCountCard
-                      key={product.id}
-                      name={product.description ?? product.code}
-                      code={product.code}
-                      unit={product.danea_um?.trim() ?? ""}
-                      category={product.category}
-                      image={previewImages.get(product.id) ?? null}
-                      value={draftFirst[product.id] ?? ""}
-                      disabled={!isAdmin || !archiveId || !draftLocation || firstCount.isPending}
-                      onChange={(value) =>
-                        setDraftFirst((current) => ({ ...current, [product.id]: value }))
-                      }
-                      onConfirm={() => {
-                        const value = parseQuantity(draftFirst[product.id] ?? "");
-                        if (value === null) {
-                          toast.error("Inserisci una quantità valida");
-                          return;
-                        }
-                        if (!draftLocation) {
-                          toast.error("Scegli prima la zona");
-                          return;
-                        }
-                        firstCount.mutate({
-                          productId: product.id,
-                          locationId: draftLocation.id,
-                          unit: product.danea_um?.trim() ?? "",
-                          value,
-                        });
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {productView === "all"
-              ? renderCatalogBlock(draftLocation ? { id: draftLocation.id, name: draftLocation.name } : null)
-              : null}
-          </section>
-        ) : selectingLocation ? (
+        {sessionId && selectingLocation ? (
 
 
           <LocationSelection
@@ -867,6 +744,7 @@ export function InventoryCountPanel({
           />
         ) : (
           <PhysicalCount
+            sessionActive={Boolean(sessionId)}
             sessionName={progress?.session_name ?? sessionQuery.data?.name ?? "Inventario generale"}
             progress={progress}
             locations={activeLocations.map((location) => ({
@@ -875,56 +753,91 @@ export function InventoryCountPanel({
               progress: zoneProgress.get(location.id),
             }))}
             selectedLocation={selectedLocation ? { id: selectedLocation.id, name: selectedLocation.name } : null}
-            rows={rows}
-            catalogSlot={renderCatalogBlock(
-              selectedLocation
-                ? { id: selectedLocation.id, name: selectedLocation.name }
-                : defaultLocation
-                  ? { id: defaultLocation.id, name: defaultLocation.name }
-                  : null,
-            )}
-            loading={rowsQuery.isLoading}
-            imageUrls={imageUrls}
-            drafts={drafts}
+            rows={sessionId ? rows : previewProducts.map((product): InventoryCountRow => ({
+              product_id: product.id, location_id: draftLocation?.id ?? "", location_name: draftLocation?.name ?? "—",
+              code: product.code, description: product.description, danea_um: product.danea_um,
+              category: product.category, subcategory: product.subcategory, is_favorite: previewFavoriteQuery.data?.has(product.id) ?? false,
+              image_path: null, thumbnail_path: null, calculated: 0, counted: null, difference: null,
+              counted_at: null, counted_by: null, note: null, recount_requested_at: null, non_compliant: false,
+              non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
+              min_stock: null, order_multiple: null,
+            }))}
+            catalogCandidates={visibleCatalogCandidates}
+            catalogImages={catalogImages}
+            catalogDrafts={catalogDrafts}
+            loading={sessionId ? rowsQuery.isLoading : catalogPreviewQuery.isLoading}
+            imageUrls={sessionId ? imageUrls : previewImages}
+            drafts={sessionId ? drafts : draftFirst}
             productView={productView}
             workFilter={workFilter}
-            navigationMode={navigationMode}
             category={category}
             subcategory={subcategory}
+            supplierFilter={supplierFilter}
             search={search}
             isAdmin={isAdmin}
             showCompletion={showCompletion}
             onViewChange={setProductView}
             onWorkFilterChange={setWorkFilter}
-            onNavigationModeChange={setNavigationMode}
             onLocationChange={(id) => {
-              setSelectedLocationId(id);
+              if (sessionId) setSelectedLocationId(id); else setDraftZoneId(id);
               setCategory(null);
               setSubcategory(null);
-              setNavigationMode("categories");
             }}
             onAllZones={() => {
-              setSelectedLocationId(null);
+              if (sessionId) setSelectedLocationId(null); else setDraftZoneId(null);
               setCategory(null);
               setSubcategory(null);
-              setNavigationMode("categories");
             }}
             onCategoryChange={(value) => {
               setCategory(value);
               setSubcategory(null);
-              setNavigationMode("subcategories");
             }}
-            onSubcategoryChange={(value) => {
-              setSubcategory(value);
-              setNavigationMode("products");
-            }}
+            onSubcategoryChange={setSubcategory}
+            onSupplierChange={setSupplierFilter}
             onSearchChange={setSearch}
-            onDraftChange={(key, value) => setDrafts((current) => ({ ...current, [key]: value }))}
-            onConfirm={confirmRow}
+            onDraftChange={(key, value) => {
+              if (sessionId) {
+                setDrafts((current) => ({ ...current, [key]: value }));
+                return;
+              }
+              const productId = key.split(":")[0];
+              if (productId) setDraftFirst((current) => ({ ...current, [productId]: value }));
+            }}
+            onConfirm={(row) => {
+              if (sessionId) {
+                confirmRow(row);
+                return;
+              }
+              const value = parseQuantity(draftFirst[row.product_id] ?? "");
+              if (value === null) {
+                toast.error("Inserisci una quantità valida");
+                return;
+              }
+              if (!draftLocation) {
+                toast.error("Scegli prima la zona");
+                return;
+              }
+              firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: rowUnit(row), value });
+            }}
             onConfirmAll={confirmAllUnchanged}
             onToggleFavorite={(row) =>
               favoriteMutation.mutate({ productId: row.product_id, favorite: !row.is_favorite })
             }
+            onToggleCatalogFavorite={(candidate) => catalogFavoriteMutation.mutate(candidate)}
+            onCatalogDraftChange={(id, value) => setCatalogDrafts((current) => ({ ...current, [id]: value }))}
+            onCatalogConfirm={(candidate) => {
+              const value = parseQuantity(catalogDrafts[candidate.sellerProductId] ?? "");
+              if (value === null) {
+                toast.error("Inserisci una quantità valida");
+                return;
+              }
+              const location = selectedLocation ?? draftLocation ?? defaultLocation ?? null;
+              if (!location) {
+                toast.error("Scegli prima la zona");
+                return;
+              }
+              catalogCount.mutate({ candidate, locationId: location.id, value });
+            }}
             supplierInfo={supplierInfo}
             fieldPreferences={fieldPreferences}
             locationOptions={activeLocations.map((location) => ({ id: location.id, name: location.name }))}
@@ -1288,107 +1201,6 @@ export function InventoryCountPanel({
   );
 }
 
-/**
- * Scheda compilabile prima che il conteggio sia aperto: i pulsanti rapidi
- * toccano soltanto la bozza locale, nessuna rettifica o movimento.
- */
-function DraftCountCard({
-  name,
-  code,
-  unit,
-  category,
-  image,
-  value,
-  disabled,
-  badge = "Mai contato",
-  onChange,
-  onConfirm,
-}: {
-  name: string;
-  code: string;
-  unit: string;
-  category: string | null;
-  image: string | null;
-  value: string;
-  disabled: boolean;
-  badge?: string;
-  onChange: (value: string) => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <article className="rounded-md border-2 border-border bg-card p-2">
-      <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
-        {image ? (
-          <img
-            src={image}
-            alt=""
-            loading="lazy"
-            className="size-12 rounded-sm border border-border object-cover"
-          />
-        ) : (
-          <span className="grid size-12 place-items-center rounded-sm border border-border bg-muted">
-            <Package className="size-5 text-muted-foreground" aria-hidden="true" />
-          </span>
-        )}
-        <div className="min-w-0">
-          <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
-          <p className="text-[11px] leading-tight text-muted-foreground">
-            Cod. {code}
-            {unit ? ` · ${unit}` : ""}
-          </p>
-          {category ? (
-            <p className="truncate text-[11px] leading-tight text-muted-foreground">{category}</p>
-          ) : null}
-        </div>
-        <span className="shrink-0 rounded-sm bg-muted px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-muted-foreground">
-          {badge}
-        </span>
-      </div>
-      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
-        <label className="block">
-          <span className="text-[11px] text-muted-foreground">Quantità fisica</span>
-          <Input
-            inputMode="decimal"
-            value={value}
-            disabled={disabled}
-            onChange={(event) => onChange(event.target.value)}
-            onFocus={(event) => event.currentTarget.select()}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur();
-                onConfirm();
-              }
-            }}
-            aria-label={`Quantità fisica ${name}`}
-            className="h-9"
-          />
-        </label>
-        <Button size="sm" onClick={onConfirm} disabled={disabled}>
-          <Check aria-hidden="true" />
-          Conferma
-        </Button>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1">
-        {[1, 3, 5, 10].map((increment) => (
-          <Button
-            key={increment}
-            size="sm"
-            variant="outline"
-            disabled={disabled}
-            onClick={() => onChange(addToQuantity(value, increment))}
-          >
-            +{increment}
-          </Button>
-        ))}
-        <Button size="sm" variant="ghost" disabled={disabled} onClick={() => onChange("")} aria-label="Azzera bozza">
-          <Delete aria-hidden="true" />
-        </Button>
-      </div>
-    </article>
-  );
-}
-
-
 function LocationSelection({
   locations,
   selectedId,
@@ -1441,35 +1253,41 @@ function LocationSelection({
 }
 
 function PhysicalCount({
+  sessionActive,
   sessionName,
   progress,
   locations,
   selectedLocation,
   rows,
-  catalogSlot,
+  catalogCandidates,
+  catalogImages,
+  catalogDrafts,
   loading,
   imageUrls,
   drafts,
   productView,
   workFilter,
-  navigationMode,
   category,
   subcategory,
+  supplierFilter,
   search,
   isAdmin,
   showCompletion,
   onViewChange,
   onWorkFilterChange,
-  onNavigationModeChange,
   onLocationChange,
   onAllZones,
   onCategoryChange,
   onSubcategoryChange,
+  onSupplierChange,
   onSearchChange,
   onDraftChange,
   onConfirm,
   onConfirmAll,
   onToggleFavorite,
+  onToggleCatalogFavorite,
+  onCatalogDraftChange,
+  onCatalogConfirm,
   supplierInfo,
   fieldPreferences,
   locationOptions,
@@ -1483,35 +1301,41 @@ function PhysicalCount({
   onHideCompletion,
   closing,
 }: {
+  sessionActive: boolean;
   sessionName: string;
   progress: InventoryProgress | undefined;
   locations: { id: string; name: string; progress: { completed: number; total: number } | undefined }[];
   selectedLocation: { id: string; name: string } | null;
   rows: InventoryCountRow[];
-  catalogSlot?: ReactNode;
+  catalogCandidates: CatalogCandidate[];
+  catalogImages: Map<string, string>;
+  catalogDrafts: Record<string, string>;
   loading: boolean;
   imageUrls: Map<string, string>;
   drafts: Record<string, string>;
   productView: ProductView;
   workFilter: WorkFilter;
-  navigationMode: NavigationMode;
   category: string | null;
   subcategory: string | null;
+  supplierFilter: string | null;
   search: string;
   isAdmin: boolean;
   showCompletion: boolean;
   onViewChange: (value: ProductView) => void;
   onWorkFilterChange: (value: WorkFilter) => void;
-  onNavigationModeChange: (value: NavigationMode) => void;
   onLocationChange: (id: string) => void;
   onAllZones: () => void;
   onCategoryChange: (value: string) => void;
   onSubcategoryChange: (value: string) => void;
+  onSupplierChange: (value: string | null) => void;
   onSearchChange: (value: string) => void;
   onDraftChange: (key: string, value: string) => void;
   onConfirm: (row: InventoryCountRow) => void;
   onConfirmAll: () => void;
   onToggleFavorite: (row: InventoryCountRow) => void;
+  onToggleCatalogFavorite: (candidate: CatalogCandidate) => void;
+  onCatalogDraftChange: (id: string, value: string) => void;
+  onCatalogConfirm: (candidate: CatalogCandidate) => void;
   supplierInfo: Map<string, SupplierInfo>;
   fieldPreferences: FieldPreferences;
   locationOptions: { id: string; name: string }[];
@@ -1541,8 +1365,23 @@ function PhysicalCount({
         ? locations.find((item) => item.id === selectedLocation.id)?.progress
         : { completed: generalCompleted, total };
 
-  const categories = progress?.categories ?? [];
-  const subcategories = (progress?.subcategories ?? []).filter((item) => !category || item.category === category);
+  const categories = progress?.categories?.length
+    ? progress.categories
+    : [...new Set([
+        ...rows.map((row) => row.category ?? NO_CATEGORY),
+        ...catalogCandidates.map((item) => item.category ?? NO_CATEGORY),
+      ])].sort().map((name) => ({ name, completed: 0, total: 0 }));
+  const subcategories = progress?.subcategories?.length
+    ? progress.subcategories.filter((item) => !category || item.category === category)
+    : [...new Set([
+        ...rows.filter((row) => !category || (row.category ?? NO_CATEGORY) === category)
+          .map((row) => row.subcategory ?? NO_SUBCATEGORY),
+        ...catalogCandidates.filter((item) => !category || (item.category ?? NO_CATEGORY) === category)
+          .map((item) => item.subcategory ?? NO_SUBCATEGORY),
+      ])].sort().map((name) => ({ name, category: category ?? "", completed: 0, total: 0 }));
+  const visibleRows = supplierFilter
+    ? rows.filter((row) => supplierInfo.get(row.product_id)?.name === supplierFilter)
+    : rows;
 
   return (
     <section className="space-y-2">
@@ -1554,7 +1393,9 @@ function PhysicalCount({
       >
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase leading-none text-muted-foreground">Inventario generale</p>
+            <p className="text-[10px] font-semibold uppercase leading-none text-muted-foreground">
+              {sessionActive ? "Inventario generale" : "Conteggio pronto"}
+            </p>
             <h2 className="truncate font-display text-sm font-bold uppercase leading-tight sm:text-base">{sessionName}</h2>
           </div>
           <div className="flex shrink-0 items-baseline gap-1.5">
@@ -1578,103 +1419,13 @@ function PhysicalCount({
         </div>
       </div>
 
-      <div className="rounded-md border border-border bg-card p-1">
-        <div className="grid grid-cols-5 gap-1">
-          {(
-            [
-              ["zones", MapPin, "Zone"],
-              ["categories", LayoutGrid, "Categorie"],
-              ["subcategories", Tags, "Sottocategorie"],
-              ["products", Boxes, "Prodotti"],
-              ["search", Search, "Cerca"],
-            ] as const
-          ).map(([mode, Icon, label]) => (
-            <Button
-              key={mode}
-              variant={navigationMode === mode ? "default" : "ghost"}
-              className="h-11 min-w-0 flex-col gap-0 px-1 text-[9px] sm:h-10 sm:flex-row sm:gap-1.5 sm:text-xs"
-              onClick={() => onNavigationModeChange(mode)}
-            >
-              <Icon className="size-4 shrink-0" />
-              <span className="truncate">{label}</span>
-            </Button>
-          ))}
-        </div>
+      <div className="relative rounded-md border border-border bg-card p-2">
+        <Search className="absolute left-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input className="h-10 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto" />
       </div>
 
-      <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-md border border-border bg-card px-2 py-1 text-xs">
-        <Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => onNavigationModeChange("zones")}>
-          Tutte le zone
-        </Button>
-        {selectedLocation ? (
-          <>
-            <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
-            <Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => onNavigationModeChange("categories")}>
-              {selectedLocation.name}
-            </Button>
-          </>
-        ) : null}
-        {category ? (
-          <>
-            <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
-            <Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => onNavigationModeChange("subcategories")}>
-              {category}
-            </Button>
-          </>
-        ) : null}
-        {subcategory ? (
-          <>
-            <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
-            <Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => onNavigationModeChange("products")}>
-              {subcategory}
-            </Button>
-          </>
-        ) : null}
-      </div>
-
-      {navigationMode === "zones" ? (
-        <VisualGrid
-          title="Scegli una zona"
-          items={[
-            { id: "all", name: "Tutte", progress: { completed: generalCompleted, total } },
-            ...locations.map((item) => ({ id: item.id, name: item.name, progress: item.progress })),
-          ]}
-          onSelect={(id) => {
-            if (id === "all") onAllZones();
-            else onLocationChange(id);
-          }}
-        />
-      ) : null}
-      {navigationMode === "categories" ? (
-        <VisualGrid
-          title={selectedLocation ? `Categorie · ${selectedLocation.name}` : "Categorie"}
-          items={categories.map((item) => ({ id: item.name, name: item.name, progress: item }))}
-          onSelect={onCategoryChange}
-        />
-      ) : null}
-      {navigationMode === "subcategories" ? (
-        <VisualGrid
-          title={category ? `Sottocategorie · ${category}` : "Sottocategorie"}
-          items={subcategories.map((item) => ({ id: item.name, name: item.name, progress: item }))}
-          onSelect={onSubcategoryChange}
-        />
-      ) : null}
-
-      {navigationMode === "search" ? (
-        <div className="relative rounded-md border border-border bg-card p-2">
-          <Search className="absolute left-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            autoFocus
-            className="h-10 pl-9 text-sm"
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Cerca prodotto o codice"
-            aria-label="Ricerca prodotto"
-          />
-        </div>
-      ) : null}
-
-      {navigationMode === "products" || (navigationMode === "search" && search.trim()) ? (
+      <div className="overflow-hidden rounded-md border border-border bg-card">
         <div className="overflow-hidden rounded-md border border-border bg-card">
           <div className="grid gap-1.5 border-b border-border p-2 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
             <div className="min-w-0">
@@ -1682,7 +1433,7 @@ function PhysicalCount({
               <p className="text-xs text-muted-foreground">
                 Selezione corrente:{" "}
                 <strong>
-                  {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? rows.length}
+                  {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? visibleRows.length}
                 </strong>{" "}
                 completati
               </p>
@@ -1732,6 +1483,15 @@ function PhysicalCount({
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Fornitore</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => onSupplierChange(null)}>Tutti i fornitori</DropdownMenuItem>
+                {[...new Set([
+                  ...catalogCandidates.map((item) => item.sellerCompanyName),
+                  ...[...supplierInfo.values()].flatMap((item) => item.name ? [item.name] : []),
+                ])].sort().map((name) => (
+                  <DropdownMenuItem key={name} onClick={() => onSupplierChange(name)}>{name}</DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs">Categoria</DropdownMenuLabel>
                 {categories.length ? (
                   categories.slice(0, 12).map((item) => (
@@ -1742,6 +1502,17 @@ function PhysicalCount({
                 ) : (
                   <DropdownMenuItem disabled>Nessuna categoria</DropdownMenuItem>
                 )}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Sottocategoria</DropdownMenuLabel>
+                {subcategories.length ? subcategories.slice(0, 12).map((item) => (
+                  <DropdownMenuItem key={`${item.category}-${item.name}`} onClick={() => onSubcategoryChange(item.name)}>{item.name}</DropdownMenuItem>
+                )) : <DropdownMenuItem disabled>Nessuna sottocategoria</DropdownMenuItem>}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Stato conteggio</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => onWorkFilterChange("pending")}>Da controllare</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onWorkFilterChange("completed")}>Confermati</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onWorkFilterChange("differences")}>Differenze</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onWorkFilterChange("recount")}>Da ricontare</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
@@ -1773,13 +1544,14 @@ function PhysicalCount({
           </div>
 
           <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <ProductCard
                 key={rowKey(row)}
                 row={row}
                 imageUrl={imageUrls.get(row.product_id)}
                 value={drafts[rowKey(row)] ?? ""}
                 isAdmin={isAdmin}
+                actionsEnabled={sessionActive}
                 supplier={supplierInfo.get(row.product_id) ?? null}
                 isVisible={fieldPreferences.isVisible}
                 onChange={(value) => onDraftChange(rowKey(row), value)}
@@ -1794,7 +1566,21 @@ function PhysicalCount({
             ))}
           </div>
 
-          {!rows.length ? (
+          {catalogCandidates.length ? (
+            <div className="grid gap-2 border-t border-border p-2 md:grid-cols-2 xl:grid-cols-3">
+              {catalogCandidates.map((candidate) => (
+                <CatalogProductCard key={candidate.sellerProductId} candidate={candidate}
+                  imageUrl={catalogImages.get(candidate.sellerProductId)}
+                  value={catalogDrafts[candidate.sellerProductId] ?? ""}
+                  disabled={!isAdmin}
+                  onChange={(value) => onCatalogDraftChange(candidate.sellerProductId, value)}
+                  onConfirm={() => onCatalogConfirm(candidate)}
+                  onToggleFavorite={() => onToggleCatalogFavorite(candidate)} />
+              ))}
+            </div>
+          ) : null}
+
+          {!visibleRows.length && !catalogCandidates.length ? (
             <div className="p-8 text-center">
               <PackageSearch className="mx-auto size-8 text-muted-foreground" />
               <p className="mt-2 text-sm font-medium">{loading ? "Caricamento…" : "Nessun prodotto in questa vista"}</p>
@@ -1808,13 +1594,7 @@ function PhysicalCount({
             </Button>
           </div>
         </div>
-      ) : null}
-
-      {(navigationMode === "products" || (navigationMode === "search" && search.trim())) &&
-      productView === "all" &&
-      workFilter !== "differences"
-        ? catalogSlot
-        : null}
+      </div>
 
       {completed && showCompletion ? (
         <CompletionSummary
@@ -1824,7 +1604,6 @@ function PhysicalCount({
           isAdmin={isAdmin}
           closing={closing}
           onShowDifferences={() => {
-            onNavigationModeChange("products");
             onWorkFilterChange("differences");
             onHideCompletion();
           }}
@@ -1835,53 +1614,12 @@ function PhysicalCount({
   );
 }
 
-function VisualGrid({
-  title,
-  items,
-  onSelect,
-}: {
-  title: string;
-  items: { id: string; name: string; progress: { completed: number; total: number } | undefined }[];
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <section className="rounded-md border border-border bg-card p-2 sm:p-3">
-      <h3 className="mb-2 font-display text-sm font-semibold">{title}</h3>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-        {items.map((item) => {
-          const percentage = item.progress?.total ? Math.round((item.progress.completed / item.progress.total) * 100) : 0;
-          return (
-            <Button
-              key={item.id}
-              variant="outline"
-              className="h-auto min-h-16 flex-col items-stretch justify-between gap-1.5 p-2 text-left"
-              onClick={() => onSelect(item.id)}
-            >
-              <span className="line-clamp-1 text-xs font-semibold sm:text-sm">{item.name}</span>
-              {item.progress ? (
-                <span>
-                  <span className="mb-1 flex justify-between text-[10px] text-muted-foreground">
-                    <span>
-                      {item.progress.completed} / {item.progress.total}
-                    </span>
-                    <span>{percentage}%</span>
-                  </span>
-                  <Progress value={percentage} className="h-1.5" />
-                </span>
-              ) : null}
-            </Button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
 function ProductCard({
   row,
   imageUrl,
   value,
   isAdmin,
+  actionsEnabled,
   supplier,
   isVisible,
   onChange,
@@ -1897,6 +1635,7 @@ function ProductCard({
   imageUrl: string | undefined;
   value: string;
   isAdmin: boolean;
+  actionsEnabled: boolean;
   supplier: SupplierInfo | null;
   isVisible: (id: InventoryFieldId) => boolean;
   onChange: (value: string) => void;
@@ -1983,7 +1722,7 @@ function ProductCard({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {isAdmin && isVisible("preferito") ? (
+          {isAdmin ? (
             <Button
               type="button"
               variant="ghost"
@@ -2022,24 +1761,24 @@ function ProductCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
-              <DropdownMenuItem onClick={onRecount} disabled={!isAdmin}>
+              <DropdownMenuItem onClick={onRecount} disabled={!isAdmin || !actionsEnabled}>
                 <RotateCcw className="size-3.5" /> Segna da ricontare
               </DropdownMenuItem>
               {row.non_compliant ? (
-                <DropdownMenuItem onClick={onRevokeNonCompliance} disabled={!isAdmin}>
+                <DropdownMenuItem onClick={onRevokeNonCompliance} disabled={!isAdmin || !actionsEnabled}>
                   <TriangleAlert className="size-3.5" /> Revoca non conforme
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={onNonCompliance} disabled={!isAdmin}>
+                <DropdownMenuItem onClick={onNonCompliance} disabled={!isAdmin || !actionsEnabled}>
                   <TriangleAlert className="size-3.5" /> Segnala non conforme
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={onProposal} disabled={!isAdmin}>
+              <DropdownMenuItem onClick={onProposal} disabled={!isAdmin || !actionsEnabled}>
                 <ShoppingCart className="size-3.5" />
                 {proposalOpen ? "Chiudi proposta d'acquisto" : "Proponi per l'acquisto"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onHistory}>
+              <DropdownMenuItem onClick={onHistory} disabled={!actionsEnabled}>
                 <History className="size-3.5" /> Storico dei controlli
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -2162,6 +1901,81 @@ function ProductCard({
           ) : null}
         </div>
       ) : null}
+    </article>
+  );
+}
+
+function CatalogProductCard({
+  candidate,
+  imageUrl,
+  value,
+  disabled,
+  onChange,
+  onConfirm,
+  onToggleFavorite,
+}: {
+  candidate: CatalogCandidate;
+  imageUrl: string | undefined;
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  onConfirm: () => void;
+  onToggleFavorite: () => void;
+}) {
+  const name = candidate.description?.trim() || candidate.code;
+  const unit = candidate.danea_um?.trim() ?? "";
+  return (
+    <article className="rounded-md border-2 border-border bg-card p-2">
+      <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
+        {imageUrl ? (
+          <img src={imageUrl} alt="" loading="lazy" className="size-12 rounded-sm border border-border object-cover" />
+        ) : (
+          <span className="flex size-12 items-center justify-center rounded-sm border border-border bg-muted">
+            <Package className="size-5 text-muted-foreground" aria-hidden="true" />
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
+          <p className="text-[11px] leading-tight text-muted-foreground">Cod. {candidate.code}{unit ? ` · ${unit}` : ""}</p>
+          <p className="truncate text-[11px] leading-tight text-muted-foreground">
+            {candidate.sellerCompanyName}{candidate.category ? ` · ${candidate.category}` : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button type="button" variant="ghost" size="sm"
+            className={cn("h-7 w-7 px-0", candidate.isFavorite && "text-primary")}
+            aria-label={candidate.isFavorite ? `Rimuovi ${name} dai preferiti` : `Aggiungi ${name} ai preferiti`}
+            title={candidate.isFavorite ? "Rimuovi dai preferiti" : "Aggiungi ai preferiti"}
+            onClick={onToggleFavorite} disabled={disabled}>
+            <Star className={cn("size-3.5", candidate.isFavorite && "fill-current")} />
+          </Button>
+          <span className="rounded-sm bg-muted px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-muted-foreground">
+            Mai contato
+          </span>
+        </div>
+      </div>
+      <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
+        <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">0</p></div>
+        <div className="min-w-0">
+          <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
+          <Input className="mt-1 h-10 px-2 text-right text-base font-bold" inputMode="decimal" value={value}
+            disabled={disabled} onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Enter") { event.currentTarget.blur(); onConfirm(); } }}
+            aria-label={`Quantità fisica ${name}`} />
+        </div>
+        <div className="text-right"><p className="text-[9px] leading-none text-muted-foreground">Differenza</p><p className="mt-1 text-sm font-bold leading-none">—</p></div>
+        <Button className="h-10 px-2 text-[11px] sm:px-3" onClick={onConfirm} disabled={disabled}>
+          <Check className="size-4" /><span className="hidden min-[360px]:inline">Conferma</span>
+        </Button>
+      </div>
+      <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2">
+        {[1, 3, 5, 10].map((increment) => (
+          <Button key={increment} type="button" variant="outline" size="sm" className="h-8 px-0 text-xs font-bold"
+            disabled={disabled} onClick={() => onChange(addToQuantity(value, increment))}>+{increment}</Button>
+        ))}
+        <Button type="button" variant="ghost" size="sm" className="h-8 w-11 px-0" disabled={disabled}
+          onClick={() => onChange("")} aria-label={`Azzera quantità ${name}`}><Delete className="size-4" /></Button>
+      </div>
     </article>
   );
 }

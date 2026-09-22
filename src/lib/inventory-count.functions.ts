@@ -210,26 +210,57 @@ export const manageCompanyProductFavorite = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const references = await getSupplierReferences(context, data.companyId, [data.productId]);
-    const primaryReference = references[0];
-    if (!primaryReference) throw new Error("Referenza del fornitore non trovata");
+    if (data.favorite) {
+      const { error } = await context.supabase.from("company_product_favorites").upsert(
+          {
+            company_id: data.companyId,
+            product_id: data.productId,
+            created_by: context.userId,
+          },
+          { onConflict: "company_id,product_id" });
+      if (error) throw new Error(error.message);
+    } else {
+      const references = await getSupplierReferences(context, data.companyId, [data.productId]);
+      const sellerProductIds = [...new Set(references.map((reference) => reference.sellerProductId))];
+      const operations = [
+        context.supabase.from("company_product_favorites").delete()
+          .eq("company_id", data.companyId).eq("product_id", data.productId),
+        ...(sellerProductIds.length
+          ? [context.supabase.from("buyer_product_favorites").delete()
+              .eq("buyer_company_id", data.companyId).in("product_id", sellerProductIds)]
+          : []),
+      ];
+      const results = await Promise.all(operations);
+      const error = results.find((result) => result.error)?.error;
+      if (error) throw new Error(error.message);
+    }
+    return { favorite: data.favorite };
+  });
 
-    const sellerProductIds = [...new Set(references.map((reference) => reference.sellerProductId))];
+export const manageCatalogProductFavorite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      companyId: z.string().uuid(),
+      sellerCompanyId: z.string().uuid(),
+      sellerProductId: z.string().uuid(),
+      favorite: z.boolean(),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
     const operation = data.favorite
       ? context.supabase.from("buyer_product_favorites").upsert(
           {
             buyer_company_id: data.companyId,
-            seller_company_id: primaryReference.sellerCompanyId,
-            product_id: primaryReference.sellerProductId,
+            seller_company_id: data.sellerCompanyId,
+            product_id: data.sellerProductId,
             created_by: context.userId,
           },
           { onConflict: "buyer_company_id,product_id" },
         )
-      : context.supabase
-          .from("buyer_product_favorites")
-          .delete()
+      : context.supabase.from("buyer_product_favorites").delete()
           .eq("buyer_company_id", data.companyId)
-          .in("product_id", sellerProductIds);
+          .eq("product_id", data.sellerProductId);
     const { error } = await operation;
     if (error) throw new Error(error.message);
     return { favorite: data.favorite };
@@ -285,23 +316,33 @@ export const getInventoryRows = createServerFn({ method: "POST" })
       [...new Set(inventoryRows.map((row) => row.product_id))],
     );
     const sellerProductIds = [...new Set(references.map((reference) => reference.sellerProductId))];
-    const { data: favorites, error: favoritesError } = sellerProductIds.length
-      ? await context.supabase
+    const [{ data: ownFavorites, error: ownFavoritesError }, { data: catalogFavorites, error: catalogFavoritesError }] = await Promise.all([
+      context.supabase
+        .from("company_product_favorites")
+        .select("product_id")
+        .eq("company_id", session.company_id)
+        .in("product_id", inventoryRows.map((row) => row.product_id)),
+      sellerProductIds.length
+        ? context.supabase
           .from("buyer_product_favorites")
           .select("product_id")
           .eq("buyer_company_id", session.company_id)
           .in("product_id", sellerProductIds)
-      : { data: [], error: null };
-    if (favoritesError) throw new Error(favoritesError.message);
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (ownFavoritesError) throw new Error(ownFavoritesError.message);
+    if (catalogFavoritesError) throw new Error(catalogFavoritesError.message);
 
     const favoriteSellerProductIds = new Set(
-      (favorites ?? []).map((favorite: { product_id: string }) => favorite.product_id),
+      (catalogFavorites ?? []).map((favorite: { product_id: string }) => favorite.product_id),
     );
-    const favoriteOwnProductIds = new Set(
+    const favoriteOwnProductIds = new Set<string>(
+      (ownFavorites ?? []).map((favorite: { product_id: string }) => favorite.product_id),
+    );
+    for (const productId of
       references
         .filter((reference) => favoriteSellerProductIds.has(reference.sellerProductId))
-        .map((reference) => reference.ownProductId),
-    );
+        .map((reference) => reference.ownProductId)) favoriteOwnProductIds.add(productId);
     const mappedRows = inventoryRows.map((row) => ({
       ...row,
       is_favorite: favoriteOwnProductIds.has(row.product_id),
@@ -317,6 +358,8 @@ export type CatalogCandidate = {
   description: string | null;
   danea_um: string | null;
   category: string | null;
+  subcategory: string | null;
+  isFavorite: boolean;
 };
 
 /**
@@ -359,7 +402,7 @@ export const getSupplierCatalogCandidates = createServerFn({ method: "POST" })
 
     const { data: catalog, error: catalogError } = await context.supabase
       .from("products")
-      .select("id, company_id, code, description, danea_um, category")
+      .select("id, company_id, code, description, danea_um, category, subcategory")
       .in("company_id", sellerIds)
       .eq("publish_status", "pubblicato")
       .eq("b2b_visible", true)
@@ -386,8 +429,16 @@ export const getSupplierCatalogCandidates = createServerFn({ method: "POST" })
     );
     for (const reference of references) alreadyOwned.add(reference.sellerProductId);
 
-    return (catalog ?? [])
-      .filter((product: { id: string }) => !alreadyOwned.has(product.id))
+    const candidateProducts = (catalog ?? []).filter((product: { id: string }) => !alreadyOwned.has(product.id));
+    const candidateIds = candidateProducts.map((product: { id: string }) => product.id);
+    const { data: favorites, error: favoritesError } = candidateIds.length
+      ? await context.supabase.from("buyer_product_favorites").select("product_id")
+          .eq("buyer_company_id", data.companyId).in("product_id", candidateIds)
+      : { data: [], error: null };
+    if (favoritesError) throw new Error(favoritesError.message);
+    const favoriteIds = new Set((favorites ?? []).map((row: { product_id: string }) => row.product_id));
+
+    return candidateProducts
       .map((product: {
         id: string;
         company_id: string;
@@ -395,6 +446,7 @@ export const getSupplierCatalogCandidates = createServerFn({ method: "POST" })
         description: string | null;
         danea_um: string | null;
         category: string | null;
+        subcategory: string | null;
       }) => ({
         sellerCompanyId: product.company_id,
         sellerCompanyName: sellerNames.get(product.company_id) ?? "Fornitore",
@@ -403,6 +455,8 @@ export const getSupplierCatalogCandidates = createServerFn({ method: "POST" })
         description: product.description,
         danea_um: product.danea_um,
         category: product.category,
+        subcategory: product.subcategory,
+        isFavorite: favoriteIds.has(product.id),
       }));
   });
 
@@ -428,6 +482,22 @@ export const adoptCatalogProduct = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const payload = (result ?? {}) as { product_id?: string };
     if (!payload.product_id) throw new Error("Prodotto non creato");
+    const { data: catalogFavorite, error: favoriteReadError } = await context.supabase
+      .from("buyer_product_favorites")
+      .select("id")
+      .eq("buyer_company_id", data.companyId)
+      .eq("product_id", data.sellerProductId)
+      .maybeSingle();
+    if (favoriteReadError) throw new Error(favoriteReadError.message);
+    if (catalogFavorite) {
+      const { error: favoriteWriteError } = await context.supabase
+        .from("company_product_favorites")
+        .upsert(
+          { company_id: data.companyId, product_id: payload.product_id, created_by: context.userId },
+          { onConflict: "company_id,product_id" },
+        );
+      if (favoriteWriteError) throw new Error(favoriteWriteError.message);
+    }
     return { productId: payload.product_id };
   });
 
