@@ -1700,17 +1700,76 @@ function PhysicalCount({
                 Tutti
               </Button>
             </div>
-            <div className="grid grid-cols-3 rounded-md border border-border p-0.5">
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "ghost"} onClick={() => onWorkFilterChange("pending")}>
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "outline"} onClick={() => onWorkFilterChange("pending")}>
                 Da controllare
               </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "completed" ? "default" : "ghost"} onClick={() => onWorkFilterChange("completed")}>
-                Completati
+              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "completed" ? "default" : "outline"} onClick={() => onWorkFilterChange("completed")}>
+                Confermati
               </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "differences" ? "default" : "ghost"} onClick={() => onWorkFilterChange("differences")}>
+              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "differences" ? "default" : "outline"} onClick={() => onWorkFilterChange("differences")}>
                 Differenze
               </Button>
+              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "recount" ? "default" : "outline"} onClick={() => onWorkFilterChange("recount")}>
+                Da ricontare
+              </Button>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-2 py-1.5">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="h-8 text-[11px]">
+                  <SlidersHorizontal className="size-3.5" /> Filtri
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel className="text-xs">Zona</DropdownMenuLabel>
+                <DropdownMenuItem onClick={onAllZones}>Tutte le zone</DropdownMenuItem>
+                {locationOptions.map((location) => (
+                  <DropdownMenuItem key={location.id} onClick={() => onLocationChange(location.id)}>
+                    {location.name}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Categoria</DropdownMenuLabel>
+                {categories.length ? (
+                  categories.slice(0, 12).map((item) => (
+                    <DropdownMenuItem key={item.name} onClick={() => onCategoryChange(item.name)}>
+                      {item.name}
+                    </DropdownMenuItem>
+                  ))
+                ) : (
+                  <DropdownMenuItem disabled>Nessuna categoria</DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="h-8 text-[11px]">
+                  <Columns3 className="size-3.5" /> Colonne
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel className="text-xs">Informazioni da mostrare</DropdownMenuLabel>
+                {fieldPreferences.fields.map((field) => (
+                  <DropdownMenuCheckboxItem
+                    key={field.id}
+                    checked={fieldPreferences.isVisible(field.id)}
+                    onCheckedChange={(checked) =>
+                      fieldPreferences.setVisibility((current) => ({ ...current, [field.id]: checked }))
+                    }
+                  >
+                    {field.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={fieldPreferences.reset}>Ripristina predefinite</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <p className="text-[10px] text-muted-foreground">
+              Acquisto e fabbisogno sono in sola lettura: si gestiscono nella lista della spesa.
+            </p>
           </div>
 
           <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
@@ -1721,12 +1780,20 @@ function PhysicalCount({
                 imageUrl={imageUrls.get(row.product_id)}
                 value={drafts[rowKey(row)] ?? ""}
                 isAdmin={isAdmin}
+                supplier={supplierInfo.get(row.product_id) ?? null}
+                isVisible={fieldPreferences.isVisible}
                 onChange={(value) => onDraftChange(rowKey(row), value)}
                 onConfirm={() => onConfirm(row)}
                 onToggleFavorite={() => onToggleFavorite(row)}
+                onRecount={() => onRecount(row)}
+                onNonCompliance={() => onNonCompliance(row)}
+                onRevokeNonCompliance={() => onRevokeNonCompliance(row)}
+                onProposal={() => onProposal(row)}
+                onHistory={() => onHistory(row)}
               />
             ))}
           </div>
+
           {!rows.length ? (
             <div className="p-8 text-center">
               <PackageSearch className="mx-auto size-8 text-muted-foreground" />
