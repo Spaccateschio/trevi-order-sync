@@ -2061,6 +2061,24 @@ function ProductCard({
           ) : null}
         </div>
       </div>
+      {(isVisible("non_conforme") && row.non_compliant) || (isVisible("proposta") && proposalOpen) ? (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {isVisible("non_conforme") && row.non_compliant ? (
+            <span className="rounded-sm bg-destructive/10 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-destructive">
+              Non conforme
+              {row.non_compliant_quantity === null
+                ? ""
+                : ` ${formatQuantity(Number(row.non_compliant_quantity), unit)}`}
+            </span>
+          ) : null}
+          {isVisible("proposta") && proposalOpen ? (
+            <span className="rounded-sm bg-primary/15 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-primary">
+              Da proporre per acquisto
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
         <div>
           <p className="text-[9px] leading-none text-muted-foreground">Calcolata</p>
