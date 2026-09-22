@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 
 import type { Json } from "@/integrations/supabase/types";
 import { analyzeDaneaFile, importDaneaFile } from "@/lib/danea.functions";
+import { fetchAssignedPrices } from "@/lib/catalog";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import {
   DEFAULT_COLUMN_ORDER,
@@ -186,6 +187,75 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
       const { data, error } = await supabase.from("products").select("id, archive_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, b2b_visible, commercial_availability, price_unit_id, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price), product_images(id)").eq("company_id", companyId).order("code");
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as ProductRow[];
+    },
+  });
+
+  // Fornitore "vero" degli articoli: arriva dal collegamento prodotto → referenza fornitore,
+  // non dai campi ricevuti da Danea (che restano vuoti per i prodotti aggiunti dal catalogo).
+  const supplierLinksQuery = useQuery({
+    queryKey: ["prodotti-fornitori", companyId],
+    enabled: Boolean(companyId),
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("product_supplier_links")
+        .select("id, product_id, supplier_record_id, supplier_product_code, sourcing_priority, is_preferred, is_active, manual_cost, supplier_records(legal_name)")
+        .eq("company_id", companyId);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as {
+        id: string;
+        product_id: string;
+        supplier_record_id: string | null;
+        supplier_product_code: string | null;
+        sourcing_priority: number | null;
+        is_preferred: boolean;
+        is_active: boolean;
+        manual_cost: number | null;
+        supplier_records: { legal_name: string | null } | null;
+      }[];
+    },
+  });
+
+  const supplierLinks = supplierLinksQuery.data ?? [];
+  const supplierLinksKey = supplierLinks.map((link) => link.id).join("|");
+
+  // Prezzo attuale nel catalogo del fornitore B2B collegato (stesso listino assegnato del catalogo).
+  const supplierPricesQuery = useQuery({
+    queryKey: ["prodotti-prezzi-fornitore", companyId, supplierLinksKey],
+    enabled: Boolean(companyId) && supplierLinks.length > 0,
+    queryFn: async () => {
+      const result = new Map<string, number>();
+      const recordIds = [...new Set(supplierLinks.map((link) => link.supplier_record_id).filter((id): id is string => Boolean(id)))];
+      if (!companyId || !recordIds.length) return result;
+      const { data: relations } = await supabase
+        .from("supplier_customer_relations")
+        .select("supplier_record_id, seller_company_id, status")
+        .eq("buyer_company_id", companyId)
+        .in("supplier_record_id", recordIds);
+      const sellerByRecord = new Map(
+        (relations ?? [])
+          .filter((row) => row.status === "attivo" && row.supplier_record_id)
+          .map((row) => [row.supplier_record_id as string, row.seller_company_id]),
+      );
+      const sellerIds = [...new Set(sellerByRecord.values())];
+      if (!sellerIds.length) return result;
+      const { data: sellerProducts } = await supabase.from("products").select("id, code, company_id").in("company_id", sellerIds);
+      const sellerProductByCode = new Map((sellerProducts ?? []).map((row) => [`${row.company_id}|${row.code}`, row.id]));
+      const pricesBySeller = new Map<string, Map<string, number>>();
+      for (const sellerId of sellerIds) {
+        const ids = (sellerProducts ?? []).filter((row) => row.company_id === sellerId).map((row) => row.id);
+        if (!ids.length) continue;
+        pricesBySeller.set(sellerId, await fetchAssignedPrices(sellerId, ids));
+      }
+      for (const link of supplierLinks) {
+        const sellerId = link.supplier_record_id ? sellerByRecord.get(link.supplier_record_id) : undefined;
+        if (!sellerId || !link.supplier_product_code) continue;
+        const sellerProductId = sellerProductByCode.get(`${sellerId}|${link.supplier_product_code}`);
+        if (!sellerProductId) continue;
+        const price = pricesBySeller.get(sellerId)?.get(sellerProductId);
+        if (price !== undefined && !result.has(link.product_id)) result.set(link.product_id, price);
+      }
+      return result;
     },
   });
 
