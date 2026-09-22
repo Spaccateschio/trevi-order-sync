@@ -1298,6 +1298,12 @@ function PhysicalCount({
         </div>
       ) : null}
 
+      {(navigationMode === "products" || (navigationMode === "search" && search.trim())) &&
+      productView === "all" &&
+      workFilter !== "differences"
+        ? catalogSlot
+        : null}
+
       {completed && showCompletion ? (
         <CompletionSummary
           total={total}
