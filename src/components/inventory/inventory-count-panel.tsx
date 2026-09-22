@@ -125,6 +125,9 @@ export function InventoryCountPanel({
   const [pending, setPending] = useState<{ row: InventoryCountRow; value: number } | null>(null);
   const [pendingReason, setPendingReason] = useState("");
   const [showCompletion, setShowCompletion] = useState(true);
+  // Conteggio immediato senza sessione aperta: bozze per prodotto e zona scelta
+  const [draftFirst, setDraftFirst] = useState<Record<string, string>>({});
+  const [draftZoneId, setDraftZoneId] = useState<string | null>(null);
 
   const sessionQuery = useQuery({
     queryKey: ["inventory-general-session", companyId, archiveId],
