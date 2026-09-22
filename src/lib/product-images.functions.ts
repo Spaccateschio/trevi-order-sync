@@ -115,7 +115,80 @@ export const getProductImageUrls = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    return Promise.all((images ?? []).map(async (image) => {
+
+    type ImageRow = { id: string; product_id: string; image_path: string; thumbnail_path: string };
+    const rows: ImageRow[] = [...((images ?? []) as ImageRow[])];
+
+    // Fallback: per i prodotti senza foto propria, mostra la foto dell'articolo del fornitore collegato.
+    const withImage = new Set(rows.map((row) => row.product_id));
+    const missing = allowedIds.filter((id) => !withImage.has(id));
+    if (missing.length) {
+      const { data: links } = await context.supabase
+        .from("product_supplier_links")
+        .select("product_id, supplier_record_id, supplier_product_code")
+        .in("product_id", missing)
+        .eq("is_active", true);
+
+      const supplierRecordIds = [...new Set((links ?? []).map((link) => link.supplier_record_id))];
+      if (supplierRecordIds.length) {
+        const { data: relations } = await context.supabase
+          .from("supplier_customer_relations")
+          .select("supplier_record_id, seller_company_id, status")
+          .in("supplier_record_id", supplierRecordIds)
+          .eq("status", "attivo");
+
+        const sellerByRecord = new Map<string, string>();
+        for (const relation of relations ?? []) {
+          if (relation.supplier_record_id) sellerByRecord.set(relation.supplier_record_id, relation.seller_company_id);
+        }
+
+        const wanted = (links ?? [])
+          .map((link) => ({
+            productId: link.product_id,
+            code: link.supplier_product_code,
+            sellerId: sellerByRecord.get(link.supplier_record_id) ?? null,
+          }))
+          .filter((entry): entry is { productId: string; code: string; sellerId: string } => Boolean(entry.code && entry.sellerId));
+
+        const sellerIds = [...new Set(wanted.map((entry) => entry.sellerId))];
+        const codes = [...new Set(wanted.map((entry) => entry.code))];
+        if (sellerIds.length && codes.length) {
+          const { data: sellerProducts } = await supabaseAdmin
+            .from("products")
+            .select("id, company_id, code")
+            .in("company_id", sellerIds)
+            .in("code", codes);
+
+          const sellerProductByKey = new Map<string, string>();
+          for (const product of sellerProducts ?? []) {
+            if (product.code) sellerProductByKey.set(`${product.company_id}|${product.code}`, product.id);
+          }
+
+          const sellerProductIds = [...new Set([...sellerProductByKey.values()])];
+          if (sellerProductIds.length) {
+            const { data: sellerImages } = await supabaseAdmin
+              .from("product_images")
+              .select("id, product_id, image_path, thumbnail_path")
+              .in("product_id", sellerProductIds);
+
+            const imageBySellerProduct = new Map<string, ImageRow>();
+            for (const image of (sellerImages ?? []) as ImageRow[]) imageBySellerProduct.set(image.product_id, image);
+
+            const used = new Set<string>();
+            for (const entry of wanted) {
+              if (used.has(entry.productId) || withImage.has(entry.productId)) continue;
+              const sellerProductId = sellerProductByKey.get(`${entry.sellerId}|${entry.code}`);
+              const image = sellerProductId ? imageBySellerProduct.get(sellerProductId) : undefined;
+              if (!image) continue;
+              used.add(entry.productId);
+              rows.push({ ...image, id: `${image.id}:${entry.productId}`, product_id: entry.productId });
+            }
+          }
+        }
+      }
+    }
+
+    return Promise.all(rows.map(async (image) => {
       const path = data.thumbnail ? image.thumbnail_path : image.image_path;
       const { data: signed, error: signError } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 600);
       if (signError) throw new Error("Impossibile visualizzare l’immagine");
