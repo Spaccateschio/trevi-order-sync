@@ -276,14 +276,17 @@ export function InventoryCountPanel({
   const catalogCandidates: CatalogCandidate[] = catalogCandidatesQuery.data ?? [];
   const visibleCatalogCandidates = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return catalogCandidates.filter((candidate) => {
-      if (productView === "favorites" && !candidate.isFavorite) return false;
-      if (supplierFilter && candidate.sellerCompanyName !== supplierFilter) return false;
-      if (category && (candidate.category ?? NO_CATEGORY) !== category) return false;
-      if (subcategory && (candidate.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
-      if (workFilter !== "pending") return false;
-      return !term || `${candidate.code} ${candidate.description ?? ""}`.toLowerCase().includes(term);
-    });
+    return catalogCandidates
+      .filter((candidate) => {
+        if (productView === "favorites" && !candidate.isFavorite) return false;
+        if (supplierFilter && candidate.sellerCompanyName !== supplierFilter) return false;
+        if (category && (candidate.category ?? NO_CATEGORY) !== category) return false;
+        if (subcategory && (candidate.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
+        if (workFilter !== "pending") return false;
+        return !term || `${candidate.code} ${candidate.description ?? ""}`.toLowerCase().includes(term);
+      })
+      .sort((left, right) => byName(left.description, left.code, right.description, right.code));
+
   }, [catalogCandidates, category, productView, search, subcategory, supplierFilter, workFilter]);
 
   const catalogImagesQuery = useQuery({
