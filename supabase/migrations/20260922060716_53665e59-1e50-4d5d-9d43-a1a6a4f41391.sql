@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.resolve_proposals_on_list_confirm() FROM PUBLIC, anon, authenticated;
