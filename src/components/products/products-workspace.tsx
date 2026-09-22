@@ -319,7 +319,37 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
 
   const archives = archivesQuery.data ?? [];
   const archiveNameById = useMemo(() => new Map(archives.map((archive) => [archive.id, archive.name])), [archives]);
-  const allProducts = useMemo(() => (productsQuery.data ?? []).map((product) => ({ ...product, sale_units: (saleUnitsQuery.data ?? []).filter((row) => row.product_id === product.id).map((row) => ({ code: row.units_of_measure?.code ?? "—", is_default: row.is_default, needs_review: row.needs_review })) })), [productsQuery.data, saleUnitsQuery.data]);
+  // Collegamenti fornitore per prodotto: il principale è quello preferito/con priorità più alta.
+  const linksByProduct = useMemo(() => {
+    const map = new Map<string, typeof supplierLinks>();
+    for (const link of supplierLinks) {
+      const list = map.get(link.product_id) ?? [];
+      list.push(link);
+      map.set(link.product_id, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
+        if (a.is_preferred !== b.is_preferred) return a.is_preferred ? -1 : 1;
+        return (a.sourcing_priority ?? 99) - (b.sourcing_priority ?? 99);
+      });
+    }
+    return map;
+  }, [supplierLinks]);
+  const supplierPrices = supplierPricesQuery.data;
+  const allProducts = useMemo(() => (productsQuery.data ?? []).map((product) => {
+    const links = linksByProduct.get(product.id) ?? [];
+    const main = links[0];
+    return {
+      ...product,
+      sale_units: (saleUnitsQuery.data ?? []).filter((row) => row.product_id === product.id).map((row) => ({ code: row.units_of_measure?.code ?? "—", is_default: row.is_default, needs_review: row.needs_review })),
+      link_supplier_name: main?.supplier_records?.legal_name ?? null,
+      link_supplier_product_code: main?.supplier_product_code ?? null,
+      link_supplier_count: links.length,
+      purchase_cost: main?.manual_cost ?? null,
+      supplier_price: supplierPrices?.get(product.id) ?? null,
+    };
+  }), [linksByProduct, productsQuery.data, saleUnitsQuery.data, supplierPrices]);
   const currentProduct = selected ? allProducts.find((product) => product.id === selected.id) ?? selected : null;
   // Apertura diretta della scheda quando si arriva dalla sezione Prodotti forniti del fornitore.
   const openedFromParam = useRef<string | null>(null);
