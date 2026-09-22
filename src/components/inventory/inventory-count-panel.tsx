@@ -1966,7 +1966,7 @@ function CatalogProductCard({
   const name = candidate.description?.trim() || candidate.code;
   const unit = candidate.danea_um?.trim() ?? "";
   return (
-    <article className="rounded-md border-2 border-border bg-card p-2">
+    <article className="flex h-full flex-col rounded-md border-2 border-border bg-card p-2">
       <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
         {imageUrl ? (
           <img src={imageUrl} alt="" loading="lazy" className="size-12 rounded-sm border border-border object-cover" />
