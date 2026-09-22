@@ -222,7 +222,7 @@ export function InventoryCountPanel({
   }, [rowsQuery.data, workFilter]);
 
   const imageProductIds = useMemo(
-    () => rows.filter((row) => row.thumbnail_path).slice(0, 50).map((row) => row.product_id),
+    () => [...new Set(rows.map((row) => row.product_id))].slice(0, 50),
     [rows],
   );
   const imagesQuery = useQuery({
@@ -348,7 +348,12 @@ export function InventoryCountPanel({
     mutationFn: (input: { productId: string; favorite: boolean }) =>
       toggleFavorite({ data: { companyId, productId: input.productId, favorite: input.favorite } }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["inventory-rows"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["inventory-rows"] }),
+        queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
+        queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti-tutti"] }),
+        queryClient.invalidateQueries({ queryKey: ["catalogo-preferito"] }),
+      ]);
     },
     onError: (error: Error) => toast.error(error.message),
   });
