@@ -483,6 +483,54 @@ export function InventoryCountPanel({
       : (activeLocations.find((location) => location.id === draftZoneId) ?? null);
   const zoneProgress = new Map((progress?.zones ?? []).map((zone) => [zone.location_id, zone]));
 
+  const renderCatalogBlock = (countLocation: { id: string; name: string } | null) => {
+    if (!catalogCandidates.length) return null;
+    return (
+      <div className="overflow-hidden rounded-md border border-border bg-card">
+        <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+          Catalogo dei fornitori ({catalogCandidates.length}) — scrivendo una quantità l'articolo entra fra i tuoi
+          prodotti
+        </p>
+        <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
+          {catalogCandidates.map((candidate) => (
+            <DraftCountCard
+              key={candidate.sellerProductId}
+              name={candidate.description ?? candidate.code}
+              code={candidate.code}
+              unit={candidate.danea_um?.trim() ?? ""}
+              category={
+                candidate.category
+                  ? `${candidate.category} · ${candidate.sellerCompanyName}`
+                  : candidate.sellerCompanyName
+              }
+              badge="Da catalogo"
+              image={catalogImages.get(candidate.sellerProductId) ?? null}
+              value={catalogDrafts[candidate.sellerProductId] ?? ""}
+              disabled={!isAdmin || !archiveId || !countLocation || catalogCount.isPending}
+              onChange={(value) =>
+                setCatalogDrafts((current) => ({ ...current, [candidate.sellerProductId]: value }))
+              }
+              onConfirm={() => {
+                const value = parseQuantity(catalogDrafts[candidate.sellerProductId] ?? "");
+                if (value === null) {
+                  toast.error("Inserisci una quantità valida");
+                  return;
+                }
+                if (!countLocation) {
+                  toast.error("Scegli prima la zona");
+                  return;
+                }
+                catalogCount.mutate({ candidate, locationId: countLocation.id, value });
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+
+
   return (
     <Tabs value={tab} onValueChange={setTab} className="space-y-2">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
