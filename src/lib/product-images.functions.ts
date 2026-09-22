@@ -181,7 +181,7 @@ export const getProductImageUrls = createServerFn({ method: "POST" })
               const image = sellerProductId ? imageBySellerProduct.get(sellerProductId) : undefined;
               if (!image) continue;
               used.add(entry.productId);
-              rows.push({ ...image, product_id: entry.productId });
+              rows.push({ ...image, id: `${image.id}:${entry.productId}`, product_id: entry.productId });
             }
           }
         }
