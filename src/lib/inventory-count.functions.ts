@@ -421,3 +421,147 @@ export const adoptCatalogProduct = createServerFn({ method: "POST" })
     if (!payload.product_id) throw new Error("Prodotto non creato");
     return { productId: payload.product_id };
   });
+
+/**
+ * Storico append-only dei conteggi e delle segnalazioni.
+ * La giacenza non viene mai modificata dalle segnalazioni: solo rettifiche/movimenti espliciti.
+ */
+
+export type CountEntryType =
+  | "conteggio"
+  | "riconteggio"
+  | "segnalazione"
+  | "revoca_segnalazione"
+  | "richiesta_riconteggio";
+
+export type CountHistoryEntry = {
+  id: string;
+  session_id: string;
+  location_id: string;
+  location_name: string | null;
+  entry_type: CountEntryType;
+  counted_quantity: number | null;
+  previous_quantity: number | null;
+  unit_code: string | null;
+  non_compliant: boolean;
+  non_compliant_quantity: number | null;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export const recordCountEntry = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        companyId: z.string().uuid(),
+        sessionId: z.string().uuid(),
+        productId: z.string().uuid(),
+        locationId: z.string().uuid(),
+        entryType: z.enum([
+          "conteggio",
+          "riconteggio",
+          "segnalazione",
+          "revoca_segnalazione",
+          "richiesta_riconteggio",
+        ]),
+        countedQuantity: z.number().min(0).nullable().default(null),
+        unitCode: z.string().trim().max(24).nullable().default(null),
+        notes: z.string().trim().max(500).nullable().default(null),
+        nonCompliant: z.boolean().nullable().default(null),
+        nonCompliantQuantity: z.number().min(0).nullable().default(null),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: id, error } = await context.supabase.rpc("record_inventory_count_entry", {
+      _company_id: data.companyId,
+      _session_id: data.sessionId,
+      _product_id: data.productId,
+      _location_id: data.locationId,
+      _entry_type: data.entryType,
+      _actor_user_id: context.userId,
+      ...(data.countedQuantity === null ? {} : { _counted_quantity: data.countedQuantity }),
+      ...(data.unitCode === null ? {} : { _unit_code: data.unitCode }),
+      ...(data.notes === null ? {} : { _notes: data.notes }),
+      ...(data.nonCompliant === null ? {} : { _non_compliant: data.nonCompliant }),
+      ...(data.nonCompliantQuantity === null ? {} : { _non_compliant_quantity: data.nonCompliantQuantity }),
+    });
+    if (error) throw new Error(error.message);
+    return { id: id as string };
+  });
+
+export const getCountHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        companyId: z.string().uuid(),
+        productId: z.string().uuid(),
+        locationId: z.string().uuid().nullable().default(null),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase.rpc("inventory_count_history", {
+      _company_id: data.companyId,
+      _product_id: data.productId,
+      ...(data.locationId === null ? {} : { _location_id: data.locationId }),
+    });
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as unknown as CountHistoryEntry[];
+  });
+
+export type PurchaseProposal = {
+  id: string;
+  product_id: string;
+  code: string;
+  description: string | null;
+  danea_um: string | null;
+  opened_at: string;
+  opened_by: string | null;
+  opened_note: string | null;
+  last_flagged_at: string;
+  last_flagged_by: string | null;
+  flag_count: number;
+};
+
+export const managePurchaseProposal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        companyId: z.string().uuid(),
+        productId: z.string().uuid(),
+        action: z.enum(["flag", "resolve"]),
+        note: z.string().trim().max(500).nullable().default(null),
+        reason: z.string().trim().max(60).nullable().default(null),
+        sessionId: z.string().uuid().nullable().default(null),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: id, error } = await context.supabase.rpc("manage_purchase_proposal", {
+      _company_id: data.companyId,
+      _product_id: data.productId,
+      _action: data.action,
+      _actor_user_id: context.userId,
+      ...(data.note === null ? {} : { _note: data.note }),
+      ...(data.reason === null ? {} : { _reason: data.reason }),
+      ...(data.sessionId === null ? {} : { _session_id: data.sessionId }),
+    });
+    if (error) throw new Error(error.message);
+    return { id: (id as string | null) ?? null };
+  });
+
+export const getOpenPurchaseProposals = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ companyId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase.rpc("open_purchase_proposals", {
+      _company_id: data.companyId,
+    });
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as unknown as PurchaseProposal[];
+  });
