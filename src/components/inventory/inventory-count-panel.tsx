@@ -304,6 +304,7 @@ export function InventoryCountPanel({
     const all = rowsQuery.data ?? [];
     return all.filter((row) => {
       if (workFilter === "pending") return row.counted === null;
+      if (workFilter === "recount") return row.recount_requested_at !== null;
       if (workFilter === "completed") return row.counted !== null;
       return row.counted !== null && Number(row.difference ?? 0) !== 0;
     });
@@ -323,6 +324,33 @@ export function InventoryCountPanel({
     () => new Map((imagesQuery.data ?? []).map((image) => [image.productId, image.url])),
     [imagesQuery.data],
   );
+
+  // Informazioni d'acquisto in SOLA LETTURA (nessuna logica di acquisto qui)
+  const supplierInfoQuery = useQuery({
+    queryKey: ["inventario-info-fornitore", companyId, imageProductIds],
+    enabled: imageProductIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_supplier_links")
+        .select("product_id, manual_cost, is_preferred, sourcing_priority, supplier_records(legal_name)")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .in("product_id", imageProductIds);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const supplierInfo = useMemo(() => {
+    const map = new Map<string, SupplierInfo>();
+    for (const link of supplierInfoQuery.data ?? []) {
+      if (map.has(link.product_id)) continue;
+      const record = link.supplier_records as { legal_name: string } | null;
+      map.set(link.product_id, { name: record?.legal_name ?? null, cost: link.manual_cost });
+    }
+    return map;
+  }, [supplierInfoQuery.data]);
+
 
   const refresh = async () => {
     await Promise.all([
