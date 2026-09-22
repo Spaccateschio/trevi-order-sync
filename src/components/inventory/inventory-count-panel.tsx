@@ -1082,6 +1082,198 @@ export function InventoryCountPanel({
             : null}
         </DialogContent>
       </Dialog>
+
+      {/* Non conforme: segnalazione con quantità facoltativa, nessun effetto sulla giacenza */}
+      <Dialog
+        open={compliance !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCompliance(null);
+            setComplianceNote("");
+            setComplianceQuantity("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          {compliance ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base">Prodotto non conforme</DialogTitle>
+                <DialogDescription className="text-xs">
+                  {rowName(compliance)} · Cod. {compliance.code}
+                </DialogDescription>
+              </DialogHeader>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold">
+                  Quantità interessata (facoltativa){rowUnit(compliance) ? ` · ${rowUnit(compliance)}` : ""}
+                </span>
+                <Input
+                  inputMode="decimal"
+                  value={complianceQuantity}
+                  placeholder="Puoi lasciarla vuota se non l'hai ancora quantificata"
+                  onChange={(event) => setComplianceQuantity(event.target.value)}
+                />
+              </label>
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold">Motivazione</p>
+                <Textarea
+                  className="min-h-20 text-sm"
+                  maxLength={300}
+                  value={complianceNote}
+                  placeholder="Es. prodotto deteriorato, non a norma di legge"
+                  onChange={(event) => setComplianceNote(event.target.value)}
+                  aria-label="Motivazione della non conformità"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {["Prodotto deteriorato", "Non a norma", "Pezzatura errata", "Confezione danneggiata"].map((reason) => (
+                    <Button
+                      key={reason}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px]"
+                      onClick={() => setComplianceNote(reason)}
+                    >
+                      {reason}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <p className="rounded-sm border border-border bg-muted/40 px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+                La giacenza non cambia: per togliere la merce dal magazzino serve una rettifica di scarto esplicita.
+              </p>
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button variant="outline" onClick={() => setCompliance(null)}>
+                  Annulla
+                </Button>
+                <Button
+                  disabled={!complianceNote.trim() || complianceMutation.isPending}
+                  onClick={() => {
+                    const quantity = complianceQuantity.trim() ? parseQuantity(complianceQuantity) : null;
+                    if (complianceQuantity.trim() && quantity === null) {
+                      toast.error("Inserisci solo un numero");
+                      return;
+                    }
+                    if (quantity !== null && compliance.counted !== null && quantity > Number(compliance.counted)) {
+                      toast.error("La quantità non conforme non può superare la quantità fisica confermata");
+                      return;
+                    }
+                    complianceMutation.mutate({
+                      row: compliance,
+                      nonCompliant: true,
+                      quantity,
+                      note: complianceNote.trim(),
+                    });
+                  }}
+                >
+                  <TriangleAlert className="size-4" /> Registra segnalazione
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Proposta d'acquisto */}
+      <Dialog
+        open={proposalRow !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setProposalRow(null);
+            setProposalNote("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          {proposalRow ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base">Proponi per l'acquisto</DialogTitle>
+                <DialogDescription className="text-xs">
+                  {rowName(proposalRow)} · Cod. {proposalRow.code}
+                </DialogDescription>
+              </DialogHeader>
+              <Textarea
+                className="min-h-20 text-sm"
+                maxLength={300}
+                value={proposalNote}
+                placeholder="Es. prodotto finito, serve per un nuovo cliente"
+                onChange={(event) => setProposalNote(event.target.value)}
+                aria-label="Nota della proposta"
+              />
+              <p className="rounded-sm border border-border bg-muted/40 px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+                Resta una proposta: comparirà nella lista della spesa da confermare, senza creare ordini o righe
+                definitive.
+              </p>
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button variant="outline" onClick={() => setProposalRow(null)}>
+                  Annulla
+                </Button>
+                <Button
+                  disabled={proposalMutation.isPending}
+                  onClick={() =>
+                    proposalMutation.mutate({
+                      productId: proposalRow.product_id,
+                      action: "flag",
+                      note: proposalNote.trim() || null,
+                    })
+                  }
+                >
+                  <ShoppingCart className="size-4" /> Proponi
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Storico append-only */}
+      <Dialog open={historyRow !== null} onOpenChange={(open) => !open && setHistoryRow(null)}>
+        <DialogContent className="max-w-lg">
+          {historyRow ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base">Storico dei controlli</DialogTitle>
+                <DialogDescription className="text-xs">
+                  {rowName(historyRow)} · Cod. {historyRow.code}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-80 space-y-1.5 overflow-y-auto">
+                {historyQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Caricamento…</p>
+                ) : (historyQuery.data ?? []).length ? (
+                  (historyQuery.data ?? []).map((entry: CountHistoryEntry) => (
+                    <div key={entry.id} className="rounded-sm border border-border bg-muted/30 px-2 py-1.5 text-xs">
+                      <p className="font-semibold">
+                        {new Date(entry.created_at).toLocaleString("it-IT")} · {ENTRY_LABELS[entry.entry_type]}
+                        {entry.location_name ? ` · ${entry.location_name}` : ""}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {entry.counted_quantity === null
+                          ? "Quantità non modificata"
+                          : `Quantità ${formatQuantity(Number(entry.counted_quantity), entry.unit_code ?? "")}${
+                              entry.unit_code ? ` ${entry.unit_code}` : ""
+                            }`}
+                        {entry.non_compliant
+                          ? ` · non conforme${
+                              entry.non_compliant_quantity === null
+                                ? " (quantità non indicata)"
+                                : ` ${formatQuantity(Number(entry.non_compliant_quantity), entry.unit_code ?? "")}`
+                            }`
+                          : ""}
+                      </p>
+                      {entry.note ? <p className="mt-0.5 leading-snug">«{entry.note}»</p> : null}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nessuna registrazione per questo prodotto.</p>
+                )}
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
     </Tabs>
   );
 }
