@@ -915,7 +915,31 @@ export function InventoryCountPanel({
             onToggleFavorite={(row) =>
               favoriteMutation.mutate({ productId: row.product_id, favorite: !row.is_favorite })
             }
+            supplierInfo={supplierInfo}
+            fieldPreferences={fieldPreferences}
+            locationOptions={activeLocations.map((location) => ({ id: location.id, name: location.name }))}
+            onRecount={(row) => recountMutation.mutate(row)}
+            onNonCompliance={(row) => {
+              setCompliance(row);
+              setComplianceNote(row.non_compliant_note ?? "");
+              setComplianceQuantity(
+                row.non_compliant_quantity === null ? "" : String(row.non_compliant_quantity).replace(".", ","),
+              );
+            }}
+            onRevokeNonCompliance={(row) =>
+              complianceMutation.mutate({ row, nonCompliant: false, quantity: null, note: null })
+            }
+            onProposal={(row) => {
+              if (row.proposal_status === "aperta") {
+                proposalMutation.mutate({ productId: row.product_id, action: "resolve", note: null });
+                return;
+              }
+              setProposalRow(row);
+              setProposalNote("");
+            }}
+            onHistory={(row) => setHistoryRow(row)}
             onCloseInventory={() => closeMutation.mutate()}
+
             onHideCompletion={() => setShowCompletion(false)}
             closing={closeMutation.isPending}
           />
