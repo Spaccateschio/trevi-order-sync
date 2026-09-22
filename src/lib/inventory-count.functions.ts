@@ -546,13 +546,17 @@ export const adoptCatalogProduct = createServerFn({ method: "POST" })
       .maybeSingle();
     if (favoriteReadError) throw new Error(favoriteReadError.message);
     if (catalogFavorite) {
-      const { error: favoriteWriteError } = await context.supabase
-        .from("company_product_favorites")
-        .upsert(
-          { company_id: data.companyId, product_id: payload.product_id, created_by: context.userId },
-          { onConflict: "company_id,product_id" },
-        );
+      const { error: favoriteWriteError } = await context.supabase.rpc(
+        "manage_company_product_favorite",
+        {
+          _company_id: data.companyId,
+          _product_id: payload.product_id,
+          _favorite: true,
+          _actor_user_id: context.userId,
+        },
+      );
       if (favoriteWriteError) throw new Error(favoriteWriteError.message);
+
     }
     return { productId: payload.product_id };
   });
