@@ -213,16 +213,17 @@ export function InventoryCountPanel({
   });
   const sessionId = sessionQuery.data?.id ?? null;
 
-  // Senza conteggio aperto mostriamo comunque i prodotti gestiti dall'azienda
-  // (tutti gli archivi), con "Mai contato" al posto della quantità.
+  // Popolazione unica dell'Inventario: i prodotti della mia azienda
+  // contrassegnati come gestiti. Vale prima e durante il conteggio, e
+  // gli articoli dei cataloghi dei fornitori non ne fanno parte.
   const catalogPreviewQuery = useQuery({
-    queryKey: ["inventario-prodotti", companyId],
-    enabled: !sessionId,
+    queryKey: ["inventario-prodotti-gestiti", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("id, code, description, category, subcategory, danea_um")
         .eq("company_id", companyId)
+        .eq("is_managed", true)
         .order("code")
         .limit(300);
       if (error) throw new Error(error.message);
@@ -230,6 +231,10 @@ export function InventoryCountPanel({
     },
   });
   const catalogPreview = catalogPreviewQuery.data ?? [];
+  const managedProductIds = useMemo(
+    () => new Set(catalogPreview.map((product) => product.id)),
+    [catalogPreview],
+  );
   const previewFavoriteQuery = useQuery({
     queryKey: ["inventario-preferiti-prodotti", companyId, catalogPreview.length],
     enabled: !sessionId && catalogPreview.length > 0,
