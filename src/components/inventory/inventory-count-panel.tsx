@@ -716,6 +716,105 @@ export function InventoryCountPanel({
   );
 }
 
+/**
+ * Scheda compilabile prima che il conteggio sia aperto: i pulsanti rapidi
+ * toccano soltanto la bozza locale, nessuna rettifica o movimento.
+ */
+function DraftCountCard({
+  name,
+  code,
+  unit,
+  category,
+  image,
+  value,
+  disabled,
+  onChange,
+  onConfirm,
+}: {
+  name: string;
+  code: string;
+  unit: string;
+  category: string | null;
+  image: string | null;
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <article className="rounded-md border-2 border-border bg-card p-2">
+      <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
+        {image ? (
+          <img
+            src={image}
+            alt=""
+            loading="lazy"
+            className="size-12 rounded-sm border border-border object-cover"
+          />
+        ) : (
+          <span className="grid size-12 place-items-center rounded-sm border border-border bg-muted">
+            <Package className="size-5 text-muted-foreground" aria-hidden="true" />
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
+          <p className="text-[11px] leading-tight text-muted-foreground">
+            Cod. {code}
+            {unit ? ` · ${unit}` : ""}
+          </p>
+          {category ? (
+            <p className="truncate text-[11px] leading-tight text-muted-foreground">{category}</p>
+          ) : null}
+        </div>
+        <span className="shrink-0 rounded-sm bg-muted px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-muted-foreground">
+          Mai contato
+        </span>
+      </div>
+      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+        <label className="block">
+          <span className="text-[11px] text-muted-foreground">Quantità fisica</span>
+          <Input
+            inputMode="decimal"
+            value={value}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.value)}
+            onFocus={(event) => event.currentTarget.select()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+                onConfirm();
+              }
+            }}
+            aria-label={`Quantità fisica ${name}`}
+            className="h-9"
+          />
+        </label>
+        <Button size="sm" onClick={onConfirm} disabled={disabled}>
+          <Check aria-hidden="true" />
+          Conferma
+        </Button>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1">
+        {[1, 3, 5, 10].map((increment) => (
+          <Button
+            key={increment}
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            onClick={() => onChange(addToQuantity(value, increment))}
+          >
+            +{increment}
+          </Button>
+        ))}
+        <Button size="sm" variant="ghost" disabled={disabled} onClick={() => onChange("")} aria-label="Azzera bozza">
+          <Delete aria-hidden="true" />
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+
 function LocationSelection({
   locations,
   selectedId,
