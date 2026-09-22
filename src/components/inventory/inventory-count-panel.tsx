@@ -350,13 +350,16 @@ export function InventoryCountPanel({
 
   const rows = useMemo(() => {
     const all = rowsQuery.data ?? [];
-    return all.filter((row) => {
-      if (workFilter === "pending") return row.counted === null;
-      if (workFilter === "recount") return row.recount_requested_at !== null;
-      if (workFilter === "completed") return row.counted !== null;
-      return row.counted !== null && Number(row.difference ?? 0) !== 0;
-    });
+    return all
+      .filter((row) => {
+        if (workFilter === "pending") return row.counted === null;
+        if (workFilter === "recount") return row.recount_requested_at !== null;
+        if (workFilter === "completed") return row.counted !== null;
+        return row.counted !== null && Number(row.difference ?? 0) !== 0;
+      })
+      .sort((left, right) => byName(left.description, left.code, right.description, right.code));
   }, [rowsQuery.data, workFilter]);
+
 
   const imageProductIds = useMemo(
     () => [...new Set(rows.map((row) => row.product_id))].slice(0, 50),
