@@ -61,6 +61,7 @@ import {
   getCountHistory,
   getInventoryProgress,
   getInventoryRows,
+  getFavoriteProductIds,
   getSupplierCatalogCandidates,
   manageCatalogProductFavorite,
   manageCompanyProductFavorite,
@@ -147,6 +148,7 @@ export function InventoryCountPanel({
   const getImageUrls = useServerFn(getProductImageUrls);
   const getSellerImageUrls = useServerFn(getCatalogImageUrls);
   const readCatalogCandidates = useServerFn(getSupplierCatalogCandidates);
+  const readFavoriteProductIds = useServerFn(getFavoriteProductIds);
   const adoptProduct = useServerFn(adoptCatalogProduct);
 
 
