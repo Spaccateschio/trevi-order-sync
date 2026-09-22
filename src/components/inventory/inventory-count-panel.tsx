@@ -136,11 +136,15 @@ export function InventoryCountPanel({
   const readProgress = useServerFn(getInventoryProgress);
   const readRows = useServerFn(getInventoryRows);
   const saveCount = useServerFn(recordInventoryCount);
+  const saveEntry = useServerFn(recordCountEntry);
+  const readHistory = useServerFn(getCountHistory);
+  const manageProposal = useServerFn(managePurchaseProposal);
   const toggleFavorite = useServerFn(manageCompanyProductFavorite);
   const getImageUrls = useServerFn(getProductImageUrls);
   const getSellerImageUrls = useServerFn(getCatalogImageUrls);
   const readCatalogCandidates = useServerFn(getSupplierCatalogCandidates);
   const adoptProduct = useServerFn(adoptCatalogProduct);
+
 
   const { data: locations = [] } = useInventoryLocations(companyId);
   const activeLocations = locations.filter((location) => location.status === "attivo");
@@ -162,6 +166,15 @@ export function InventoryCountPanel({
   // Conteggio immediato senza sessione aperta: bozze per prodotto e zona scelta
   const [draftFirst, setDraftFirst] = useState<Record<string, string>>({});
   const [draftZoneId, setDraftZoneId] = useState<string | null>(null);
+  // Segnalazioni: non conformità, proposta d'acquisto, storico
+  const [compliance, setCompliance] = useState<InventoryCountRow | null>(null);
+  const [complianceQuantity, setComplianceQuantity] = useState("");
+  const [complianceNote, setComplianceNote] = useState("");
+  const [proposalRow, setProposalRow] = useState<InventoryCountRow | null>(null);
+  const [proposalNote, setProposalNote] = useState("");
+  const [historyRow, setHistoryRow] = useState<InventoryCountRow | null>(null);
+  const fieldPreferences = useInventoryFieldPreferences("inventario-conteggio");
+
 
   const sessionQuery = useQuery({
     queryKey: ["inventory-general-session", companyId, archiveId],
