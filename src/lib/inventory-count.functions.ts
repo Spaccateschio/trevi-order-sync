@@ -214,7 +214,7 @@ export const manageCompanyProductFavorite = createServerFn({ method: "POST" })
       ? context.supabase.from("company_product_favorites").upsert(
           {
             company_id: data.companyId,
-            product_id: primaryReference.sellerProductId,
+            product_id: data.productId,
             created_by: context.userId,
           },
           { onConflict: "company_id,product_id" },
