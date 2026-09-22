@@ -229,8 +229,10 @@ export function InventoryRequirementsPanel({
           <thead className="bg-muted/50">
             <tr className="[&>th]:border-r [&>th]:border-border [&>th]:px-2 [&>th]:py-2 [&>th]:text-left [&>th:last-child]:border-r-0">
               <th className="w-8" aria-label="Selezione" />
-              <th className="w-24">Codice</th>
-              <th>Descrizione</th>
+              <th className="w-12" aria-label="Foto" />
+              <th>Prodotto</th>
+              <th className="w-28">Categoria</th>
+              <th className="w-16">U.M.</th>
               <th className="w-24">Disponibile</th>
               <th className="w-24">Scorta min.</th>
               <th className="w-28">Necessario</th>
@@ -252,8 +254,35 @@ export function InventoryRequirementsPanel({
                     onChange={() => toggle(row.product_id)}
                   />
                 </td>
-                <td className="truncate font-mono">{row.code}</td>
-                <td className="truncate">{row.description ?? "—"}</td>
+                <td>
+                  {images.get(row.product_id) ? (
+                    <img
+                      src={images.get(row.product_id)}
+                      alt=""
+                      loading="lazy"
+                      className="size-9 rounded-sm border border-border object-cover"
+                    />
+                  ) : (
+                    <span className="flex size-9 items-center justify-center rounded-sm border border-border bg-muted">
+                      <Package className="size-4 text-muted-foreground" aria-hidden="true" />
+                    </span>
+                  )}
+                </td>
+                <td className="min-w-0">
+                  <p className="truncate font-medium">{row.description ?? row.code}</p>
+                  <p className="truncate font-mono text-[11px] text-muted-foreground">
+                    Cod. {row.code}
+                    <Link
+                      to="/acquisti/prodotti"
+                      search={{ prodotto: row.product_id }}
+                      className="ml-1 inline-flex items-center gap-0.5 font-sans text-primary underline"
+                    >
+                      <ExternalLink className="size-3" aria-hidden="true" /> Acquisto
+                    </Link>
+                  </p>
+                </td>
+                <td className="truncate text-muted-foreground">{row.category ?? "—"}</td>
+                <td className="text-muted-foreground">{row.unit ?? "—"}</td>
                 <td>{row.count_status === "mai_contato" ? "—" : qty(row.available)}</td>
                 <td>{row.min_stock !== null ? qty(row.min_stock) : "—"}</td>
                 <td>
@@ -298,9 +327,27 @@ export function InventoryRequirementsPanel({
                 aria-label={`Seleziona ${row.code}`}
                 onChange={() => toggle(row.product_id)}
               />
+              {images.get(row.product_id) ? (
+                <img
+                  src={images.get(row.product_id)}
+                  alt=""
+                  loading="lazy"
+                  className="size-10 rounded-sm border border-border object-cover"
+                />
+              ) : (
+                <span className="flex size-10 items-center justify-center rounded-sm border border-border bg-muted">
+                  <Package className="size-4 text-muted-foreground" aria-hidden="true" />
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{row.description ?? row.code}</p>
-                <p className="font-mono text-xs text-muted-foreground">{row.code}</p>
+                <p className="truncate font-mono text-xs text-muted-foreground">
+                  {row.code}
+                  {row.unit ? ` · ${row.unit}` : ""}
+                </p>
+                {row.category ? (
+                  <p className="truncate text-xs text-muted-foreground">{row.category}</p>
+                ) : null}
               </div>
               <Badge variant="outline">{STOCK_STATUS_LABEL[row.count_status]}</Badge>
             </div>
@@ -327,6 +374,13 @@ export function InventoryRequirementsPanel({
                 Arrotondato da {qty(row.rawNeed)} al multiplo {qty(row.order_multiple)}
               </p>
             ) : null}
+            <Link
+              to="/acquisti/prodotti"
+              search={{ prodotto: row.product_id }}
+              className="mt-2 inline-flex items-center gap-1 text-xs text-primary underline"
+            >
+              <ExternalLink className="size-3" aria-hidden="true" /> Apri prodotto → Acquisto
+            </Link>
           </li>
         ))}
       </ul>
