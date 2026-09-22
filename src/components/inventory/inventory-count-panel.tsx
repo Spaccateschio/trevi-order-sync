@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   Columns3,
   Delete,
+  ExternalLink,
   History,
   MapPin,
   MoreVertical,
