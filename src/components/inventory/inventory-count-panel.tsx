@@ -465,18 +465,21 @@ export function InventoryCountPanel({
 
 
 
+  // Conferma e riconteggio: append-only nello storico, l'ultima riga è la fotografia corrente
   const countMutation = useMutation({
     mutationFn: (input: { row: InventoryCountRow; value: number; notes: string | null }) =>
-      saveCount({
+      saveEntry({
         data: {
           companyId,
           sessionId: sessionId!,
           productId: input.row.product_id,
           locationId: input.row.location_id,
+          entryType: input.row.counted !== null ? "riconteggio" : "conteggio",
           countedQuantity: input.value,
-          unitId: null,
           unitCode: rowUnit(input.row) || null,
           notes: input.notes,
+          nonCompliant: null,
+          nonCompliantQuantity: null,
         },
       }),
     onSuccess: async (_result, input) => {
@@ -489,6 +492,103 @@ export function InventoryCountPanel({
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  // Riconta: segna la riga come "Da ricontare" senza cancellare il conteggio precedente
+  const recountMutation = useMutation({
+    mutationFn: (row: InventoryCountRow) =>
+      saveEntry({
+        data: {
+          companyId,
+          sessionId: sessionId!,
+          productId: row.product_id,
+          locationId: row.location_id,
+          entryType: "richiesta_riconteggio",
+          countedQuantity: null,
+          unitCode: rowUnit(row) || null,
+          notes: null,
+          nonCompliant: null,
+          nonCompliantQuantity: null,
+        },
+      }),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("Prodotto segnato da ricontare: il conteggio precedente resta nello storico");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  // Non conforme: solo segnalazione, la giacenza non cambia
+  const complianceMutation = useMutation({
+    mutationFn: (input: {
+      row: InventoryCountRow;
+      nonCompliant: boolean;
+      quantity: number | null;
+      note: string | null;
+    }) =>
+      saveEntry({
+        data: {
+          companyId,
+          sessionId: sessionId!,
+          productId: input.row.product_id,
+          locationId: input.row.location_id,
+          entryType: input.nonCompliant ? "segnalazione" : "revoca_segnalazione",
+          countedQuantity: null,
+          unitCode: rowUnit(input.row) || null,
+          notes: input.note,
+          nonCompliant: input.nonCompliant,
+          nonCompliantQuantity: input.quantity,
+        },
+      }),
+    onSuccess: async (_result, input) => {
+      setCompliance(null);
+      setComplianceNote("");
+      setComplianceQuantity("");
+      await refresh();
+      toast.success(
+        input.nonCompliant
+          ? "Segnalazione registrata: la giacenza non è stata modificata"
+          : "Segnalazione revocata",
+      );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  // Proposta d'acquisto persistente: resta disponibile anche dopo la chiusura dell'inventario
+  const proposalMutation = useMutation({
+    mutationFn: (input: { productId: string; action: "flag" | "resolve"; note: string | null }) =>
+      manageProposal({
+        data: {
+          companyId,
+          productId: input.productId,
+          action: input.action,
+          note: input.note,
+          reason: input.action === "resolve" ? "non_serve_piu" : null,
+          sessionId,
+        },
+      }),
+    onSuccess: async (_result, input) => {
+      setProposalRow(null);
+      setProposalNote("");
+      await Promise.all([
+        refresh(),
+        queryClient.invalidateQueries({ queryKey: ["proposte-acquisto", companyId] }),
+      ]);
+      toast.success(
+        input.action === "flag"
+          ? "Prodotto proposto per l'acquisto: lo troverai nella lista della spesa come proposta da confermare"
+          : "Proposta chiusa",
+      );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const historyQuery = useQuery({
+    queryKey: ["inventario-storico", companyId, historyRow?.product_id ?? null],
+    enabled: Boolean(historyRow),
+    queryFn: () =>
+      readHistory({ data: { companyId, productId: historyRow!.product_id, locationId: null } }),
+  });
+
 
   const closeMutation = useMutation({
     mutationFn: () => close({ data: { companyId, sessionId: sessionId! } }),
