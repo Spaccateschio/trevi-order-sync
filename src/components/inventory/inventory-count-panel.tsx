@@ -1714,7 +1714,7 @@ function ProductCard({
   return (
     <article
       className={cn(
-        "rounded-md border-2 bg-card p-2",
+        "flex h-full flex-col rounded-md border-2 bg-card p-2",
         !isConfirmed && "border-border",
         isConfirmed && !hasDifference && "border-success/50 bg-success/5",
         hasDifference && "border-destructive/50 bg-destructive/5",
