@@ -262,6 +262,17 @@ export function InventoryCountPanel({
     queryFn: () => readCatalogCandidates({ data: { companyId } }),
   });
   const catalogCandidates: CatalogCandidate[] = catalogCandidatesQuery.data ?? [];
+  const visibleCatalogCandidates = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return catalogCandidates.filter((candidate) => {
+      if (productView === "favorites" && !candidate.isFavorite) return false;
+      if (supplierFilter && candidate.sellerCompanyId !== supplierFilter) return false;
+      if (category && (candidate.category ?? NO_CATEGORY) !== category) return false;
+      if (subcategory && (candidate.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
+      if (workFilter !== "pending") return false;
+      return !term || `${candidate.code} ${candidate.description ?? ""}`.toLowerCase().includes(term);
+    });
+  }, [catalogCandidates, category, productView, search, subcategory, supplierFilter, workFilter]);
 
   const catalogImagesQuery = useQuery({
     queryKey: ["inventario-catalogo-immagini", companyId, catalogCandidates.length],
@@ -695,54 +706,6 @@ export function InventoryCountPanel({
       : (activeLocations.find((location) => location.id === draftZoneId) ?? null);
   const zoneProgress = new Map((progress?.zones ?? []).map((zone) => [zone.location_id, zone]));
 
-  const renderCatalogBlock = (countLocation: { id: string; name: string } | null) => {
-    if (!catalogCandidates.length) return null;
-    return (
-      <div className="overflow-hidden rounded-md border border-border bg-card">
-        <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
-          Catalogo dei fornitori ({catalogCandidates.length}) — scrivendo una quantità l'articolo entra fra i tuoi
-          prodotti
-        </p>
-        <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
-          {catalogCandidates.map((candidate) => (
-            <DraftCountCard
-              key={candidate.sellerProductId}
-              name={candidate.description ?? candidate.code}
-              code={candidate.code}
-              unit={candidate.danea_um?.trim() ?? ""}
-              category={
-                candidate.category
-                  ? `${candidate.category} · ${candidate.sellerCompanyName}`
-                  : candidate.sellerCompanyName
-              }
-              badge="Da catalogo"
-              image={catalogImages.get(candidate.sellerProductId) ?? null}
-              value={catalogDrafts[candidate.sellerProductId] ?? ""}
-              disabled={!isAdmin || !archiveId || !countLocation || catalogCount.isPending}
-              onChange={(value) =>
-                setCatalogDrafts((current) => ({ ...current, [candidate.sellerProductId]: value }))
-              }
-              onConfirm={() => {
-                const value = parseQuantity(catalogDrafts[candidate.sellerProductId] ?? "");
-                if (value === null) {
-                  toast.error("Inserisci una quantità valida");
-                  return;
-                }
-                if (!countLocation) {
-                  toast.error("Scegli prima la zona");
-                  return;
-                }
-                catalogCount.mutate({ candidate, locationId: countLocation.id, value });
-              }}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-
-
   return (
     <Tabs value={tab} onValueChange={setTab} className="space-y-2">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
@@ -751,15 +714,7 @@ export function InventoryCountPanel({
           <TabsTrigger value="fabbisogno">Fabbisogno</TabsTrigger>
           <TabsTrigger value="zone">Zone</TabsTrigger>
         </TabsList>
-        {sessionId ? (
-          activeLocations.length > 1 ? (
-            <Button size="sm" variant="outline" onClick={() => setNavigationMode("zones")}>
-              <MapPin aria-hidden="true" />
-              <span className="hidden sm:inline">Cambia zona</span>
-              <span className="sm:hidden">Zone</span>
-            </Button>
-          ) : null
-        ) : (
+        {!sessionId ? (
           <Button
             size="sm"
             onClick={() => startMutation.mutate()}
@@ -770,114 +725,11 @@ export function InventoryCountPanel({
             <span className="hidden sm:inline">Nuovo conteggio</span>
             <span className="sm:hidden">Nuovo</span>
           </Button>
-        )}
+        ) : null}
       </div>
 
       <TabsContent value="conteggio">
-        {!sessionId ? (
-          <section className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-card px-3 py-2">
-              <p className="text-xs text-muted-foreground">
-                {isAdmin
-                  ? "Conteggio non ancora iniziato: scrivi le quantità, si apre da solo alla prima conferma."
-                  : "Conteggio non ancora iniziato: un amministratore deve avviarlo."}
-              </p>
-              {activeLocations.length > 1 ? (
-                <div className="flex flex-wrap items-center gap-1">
-                  <span className="text-xs font-semibold">Zona:</span>
-                  {activeLocations.map((location) => (
-                    <Button
-                      key={location.id}
-                      size="sm"
-                      variant={draftZoneId === location.id ? "default" : "outline"}
-                      onClick={() => setDraftZoneId(location.id)}
-                    >
-                      {location.name}
-                    </Button>
-                  ))}
-                </div>
-              ) : draftLocation ? (
-                <p className="text-xs font-semibold">
-                  <MapPin className="mr-1 inline size-3" aria-hidden="true" />
-                  {draftLocation.name}
-                </p>
-              ) : null}
-            </div>
-            {activeLocations.length > 1 && !draftZoneId ? (
-              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                Scegli la zona in cui stai contando per abilitare i campi.
-              </p>
-            ) : null}
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
-              <div className="flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant={productView === "favorites" ? "default" : "outline"}
-                  onClick={() => setProductView("favorites")}
-                >
-                  Preferiti
-                </Button>
-                <Button
-                  size="sm"
-                  variant={productView === "all" ? "default" : "outline"}
-                  onClick={() => setProductView("all")}
-                >
-                  Tutti
-                </Button>
-              </div>
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Cerca per codice o descrizione"
-                className="h-9 w-full sm:w-64"
-              />
-            </div>
-            {previewProducts.length ? (
-              <div className="overflow-hidden rounded-md border border-border bg-card">
-                <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
-                  Prodotti della tua azienda ({previewProducts.length})
-                </p>
-                <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
-                  {previewProducts.map((product) => (
-                    <DraftCountCard
-                      key={product.id}
-                      name={product.description ?? product.code}
-                      code={product.code}
-                      unit={product.danea_um?.trim() ?? ""}
-                      category={product.category}
-                      image={previewImages.get(product.id) ?? null}
-                      value={draftFirst[product.id] ?? ""}
-                      disabled={!isAdmin || !archiveId || !draftLocation || firstCount.isPending}
-                      onChange={(value) =>
-                        setDraftFirst((current) => ({ ...current, [product.id]: value }))
-                      }
-                      onConfirm={() => {
-                        const value = parseQuantity(draftFirst[product.id] ?? "");
-                        if (value === null) {
-                          toast.error("Inserisci una quantità valida");
-                          return;
-                        }
-                        if (!draftLocation) {
-                          toast.error("Scegli prima la zona");
-                          return;
-                        }
-                        firstCount.mutate({
-                          productId: product.id,
-                          locationId: draftLocation.id,
-                          unit: product.danea_um?.trim() ?? "",
-                          value,
-                        });
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {productView === "all"
-              ? renderCatalogBlock(draftLocation ? { id: draftLocation.id, name: draftLocation.name } : null)
-              : null}
-          </section>
-        ) : selectingLocation ? (
+        {sessionId && selectingLocation ? (
 
 
           <LocationSelection
@@ -894,6 +746,7 @@ export function InventoryCountPanel({
           />
         ) : (
           <PhysicalCount
+            sessionActive={Boolean(sessionId)}
             sessionName={progress?.session_name ?? sessionQuery.data?.name ?? "Inventario generale"}
             progress={progress}
             locations={activeLocations.map((location) => ({
@@ -902,56 +755,71 @@ export function InventoryCountPanel({
               progress: zoneProgress.get(location.id),
             }))}
             selectedLocation={selectedLocation ? { id: selectedLocation.id, name: selectedLocation.name } : null}
-            rows={rows}
-            catalogSlot={renderCatalogBlock(
-              selectedLocation
-                ? { id: selectedLocation.id, name: selectedLocation.name }
-                : defaultLocation
-                  ? { id: defaultLocation.id, name: defaultLocation.name }
-                  : null,
-            )}
-            loading={rowsQuery.isLoading}
-            imageUrls={imageUrls}
-            drafts={drafts}
+            rows={sessionId ? rows : previewProducts.map((product): InventoryCountRow => ({
+              product_id: product.id, location_id: draftLocation?.id ?? "", location_name: draftLocation?.name ?? "—",
+              code: product.code, description: product.description, danea_um: product.danea_um,
+              category: product.category, subcategory: product.subcategory, is_favorite: previewFavoriteQuery.data?.has(product.id) ?? false,
+              image_path: null, thumbnail_path: null, calculated: 0, counted: null, difference: null,
+              counted_at: null, counted_by: null, note: null, recount_requested_at: null, non_compliant: false,
+              non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
+              min_stock: null, order_multiple: null,
+            }))}
+            catalogCandidates={visibleCatalogCandidates}
+            catalogImages={catalogImages}
+            catalogDrafts={catalogDrafts}
+            loading={sessionId ? rowsQuery.isLoading : catalogPreviewQuery.isLoading}
+            imageUrls={sessionId ? imageUrls : previewImages}
+            drafts={sessionId ? drafts : draftFirst}
             productView={productView}
             workFilter={workFilter}
-            navigationMode={navigationMode}
             category={category}
             subcategory={subcategory}
+            supplierFilter={supplierFilter}
             search={search}
             isAdmin={isAdmin}
             showCompletion={showCompletion}
             onViewChange={setProductView}
             onWorkFilterChange={setWorkFilter}
-            onNavigationModeChange={setNavigationMode}
             onLocationChange={(id) => {
-              setSelectedLocationId(id);
+              if (sessionId) setSelectedLocationId(id); else setDraftZoneId(id);
               setCategory(null);
               setSubcategory(null);
-              setNavigationMode("categories");
             }}
             onAllZones={() => {
-              setSelectedLocationId(null);
+              if (sessionId) setSelectedLocationId(null); else setDraftZoneId(null);
               setCategory(null);
               setSubcategory(null);
-              setNavigationMode("categories");
             }}
             onCategoryChange={(value) => {
               setCategory(value);
               setSubcategory(null);
-              setNavigationMode("subcategories");
             }}
-            onSubcategoryChange={(value) => {
-              setSubcategory(value);
-              setNavigationMode("products");
-            }}
+            onSubcategoryChange={setSubcategory}
+            onSupplierChange={setSupplierFilter}
             onSearchChange={setSearch}
-            onDraftChange={(key, value) => setDrafts((current) => ({ ...current, [key]: value }))}
-            onConfirm={confirmRow}
+            onDraftChange={(key, value) => sessionId
+              ? setDrafts((current) => ({ ...current, [key]: value }))
+              : setDraftFirst((current) => ({ ...current, [key.split(":")[0]]: value }))}
+            onConfirm={(row) => {
+              if (sessionId) return confirmRow(row);
+              const value = parseQuantity(draftFirst[row.product_id] ?? "");
+              if (value === null) return toast.error("Inserisci una quantità valida");
+              if (!draftLocation) return toast.error("Scegli prima la zona");
+              firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: rowUnit(row), value });
+            }}
             onConfirmAll={confirmAllUnchanged}
             onToggleFavorite={(row) =>
               favoriteMutation.mutate({ productId: row.product_id, favorite: !row.is_favorite })
             }
+            onToggleCatalogFavorite={(candidate) => catalogFavoriteMutation.mutate(candidate)}
+            onCatalogDraftChange={(id, value) => setCatalogDrafts((current) => ({ ...current, [id]: value }))}
+            onCatalogConfirm={(candidate) => {
+              const value = parseQuantity(catalogDrafts[candidate.sellerProductId] ?? "");
+              if (value === null) return toast.error("Inserisci una quantità valida");
+              const location = selectedLocation ?? draftLocation ?? defaultLocation ?? null;
+              if (!location) return toast.error("Scegli prima la zona");
+              catalogCount.mutate({ candidate, locationId: location.id, value });
+            }}
             supplierInfo={supplierInfo}
             fieldPreferences={fieldPreferences}
             locationOptions={activeLocations.map((location) => ({ id: location.id, name: location.name }))}
