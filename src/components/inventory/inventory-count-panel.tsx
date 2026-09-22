@@ -171,6 +171,13 @@ export function InventoryCountPanel({
     },
   });
   const catalogPreview = catalogPreviewQuery.data ?? [];
+  const previewProducts = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return catalogPreview;
+    return catalogPreview.filter((product) =>
+      `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term),
+    );
+  }, [catalogPreview, search]);
 
   const previewImagesQuery = useQuery({
     queryKey: ["inventario-prodotti-immagini", companyId, catalogPreview.length],
