@@ -219,10 +219,10 @@ export function InventoryCountPanel({
     queryKey: ["inventario-preferiti-prodotti", companyId, catalogPreview.length],
     enabled: !sessionId && catalogPreview.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from("company_product_favorites").select("product_id")
-        .eq("company_id", companyId).in("product_id", catalogPreview.map((product) => product.id));
-      if (error) throw new Error(error.message);
-      return new Set((data ?? []).map((favorite) => favorite.product_id));
+      const ids = await readFavoriteProductIds({
+        data: { companyId, productIds: catalogPreview.map((product) => product.id) },
+      });
+      return new Set(ids);
     },
   });
   const previewProducts = useMemo(() => {
