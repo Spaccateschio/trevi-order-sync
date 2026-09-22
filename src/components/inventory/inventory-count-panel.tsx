@@ -120,6 +120,19 @@ function rowName(row: InventoryCountRow) {
   return row.description?.trim() || row.code;
 }
 
+/** Ordine alfabetico italiano: descrizione, con il codice come riserva. */
+function byName(
+  leftDescription: string | null,
+  leftCode: string,
+  rightDescription: string | null,
+  rightCode: string,
+) {
+  const left = (leftDescription ?? "").trim() || leftCode;
+  const right = (rightDescription ?? "").trim() || rightCode;
+  return left.localeCompare(right, "it", { sensitivity: "base", numeric: true });
+}
+
+
 function rowUnit(row: InventoryCountRow) {
   return row.danea_um?.trim() || "";
 }
