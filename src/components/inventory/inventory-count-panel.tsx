@@ -7,17 +7,25 @@ import {
   ChevronRight,
   CircleAlert,
   ClipboardCheck,
+  Columns3,
   Delete,
+  History,
   LayoutGrid,
   MapPin,
+  MoreVertical,
   Package,
   PackageSearch,
+  RotateCcw,
   Search,
+  ShoppingCart,
+  SlidersHorizontal,
   Sparkles,
   Star,
   StickyNote,
   Tags,
+  TriangleAlert,
 } from "lucide-react";
+
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -30,23 +38,40 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useInventoryLocations } from "@/components/inventory/inventory-locations-manager";
 import { InventoryRequirementsPanel } from "@/components/inventory/inventory-requirements-panel";
+import {
+  useInventoryFieldPreferences,
+  type InventoryFieldId,
+} from "@/components/inventory/use-inventory-fields";
 import { supabase } from "@/integrations/supabase/client";
 import { getCatalogImageUrls } from "@/lib/catalog.functions";
 import {
   adoptCatalogProduct,
   closeGeneralInventory,
+  getCountHistory,
   getInventoryProgress,
   getInventoryRows,
   getSupplierCatalogCandidates,
   manageCompanyProductFavorite,
+  managePurchaseProposal,
+  recordCountEntry,
   startGeneralInventory,
   type CatalogCandidate,
+  type CountHistoryEntry,
   type InventoryCountRow,
   type InventoryProgress,
 } from "@/lib/inventory-count.functions";
@@ -55,7 +80,9 @@ import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
 
 type ProductView = "favorites" | "all";
-type WorkFilter = "pending" | "completed" | "differences";
+type WorkFilter = "pending" | "completed" | "differences" | "recount";
+type SupplierInfo = { name: string | null; cost: number | null };
+
 type NavigationMode = "zones" | "categories" | "subcategories" | "products" | "search";
 
 const NO_CATEGORY = "Senza categoria";
