@@ -18,7 +18,7 @@ import {
   StickyNote,
   Tags,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -37,12 +37,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { useInventoryLocations } from "@/components/inventory/inventory-locations-manager";
 import { InventoryRequirementsPanel } from "@/components/inventory/inventory-requirements-panel";
 import { supabase } from "@/integrations/supabase/client";
+import { getCatalogImageUrls } from "@/lib/catalog.functions";
 import {
+  adoptCatalogProduct,
   closeGeneralInventory,
   getInventoryProgress,
   getInventoryRows,
+  getSupplierCatalogCandidates,
   manageCompanyProductFavorite,
   startGeneralInventory,
+  type CatalogCandidate,
   type InventoryCountRow,
   type InventoryProgress,
 } from "@/lib/inventory-count.functions";
@@ -107,6 +111,9 @@ export function InventoryCountPanel({
   const saveCount = useServerFn(recordInventoryCount);
   const toggleFavorite = useServerFn(manageCompanyProductFavorite);
   const getImageUrls = useServerFn(getProductImageUrls);
+  const getSellerImageUrls = useServerFn(getCatalogImageUrls);
+  const readCatalogCandidates = useServerFn(getSupplierCatalogCandidates);
+  const adoptProduct = useServerFn(adoptCatalogProduct);
 
   const { data: locations = [] } = useInventoryLocations(companyId);
   const activeLocations = locations.filter((location) => location.status === "attivo");
@@ -175,6 +182,40 @@ export function InventoryCountPanel({
   const previewImages = useMemo(
     () => new Map((previewImagesQuery.data ?? []).map((image) => [image.productId, image.url])),
     [previewImagesQuery.data],
+  );
+
+  // Vista "Tutti": oltre ai prodotti dell'azienda mostriamo anche gli articoli
+  // dei cataloghi dei fornitori collegati non ancora gestiti.
+  const [catalogDrafts, setCatalogDrafts] = useState<Record<string, string>>({});
+  const catalogCandidatesQuery = useQuery({
+    queryKey: ["inventario-catalogo-candidati", companyId],
+    staleTime: 5 * 60 * 1000,
+    queryFn: () => readCatalogCandidates({ data: { companyId } }),
+  });
+  const catalogCandidates: CatalogCandidate[] = catalogCandidatesQuery.data ?? [];
+
+  const catalogImagesQuery = useQuery({
+    queryKey: ["inventario-catalogo-immagini", companyId, catalogCandidates.length],
+    enabled: catalogCandidates.length > 0,
+    staleTime: 8 * 60 * 1000,
+    queryFn: async () => {
+      const bySeller = new Map<string, string[]>();
+      for (const candidate of catalogCandidates.slice(0, 60)) {
+        const list = bySeller.get(candidate.sellerCompanyId) ?? [];
+        list.push(candidate.sellerProductId);
+        bySeller.set(candidate.sellerCompanyId, list);
+      }
+      const results = await Promise.all(
+        [...bySeller.entries()].map(([sellerCompanyId, productIds]) =>
+          getSellerImageUrls({ data: { sellerCompanyId, productIds, thumbnail: true } }).catch(() => []),
+        ),
+      );
+      return results.flat();
+    },
+  });
+  const catalogImages = useMemo(
+    () => new Map((catalogImagesQuery.data ?? []).map((image) => [image.productId, image.url])),
+    [catalogImagesQuery.data],
   );
 
 
@@ -305,6 +346,50 @@ export function InventoryCountPanel({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Conteggio su un articolo del catalogo fornitore: prima entra fra i propri
+  // prodotti, poi la quantità viene registrata nel conteggio (aperto o appena avviato).
+  const catalogCount = useMutation({
+    mutationFn: async (input: { candidate: CatalogCandidate; locationId: string; value: number }) => {
+      const { productId } = await adoptProduct({
+        data: {
+          companyId,
+          sellerCompanyId: input.candidate.sellerCompanyId,
+          sellerProductId: input.candidate.sellerProductId,
+        },
+      });
+      const activeSessionId =
+        sessionId ?? (await start({ data: { companyId, archiveId: archiveId!, name: null } })).id;
+      await saveCount({
+        data: {
+          companyId,
+          sessionId: activeSessionId,
+          productId,
+          locationId: input.locationId,
+          countedQuantity: input.value,
+          unitId: null,
+          unitCode: input.candidate.danea_um?.trim() || null,
+          notes: null,
+        },
+      });
+      return input.locationId;
+    },
+    onSuccess: async (locationId) => {
+      setCatalogDrafts({});
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventario-catalogo-candidati", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventario-prodotti", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory-rows"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory-progress"] }),
+      ]);
+      if (!sessionId) setSelectedLocationId(locationId);
+      toast.success("Articolo aggiunto ai tuoi prodotti e quantità salvata");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+
+
   const countMutation = useMutation({
     mutationFn: (input: { row: InventoryCountRow; value: number; notes: string | null }) =>
       saveCount({
@@ -397,6 +482,54 @@ export function InventoryCountPanel({
       ? (activeLocations[0] ?? null)
       : (activeLocations.find((location) => location.id === draftZoneId) ?? null);
   const zoneProgress = new Map((progress?.zones ?? []).map((zone) => [zone.location_id, zone]));
+
+  const renderCatalogBlock = (countLocation: { id: string; name: string } | null) => {
+    if (!catalogCandidates.length) return null;
+    return (
+      <div className="overflow-hidden rounded-md border border-border bg-card">
+        <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+          Catalogo dei fornitori ({catalogCandidates.length}) — scrivendo una quantità l'articolo entra fra i tuoi
+          prodotti
+        </p>
+        <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
+          {catalogCandidates.map((candidate) => (
+            <DraftCountCard
+              key={candidate.sellerProductId}
+              name={candidate.description ?? candidate.code}
+              code={candidate.code}
+              unit={candidate.danea_um?.trim() ?? ""}
+              category={
+                candidate.category
+                  ? `${candidate.category} · ${candidate.sellerCompanyName}`
+                  : candidate.sellerCompanyName
+              }
+              badge="Da catalogo"
+              image={catalogImages.get(candidate.sellerProductId) ?? null}
+              value={catalogDrafts[candidate.sellerProductId] ?? ""}
+              disabled={!isAdmin || !archiveId || !countLocation || catalogCount.isPending}
+              onChange={(value) =>
+                setCatalogDrafts((current) => ({ ...current, [candidate.sellerProductId]: value }))
+              }
+              onConfirm={() => {
+                const value = parseQuantity(catalogDrafts[candidate.sellerProductId] ?? "");
+                if (value === null) {
+                  toast.error("Inserisci una quantità valida");
+                  return;
+                }
+                if (!countLocation) {
+                  toast.error("Scegli prima la zona");
+                  return;
+                }
+                catalogCount.mutate({ candidate, locationId: countLocation.id, value });
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="space-y-2">
@@ -504,7 +637,7 @@ export function InventoryCountPanel({
                 </div>
               </div>
             ) : null}
-
+            {renderCatalogBlock(draftLocation ? { id: draftLocation.id, name: draftLocation.name } : null)}
           </section>
         ) : selectingLocation ? (
 
@@ -532,6 +665,13 @@ export function InventoryCountPanel({
             }))}
             selectedLocation={selectedLocation ? { id: selectedLocation.id, name: selectedLocation.name } : null}
             rows={rows}
+            catalogSlot={renderCatalogBlock(
+              selectedLocation
+                ? { id: selectedLocation.id, name: selectedLocation.name }
+                : defaultLocation
+                  ? { id: defaultLocation.id, name: defaultLocation.name }
+                  : null,
+            )}
             loading={rowsQuery.isLoading}
             imageUrls={imageUrls}
             drafts={drafts}
@@ -733,6 +873,7 @@ function DraftCountCard({
   image,
   value,
   disabled,
+  badge = "Mai contato",
   onChange,
   onConfirm,
 }: {
@@ -743,6 +884,7 @@ function DraftCountCard({
   image: string | null;
   value: string;
   disabled: boolean;
+  badge?: string;
   onChange: (value: string) => void;
   onConfirm: () => void;
 }) {
@@ -772,7 +914,7 @@ function DraftCountCard({
           ) : null}
         </div>
         <span className="shrink-0 rounded-sm bg-muted px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-muted-foreground">
-          Mai contato
+          {badge}
         </span>
       </div>
       <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
@@ -877,6 +1019,7 @@ function PhysicalCount({
   locations,
   selectedLocation,
   rows,
+  catalogSlot,
   loading,
   imageUrls,
   drafts,
@@ -909,6 +1052,7 @@ function PhysicalCount({
   locations: { id: string; name: string; progress: { completed: number; total: number } | undefined }[];
   selectedLocation: { id: string; name: string } | null;
   rows: InventoryCountRow[];
+  catalogSlot?: ReactNode;
   loading: boolean;
   imageUrls: Map<string, string>;
   drafts: Record<string, string>;
@@ -1153,6 +1297,12 @@ function PhysicalCount({
           </div>
         </div>
       ) : null}
+
+      {(navigationMode === "products" || (navigationMode === "search" && search.trim())) &&
+      productView === "all" &&
+      workFilter !== "differences"
+        ? catalogSlot
+        : null}
 
       {completed && showCompletion ? (
         <CompletionSummary
