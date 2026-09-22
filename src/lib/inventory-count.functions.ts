@@ -224,18 +224,23 @@ export const manageCompanyProductFavorite = createServerFn({ method: "POST" })
     } else {
       const references = await getSupplierReferences(context, data.companyId, [data.productId]);
       const sellerProductIds = [...new Set(references.map((reference) => reference.sellerProductId))];
-      const operations = [
-        context.supabase.from("company_product_favorites").delete()
-          .eq("company_id", data.companyId).eq("product_id", data.productId),
-        ...(sellerProductIds.length
-          ? [context.supabase.from("buyer_product_favorites").delete()
-              .eq("buyer_company_id", data.companyId).in("product_id", sellerProductIds)]
-          : []),
-      ];
-      const results = await Promise.all(operations);
-      const error = results.find((result) => result.error)?.error;
-      if (error) throw new Error(error.message);
+      const { error: removeError } = await context.supabase.rpc("manage_company_product_favorite", {
+        _company_id: data.companyId,
+        _product_id: data.productId,
+        _favorite: false,
+        _actor_user_id: context.userId,
+      });
+      if (removeError) throw new Error(removeError.message);
+      if (sellerProductIds.length) {
+        const { error } = await context.supabase
+          .from("buyer_product_favorites")
+          .delete()
+          .eq("buyer_company_id", data.companyId)
+          .in("product_id", sellerProductIds);
+        if (error) throw new Error(error.message);
+      }
     }
+
     return { favorite: data.favorite };
   });
 
