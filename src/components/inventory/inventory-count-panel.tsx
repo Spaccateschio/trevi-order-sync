@@ -7,17 +7,25 @@ import {
   ChevronRight,
   CircleAlert,
   ClipboardCheck,
+  Columns3,
   Delete,
+  History,
   LayoutGrid,
   MapPin,
+  MoreVertical,
   Package,
   PackageSearch,
+  RotateCcw,
   Search,
+  ShoppingCart,
+  SlidersHorizontal,
   Sparkles,
   Star,
   StickyNote,
   Tags,
+  TriangleAlert,
 } from "lucide-react";
+
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -30,23 +38,40 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useInventoryLocations } from "@/components/inventory/inventory-locations-manager";
 import { InventoryRequirementsPanel } from "@/components/inventory/inventory-requirements-panel";
+import {
+  useInventoryFieldPreferences,
+  type InventoryFieldId,
+} from "@/components/inventory/use-inventory-fields";
 import { supabase } from "@/integrations/supabase/client";
 import { getCatalogImageUrls } from "@/lib/catalog.functions";
 import {
   adoptCatalogProduct,
   closeGeneralInventory,
+  getCountHistory,
   getInventoryProgress,
   getInventoryRows,
   getSupplierCatalogCandidates,
   manageCompanyProductFavorite,
+  managePurchaseProposal,
+  recordCountEntry,
   startGeneralInventory,
   type CatalogCandidate,
+  type CountHistoryEntry,
   type InventoryCountRow,
   type InventoryProgress,
 } from "@/lib/inventory-count.functions";
@@ -55,7 +80,19 @@ import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
 
 type ProductView = "favorites" | "all";
-type WorkFilter = "pending" | "completed" | "differences";
+type WorkFilter = "pending" | "completed" | "differences" | "recount";
+type SupplierInfo = { name: string | null; cost: number | null };
+type FieldPreferences = ReturnType<typeof useInventoryFieldPreferences>;
+
+const ENTRY_LABELS: Record<string, string> = {
+  conteggio: "Primo conteggio",
+  riconteggio: "Riconteggio",
+  segnalazione: "Segnalato non conforme",
+  revoca_segnalazione: "Segnalazione revocata",
+  richiesta_riconteggio: "Segnato da ricontare",
+};
+
+
 type NavigationMode = "zones" | "categories" | "subcategories" | "products" | "search";
 
 const NO_CATEGORY = "Senza categoria";
@@ -109,11 +146,15 @@ export function InventoryCountPanel({
   const readProgress = useServerFn(getInventoryProgress);
   const readRows = useServerFn(getInventoryRows);
   const saveCount = useServerFn(recordInventoryCount);
+  const saveEntry = useServerFn(recordCountEntry);
+  const readHistory = useServerFn(getCountHistory);
+  const manageProposal = useServerFn(managePurchaseProposal);
   const toggleFavorite = useServerFn(manageCompanyProductFavorite);
   const getImageUrls = useServerFn(getProductImageUrls);
   const getSellerImageUrls = useServerFn(getCatalogImageUrls);
   const readCatalogCandidates = useServerFn(getSupplierCatalogCandidates);
   const adoptProduct = useServerFn(adoptCatalogProduct);
+
 
   const { data: locations = [] } = useInventoryLocations(companyId);
   const activeLocations = locations.filter((location) => location.status === "attivo");
@@ -135,6 +176,15 @@ export function InventoryCountPanel({
   // Conteggio immediato senza sessione aperta: bozze per prodotto e zona scelta
   const [draftFirst, setDraftFirst] = useState<Record<string, string>>({});
   const [draftZoneId, setDraftZoneId] = useState<string | null>(null);
+  // Segnalazioni: non conformità, proposta d'acquisto, storico
+  const [compliance, setCompliance] = useState<InventoryCountRow | null>(null);
+  const [complianceQuantity, setComplianceQuantity] = useState("");
+  const [complianceNote, setComplianceNote] = useState("");
+  const [proposalRow, setProposalRow] = useState<InventoryCountRow | null>(null);
+  const [proposalNote, setProposalNote] = useState("");
+  const [historyRow, setHistoryRow] = useState<InventoryCountRow | null>(null);
+  const fieldPreferences = useInventoryFieldPreferences("inventario-conteggio");
+
 
   const sessionQuery = useQuery({
     queryKey: ["inventory-general-session", companyId, archiveId],
@@ -264,6 +314,7 @@ export function InventoryCountPanel({
     const all = rowsQuery.data ?? [];
     return all.filter((row) => {
       if (workFilter === "pending") return row.counted === null;
+      if (workFilter === "recount") return row.recount_requested_at !== null;
       if (workFilter === "completed") return row.counted !== null;
       return row.counted !== null && Number(row.difference ?? 0) !== 0;
     });
@@ -283,6 +334,33 @@ export function InventoryCountPanel({
     () => new Map((imagesQuery.data ?? []).map((image) => [image.productId, image.url])),
     [imagesQuery.data],
   );
+
+  // Informazioni d'acquisto in SOLA LETTURA (nessuna logica di acquisto qui)
+  const supplierInfoQuery = useQuery({
+    queryKey: ["inventario-info-fornitore", companyId, imageProductIds],
+    enabled: imageProductIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_supplier_links")
+        .select("product_id, manual_cost, is_preferred, sourcing_priority, supplier_records(legal_name)")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .in("product_id", imageProductIds);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const supplierInfo = useMemo(() => {
+    const map = new Map<string, SupplierInfo>();
+    for (const link of supplierInfoQuery.data ?? []) {
+      if (map.has(link.product_id)) continue;
+      const record = link.supplier_records as { legal_name: string } | null;
+      map.set(link.product_id, { name: record?.legal_name ?? null, cost: link.manual_cost });
+    }
+    return map;
+  }, [supplierInfoQuery.data]);
+
 
   const refresh = async () => {
     await Promise.all([
@@ -397,18 +475,21 @@ export function InventoryCountPanel({
 
 
 
+  // Conferma e riconteggio: append-only nello storico, l'ultima riga è la fotografia corrente
   const countMutation = useMutation({
     mutationFn: (input: { row: InventoryCountRow; value: number; notes: string | null }) =>
-      saveCount({
+      saveEntry({
         data: {
           companyId,
           sessionId: sessionId!,
           productId: input.row.product_id,
           locationId: input.row.location_id,
+          entryType: input.row.counted !== null ? "riconteggio" : "conteggio",
           countedQuantity: input.value,
-          unitId: null,
           unitCode: rowUnit(input.row) || null,
           notes: input.notes,
+          nonCompliant: null,
+          nonCompliantQuantity: null,
         },
       }),
     onSuccess: async (_result, input) => {
@@ -421,6 +502,103 @@ export function InventoryCountPanel({
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  // Riconta: segna la riga come "Da ricontare" senza cancellare il conteggio precedente
+  const recountMutation = useMutation({
+    mutationFn: (row: InventoryCountRow) =>
+      saveEntry({
+        data: {
+          companyId,
+          sessionId: sessionId!,
+          productId: row.product_id,
+          locationId: row.location_id,
+          entryType: "richiesta_riconteggio",
+          countedQuantity: null,
+          unitCode: rowUnit(row) || null,
+          notes: null,
+          nonCompliant: null,
+          nonCompliantQuantity: null,
+        },
+      }),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("Prodotto segnato da ricontare: il conteggio precedente resta nello storico");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  // Non conforme: solo segnalazione, la giacenza non cambia
+  const complianceMutation = useMutation({
+    mutationFn: (input: {
+      row: InventoryCountRow;
+      nonCompliant: boolean;
+      quantity: number | null;
+      note: string | null;
+    }) =>
+      saveEntry({
+        data: {
+          companyId,
+          sessionId: sessionId!,
+          productId: input.row.product_id,
+          locationId: input.row.location_id,
+          entryType: input.nonCompliant ? "segnalazione" : "revoca_segnalazione",
+          countedQuantity: null,
+          unitCode: rowUnit(input.row) || null,
+          notes: input.note,
+          nonCompliant: input.nonCompliant,
+          nonCompliantQuantity: input.quantity,
+        },
+      }),
+    onSuccess: async (_result, input) => {
+      setCompliance(null);
+      setComplianceNote("");
+      setComplianceQuantity("");
+      await refresh();
+      toast.success(
+        input.nonCompliant
+          ? "Segnalazione registrata: la giacenza non è stata modificata"
+          : "Segnalazione revocata",
+      );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  // Proposta d'acquisto persistente: resta disponibile anche dopo la chiusura dell'inventario
+  const proposalMutation = useMutation({
+    mutationFn: (input: { productId: string; action: "flag" | "resolve"; note: string | null }) =>
+      manageProposal({
+        data: {
+          companyId,
+          productId: input.productId,
+          action: input.action,
+          note: input.note,
+          reason: input.action === "resolve" ? "non_serve_piu" : null,
+          sessionId,
+        },
+      }),
+    onSuccess: async (_result, input) => {
+      setProposalRow(null);
+      setProposalNote("");
+      await Promise.all([
+        refresh(),
+        queryClient.invalidateQueries({ queryKey: ["proposte-acquisto", companyId] }),
+      ]);
+      toast.success(
+        input.action === "flag"
+          ? "Prodotto proposto per l'acquisto: lo troverai nella lista della spesa come proposta da confermare"
+          : "Proposta chiusa",
+      );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const historyQuery = useQuery({
+    queryKey: ["inventario-storico", companyId, historyRow?.product_id ?? null],
+    enabled: Boolean(historyRow),
+    queryFn: () =>
+      readHistory({ data: { companyId, productId: historyRow!.product_id, locationId: null } }),
+  });
+
 
   const closeMutation = useMutation({
     mutationFn: () => close({ data: { companyId, sessionId: sessionId! } }),
@@ -747,7 +925,31 @@ export function InventoryCountPanel({
             onToggleFavorite={(row) =>
               favoriteMutation.mutate({ productId: row.product_id, favorite: !row.is_favorite })
             }
+            supplierInfo={supplierInfo}
+            fieldPreferences={fieldPreferences}
+            locationOptions={activeLocations.map((location) => ({ id: location.id, name: location.name }))}
+            onRecount={(row) => recountMutation.mutate(row)}
+            onNonCompliance={(row) => {
+              setCompliance(row);
+              setComplianceNote(row.non_compliant_note ?? "");
+              setComplianceQuantity(
+                row.non_compliant_quantity === null ? "" : String(row.non_compliant_quantity).replace(".", ","),
+              );
+            }}
+            onRevokeNonCompliance={(row) =>
+              complianceMutation.mutate({ row, nonCompliant: false, quantity: null, note: null })
+            }
+            onProposal={(row) => {
+              if (row.proposal_status === "aperta") {
+                proposalMutation.mutate({ productId: row.product_id, action: "resolve", note: null });
+                return;
+              }
+              setProposalRow(row);
+              setProposalNote("");
+            }}
+            onHistory={(row) => setHistoryRow(row)}
             onCloseInventory={() => closeMutation.mutate()}
+
             onHideCompletion={() => setShowCompletion(false)}
             closing={closeMutation.isPending}
           />
@@ -890,6 +1092,198 @@ export function InventoryCountPanel({
             : null}
         </DialogContent>
       </Dialog>
+
+      {/* Non conforme: segnalazione con quantità facoltativa, nessun effetto sulla giacenza */}
+      <Dialog
+        open={compliance !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCompliance(null);
+            setComplianceNote("");
+            setComplianceQuantity("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          {compliance ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base">Prodotto non conforme</DialogTitle>
+                <DialogDescription className="text-xs">
+                  {rowName(compliance)} · Cod. {compliance.code}
+                </DialogDescription>
+              </DialogHeader>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold">
+                  Quantità interessata (facoltativa){rowUnit(compliance) ? ` · ${rowUnit(compliance)}` : ""}
+                </span>
+                <Input
+                  inputMode="decimal"
+                  value={complianceQuantity}
+                  placeholder="Puoi lasciarla vuota se non l'hai ancora quantificata"
+                  onChange={(event) => setComplianceQuantity(event.target.value)}
+                />
+              </label>
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold">Motivazione</p>
+                <Textarea
+                  className="min-h-20 text-sm"
+                  maxLength={300}
+                  value={complianceNote}
+                  placeholder="Es. prodotto deteriorato, non a norma di legge"
+                  onChange={(event) => setComplianceNote(event.target.value)}
+                  aria-label="Motivazione della non conformità"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {["Prodotto deteriorato", "Non a norma", "Pezzatura errata", "Confezione danneggiata"].map((reason) => (
+                    <Button
+                      key={reason}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px]"
+                      onClick={() => setComplianceNote(reason)}
+                    >
+                      {reason}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <p className="rounded-sm border border-border bg-muted/40 px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+                La giacenza non cambia: per togliere la merce dal magazzino serve una rettifica di scarto esplicita.
+              </p>
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button variant="outline" onClick={() => setCompliance(null)}>
+                  Annulla
+                </Button>
+                <Button
+                  disabled={!complianceNote.trim() || complianceMutation.isPending}
+                  onClick={() => {
+                    const quantity = complianceQuantity.trim() ? parseQuantity(complianceQuantity) : null;
+                    if (complianceQuantity.trim() && quantity === null) {
+                      toast.error("Inserisci solo un numero");
+                      return;
+                    }
+                    if (quantity !== null && compliance.counted !== null && quantity > Number(compliance.counted)) {
+                      toast.error("La quantità non conforme non può superare la quantità fisica confermata");
+                      return;
+                    }
+                    complianceMutation.mutate({
+                      row: compliance,
+                      nonCompliant: true,
+                      quantity,
+                      note: complianceNote.trim(),
+                    });
+                  }}
+                >
+                  <TriangleAlert className="size-4" /> Registra segnalazione
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Proposta d'acquisto */}
+      <Dialog
+        open={proposalRow !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setProposalRow(null);
+            setProposalNote("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          {proposalRow ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base">Proponi per l'acquisto</DialogTitle>
+                <DialogDescription className="text-xs">
+                  {rowName(proposalRow)} · Cod. {proposalRow.code}
+                </DialogDescription>
+              </DialogHeader>
+              <Textarea
+                className="min-h-20 text-sm"
+                maxLength={300}
+                value={proposalNote}
+                placeholder="Es. prodotto finito, serve per un nuovo cliente"
+                onChange={(event) => setProposalNote(event.target.value)}
+                aria-label="Nota della proposta"
+              />
+              <p className="rounded-sm border border-border bg-muted/40 px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+                Resta una proposta: comparirà nella lista della spesa da confermare, senza creare ordini o righe
+                definitive.
+              </p>
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button variant="outline" onClick={() => setProposalRow(null)}>
+                  Annulla
+                </Button>
+                <Button
+                  disabled={proposalMutation.isPending}
+                  onClick={() =>
+                    proposalMutation.mutate({
+                      productId: proposalRow.product_id,
+                      action: "flag",
+                      note: proposalNote.trim() || null,
+                    })
+                  }
+                >
+                  <ShoppingCart className="size-4" /> Proponi
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Storico append-only */}
+      <Dialog open={historyRow !== null} onOpenChange={(open) => !open && setHistoryRow(null)}>
+        <DialogContent className="max-w-lg">
+          {historyRow ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base">Storico dei controlli</DialogTitle>
+                <DialogDescription className="text-xs">
+                  {rowName(historyRow)} · Cod. {historyRow.code}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-80 space-y-1.5 overflow-y-auto">
+                {historyQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Caricamento…</p>
+                ) : (historyQuery.data ?? []).length ? (
+                  (historyQuery.data ?? []).map((entry: CountHistoryEntry) => (
+                    <div key={entry.id} className="rounded-sm border border-border bg-muted/30 px-2 py-1.5 text-xs">
+                      <p className="font-semibold">
+                        {new Date(entry.created_at).toLocaleString("it-IT")} · {ENTRY_LABELS[entry.entry_type]}
+                        {entry.location_name ? ` · ${entry.location_name}` : ""}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {entry.counted_quantity === null
+                          ? "Quantità non modificata"
+                          : `Quantità ${formatQuantity(Number(entry.counted_quantity), entry.unit_code ?? "")}${
+                              entry.unit_code ? ` ${entry.unit_code}` : ""
+                            }`}
+                        {entry.non_compliant
+                          ? ` · non conforme${
+                              entry.non_compliant_quantity === null
+                                ? " (quantità non indicata)"
+                                : ` ${formatQuantity(Number(entry.non_compliant_quantity), entry.unit_code ?? "")}`
+                            }`
+                          : ""}
+                      </p>
+                      {entry.note ? <p className="mt-0.5 leading-snug">«{entry.note}»</p> : null}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nessuna registrazione per questo prodotto.</p>
+                )}
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
     </Tabs>
   );
 }
@@ -1076,7 +1470,16 @@ function PhysicalCount({
   onConfirm,
   onConfirmAll,
   onToggleFavorite,
+  supplierInfo,
+  fieldPreferences,
+  locationOptions,
+  onRecount,
+  onNonCompliance,
+  onRevokeNonCompliance,
+  onProposal,
+  onHistory,
   onCloseInventory,
+
   onHideCompletion,
   closing,
 }: {
@@ -1109,7 +1512,16 @@ function PhysicalCount({
   onConfirm: (row: InventoryCountRow) => void;
   onConfirmAll: () => void;
   onToggleFavorite: (row: InventoryCountRow) => void;
+  supplierInfo: Map<string, SupplierInfo>;
+  fieldPreferences: FieldPreferences;
+  locationOptions: { id: string; name: string }[];
+  onRecount: (row: InventoryCountRow) => void;
+  onNonCompliance: (row: InventoryCountRow) => void;
+  onRevokeNonCompliance: (row: InventoryCountRow) => void;
+  onProposal: (row: InventoryCountRow) => void;
+  onHistory: (row: InventoryCountRow) => void;
   onCloseInventory: () => void;
+
   onHideCompletion: () => void;
   closing: boolean;
 }) {
@@ -1288,17 +1700,76 @@ function PhysicalCount({
                 Tutti
               </Button>
             </div>
-            <div className="grid grid-cols-3 rounded-md border border-border p-0.5">
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "ghost"} onClick={() => onWorkFilterChange("pending")}>
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "outline"} onClick={() => onWorkFilterChange("pending")}>
                 Da controllare
               </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "completed" ? "default" : "ghost"} onClick={() => onWorkFilterChange("completed")}>
-                Completati
+              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "completed" ? "default" : "outline"} onClick={() => onWorkFilterChange("completed")}>
+                Confermati
               </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "differences" ? "default" : "ghost"} onClick={() => onWorkFilterChange("differences")}>
+              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "differences" ? "default" : "outline"} onClick={() => onWorkFilterChange("differences")}>
                 Differenze
               </Button>
+              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "recount" ? "default" : "outline"} onClick={() => onWorkFilterChange("recount")}>
+                Da ricontare
+              </Button>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-2 py-1.5">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="h-8 text-[11px]">
+                  <SlidersHorizontal className="size-3.5" /> Filtri
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel className="text-xs">Zona</DropdownMenuLabel>
+                <DropdownMenuItem onClick={onAllZones}>Tutte le zone</DropdownMenuItem>
+                {locationOptions.map((location) => (
+                  <DropdownMenuItem key={location.id} onClick={() => onLocationChange(location.id)}>
+                    {location.name}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Categoria</DropdownMenuLabel>
+                {categories.length ? (
+                  categories.slice(0, 12).map((item) => (
+                    <DropdownMenuItem key={item.name} onClick={() => onCategoryChange(item.name)}>
+                      {item.name}
+                    </DropdownMenuItem>
+                  ))
+                ) : (
+                  <DropdownMenuItem disabled>Nessuna categoria</DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="h-8 text-[11px]">
+                  <Columns3 className="size-3.5" /> Colonne
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel className="text-xs">Informazioni da mostrare</DropdownMenuLabel>
+                {fieldPreferences.fields.map((field) => (
+                  <DropdownMenuCheckboxItem
+                    key={field.id}
+                    checked={fieldPreferences.isVisible(field.id)}
+                    onCheckedChange={(checked) =>
+                      fieldPreferences.setVisibility((current) => ({ ...current, [field.id]: checked }))
+                    }
+                  >
+                    {field.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={fieldPreferences.reset}>Ripristina predefinite</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <p className="text-[10px] text-muted-foreground">
+              Acquisto e fabbisogno sono in sola lettura: si gestiscono nella lista della spesa.
+            </p>
           </div>
 
           <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
@@ -1309,12 +1780,20 @@ function PhysicalCount({
                 imageUrl={imageUrls.get(row.product_id)}
                 value={drafts[rowKey(row)] ?? ""}
                 isAdmin={isAdmin}
+                supplier={supplierInfo.get(row.product_id) ?? null}
+                isVisible={fieldPreferences.isVisible}
                 onChange={(value) => onDraftChange(rowKey(row), value)}
                 onConfirm={() => onConfirm(row)}
                 onToggleFavorite={() => onToggleFavorite(row)}
+                onRecount={() => onRecount(row)}
+                onNonCompliance={() => onNonCompliance(row)}
+                onRevokeNonCompliance={() => onRevokeNonCompliance(row)}
+                onProposal={() => onProposal(row)}
+                onHistory={() => onHistory(row)}
               />
             ))}
           </div>
+
           {!rows.length ? (
             <div className="p-8 text-center">
               <PackageSearch className="mx-auto size-8 text-muted-foreground" />
@@ -1403,17 +1882,31 @@ function ProductCard({
   imageUrl,
   value,
   isAdmin,
+  supplier,
+  isVisible,
   onChange,
   onConfirm,
   onToggleFavorite,
+  onRecount,
+  onNonCompliance,
+  onRevokeNonCompliance,
+  onProposal,
+  onHistory,
 }: {
   row: InventoryCountRow;
   imageUrl: string | undefined;
   value: string;
   isAdmin: boolean;
+  supplier: SupplierInfo | null;
+  isVisible: (id: InventoryFieldId) => boolean;
   onChange: (value: string) => void;
   onConfirm: () => void;
   onToggleFavorite: () => void;
+  onRecount: () => void;
+  onNonCompliance: () => void;
+  onRevokeNonCompliance: () => void;
+  onProposal: () => void;
+  onHistory: () => void;
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
   const unit = rowUnit(row);
@@ -1424,6 +1917,19 @@ function ProductCard({
   const confirmedDifference = isConfirmed ? Number(row.difference ?? 0) : null;
   const hasDifference = isConfirmed && confirmedDifference !== 0;
   const difference = counted === null ? (isConfirmed ? confirmedDifference : null) : counted - calculated;
+  const needsRecount = row.recount_requested_at !== null;
+  const proposalOpen = row.proposal_status === "aperta";
+  const status = needsRecount
+    ? "Da ricontare"
+    : !isConfirmed
+      ? "Mai contato"
+      : hasDifference
+        ? confirmedDifference! > 0
+          ? "Differenza in più"
+          : "Differenza in meno"
+        : Number(row.counted) === 0
+          ? "Zero verificato"
+          : "Confermato";
 
   return (
     <article
@@ -1432,6 +1938,7 @@ function ProductCard({
         !isConfirmed && "border-border",
         isConfirmed && !hasDifference && "border-success/50 bg-success/5",
         hasDifference && "border-destructive/50 bg-destructive/5",
+        needsRecount && "border-primary/60 bg-primary/5",
       )}
     >
       <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
@@ -1446,11 +1953,37 @@ function ProductCard({
           <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
           <p className="text-[11px] leading-tight text-muted-foreground">
             Cod. {row.code}
-            {unit ? ` · ${unit}` : ""} · {row.location_name}
+            {unit ? ` · ${unit}` : ""}
+            {isVisible("zona") ? ` · ${row.location_name}` : ""}
           </p>
+          {isVisible("categoria") && row.category ? (
+            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+              {row.category}
+              {isVisible("sottocategoria") && row.subcategory ? ` · ${row.subcategory}` : ""}
+            </p>
+          ) : null}
+          {isVisible("fornitore") || isVisible("prezzo_acquisto") ? (
+            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+              {isVisible("fornitore") ? (supplier?.name ?? "Nessun fornitore collegato") : ""}
+              {isVisible("prezzo_acquisto") && supplier?.cost !== null && supplier?.cost !== undefined
+                ? ` · € ${Number(supplier.cost).toFixed(2).replace(".", ",")}`
+                : ""}
+            </p>
+          ) : null}
+          {isVisible("scorta_minima") || isVisible("fabbisogno") ? (
+            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+              {isVisible("scorta_minima") ? `Scorta minima ${row.min_stock ?? "—"}` : ""}
+              {isVisible("fabbisogno") && row.order_multiple ? ` · multiplo ${row.order_multiple}` : ""}
+            </p>
+          ) : null}
+          {isVisible("ultimo_conteggio") && row.counted_at ? (
+            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+              Ultimo conteggio {new Date(row.counted_at).toLocaleDateString("it-IT")}
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {isAdmin ? (
+          {isAdmin && isVisible("preferito") ? (
             <Button
               type="button"
               variant="ghost"
@@ -1470,10 +2003,48 @@ function ProductCard({
               !isConfirmed && "bg-muted text-muted-foreground",
               isConfirmed && !hasDifference && "bg-success/15 text-success",
               hasDifference && "bg-destructive/10 text-destructive",
+              needsRecount && "bg-primary/15 text-primary",
             )}
           >
-            {!isConfirmed ? "Da controllare" : hasDifference ? "Differenza" : "Confermato"}
+            {status}
           </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 px-0"
+                tabIndex={-1}
+                aria-label={`Azioni su ${name}`}
+              >
+                <MoreVertical className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuItem onClick={onRecount} disabled={!isAdmin}>
+                <RotateCcw className="size-3.5" /> Segna da ricontare
+              </DropdownMenuItem>
+              {row.non_compliant ? (
+                <DropdownMenuItem onClick={onRevokeNonCompliance} disabled={!isAdmin}>
+                  <TriangleAlert className="size-3.5" /> Revoca non conforme
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={onNonCompliance} disabled={!isAdmin}>
+                  <TriangleAlert className="size-3.5" /> Segnala non conforme
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={onProposal} disabled={!isAdmin}>
+                <ShoppingCart className="size-3.5" />
+                {proposalOpen ? "Chiudi proposta d'acquisto" : "Proponi per l'acquisto"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onHistory}>
+                <History className="size-3.5" /> Storico dei controlli
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {hasDifference ? (
             <Button
               type="button"
@@ -1490,6 +2061,24 @@ function ProductCard({
           ) : null}
         </div>
       </div>
+      {(isVisible("non_conforme") && row.non_compliant) || (isVisible("proposta") && proposalOpen) ? (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {isVisible("non_conforme") && row.non_compliant ? (
+            <span className="rounded-sm bg-destructive/10 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-destructive">
+              Non conforme
+              {row.non_compliant_quantity === null
+                ? ""
+                : ` ${formatQuantity(Number(row.non_compliant_quantity), unit)}`}
+            </span>
+          ) : null}
+          {isVisible("proposta") && proposalOpen ? (
+            <span className="rounded-sm bg-primary/15 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-primary">
+              Da proporre per acquisto
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
         <div>
           <p className="text-[9px] leading-none text-muted-foreground">Calcolata</p>
