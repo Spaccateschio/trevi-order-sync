@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Check,
@@ -1834,6 +1835,11 @@ function ProductCard({
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onHistory} disabled={!actionsEnabled}>
                 <History className="size-3.5" /> Storico dei controlli
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/acquisti/prodotti" search={{ prodotto: row.product_id }}>
+                  <ExternalLink className="size-3.5" /> Apri prodotto → Acquisto
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
