@@ -54,6 +54,40 @@ export function InventoryRequirementsPanel({
   });
   const archiveIds = archivesQuery.data ?? [];
 
+  // Stessa popolazione del Conteggio: i prodotti della mia azienda gestiti.
+  // Gli articoli dei cataloghi dei fornitori restano fuori.
+  const managedQuery = useQuery({
+    queryKey: ["inventario-prodotti-gestiti", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, code, description, category, subcategory, danea_um")
+        .eq("company_id", companyId)
+        .eq("is_managed", true)
+        .order("code")
+        .limit(300);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const managedProducts = managedQuery.data ?? [];
+  const managedById = useMemo(
+    () => new Map(managedProducts.map((product) => [product.id, product])),
+    [managedProducts],
+  );
+
+  const imagesQuery = useQuery({
+    queryKey: ["inventario-fabbisogno-immagini", companyId, managedProducts.length],
+    enabled: managedProducts.length > 0,
+    staleTime: 8 * 60 * 1000,
+    queryFn: () =>
+      runImages({ data: { productIds: managedProducts.slice(0, 50).map((p) => p.id), thumbnail: true } }),
+  });
+  const images = useMemo(
+    () => new Map((imagesQuery.data ?? []).map((image) => [image.productId, image.url])),
+    [imagesQuery.data],
+  );
+
   const query = useQuery({
     queryKey: ["inventory-requirements", companyId, archiveIds.join("|")],
     enabled: archiveIds.length > 0,
@@ -69,7 +103,7 @@ export function InventoryRequirementsPanel({
           if (!merged.has(row.product_id)) merged.set(row.product_id, row);
         }
       }
-      return Array.from(merged.values()).sort((a, b) => a.code.localeCompare(b.code));
+      return Array.from(merged.values());
     },
   });
 
@@ -77,17 +111,34 @@ export function InventoryRequirementsPanel({
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase();
     const list = query.data ?? [];
-    const enriched = list.map((row) => {
-      const needed = parseQuantity(needs[row.product_id] ?? "") ?? 0;
-      const computed = purchaseNeed(needed, row.min_stock, row.available, row.order_multiple);
-      return { ...row, needed, ...computed };
-    });
-    return enriched.filter((row) => {
-      if (onlyNeeded && row.suggested <= 0) return false;
-      if (!term) return true;
-      return row.code.toLowerCase().includes(term) || (row.description ?? "").toLowerCase().includes(term);
-    });
-  }, [query.data, search, needs, onlyNeeded]);
+    const enriched = list
+      .filter((row) => managedById.has(row.product_id))
+      .map((row) => {
+        const needed = parseQuantity(needs[row.product_id] ?? "") ?? 0;
+        const computed = purchaseNeed(needed, row.min_stock, row.available, row.order_multiple);
+        const product = managedById.get(row.product_id);
+        return {
+          ...row,
+          needed,
+          ...computed,
+          category: product?.category ?? null,
+          unit: row.danea_um ?? product?.danea_um ?? null,
+        };
+      });
+    return enriched
+      .filter((row) => {
+        if (onlyNeeded && row.suggested <= 0) return false;
+        if (!term) return true;
+        return row.code.toLowerCase().includes(term) || (row.description ?? "").toLowerCase().includes(term);
+      })
+      .sort((left, right) =>
+        ((left.description ?? "").trim() || left.code).localeCompare(
+          (right.description ?? "").trim() || right.code,
+          "it",
+          { sensitivity: "base", numeric: true },
+        ),
+      );
+  }, [managedById, query.data, search, needs, onlyNeeded]);
 
   // Selezione multipla: 20 prodotti entrano in lista in una volta, con il suggerito del momento.
   const addToList = useMutation({
