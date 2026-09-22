@@ -1365,8 +1365,23 @@ function PhysicalCount({
         ? locations.find((item) => item.id === selectedLocation.id)?.progress
         : { completed: generalCompleted, total };
 
-  const categories = progress?.categories ?? [];
-  const subcategories = (progress?.subcategories ?? []).filter((item) => !category || item.category === category);
+  const categories = progress?.categories?.length
+    ? progress.categories
+    : [...new Set([
+        ...rows.map((row) => row.category ?? NO_CATEGORY),
+        ...catalogCandidates.map((item) => item.category ?? NO_CATEGORY),
+      ])].sort().map((name) => ({ name, completed: 0, total: 0 }));
+  const subcategories = progress?.subcategories?.length
+    ? progress.subcategories.filter((item) => !category || item.category === category)
+    : [...new Set([
+        ...rows.filter((row) => !category || (row.category ?? NO_CATEGORY) === category)
+          .map((row) => row.subcategory ?? NO_SUBCATEGORY),
+        ...catalogCandidates.filter((item) => !category || (item.category ?? NO_CATEGORY) === category)
+          .map((item) => item.subcategory ?? NO_SUBCATEGORY),
+      ])].sort().map((name) => ({ name, category: category ?? "", completed: 0, total: 0 }));
+  const visibleRows = supplierFilter
+    ? rows.filter((row) => supplierInfo.get(row.product_id)?.name === supplierFilter)
+    : rows;
 
   return (
     <section className="space-y-2">
@@ -1418,7 +1433,7 @@ function PhysicalCount({
               <p className="text-xs text-muted-foreground">
                 Selezione corrente:{" "}
                 <strong>
-                  {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? rows.length}
+                  {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? visibleRows.length}
                 </strong>{" "}
                 completati
               </p>
@@ -1529,7 +1544,7 @@ function PhysicalCount({
           </div>
 
           <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <ProductCard
                 key={rowKey(row)}
                 row={row}
@@ -1565,7 +1580,7 @@ function PhysicalCount({
             </div>
           ) : null}
 
-          {!rows.length ? (
+          {!visibleRows.length && !catalogCandidates.length ? (
             <div className="p-8 text-center">
               <PackageSearch className="mx-auto size-8 text-muted-foreground" />
               <p className="mt-2 text-sm font-medium">{loading ? "Caricamento…" : "Nessun prodotto in questa vista"}</p>
