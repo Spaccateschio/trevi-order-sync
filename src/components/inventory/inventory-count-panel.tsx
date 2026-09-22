@@ -229,13 +229,16 @@ export function InventoryCountPanel({
   });
   const previewProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return catalogPreview.filter((product) => {
-      if (productView === "favorites" && !previewFavoriteQuery.data?.has(product.id)) return false;
-      if (category && (product.category ?? NO_CATEGORY) !== category) return false;
-      if (subcategory && (product.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
-      return !term || `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term);
-    });
+    return catalogPreview
+      .filter((product) => {
+        if (productView === "favorites" && !previewFavoriteQuery.data?.has(product.id)) return false;
+        if (category && (product.category ?? NO_CATEGORY) !== category) return false;
+        if (subcategory && (product.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
+        return !term || `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term);
+      })
+      .sort((left, right) => byName(left.description, left.code, right.description, right.code));
   }, [catalogPreview, category, previewFavoriteQuery.data, productView, search, subcategory]);
+
 
   const previewImagesQuery = useQuery({
     queryKey: ["inventario-prodotti-immagini", companyId, catalogPreview.length],
