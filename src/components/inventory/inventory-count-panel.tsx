@@ -82,6 +82,16 @@ import { cn } from "@/lib/utils";
 type ProductView = "favorites" | "all";
 type WorkFilter = "pending" | "completed" | "differences" | "recount";
 type SupplierInfo = { name: string | null; cost: number | null };
+type FieldPreferences = ReturnType<typeof useInventoryFieldPreferences>;
+
+const ENTRY_LABELS: Record<string, string> = {
+  conteggio: "Primo conteggio",
+  riconteggio: "Riconteggio",
+  segnalazione: "Segnalato non conforme",
+  revoca_segnalazione: "Segnalazione revocata",
+  richiesta_riconteggio: "Segnato da ricontare",
+};
+
 
 type NavigationMode = "zones" | "categories" | "subcategories" | "products" | "search";
 
