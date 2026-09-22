@@ -346,6 +346,50 @@ export function InventoryCountPanel({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Conteggio su un articolo del catalogo fornitore: prima entra fra i propri
+  // prodotti, poi la quantità viene registrata nel conteggio (aperto o appena avviato).
+  const catalogCount = useMutation({
+    mutationFn: async (input: { candidate: CatalogCandidate; locationId: string; value: number }) => {
+      const { productId } = await adoptProduct({
+        data: {
+          companyId,
+          sellerCompanyId: input.candidate.sellerCompanyId,
+          sellerProductId: input.candidate.sellerProductId,
+        },
+      });
+      const activeSessionId =
+        sessionId ?? (await start({ data: { companyId, archiveId: archiveId!, name: null } })).id;
+      await saveCount({
+        data: {
+          companyId,
+          sessionId: activeSessionId,
+          productId,
+          locationId: input.locationId,
+          countedQuantity: input.value,
+          unitId: null,
+          unitCode: input.candidate.danea_um?.trim() || null,
+          notes: null,
+        },
+      });
+      return input.locationId;
+    },
+    onSuccess: async (locationId) => {
+      setCatalogDrafts({});
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventario-catalogo-candidati", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventario-prodotti", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory-rows"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory-progress"] }),
+      ]);
+      if (!sessionId) setSelectedLocationId(locationId);
+      toast.success("Articolo aggiunto ai tuoi prodotti e quantità salvata");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+
+
   const countMutation = useMutation({
     mutationFn: (input: { row: InventoryCountRow; value: number; notes: string | null }) =>
       saveCount({
