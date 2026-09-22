@@ -171,6 +171,13 @@ export function InventoryCountPanel({
     },
   });
   const catalogPreview = catalogPreviewQuery.data ?? [];
+  const previewProducts = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return catalogPreview;
+    return catalogPreview.filter((product) =>
+      `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term),
+    );
+  }, [catalogPreview, search]);
 
   const previewImagesQuery = useQuery({
     queryKey: ["inventario-prodotti-immagini", companyId, catalogPreview.length],
@@ -596,13 +603,37 @@ export function InventoryCountPanel({
                 Scegli la zona in cui stai contando per abilitare i campi.
               </p>
             ) : null}
-            {catalogPreview.length ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant={productView === "favorites" ? "default" : "outline"}
+                  onClick={() => setProductView("favorites")}
+                >
+                  Preferiti
+                </Button>
+                <Button
+                  size="sm"
+                  variant={productView === "all" ? "default" : "outline"}
+                  onClick={() => setProductView("all")}
+                >
+                  Tutti
+                </Button>
+              </div>
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Cerca per codice o descrizione"
+                className="h-9 w-full sm:w-64"
+              />
+            </div>
+            {previewProducts.length ? (
               <div className="overflow-hidden rounded-md border border-border bg-card">
                 <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
-                  Prodotti della tua azienda ({catalogPreview.length})
+                  Prodotti della tua azienda ({previewProducts.length})
                 </p>
                 <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
-                  {catalogPreview.map((product) => (
+                  {previewProducts.map((product) => (
                     <DraftCountCard
                       key={product.id}
                       name={product.description ?? product.code}
@@ -637,7 +668,9 @@ export function InventoryCountPanel({
                 </div>
               </div>
             ) : null}
-            {renderCatalogBlock(draftLocation ? { id: draftLocation.id, name: draftLocation.name } : null)}
+            {productView === "all"
+              ? renderCatalogBlock(draftLocation ? { id: draftLocation.id, name: draftLocation.name } : null)
+              : null}
           </section>
         ) : selectingLocation ? (
 
