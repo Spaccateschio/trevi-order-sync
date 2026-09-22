@@ -1292,6 +1292,7 @@ function PhysicalCount({
   selectedLocation,
   rows,
   catalogCandidates,
+  excludedCatalogCount,
   catalogImages,
   catalogDrafts,
   loading,
@@ -1340,6 +1341,7 @@ function PhysicalCount({
   selectedLocation: { id: string; name: string } | null;
   rows: InventoryCountRow[];
   catalogCandidates: CatalogCandidate[];
+  excludedCatalogCount: number;
   catalogImages: Map<string, string>;
   catalogDrafts: Record<string, string>;
   loading: boolean;
@@ -1571,7 +1573,10 @@ function PhysicalCount({
               </DropdownMenuContent>
             </DropdownMenu>
             <p className="text-[10px] text-muted-foreground">
-              Acquisto e fabbisogno sono in sola lettura: si gestiscono nella lista della spesa.
+              Costo e unità di misura della giacenza sono in sola lettura: si gestiscono nella scheda prodotto.
+              {excludedCatalogCount
+                ? ` ${excludedCatalogCount} articoli dei cataloghi dei fornitori non sono inclusi: entrano qui solo quando diventano prodotti tuoi.`
+                : ""}
             </p>
           </div>
 
