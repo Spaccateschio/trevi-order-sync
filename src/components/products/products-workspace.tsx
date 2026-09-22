@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 
 import type { Json } from "@/integrations/supabase/types";
 import { analyzeDaneaFile, importDaneaFile } from "@/lib/danea.functions";
+import { fetchAssignedPrices } from "@/lib/catalog";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import {
   DEFAULT_COLUMN_ORDER,
@@ -189,6 +190,75 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
     },
   });
 
+  // Fornitore "vero" degli articoli: arriva dal collegamento prodotto → referenza fornitore,
+  // non dai campi ricevuti da Danea (che restano vuoti per i prodotti aggiunti dal catalogo).
+  const supplierLinksQuery = useQuery({
+    queryKey: ["prodotti-fornitori", companyId],
+    enabled: Boolean(companyId),
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("product_supplier_links")
+        .select("id, product_id, supplier_record_id, supplier_product_code, sourcing_priority, is_preferred, is_active, manual_cost, supplier_records(legal_name)")
+        .eq("company_id", companyId);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as {
+        id: string;
+        product_id: string;
+        supplier_record_id: string | null;
+        supplier_product_code: string | null;
+        sourcing_priority: number | null;
+        is_preferred: boolean;
+        is_active: boolean;
+        manual_cost: number | null;
+        supplier_records: { legal_name: string | null } | null;
+      }[];
+    },
+  });
+
+  const supplierLinks = supplierLinksQuery.data ?? [];
+  const supplierLinksKey = supplierLinks.map((link) => link.id).join("|");
+
+  // Prezzo attuale nel catalogo del fornitore B2B collegato (stesso listino assegnato del catalogo).
+  const supplierPricesQuery = useQuery({
+    queryKey: ["prodotti-prezzi-fornitore", companyId, supplierLinksKey],
+    enabled: Boolean(companyId) && supplierLinks.length > 0,
+    queryFn: async () => {
+      const result = new Map<string, number>();
+      const recordIds = [...new Set(supplierLinks.map((link) => link.supplier_record_id).filter((id): id is string => Boolean(id)))];
+      if (!companyId || !recordIds.length) return result;
+      const { data: relations } = await supabase
+        .from("supplier_customer_relations")
+        .select("supplier_record_id, seller_company_id, status")
+        .eq("buyer_company_id", companyId)
+        .in("supplier_record_id", recordIds);
+      const sellerByRecord = new Map(
+        (relations ?? [])
+          .filter((row) => row.status === "attivo" && row.supplier_record_id)
+          .map((row) => [row.supplier_record_id as string, row.seller_company_id]),
+      );
+      const sellerIds = [...new Set(sellerByRecord.values())];
+      if (!sellerIds.length) return result;
+      const { data: sellerProducts } = await supabase.from("products").select("id, code, company_id").in("company_id", sellerIds);
+      const sellerProductByCode = new Map((sellerProducts ?? []).map((row) => [`${row.company_id}|${row.code}`, row.id]));
+      const pricesBySeller = new Map<string, Map<string, number>>();
+      for (const sellerId of sellerIds) {
+        const ids = (sellerProducts ?? []).filter((row) => row.company_id === sellerId).map((row) => row.id);
+        if (!ids.length) continue;
+        pricesBySeller.set(sellerId, await fetchAssignedPrices(sellerId, ids));
+      }
+      for (const link of supplierLinks) {
+        const sellerId = link.supplier_record_id ? sellerByRecord.get(link.supplier_record_id) : undefined;
+        if (!sellerId || !link.supplier_product_code) continue;
+        const sellerProductId = sellerProductByCode.get(`${sellerId}|${link.supplier_product_code}`);
+        if (!sellerProductId) continue;
+        const price = pricesBySeller.get(sellerId)?.get(sellerProductId);
+        if (price !== undefined && !result.has(link.product_id)) result.set(link.product_id, price);
+      }
+      return result;
+    },
+  });
+
   const priceListsQuery = useQuery({
     queryKey: ["danea-listini", companyId],
     enabled: Boolean(companyId),
@@ -249,7 +319,37 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
 
   const archives = archivesQuery.data ?? [];
   const archiveNameById = useMemo(() => new Map(archives.map((archive) => [archive.id, archive.name])), [archives]);
-  const allProducts = useMemo(() => (productsQuery.data ?? []).map((product) => ({ ...product, sale_units: (saleUnitsQuery.data ?? []).filter((row) => row.product_id === product.id).map((row) => ({ code: row.units_of_measure?.code ?? "—", is_default: row.is_default, needs_review: row.needs_review })) })), [productsQuery.data, saleUnitsQuery.data]);
+  // Collegamenti fornitore per prodotto: il principale è quello preferito/con priorità più alta.
+  const linksByProduct = useMemo(() => {
+    const map = new Map<string, typeof supplierLinks>();
+    for (const link of supplierLinks) {
+      const list = map.get(link.product_id) ?? [];
+      list.push(link);
+      map.set(link.product_id, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
+        if (a.is_preferred !== b.is_preferred) return a.is_preferred ? -1 : 1;
+        return (a.sourcing_priority ?? 99) - (b.sourcing_priority ?? 99);
+      });
+    }
+    return map;
+  }, [supplierLinks]);
+  const supplierPrices = supplierPricesQuery.data;
+  const allProducts = useMemo(() => (productsQuery.data ?? []).map((product) => {
+    const links = linksByProduct.get(product.id) ?? [];
+    const main = links[0];
+    return {
+      ...product,
+      sale_units: (saleUnitsQuery.data ?? []).filter((row) => row.product_id === product.id).map((row) => ({ code: row.units_of_measure?.code ?? "—", is_default: row.is_default, needs_review: row.needs_review })),
+      link_supplier_name: main?.supplier_records?.legal_name ?? null,
+      link_supplier_product_code: main?.supplier_product_code ?? null,
+      link_supplier_count: links.length,
+      purchase_cost: main?.manual_cost ?? null,
+      supplier_price: supplierPrices?.get(product.id) ?? null,
+    };
+  }), [linksByProduct, productsQuery.data, saleUnitsQuery.data, supplierPrices]);
   const currentProduct = selected ? allProducts.find((product) => product.id === selected.id) ?? selected : null;
   // Apertura diretta della scheda quando si arriva dalla sezione Prodotti forniti del fornitore.
   const openedFromParam = useRef<string | null>(null);
