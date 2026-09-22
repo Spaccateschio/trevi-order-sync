@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Check,
@@ -7,6 +8,7 @@ import {
   ClipboardCheck,
   Columns3,
   Delete,
+  ExternalLink,
   History,
   MapPin,
   MoreVertical,
@@ -213,16 +215,17 @@ export function InventoryCountPanel({
   });
   const sessionId = sessionQuery.data?.id ?? null;
 
-  // Senza conteggio aperto mostriamo comunque i prodotti gestiti dall'azienda
-  // (tutti gli archivi), con "Mai contato" al posto della quantità.
+  // Popolazione unica dell'Inventario: i prodotti della mia azienda
+  // contrassegnati come gestiti. Vale prima e durante il conteggio, e
+  // gli articoli dei cataloghi dei fornitori non ne fanno parte.
   const catalogPreviewQuery = useQuery({
-    queryKey: ["inventario-prodotti", companyId],
-    enabled: !sessionId,
+    queryKey: ["inventario-prodotti-gestiti", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select("id, code, description, category, subcategory, danea_um")
         .eq("company_id", companyId)
+        .eq("is_managed", true)
         .order("code")
         .limit(300);
       if (error) throw new Error(error.message);
@@ -230,6 +233,10 @@ export function InventoryCountPanel({
     },
   });
   const catalogPreview = catalogPreviewQuery.data ?? [];
+  const managedProductIds = useMemo(
+    () => new Set(catalogPreview.map((product) => product.id)),
+    [catalogPreview],
+  );
   const previewFavoriteQuery = useQuery({
     queryKey: ["inventario-preferiti-prodotti", companyId, catalogPreview.length],
     enabled: !sessionId && catalogPreview.length > 0,
@@ -352,13 +359,15 @@ export function InventoryCountPanel({
     const all = rowsQuery.data ?? [];
     return all
       .filter((row) => {
+        // Stessa popolazione del Fabbisogno: solo prodotti gestiti dall'azienda.
+        if (managedProductIds.size && !managedProductIds.has(row.product_id)) return false;
         if (workFilter === "pending") return row.counted === null;
         if (workFilter === "recount") return row.recount_requested_at !== null;
         if (workFilter === "completed") return row.counted !== null;
         return row.counted !== null && Number(row.difference ?? 0) !== 0;
       })
       .sort((left, right) => byName(left.description, left.code, right.description, right.code));
-  }, [rowsQuery.data, workFilter]);
+  }, [managedProductIds, rowsQuery.data, workFilter]);
 
 
   const imageProductIds = useMemo(
@@ -786,7 +795,8 @@ export function InventoryCountPanel({
               non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
               min_stock: null, order_multiple: null,
             }))}
-            catalogCandidates={visibleCatalogCandidates}
+            catalogCandidates={[]}
+            excludedCatalogCount={visibleCatalogCandidates.length}
             catalogImages={catalogImages}
             catalogDrafts={catalogDrafts}
             loading={sessionId ? rowsQuery.isLoading : catalogPreviewQuery.isLoading}
@@ -1284,6 +1294,7 @@ function PhysicalCount({
   selectedLocation,
   rows,
   catalogCandidates,
+  excludedCatalogCount,
   catalogImages,
   catalogDrafts,
   loading,
@@ -1332,6 +1343,7 @@ function PhysicalCount({
   selectedLocation: { id: string; name: string } | null;
   rows: InventoryCountRow[];
   catalogCandidates: CatalogCandidate[];
+  excludedCatalogCount: number;
   catalogImages: Map<string, string>;
   catalogDrafts: Record<string, string>;
   loading: boolean;
@@ -1563,7 +1575,10 @@ function PhysicalCount({
               </DropdownMenuContent>
             </DropdownMenu>
             <p className="text-[10px] text-muted-foreground">
-              Acquisto e fabbisogno sono in sola lettura: si gestiscono nella lista della spesa.
+              Costo e unità di misura della giacenza sono in sola lettura: si gestiscono nella scheda prodotto.
+              {excludedCatalogCount
+                ? ` ${excludedCatalogCount} articoli dei cataloghi dei fornitori non sono inclusi: entrano qui solo quando diventano prodotti tuoi.`
+                : ""}
             </p>
           </div>
 
@@ -1821,6 +1836,11 @@ function ProductCard({
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onHistory} disabled={!actionsEnabled}>
                 <History className="size-3.5" /> Storico dei controlli
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/acquisti/prodotti" search={{ prodotto: row.product_id }}>
+                  <ExternalLink className="size-3.5" /> Apri prodotto → Acquisto
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

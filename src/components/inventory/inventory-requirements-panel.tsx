@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Search, ShoppingCart } from "lucide-react";
+import { ExternalLink, Package, Search, ShoppingCart } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity, purchaseNeed, qty, STOCK_STATUS_LABEL, type RequirementRow } from "@/lib/inventory";
+import { getProductImageUrls } from "@/lib/product-images.functions";
 import { addShoppingListItems, manageShoppingList } from "@/lib/shopping-list.functions";
 
 /**
@@ -29,6 +31,7 @@ export function InventoryRequirementsPanel({
   const queryClient = useQueryClient();
   const runList = useServerFn(manageShoppingList);
   const runAdd = useServerFn(addShoppingListItems);
+  const runImages = useServerFn(getProductImageUrls);
 
   const toggle = (productId: string) =>
     setSelected((current) => {
@@ -54,6 +57,40 @@ export function InventoryRequirementsPanel({
   });
   const archiveIds = archivesQuery.data ?? [];
 
+  // Stessa popolazione del Conteggio: i prodotti della mia azienda gestiti.
+  // Gli articoli dei cataloghi dei fornitori restano fuori.
+  const managedQuery = useQuery({
+    queryKey: ["inventario-prodotti-gestiti", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, code, description, category, subcategory, danea_um")
+        .eq("company_id", companyId)
+        .eq("is_managed", true)
+        .order("code")
+        .limit(300);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const managedProducts = managedQuery.data ?? [];
+  const managedById = useMemo(
+    () => new Map(managedProducts.map((product) => [product.id, product])),
+    [managedProducts],
+  );
+
+  const imagesQuery = useQuery({
+    queryKey: ["inventario-fabbisogno-immagini", companyId, managedProducts.length],
+    enabled: managedProducts.length > 0,
+    staleTime: 8 * 60 * 1000,
+    queryFn: () =>
+      runImages({ data: { productIds: managedProducts.slice(0, 50).map((p) => p.id), thumbnail: true } }),
+  });
+  const images = useMemo(
+    () => new Map((imagesQuery.data ?? []).map((image) => [image.productId, image.url])),
+    [imagesQuery.data],
+  );
+
   const query = useQuery({
     queryKey: ["inventory-requirements", companyId, archiveIds.join("|")],
     enabled: archiveIds.length > 0,
@@ -69,7 +106,7 @@ export function InventoryRequirementsPanel({
           if (!merged.has(row.product_id)) merged.set(row.product_id, row);
         }
       }
-      return Array.from(merged.values()).sort((a, b) => a.code.localeCompare(b.code));
+      return Array.from(merged.values());
     },
   });
 
@@ -77,17 +114,34 @@ export function InventoryRequirementsPanel({
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase();
     const list = query.data ?? [];
-    const enriched = list.map((row) => {
-      const needed = parseQuantity(needs[row.product_id] ?? "") ?? 0;
-      const computed = purchaseNeed(needed, row.min_stock, row.available, row.order_multiple);
-      return { ...row, needed, ...computed };
-    });
-    return enriched.filter((row) => {
-      if (onlyNeeded && row.suggested <= 0) return false;
-      if (!term) return true;
-      return row.code.toLowerCase().includes(term) || (row.description ?? "").toLowerCase().includes(term);
-    });
-  }, [query.data, search, needs, onlyNeeded]);
+    const enriched = list
+      .filter((row) => managedById.has(row.product_id))
+      .map((row) => {
+        const needed = parseQuantity(needs[row.product_id] ?? "") ?? 0;
+        const computed = purchaseNeed(needed, row.min_stock, row.available, row.order_multiple);
+        const product = managedById.get(row.product_id);
+        return {
+          ...row,
+          needed,
+          ...computed,
+          category: product?.category ?? null,
+          unit: row.danea_um ?? product?.danea_um ?? null,
+        };
+      });
+    return enriched
+      .filter((row) => {
+        if (onlyNeeded && row.suggested <= 0) return false;
+        if (!term) return true;
+        return row.code.toLowerCase().includes(term) || (row.description ?? "").toLowerCase().includes(term);
+      })
+      .sort((left, right) =>
+        ((left.description ?? "").trim() || left.code).localeCompare(
+          (right.description ?? "").trim() || right.code,
+          "it",
+          { sensitivity: "base", numeric: true },
+        ),
+      );
+  }, [managedById, query.data, search, needs, onlyNeeded]);
 
   // Selezione multipla: 20 prodotti entrano in lista in una volta, con il suggerito del momento.
   const addToList = useMutation({
@@ -175,8 +229,10 @@ export function InventoryRequirementsPanel({
           <thead className="bg-muted/50">
             <tr className="[&>th]:border-r [&>th]:border-border [&>th]:px-2 [&>th]:py-2 [&>th]:text-left [&>th:last-child]:border-r-0">
               <th className="w-8" aria-label="Selezione" />
-              <th className="w-24">Codice</th>
-              <th>Descrizione</th>
+              <th className="w-12" aria-label="Foto" />
+              <th>Prodotto</th>
+              <th className="w-28">Categoria</th>
+              <th className="w-16">U.M.</th>
               <th className="w-24">Disponibile</th>
               <th className="w-24">Scorta min.</th>
               <th className="w-28">Necessario</th>
@@ -198,8 +254,35 @@ export function InventoryRequirementsPanel({
                     onChange={() => toggle(row.product_id)}
                   />
                 </td>
-                <td className="truncate font-mono">{row.code}</td>
-                <td className="truncate">{row.description ?? "—"}</td>
+                <td>
+                  {images.get(row.product_id) ? (
+                    <img
+                      src={images.get(row.product_id)}
+                      alt=""
+                      loading="lazy"
+                      className="size-9 rounded-sm border border-border object-cover"
+                    />
+                  ) : (
+                    <span className="flex size-9 items-center justify-center rounded-sm border border-border bg-muted">
+                      <Package className="size-4 text-muted-foreground" aria-hidden="true" />
+                    </span>
+                  )}
+                </td>
+                <td className="min-w-0">
+                  <p className="truncate font-medium">{row.description ?? row.code}</p>
+                  <p className="truncate font-mono text-[11px] text-muted-foreground">
+                    Cod. {row.code}
+                    <Link
+                      to="/acquisti/prodotti"
+                      search={{ prodotto: row.product_id }}
+                      className="ml-1 inline-flex items-center gap-0.5 font-sans text-primary underline"
+                    >
+                      <ExternalLink className="size-3" aria-hidden="true" /> Acquisto
+                    </Link>
+                  </p>
+                </td>
+                <td className="truncate text-muted-foreground">{row.category ?? "—"}</td>
+                <td className="text-muted-foreground">{row.unit ?? "—"}</td>
                 <td>{row.count_status === "mai_contato" ? "—" : qty(row.available)}</td>
                 <td>{row.min_stock !== null ? qty(row.min_stock) : "—"}</td>
                 <td>
@@ -244,9 +327,27 @@ export function InventoryRequirementsPanel({
                 aria-label={`Seleziona ${row.code}`}
                 onChange={() => toggle(row.product_id)}
               />
+              {images.get(row.product_id) ? (
+                <img
+                  src={images.get(row.product_id)}
+                  alt=""
+                  loading="lazy"
+                  className="size-10 rounded-sm border border-border object-cover"
+                />
+              ) : (
+                <span className="flex size-10 items-center justify-center rounded-sm border border-border bg-muted">
+                  <Package className="size-4 text-muted-foreground" aria-hidden="true" />
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{row.description ?? row.code}</p>
-                <p className="font-mono text-xs text-muted-foreground">{row.code}</p>
+                <p className="truncate font-mono text-xs text-muted-foreground">
+                  {row.code}
+                  {row.unit ? ` · ${row.unit}` : ""}
+                </p>
+                {row.category ? (
+                  <p className="truncate text-xs text-muted-foreground">{row.category}</p>
+                ) : null}
               </div>
               <Badge variant="outline">{STOCK_STATUS_LABEL[row.count_status]}</Badge>
             </div>
@@ -273,6 +374,13 @@ export function InventoryRequirementsPanel({
                 Arrotondato da {qty(row.rawNeed)} al multiplo {qty(row.order_multiple)}
               </p>
             ) : null}
+            <Link
+              to="/acquisti/prodotti"
+              search={{ prodotto: row.product_id }}
+              className="mt-2 inline-flex items-center gap-1 text-xs text-primary underline"
+            >
+              <ExternalLink className="size-3" aria-hidden="true" /> Apri prodotto → Acquisto
+            </Link>
           </li>
         ))}
       </ul>
