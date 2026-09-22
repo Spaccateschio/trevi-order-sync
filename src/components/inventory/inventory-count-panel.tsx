@@ -72,7 +72,6 @@ import {
   type InventoryCountRow,
   type InventoryProgress,
 } from "@/lib/inventory-count.functions";
-import { recordInventoryCount } from "@/lib/inventory.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
 
@@ -140,7 +139,6 @@ export function InventoryCountPanel({
   const close = useServerFn(closeGeneralInventory);
   const readProgress = useServerFn(getInventoryProgress);
   const readRows = useServerFn(getInventoryRows);
-  const saveCount = useServerFn(recordInventoryCount);
   const saveEntry = useServerFn(recordCountEntry);
   const readHistory = useServerFn(getCountHistory);
   const manageProposal = useServerFn(managePurchaseProposal);
