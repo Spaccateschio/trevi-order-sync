@@ -266,6 +266,55 @@ export const manageCatalogProductFavorite = createServerFn({ method: "POST" })
     return { favorite: data.favorite };
   });
 
+/**
+ * Preferiti dell'inventario per un insieme di prodotti propri: unisce la stella
+ * messa sul prodotto e quella messa sulla referenza del catalogo fornitore.
+ */
+export const getFavoriteProductIds = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      companyId: z.string().uuid(),
+      productIds: z.array(z.string().uuid()).max(500),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    if (!data.productIds.length) return [] as string[];
+
+    const references = await getSupplierReferences(context, data.companyId, data.productIds);
+    const sellerProductIds = [...new Set(references.map((reference) => reference.sellerProductId))];
+
+    const [{ data: ownFavorites, error: ownError }, { data: catalogFavorites, error: catalogError }] =
+      await Promise.all([
+        context.supabase
+          .from("company_product_favorites")
+          .select("product_id")
+          .eq("company_id", data.companyId)
+          .in("product_id", data.productIds),
+        sellerProductIds.length
+          ? context.supabase
+              .from("buyer_product_favorites")
+              .select("product_id")
+              .eq("buyer_company_id", data.companyId)
+              .in("product_id", sellerProductIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+    if (ownError) throw new Error(ownError.message);
+    if (catalogError) throw new Error(catalogError.message);
+
+    const favoriteSellerProductIds = new Set(
+      (catalogFavorites ?? []).map((favorite: { product_id: string }) => favorite.product_id),
+    );
+    const favorites = new Set<string>(
+      (ownFavorites ?? []).map((favorite: { product_id: string }) => favorite.product_id),
+    );
+    for (const reference of references) {
+      if (favoriteSellerProductIds.has(reference.sellerProductId)) favorites.add(reference.ownProductId);
+    }
+    return [...favorites];
+  });
+
+
 export const getInventoryProgress = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ sessionId: z.string().uuid() }).parse(input))
