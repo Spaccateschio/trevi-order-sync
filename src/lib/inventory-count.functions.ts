@@ -50,6 +50,14 @@ type SupplierReference = {
   sellerProductId: string;
 };
 
+type SupplierReferenceCandidate = {
+  ownProductId: string;
+  sellerCompanyId: string;
+  code: string;
+  isPreferred: boolean;
+  priority: number | null;
+};
+
 async function getSupplierReferences(
   context: { supabase: any },
   companyId: string,
@@ -85,7 +93,7 @@ async function getSupplierReferences(
     }
   }
 
-  const wanted = (links ?? [])
+  const wanted: SupplierReferenceCandidate[] = (links ?? [])
     .map((link: {
       product_id: string;
       supplier_record_id: string;
@@ -100,13 +108,13 @@ async function getSupplierReferences(
       priority: link.sourcing_priority,
     }))
     .filter(
-      (entry): entry is {
+      (entry: {
         ownProductId: string;
-        sellerCompanyId: string;
-        code: string;
+        sellerCompanyId: string | null;
+        code: string | null;
         isPreferred: boolean;
         priority: number | null;
-      } => Boolean(entry.sellerCompanyId && entry.code),
+      }): entry is SupplierReferenceCandidate => Boolean(entry.sellerCompanyId && entry.code),
     );
   if (!wanted.length) return [];
 
@@ -194,15 +202,16 @@ export const manageCompanyProductFavorite = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const references = await getSupplierReferences(context, data.companyId, [data.productId]);
-    if (!references.length) throw new Error("Referenza del fornitore non trovata");
+    const primaryReference = references[0];
+    if (!primaryReference) throw new Error("Referenza del fornitore non trovata");
 
     const sellerProductIds = [...new Set(references.map((reference) => reference.sellerProductId))];
     const operation = data.favorite
       ? context.supabase.from("buyer_product_favorites").upsert(
           {
             buyer_company_id: data.companyId,
-            seller_company_id: references[0].sellerCompanyId,
-            product_id: references[0].sellerProductId,
+            seller_company_id: primaryReference.sellerCompanyId,
+            product_id: primaryReference.sellerProductId,
             created_by: context.userId,
           },
           { onConflict: "buyer_company_id,product_id" },
