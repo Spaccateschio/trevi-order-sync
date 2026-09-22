@@ -115,7 +115,7 @@ export function InventoryCountPanel({
   const [tab, setTab] = useState(initialTab ?? "conteggio");
   const [selectingLocation, setSelectingLocation] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
-  const [productView, setProductView] = useState<ProductView>("favorites");
+  const [productView, setProductView] = useState<ProductView>("all");
   const [workFilter, setWorkFilter] = useState<WorkFilter>("pending");
   const [navigationMode, setNavigationMode] = useState<NavigationMode>("products");
   const [category, setCategory] = useState<string | null>(null);
@@ -249,7 +249,7 @@ export function InventoryCountPanel({
       await queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] });
       setDrafts({});
       setShowCompletion(true);
-      setProductView("favorites");
+      setProductView("all");
       setWorkFilter("pending");
       setCategory(null);
       setSubcategory(null);
