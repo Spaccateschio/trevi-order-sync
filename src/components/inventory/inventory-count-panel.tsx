@@ -26,7 +26,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -1619,6 +1619,7 @@ function PhysicalCount({
                 imageUrl={imageUrls.get(row.product_id)}
                 value={drafts[rowKey(row)] ?? ""}
                 isAdmin={isAdmin}
+                actionsEnabled={sessionActive}
                 supplier={supplierInfo.get(row.product_id) ?? null}
                 isVisible={fieldPreferences.isVisible}
                 onChange={(value) => onDraftChange(rowKey(row), value)}
@@ -1728,6 +1729,7 @@ function ProductCard({
   imageUrl,
   value,
   isAdmin,
+  actionsEnabled,
   supplier,
   isVisible,
   onChange,
@@ -1743,6 +1745,7 @@ function ProductCard({
   imageUrl: string | undefined;
   value: string;
   isAdmin: boolean;
+  actionsEnabled: boolean;
   supplier: SupplierInfo | null;
   isVisible: (id: InventoryFieldId) => boolean;
   onChange: (value: string) => void;
@@ -1829,7 +1832,7 @@ function ProductCard({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {isAdmin && isVisible("preferito") ? (
+          {isAdmin ? (
             <Button
               type="button"
               variant="ghost"
@@ -1868,24 +1871,24 @@ function ProductCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
-              <DropdownMenuItem onClick={onRecount} disabled={!isAdmin}>
+              <DropdownMenuItem onClick={onRecount} disabled={!isAdmin || !actionsEnabled}>
                 <RotateCcw className="size-3.5" /> Segna da ricontare
               </DropdownMenuItem>
               {row.non_compliant ? (
-                <DropdownMenuItem onClick={onRevokeNonCompliance} disabled={!isAdmin}>
+                <DropdownMenuItem onClick={onRevokeNonCompliance} disabled={!isAdmin || !actionsEnabled}>
                   <TriangleAlert className="size-3.5" /> Revoca non conforme
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={onNonCompliance} disabled={!isAdmin}>
+                <DropdownMenuItem onClick={onNonCompliance} disabled={!isAdmin || !actionsEnabled}>
                   <TriangleAlert className="size-3.5" /> Segnala non conforme
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={onProposal} disabled={!isAdmin}>
+              <DropdownMenuItem onClick={onProposal} disabled={!isAdmin || !actionsEnabled}>
                 <ShoppingCart className="size-3.5" />
                 {proposalOpen ? "Chiudi proposta d'acquisto" : "Proponi per l'acquisto"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onHistory}>
+              <DropdownMenuItem onClick={onHistory} disabled={!actionsEnabled}>
                 <History className="size-3.5" /> Storico dei controlli
               </DropdownMenuItem>
             </DropdownMenuContent>
