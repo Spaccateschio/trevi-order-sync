@@ -266,7 +266,7 @@ export function InventoryCountPanel({
     const term = search.trim().toLowerCase();
     return catalogCandidates.filter((candidate) => {
       if (productView === "favorites" && !candidate.isFavorite) return false;
-      if (supplierFilter && candidate.sellerCompanyId !== supplierFilter) return false;
+      if (supplierFilter && candidate.sellerCompanyName !== supplierFilter) return false;
       if (category && (candidate.category ?? NO_CATEGORY) !== category) return false;
       if (subcategory && (candidate.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
       if (workFilter !== "pending") return false;
@@ -1336,35 +1336,41 @@ function LocationSelection({
 }
 
 function PhysicalCount({
+  sessionActive,
   sessionName,
   progress,
   locations,
   selectedLocation,
   rows,
-  catalogSlot,
+  catalogCandidates,
+  catalogImages,
+  catalogDrafts,
   loading,
   imageUrls,
   drafts,
   productView,
   workFilter,
-  navigationMode,
   category,
   subcategory,
+  supplierFilter,
   search,
   isAdmin,
   showCompletion,
   onViewChange,
   onWorkFilterChange,
-  onNavigationModeChange,
   onLocationChange,
   onAllZones,
   onCategoryChange,
   onSubcategoryChange,
+  onSupplierChange,
   onSearchChange,
   onDraftChange,
   onConfirm,
   onConfirmAll,
   onToggleFavorite,
+  onToggleCatalogFavorite,
+  onCatalogDraftChange,
+  onCatalogConfirm,
   supplierInfo,
   fieldPreferences,
   locationOptions,
@@ -1378,35 +1384,41 @@ function PhysicalCount({
   onHideCompletion,
   closing,
 }: {
+  sessionActive: boolean;
   sessionName: string;
   progress: InventoryProgress | undefined;
   locations: { id: string; name: string; progress: { completed: number; total: number } | undefined }[];
   selectedLocation: { id: string; name: string } | null;
   rows: InventoryCountRow[];
-  catalogSlot?: ReactNode;
+  catalogCandidates: CatalogCandidate[];
+  catalogImages: Map<string, string>;
+  catalogDrafts: Record<string, string>;
   loading: boolean;
   imageUrls: Map<string, string>;
   drafts: Record<string, string>;
   productView: ProductView;
   workFilter: WorkFilter;
-  navigationMode: NavigationMode;
   category: string | null;
   subcategory: string | null;
+  supplierFilter: string | null;
   search: string;
   isAdmin: boolean;
   showCompletion: boolean;
   onViewChange: (value: ProductView) => void;
   onWorkFilterChange: (value: WorkFilter) => void;
-  onNavigationModeChange: (value: NavigationMode) => void;
   onLocationChange: (id: string) => void;
   onAllZones: () => void;
   onCategoryChange: (value: string) => void;
   onSubcategoryChange: (value: string) => void;
+  onSupplierChange: (value: string | null) => void;
   onSearchChange: (value: string) => void;
   onDraftChange: (key: string, value: string) => void;
   onConfirm: (row: InventoryCountRow) => void;
   onConfirmAll: () => void;
   onToggleFavorite: (row: InventoryCountRow) => void;
+  onToggleCatalogFavorite: (candidate: CatalogCandidate) => void;
+  onCatalogDraftChange: (id: string, value: string) => void;
+  onCatalogConfirm: (candidate: CatalogCandidate) => void;
   supplierInfo: Map<string, SupplierInfo>;
   fieldPreferences: FieldPreferences;
   locationOptions: { id: string; name: string }[];
@@ -1449,7 +1461,9 @@ function PhysicalCount({
       >
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase leading-none text-muted-foreground">Inventario generale</p>
+            <p className="text-[10px] font-semibold uppercase leading-none text-muted-foreground">
+              {sessionActive ? "Inventario generale" : "Conteggio pronto"}
+            </p>
             <h2 className="truncate font-display text-sm font-bold uppercase leading-tight sm:text-base">{sessionName}</h2>
           </div>
           <div className="flex shrink-0 items-baseline gap-1.5">
@@ -1473,103 +1487,13 @@ function PhysicalCount({
         </div>
       </div>
 
-      <div className="rounded-md border border-border bg-card p-1">
-        <div className="grid grid-cols-5 gap-1">
-          {(
-            [
-              ["zones", MapPin, "Zone"],
-              ["categories", LayoutGrid, "Categorie"],
-              ["subcategories", Tags, "Sottocategorie"],
-              ["products", Boxes, "Prodotti"],
-              ["search", Search, "Cerca"],
-            ] as const
-          ).map(([mode, Icon, label]) => (
-            <Button
-              key={mode}
-              variant={navigationMode === mode ? "default" : "ghost"}
-              className="h-11 min-w-0 flex-col gap-0 px-1 text-[9px] sm:h-10 sm:flex-row sm:gap-1.5 sm:text-xs"
-              onClick={() => onNavigationModeChange(mode)}
-            >
-              <Icon className="size-4 shrink-0" />
-              <span className="truncate">{label}</span>
-            </Button>
-          ))}
-        </div>
+      <div className="relative rounded-md border border-border bg-card p-2">
+        <Search className="absolute left-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input className="h-10 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto" />
       </div>
 
-      <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-md border border-border bg-card px-2 py-1 text-xs">
-        <Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => onNavigationModeChange("zones")}>
-          Tutte le zone
-        </Button>
-        {selectedLocation ? (
-          <>
-            <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
-            <Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => onNavigationModeChange("categories")}>
-              {selectedLocation.name}
-            </Button>
-          </>
-        ) : null}
-        {category ? (
-          <>
-            <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
-            <Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => onNavigationModeChange("subcategories")}>
-              {category}
-            </Button>
-          </>
-        ) : null}
-        {subcategory ? (
-          <>
-            <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
-            <Button size="sm" variant="ghost" className="h-7 shrink-0 px-1.5 text-xs" onClick={() => onNavigationModeChange("products")}>
-              {subcategory}
-            </Button>
-          </>
-        ) : null}
-      </div>
-
-      {navigationMode === "zones" ? (
-        <VisualGrid
-          title="Scegli una zona"
-          items={[
-            { id: "all", name: "Tutte", progress: { completed: generalCompleted, total } },
-            ...locations.map((item) => ({ id: item.id, name: item.name, progress: item.progress })),
-          ]}
-          onSelect={(id) => {
-            if (id === "all") onAllZones();
-            else onLocationChange(id);
-          }}
-        />
-      ) : null}
-      {navigationMode === "categories" ? (
-        <VisualGrid
-          title={selectedLocation ? `Categorie · ${selectedLocation.name}` : "Categorie"}
-          items={categories.map((item) => ({ id: item.name, name: item.name, progress: item }))}
-          onSelect={onCategoryChange}
-        />
-      ) : null}
-      {navigationMode === "subcategories" ? (
-        <VisualGrid
-          title={category ? `Sottocategorie · ${category}` : "Sottocategorie"}
-          items={subcategories.map((item) => ({ id: item.name, name: item.name, progress: item }))}
-          onSelect={onSubcategoryChange}
-        />
-      ) : null}
-
-      {navigationMode === "search" ? (
-        <div className="relative rounded-md border border-border bg-card p-2">
-          <Search className="absolute left-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            autoFocus
-            className="h-10 pl-9 text-sm"
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Cerca prodotto o codice"
-            aria-label="Ricerca prodotto"
-          />
-        </div>
-      ) : null}
-
-      {navigationMode === "products" || (navigationMode === "search" && search.trim()) ? (
+      <div className="overflow-hidden rounded-md border border-border bg-card">
         <div className="overflow-hidden rounded-md border border-border bg-card">
           <div className="grid gap-1.5 border-b border-border p-2 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
             <div className="min-w-0">
@@ -1627,6 +1551,15 @@ function PhysicalCount({
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Fornitore</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => onSupplierChange(null)}>Tutti i fornitori</DropdownMenuItem>
+                {[...new Set([
+                  ...catalogCandidates.map((item) => item.sellerCompanyName),
+                  ...[...supplierInfo.values()].flatMap((item) => item.name ? [item.name] : []),
+                ])].sort().map((name) => (
+                  <DropdownMenuItem key={name} onClick={() => onSupplierChange(name)}>{name}</DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs">Categoria</DropdownMenuLabel>
                 {categories.length ? (
                   categories.slice(0, 12).map((item) => (
@@ -1637,6 +1570,17 @@ function PhysicalCount({
                 ) : (
                   <DropdownMenuItem disabled>Nessuna categoria</DropdownMenuItem>
                 )}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Sottocategoria</DropdownMenuLabel>
+                {subcategories.length ? subcategories.slice(0, 12).map((item) => (
+                  <DropdownMenuItem key={`${item.category}-${item.name}`} onClick={() => onSubcategoryChange(item.name)}>{item.name}</DropdownMenuItem>
+                )) : <DropdownMenuItem disabled>Nessuna sottocategoria</DropdownMenuItem>}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Stato conteggio</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => onWorkFilterChange("pending")}>Da controllare</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onWorkFilterChange("completed")}>Confermati</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onWorkFilterChange("differences")}>Differenze</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onWorkFilterChange("recount")}>Da ricontare</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
@@ -1689,6 +1633,20 @@ function PhysicalCount({
             ))}
           </div>
 
+          {catalogCandidates.length ? (
+            <div className="grid gap-2 border-t border-border p-2 md:grid-cols-2 xl:grid-cols-3">
+              {catalogCandidates.map((candidate) => (
+                <CatalogProductCard key={candidate.sellerProductId} candidate={candidate}
+                  imageUrl={catalogImages.get(candidate.sellerProductId)}
+                  value={catalogDrafts[candidate.sellerProductId] ?? ""}
+                  disabled={!isAdmin}
+                  onChange={(value) => onCatalogDraftChange(candidate.sellerProductId, value)}
+                  onConfirm={() => onCatalogConfirm(candidate)}
+                  onToggleFavorite={() => onToggleCatalogFavorite(candidate)} />
+              ))}
+            </div>
+          ) : null}
+
           {!rows.length ? (
             <div className="p-8 text-center">
               <PackageSearch className="mx-auto size-8 text-muted-foreground" />
@@ -1703,13 +1661,7 @@ function PhysicalCount({
             </Button>
           </div>
         </div>
-      ) : null}
-
-      {(navigationMode === "products" || (navigationMode === "search" && search.trim())) &&
-      productView === "all" &&
-      workFilter !== "differences"
-        ? catalogSlot
-        : null}
+      </div>
 
       {completed && showCompletion ? (
         <CompletionSummary
@@ -1719,7 +1671,6 @@ function PhysicalCount({
           isAdmin={isAdmin}
           closing={closing}
           onShowDifferences={() => {
-            onNavigationModeChange("products");
             onWorkFilterChange("differences");
             onHideCompletion();
           }}
