@@ -47,6 +47,15 @@ export type ProductRow = {
   product_prices: ProductPrice[];
   product_images?: { id: string } | null;
   sale_units?: { code: string; is_default: boolean; needs_review: boolean }[];
+  /** Fornitore collegato all'articolo (referenza d'acquisto, non campo Danea). */
+  link_supplier_name?: string | null;
+  link_supplier_product_code?: string | null;
+  /** Numero di fornitori collegati: oltre al principale si segnala "+N". */
+  link_supplier_count?: number;
+  /** Costo d'acquisto noto dal collegamento (manuale oppure ricevuto da Danea). */
+  purchase_cost?: number | null;
+  /** Prezzo attuale nel catalogo del fornitore B2B collegato. */
+  supplier_price?: number | null;
 };
 
 export const AVAILABILITY_LABELS: Record<ProductRow["commercial_availability"], string> = {
@@ -128,9 +137,23 @@ export const PRODUCT_COLUMNS: ProductColumn[] = [
   { id: "barcode", label: "Barcode", size: 150, minSize: 100, value: (p) => text(p.barcode) },
   { id: "product_type", label: "Tipo prodotto", size: 140, minSize: 100, value: (p) => text(p.product_type) },
   { id: "producer_name", label: "Produttore", size: 160, minSize: 105, value: (p) => text(p.producer_name) },
-  { id: "supplier_name", label: "Fornitore", size: 170, minSize: 110, adminOnly: true, value: (p) => text(p.supplier_name) },
+  {
+    id: "supplier_name",
+    label: "Fornitore",
+    size: 170,
+    minSize: 110,
+    adminOnly: true,
+    value: (p) => {
+      const name = p.supplier_name || p.link_supplier_name;
+      if (!name) return "—";
+      const extra = (p.link_supplier_count ?? 0) - 1;
+      return extra > 0 ? `${name} +${extra}` : name;
+    },
+  },
   { id: "supplier_code", label: "Codice fornitore", size: 145, minSize: 105, adminOnly: true, value: (p) => text(p.supplier_code) },
-  { id: "supplier_product_code", label: "Cod. prod. fornitore", size: 165, minSize: 120, adminOnly: true, value: (p) => text(p.supplier_product_code) },
+  { id: "supplier_product_code", label: "Cod. prod. fornitore", size: 165, minSize: 120, adminOnly: true, value: (p) => text(p.supplier_product_code || p.link_supplier_product_code) },
+  { id: "purchase_cost", label: "Costo acquisto", size: 130, minSize: 100, adminOnly: true, numeric: true, value: (p) => p.purchase_cost ?? null },
+  { id: "supplier_price", label: "Prezzo fornitore", size: 140, minSize: 110, adminOnly: true, numeric: true, value: (p) => p.supplier_price ?? null },
   { id: "supplier_notes", label: "Note fornitore", size: 220, minSize: 140, adminOnly: true, value: (p) => text(p.supplier_notes) },
   { id: "notes", label: "Note", size: 240, minSize: 140, value: (p) => text(p.notes) },
   { id: "image_file_name", label: "Nome file immagine", size: 180, minSize: 120, value: (p) => text(p.image_file_name) },
