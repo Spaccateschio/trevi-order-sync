@@ -1872,6 +1872,81 @@ function ProductCard({
   );
 }
 
+function CatalogProductCard({
+  candidate,
+  imageUrl,
+  value,
+  disabled,
+  onChange,
+  onConfirm,
+  onToggleFavorite,
+}: {
+  candidate: CatalogCandidate;
+  imageUrl: string | undefined;
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  onConfirm: () => void;
+  onToggleFavorite: () => void;
+}) {
+  const name = candidate.description?.trim() || candidate.code;
+  const unit = candidate.danea_um?.trim() ?? "";
+  return (
+    <article className="rounded-md border-2 border-border bg-card p-2">
+      <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
+        {imageUrl ? (
+          <img src={imageUrl} alt="" loading="lazy" className="size-12 rounded-sm border border-border object-cover" />
+        ) : (
+          <span className="flex size-12 items-center justify-center rounded-sm border border-border bg-muted">
+            <Package className="size-5 text-muted-foreground" aria-hidden="true" />
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
+          <p className="text-[11px] leading-tight text-muted-foreground">Cod. {candidate.code}{unit ? ` · ${unit}` : ""}</p>
+          <p className="truncate text-[11px] leading-tight text-muted-foreground">
+            {candidate.sellerCompanyName}{candidate.category ? ` · ${candidate.category}` : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button type="button" variant="ghost" size="sm"
+            className={cn("h-7 w-7 px-0", candidate.isFavorite && "text-primary")}
+            aria-label={candidate.isFavorite ? `Rimuovi ${name} dai preferiti` : `Aggiungi ${name} ai preferiti`}
+            title={candidate.isFavorite ? "Rimuovi dai preferiti" : "Aggiungi ai preferiti"}
+            onClick={onToggleFavorite} disabled={disabled}>
+            <Star className={cn("size-3.5", candidate.isFavorite && "fill-current")} />
+          </Button>
+          <span className="rounded-sm bg-muted px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-muted-foreground">
+            Mai contato
+          </span>
+        </div>
+      </div>
+      <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
+        <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">0</p></div>
+        <div className="min-w-0">
+          <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
+          <Input className="mt-1 h-10 px-2 text-right text-base font-bold" inputMode="decimal" value={value}
+            disabled={disabled} onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Enter") { event.currentTarget.blur(); onConfirm(); } }}
+            aria-label={`Quantità fisica ${name}`} />
+        </div>
+        <div className="text-right"><p className="text-[9px] leading-none text-muted-foreground">Differenza</p><p className="mt-1 text-sm font-bold leading-none">—</p></div>
+        <Button className="h-10 px-2 text-[11px] sm:px-3" onClick={onConfirm} disabled={disabled}>
+          <Check className="size-4" /><span className="hidden min-[360px]:inline">Conferma</span>
+        </Button>
+      </div>
+      <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2">
+        {[1, 3, 5, 10].map((increment) => (
+          <Button key={increment} type="button" variant="outline" size="sm" className="h-8 px-0 text-xs font-bold"
+            disabled={disabled} onClick={() => onChange(addToQuantity(value, increment))}>+{increment}</Button>
+        ))}
+        <Button type="button" variant="ghost" size="sm" className="h-8 w-11 px-0" disabled={disabled}
+          onClick={() => onChange("")} aria-label={`Azzera quantità ${name}`}><Delete className="size-4" /></Button>
+      </div>
+    </article>
+  );
+}
+
 function AiAnalysisDemo({
   name,
   unit,
