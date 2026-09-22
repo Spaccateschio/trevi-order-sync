@@ -1,16 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  Boxes,
   Check,
   CheckCheck,
-  ChevronRight,
   CircleAlert,
   ClipboardCheck,
   Columns3,
   Delete,
   History,
-  LayoutGrid,
   MapPin,
   MoreVertical,
   Package,
@@ -22,7 +19,6 @@ import {
   Sparkles,
   Star,
   StickyNote,
-  Tags,
   TriangleAlert,
 } from "lucide-react";
 
@@ -419,16 +415,18 @@ export function InventoryCountPanel({
       value: number;
     }) => {
       const session = await start({ data: { companyId, archiveId: archiveId!, name: null } });
-      await saveCount({
+      await saveEntry({
         data: {
           companyId,
           sessionId: session.id,
           productId: input.productId,
           locationId: input.locationId,
+          entryType: "conteggio",
           countedQuantity: input.value,
-          unitId: null,
           unitCode: input.unit || null,
           notes: null,
+          nonCompliant: null,
+          nonCompliantQuantity: null,
         },
       });
       return input.locationId;
@@ -465,16 +463,18 @@ export function InventoryCountPanel({
       });
       const activeSessionId =
         sessionId ?? (await start({ data: { companyId, archiveId: archiveId!, name: null } })).id;
-      await saveCount({
+      await saveEntry({
         data: {
           companyId,
           sessionId: activeSessionId,
           productId,
           locationId: input.locationId,
+          entryType: "conteggio",
           countedQuantity: input.value,
-          unitId: null,
           unitCode: input.candidate.danea_um?.trim() || null,
           notes: null,
+          nonCompliant: null,
+          nonCompliantQuantity: null,
         },
       });
       return input.locationId;
