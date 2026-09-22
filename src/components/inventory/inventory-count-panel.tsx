@@ -797,14 +797,28 @@ export function InventoryCountPanel({
             onSubcategoryChange={setSubcategory}
             onSupplierChange={setSupplierFilter}
             onSearchChange={setSearch}
-            onDraftChange={(key, value) => sessionId
-              ? setDrafts((current) => ({ ...current, [key]: value }))
-              : setDraftFirst((current) => ({ ...current, [key.split(":")[0]]: value }))}
+            onDraftChange={(key, value) => {
+              if (sessionId) {
+                setDrafts((current) => ({ ...current, [key]: value }));
+                return;
+              }
+              const productId = key.split(":")[0];
+              if (productId) setDraftFirst((current) => ({ ...current, [productId]: value }));
+            }}
             onConfirm={(row) => {
-              if (sessionId) return confirmRow(row);
+              if (sessionId) {
+                confirmRow(row);
+                return;
+              }
               const value = parseQuantity(draftFirst[row.product_id] ?? "");
-              if (value === null) return toast.error("Inserisci una quantità valida");
-              if (!draftLocation) return toast.error("Scegli prima la zona");
+              if (value === null) {
+                toast.error("Inserisci una quantità valida");
+                return;
+              }
+              if (!draftLocation) {
+                toast.error("Scegli prima la zona");
+                return;
+              }
               firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: rowUnit(row), value });
             }}
             onConfirmAll={confirmAllUnchanged}
@@ -815,9 +829,15 @@ export function InventoryCountPanel({
             onCatalogDraftChange={(id, value) => setCatalogDrafts((current) => ({ ...current, [id]: value }))}
             onCatalogConfirm={(candidate) => {
               const value = parseQuantity(catalogDrafts[candidate.sellerProductId] ?? "");
-              if (value === null) return toast.error("Inserisci una quantità valida");
+              if (value === null) {
+                toast.error("Inserisci una quantità valida");
+                return;
+              }
               const location = selectedLocation ?? draftLocation ?? defaultLocation ?? null;
-              if (!location) return toast.error("Scegli prima la zona");
+              if (!location) {
+                toast.error("Scegli prima la zona");
+                return;
+              }
               catalogCount.mutate({ candidate, locationId: location.id, value });
             }}
             supplierInfo={supplierInfo}
