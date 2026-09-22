@@ -357,13 +357,15 @@ export function InventoryCountPanel({
     const all = rowsQuery.data ?? [];
     return all
       .filter((row) => {
+        // Stessa popolazione del Fabbisogno: solo prodotti gestiti dall'azienda.
+        if (managedProductIds.size && !managedProductIds.has(row.product_id)) return false;
         if (workFilter === "pending") return row.counted === null;
         if (workFilter === "recount") return row.recount_requested_at !== null;
         if (workFilter === "completed") return row.counted !== null;
         return row.counted !== null && Number(row.difference ?? 0) !== 0;
       })
       .sort((left, right) => byName(left.description, left.code, right.description, right.code));
-  }, [rowsQuery.data, workFilter]);
+  }, [managedProductIds, rowsQuery.data, workFilter]);
 
 
   const imageProductIds = useMemo(
