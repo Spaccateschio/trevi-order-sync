@@ -387,6 +387,10 @@ export function InventoryCountPanel({
   };
 
   const selectedLocation = activeLocations.find((location) => location.id === selectedLocationId) ?? null;
+  const draftLocation =
+    activeLocations.length === 1
+      ? (activeLocations[0] ?? null)
+      : (activeLocations.find((location) => location.id === draftZoneId) ?? null);
   const zoneProgress = new Map((progress?.zones ?? []).map((zone) => [zone.location_id, zone]));
 
   return (
