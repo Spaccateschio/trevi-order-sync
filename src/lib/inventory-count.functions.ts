@@ -299,3 +299,125 @@ export const getInventoryRows = createServerFn({ method: "POST" })
     }));
     return data.favoritesOnly ? mappedRows.filter((row) => row.is_favorite) : mappedRows;
   });
+
+export type CatalogCandidate = {
+  sellerCompanyId: string;
+  sellerCompanyName: string;
+  sellerProductId: string;
+  code: string;
+  description: string | null;
+  danea_um: string | null;
+  category: string | null;
+};
+
+/**
+ * Articoli dei cataloghi dei fornitori collegati che NON sono ancora
+ * prodotti gestiti dall'azienda cliente. Servono alla vista "Tutti"
+ * dell'inventario: contando una quantità l'articolo entra fra i propri
+ * prodotti (RPC esistente, idempotente).
+ */
+export const getSupplierCatalogCandidates = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ companyId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }): Promise<CatalogCandidate[]> => {
+    const { data: relations, error: relationsError } = await context.supabase
+      .from("supplier_customer_relations")
+      .select("seller_company_id")
+      .eq("buyer_company_id", data.companyId)
+      .eq("status", "attivo");
+    if (relationsError) throw new Error(relationsError.message);
+
+    const sellerIds = [
+      ...new Set(
+        (relations ?? [])
+          .map((relation: { seller_company_id: string | null }) => relation.seller_company_id)
+          .filter((id: string | null): id is string => Boolean(id)),
+      ),
+    ];
+    if (!sellerIds.length) return [];
+
+    const { data: sellers, error: sellersError } = await context.supabase
+      .from("companies")
+      .select("id, legal_name")
+      .in("id", sellerIds);
+    if (sellersError) throw new Error(sellersError.message);
+    const sellerNames = new Map<string, string>(
+      (sellers ?? []).map((seller: { id: string; legal_name: string | null }) => [
+        seller.id,
+        seller.legal_name ?? "Fornitore",
+      ]),
+    );
+
+    const { data: catalog, error: catalogError } = await context.supabase
+      .from("products")
+      .select("id, company_id, code, description, danea_um, category")
+      .in("company_id", sellerIds)
+      .eq("publish_status", "pubblicato")
+      .eq("b2b_visible", true)
+      .order("code")
+      .limit(500);
+    if (catalogError) throw new Error(catalogError.message);
+
+    const { data: ownProducts, error: ownError } = await context.supabase
+      .from("products")
+      .select("id, created_from_product_id")
+      .eq("company_id", data.companyId)
+      .limit(1000);
+    if (ownError) throw new Error(ownError.message);
+
+    const alreadyOwned = new Set<string>(
+      (ownProducts ?? [])
+        .map((product: { created_from_product_id: string | null }) => product.created_from_product_id)
+        .filter((id: string | null): id is string => Boolean(id)),
+    );
+    const references = await getSupplierReferences(
+      context,
+      data.companyId,
+      (ownProducts ?? []).map((product: { id: string }) => product.id),
+    );
+    for (const reference of references) alreadyOwned.add(reference.sellerProductId);
+
+    return (catalog ?? [])
+      .filter((product: { id: string }) => !alreadyOwned.has(product.id))
+      .map((product: {
+        id: string;
+        company_id: string;
+        code: string;
+        description: string | null;
+        danea_um: string | null;
+        category: string | null;
+      }) => ({
+        sellerCompanyId: product.company_id,
+        sellerCompanyName: sellerNames.get(product.company_id) ?? "Fornitore",
+        sellerProductId: product.id,
+        code: product.code,
+        description: product.description,
+        danea_um: product.danea_um,
+        category: product.category,
+      }));
+  });
+
+/** Aggiunge un articolo del catalogo fornitore fra i prodotti dell'azienda (idempotente). */
+export const adoptCatalogProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        companyId: z.string().uuid(),
+        sellerCompanyId: z.string().uuid(),
+        sellerProductId: z.string().uuid(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("add_catalog_product_to_own_products", {
+      _buyer_company_id: data.companyId,
+      _seller_company_id: data.sellerCompanyId,
+      _seller_product_id: data.sellerProductId,
+      _actor_user_id: context.userId,
+    });
+    if (error) throw new Error(error.message);
+    const payload = (result ?? {}) as { product_id?: string };
+    if (!payload.product_id) throw new Error("Prodotto non creato");
+    return { productId: payload.product_id };
+  });
