@@ -31,6 +31,7 @@ export function InventoryRequirementsPanel({
   const queryClient = useQueryClient();
   const runList = useServerFn(manageShoppingList);
   const runAdd = useServerFn(addShoppingListItems);
+  const runImages = useServerFn(getProductImageUrls);
 
   const toggle = (productId: string) =>
     setSelected((current) => {
