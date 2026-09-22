@@ -125,6 +125,9 @@ export function InventoryCountPanel({
   const [pending, setPending] = useState<{ row: InventoryCountRow; value: number } | null>(null);
   const [pendingReason, setPendingReason] = useState("");
   const [showCompletion, setShowCompletion] = useState(true);
+  // Conteggio immediato senza sessione aperta: bozze per prodotto e zona scelta
+  const [draftFirst, setDraftFirst] = useState<Record<string, string>>({});
+  const [draftZoneId, setDraftZoneId] = useState<string | null>(null);
 
   const sessionQuery = useQuery({
     queryKey: ["inventory-general-session", companyId, archiveId],
@@ -259,6 +262,49 @@ export function InventoryCountPanel({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Prima quantità confermata senza sessione: apre il conteggio e salva subito.
+  const firstCount = useMutation({
+    mutationFn: async (input: {
+      productId: string;
+      locationId: string;
+      unit: string;
+      value: number;
+    }) => {
+      const session = await start({ data: { companyId, archiveId: archiveId!, name: null } });
+      await saveCount({
+        data: {
+          companyId,
+          sessionId: session.id,
+          productId: input.productId,
+          locationId: input.locationId,
+          countedQuantity: input.value,
+          unitId: null,
+          unitCode: input.unit || null,
+          notes: null,
+        },
+      });
+      return input.locationId;
+    },
+    onSuccess: async (locationId) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["inventory-general-session", companyId, archiveId],
+      });
+      setDraftFirst({});
+      setDrafts({});
+      setShowCompletion(true);
+      setProductView("all");
+      setWorkFilter("pending");
+      setCategory(null);
+      setSubcategory(null);
+      setSearch("");
+      setNavigationMode("products");
+      setSelectedLocationId(locationId);
+      setSelectingLocation(false);
+      toast.success("Conteggio avviato e quantità salvata");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const countMutation = useMutation({
     mutationFn: (input: { row: InventoryCountRow; value: number; notes: string | null }) =>
       saveCount({
@@ -341,6 +387,10 @@ export function InventoryCountPanel({
   };
 
   const selectedLocation = activeLocations.find((location) => location.id === selectedLocationId) ?? null;
+  const draftLocation =
+    activeLocations.length === 1
+      ? (activeLocations[0] ?? null)
+      : (activeLocations.find((location) => location.id === draftZoneId) ?? null);
   const zoneProgress = new Map((progress?.zones ?? []).map((zone) => [zone.location_id, zone]));
 
   return (
@@ -375,68 +425,84 @@ export function InventoryCountPanel({
 
       <TabsContent value="conteggio">
         {!sessionId ? (
-          <section className="space-y-3">
-            <div className="rounded-md border border-border bg-card p-6 text-center">
-              <ClipboardCheck className="mx-auto size-8 text-muted-foreground" />
-              <p className="mt-2 text-sm font-semibold">Nessun inventario generale aperto</p>
+          <section className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-card px-3 py-2">
               <p className="text-xs text-muted-foreground">
                 {isAdmin
-                  ? "Premi Nuovo conteggio per avviare l'inventario generale su tutte le zone attive."
-                  : "Un amministratore deve avviare l'inventario: poi potrai partecipare al conteggio."}
+                  ? "Conteggio non ancora iniziato: scrivi le quantità, si apre da solo alla prima conferma."
+                  : "Conteggio non ancora iniziato: un amministratore deve avviarlo."}
               </p>
+              {activeLocations.length > 1 ? (
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="text-xs font-semibold">Zona:</span>
+                  {activeLocations.map((location) => (
+                    <Button
+                      key={location.id}
+                      size="sm"
+                      variant={draftZoneId === location.id ? "default" : "outline"}
+                      onClick={() => setDraftZoneId(location.id)}
+                    >
+                      {location.name}
+                    </Button>
+                  ))}
+                </div>
+              ) : draftLocation ? (
+                <p className="text-xs font-semibold">
+                  <MapPin className="mr-1 inline size-3" aria-hidden="true" />
+                  {draftLocation.name}
+                </p>
+              ) : null}
             </div>
+            {activeLocations.length > 1 && !draftZoneId ? (
+              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                Scegli la zona in cui stai contando per abilitare i campi.
+              </p>
+            ) : null}
             {catalogPreview.length ? (
               <div className="overflow-hidden rounded-md border border-border bg-card">
                 <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
-                  Prodotti della tua azienda ({catalogPreview.length}) — verranno inclusi nel prossimo
-                  conteggio
+                  Prodotti della tua azienda ({catalogPreview.length})
                 </p>
                 <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
-                  {catalogPreview.map((product) => {
-                    const image = previewImages.get(product.id);
-                    const unit = product.danea_um?.trim() ?? "";
-                    return (
-                      <article key={product.id} className="rounded-md border-2 border-border bg-card p-2">
-                        <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
-                          {image ? (
-                            <img
-                              src={image}
-                              alt=""
-                              loading="lazy"
-                              className="size-12 rounded-sm border border-border object-cover"
-                            />
-                          ) : (
-                            <span className="grid size-12 place-items-center rounded-sm border border-border bg-muted">
-                              <Package className="size-5 text-muted-foreground" aria-hidden="true" />
-                            </span>
-                          )}
-                          <div className="min-w-0">
-                            <p className="truncate font-display text-sm font-bold uppercase leading-tight">
-                              {product.description ?? product.code}
-                            </p>
-                            <p className="text-[11px] leading-tight text-muted-foreground">
-                              Cod. {product.code}
-                              {unit ? ` · ${unit}` : ""}
-                            </p>
-                            {product.category ? (
-                              <p className="truncate text-[11px] leading-tight text-muted-foreground">
-                                {product.category}
-                              </p>
-                            ) : null}
-                          </div>
-                          <span className="shrink-0 rounded-sm bg-muted px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-muted-foreground">
-                            Mai contato
-                          </span>
-                        </div>
-                      </article>
-                    );
-                  })}
+                  {catalogPreview.map((product) => (
+                    <DraftCountCard
+                      key={product.id}
+                      name={product.description ?? product.code}
+                      code={product.code}
+                      unit={product.danea_um?.trim() ?? ""}
+                      category={product.category}
+                      image={previewImages.get(product.id) ?? null}
+                      value={draftFirst[product.id] ?? ""}
+                      disabled={!isAdmin || !archiveId || !draftLocation || firstCount.isPending}
+                      onChange={(value) =>
+                        setDraftFirst((current) => ({ ...current, [product.id]: value }))
+                      }
+                      onConfirm={() => {
+                        const value = parseQuantity(draftFirst[product.id] ?? "");
+                        if (value === null) {
+                          toast.error("Inserisci una quantità valida");
+                          return;
+                        }
+                        if (!draftLocation) {
+                          toast.error("Scegli prima la zona");
+                          return;
+                        }
+                        firstCount.mutate({
+                          productId: product.id,
+                          locationId: draftLocation.id,
+                          unit: product.danea_um?.trim() ?? "",
+                          value,
+                        });
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
             ) : null}
 
           </section>
         ) : selectingLocation ? (
+
 
           <LocationSelection
             locations={activeLocations.map((location) => ({
@@ -649,6 +715,105 @@ export function InventoryCountPanel({
     </Tabs>
   );
 }
+
+/**
+ * Scheda compilabile prima che il conteggio sia aperto: i pulsanti rapidi
+ * toccano soltanto la bozza locale, nessuna rettifica o movimento.
+ */
+function DraftCountCard({
+  name,
+  code,
+  unit,
+  category,
+  image,
+  value,
+  disabled,
+  onChange,
+  onConfirm,
+}: {
+  name: string;
+  code: string;
+  unit: string;
+  category: string | null;
+  image: string | null;
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <article className="rounded-md border-2 border-border bg-card p-2">
+      <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
+        {image ? (
+          <img
+            src={image}
+            alt=""
+            loading="lazy"
+            className="size-12 rounded-sm border border-border object-cover"
+          />
+        ) : (
+          <span className="grid size-12 place-items-center rounded-sm border border-border bg-muted">
+            <Package className="size-5 text-muted-foreground" aria-hidden="true" />
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
+          <p className="text-[11px] leading-tight text-muted-foreground">
+            Cod. {code}
+            {unit ? ` · ${unit}` : ""}
+          </p>
+          {category ? (
+            <p className="truncate text-[11px] leading-tight text-muted-foreground">{category}</p>
+          ) : null}
+        </div>
+        <span className="shrink-0 rounded-sm bg-muted px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-muted-foreground">
+          Mai contato
+        </span>
+      </div>
+      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+        <label className="block">
+          <span className="text-[11px] text-muted-foreground">Quantità fisica</span>
+          <Input
+            inputMode="decimal"
+            value={value}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.value)}
+            onFocus={(event) => event.currentTarget.select()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+                onConfirm();
+              }
+            }}
+            aria-label={`Quantità fisica ${name}`}
+            className="h-9"
+          />
+        </label>
+        <Button size="sm" onClick={onConfirm} disabled={disabled}>
+          <Check aria-hidden="true" />
+          Conferma
+        </Button>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1">
+        {[1, 3, 5, 10].map((increment) => (
+          <Button
+            key={increment}
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            onClick={() => onChange(addToQuantity(value, increment))}
+          >
+            +{increment}
+          </Button>
+        ))}
+        <Button size="sm" variant="ghost" disabled={disabled} onClick={() => onChange("")} aria-label="Azzera bozza">
+          <Delete aria-hidden="true" />
+        </Button>
+      </div>
+    </article>
+  );
+}
+
 
 function LocationSelection({
   locations,
