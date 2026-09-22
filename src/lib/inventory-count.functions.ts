@@ -42,7 +42,16 @@ export type InventoryCountRow = {
   counted_at: string | null;
   counted_by: string | null;
   note: string | null;
+  recount_requested_at: string | null;
+  non_compliant: boolean;
+  non_compliant_quantity: number | null;
+  non_compliant_note: string | null;
+  proposal_status: string | null;
+  proposal_flagged_at: string | null;
+  min_stock: number | null;
+  order_multiple: number | null;
 };
+
 
 type SupplierReference = {
   ownProductId: string;
