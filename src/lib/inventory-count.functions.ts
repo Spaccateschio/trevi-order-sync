@@ -211,14 +211,16 @@ export const manageCompanyProductFavorite = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     if (data.favorite) {
-      const { error } = await context.supabase.from("company_product_favorites").upsert(
-          {
-            company_id: data.companyId,
-            product_id: data.productId,
-            created_by: context.userId,
-          },
-          { onConflict: "company_id,product_id" });
+      // La tabella consente solo la lettura diretta: la scrittura passa dalla
+      // funzione SECURITY DEFINER che verifica l'appartenenza all'azienda.
+      const { error } = await context.supabase.rpc("manage_company_product_favorite", {
+        _company_id: data.companyId,
+        _product_id: data.productId,
+        _favorite: true,
+        _actor_user_id: context.userId,
+      });
       if (error) throw new Error(error.message);
+
     } else {
       const references = await getSupplierReferences(context, data.companyId, [data.productId]);
       const sellerProductIds = [...new Set(references.map((reference) => reference.sellerProductId))];
