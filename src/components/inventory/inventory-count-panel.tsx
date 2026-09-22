@@ -637,7 +637,7 @@ export function InventoryCountPanel({
                 </div>
               </div>
             ) : null}
-
+            {renderCatalogBlock(draftLocation ? { id: draftLocation.id, name: draftLocation.name } : null)}
           </section>
         ) : selectingLocation ? (
 
@@ -665,6 +665,13 @@ export function InventoryCountPanel({
             }))}
             selectedLocation={selectedLocation ? { id: selectedLocation.id, name: selectedLocation.name } : null}
             rows={rows}
+            catalogSlot={renderCatalogBlock(
+              selectedLocation
+                ? { id: selectedLocation.id, name: selectedLocation.name }
+                : defaultLocation
+                  ? { id: defaultLocation.id, name: defaultLocation.name }
+                  : null,
+            )}
             loading={rowsQuery.isLoading}
             imageUrls={imageUrls}
             drafts={drafts}
