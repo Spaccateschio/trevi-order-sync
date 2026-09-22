@@ -262,6 +262,49 @@ export function InventoryCountPanel({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Prima quantità confermata senza sessione: apre il conteggio e salva subito.
+  const firstCount = useMutation({
+    mutationFn: async (input: {
+      productId: string;
+      locationId: string;
+      unit: string;
+      value: number;
+    }) => {
+      const session = await start({ data: { companyId, archiveId: archiveId!, name: null } });
+      await saveCount({
+        data: {
+          companyId,
+          sessionId: session.id,
+          productId: input.productId,
+          locationId: input.locationId,
+          countedQuantity: input.value,
+          unitId: null,
+          unitCode: input.unit || null,
+          notes: null,
+        },
+      });
+      return input.locationId;
+    },
+    onSuccess: async (locationId) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["inventory-general-session", companyId, archiveId],
+      });
+      setDraftFirst({});
+      setDrafts({});
+      setShowCompletion(true);
+      setProductView("all");
+      setWorkFilter("pending");
+      setCategory(null);
+      setSubcategory(null);
+      setSearch("");
+      setNavigationMode("products");
+      setSelectedLocationId(locationId);
+      setSelectingLocation(false);
+      toast.success("Conteggio avviato e quantità salvata");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const countMutation = useMutation({
     mutationFn: (input: { row: InventoryCountRow; value: number; notes: string | null }) =>
       saveCount({
