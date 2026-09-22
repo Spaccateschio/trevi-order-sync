@@ -18,7 +18,7 @@ import {
   StickyNote,
   Tags,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -873,6 +873,7 @@ function DraftCountCard({
   image,
   value,
   disabled,
+  badge = "Mai contato",
   onChange,
   onConfirm,
 }: {
@@ -883,6 +884,7 @@ function DraftCountCard({
   image: string | null;
   value: string;
   disabled: boolean;
+  badge?: string;
   onChange: (value: string) => void;
   onConfirm: () => void;
 }) {
@@ -912,7 +914,7 @@ function DraftCountCard({
           ) : null}
         </div>
         <span className="shrink-0 rounded-sm bg-muted px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-muted-foreground">
-          Mai contato
+          {badge}
         </span>
       </div>
       <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
@@ -1017,6 +1019,7 @@ function PhysicalCount({
   locations,
   selectedLocation,
   rows,
+  catalogSlot,
   loading,
   imageUrls,
   drafts,
@@ -1049,6 +1052,7 @@ function PhysicalCount({
   locations: { id: string; name: string; progress: { completed: number; total: number } | undefined }[];
   selectedLocation: { id: string; name: string } | null;
   rows: InventoryCountRow[];
+  catalogSlot?: ReactNode;
   loading: boolean;
   imageUrls: Map<string, string>;
   drafts: Record<string, string>;
