@@ -1,56 +1,69 @@
-# Inventario: come salverò "Non conforme" e "Da proporre per acquisto"
+# Inventario: workspace unico, Preferiti sulle schede e filtri compatti
 
-Impostazione generale confermata. Qui solo i due chiarimenti richiesti; il resto del piano (riconta append-only, quattro stati, griglia su `user_grid_preferences`, filtri principali + avanzati, colonne acquisto/fabbisogno in sola lettura) resta come concordato.
+## Verifica effettuata
 
-## 1. Non conforme: storicizzato, non sovrascrivibile
+Le due esperienze sono generate nello stesso file, ma da due rami distinti:
 
-La segnalazione vive **insieme al conteggio, nello storico append-only**, non come stato che si riscrive.
+- **Prima del conteggio**: `InventoryCountPanel` usa `DraftCountCard`, con una barra ridotta Preferiti/Tutti/Cerca e una lista separata per gli articoli dei cataloghi.
+- **Dopo la prima conferma**: `InventoryCountPanel` usa `PhysicalCount` e `ProductCard`, con avanzamento, stati, azioni, Filtri e Colonne.
+- La barra duplicata Zone/Categorie/Sottocategorie/Prodotti/Cerca è interna a `PhysicalCount`, oltre al menu Filtri già presente.
 
-Ogni conferma (o sola segnalazione) scrive una riga in `inventory_count_entries`, che non si modifica né si cancella:
+Questa separazione spiega il cambio improvviso di interfaccia all’apertura automatica della sessione.
 
-- quantità fisica confermata e U.M. usata
-- non conforme sì/no
-- quantità non conforme (facoltativa, nella stessa U.M. del conteggio)
-- motivo/nota
-- chi ha registrato e quando
-- tipo di registrazione: conteggio, riconteggio, sola segnalazione, revoca della segnalazione
+## Preferiti: comportamento corretto
 
-La "fotografia corrente" (`inventory_counts`) continua a riportare l'ultimo valore, così le formule di giacenza non cambiano. La segnalazione attuale è semplicemente l'ultima riga dello storico.
+Per rendere preferito un articolo del Catalogo **non è tecnicamente necessario adottarlo nei prodotti propri**. Oggi la funzione generale del Catalogo abbina le due azioni, ma nell’Inventario le separeremo:
 
-Il tuo esempio si ricostruisce interamente:
+- articolo del Catalogo: la stella salva/toglie il preferito direttamente sulla referenza del fornitore;
+- prodotto proprio collegato a un fornitore: la stella legge e aggiorna lo stesso preferito della referenza fornitore;
+- prodotto interno senza fornitore: la stella usa i preferiti aziendali già esistenti;
+- l’articolo del Catalogo viene adottato, con la funzione idempotente esistente, **solo quando si conferma la prima quantità**;
+- Preferito e Da proporre per acquisto restano indipendenti, senza automatismi fra loro.
 
-```text
-07:00  conteggio      20 kg   non conforme 5 kg   "prodotto deteriorato"   Andrea
-08:00  revoca         —       non conforme no     "scarto effettuato"      Andrea
-08:00  rettifica      −5 kg   (movimento di scarto esplicito)              Andrea
-```
+Non servono nuove tabelle né modifiche al database.
 
-Regole: la giacenza resta 20 kg; i 5 kg non vengono mai sottratti automaticamente; solo una rettifica/movimento di scarto esplicito abbassa la giacenza. La quantità non conforme è facoltativa (posso sapere che c'è un problema senza averlo quantificato) e, quando entrambe le quantità sono note, non può superare la quantità fisica confermata; se supera, il salvataggio viene rifiutato con messaggio chiaro.
+## Implementazione
 
-## 2. Da proporre per acquisto: segnalazione persistente del prodotto
+1. **Unico insieme di prodotti**
+   - Preparare per il workspace una lista uniforme che comprenda prodotti propri e articoli disponibili nei cataloghi.
+   - Applicare Preferiti/Tutti, ricerca e filtri alla stessa lista.
+   - `Tutti` include prodotti propri, preferiti e cataloghi; `Preferiti` include tutte le stelle, anche sugli articoli non ancora adottati.
 
-Non è uno stato della sessione: vive sul **prodotto**, quindi sopravvive alla chiusura dell'inventario.
+2. **Unico workspace prima e dopo l’avvio**
+   - Riutilizzare `PhysicalCount` e la scheda completa `ProductCard` anche senza sessione.
+   - Eliminare il ramo visuale basato su `DraftCountCard`, senza creare una terza schermata.
+   - Prima della sessione mostrare gli stati coerenti e disabilitare soltanto le azioni che richiedono uno storico; la prima conferma apre la sessione e aggiorna gli stessi elementi senza cambiare struttura.
+   - Conservare la scelta esplicita della zona quando necessaria.
 
-Nuova tabella `product_purchase_proposals` (una proposta aperta per prodotto e azienda):
+3. **Barra compatta e filtri**
+   - Mantenere sempre visibili: Preferiti, Tutti, Da controllare, Confermati, Differenze, Da ricontare e Cerca.
+   - Rimuovere la barra visuale Zone/Categorie/Sottocategorie/Prodotti/Cerca e il relativo percorso a riquadri.
+   - Ampliare `Filtri` con Zona, Fornitore, Categoria, Sottocategoria e Stato conteggio.
+   - Lasciare `Colonne` collegato alle preferenze già salvate per utente e dispositivo.
 
-- prodotto e azienda
-- chi ha segnalato e quando
-- nota facoltativa
-- origine (conteggio inventario, oppure segnalazione manuale) e riferimento alla sessione in cui è nata
-- stato: **aperta** o **risolta**, con chi l'ha risolta, quando e perché
+4. **Stella sempre sulla scheda**
+   - Mostrare la stella direttamente su ogni `ProductCard`, senza dipendere dalla configurazione Colonne e senza nasconderla nel menu azioni.
+   - Renderla disponibile per prodotti propri, interni e articoli Catalogo, con aggiornamento immediato dei filtri.
+   - Il menu resta dedicato a Da ricontare, Non conforme, Da proporre per acquisto e Storico.
 
-Comportamenti:
+5. **Smartphone**
+   - Usare gli stessi dati, filtri, stati e azioni del desktop; cambia soltanto la disposizione delle schede e del pannello Filtri.
 
-- **Quando è risolta**: quando la proposta viene portata in Lista della Spesa e quella lista viene confermata, oppure quando tu la archivi a mano ("non serve più"). La chiusura dell'inventario non la risolve.
-- **Se viene segnalata di nuovo**: se esiste già una proposta aperta, non si crea un doppione — si aggiorna data/autore e si aggiunge la nota. Se la precedente era risolta, ne nasce una nuova, e la storia precedente resta leggibile.
-- **Come arriva alla Lista della Spesa**: la lista mostra le proposte aperte come **suggerimenti da confermare**, accanto al Fabbisogno. Nessuna riga creata automaticamente, nessun ordine, nessun fornitore scelto dal sistema: le righe nascono solo quando le confermi tu. È esattamente il comportamento già previsto da FASE C.
-- Mai contato e zero verificato possono generare la proposta con un tocco, ma restano informazioni distinte: "quantità sconosciuta" non diventa mai zero.
+## File previsti
 
-## Dove si vede
+- `src/components/inventory/inventory-count-panel.tsx`
+- `src/lib/inventory-count.functions.ts`
+- `roadmap.md`
 
-- Nella scheda/riga di conteggio: segnalazione "Non conforme" con nota e quantità facoltativa, e "Da proporre per acquisto", entrambe nel menu della riga per non riempire la scheda di pulsanti.
-- Colonne opzionali della griglia: Non conforme e Da proporre per acquisto, più lo storico apribile del prodotto (10 → 8, con le segnalazioni).
+## Verifica
 
-## Cosa resta fuori
+- Prima e dopo la prima conferma: stessa struttura e nessun salto di interfaccia.
+- Stella aggiunta/rimossa su prodotto proprio, prodotto interno e articolo Catalogo.
+- Preferiti mostra tutte le tipologie stellate; Tutti mostra l’intero insieme previsto.
+- Prima quantità su articolo Catalogo: adozione idempotente e conteggio; la sola stella non adotta.
+- Filtri completi nel solo pannello Filtri; nessuna barra duplicata.
+- Controllo desktop e smartphone, errori a schermo e compilazione.
 
-Fabbisogno e sue formule, creazione di righe di spesa o ordini, ripartizione fra fornitori, FASE A/B/C/D, listini, U.M.
+## Fuori scope
+
+Nessuna modifica a database, storico append-only, Non conforme, proposte acquisto, Fabbisogno, Lista della Spesa, formule, movimenti, listini o U.M.
