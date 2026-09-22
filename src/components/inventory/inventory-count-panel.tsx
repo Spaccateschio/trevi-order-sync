@@ -37,12 +37,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { useInventoryLocations } from "@/components/inventory/inventory-locations-manager";
 import { InventoryRequirementsPanel } from "@/components/inventory/inventory-requirements-panel";
 import { supabase } from "@/integrations/supabase/client";
+import { getCatalogImageUrls } from "@/lib/catalog.functions";
 import {
+  adoptCatalogProduct,
   closeGeneralInventory,
   getInventoryProgress,
   getInventoryRows,
+  getSupplierCatalogCandidates,
   manageCompanyProductFavorite,
   startGeneralInventory,
+  type CatalogCandidate,
   type InventoryCountRow,
   type InventoryProgress,
 } from "@/lib/inventory-count.functions";
@@ -107,6 +111,9 @@ export function InventoryCountPanel({
   const saveCount = useServerFn(recordInventoryCount);
   const toggleFavorite = useServerFn(manageCompanyProductFavorite);
   const getImageUrls = useServerFn(getProductImageUrls);
+  const getSellerImageUrls = useServerFn(getCatalogImageUrls);
+  const readCatalogCandidates = useServerFn(getSupplierCatalogCandidates);
+  const adoptProduct = useServerFn(adoptCatalogProduct);
 
   const { data: locations = [] } = useInventoryLocations(companyId);
   const activeLocations = locations.filter((location) => location.status === "attivo");
@@ -175,6 +182,40 @@ export function InventoryCountPanel({
   const previewImages = useMemo(
     () => new Map((previewImagesQuery.data ?? []).map((image) => [image.productId, image.url])),
     [previewImagesQuery.data],
+  );
+
+  // Vista "Tutti": oltre ai prodotti dell'azienda mostriamo anche gli articoli
+  // dei cataloghi dei fornitori collegati non ancora gestiti.
+  const [catalogDrafts, setCatalogDrafts] = useState<Record<string, string>>({});
+  const catalogCandidatesQuery = useQuery({
+    queryKey: ["inventario-catalogo-candidati", companyId],
+    staleTime: 5 * 60 * 1000,
+    queryFn: () => readCatalogCandidates({ data: { companyId } }),
+  });
+  const catalogCandidates: CatalogCandidate[] = catalogCandidatesQuery.data ?? [];
+
+  const catalogImagesQuery = useQuery({
+    queryKey: ["inventario-catalogo-immagini", companyId, catalogCandidates.length],
+    enabled: catalogCandidates.length > 0,
+    staleTime: 8 * 60 * 1000,
+    queryFn: async () => {
+      const bySeller = new Map<string, string[]>();
+      for (const candidate of catalogCandidates.slice(0, 60)) {
+        const list = bySeller.get(candidate.sellerCompanyId) ?? [];
+        list.push(candidate.sellerProductId);
+        bySeller.set(candidate.sellerCompanyId, list);
+      }
+      const results = await Promise.all(
+        [...bySeller.entries()].map(([sellerCompanyId, productIds]) =>
+          getSellerImageUrls({ data: { sellerCompanyId, productIds, thumbnail: true } }).catch(() => []),
+        ),
+      );
+      return results.flat();
+    },
+  });
+  const catalogImages = useMemo(
+    () => new Map((catalogImagesQuery.data ?? []).map((image) => [image.productId, image.url])),
+    [catalogImagesQuery.data],
   );
 
 
