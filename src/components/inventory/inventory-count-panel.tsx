@@ -1470,7 +1470,16 @@ function PhysicalCount({
   onConfirm,
   onConfirmAll,
   onToggleFavorite,
+  supplierInfo,
+  fieldPreferences,
+  locationOptions,
+  onRecount,
+  onNonCompliance,
+  onRevokeNonCompliance,
+  onProposal,
+  onHistory,
   onCloseInventory,
+
   onHideCompletion,
   closing,
 }: {
