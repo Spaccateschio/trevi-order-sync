@@ -120,6 +120,19 @@ function rowName(row: InventoryCountRow) {
   return row.description?.trim() || row.code;
 }
 
+/** Ordine alfabetico italiano: descrizione, con il codice come riserva. */
+function byName(
+  leftDescription: string | null,
+  leftCode: string,
+  rightDescription: string | null,
+  rightCode: string,
+) {
+  const left = (leftDescription ?? "").trim() || leftCode;
+  const right = (rightDescription ?? "").trim() || rightCode;
+  return left.localeCompare(right, "it", { sensitivity: "base", numeric: true });
+}
+
+
 function rowUnit(row: InventoryCountRow) {
   return row.danea_um?.trim() || "";
 }
@@ -229,13 +242,16 @@ export function InventoryCountPanel({
   });
   const previewProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return catalogPreview.filter((product) => {
-      if (productView === "favorites" && !previewFavoriteQuery.data?.has(product.id)) return false;
-      if (category && (product.category ?? NO_CATEGORY) !== category) return false;
-      if (subcategory && (product.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
-      return !term || `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term);
-    });
+    return catalogPreview
+      .filter((product) => {
+        if (productView === "favorites" && !previewFavoriteQuery.data?.has(product.id)) return false;
+        if (category && (product.category ?? NO_CATEGORY) !== category) return false;
+        if (subcategory && (product.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
+        return !term || `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term);
+      })
+      .sort((left, right) => byName(left.description, left.code, right.description, right.code));
   }, [catalogPreview, category, previewFavoriteQuery.data, productView, search, subcategory]);
+
 
   const previewImagesQuery = useQuery({
     queryKey: ["inventario-prodotti-immagini", companyId, catalogPreview.length],
@@ -260,14 +276,17 @@ export function InventoryCountPanel({
   const catalogCandidates: CatalogCandidate[] = catalogCandidatesQuery.data ?? [];
   const visibleCatalogCandidates = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return catalogCandidates.filter((candidate) => {
-      if (productView === "favorites" && !candidate.isFavorite) return false;
-      if (supplierFilter && candidate.sellerCompanyName !== supplierFilter) return false;
-      if (category && (candidate.category ?? NO_CATEGORY) !== category) return false;
-      if (subcategory && (candidate.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
-      if (workFilter !== "pending") return false;
-      return !term || `${candidate.code} ${candidate.description ?? ""}`.toLowerCase().includes(term);
-    });
+    return catalogCandidates
+      .filter((candidate) => {
+        if (productView === "favorites" && !candidate.isFavorite) return false;
+        if (supplierFilter && candidate.sellerCompanyName !== supplierFilter) return false;
+        if (category && (candidate.category ?? NO_CATEGORY) !== category) return false;
+        if (subcategory && (candidate.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
+        if (workFilter !== "pending") return false;
+        return !term || `${candidate.code} ${candidate.description ?? ""}`.toLowerCase().includes(term);
+      })
+      .sort((left, right) => byName(left.description, left.code, right.description, right.code));
+
   }, [catalogCandidates, category, productView, search, subcategory, supplierFilter, workFilter]);
 
   const catalogImagesQuery = useQuery({
@@ -331,13 +350,16 @@ export function InventoryCountPanel({
 
   const rows = useMemo(() => {
     const all = rowsQuery.data ?? [];
-    return all.filter((row) => {
-      if (workFilter === "pending") return row.counted === null;
-      if (workFilter === "recount") return row.recount_requested_at !== null;
-      if (workFilter === "completed") return row.counted !== null;
-      return row.counted !== null && Number(row.difference ?? 0) !== 0;
-    });
+    return all
+      .filter((row) => {
+        if (workFilter === "pending") return row.counted === null;
+        if (workFilter === "recount") return row.recount_requested_at !== null;
+        if (workFilter === "completed") return row.counted !== null;
+        return row.counted !== null && Number(row.difference ?? 0) !== 0;
+      })
+      .sort((left, right) => byName(left.description, left.code, right.description, right.code));
   }, [rowsQuery.data, workFilter]);
+
 
   const imageProductIds = useMemo(
     () => [...new Set(rows.map((row) => row.product_id))].slice(0, 50),
