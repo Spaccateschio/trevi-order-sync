@@ -1576,6 +1576,96 @@ export type Database = {
           },
         ]
       }
+      inventory_count_entries: {
+        Row: {
+          company_id: string
+          counted_quantity: number | null
+          created_at: string
+          created_by: string | null
+          entry_type: string
+          id: string
+          location_id: string
+          non_compliant: boolean
+          non_compliant_quantity: number | null
+          note: string | null
+          previous_quantity: number | null
+          product_id: string
+          session_id: string
+          unit_code: string | null
+          unit_id: string | null
+        }
+        Insert: {
+          company_id: string
+          counted_quantity?: number | null
+          created_at?: string
+          created_by?: string | null
+          entry_type: string
+          id?: string
+          location_id: string
+          non_compliant?: boolean
+          non_compliant_quantity?: number | null
+          note?: string | null
+          previous_quantity?: number | null
+          product_id: string
+          session_id: string
+          unit_code?: string | null
+          unit_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          counted_quantity?: number | null
+          created_at?: string
+          created_by?: string | null
+          entry_type?: string
+          id?: string
+          location_id?: string
+          non_compliant?: boolean
+          non_compliant_quantity?: number | null
+          note?: string | null
+          previous_quantity?: number | null
+          product_id?: string
+          session_id?: string
+          unit_code?: string | null
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_count_entries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_entries_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_entries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_entries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_entries_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_counts: {
         Row: {
           company_id: string
@@ -1586,9 +1676,14 @@ export type Database = {
           difference: number | null
           id: string
           location_id: string
+          non_compliant: boolean
+          non_compliant_note: string | null
+          non_compliant_quantity: number | null
           notes: string | null
           previous_quantity: number
           product_id: string
+          recount_requested_at: string | null
+          recount_requested_by: string | null
           session_id: string
           unit_code: string | null
           unit_id: string | null
@@ -1603,9 +1698,14 @@ export type Database = {
           difference?: number | null
           id?: string
           location_id: string
+          non_compliant?: boolean
+          non_compliant_note?: string | null
+          non_compliant_quantity?: number | null
           notes?: string | null
           previous_quantity?: number
           product_id: string
+          recount_requested_at?: string | null
+          recount_requested_by?: string | null
           session_id: string
           unit_code?: string | null
           unit_id?: string | null
@@ -1620,9 +1720,14 @@ export type Database = {
           difference?: number | null
           id?: string
           location_id?: string
+          non_compliant?: boolean
+          non_compliant_note?: string | null
+          non_compliant_quantity?: number | null
           notes?: string | null
           previous_quantity?: number
           product_id?: string
+          recount_requested_at?: string | null
+          recount_requested_by?: string | null
           session_id?: string
           unit_code?: string | null
           unit_id?: string | null
@@ -2126,6 +2231,149 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_purchase_proposal_events: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          event_type: string
+          id: string
+          note: string | null
+          product_id: string
+          proposal_id: string
+          reference_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          event_type: string
+          id?: string
+          note?: string | null
+          product_id: string
+          proposal_id: string
+          reference_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          event_type?: string
+          id?: string
+          note?: string | null
+          product_id?: string
+          proposal_id?: string
+          reference_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_purchase_proposal_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_purchase_proposal_events_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_purchase_proposal_events_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "product_purchase_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_purchase_proposals: {
+        Row: {
+          company_id: string
+          created_at: string
+          flag_count: number
+          id: string
+          last_flagged_at: string
+          last_flagged_by: string | null
+          opened_at: string
+          opened_by: string | null
+          opened_note: string | null
+          origin: string
+          product_id: string
+          resolution_note: string | null
+          resolution_reason: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          session_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          flag_count?: number
+          id?: string
+          last_flagged_at?: string
+          last_flagged_by?: string | null
+          opened_at?: string
+          opened_by?: string | null
+          opened_note?: string | null
+          origin?: string
+          product_id: string
+          resolution_note?: string | null
+          resolution_reason?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          flag_count?: number
+          id?: string
+          last_flagged_at?: string
+          last_flagged_by?: string | null
+          opened_at?: string
+          opened_by?: string | null
+          opened_note?: string | null
+          origin?: string
+          product_id?: string
+          resolution_note?: string | null
+          resolution_reason?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_purchase_proposals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_purchase_proposals_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_purchase_proposals_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -4442,6 +4690,29 @@ export type Database = {
         }
         Returns: boolean
       }
+      inventory_count_history: {
+        Args: {
+          _company_id: string
+          _limit?: number
+          _location_id?: string
+          _product_id: string
+        }
+        Returns: {
+          counted_quantity: number
+          created_at: string
+          created_by: string
+          entry_type: string
+          id: string
+          location_id: string
+          location_name: string
+          non_compliant: boolean
+          non_compliant_quantity: number
+          note: string
+          previous_quantity: number
+          session_id: string
+          unit_code: string
+        }[]
+      }
       inventory_location_stock: {
         Args: { _location_id: string; _product_id: string }
         Returns: {
@@ -4507,8 +4778,16 @@ export type Database = {
           is_favorite: boolean
           location_id: string
           location_name: string
+          min_stock: number
+          non_compliant: boolean
+          non_compliant_note: string
+          non_compliant_quantity: number
           note: string
+          order_multiple: number
           product_id: string
+          proposal_flagged_at: string
+          proposal_status: string
+          recount_requested_at: string
           subcategory: string
           thumbnail_path: string
         }[]
@@ -4734,6 +5013,18 @@ export type Database = {
         }
         Returns: string
       }
+      manage_purchase_proposal: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _company_id: string
+          _note?: string
+          _product_id: string
+          _reason?: string
+          _session_id?: string
+        }
+        Returns: string
+      }
       manage_shopping_list: {
         Args: {
           _action: string
@@ -4853,6 +5144,22 @@ export type Database = {
         }
         Returns: string
       }
+      open_purchase_proposals: {
+        Args: { _company_id: string }
+        Returns: {
+          code: string
+          danea_um: string
+          description: string
+          flag_count: number
+          id: string
+          last_flagged_at: string
+          last_flagged_by: string
+          opened_at: string
+          opened_by: string
+          opened_note: string
+          product_id: string
+        }[]
+      }
       order_supplier_company: { Args: { _order_id: string }; Returns: string }
       owns_customer_record: {
         Args: { _customer_record_id: string }
@@ -4945,6 +5252,19 @@ export type Database = {
           supplier_record_id: string
         }[]
       }
+      purchase_proposal_history: {
+        Args: { _company_id: string; _limit?: number; _product_id: string }
+        Returns: {
+          created_at: string
+          created_by: string
+          event_type: string
+          id: string
+          note: string
+          proposal_id: string
+          proposal_status: string
+          reference_id: string
+        }[]
+      }
       record_inventory_adjustment: {
         Args: {
           _actor_user_id?: string
@@ -4963,6 +5283,23 @@ export type Database = {
           _company_id: string
           _counted_quantity: number
           _location_id: string
+          _notes?: string
+          _product_id: string
+          _session_id: string
+          _unit_code?: string
+          _unit_id?: string
+        }
+        Returns: string
+      }
+      record_inventory_count_entry: {
+        Args: {
+          _actor_user_id?: string
+          _company_id: string
+          _counted_quantity?: number
+          _entry_type?: string
+          _location_id: string
+          _non_compliant?: boolean
+          _non_compliant_quantity?: number
           _notes?: string
           _product_id: string
           _session_id: string
