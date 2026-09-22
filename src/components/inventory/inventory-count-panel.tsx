@@ -1512,7 +1512,16 @@ function PhysicalCount({
   onConfirm: (row: InventoryCountRow) => void;
   onConfirmAll: () => void;
   onToggleFavorite: (row: InventoryCountRow) => void;
+  supplierInfo: Map<string, SupplierInfo>;
+  fieldPreferences: FieldPreferences;
+  locationOptions: { id: string; name: string }[];
+  onRecount: (row: InventoryCountRow) => void;
+  onNonCompliance: (row: InventoryCountRow) => void;
+  onRevokeNonCompliance: (row: InventoryCountRow) => void;
+  onProposal: (row: InventoryCountRow) => void;
+  onHistory: (row: InventoryCountRow) => void;
   onCloseInventory: () => void;
+
   onHideCompletion: () => void;
   closing: boolean;
 }) {
