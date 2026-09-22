@@ -39,3 +39,6 @@
 - [ ] Non conforme storicizzato nelle inventory_count_entries append-only (quantità segnalata facoltativa, coerente con U.M., non superiore alla quantità fisica, nessun impatto sulla giacenza) e Da proporre per acquisto come segnalazione persistente del prodotto leggibile dalla Lista della Spesa senza creare righe o ordini automatici
 - [ ] Proposte d'acquisto: una sola proposta aperta per prodotto/azienda con storico delle segnalazioni successive (prima e successive date/autori e note), risoluzione automatica solo alla conferma della Lista della Spesa, risoluzione manuale con motivazione, nuova proposta dopo una risolta
 - [x] Inventario: workspace unico prima/dopo il conteggio; stella riferita al prodotto controllato e non alla preferenza fornitore; adozione catalogo senza doppioni; verificati desktop/smartphone e separazione tra preferito prodotto e priorità fornitore; test PATATE BIANCHE multi-fornitore rinviato perché nei dati attuali ha una sola referenza
+
+- [ ] Inventario: definire popolazione unica "prodotti gestiti" usata da Conteggio, Fabbisogno e Lista della Spesa (verifica adozione catalogo prima di modificare le query)
+- [ ] Inventario: prezzo in sola lettura + link "Apri prodotto → Acquisto"; chiarire quale U.M. usare per la giacenza
