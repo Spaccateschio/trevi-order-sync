@@ -1882,17 +1882,31 @@ function ProductCard({
   imageUrl,
   value,
   isAdmin,
+  supplier,
+  isVisible,
   onChange,
   onConfirm,
   onToggleFavorite,
+  onRecount,
+  onNonCompliance,
+  onRevokeNonCompliance,
+  onProposal,
+  onHistory,
 }: {
   row: InventoryCountRow;
   imageUrl: string | undefined;
   value: string;
   isAdmin: boolean;
+  supplier: SupplierInfo | null;
+  isVisible: (id: InventoryFieldId) => boolean;
   onChange: (value: string) => void;
   onConfirm: () => void;
   onToggleFavorite: () => void;
+  onRecount: () => void;
+  onNonCompliance: () => void;
+  onRevokeNonCompliance: () => void;
+  onProposal: () => void;
+  onHistory: () => void;
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
   const unit = rowUnit(row);
@@ -1903,6 +1917,19 @@ function ProductCard({
   const confirmedDifference = isConfirmed ? Number(row.difference ?? 0) : null;
   const hasDifference = isConfirmed && confirmedDifference !== 0;
   const difference = counted === null ? (isConfirmed ? confirmedDifference : null) : counted - calculated;
+  const needsRecount = row.recount_requested_at !== null;
+  const proposalOpen = row.proposal_status === "aperta";
+  const status = needsRecount
+    ? "Da ricontare"
+    : !isConfirmed
+      ? "Mai contato"
+      : hasDifference
+        ? confirmedDifference! > 0
+          ? "Differenza in più"
+          : "Differenza in meno"
+        : Number(row.counted) === 0
+          ? "Zero verificato"
+          : "Confermato";
 
   return (
     <article
@@ -1911,6 +1938,7 @@ function ProductCard({
         !isConfirmed && "border-border",
         isConfirmed && !hasDifference && "border-success/50 bg-success/5",
         hasDifference && "border-destructive/50 bg-destructive/5",
+        needsRecount && "border-primary/60 bg-primary/5",
       )}
     >
       <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
@@ -1925,11 +1953,37 @@ function ProductCard({
           <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
           <p className="text-[11px] leading-tight text-muted-foreground">
             Cod. {row.code}
-            {unit ? ` · ${unit}` : ""} · {row.location_name}
+            {unit ? ` · ${unit}` : ""}
+            {isVisible("zona") ? ` · ${row.location_name}` : ""}
           </p>
+          {isVisible("categoria") && row.category ? (
+            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+              {row.category}
+              {isVisible("sottocategoria") && row.subcategory ? ` · ${row.subcategory}` : ""}
+            </p>
+          ) : null}
+          {isVisible("fornitore") || isVisible("prezzo_acquisto") ? (
+            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+              {isVisible("fornitore") ? (supplier?.name ?? "Nessun fornitore collegato") : ""}
+              {isVisible("prezzo_acquisto") && supplier?.cost !== null && supplier?.cost !== undefined
+                ? ` · € ${Number(supplier.cost).toFixed(2).replace(".", ",")}`
+                : ""}
+            </p>
+          ) : null}
+          {isVisible("scorta_minima") || isVisible("fabbisogno") ? (
+            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+              {isVisible("scorta_minima") ? `Scorta minima ${row.min_stock ?? "—"}` : ""}
+              {isVisible("fabbisogno") && row.order_multiple ? ` · multiplo ${row.order_multiple}` : ""}
+            </p>
+          ) : null}
+          {isVisible("ultimo_conteggio") && row.counted_at ? (
+            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+              Ultimo conteggio {new Date(row.counted_at).toLocaleDateString("it-IT")}
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {isAdmin ? (
+          {isAdmin && isVisible("preferito") ? (
             <Button
               type="button"
               variant="ghost"
@@ -1949,10 +2003,48 @@ function ProductCard({
               !isConfirmed && "bg-muted text-muted-foreground",
               isConfirmed && !hasDifference && "bg-success/15 text-success",
               hasDifference && "bg-destructive/10 text-destructive",
+              needsRecount && "bg-primary/15 text-primary",
             )}
           >
-            {!isConfirmed ? "Da controllare" : hasDifference ? "Differenza" : "Confermato"}
+            {status}
           </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 px-0"
+                tabIndex={-1}
+                aria-label={`Azioni su ${name}`}
+              >
+                <MoreVertical className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuItem onClick={onRecount} disabled={!isAdmin}>
+                <RotateCcw className="size-3.5" /> Segna da ricontare
+              </DropdownMenuItem>
+              {row.non_compliant ? (
+                <DropdownMenuItem onClick={onRevokeNonCompliance} disabled={!isAdmin}>
+                  <TriangleAlert className="size-3.5" /> Revoca non conforme
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={onNonCompliance} disabled={!isAdmin}>
+                  <TriangleAlert className="size-3.5" /> Segnala non conforme
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={onProposal} disabled={!isAdmin}>
+                <ShoppingCart className="size-3.5" />
+                {proposalOpen ? "Chiudi proposta d'acquisto" : "Proponi per l'acquisto"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onHistory}>
+                <History className="size-3.5" /> Storico dei controlli
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {hasDifference ? (
             <Button
               type="button"
