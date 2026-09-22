@@ -1,69 +1,31 @@
-# Inventario: workspace unico, Preferiti sulle schede e filtri compatti
+# Inventario: allineamento Fabbisogno, giorni di consegna, prezzo e U.M.
 
-## Verifica effettuata
+## 1. Perché Conteggio e Fabbisogno non coincidono
+Sono due elenchi costruiti da fonti diverse:
+- Conteggio: prodotti propri + preferiti + articoli dei cataloghi fornitori, ordinati per nome.
+- Fabbisogno: solo i prodotti propri con impostazioni di scorta, ordinati per codice.
 
-Le due esperienze sono generate nello stesso file, ma da due rami distinti:
+Risultato: in Fabbisogno vedi i 6 articoli interni (00-001…00-006), in Conteggio anche gli articoli dei cataloghi.
 
-- **Prima del conteggio**: `InventoryCountPanel` usa `DraftCountCard`, con una barra ridotta Preferiti/Tutti/Cerca e una lista separata per gli articoli dei cataloghi.
-- **Dopo la prima conferma**: `InventoryCountPanel` usa `PhysicalCount` e `ProductCard`, con avanzamento, stati, azioni, Filtri e Colonne.
-- La barra duplicata Zone/Categorie/Sottocategorie/Prodotti/Cerca è interna a `PhysicalCount`, oltre al menu Filtri già presente.
+### Correzione proposta (solo lettura, nessun cambio di formule)
+- Fabbisogno riceve gli stessi filtri di Conteggio: Preferiti | Tutti, ricerca, e lo stesso ordine alfabetico per descrizione.
+- Fabbisogno mostra le stesse righe di Conteggio limitate ai prodotti propri; gli articoli dei cataloghi non ancora adottati restano esclusi (non hanno giacenza né scorta) e vengono indicati con una nota chiara sotto la tabella.
+- Le colonne Disponibile / Scorta min. / Necessario / Da acquistare e la formula restano identiche.
 
-Questa separazione spiega il cambio improvviso di interfaccia all’apertura automatica della sessione.
+## 2. Giorni della settimana / del mese
+Già organizzati e non vanno rifatti:
+- per fornitore: giorni settimanali + eventuale giorno del mese;
+- per singola referenza fornitore: possibilità di sovrascrivere i giorni del fornitore;
+- usati nella Lista della Spesa per la prossima consegna utile.
+Nessuna modifica prevista qui, salvo mostrare in Fabbisogno il prossimo giorno di consegna del fornitore principale (sola lettura).
 
-## Preferiti: comportamento corretto
+## 3. Prezzo e U.M. nell'Inventario
+- Nella scheda di conteggio si aggiungono due informazioni attivabili da "Colonne": U.M. e Prezzo di acquisto (ultimo costo o prezzo del listino assegnato).
+- U.M. modificabile direttamente dalla scheda: si sceglie tra le unità già configurate per quel prodotto (preferenza d'uso già esistente); non si creano nuove unità dall'Inventario.
+- Prezzo: sola lettura nell'Inventario. Il prezzo si gestisce nelle referenze fornitore / listini, come già concordato; dalla scheda si offre un collegamento rapido alla scheda prodotto (tab Acquisto).
 
-Per rendere preferito un articolo del Catalogo **non è tecnicamente necessario adottarlo nei prodotti propri**. Oggi la funzione generale del Catalogo abbina le due azioni, ma nell’Inventario le separeremo:
+## Fuori ambito
+Nessuna modifica a database, storico append-only, Non conforme, proposte d'acquisto, formule Fabbisogno, Lista della Spesa, ordini o listini.
 
-- articolo del Catalogo: la stella salva/toglie il preferito direttamente sulla referenza del fornitore;
-- prodotto proprio collegato a un fornitore: la stella legge e aggiorna lo stesso preferito della referenza fornitore;
-- prodotto interno senza fornitore: la stella usa i preferiti aziendali già esistenti;
-- l’articolo del Catalogo viene adottato, con la funzione idempotente esistente, **solo quando si conferma la prima quantità**;
-- Preferito e Da proporre per acquisto restano indipendenti, senza automatismi fra loro.
-
-Non servono nuove tabelle né modifiche al database.
-
-## Implementazione
-
-1. **Unico insieme di prodotti**
-   - Preparare per il workspace una lista uniforme che comprenda prodotti propri e articoli disponibili nei cataloghi.
-   - Applicare Preferiti/Tutti, ricerca e filtri alla stessa lista.
-   - `Tutti` include prodotti propri, preferiti e cataloghi; `Preferiti` include tutte le stelle, anche sugli articoli non ancora adottati.
-
-2. **Unico workspace prima e dopo l’avvio**
-   - Riutilizzare `PhysicalCount` e la scheda completa `ProductCard` anche senza sessione.
-   - Eliminare il ramo visuale basato su `DraftCountCard`, senza creare una terza schermata.
-   - Prima della sessione mostrare gli stati coerenti e disabilitare soltanto le azioni che richiedono uno storico; la prima conferma apre la sessione e aggiorna gli stessi elementi senza cambiare struttura.
-   - Conservare la scelta esplicita della zona quando necessaria.
-
-3. **Barra compatta e filtri**
-   - Mantenere sempre visibili: Preferiti, Tutti, Da controllare, Confermati, Differenze, Da ricontare e Cerca.
-   - Rimuovere la barra visuale Zone/Categorie/Sottocategorie/Prodotti/Cerca e il relativo percorso a riquadri.
-   - Ampliare `Filtri` con Zona, Fornitore, Categoria, Sottocategoria e Stato conteggio.
-   - Lasciare `Colonne` collegato alle preferenze già salvate per utente e dispositivo.
-
-4. **Stella sempre sulla scheda**
-   - Mostrare la stella direttamente su ogni `ProductCard`, senza dipendere dalla configurazione Colonne e senza nasconderla nel menu azioni.
-   - Renderla disponibile per prodotti propri, interni e articoli Catalogo, con aggiornamento immediato dei filtri.
-   - Il menu resta dedicato a Da ricontare, Non conforme, Da proporre per acquisto e Storico.
-
-5. **Smartphone**
-   - Usare gli stessi dati, filtri, stati e azioni del desktop; cambia soltanto la disposizione delle schede e del pannello Filtri.
-
-## File previsti
-
-- `src/components/inventory/inventory-count-panel.tsx`
-- `src/lib/inventory-count.functions.ts`
-- `roadmap.md`
-
-## Verifica
-
-- Prima e dopo la prima conferma: stessa struttura e nessun salto di interfaccia.
-- Stella aggiunta/rimossa su prodotto proprio, prodotto interno e articolo Catalogo.
-- Preferiti mostra tutte le tipologie stellate; Tutti mostra l’intero insieme previsto.
-- Prima quantità su articolo Catalogo: adozione idempotente e conteggio; la sola stella non adotta.
-- Filtri completi nel solo pannello Filtri; nessuna barra duplicata.
-- Controllo desktop e smartphone, errori a schermo e compilazione.
-
-## Fuori scope
-
-Nessuna modifica a database, storico append-only, Non conforme, proposte acquisto, Fabbisogno, Lista della Spesa, formule, movimenti, listini o U.M.
+## Punto da confermare
+Sul prezzo: confermi sola lettura in Inventario con collegamento alla scheda prodotto, oppure vuoi poter modificare il costo d'acquisto direttamente dalla scheda di conteggio (comporterebbe scrittura sui costi fornitore)?
