@@ -66,6 +66,7 @@ import {
   getInventoryProgress,
   getInventoryRows,
   getSupplierCatalogCandidates,
+  manageCatalogProductFavorite,
   manageCompanyProductFavorite,
   managePurchaseProposal,
   recordCountEntry,
@@ -92,8 +93,6 @@ const ENTRY_LABELS: Record<string, string> = {
   richiesta_riconteggio: "Segnato da ricontare",
 };
 
-
-type NavigationMode = "zones" | "categories" | "subcategories" | "products" | "search";
 
 const NO_CATEGORY = "Senza categoria";
 const NO_SUBCATEGORY = "Senza sottocategoria";
@@ -150,6 +149,7 @@ export function InventoryCountPanel({
   const readHistory = useServerFn(getCountHistory);
   const manageProposal = useServerFn(managePurchaseProposal);
   const toggleFavorite = useServerFn(manageCompanyProductFavorite);
+  const toggleCatalogFavorite = useServerFn(manageCatalogProductFavorite);
   const getImageUrls = useServerFn(getProductImageUrls);
   const getSellerImageUrls = useServerFn(getCatalogImageUrls);
   const readCatalogCandidates = useServerFn(getSupplierCatalogCandidates);
@@ -165,9 +165,9 @@ export function InventoryCountPanel({
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [productView, setProductView] = useState<ProductView>("all");
   const [workFilter, setWorkFilter] = useState<WorkFilter>("pending");
-  const [navigationMode, setNavigationMode] = useState<NavigationMode>("products");
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
+  const [supplierFilter, setSupplierFilter] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<{ row: InventoryCountRow; value: number } | null>(null);
@@ -212,7 +212,7 @@ export function InventoryCountPanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, code, description, category, danea_um")
+        .select("id, code, description, category, subcategory, danea_um")
         .eq("company_id", companyId)
         .order("code")
         .limit(300);
@@ -221,13 +221,25 @@ export function InventoryCountPanel({
     },
   });
   const catalogPreview = catalogPreviewQuery.data ?? [];
+  const previewFavoriteQuery = useQuery({
+    queryKey: ["inventario-preferiti-prodotti", companyId, catalogPreview.length],
+    enabled: !sessionId && catalogPreview.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("company_product_favorites").select("product_id")
+        .eq("company_id", companyId).in("product_id", catalogPreview.map((product) => product.id));
+      if (error) throw new Error(error.message);
+      return new Set((data ?? []).map((favorite) => favorite.product_id));
+    },
+  });
   const previewProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return catalogPreview;
-    return catalogPreview.filter((product) =>
-      `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term),
-    );
-  }, [catalogPreview, search]);
+    return catalogPreview.filter((product) => {
+      if (productView === "favorites" && !previewFavoriteQuery.data?.has(product.id)) return false;
+      if (category && (product.category ?? NO_CATEGORY) !== category) return false;
+      if (subcategory && (product.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
+      return !term || `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term);
+    });
+  }, [catalogPreview, category, previewFavoriteQuery.data, productView, search, subcategory]);
 
   const previewImagesQuery = useQuery({
     queryKey: ["inventario-prodotti-immagini", companyId, catalogPreview.length],
@@ -285,7 +297,7 @@ export function InventoryCountPanel({
   });
   const progress: InventoryProgress | undefined = progressQuery.data;
 
-  const searching = navigationMode === "search" && search.trim().length > 0;
+  const searching = search.trim().length > 0;
   const rowsQuery = useQuery({
     queryKey: [
       "inventory-rows",
@@ -380,7 +392,6 @@ export function InventoryCountPanel({
       setCategory(null);
       setSubcategory(null);
       setSearch("");
-      setNavigationMode("products");
       setSelectedLocationId(activeLocations.length > 1 ? (defaultLocation?.id ?? null) : (defaultLocation?.id ?? null));
       setSelectingLocation(activeLocations.length > 1);
       toast.success("Inventario generale aperto");
@@ -423,7 +434,6 @@ export function InventoryCountPanel({
       setCategory(null);
       setSubcategory(null);
       setSearch("");
-      setNavigationMode("products");
       setSelectedLocationId(locationId);
       setSelectingLocation(false);
       toast.success("Conteggio avviato e quantità salvata");
@@ -623,6 +633,23 @@ export function InventoryCountPanel({
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti-tutti"] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferito"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventario-preferiti-prodotti"] }),
+      ]);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const catalogFavoriteMutation = useMutation({
+    mutationFn: (candidate: CatalogCandidate) => toggleCatalogFavorite({ data: {
+      companyId,
+      sellerCompanyId: candidate.sellerCompanyId,
+      sellerProductId: candidate.sellerProductId,
+      favorite: !candidate.isFavorite,
+    } }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["inventario-catalogo-candidati", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
+        queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti-tutti"] }),
       ]);
     },
     onError: (error: Error) => toast.error(error.message),
