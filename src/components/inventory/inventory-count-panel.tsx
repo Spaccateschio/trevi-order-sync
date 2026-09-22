@@ -793,7 +793,8 @@ export function InventoryCountPanel({
               non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
               min_stock: null, order_multiple: null,
             }))}
-            catalogCandidates={visibleCatalogCandidates}
+            catalogCandidates={[]}
+            excludedCatalogCount={visibleCatalogCandidates.length}
             catalogImages={catalogImages}
             catalogDrafts={catalogDrafts}
             loading={sessionId ? rowsQuery.isLoading : catalogPreviewQuery.isLoading}
