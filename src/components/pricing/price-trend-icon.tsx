@@ -42,14 +42,20 @@ export function PriceTrendIcon({
   series,
   label = "Andamento prezzo",
   className,
+  companyId,
+  productId,
 }: {
   series: PriceSeriesRow | null | undefined;
   label?: string;
   className?: string;
+  /** Con azienda e prodotto il riquadro mostra anche i listini di vendita (sola lettura). */
+  companyId?: string | null;
+  productId?: string | null;
 }) {
-  const hasData = Boolean(series && seriesCurrent(series) !== null);
+  const row = series && seriesCurrent(series) !== null ? series : null;
+  const showSale = Boolean(companyId && productId);
 
-  if (!hasData) {
+  if (!row && !showSale) {
     return (
       <span
         className={cn("inline-grid h-7 w-7 place-items-center rounded-full text-muted-foreground/60", className)}
@@ -61,13 +67,14 @@ export function PriceTrendIcon({
     );
   }
 
-  const row = series as PriceSeriesRow;
-  const current = seriesCurrent(row);
-  const previous = seriesPrevious(row);
-  const delta = deltaText(row);
-  const summary = `${label}: ${priceLabel(current)}${unitSuffix(row.current_price_unit_code)}${
-    delta ? ` · ${delta.amount}${delta.percent ? ` · ${delta.percent}` : ""}` : ""
-  }`;
+  const current = row ? seriesCurrent(row) : null;
+  const previous = row ? seriesPrevious(row) : null;
+  const delta = row ? deltaText(row) : null;
+  const summary = row
+    ? `${label}: ${priceLabel(current)}${unitSuffix(row.current_price_unit_code)}${
+        delta ? ` · ${delta.amount}${delta.percent ? ` · ${delta.percent}` : ""}` : ""
+      }`
+    : `${label}: prezzo acquisto non ancora disponibile`;
 
   return (
     <Popover>
@@ -76,21 +83,61 @@ export function PriceTrendIcon({
           type="button"
           variant="ghost"
           size="icon"
-          className={cn("h-7 w-7 rounded-full", className)}
+          className={cn("h-7 w-7 rounded-full", !row && "text-muted-foreground", className)}
           title={summary}
           aria-label={summary}
           onClick={(event) => event.stopPropagation()}
         >
           <span className="relative inline-flex items-center">
             <Euro className="h-3.5 w-3.5" aria-hidden="true" />
-            <DirectionMark row={row} className="h-3 w-3" />
+            {row ? <DirectionMark row={row} className="h-3 w-3" /> : null}
           </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 space-y-3 text-sm" onClick={(event) => event.stopPropagation()}>
-        <PriceTrendDetails row={row} current={current} previous={previous} delta={delta} />
+        <div className="space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Acquisto</p>
+          {row ? (
+            <PriceTrendDetails row={row} current={current} previous={previous} delta={delta} />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Prezzo acquisto non ancora disponibile — si imposta nella scheda prodotto → Acquisto.
+            </p>
+          )}
+        </div>
+        {showSale ? <SalePricesSection companyId={companyId as string} productId={productId as string} /> : null}
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** Listini di vendita del prodotto: sola lettura, nessuna freccia, nessuno storico. */
+function SalePricesSection({ companyId, productId }: { companyId: string; productId: string }) {
+  const query = useQuery({
+    queryKey: ["listini-vendita-prodotto", companyId, productId],
+    queryFn: () => fetchSalePrices(companyId, productId),
+  });
+
+  const rows = (query.data ?? []).filter((item) => item.net_price !== null || item.gross_price !== null);
+
+  return (
+    <div className="space-y-1 border-t border-border pt-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Vendita</p>
+      {query.isLoading ? (
+        <p className="text-xs text-muted-foreground">Caricamento…</p>
+      ) : rows.length ? (
+        <ul className="space-y-0.5 text-xs">
+          {rows.map((item) => (
+            <li key={item.list_number} className="flex justify-between gap-2 tabular-nums">
+              <span className="truncate text-muted-foreground">{item.label}</span>
+              <span>{priceLabel(item.net_price ?? item.gross_price)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted-foreground">Nessun listino di vendita per questo prodotto.</p>
+      )}
+    </div>
   );
 }
 
