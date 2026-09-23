@@ -198,3 +198,44 @@ export function priceLabel(value: number | null | undefined) {
     maximumFractionDigits: 4,
   }).format(value);
 }
+
+export type SalePriceRow = {
+  list_number: number;
+  label: string;
+  net_price: number | null;
+  gross_price: number | null;
+};
+
+/**
+ * Listini di vendita del nostro prodotto: informazione in sola lettura.
+ * Non è un prezzo di acquisto e non sostituisce mai il costo fornitore.
+ */
+export async function fetchSalePrices(companyId: string, productId: string) {
+  const [prices, lists] = await Promise.all([
+    supabase
+      .from("product_prices")
+      .select("list_number, net_price, gross_price")
+      .eq("company_id", companyId)
+      .eq("product_id", productId)
+      .order("list_number"),
+    supabase
+      .from("danea_price_lists")
+      .select("list_number, danea_name, display_name")
+      .eq("company_id", companyId),
+  ]);
+  if (prices.error) throw new Error(prices.error.message);
+  if (lists.error) throw new Error(lists.error.message);
+
+  const names = new Map<number, string>();
+  for (const item of lists.data ?? []) {
+    const name = item.display_name ?? item.danea_name;
+    if (name) names.set(Number(item.list_number), name);
+  }
+
+  return (prices.data ?? []).map<SalePriceRow>((item) => ({
+    list_number: Number(item.list_number),
+    label: names.get(Number(item.list_number)) ?? `Listino ${item.list_number}`,
+    net_price: item.net_price === null ? null : Number(item.net_price),
+    gross_price: item.gross_price === null ? null : Number(item.gross_price),
+  }));
+}
