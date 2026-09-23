@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
   PRICE_SOURCE_LABEL,
   fetchPriceObservations,
+  fetchSalePrices,
   priceDateShort,
   priceLabel,
   seriesCurrent,
