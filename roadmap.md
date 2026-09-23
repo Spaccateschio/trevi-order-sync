@@ -6,6 +6,7 @@
 - [x] Mockup Inventario solo frontend: impostazioni zone una tantum, vista operativa e conteggio rapido responsive con dati fittizi e stato locale
 
 ## Prossimi passi
+- [ ] Controllo andamento prezzi: analizzare le fonti reali Danea/B2B/ordini, verificare sovrascritture e storico esistente, progettare osservazioni prezzo unificate per prodotti gestiti e preferiti catalogo senza includere questi ultimi nell'Inventario; nessuna implementazione finché il piano non è approvato
 - [ ] Riorganizzare la navigazione in Panoramica → Acquisti/Vendite/B2B/Impostazioni, aggiungere selettore azienda e preferenze persistenti per utente e azienda su visibilità e ordine di menu e dashboard; migrazione approvata con regole basate sull'appartenenza esistente, includere i test incrociati menu/dashboard, persistenza, cambio azienda, ripristino e divieto Danea ai non amministratori
 - [x] Mockup KDS Inventario solo frontend: tabellone generale fisso indipendente dai filtri, avanzamenti locali, navigazione visuale touch e completamento simulato
 - [x] Compattare il mockup KDS su desktop e smartphone e mostrare foto prodotto esclusivamente dimostrative, senza nuova logica immagini
