@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { CatalogList, type CatalogProduct } from "@/components/catalog/catalog-list";
+import { fetchPriceSeriesForCatalog } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -104,6 +105,14 @@ function SellerCatalogue() {
     queryKey: ["catalogo-um-preferite", buyerId, sellerId],
     enabled: operational && Boolean(buyerId),
     queryFn: () => fetchUnitPreferences(buyerId!, sellerId),
+  });
+
+  // Andamento prezzo in sola lettura: nessuna osservazione viene creata qui.
+  const seriesQuery = useQuery({
+    queryKey: ["catalogo-andamento-prezzo", buyerId, sellerId, productIds.length],
+    enabled: operational && Boolean(buyerId) && productIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: () => fetchPriceSeriesForCatalog(buyerId!, productIds),
   });
 
   const imagesQuery = useQuery({
@@ -280,6 +289,7 @@ function SellerCatalogue() {
           products={rows}
           imageUrls={imagesQuery.data ?? new Map()}
           favorites={favorites}
+          priceSeries={seriesQuery.data}
           onToggleFavorite={(product) => toggleFavorite.mutate(product.id)}
           onSelectUnit={(product, unitId) =>
             chooseUnit.mutate({ productId: product.id, productSaleUnitId: unitId })

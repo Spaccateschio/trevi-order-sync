@@ -1,0 +1,11 @@
+REVOKE ALL ON FUNCTION public.guard_price_observation_immutable() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.hook_price_from_supplier_cost() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.hook_price_from_manual_cost() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.hook_price_from_product_prices() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.hook_price_from_customer_price_list() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.hook_price_from_goods_receipt() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.applicable_b2b_price(uuid, uuid, uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.seed_price_series_for_favorite(uuid, uuid, uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.link_price_series_to_product(uuid, uuid, uuid, uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.seed_price_series_for_favorite(uuid, uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.link_price_series_to_product(uuid, uuid, uuid, uuid, uuid) TO authenticated;
