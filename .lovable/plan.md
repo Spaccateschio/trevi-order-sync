@@ -1,31 +1,37 @@
-# Inventario: allineamento Fabbisogno, giorni di consegna, prezzo e U.M.
+# Inventario: icona prezzo con confronto costo pagato / costo odierno
 
-## 1. Perché Conteggio e Fabbisogno non coincidono
-Sono due elenchi costruiti da fonti diverse:
-- Conteggio: prodotti propri + preferiti + articoli dei cataloghi fornitori, ordinati per nome.
-- Fabbisogno: solo i prodotti propri con impostazioni di scorta, ordinati per codice.
+Idea valida e la faccio: sotto la quantità calcolata (0,00) di ogni scheda/riga compare una piccola icona € cliccabile (e con tooltip al passaggio del mouse) che apre un riquadro con i prezzi. Tutto in sola lettura: nessun prezzo viene creato, modificato o copiato.
 
-Risultato: in Fabbisogno vedi i 6 articoli interni (00-001…00-006), in Conteggio anche gli articoli dei cataloghi.
+## Cosa mostra il riquadro
 
-### Correzione proposta (solo lettura, nessun cambio di formule)
-- Fabbisogno riceve gli stessi filtri di Conteggio: Preferiti | Tutti, ricerca, e lo stesso ordine alfabetico per descrizione.
-- Fabbisogno mostra le stesse righe di Conteggio limitate ai prodotti propri; gli articoli dei cataloghi non ancora adottati restano esclusi (non hanno giacenza né scorta) e vengono indicati con una nota chiara sotto la tabella.
-- Le colonne Disponibile / Scorta min. / Necessario / Da acquistare e la formula restano identiche.
+1. **Costo della giacenza** — quanto abbiamo pagato davvero la merce ancora in magazzino (media ponderata sulle quantità dei lotti ancora disponibili). Vuoto finché non c'è una ricevuta merce confermata.
+2. **Costo odierno del fornitore** — l'ultimo costo valido: costo impostato a mano sul collegamento fornitore, costo arrivato da Danea, oppure prezzo del listino che il fornitore B2B ci ha assegnato. Indico sempre da dove arriva e la data.
+3. **Confronto**: freccia in alto rossa se il costo odierno è più alto di quello pagato, freccia in basso verde se è più basso, uguale giallo ocra se identico (o entro l'1%). Accanto, differenza in euro e in percentuale.
+4. Quando manca uno dei due numeri: icona € spenta e testo "Costo non disponibile — impostalo nella scheda prodotto → Acquisto", con collegamento rapido.
 
-## 2. Giorni della settimana / del mese
-Già organizzati e non vanno rifatti:
-- per fornitore: giorni settimanali + eventuale giorno del mese;
-- per singola referenza fornitore: possibilità di sovrascrivere i giorni del fornitore;
-- usati nella Lista della Spesa per la prossima consegna utile.
-Nessuna modifica prevista qui, salvo mostrare in Fabbisogno il prossimo giorno di consegna del fornitore principale (sola lettura).
+L'icona resta piccola e discreta, stessa resa su computer e smartphone (tap invece di passaggio mouse).
 
-## 3. Prezzo e U.M. nell'Inventario
-- Nella scheda di conteggio si aggiungono due informazioni attivabili da "Colonne": U.M. e Prezzo di acquisto (ultimo costo o prezzo del listino assegnato).
-- U.M. modificabile direttamente dalla scheda: si sceglie tra le unità già configurate per quel prodotto (preferenza d'uso già esistente); non si creano nuove unità dall'Inventario.
-- Prezzo: sola lettura nell'Inventario. Il prezzo si gestisce nelle referenze fornitore / listini, come già concordato; dalla scheda si offre un collegamento rapido alla scheda prodotto (tab Acquisto).
+## Da dove arrivano i prezzi
 
-## Fuori ambito
-Nessuna modifica a database, storico append-only, Non conforme, proposte d'acquisto, formule Fabbisogno, Lista della Spesa, ordini o listini.
+- **Danea**: costo fornitore già importato con i prodotti.
+- **Fornitore B2B**: prezzo del listino assegnato alla nostra azienda.
+- **Collegamento fornitore**: costo inserito a mano.
+- **Ricevuta merce**: costo effettivamente pagato sui lotti, quindi anche quello nato da un ordine dichiarato dal fornitore tramite il link esterno (il form che compila chi non è iscritto), una volta confermata la ricevuta.
 
-## Punto da confermare
-Sul prezzo: confermi sola lettura in Inventario con collegamento alla scheda prodotto, oppure vuoi poter modificare il costo d'acquisto direttamente dalla scheda di conteggio (comporterebbe scrittura sui costi fornitore)?
+## Cosa manca / mie note
+
+- Il **form del fornitore esterno oggi chiede quantità, non prezzi**: se vuoi che il costo pagato si aggiorni anche da lì, serve aggiungere il campo prezzo su quella pagina. È un lavoro a parte: dimmi se lo vuoi e lo pianifico dopo.
+- Serve un **piccolo storico dei costi** per dire "prezzo precedente": oggi il costo fornitore viene sovrascritto. In questa fase confronto costo pagato ↔ costo odierno, che è il confronto utile; uno storico completo dei prezzi nel tempo (con grafico) è un passo successivo.
+- I prezzi vanno **riportati all'unità della giacenza** quando il fornitore vende in cassa/collo: uso il fattore di conversione già presente sul collegamento; se manca, segnalo "unità diversa" invece di mostrare un numero sbagliato.
+- IVA: mostro il **netto** (costo di acquisto imponibile), coerente con il resto dell'app.
+
+## Dettagli tecnici
+
+- Nuovo componente `product-cost-popover.tsx` in `src/components/inventory/`, usato da `ProductCard` (conteggio) e dalla riga/tabella del Fabbisogno.
+- Una query per azienda+archivio che raccoglie: `stock_lots` disponibili (`unit_cost`, quantità) per la media ponderata; `product_supplier_links` (`manual_cost`, `manual_cost_at`, `conversion_factor`, preferito/priorità); `product_supplier_costs` (costo Danea); prezzo listino B2B tramite la RPC esistente `buyer_catalog_prices`.
+- Colori e frecce dai token esistenti in `src/styles.css` (rosso destructive, verde, giallo ocra del tema); nessun colore fisso.
+- Nessuna migrazione, nessuna nuova tabella, nessuna modifica a RPC, RLS, formule di giacenza/fabbisogno, Lista della Spesa o ordini.
+
+## Fuori scope
+
+Modifica dei prezzi dall'inventario, campo prezzo nel form del fornitore esterno, storico prezzi con grafico, valorizzazione totale di magazzino.
