@@ -50,6 +50,14 @@ Solo cambi reali del dato sorgente, tutti server-side:
 5. **Conferma carico merce** (`confirm_goods_receipt`): `kind = actual_purchase_cost`, `source = goods_receipt`, mai usato per la freccia principale.
 6. **`supplier_confirmation`**: enum predisposto, nessun aggancio ora; il modulo del fornitore non viene toccato.
 
+### 4bis. Propagazione agli articoli solo ⭐ (aggiunta della rev. 3)
+Gli eventi 2 e 3 non bastavano: l'attuale `buyer_catalog_prices` calcola il prezzo al momento della lettura e solo per l'utente collegato. Aggiungo quindi:
+- `applicable_b2b_price(_seller_company_id, _buyer_company_id, _product_id)`: stessa logica di `buyer_catalog_prices` (relazione attiva, listino assegnato, listino attivo nell'archivio del cliente) ma senza dipendere da `auth.uid()`, così è utilizzabile lato server.
+- `propagate_seller_price_change(_seller_company_id, _product_ids uuid[], _event_key text)`: per ciascun articolo trova **tutte** le aziende acquirenti che lo monitorano — chi lo ha fra i preferiti (`buyer_product_favorites`) e chi lo ha già adottato — calcola il prezzo applicabile e registra l'osservazione sulla serie di quell'azienda. Chiamata dall'import Danea del venditore e dai cambi di listino (assegnazione cliente, listino predefinito, invito).
+- `seed_price_series_for_favorite(...)`: alla **prima** ⭐, se esiste già un prezzo applicabile, viene registrato come "primo prezzo conosciuto" della serie (idempotente: nulla se la serie esiste già).
+
+Risultato: A mette ⭐ su PATATE a €0,90 → prima osservazione; Trevi aggiorna a €0,85 → l'import del venditore crea l'osservazione sulla serie di A anche se A non apre nulla; quando A torna nel catalogo legge €0,90 → €0,85 ↓ −5,6%.
+
 **Nessuna scrittura dalla lettura di pagine**: catalogo, inventario, fabbisogno e liste eseguono solo letture. Verifica esplicita nei test.
 
 ## 5. Deduplicazione

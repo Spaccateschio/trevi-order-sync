@@ -4112,6 +4112,321 @@ export type Database = {
           },
         ]
       }
+      supplier_price_observations: {
+        Row: {
+          company_id: string
+          conversion_factor: number | null
+          conversion_reference_um: string | null
+          created_at: string
+          currency: string
+          gross_price: number | null
+          id: string
+          kind: Database["public"]["Enums"]["price_observation_kind"]
+          last_seen_at: string
+          net_price: number | null
+          notes: string | null
+          observed_at: string
+          price_basis: Database["public"]["Enums"]["price_basis"]
+          price_list_id: string | null
+          price_list_number: number | null
+          price_unit_code: string | null
+          series_key: string
+          source: Database["public"]["Enums"]["price_observation_source"]
+          source_event_key: string | null
+          source_ref_id: string | null
+          source_ref_table: string | null
+          supplier_company_id: string | null
+          supplier_label: string | null
+          supplier_product_id: string | null
+          supplier_record_id: string | null
+          supplier_reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          conversion_factor?: number | null
+          conversion_reference_um?: string | null
+          created_at?: string
+          currency?: string
+          gross_price?: number | null
+          id?: string
+          kind?: Database["public"]["Enums"]["price_observation_kind"]
+          last_seen_at?: string
+          net_price?: number | null
+          notes?: string | null
+          observed_at?: string
+          price_basis?: Database["public"]["Enums"]["price_basis"]
+          price_list_id?: string | null
+          price_list_number?: number | null
+          price_unit_code?: string | null
+          series_key: string
+          source: Database["public"]["Enums"]["price_observation_source"]
+          source_event_key?: string | null
+          source_ref_id?: string | null
+          source_ref_table?: string | null
+          supplier_company_id?: string | null
+          supplier_label?: string | null
+          supplier_product_id?: string | null
+          supplier_record_id?: string | null
+          supplier_reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          conversion_factor?: number | null
+          conversion_reference_um?: string | null
+          created_at?: string
+          currency?: string
+          gross_price?: number | null
+          id?: string
+          kind?: Database["public"]["Enums"]["price_observation_kind"]
+          last_seen_at?: string
+          net_price?: number | null
+          notes?: string | null
+          observed_at?: string
+          price_basis?: Database["public"]["Enums"]["price_basis"]
+          price_list_id?: string | null
+          price_list_number?: number | null
+          price_unit_code?: string | null
+          series_key?: string
+          source?: Database["public"]["Enums"]["price_observation_source"]
+          source_event_key?: string | null
+          source_ref_id?: string | null
+          source_ref_table?: string | null
+          supplier_company_id?: string | null
+          supplier_label?: string | null
+          supplier_product_id?: string | null
+          supplier_record_id?: string | null
+          supplier_reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_price_observations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_price_observations_supplier_company_id_fkey"
+            columns: ["supplier_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_price_observations_supplier_product_id_fkey"
+            columns: ["supplier_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_price_observations_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_price_series: {
+        Row: {
+          company_id: string
+          comparable: boolean
+          created_at: string
+          current_currency: string | null
+          current_gross_price: number | null
+          current_net_price: number | null
+          current_observation_id: string | null
+          current_observed_at: string | null
+          current_price_basis: Database["public"]["Enums"]["price_basis"] | null
+          current_price_list_number: number | null
+          current_price_unit_code: string | null
+          current_source:
+            | Database["public"]["Enums"]["price_observation_source"]
+            | null
+          delta_amount: number | null
+          delta_percent: number | null
+          direction: string
+          id: string
+          kind: Database["public"]["Enums"]["price_observation_kind"]
+          last_seen_at: string
+          observation_count: number
+          previous_currency: string | null
+          previous_gross_price: number | null
+          previous_net_price: number | null
+          previous_observation_id: string | null
+          previous_observed_at: string | null
+          previous_price_basis:
+            | Database["public"]["Enums"]["price_basis"]
+            | null
+          previous_price_unit_code: string | null
+          previous_source:
+            | Database["public"]["Enums"]["price_observation_source"]
+            | null
+          product_id: string | null
+          product_supplier_link_id: string | null
+          series_key: string
+          supplier_company_id: string | null
+          supplier_label: string | null
+          supplier_product_id: string | null
+          supplier_record_id: string | null
+          supplier_reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          comparable?: boolean
+          created_at?: string
+          current_currency?: string | null
+          current_gross_price?: number | null
+          current_net_price?: number | null
+          current_observation_id?: string | null
+          current_observed_at?: string | null
+          current_price_basis?:
+            | Database["public"]["Enums"]["price_basis"]
+            | null
+          current_price_list_number?: number | null
+          current_price_unit_code?: string | null
+          current_source?:
+            | Database["public"]["Enums"]["price_observation_source"]
+            | null
+          delta_amount?: number | null
+          delta_percent?: number | null
+          direction?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["price_observation_kind"]
+          last_seen_at?: string
+          observation_count?: number
+          previous_currency?: string | null
+          previous_gross_price?: number | null
+          previous_net_price?: number | null
+          previous_observation_id?: string | null
+          previous_observed_at?: string | null
+          previous_price_basis?:
+            | Database["public"]["Enums"]["price_basis"]
+            | null
+          previous_price_unit_code?: string | null
+          previous_source?:
+            | Database["public"]["Enums"]["price_observation_source"]
+            | null
+          product_id?: string | null
+          product_supplier_link_id?: string | null
+          series_key: string
+          supplier_company_id?: string | null
+          supplier_label?: string | null
+          supplier_product_id?: string | null
+          supplier_record_id?: string | null
+          supplier_reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          comparable?: boolean
+          created_at?: string
+          current_currency?: string | null
+          current_gross_price?: number | null
+          current_net_price?: number | null
+          current_observation_id?: string | null
+          current_observed_at?: string | null
+          current_price_basis?:
+            | Database["public"]["Enums"]["price_basis"]
+            | null
+          current_price_list_number?: number | null
+          current_price_unit_code?: string | null
+          current_source?:
+            | Database["public"]["Enums"]["price_observation_source"]
+            | null
+          delta_amount?: number | null
+          delta_percent?: number | null
+          direction?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["price_observation_kind"]
+          last_seen_at?: string
+          observation_count?: number
+          previous_currency?: string | null
+          previous_gross_price?: number | null
+          previous_net_price?: number | null
+          previous_observation_id?: string | null
+          previous_observed_at?: string | null
+          previous_price_basis?:
+            | Database["public"]["Enums"]["price_basis"]
+            | null
+          previous_price_unit_code?: string | null
+          previous_source?:
+            | Database["public"]["Enums"]["price_observation_source"]
+            | null
+          product_id?: string | null
+          product_supplier_link_id?: string | null
+          series_key?: string
+          supplier_company_id?: string | null
+          supplier_label?: string | null
+          supplier_product_id?: string | null
+          supplier_record_id?: string | null
+          supplier_reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_price_series_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_price_series_current_observation_id_fkey"
+            columns: ["current_observation_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_price_observations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_price_series_previous_observation_id_fkey"
+            columns: ["previous_observation_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_price_observations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_price_series_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_price_series_product_supplier_link_id_fkey"
+            columns: ["product_supplier_link_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_price_series_supplier_company_id_fkey"
+            columns: ["supplier_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_price_series_supplier_product_id_fkey"
+            columns: ["supplier_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_price_series_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_records: {
         Row: {
           address_line: string | null
@@ -4439,6 +4754,18 @@ export type Database = {
           _replace_existing?: boolean
         }
         Returns: Json
+      }
+      applicable_b2b_price: {
+        Args: {
+          _buyer_company_id: string
+          _product_id: string
+          _seller_company_id: string
+        }
+        Returns: {
+          gross_price: number
+          list_number: number
+          net_price: number
+        }[]
       }
       apply_invitation_price_list: {
         Args: { _invitation_id: string; _relation_id: string }
@@ -4832,6 +5159,16 @@ export type Database = {
         Args: { _customer_record_id: string; _relation_id: string }
         Returns: undefined
       }
+      link_price_series_to_product: {
+        Args: {
+          _company_id: string
+          _product_id: string
+          _product_supplier_link_id?: string
+          _supplier_company_id: string
+          _supplier_product_id: string
+        }
+        Returns: number
+      }
       link_supplier_record_to_relation: {
         Args: { _relation_id: string; _supplier_record_id: string }
         Returns: string
@@ -5169,6 +5506,17 @@ export type Database = {
         Args: { _supplier_record_id: string }
         Returns: boolean
       }
+      price_series_key: {
+        Args: {
+          _company_id: string
+          _supplier_company_id: string
+          _supplier_label: string
+          _supplier_product_id: string
+          _supplier_record_id: string
+          _supplier_reference: string
+        }
+        Returns: string
+      }
       product_lot_availability: {
         Args: { _product_id: string }
         Returns: {
@@ -5230,6 +5578,14 @@ export type Database = {
           supplier_reference_label: string
         }[]
       }
+      propagate_seller_price_change: {
+        Args: {
+          _event_key?: string
+          _product_ids: string[]
+          _seller_company_id: string
+        }
+        Returns: number
+      }
       purchase_order_overview: {
         Args: { _company_id: string }
         Returns: {
@@ -5264,6 +5620,18 @@ export type Database = {
           proposal_status: string
           reference_id: string
         }[]
+      }
+      record_b2b_price_for_buyer: {
+        Args: {
+          _buyer_company_id: string
+          _event_key?: string
+          _notes?: string
+          _observed_at?: string
+          _seller_company_id: string
+          _seller_product_id: string
+          _source?: Database["public"]["Enums"]["price_observation_source"]
+        }
+        Returns: string
       }
       record_inventory_adjustment: {
         Args: {
@@ -5305,6 +5673,35 @@ export type Database = {
           _session_id: string
           _unit_code?: string
           _unit_id?: string
+        }
+        Returns: string
+      }
+      record_price_observation: {
+        Args: {
+          _company_id: string
+          _conversion_factor?: number
+          _conversion_reference_um?: string
+          _currency?: string
+          _gross_price?: number
+          _kind?: Database["public"]["Enums"]["price_observation_kind"]
+          _net_price?: number
+          _notes?: string
+          _observed_at?: string
+          _price_basis?: Database["public"]["Enums"]["price_basis"]
+          _price_list_id?: string
+          _price_list_number?: number
+          _price_unit_code?: string
+          _product_id?: string
+          _product_supplier_link_id?: string
+          _source: Database["public"]["Enums"]["price_observation_source"]
+          _source_event_key?: string
+          _source_ref_id?: string
+          _source_ref_table?: string
+          _supplier_company_id?: string
+          _supplier_label?: string
+          _supplier_product_id?: string
+          _supplier_record_id?: string
+          _supplier_reference?: string
         }
         Returns: string
       }
@@ -5418,6 +5815,14 @@ export type Database = {
           legal_name: string
           province: string
         }[]
+      }
+      seed_price_series_for_favorite: {
+        Args: {
+          _buyer_company_id: string
+          _seller_company_id: string
+          _seller_product_id: string
+        }
+        Returns: string
       }
       set_company_capabilities: {
         Args: { _can_buy: boolean; _can_sell: boolean; _company_id: string }
@@ -5660,6 +6065,16 @@ export type Database = {
         | "annullato"
         | "annullato_scaduto"
       lot_reconciliation_status: "aperta" | "riconciliata" | "ignorata"
+      price_basis: "netto" | "lordo"
+      price_observation_kind: "observed_price" | "actual_purchase_cost"
+      price_observation_source:
+        | "danea_supplier_cost"
+        | "danea_price_list"
+        | "b2b_price_list"
+        | "manual_cost"
+        | "supplier_confirmation"
+        | "goods_receipt"
+        | "backfill_initial"
       product_commercial_availability:
         | "available"
         | "on_order"
@@ -5887,6 +6302,17 @@ export const Constants = {
         "annullato_scaduto",
       ],
       lot_reconciliation_status: ["aperta", "riconciliata", "ignorata"],
+      price_basis: ["netto", "lordo"],
+      price_observation_kind: ["observed_price", "actual_purchase_cost"],
+      price_observation_source: [
+        "danea_supplier_cost",
+        "danea_price_list",
+        "b2b_price_list",
+        "manual_cost",
+        "supplier_confirmation",
+        "goods_receipt",
+        "backfill_initial",
+      ],
       product_commercial_availability: [
         "available",
         "on_order",

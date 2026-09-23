@@ -27,6 +27,8 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { PriceTrendIcon } from "@/components/pricing/price-trend-icon";
+import { fetchPriceSeriesForProducts, type PriceSeriesRow } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -410,6 +412,25 @@ export function InventoryCountPanel({
     }
     return map;
   }, [supplierInfoQuery.data]);
+
+  // Andamento prezzo in SOLA LETTURA: nessuna osservazione viene creata qui.
+  const priceSeriesQuery = useQuery({
+    queryKey: ["inventario-andamento-prezzo", companyId, imageProductIds],
+    enabled: imageProductIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: () => fetchPriceSeriesForProducts(companyId, imageProductIds),
+  });
+  const priceSeries = useMemo(() => {
+    const map = new Map<string, PriceSeriesRow>();
+    for (const [productId, rows] of priceSeriesQuery.data ?? new Map()) {
+      const best = [...rows]
+        .filter((row) => row.kind === "observed_price")
+        .sort((a, b) => (b.current_observed_at ?? "").localeCompare(a.current_observed_at ?? ""))[0];
+      if (best) map.set(productId, best);
+    }
+    return map;
+  }, [priceSeriesQuery.data]);
+
 
 
   const refresh = async () => {
@@ -873,6 +894,7 @@ export function InventoryCountPanel({
               catalogCount.mutate({ candidate, locationId: location.id, value });
             }}
             supplierInfo={supplierInfo}
+            priceSeries={priceSeries}
             fieldPreferences={fieldPreferences}
             locationOptions={activeLocations.map((location) => ({ id: location.id, name: location.name }))}
             onRecount={(row) => recountMutation.mutate(row)}
@@ -1324,6 +1346,7 @@ function PhysicalCount({
   onCatalogDraftChange,
   onCatalogConfirm,
   supplierInfo,
+  priceSeries,
   fieldPreferences,
   locationOptions,
   onRecount,
@@ -1373,6 +1396,7 @@ function PhysicalCount({
   onCatalogDraftChange: (id: string, value: string) => void;
   onCatalogConfirm: (candidate: CatalogCandidate) => void;
   supplierInfo: Map<string, SupplierInfo>;
+  priceSeries: Map<string, PriceSeriesRow>;
   fieldPreferences: FieldPreferences;
   locationOptions: { id: string; name: string }[];
   onRecount: (row: InventoryCountRow) => void;
@@ -1597,6 +1621,7 @@ function PhysicalCount({
                       isAdmin={isAdmin}
                       actionsEnabled={sessionActive}
                       supplier={supplierInfo.get(row.product_id) ?? null}
+                      priceSeries={priceSeries.get(row.product_id) ?? null}
                       isVisible={fieldPreferences.isVisible}
                       onChange={(value) => onDraftChange(rowKey(row), value)}
                       onConfirm={() => onConfirm(row)}
@@ -1677,6 +1702,7 @@ function ProductCard({
   isAdmin,
   actionsEnabled,
   supplier,
+  priceSeries,
   isVisible,
   onChange,
   onConfirm,
@@ -1693,6 +1719,7 @@ function ProductCard({
   isAdmin: boolean;
   actionsEnabled: boolean;
   supplier: SupplierInfo | null;
+  priceSeries: PriceSeriesRow | null;
   isVisible: (id: InventoryFieldId) => boolean;
   onChange: (value: string) => void;
   onConfirm: () => void;
@@ -1778,6 +1805,7 @@ function ProductCard({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <PriceTrendIcon series={priceSeries} label={`Andamento prezzo di ${name}`} />
           {isAdmin ? (
             <Button
               type="button"

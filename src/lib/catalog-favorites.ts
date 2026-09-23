@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
+import { linkPriceSeriesToProduct, seedPriceSeriesForFavorite } from "@/lib/pricing";
 
 export type FavoriteToggleResult =
   | { action: "added"; createdProduct: boolean; createdLink: boolean; warning?: string }
@@ -44,6 +45,19 @@ export async function toggleCatalogFavorite(
   });
   if (error) throw new Error(error.message);
 
+  // Monitoraggio prezzo: il prezzo corrente diventa il primo prezzo conosciuto
+  // della serie. Non crea prodotti e non modifica nessun prezzo.
+  try {
+    await seedPriceSeriesForFavorite({
+      buyerCompanyId,
+      sellerCompanyId,
+      sellerProductId: productId,
+    });
+  } catch {
+    // il preferito resta salvato anche se il monitoraggio non è disponibile
+  }
+
+
   const args: Record<string, string> = {
     _buyer_company_id: buyerCompanyId,
     _seller_company_id: sellerCompanyId,
@@ -65,7 +79,27 @@ export async function toggleCatalogFavorite(
     return { action: "added", createdProduct: false, createdLink: false, warning: rpcError.message };
   }
 
-  const result = (data ?? {}) as { created_product?: boolean; created_link?: boolean };
+  const result = (data ?? {}) as {
+    created_product?: boolean;
+    created_link?: boolean;
+    product_id?: string;
+  };
+
+  // Adozione: il prodotto si collega alla serie già esistente,
+  // le osservazioni storiche non vengono riscritte.
+  if (result.product_id) {
+    try {
+      await linkPriceSeriesToProduct({
+        companyId: buyerCompanyId,
+        sellerCompanyId,
+        sellerProductId: productId,
+        productId: result.product_id,
+      });
+    } catch {
+      // nessun blocco: il collegamento prezzi è accessorio
+    }
+  }
+
   return {
     action: "added",
     createdProduct: Boolean(result.created_product),

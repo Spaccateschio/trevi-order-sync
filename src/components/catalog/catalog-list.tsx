@@ -3,7 +3,9 @@ import { ImageOff } from "lucide-react";
 
 import { FavoriteButton } from "@/components/catalog/favorite-button";
 import { UnitPicker } from "@/components/catalog/unit-picker";
+import { PriceTrendIcon } from "@/components/pricing/price-trend-icon";
 import type { CatalogSaleUnit } from "@/lib/catalog";
+import type { PriceSeriesRow } from "@/lib/pricing";
 import { euro } from "@/lib/product-grid";
 
 export type CatalogProduct = {
@@ -37,6 +39,7 @@ export function CatalogList({
   products,
   imageUrls,
   favorites,
+  priceSeries,
   onToggleFavorite,
   onSelectUnit,
   showSeller = false,
@@ -44,6 +47,7 @@ export function CatalogList({
   products: CatalogProduct[];
   imageUrls: Map<string, string>;
   favorites: Set<string>;
+  priceSeries?: Map<string, PriceSeriesRow> | undefined;
   onToggleFavorite: (product: CatalogProduct) => void;
   onSelectUnit: (product: CatalogProduct, productSaleUnitId: string) => void;
   showSeller?: boolean;
@@ -135,10 +139,16 @@ export function CatalogList({
                 </td>
 
                 <td className="px-3 py-2 text-right">
-                  <FavoriteButton
-                    active={favorites.has(product.id)}
-                    onToggle={() => onToggleFavorite(product)}
-                  />
+                  <span className="inline-flex items-center gap-1">
+                    <PriceTrendIcon
+                      series={priceSeries?.get(product.id) ?? null}
+                      label={`Andamento prezzo di ${product.description ?? product.code}`}
+                    />
+                    <FavoriteButton
+                      active={favorites.has(product.id)}
+                      onToggle={() => onToggleFavorite(product)}
+                    />
+                  </span>
                 </td>
               </tr>
             ))}
@@ -197,6 +207,10 @@ export function CatalogList({
 
                 </span>
               </Link>
+              <PriceTrendIcon
+                series={priceSeries?.get(product.id) ?? null}
+                label={`Andamento prezzo di ${product.description ?? product.code}`}
+              />
               <FavoriteButton
                 active={favorites.has(product.id)}
                 onToggle={() => onToggleFavorite(product)}
