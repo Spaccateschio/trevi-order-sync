@@ -1,37 +1,87 @@
-# Inventario: icona prezzo con confronto costo pagato / costo odierno
+# Controllo andamento prezzo — piano tecnico definitivo
 
-Idea valida e la faccio: sotto la quantità calcolata (0,00) di ogni scheda/riga compare una piccola icona € cliccabile (e con tooltip al passaggio del mouse) che apre un riquadro con i prezzi. Tutto in sola lettura: nessun prezzo viene creato, modificato o copiato.
+Registro storico dei prezzi per **azienda monitorante + fornitore + referenza**, con prodotto interno collegato solo dopo l'adozione. Nessun cambiamento a Inventario, Fabbisogno, Lista della Spesa, ordini, Danea o B2B oltre ai punti in cui si registra l'osservazione.
 
-## Cosa mostra il riquadro
+## Cosa vedrai
 
-1. **Costo della giacenza** — quanto abbiamo pagato davvero la merce ancora in magazzino (media ponderata sulle quantità dei lotti ancora disponibili). Vuoto finché non c'è una ricevuta merce confermata.
-2. **Costo odierno del fornitore** — l'ultimo costo valido: costo impostato a mano sul collegamento fornitore, costo arrivato da Danea, oppure prezzo del listino che il fornitore B2B ci ha assegnato. Indico sempre da dove arriva e la data.
-3. **Confronto**: freccia in alto rossa se il costo odierno è più alto di quello pagato, freccia in basso verde se è più basso, uguale giallo ocra se identico (o entro l'1%). Accanto, differenza in euro e in percentuale.
-4. Quando manca uno dei due numeri: icona € spenta e testo "Costo non disponibile — impostalo nella scheda prodotto → Acquisto", con collegamento rapido.
+Una piccola icona € accanto al prodotto: nel Catalogo Acquisti per gli articoli preferiti/monitorati e nell'Inventario per i prodotti adottati. Al clic (o tap) un riquadro mostra prezzo attuale, prezzo precedente, differenza in euro e in percentuale con freccia rossa in su / verde in giù / uguale giallo ocra, la provenienza del prezzo, la data dell'ultimo aggiornamento e le ultime osservazioni. Nessun grafico, nessuna modifica di prezzo dal riquadro.
 
-L'icona resta piccola e discreta, stessa resa su computer e smartphone (tap invece di passaggio mouse).
+## 1. Nuove tabelle
 
-## Da dove arrivano i prezzi
+### `supplier_price_observations` (append-only)
+- Chiave di serie: `company_id` (chi monitora), `supplier_company_id` (nullable: fornitore non registrato), `supplier_record_id` (nullable: anagrafica fornitore interna), `supplier_product_id` (nullable: articolo del catalogo del fornitore), `supplier_reference` (codice referenza testuale, sempre valorizzato quando manca `supplier_product_id`).
+- Collegamento interno: `product_id` nullable, `product_supplier_link_id` nullable.
+- Prezzo: `kind` enum `price_observation_kind` = `observed_price` | `actual_purchase_cost`; `net_price`, `gross_price` (almeno uno non nullo), `currency` default `EUR`, `price_basis` enum `price_basis` = `netto` | `lordo`.
+- U.M.: `price_unit_code`, `conversion_factor` e `conversion_reference_um` congelati nell'osservazione (nulli se nessuna conversione esplicita).
+- Provenienza: `source` enum `price_observation_source` = `danea_supplier_cost` | `danea_price_list` | `b2b_price_list` | `manual_cost` | `supplier_confirmation` | `goods_receipt`; `price_list_number`, `price_list_id`, `source_event_key` (testo: identità dell'evento, es. `danea:<sync_run_id>:<product>:<kind>`), `source_ref_table`/`source_ref_id`.
+- Tempi: `observed_at` (prima volta che questo valore è stato visto), `last_seen_at` (ultima conferma dello stesso valore), `created_at`, `updated_at` (trigger).
+- Note: `notes`.
 
-- **Danea**: costo fornitore già importato con i prodotti.
-- **Fornitore B2B**: prezzo del listino assegnato alla nostra azienda.
-- **Collegamento fornitore**: costo inserito a mano.
-- **Ricevuta merce**: costo effettivamente pagato sui lotti, quindi anche quello nato da un ordine dichiarato dal fornitore tramite il link esterno (il form che compila chi non è iscritto), una volta confermata la ricevuta.
+### `supplier_price_series` (stato corrente, una riga per serie e `kind`)
+Chiave unica sulla serie + `kind`; contiene `current_observation_id`, `previous_observation_id`, `current_*` e `previous_*` (prezzo, U.M., basis, valuta, fonte), `comparable` boolean, `delta_amount`, `delta_percent`, `direction` (`up`|`down`|`equal`|`not_comparable`), `last_seen_at`. Aggiornata dalla stessa funzione che inserisce l'osservazione: evita query pesanti nelle liste.
 
-## Cosa manca / mie note
+## 2. Chiavi e indici
+- Unico su `supplier_price_observations(company_id, source, source_event_key)` dove `source_event_key` non è nullo → idempotenza degli import.
+- Indice sulla serie: `(company_id, supplier_company_id, supplier_product_id, supplier_reference, kind, observed_at desc)`.
+- Indice `(company_id, product_id, kind, observed_at desc)` per l'Inventario.
+- Unico su `supplier_price_series(company_id, supplier_company_id, supplier_product_id, supplier_reference, kind)` con `coalesce` su una colonna generata di identità serie.
 
-- Il **form del fornitore esterno oggi chiede quantità, non prezzi**: se vuoi che il costo pagato si aggiorni anche da lì, serve aggiungere il campo prezzo su quella pagina. È un lavoro a parte: dimmi se lo vuoi e lo pianifico dopo.
-- Serve un **piccolo storico dei costi** per dire "prezzo precedente": oggi il costo fornitore viene sovrascritto. In questa fase confronto costo pagato ↔ costo odierno, che è il confronto utile; uno storico completo dei prezzi nel tempo (con grafico) è un passo successivo.
-- I prezzi vanno **riportati all'unità della giacenza** quando il fornitore vende in cassa/collo: uso il fattore di conversione già presente sul collegamento; se manca, segnalo "unità diversa" invece di mostrare un numero sbagliato.
-- IVA: mostro il **netto** (costo di acquisto imponibile), coerente con il resto dell'app.
+## 3. RLS e grant
+- `GRANT SELECT, INSERT, UPDATE, DELETE ... TO authenticated`, `GRANT ALL ... TO service_role` su entrambe le tabelle; nessun accesso `anon`.
+- RLS abilitato; lettura e scrittura solo se `is_company_member(company_id)` (scrittura riservata ai ruoli operativi via `has_company_role`), coerente con le altre tabelle dell'app.
+- Storico immutabile: trigger che vieta `UPDATE` dei campi prezzo/fonte/U.M. e vieta `DELETE` (solo `last_seen_at` aggiornabile), come già fatto per gli altri storici.
 
-## Dettagli tecnici
+## 4. Eventi che scrivono lo storico
+Un'unica funzione `record_price_observation(...)` (SECURITY DEFINER, `search_path = public`) chiamata da:
+1. **Import Danea, costo fornitore** — dopo l'aggiornamento di `product_supplier_costs`: `source = danea_supplier_cost`, `source_event_key` con l'id della sincronizzazione.
+2. **Import Danea, listini** — solo per il listino effettivamente applicabile: `danea_price_list` con `price_list_number`.
+3. **Prezzo B2B applicabile alla mia azienda** — registrato alla lettura del catalogo/listino assegnato (`b2b_price_list`, con numero/id listino), incluso il cambio di listino assegnato.
+4. **Costo manuale** del collegamento fornitore, alla conferma (`manual_cost`).
+5. **Conferma carico merce** — `kind = actual_purchase_cost`, `source = goods_receipt` (mai usato per la freccia principale).
+6. **`supplier_confirmation`** — predisposto ma non attivo: il modulo del fornitore non viene toccato ora.
 
-- Nuovo componente `product-cost-popover.tsx` in `src/components/inventory/`, usato da `ProductCard` (conteggio) e dalla riga/tabella del Fabbisogno.
-- Una query per azienda+archivio che raccoglie: `stock_lots` disponibili (`unit_cost`, quantità) per la media ponderata; `product_supplier_links` (`manual_cost`, `manual_cost_at`, `conversion_factor`, preferito/priorità); `product_supplier_costs` (costo Danea); prezzo listino B2B tramite la RPC esistente `buyer_catalog_prices`.
-- Colori e frecce dai token esistenti in `src/styles.css` (rosso destructive, verde, giallo ocra del tema); nessun colore fisso.
-- Nessuna migrazione, nessuna nuova tabella, nessuna modifica a RPC, RLS, formule di giacenza/fabbisogno, Lista della Spesa o ordini.
+## 5. Deduplicazione
+- Stesso `source_event_key` → nessun inserimento (idempotenza dell'evento).
+- Stesso contenuto confrontabile dell'ultima osservazione della serie (prezzo, valuta, U.M., basis, fonte, listino) → nessuna nuova riga, solo `last_seen_at = now()` sull'osservazione corrente e sulla serie.
+- Valore diverso → nuova osservazione; la precedente resta intatta e diventa `previous_observation_id`.
+
+## 6. Preferito → prodotto adottato
+- Il monitoraggio parte dalla ⭐ (`buyer_product_favorites`) senza creare prodotti: la serie usa `supplier_company_id + supplier_product_id`.
+- All'adozione (`add_catalog_product_to_own_products`) si valorizza `product_id` e `product_supplier_link_id` sulle righe esistenti della serie: nessuna copia, nessuna seconda cronologia.
+- Togliere la ⭐ non cancella nulla dello storico.
+- Un mio prodotto con più fornitori ha una serie distinta per fornitore/referenza: mai uno storico unico indistinto.
+
+## 7. Query/RPC
+- `price_trend_for_products(_product_ids uuid[])` → riga di serie per prodotto e fornitore (per Inventario/Fabbisogno).
+- `price_trend_for_catalog(_seller_company_id uuid, _supplier_product_ids uuid[])` → per il Catalogo Acquisti e i preferiti.
+- `price_observation_history(_series ...)` → ultime N osservazioni, con `actual_purchase_cost` mostrato separatamente.
+- Confronto mostrato solo fra osservazioni realmente confrontabili; altrimenti "Confronto non disponibile: unità o natura del prezzo differenti", senza freccia.
+
+## 8. Componenti UI
+- `src/components/pricing/price-trend-icon.tsx` — icona € con stato acceso/spento e freccia.
+- `src/components/pricing/price-trend-popover.tsx` — contenuto del riquadro (attuale, precedente, Δ €, Δ %, fonte, ultimo aggiornamento, ultime osservazioni, costo effettivo in sezione separata).
+- `src/lib/pricing.ts` — tipi, formattazioni, regole di confrontabilità.
+- Punti di uso: `catalog-list.tsx` e il dettaglio articolo del catalogo, la `ProductCard` dell'Inventario e la riga/tabella Fabbisogno. Lista della Spesa in un secondo momento.
+- Colori solo da token esistenti (rosso destructive, verde, giallo ocra).
+
+## 9. Desktop / smartphone
+- Desktop e tablet: hover mostra un riepilogo breve, clic apre il riquadro completo.
+- Smartphone: tap apre lo stesso contenuto in un foglio a scomparsa, icona con area di tocco adeguata.
+
+## 10. Migrazione dei dati esistenti
+Una sola osservazione iniziale per ogni valore corrente oggi presente, con `observed_at` uguale alla data disponibile (`received_at`, `manual_cost_at`, altrimenti data di creazione) e `source_event_key = 'backfill:<tabella>:<id>'`: da `product_supplier_costs`, `product_supplier_links.manual_cost`, listini applicabili, e come `actual_purchase_cost` da `goods_receipt_items` confermati. Nessuna freccia inventata: con una sola osservazione il riquadro dirà "primo prezzo conosciuto".
+
+## 11. Test
+- Serie separate per fornitori diversi sullo stesso prodotto.
+- Prima osservazione → nessuna freccia; secondo valore più basso → verde; più alto → rosso; identico entro tolleranza → uguale ocra.
+- Stesso prezzo ricevuto due volte → nessuna nuova osservazione, `last_seen_at` aggiornato.
+- Stesso evento di import ripetuto → nessun duplicato.
+- U.M. o netto/lordo differenti → nessuna freccia, messaggio di non confrontabilità.
+- ⭐ su un articolo non adottato → storico visibile nel Catalogo, prodotto non presente in Inventario.
+- Adozione successiva → stessa cronologia visibile anche in Inventario, nessuna duplicazione.
+- `actual_purchase_cost` da carico confermato non altera la freccia principale.
+- RLS: un'altra azienda non vede le osservazioni; tentativo di modifica/cancellazione respinto.
+- Verifica in app su Catalogo e Inventario dopo l'implementazione.
 
 ## Fuori scope
-
-Modifica dei prezzi dall'inventario, campo prezzo nel form del fornitore esterno, storico prezzi con grafico, valorizzazione totale di magazzino.
+Grafico dell'andamento, modifica dei prezzi dal riquadro, campo prezzo nel modulo del fornitore, valorizzazione di magazzino, modifiche a formule di giacenza/fabbisogno, Lista della Spesa, ordini e logiche commerciali.
