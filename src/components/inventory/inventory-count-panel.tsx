@@ -798,6 +798,7 @@ export function InventoryCountPanel({
           />
         ) : (
           <PhysicalCount
+            companyId={companyId}
             sessionActive={Boolean(sessionId)}
             sessionName={progress?.session_name ?? sessionQuery.data?.name ?? "Inventario generale"}
             progress={progress}
@@ -1309,6 +1310,7 @@ function LocationSelection({
 }
 
 function PhysicalCount({
+  companyId,
   sessionActive,
   sessionName,
   progress,
@@ -1359,6 +1361,7 @@ function PhysicalCount({
   onHideCompletion,
   closing,
 }: {
+  companyId: string;
   sessionActive: boolean;
   sessionName: string;
   progress: InventoryProgress | undefined;
@@ -1615,6 +1618,7 @@ function PhysicalCount({
                   code: row.code,
                   node: (
                     <ProductCard
+                      companyId={companyId}
                       row={row}
                       imageUrl={imageUrls.get(row.product_id)}
                       value={drafts[rowKey(row)] ?? ""}
@@ -1696,6 +1700,7 @@ function PhysicalCount({
 }
 
 function ProductCard({
+  companyId,
   row,
   imageUrl,
   value,
@@ -1713,6 +1718,7 @@ function ProductCard({
   onProposal,
   onHistory,
 }: {
+  companyId: string;
   row: InventoryCountRow;
   imageUrl: string | undefined;
   value: string;
@@ -1805,7 +1811,12 @@ function ProductCard({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <PriceTrendIcon series={priceSeries} label={`Andamento prezzo di ${name}`} />
+          <PriceTrendIcon
+            series={priceSeries}
+            label={`Andamento prezzo di ${name}`}
+            companyId={companyId}
+            productId={row.product_id}
+          />
           {isAdmin ? (
             <Button
               type="button"
