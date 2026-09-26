@@ -372,10 +372,13 @@ export function InventoryCountPanel({
   }, [managedProductIds, rowsQuery.data, workFilter]);
 
 
-  const imageProductIds = useMemo(
-    () => [...new Set(rows.map((row) => row.product_id))].slice(0, 50),
+  // Lista completa dei prodotti visibili: il controllo prezzo e le info fornitore
+  // devono coprire tutte le righe, non solo le prime 50 (quelle usate per le miniature).
+  const visibleProductIds = useMemo(
+    () => [...new Set(rows.map((row) => row.product_id))],
     [rows],
   );
+  const imageProductIds = useMemo(() => visibleProductIds.slice(0, 50), [visibleProductIds]);
   const imagesQuery = useQuery({
     queryKey: ["inventory-count-images", imageProductIds],
     enabled: imageProductIds.length > 0,
