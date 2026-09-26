@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Le RPC manage_unit_of_measure e apply_product_sale_unit_batch sono solo server (EXECUTE solo service_role), chiamate da sales-units.functions.ts dopo il controllo is_company_admin: impedisce chiamate dirette dal client con company_id arbitrario.
+- Consegne fornitore: le 4 RPC interne (open/set/add_extra/submit delivery) si chiamano con context.supabase (auth.uid()), senza bypass; il link esterno usa solo external_open_delivery/external_set_delivery_item/external_submit_delivery (EXECUTE solo service_role) dove il token decide l'ordine: impedisce accessi cross-azienda e cross-ordine.
