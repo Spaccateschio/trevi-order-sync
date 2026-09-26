@@ -74,7 +74,11 @@ export type RequirementRow = {
   raw_need: number;
   suggested: number;
   rounded: boolean;
+  last_count_quantity: number | null;
+  last_count_unit_code: string | null;
+  last_count_at: string | null;
 };
+
 
 export const STOCK_STATUS_LABEL: Record<StockStatus, string> = {
   mai_contato: "Mai contato",
