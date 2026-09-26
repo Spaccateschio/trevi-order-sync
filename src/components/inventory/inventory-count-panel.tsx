@@ -1927,11 +1927,25 @@ function ProductCard({
           <p className="mt-1 text-sm font-bold leading-none">{formatQuantity(calculated, unit)}</p>
         </div>
         <div className="min-w-0">
-          <div className="flex items-baseline justify-between gap-1">
+          <div className="flex items-center justify-between gap-1">
             <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
-            {unit ? (
+            {unitOptions.length > 1 ? (
+              <select
+                className="h-4 max-w-[64px] rounded-sm border border-border bg-background px-0.5 text-[10px] font-semibold leading-none text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                value={selectedUnit}
+                onChange={(event) => unitsCtx.setSelected(row, event.target.value)}
+                aria-label={`Unità di misura conteggio ${name}`}
+                title={conversionHint ?? "Unità di misura del conteggio"}
+              >
+                {unitOptions.map((option) => (
+                  <option key={option.unit_code} value={option.unit_code}>
+                    {option.unit_code}
+                  </option>
+                ))}
+              </select>
+            ) : selectedUnit ? (
               <span className="text-[10px] font-semibold leading-none text-muted-foreground/90" aria-label="Unità di misura inventario">
-                {unit}
+                {selectedUnit}
               </span>
             ) : null}
           </div>
@@ -1945,7 +1959,7 @@ function ProductCard({
             autoCapitalize="off"
             spellCheck={false}
             value={value}
-            placeholder={isConfirmed ? formatQuantity(Number(row.counted), unit) : ""}
+            placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
             onChange={(event) => onChange(event.target.value)}
             onFocus={(event) => event.currentTarget.select()}
             onKeyDown={(event) => {
@@ -1965,9 +1979,13 @@ function ProductCard({
               difference !== null && difference < 0 && "text-destructive",
               difference !== null && difference > 0 && "text-success",
             )}
+            title={!comparable ? `U.M. non confrontabili${conversionHint ? ` · ${conversionHint} (indicativa)` : ""}` : undefined}
           >
             {difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, unit)}`}
           </p>
+          {!comparable ? (
+            <p className="mt-0.5 text-[8px] leading-none text-muted-foreground">U.M. non confrontabili</p>
+          ) : null}
         </div>
         <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={onConfirm}>
           <Check className="size-4" />
