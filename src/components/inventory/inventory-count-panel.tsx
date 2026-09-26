@@ -380,6 +380,24 @@ export function InventoryCountPanel({
       }),
   });
 
+  // Tutta la sessione, senza filtri: serve al controllo dei mancanti prima della Lista della Spesa.
+  const allRowsQuery = useQuery({
+    queryKey: ["inventory-rows", sessionId, "all-session"],
+    enabled: Boolean(sessionId),
+    queryFn: () =>
+      readRows({
+        data: { sessionId: sessionId!, locationId: null, category: null, subcategory: null, search: null, favoritesOnly: false },
+      }),
+  });
+  // Stesso criterio di "Da controllare": nessun conteggio registrato (0 è un conteggio valido).
+  const missingRows = useMemo(
+    () =>
+      (allRowsQuery.data ?? [])
+        .filter((row) => (!managedProductIds.size || managedProductIds.has(row.product_id)) && row.counted === null)
+        .sort((left, right) => byName(left.description, left.code, right.description, right.code)),
+    [allRowsQuery.data, managedProductIds],
+  );
+
   const rows = useMemo(() => {
     const all = rowsQuery.data ?? [];
     return all
@@ -1022,7 +1040,20 @@ export function InventoryCountPanel({
 
       <TabsContent value="fabbisogno">
         {archiveId ? (
-          <InventoryRequirementsPanel companyId={companyId} archiveId={archiveId} />
+          <InventoryRequirementsPanel
+            companyId={companyId}
+            archiveId={archiveId}
+            missingProducts={missingRows.map((row) => ({
+              key: `${row.product_id}|${row.location_id}`,
+              code: row.code,
+              description: row.description,
+              unit: row.danea_um?.trim() || "",
+            }))}
+            onBackToCount={() => {
+              setWorkFilter("pending");
+              setTab("conteggio");
+            }}
+          />
         ) : (
           <p className="text-sm text-muted-foreground">Nessun archivio disponibile.</p>
         )}
