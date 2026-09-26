@@ -372,10 +372,13 @@ export function InventoryCountPanel({
   }, [managedProductIds, rowsQuery.data, workFilter]);
 
 
-  const imageProductIds = useMemo(
-    () => [...new Set(rows.map((row) => row.product_id))].slice(0, 50),
+  // Lista completa dei prodotti visibili: il controllo prezzo e le info fornitore
+  // devono coprire tutte le righe, non solo le prime 50 (quelle usate per le miniature).
+  const visibleProductIds = useMemo(
+    () => [...new Set(rows.map((row) => row.product_id))],
     [rows],
   );
+  const imageProductIds = useMemo(() => visibleProductIds.slice(0, 50), [visibleProductIds]);
   const imagesQuery = useQuery({
     queryKey: ["inventory-count-images", imageProductIds],
     enabled: imageProductIds.length > 0,
@@ -389,8 +392,8 @@ export function InventoryCountPanel({
 
   // Informazioni d'acquisto in SOLA LETTURA (nessuna logica di acquisto qui)
   const supplierInfoQuery = useQuery({
-    queryKey: ["inventario-info-fornitore", companyId, imageProductIds],
-    enabled: imageProductIds.length > 0,
+    queryKey: ["inventario-info-fornitore", companyId, visibleProductIds],
+    enabled: visibleProductIds.length > 0,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -398,7 +401,7 @@ export function InventoryCountPanel({
         .select("product_id, manual_cost, is_preferred, sourcing_priority, supplier_records(legal_name)")
         .eq("company_id", companyId)
         .eq("is_active", true)
-        .in("product_id", imageProductIds);
+        .in("product_id", visibleProductIds);
       if (error) throw new Error(error.message);
       return data ?? [];
     },
@@ -415,10 +418,10 @@ export function InventoryCountPanel({
 
   // Andamento prezzo in SOLA LETTURA: nessuna osservazione viene creata qui.
   const priceSeriesQuery = useQuery({
-    queryKey: ["inventario-andamento-prezzo", companyId, imageProductIds],
-    enabled: imageProductIds.length > 0,
+    queryKey: ["inventario-andamento-prezzo", companyId, visibleProductIds],
+    enabled: visibleProductIds.length > 0,
     staleTime: 5 * 60 * 1000,
-    queryFn: () => fetchPriceSeriesForProducts(companyId, imageProductIds),
+    queryFn: () => fetchPriceSeriesForProducts(companyId, visibleProductIds),
   });
   const priceSeries = useMemo(() => {
     const map = new Map<string, PriceSeriesRow>();
