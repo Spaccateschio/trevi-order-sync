@@ -205,6 +205,7 @@ export function InventoryCountPanel({
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [unitDrafts, setUnitDrafts] = useState<Record<string, string>>({});
+  const [emptyRows, setEmptyRows] = useState<InventoryCountRow[] | null>(null);
   const readCountUnits = useServerFn(getProductCountUnits);
   const [pending, setPending] = useState<{ row: InventoryCountRow; value: number } | null>(null);
   const [pendingReason, setPendingReason] = useState("");
@@ -847,18 +848,66 @@ export function InventoryCountPanel({
     setPendingReason("");
   };
 
+  // Solo prodotti mai contati: un conteggio già registrato (anche in U.M. diversa,
+  // con differenza null) non viene mai riconfermato automaticamente come invariato.
+  // La quantità digitata dall'operatore (anche 0) ha sempre priorità sulla calcolata.
+  const confirmTargets = () => rows.filter((row) => row.counted === null);
+  const typedValue = (row: InventoryCountRow) => {
+    const raw = (drafts[rowKey(row)] ?? "").trim();
+    return raw === "" ? null : parseQuantity(raw);
+  };
+
+  const runConfirmAll = async (goToRequirements: boolean) => {
+    setEmptyRows(null);
+    let saved = 0;
+    const needNote: InventoryCountRow[] = [];
+    for (const row of confirmTargets()) {
+      const typed = typedValue(row);
+      if (typed === null) {
+        await countMutation.mutateAsync({ row, value: Number(row.calculated), unit: rowUnit(row), notes: null });
+        saved += 1;
+        continue;
+      }
+      const unit = countUnitsValue.selected(row);
+      // Regola esistente: differenza a parità di U.M. richiede la nota.
+      if (sameUnit(unit, rowUnit(row)) && typed !== Number(row.calculated)) {
+        needNote.push(row);
+        continue;
+      }
+      await countMutation.mutateAsync({ row, value: typed, unit, notes: null });
+      saved += 1;
+    }
+    if (saved) toast.success(`${saved} prodotti confermati`);
+    if (needNote.length) {
+      toast.info(`${needNote.length} prodotti con differenza richiedono la nota: completala e premi "Conferma" sulla scheda`);
+      const first = needNote[0]!;
+      setPending({ row: first, value: typedValue(first)! });
+      setPendingReason(first.note ?? "");
+      return;
+    }
+    if (goToRequirements) setTab("fabbisogno");
+  };
+
   const confirmAllUnchanged = async () => {
-    // Solo prodotti mai contati: un conteggio già registrato (anche in U.M. diversa,
-    // con differenza null) non viene mai riconfermato automaticamente come invariato.
-    const targets = rows.filter((row) => row.counted === null);
+    const targets = confirmTargets();
     if (!targets.length) {
       toast.info("Nessun prodotto da confermare in questa vista");
       return;
     }
-    for (const row of targets) {
-      await countMutation.mutateAsync({ row, value: Number(row.calculated), unit: rowUnit(row), notes: null });
+    const invalid = targets.find((row) => {
+      const raw = (drafts[rowKey(row)] ?? "").trim();
+      return raw !== "" && parseQuantity(raw) === null;
+    });
+    if (invalid) {
+      toast.error(`Quantità non valida per ${invalid.code}`);
+      return;
     }
-    toast.success(`${targets.length} prodotti confermati invariati`);
+    const empty = targets.filter((row) => typedValue(row) === null);
+    if (empty.length) {
+      setEmptyRows(empty);
+      return;
+    }
+    await runConfirmAll(false);
   };
 
   const selectedLocation = activeLocations.find((location) => location.id === selectedLocationId) ?? null;
@@ -1329,6 +1378,61 @@ export function InventoryCountPanel({
               </DialogFooter>
             </>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Articoli senza quantità inserita */}
+      <Dialog open={emptyRows !== null} onOpenChange={(open) => !open && setEmptyRows(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base">Ci sono articoli senza quantità inserita</DialogTitle>
+            <DialogDescription className="text-xs">Non hai inserito una quantità per questi articoli:</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-64 overflow-auto rounded-md border border-border">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-muted">
+                <tr>
+                  <th className="px-2 py-1 text-left">Codice</th>
+                  <th className="px-2 py-1 text-left">Descrizione</th>
+                  <th className="px-2 py-1 text-left">U.M.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(emptyRows ?? []).map((row) => (
+                  <tr key={rowKey(row)} className="border-t border-border">
+                    <td className="px-2 py-1 font-mono">{row.code}</td>
+                    <td className="px-2 py-1">{rowName(row)}</td>
+                    <td className="px-2 py-1">{rowUnit(row)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Vuoi tornare al conteggio per inserire le quantità oppure confermare questi articoli con la quantità
+            attualmente calcolata?
+          </p>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEmptyRows(null);
+                setWorkFilter("pending");
+                setTab("conteggio");
+                window.setTimeout(() => {
+                  document.querySelector<HTMLInputElement>('[data-count-input="true"]')?.focus();
+                }, 150);
+              }}
+            >
+              Riprendi e inserisci
+            </Button>
+            <Button variant="secondary" disabled={countMutation.isPending} onClick={() => void runConfirmAll(true)}>
+              Conferma e vai al Fabbisogno
+            </Button>
+            <Button disabled={countMutation.isPending} onClick={() => void runConfirmAll(false)}>
+              Conferma solamente
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -2102,6 +2206,7 @@ function ProductCard({
             className="mt-1 h-10 px-2 text-right text-base font-bold"
             type="text"
             inputMode="decimal"
+            data-count-input="true"
             pattern="[0-9]*[.,]?[0-9]*"
             enterKeyHint="done"
             autoComplete="off"
