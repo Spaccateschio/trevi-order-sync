@@ -43,3 +43,8 @@
 
 - [ ] Inventario: definire popolazione unica "prodotti gestiti" usata da Conteggio, Fabbisogno e Lista della Spesa (verifica adozione catalogo prima di modificare le query)
 - [ ] Inventario: prezzo in sola lettura + link "Apri prodotto → Acquisto"; chiarire quale U.M. usare per la giacenza
+
+## Rifiniture future (flusso Acquisti, da non toccare ora)
+- [ ] Link fornitore: la sola riapertura dopo l'invio crea automaticamente una seconda consegna in bozza per il residuo; valutare creazione solo su azione esplicita
+- [ ] Contestazione consegna: la finestra "Risolvi" propone "Rettifica la quantità" come default; valutare "Accetta come dichiarato" o nessun default
+- [ ] Lista della Spesa: riconfermare una lista già confermata non cambia nulla ma scrive comunque una voce "shopping_list.confirm" nel registro attività
