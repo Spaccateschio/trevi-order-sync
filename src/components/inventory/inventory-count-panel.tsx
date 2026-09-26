@@ -2102,6 +2102,7 @@ function ProductCard({
             className="mt-1 h-10 px-2 text-right text-base font-bold"
             type="text"
             inputMode="decimal"
+            data-count-input="true"
             pattern="[0-9]*[.,]?[0-9]*"
             enterKeyHint="done"
             autoComplete="off"
