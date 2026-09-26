@@ -24,7 +24,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-import { useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PriceTrendIcon } from "@/components/pricing/price-trend-icon";
@@ -72,10 +72,12 @@ import {
   managePurchaseProposal,
   recordCountEntry,
   startGeneralInventory,
+  getProductCountUnits,
   type CatalogCandidate,
   type CountHistoryEntry,
   type InventoryCountRow,
   type InventoryProgress,
+  type ProductCountUnit,
 } from "@/lib/inventory-count.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
@@ -141,6 +143,25 @@ function rowUnit(row: InventoryCountRow) {
   return row.danea_um?.trim() || "";
 }
 
+/** Confronto U.M. senza conversioni: vuoto = U.M. base (compatibilità storica). */
+function sameUnit(left: string | null | undefined, right: string | null | undefined) {
+  const a = left?.trim().toLowerCase() ?? "";
+  const b = right?.trim().toLowerCase() ?? "";
+  return !a || !b || a === b;
+}
+
+type CountUnitsContextValue = {
+  options: (row: InventoryCountRow) => ProductCountUnit[];
+  selected: (row: InventoryCountRow) => string;
+  setSelected: (row: InventoryCountRow, code: string) => void;
+};
+
+const CountUnitsContext = createContext<CountUnitsContextValue>({
+  options: () => [],
+  selected: (row) => rowUnit(row),
+  setSelected: () => undefined,
+});
+
 export function InventoryCountPanel({
   companyId,
   archiveId,
@@ -183,6 +204,8 @@ export function InventoryCountPanel({
   const [supplierFilter, setSupplierFilter] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [unitDrafts, setUnitDrafts] = useState<Record<string, string>>({});
+  const readCountUnits = useServerFn(getProductCountUnits);
   const [pending, setPending] = useState<{ row: InventoryCountRow; value: number } | null>(null);
   const [pendingReason, setPendingReason] = useState("");
   const [showCompletion, setShowCompletion] = useState(true);
@@ -434,6 +457,56 @@ export function InventoryCountPanel({
     return map;
   }, [priceSeriesQuery.data]);
 
+  // U.M. ammissibili per il conteggio: solo quelle gia configurate sul prodotto.
+  const countUnitProductIds = useMemo(
+    () => (sessionId ? visibleProductIds : previewProducts.map((product) => product.id)),
+    [sessionId, visibleProductIds, previewProducts],
+  );
+  const countUnitsQuery = useQuery({
+    queryKey: ["inventario-um-conteggio", companyId, countUnitProductIds],
+    enabled: countUnitProductIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: () => readCountUnits({ data: { companyId, productIds: countUnitProductIds } }),
+  });
+  const countUnitsByProduct = useMemo(() => {
+    const map = new Map<string, ProductCountUnit[]>();
+    for (const unit of countUnitsQuery.data ?? []) {
+      const list = map.get(unit.product_id) ?? [];
+      list.push(unit);
+      map.set(unit.product_id, list);
+    }
+    return map;
+  }, [countUnitsQuery.data]);
+  const countUnitsValue = useMemo<CountUnitsContextValue>(() => {
+    const options = (row: InventoryCountRow): ProductCountUnit[] => {
+      const list = [...(countUnitsByProduct.get(row.product_id) ?? [])];
+      const base = rowUnit(row);
+      if (base && !list.some((unit) => sameUnit(unit.unit_code, base))) {
+        list.unshift({ product_id: row.product_id, unit_code: base, unit_label: base, is_base: true, sources: ["base"], conversion_factor: null, conversion_reference_um: null });
+      }
+      const recorded = row.counted_unit_code?.trim();
+      if (recorded && !list.some((unit) => sameUnit(unit.unit_code, recorded))) {
+        list.push({ product_id: row.product_id, unit_code: recorded, unit_label: recorded, is_base: false, sources: ["conteggio"], conversion_factor: null, conversion_reference_um: null });
+      }
+      return list;
+    };
+    const selected = (row: InventoryCountRow) => {
+      const draft = unitDrafts[rowKey(row)];
+      if (draft) return draft;
+      const recorded = row.counted_unit_code?.trim();
+      if (row.counted !== null && recorded) {
+        return options(row).find((unit) => sameUnit(unit.unit_code, recorded))?.unit_code ?? recorded;
+      }
+      const base = rowUnit(row);
+      return options(row).find((unit) => sameUnit(unit.unit_code, base))?.unit_code ?? base;
+    };
+    return {
+      options,
+      selected,
+      setSelected: (row, code) => setUnitDrafts((current) => ({ ...current, [rowKey(row)]: code })),
+    };
+  }, [countUnitsByProduct, unitDrafts]);
+
 
 
   const refresh = async () => {
@@ -553,7 +626,7 @@ export function InventoryCountPanel({
 
   // Conferma e riconteggio: append-only nello storico, l'ultima riga è la fotografia corrente
   const countMutation = useMutation({
-    mutationFn: (input: { row: InventoryCountRow; value: number; notes: string | null }) =>
+    mutationFn: (input: { row: InventoryCountRow; value: number; unit: string; notes: string | null }) =>
       saveEntry({
         data: {
           companyId,
@@ -562,7 +635,7 @@ export function InventoryCountPanel({
           locationId: input.row.location_id,
           entryType: input.row.counted !== null ? "riconteggio" : "conteggio",
           countedQuantity: input.value,
-          unitCode: rowUnit(input.row) || null,
+          unitCode: input.unit || null,
           notes: input.notes,
           nonCompliant: null,
           nonCompliantQuantity: null,
@@ -570,6 +643,11 @@ export function InventoryCountPanel({
       }),
     onSuccess: async (_result, input) => {
       setDrafts((current) => {
+        const next = { ...current };
+        delete next[rowKey(input.row)];
+        return next;
+      });
+      setUnitDrafts((current) => {
         const next = { ...current };
         delete next[rowKey(input.row)];
         return next;
@@ -727,17 +805,24 @@ export function InventoryCountPanel({
       toast.error("Inserisci una quantità valida");
       return;
     }
-    if (value !== Number(row.calculated)) {
+    const unit = countUnitsValue.selected(row);
+    // U.M. diversa dalla base: nessun confronto numerico con la giacenza calcolata.
+    if (sameUnit(unit, rowUnit(row)) && value !== Number(row.calculated)) {
       setPending({ row, value });
       setPendingReason(row.note ?? "");
       return;
     }
-    countMutation.mutate({ row, value, notes: null });
+    countMutation.mutate({ row, value, unit, notes: null });
   };
 
   const savePendingDifference = () => {
     if (!pending) return;
-    countMutation.mutate({ row: pending.row, value: pending.value, notes: pendingReason.trim() });
+    countMutation.mutate({
+      row: pending.row,
+      value: pending.value,
+      unit: countUnitsValue.selected(pending.row),
+      notes: pendingReason.trim(),
+    });
     setPending(null);
     setPendingReason("");
   };
@@ -749,7 +834,7 @@ export function InventoryCountPanel({
       return;
     }
     for (const row of targets) {
-      await countMutation.mutateAsync({ row, value: Number(row.calculated), notes: null });
+      await countMutation.mutateAsync({ row, value: Number(row.calculated), unit: rowUnit(row), notes: null });
     }
     toast.success(`${targets.length} prodotti confermati invariati`);
   };
@@ -800,6 +885,7 @@ export function InventoryCountPanel({
             onContinue={() => setSelectingLocation(false)}
           />
         ) : (
+          <CountUnitsContext.Provider value={countUnitsValue}>
           <PhysicalCount
             companyId={companyId}
             sessionActive={Boolean(sessionId)}
@@ -818,7 +904,7 @@ export function InventoryCountPanel({
               image_path: null, thumbnail_path: null, calculated: 0, counted: null, difference: null,
               counted_at: null, counted_by: null, note: null, recount_requested_at: null, non_compliant: false,
               non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
-              min_stock: null, order_multiple: null,
+              min_stock: null, order_multiple: null, counted_unit_code: null, units_comparable: null,
             }))}
             catalogCandidates={[]}
             excludedCatalogCount={visibleCatalogCandidates.length}
@@ -876,7 +962,7 @@ export function InventoryCountPanel({
                 toast.error("Scegli prima la zona");
                 return;
               }
-              firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: rowUnit(row), value });
+              firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: countUnitsValue.selected(row), value });
             }}
             onConfirmAll={confirmAllUnchanged}
             onToggleFavorite={(row) =>
@@ -926,6 +1012,7 @@ export function InventoryCountPanel({
             onHideCompletion={() => setShowCompletion(false)}
             closing={closeMutation.isPending}
           />
+          </CountUnitsContext.Provider>
         )}
       </TabsContent>
 
@@ -1740,14 +1827,30 @@ function ProductCard({
   onHistory: () => void;
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
+  const unitsCtx = useContext(CountUnitsContext);
   const unit = rowUnit(row);
   const name = rowName(row);
   const calculated = Number(row.calculated);
   const counted = parseQuantity(value);
   const isConfirmed = row.counted !== null;
-  const confirmedDifference = isConfirmed ? Number(row.difference ?? 0) : null;
-  const hasDifference = isConfirmed && confirmedDifference !== 0;
-  const difference = counted === null ? (isConfirmed ? confirmedDifference : null) : counted - calculated;
+  const countedUnit = row.counted_unit_code?.trim() || unit;
+  const selectedUnit = unitsCtx.selected(row);
+  const unitOptions = unitsCtx.options(row);
+  // Nessuna operazione matematica fra U.M. diverse: la differenza esiste solo a parità di U.M.
+  const effectiveUnit = counted !== null ? selectedUnit : isConfirmed ? countedUnit : selectedUnit;
+  const comparable = sameUnit(effectiveUnit, unit);
+  const conversion = unitOptions.find((option) => sameUnit(option.unit_code, effectiveUnit));
+  const conversionHint =
+    conversion && !conversion.is_base && conversion.conversion_factor
+      ? `1 ${conversion.unit_code} ≈ ${formatQuantity(Number(conversion.conversion_factor), conversion.conversion_reference_um ?? unit)} ${conversion.conversion_reference_um ?? unit}`
+      : null;
+  const confirmedDifference = isConfirmed && row.units_comparable !== false ? Number(row.difference ?? 0) : null;
+  const hasDifference = isConfirmed && confirmedDifference !== null && confirmedDifference !== 0;
+  const difference = !comparable
+    ? null
+    : counted === null
+      ? (isConfirmed ? confirmedDifference : null)
+      : counted - calculated;
   const needsRecount = row.recount_requested_at !== null;
   const proposalOpen = row.proposal_status === "aperta";
   const status = needsRecount
@@ -1927,11 +2030,25 @@ function ProductCard({
           <p className="mt-1 text-sm font-bold leading-none">{formatQuantity(calculated, unit)}</p>
         </div>
         <div className="min-w-0">
-          <div className="flex items-baseline justify-between gap-1">
+          <div className="flex items-center justify-between gap-1">
             <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
-            {unit ? (
+            {unitOptions.length > 1 ? (
+              <select
+                className="h-4 max-w-[64px] rounded-sm border border-border bg-background px-0.5 text-[10px] font-semibold leading-none text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                value={selectedUnit}
+                onChange={(event) => unitsCtx.setSelected(row, event.target.value)}
+                aria-label={`Unità di misura conteggio ${name}`}
+                title={conversionHint ?? "Unità di misura del conteggio"}
+              >
+                {unitOptions.map((option) => (
+                  <option key={option.unit_code} value={option.unit_code}>
+                    {option.unit_code}
+                  </option>
+                ))}
+              </select>
+            ) : selectedUnit ? (
               <span className="text-[10px] font-semibold leading-none text-muted-foreground/90" aria-label="Unità di misura inventario">
-                {unit}
+                {selectedUnit}
               </span>
             ) : null}
           </div>
@@ -1945,7 +2062,7 @@ function ProductCard({
             autoCapitalize="off"
             spellCheck={false}
             value={value}
-            placeholder={isConfirmed ? formatQuantity(Number(row.counted), unit) : ""}
+            placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
             onChange={(event) => onChange(event.target.value)}
             onFocus={(event) => event.currentTarget.select()}
             onKeyDown={(event) => {
@@ -1965,9 +2082,13 @@ function ProductCard({
               difference !== null && difference < 0 && "text-destructive",
               difference !== null && difference > 0 && "text-success",
             )}
+            title={!comparable ? `U.M. non confrontabili${conversionHint ? ` · ${conversionHint} (indicativa)` : ""}` : undefined}
           >
             {difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, unit)}`}
           </p>
+          {!comparable ? (
+            <p className="mt-0.5 text-[8px] leading-none text-muted-foreground">U.M. non confrontabili</p>
+          ) : null}
         </div>
         <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={onConfirm}>
           <Check className="size-4" />

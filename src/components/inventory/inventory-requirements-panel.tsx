@@ -283,7 +283,14 @@ export function InventoryRequirementsPanel({
                 </td>
                 <td className="truncate text-muted-foreground">{row.category ?? "—"}</td>
                 <td className="text-muted-foreground">{row.unit ?? "—"}</td>
-                <td>{row.count_status === "mai_contato" ? "—" : qty(row.available)}</td>
+                <td>
+                  {row.count_status === "mai_contato" ? "—" : qty(row.available)}
+                  {row.last_count_quantity !== null && row.last_count_quantity !== undefined ? (
+                    <span className="block text-[10px] text-muted-foreground">
+                      Ultimo conteggio: {qty(row.last_count_quantity)} {row.last_count_unit_code ?? row.unit ?? ""}
+                    </span>
+                  ) : null}
+                </td>
                 <td>{row.min_stock !== null ? qty(row.min_stock) : "—"}</td>
                 <td>
                   <Input
@@ -354,6 +361,9 @@ export function InventoryRequirementsPanel({
             <p className="mt-1 text-xs text-muted-foreground">
               Disponibile {row.count_status === "mai_contato" ? "—" : qty(row.available)} · scorta minima{" "}
               {row.min_stock !== null ? qty(row.min_stock) : "—"}
+              {row.last_count_quantity !== null && row.last_count_quantity !== undefined
+                ? ` · Ultimo conteggio: ${qty(row.last_count_quantity)} ${row.last_count_unit_code ?? row.unit ?? ""}`
+                : ""}
             </p>
             <div className="mt-2 flex items-center gap-2">
               <Input
