@@ -1740,14 +1740,30 @@ function ProductCard({
   onHistory: () => void;
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
+  const unitsCtx = useContext(CountUnitsContext);
   const unit = rowUnit(row);
   const name = rowName(row);
   const calculated = Number(row.calculated);
   const counted = parseQuantity(value);
   const isConfirmed = row.counted !== null;
-  const confirmedDifference = isConfirmed ? Number(row.difference ?? 0) : null;
-  const hasDifference = isConfirmed && confirmedDifference !== 0;
-  const difference = counted === null ? (isConfirmed ? confirmedDifference : null) : counted - calculated;
+  const countedUnit = row.counted_unit_code?.trim() || unit;
+  const selectedUnit = unitsCtx.selected(row);
+  const unitOptions = unitsCtx.options(row);
+  // Nessuna operazione matematica fra U.M. diverse: la differenza esiste solo a parità di U.M.
+  const effectiveUnit = counted !== null ? selectedUnit : isConfirmed ? countedUnit : selectedUnit;
+  const comparable = sameUnit(effectiveUnit, unit);
+  const conversion = unitOptions.find((option) => sameUnit(option.unit_code, effectiveUnit));
+  const conversionHint =
+    conversion && !conversion.is_base && conversion.conversion_factor
+      ? `1 ${conversion.unit_code} ≈ ${formatQuantity(Number(conversion.conversion_factor), conversion.conversion_reference_um ?? unit)} ${conversion.conversion_reference_um ?? unit}`
+      : null;
+  const confirmedDifference = isConfirmed && row.units_comparable !== false ? Number(row.difference ?? 0) : null;
+  const hasDifference = isConfirmed && confirmedDifference !== null && confirmedDifference !== 0;
+  const difference = !comparable
+    ? null
+    : counted === null
+      ? (isConfirmed ? confirmedDifference : null)
+      : counted - calculated;
   const needsRecount = row.recount_requested_at !== null;
   const proposalOpen = row.proposal_status === "aperta";
   const status = needsRecount
