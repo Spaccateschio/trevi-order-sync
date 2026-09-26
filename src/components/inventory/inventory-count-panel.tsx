@@ -392,8 +392,8 @@ export function InventoryCountPanel({
 
   // Informazioni d'acquisto in SOLA LETTURA (nessuna logica di acquisto qui)
   const supplierInfoQuery = useQuery({
-    queryKey: ["inventario-info-fornitore", companyId, imageProductIds],
-    enabled: imageProductIds.length > 0,
+    queryKey: ["inventario-info-fornitore", companyId, visibleProductIds],
+    enabled: visibleProductIds.length > 0,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -401,7 +401,7 @@ export function InventoryCountPanel({
         .select("product_id, manual_cost, is_preferred, sourcing_priority, supplier_records(legal_name)")
         .eq("company_id", companyId)
         .eq("is_active", true)
-        .in("product_id", imageProductIds);
+        .in("product_id", visibleProductIds);
       if (error) throw new Error(error.message);
       return data ?? [];
     },
