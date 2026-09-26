@@ -800,6 +800,7 @@ export function InventoryCountPanel({
             onContinue={() => setSelectingLocation(false)}
           />
         ) : (
+          <CountUnitsContext.Provider value={countUnitsValue}>
           <PhysicalCount
             companyId={companyId}
             sessionActive={Boolean(sessionId)}
@@ -818,7 +819,7 @@ export function InventoryCountPanel({
               image_path: null, thumbnail_path: null, calculated: 0, counted: null, difference: null,
               counted_at: null, counted_by: null, note: null, recount_requested_at: null, non_compliant: false,
               non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
-              min_stock: null, order_multiple: null,
+              min_stock: null, order_multiple: null, counted_unit_code: null, units_comparable: null,
             }))}
             catalogCandidates={[]}
             excludedCatalogCount={visibleCatalogCandidates.length}
@@ -876,7 +877,7 @@ export function InventoryCountPanel({
                 toast.error("Scegli prima la zona");
                 return;
               }
-              firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: rowUnit(row), value });
+              firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: countUnitsValue.selected(row), value });
             }}
             onConfirmAll={confirmAllUnchanged}
             onToggleFavorite={(row) =>
@@ -926,6 +927,7 @@ export function InventoryCountPanel({
             onHideCompletion={() => setShowCompletion(false)}
             closing={closeMutation.isPending}
           />
+          </CountUnitsContext.Provider>
         )}
       </TabsContent>
 
