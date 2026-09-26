@@ -58,8 +58,7 @@ export const manageShoppingList = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => listSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: id, error } = await supabaseAdmin.rpc("manage_shopping_list", {
+    const { data: id, error } = await context.supabase.rpc("manage_shopping_list", {
       _company_id: data.companyId,
       _action: data.action,
       _actor_user_id: context.userId,
@@ -76,8 +75,7 @@ export const addShoppingListItems = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => addSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: result, error } = await supabaseAdmin.rpc("add_shopping_list_items", {
+    const { data: result, error } = await context.supabase.rpc("add_shopping_list_items", {
       _company_id: data.companyId,
       _list_id: data.listId,
       _items: data.items,
@@ -96,8 +94,7 @@ export const setShoppingListItemQuantity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => quantitySchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("set_shopping_list_item_quantity", {
+    const { error } = await context.supabase.rpc("set_shopping_list_item_quantity", {
       _company_id: data.companyId,
       _item_id: data.itemId,
       _decided_quantity: data.decidedQuantity,
@@ -115,8 +112,7 @@ export const removeShoppingListItem = createServerFn({ method: "POST" })
     z.object({ companyId: z.string().uuid(), itemId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("remove_shopping_list_item", {
+    const { error } = await context.supabase.rpc("remove_shopping_list_item", {
       _company_id: data.companyId,
       _item_id: data.itemId,
       _actor_user_id: context.userId,
@@ -129,8 +125,7 @@ export const assignShoppingListSupplier = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => assignSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("assign_shopping_list_supplier", {
+    const { error } = await context.supabase.rpc("assign_shopping_list_supplier", {
       _company_id: data.companyId,
       _item_id: data.itemId,
       _action: data.action,
