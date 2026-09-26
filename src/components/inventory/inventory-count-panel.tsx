@@ -832,7 +832,7 @@ export function InventoryCountPanel({
   const confirmAllUnchanged = async () => {
     // Solo prodotti mai contati: un conteggio già registrato (anche in U.M. diversa,
     // con differenza null) non viene mai riconfermato automaticamente come invariato.
-    const targets = rows.filter((row) => row.counted === null && row.counted_at === null);
+    const targets = rows.filter((row) => row.counted === null);
     if (!targets.length) {
       toast.info("Nessun prodotto da confermare in questa vista");
       return;
@@ -1594,6 +1594,11 @@ function PhysicalCount({
                   {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? visibleRows.length}
                 </strong>{" "}
                 completati
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Confermati <strong>{unchanged}</strong> · Differenze reali{" "}
+                <strong className="text-destructive">{generalDifferences}</strong> · U.M. non confrontabili{" "}
+                <strong>{notComparable}</strong> · Mancanti <strong>{progress?.pending ?? 0}</strong>
               </p>
             </div>
             <div className="grid grid-cols-2 rounded-md border border-border p-0.5">

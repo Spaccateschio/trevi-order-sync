@@ -230,6 +230,7 @@ export const closeGeneralInventory = createServerFn({ method: "POST" })
       completed: number;
       differences: number;
       unchanged: number;
+      not_comparable?: number;
     };
   });
 
