@@ -22,8 +22,7 @@ export const createPurchaseOrdersFromList = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: ids, error } = await supabaseAdmin.rpc("create_purchase_orders_from_list", {
+    const { data: ids, error } = await context.supabase.rpc("create_purchase_orders_from_list", {
       _company_id: data.companyId,
       _list_id: data.listId,
       _actor_user_id: context.userId,
@@ -48,8 +47,7 @@ export const managePurchaseOrder = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("manage_purchase_order", {
+    const { error } = await context.supabase.rpc("manage_purchase_order", {
       _order_id: data.orderId,
       _action: data.action,
       _actor_user_id: context.userId,
@@ -172,8 +170,7 @@ export const acceptPurchaseDelivery = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ deliveryId: uuid }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("accept_purchase_delivery", {
+    const { error } = await context.supabase.rpc("accept_purchase_delivery", {
       _delivery_id: data.deliveryId,
       _actor_user_id: context.userId,
     });
@@ -201,8 +198,7 @@ export const disputePurchaseDeliveryItem = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("dispute_purchase_delivery_item", {
+    const { error } = await context.supabase.rpc("dispute_purchase_delivery_item", {
       _delivery_item_id: data.deliveryItemId,
       _reason: data.reason,
       _actor_user_id: context.userId,
@@ -225,8 +221,7 @@ export const resolvePurchaseDeliveryDispute = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("resolve_purchase_delivery_dispute", {
+    const { error } = await context.supabase.rpc("resolve_purchase_delivery_dispute", {
       _dispute_id: data.disputeId,
       _resolution: data.resolution,
       _actor_user_id: context.userId,
@@ -241,8 +236,7 @@ export const openGoodsReceipt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ deliveryId: uuid }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: id, error } = await supabaseAdmin.rpc("open_goods_receipt", {
+    const { data: id, error } = await context.supabase.rpc("open_goods_receipt", {
       _delivery_id: data.deliveryId,
       _actor_user_id: context.userId,
     });
@@ -266,8 +260,7 @@ export const setGoodsReceiptItem = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("set_goods_receipt_item", {
+    const { error } = await context.supabase.rpc("set_goods_receipt_item", {
       _receipt_item_id: data.receiptItemId,
       _actor_user_id: context.userId,
       ...(data.verifiedQuantity === null ? {} : { _verified_quantity: data.verifiedQuantity }),
@@ -285,8 +278,7 @@ export const confirmGoodsReceipt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ receiptId: uuid }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("confirm_goods_receipt", {
+    const { error } = await context.supabase.rpc("confirm_goods_receipt", {
       _receipt_id: data.receiptId,
       _actor_user_id: context.userId,
     });
@@ -306,8 +298,7 @@ export const openLotReconciliation = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: id, error } = await supabaseAdmin.rpc("open_lot_reconciliation", {
+    const { data: id, error } = await context.supabase.rpc("open_lot_reconciliation", {
       _product_id: data.productId,
       _location_id: data.locationId,
       _actor_user_id: context.userId,
@@ -331,8 +322,7 @@ export const resolveLotReconciliation = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("resolve_lot_reconciliation", {
+    const { error } = await context.supabase.rpc("resolve_lot_reconciliation", {
       _reconciliation_id: data.reconciliationId,
       _action: data.action,
       _actor_user_id: context.userId,
@@ -358,11 +348,10 @@ export const createOrderShareLink = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { randomBytes, createHash } = await import("node:crypto");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const token = randomBytes(24).toString("base64url");
     const tokenHash = createHash("sha256").update(token).digest("hex");
     const expiresAt = new Date(Date.now() + data.validHours * 3600 * 1000).toISOString();
-    const { error } = await supabaseAdmin.rpc("create_order_share_link", {
+    const { error } = await context.supabase.rpc("create_order_share_link", {
       _order_id: data.orderId,
       _token_hash: tokenHash,
       _expires_at: expiresAt,
@@ -377,8 +366,7 @@ export const revokeOrderShareLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ linkId: uuid }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("revoke_order_share_link", {
+    const { error } = await context.supabase.rpc("revoke_order_share_link", {
       _link_id: data.linkId,
       _actor_user_id: context.userId,
     });
