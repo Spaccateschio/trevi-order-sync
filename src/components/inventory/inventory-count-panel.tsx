@@ -83,7 +83,7 @@ import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
 
 type ProductView = "favorites" | "all";
-type WorkFilter = "pending" | "completed" | "differences" | "recount";
+type WorkFilter = "pending" | "completed" | "differences" | "not_comparable" | "recount";
 type SupplierInfo = { name: string | null; cost: number | null };
 type FieldPreferences = ReturnType<typeof useInventoryFieldPreferences>;
 
@@ -389,7 +389,9 @@ export function InventoryCountPanel({
         if (workFilter === "pending") return row.counted === null;
         if (workFilter === "recount") return row.recount_requested_at !== null;
         if (workFilter === "completed") return row.counted !== null;
-        return row.counted !== null && Number(row.difference ?? 0) !== 0;
+        if (workFilter === "not_comparable") return row.counted !== null && row.units_comparable === false;
+        // Differenze reali: solo differenze numeriche calcolabili (stessa U.M.) e diverse da zero.
+        return row.counted !== null && row.units_comparable !== false && row.difference !== null && Number(row.difference) !== 0;
       })
       .sort((left, right) => byName(left.description, left.code, right.description, right.code));
   }, [managedProductIds, rowsQuery.data, workFilter]);
@@ -762,7 +764,7 @@ export function InventoryCountPanel({
       toast.success(
         summary.already_closed
           ? "L'inventario era già chiuso: nessuna modifica"
-          : `Inventario chiuso: ${summary.total} prodotti, ${summary.differences} con differenze`,
+          : `Inventario chiuso: ${summary.total} prodotti, ${summary.differences} con differenze, ${summary.not_comparable ?? 0} con U.M. non confrontabili`,
       );
     },
     onError: (error: Error) => toast.error(error.message),
@@ -828,7 +830,9 @@ export function InventoryCountPanel({
   };
 
   const confirmAllUnchanged = async () => {
-    const targets = rows.filter((row) => row.counted === null);
+    // Solo prodotti mai contati: un conteggio già registrato (anche in U.M. diversa,
+    // con differenza null) non viene mai riconfermato automaticamente come invariato.
+    const targets = rows.filter((row) => row.counted === null && row.counted_at === null);
     if (!targets.length) {
       toast.info("Nessun prodotto da confermare in questa vista");
       return;
@@ -1506,6 +1510,7 @@ function PhysicalCount({
   const generalCompleted = progress?.completed ?? 0;
   const generalDifferences = progress?.differences ?? 0;
   const unchanged = progress?.unchanged ?? 0;
+  const notComparable = progress?.not_comparable ?? 0;
   const percentage = total ? Math.round((generalCompleted / total) * 100) : 0;
   const completed = total > 0 && (progress?.pending ?? 1) === 0;
 
@@ -1604,7 +1609,7 @@ function PhysicalCount({
                 Tutti
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-5">
               <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "outline"} onClick={() => onWorkFilterChange("pending")}>
                 Da controllare
               </Button>
@@ -1613,6 +1618,9 @@ function PhysicalCount({
               </Button>
               <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "differences" ? "default" : "outline"} onClick={() => onWorkFilterChange("differences")}>
                 Differenze
+              </Button>
+              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "not_comparable" ? "default" : "outline"} onClick={() => onWorkFilterChange("not_comparable")}>
+                U.M. diverse
               </Button>
               <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "recount" ? "default" : "outline"} onClick={() => onWorkFilterChange("recount")}>
                 Da ricontare
@@ -1665,6 +1673,7 @@ function PhysicalCount({
                 <DropdownMenuItem onClick={() => onWorkFilterChange("pending")}>Da controllare</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onWorkFilterChange("completed")}>Confermati</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onWorkFilterChange("differences")}>Differenze</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onWorkFilterChange("not_comparable")}>U.M. diverse</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onWorkFilterChange("recount")}>Da ricontare</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1776,6 +1785,7 @@ function PhysicalCount({
           total={total}
           unchanged={unchanged}
           differences={generalDifferences}
+          notComparable={notComparable}
           isAdmin={isAdmin}
           closing={closing}
           onShowDifferences={() => {
@@ -2249,6 +2259,7 @@ function CompletionSummary({
   total,
   unchanged,
   differences,
+  notComparable,
   isAdmin,
   closing,
   onShowDifferences,
@@ -2257,6 +2268,7 @@ function CompletionSummary({
   total: number;
   unchanged: number;
   differences: number;
+  notComparable: number;
   isAdmin: boolean;
   closing: boolean;
   onShowDifferences: () => void;
@@ -2267,7 +2279,7 @@ function CompletionSummary({
       <CheckCheck className="mx-auto size-10 text-success" />
       <p className="mt-3 text-xs font-bold uppercase text-success">Inventario completato</p>
       <h3 className="mt-1 font-display text-2xl font-bold">{total} prodotti controllati</h3>
-      <div className="mx-auto mt-5 grid max-w-lg grid-cols-2 divide-x divide-border">
+      <div className="mx-auto mt-5 grid max-w-lg grid-cols-3 divide-x divide-border">
         <p>
           <strong className="block text-2xl">{unchanged}</strong>
           <span className="text-sm text-muted-foreground">senza differenze</span>
@@ -2275,6 +2287,10 @@ function CompletionSummary({
         <p>
           <strong className="block text-2xl text-destructive">{differences}</strong>
           <span className="text-sm text-muted-foreground">con differenze</span>
+        </p>
+        <p>
+          <strong className="block text-2xl">{notComparable}</strong>
+          <span className="text-sm text-muted-foreground">U.M. non confrontabili</span>
         </p>
       </div>
       <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">

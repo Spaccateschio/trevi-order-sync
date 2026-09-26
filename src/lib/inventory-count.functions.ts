@@ -18,6 +18,7 @@ export type InventoryProgress = {
   completed: number;
   differences: number;
   unchanged: number;
+  not_comparable?: number;
   pending: number;
   zones: { location_id: string; name: string; code: string | null; total: number; completed: number; differences: number }[];
   categories: { name: string; total: number; completed: number }[];
