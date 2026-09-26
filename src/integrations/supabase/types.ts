@@ -5067,6 +5067,9 @@ export type Database = {
           counted_locations: number
           danea_um: string
           description: string
+          last_count_at: string
+          last_count_quantity: number
+          last_count_unit_code: string
           min_stock: number
           needed: number
           order_multiple: number
@@ -5098,6 +5101,7 @@ export type Database = {
           counted: number
           counted_at: string
           counted_by: string
+          counted_unit_code: string
           danea_um: string
           description: string
           difference: number
@@ -5117,6 +5121,7 @@ export type Database = {
           recount_requested_at: string
           subcategory: string
           thumbnail_path: string
+          units_comparable: boolean
         }[]
       }
       invitation_preview: {
@@ -5516,6 +5521,18 @@ export type Database = {
           _supplier_reference: string
         }
         Returns: string
+      }
+      product_count_units: {
+        Args: { _company_id: string; _product_ids: string[] }
+        Returns: {
+          conversion_factor: number
+          conversion_reference_um: string
+          is_base: boolean
+          product_id: string
+          sources: string[]
+          unit_code: string
+          unit_label: string
+        }[]
       }
       product_lot_availability: {
         Args: { _product_id: string }
