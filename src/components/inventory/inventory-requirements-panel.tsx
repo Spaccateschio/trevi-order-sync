@@ -7,6 +7,14 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity, purchaseNeed, qty, STOCK_STATUS_LABEL, type RequirementRow } from "@/lib/inventory";
@@ -20,10 +28,15 @@ import { addShoppingListItems, manageShoppingList } from "@/lib/shopping-list.fu
 export function InventoryRequirementsPanel({
   companyId,
   archiveId,
+  missingProducts = [],
+  onBackToCount,
 }: {
   companyId: string;
   archiveId: string;
+  missingProducts?: { key: string; code: string; description: string | null; unit: string }[];
+  onBackToCount?: () => void;
 }) {
+  const [missingOpen, setMissingOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [needs, setNeeds] = useState<Record<string, string>>({});
   const [onlyNeeded, setOnlyNeeded] = useState(false);
@@ -217,12 +230,69 @@ export function InventoryRequirementsPanel({
           type="button"
           size="sm"
           disabled={!selected.size || addToList.isPending}
-          onClick={() => addToList.mutate()}
+          onClick={() => (missingProducts.length ? setMissingOpen(true) : addToList.mutate())}
         >
           <ShoppingCart aria-hidden="true" />
           Aggiungi alla Lista della Spesa{selected.size ? ` (${selected.size})` : ""}
         </Button>
       </div>
+
+      <Dialog open={missingOpen} onOpenChange={setMissingOpen}>
+        <DialogContent className="max-h-[90dvh] w-[calc(100vw-1.5rem)] max-w-lg gap-3 p-4 sm:p-5">
+          <DialogHeader className="text-left">
+            <DialogTitle>Ci sono prodotti non ancora conteggiati</DialogTitle>
+            <DialogDescription>
+              Non hai inserito la quantità fisica per {missingProducts.length} prodott{missingProducts.length === 1 ? "o" : "i"}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[40dvh] overflow-y-auto rounded-md border border-border">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-muted">
+                <tr className="[&>th]:px-2 [&>th]:py-1.5 [&>th]:text-left">
+                  <th>Codice</th>
+                  <th>Descrizione</th>
+                  <th>U.M.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {missingProducts.map((product) => (
+                  <tr key={product.key} className="border-t border-border [&>td]:px-2 [&>td]:py-1.5">
+                    <td className="whitespace-nowrap font-mono">{product.code}</td>
+                    <td>{product.description ?? "—"}</td>
+                    <td className="whitespace-nowrap">{product.unit || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Potresti aver dimenticato di inserire alcune rimanenze. Vuoi tornare al conteggio oppure procedere comunque con la
+            Lista della Spesa?
+          </p>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setMissingOpen(false);
+                onBackToCount?.();
+              }}
+            >
+              Torna al conteggio
+            </Button>
+            <Button
+              type="button"
+              disabled={addToList.isPending}
+              onClick={() => {
+                setMissingOpen(false);
+                addToList.mutate();
+              }}
+            >
+              Procedi comunque
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="hidden overflow-hidden rounded-md border border-border md:block">
         <table className="w-full table-fixed text-xs">
