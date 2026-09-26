@@ -553,7 +553,7 @@ export function InventoryCountPanel({
 
   // Conferma e riconteggio: append-only nello storico, l'ultima riga è la fotografia corrente
   const countMutation = useMutation({
-    mutationFn: (input: { row: InventoryCountRow; value: number; notes: string | null }) =>
+    mutationFn: (input: { row: InventoryCountRow; value: number; unit: string; notes: string | null }) =>
       saveEntry({
         data: {
           companyId,
@@ -562,7 +562,7 @@ export function InventoryCountPanel({
           locationId: input.row.location_id,
           entryType: input.row.counted !== null ? "riconteggio" : "conteggio",
           countedQuantity: input.value,
-          unitCode: rowUnit(input.row) || null,
+          unitCode: input.unit || null,
           notes: input.notes,
           nonCompliant: null,
           nonCompliantQuantity: null,
@@ -570,6 +570,11 @@ export function InventoryCountPanel({
       }),
     onSuccess: async (_result, input) => {
       setDrafts((current) => {
+        const next = { ...current };
+        delete next[rowKey(input.row)];
+        return next;
+      });
+      setUnitDrafts((current) => {
         const next = { ...current };
         delete next[rowKey(input.row)];
         return next;
@@ -727,17 +732,24 @@ export function InventoryCountPanel({
       toast.error("Inserisci una quantità valida");
       return;
     }
-    if (value !== Number(row.calculated)) {
+    const unit = countUnitsValue.selected(row);
+    // U.M. diversa dalla base: nessun confronto numerico con la giacenza calcolata.
+    if (sameUnit(unit, rowUnit(row)) && value !== Number(row.calculated)) {
       setPending({ row, value });
       setPendingReason(row.note ?? "");
       return;
     }
-    countMutation.mutate({ row, value, notes: null });
+    countMutation.mutate({ row, value, unit, notes: null });
   };
 
   const savePendingDifference = () => {
     if (!pending) return;
-    countMutation.mutate({ row: pending.row, value: pending.value, notes: pendingReason.trim() });
+    countMutation.mutate({
+      row: pending.row,
+      value: pending.value,
+      unit: countUnitsValue.selected(pending.row),
+      notes: pendingReason.trim(),
+    });
     setPending(null);
     setPendingReason("");
   };
@@ -749,7 +761,7 @@ export function InventoryCountPanel({
       return;
     }
     for (const row of targets) {
-      await countMutation.mutateAsync({ row, value: Number(row.calculated), notes: null });
+      await countMutation.mutateAsync({ row, value: Number(row.calculated), unit: rowUnit(row), notes: null });
     }
     toast.success(`${targets.length} prodotti confermati invariati`);
   };
