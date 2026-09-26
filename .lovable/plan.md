@@ -1,24 +1,39 @@
-# Conteggio: avviso quando confermi prodotti senza quantità
+# Inventario: bozze salvate, Azzera quantità, storico, passaggio alla Lista della Spesa
 
-## Cosa cambia per te
+## Cosa cambia per l'operatore
 
-Premendo **"Conferma visibili invariati"**, se uno o più prodotti visibili non hanno una quantità scritta, prima di salvare si apre una finestra:
+1. **Quantità scritte salvate in automatico (bozza)**
+   - Mentre scrivi una quantità (e la sua U.M.) viene salvata come bozza circa 1 secondo dopo.
+   - Se cambi pagina, ricarichi o apri l'inventario da un altro dispositivo, ritrovi le quantità scritte.
+   - La bozza **non** è un conteggio: non conta come "contato", non entra nel Fabbisogno e non genera differenze finché non premi Conferma.
+   - Le bozze valgono per la sessione di inventario aperta e sono condivise dagli operatori della stessa azienda.
+   - Accanto al campo compare un piccolo segno "bozza salvata".
 
-> "Questi articoli non hanno una quantità inserita:"
-> elenco con nome, codice e U.M. (scorrevole, adatto a smartphone)
+2. **Pulsante "Azzera quantità"**
+   - Svuota tutte le quantità scritte e non ancora confermate (anche le bozze salvate), dopo una richiesta di conferma.
+   - Non tocca i conteggi già confermati: quelli restano nello storico.
 
-Tre pulsanti:
-1. **Riprendi e inserisci** — chiude la finestra, non salva niente, mostra solo quei prodotti (filtro "Da controllare") e porta il cursore sul primo campo.
-2. **Conferma e vai alla Lista della Spesa** — conferma come invariati (quantità calcolata) e apre la scheda Fabbisogno, da cui si passa alla Lista della Spesa.
-3. **Conferma solamente** — conferma come invariati e resti sul Conteggio.
+3. **Modificare un conteggio già confermato**
+   - Scrivi la nuova quantità e premi di nuovo Conferma: si aggiunge un nuovo conteggio, che diventa quello valido. Il vecchio resta nello storico (non si cancella).
+   - Aggiungo un'etichetta chiara "Modifica" sulle righe già contate, così si capisce che si può ricontare.
 
-Se tutti i prodotti visibili hanno una quantità scritta, la finestra non compare.
+4. **Storico della sessione**
+   - Nuovo pulsante "Storico conteggi" che apre un elenco di tutti i conteggi confermati nella sessione: data/ora, prodotto, quantità, U.M., differenza, nota, operatore. Le correzioni sono visibili come righe successive.
+   - Resta anche lo storico già esistente del singolo prodotto.
 
-## Correzione collegata (da confermare)
+5. **Dopo la conferma → Lista della Spesa**
+   - Dopo la conferma dei conteggi si apre una finestra: "Vuoi creare la Lista della Spesa?"
+   - **Sì, vai alla Lista**: aggiunge i prodotti proposti dal Fabbisogno (le stesse quantità e regole di oggi) e apre la pagina Lista della Spesa.
+   - **No, resta qui**: rimani nel Conteggio.
+   - Resta attivo il controllo dei prodotti non contati (finestra "Ci sono prodotti non ancora conteggiati").
 
-Oggi questo pulsante salva sempre la quantità calcolata, anche dove hai già scritto un numero: per questo i tuoi valori sono diventati 0. Propongo che, dove hai scritto una quantità, venga salvata **quella** (con la stessa U.M. scelta e la stessa richiesta di nota se diversa dalla calcolata); la quantità calcolata solo per i prodotti lasciati vuoti.
+## Cosa NON cambia
+Formule del Fabbisogno, U.M. e confronti, differenze e note obbligatorie, logica "0 digitato = quantità valida", storico append-only, Lista della Spesa.
 
 ## Dettagli tecnici
+- Database: nuova tabella `inventory_count_drafts` (session_id, product_id, location_id, quantity text, unit_code, updated_by, updated_at; unique su sessione+prodotto+zona), con GRANT, RLS per azienda della sessione tramite `is_company_member`. Scritture solo tramite RPC `manage_inventory_count_draft` (SECURITY DEFINER, search_path=public, autore = auth.uid(), sessione deve essere `in_corso`) con azioni set / clear_one / clear_all. Dopo un conteggio confermato la bozza della riga viene cancellata dalla stessa funzione di conteggio (solo la bozza, lo storico resta intatto).
+- Server: nuove funzioni in `inventory-count.functions.ts` con `context.supabase` (identità reale), mai client privilegiato.
+- Frontend: `inventory-count-panel.tsx` (bozze con salvataggio ritardato, Azzera, Storico sessione, finestra finale) e `inventory-requirements-panel.tsx` (riuso dell'azione "Aggiungi alla Lista" dalla finestra finale, poi navigazione a `/acquisti/lista-spesa`).
+- Storico sessione: lettura da `inventory_count_entries` della sessione, solo in lettura.
 
-- Solo `src/components/inventory/inventory-count-panel.tsx`: `confirmAllUnchanged` divide i target in "con bozza" e "senza bozza"; se ci sono righe senza bozza apre un `AlertDialog` shadcn; le tre azioni chiamano `setWorkFilter("pending")` + focus, oppure la conferma seguita da cambio tab a "fabbisogno" o nessuna navigazione.
-- Nessuna modifica a database, RPC, U.M., formule o Lista della Spesa. I conteggi a 0 già salvati restano nello storico; si correggono ricontando.
+Proposta: implementare in 2 passi — Passo 1 bozze + Azzera; Passo 2 storico sessione + passaggio alla Lista.
