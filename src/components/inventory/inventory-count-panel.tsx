@@ -197,7 +197,7 @@ export function InventoryCountPanel({
   const [tab, setTab] = useState(initialTab ?? "conteggio");
   const [selectingLocation, setSelectingLocation] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
-  const [productView, setProductView] = useState<ProductView>("all");
+  const [productView, setProductView] = useState<ProductView>("favorites");
   const [workFilter, setWorkFilter] = useState<WorkFilter>("pending");
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
@@ -1616,7 +1616,7 @@ function PhysicalCount({
 
       <div className="overflow-hidden rounded-md border border-border bg-card">
         <div className="overflow-hidden rounded-md border border-border bg-card">
-          <div className="grid gap-1.5 border-b border-border p-2 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border p-2 [&>div:first-child]:basis-full">
             <div className="min-w-0">
               <p className="font-display font-semibold">{scope}</p>
               <p className="text-xs text-muted-foreground">
