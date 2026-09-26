@@ -24,7 +24,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-import { useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PriceTrendIcon } from "@/components/pricing/price-trend-icon";
@@ -72,10 +72,12 @@ import {
   managePurchaseProposal,
   recordCountEntry,
   startGeneralInventory,
+  getProductCountUnits,
   type CatalogCandidate,
   type CountHistoryEntry,
   type InventoryCountRow,
   type InventoryProgress,
+  type ProductCountUnit,
 } from "@/lib/inventory-count.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
@@ -141,6 +143,25 @@ function rowUnit(row: InventoryCountRow) {
   return row.danea_um?.trim() || "";
 }
 
+/** Confronto U.M. senza conversioni: vuoto = U.M. base (compatibilità storica). */
+function sameUnit(left: string | null | undefined, right: string | null | undefined) {
+  const a = left?.trim().toLowerCase() ?? "";
+  const b = right?.trim().toLowerCase() ?? "";
+  return !a || !b || a === b;
+}
+
+type CountUnitsContextValue = {
+  options: (row: InventoryCountRow) => ProductCountUnit[];
+  selected: (row: InventoryCountRow) => string;
+  setSelected: (row: InventoryCountRow, code: string) => void;
+};
+
+const CountUnitsContext = createContext<CountUnitsContextValue>({
+  options: () => [],
+  selected: (row) => rowUnit(row),
+  setSelected: () => undefined,
+});
+
 export function InventoryCountPanel({
   companyId,
   archiveId,
@@ -183,6 +204,8 @@ export function InventoryCountPanel({
   const [supplierFilter, setSupplierFilter] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [unitDrafts, setUnitDrafts] = useState<Record<string, string>>({});
+  const readCountUnits = useServerFn(getProductCountUnits);
   const [pending, setPending] = useState<{ row: InventoryCountRow; value: number } | null>(null);
   const [pendingReason, setPendingReason] = useState("");
   const [showCompletion, setShowCompletion] = useState(true);
@@ -433,6 +456,56 @@ export function InventoryCountPanel({
     }
     return map;
   }, [priceSeriesQuery.data]);
+
+  // U.M. ammissibili per il conteggio: solo quelle gia configurate sul prodotto.
+  const countUnitProductIds = useMemo(
+    () => (sessionId ? visibleProductIds : previewProducts.map((product) => product.id)),
+    [sessionId, visibleProductIds, previewProducts],
+  );
+  const countUnitsQuery = useQuery({
+    queryKey: ["inventario-um-conteggio", companyId, countUnitProductIds],
+    enabled: countUnitProductIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: () => readCountUnits({ data: { companyId, productIds: countUnitProductIds } }),
+  });
+  const countUnitsByProduct = useMemo(() => {
+    const map = new Map<string, ProductCountUnit[]>();
+    for (const unit of countUnitsQuery.data ?? []) {
+      const list = map.get(unit.product_id) ?? [];
+      list.push(unit);
+      map.set(unit.product_id, list);
+    }
+    return map;
+  }, [countUnitsQuery.data]);
+  const countUnitsValue = useMemo<CountUnitsContextValue>(() => {
+    const options = (row: InventoryCountRow): ProductCountUnit[] => {
+      const list = [...(countUnitsByProduct.get(row.product_id) ?? [])];
+      const base = rowUnit(row);
+      if (base && !list.some((unit) => sameUnit(unit.unit_code, base))) {
+        list.unshift({ product_id: row.product_id, unit_code: base, unit_label: base, is_base: true, sources: ["base"], conversion_factor: null, conversion_reference_um: null });
+      }
+      const recorded = row.counted_unit_code?.trim();
+      if (recorded && !list.some((unit) => sameUnit(unit.unit_code, recorded))) {
+        list.push({ product_id: row.product_id, unit_code: recorded, unit_label: recorded, is_base: false, sources: ["conteggio"], conversion_factor: null, conversion_reference_um: null });
+      }
+      return list;
+    };
+    const selected = (row: InventoryCountRow) => {
+      const draft = unitDrafts[rowKey(row)];
+      if (draft) return draft;
+      const recorded = row.counted_unit_code?.trim();
+      if (row.counted !== null && recorded) {
+        return options(row).find((unit) => sameUnit(unit.unit_code, recorded))?.unit_code ?? recorded;
+      }
+      const base = rowUnit(row);
+      return options(row).find((unit) => sameUnit(unit.unit_code, base))?.unit_code ?? base;
+    };
+    return {
+      options,
+      selected,
+      setSelected: (row, code) => setUnitDrafts((current) => ({ ...current, [rowKey(row)]: code })),
+    };
+  }, [countUnitsByProduct, unitDrafts]);
 
 
 
