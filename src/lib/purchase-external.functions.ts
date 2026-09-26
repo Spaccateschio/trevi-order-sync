@@ -46,17 +46,18 @@ export const externalDeliveryDraft = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const tokenHash = await hashToken(data.token);
-    const { data: orderId, error: tokenError } = await supabaseAdmin.rpc(
-      "resolve_order_share_token",
-      { _token_hash: tokenHash },
-    );
-    if (tokenError) throw new Error(tokenError.message);
-    const { data: deliveryId, error } = await supabaseAdmin.rpc("open_purchase_delivery", {
-      _order_id: orderId as string,
-      _origin: "fornitore_link_esterno",
-      _skip_access_check: true,
+    // Il codice determina l'ordine: nessun identificativo arriva dal browser.
+    const { data: deliveryId, error } = await supabaseAdmin.rpc("external_open_delivery", {
+      _token_hash: tokenHash,
     });
     if (error) throw new Error(error.message);
+    const { data: delivery, error: deliveryError } = await supabaseAdmin
+      .from("purchase_deliveries")
+      .select("order_id")
+      .eq("id", deliveryId as string)
+      .single();
+    if (deliveryError) throw new Error(deliveryError.message);
+    const orderId = delivery.order_id;
     const { data: rows, error: rowsError } = await supabaseAdmin
       .from("purchase_delivery_items")
       .select(
@@ -106,25 +107,10 @@ export const externalSetDeliveryItem = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: orderId, error: tokenError } = await supabaseAdmin.rpc(
-      "resolve_order_share_token",
-      { _token_hash: await hashToken(data.token) },
-    );
-    if (tokenError) throw new Error(tokenError.message);
-
-    const { data: row, error: rowError } = await supabaseAdmin
-      .from("purchase_delivery_items")
-      .select("id, purchase_deliveries!inner(order_id)")
-      .eq("id", data.deliveryItemId)
-      .maybeSingle();
-    if (rowError) throw new Error(rowError.message);
-    const owner = (row as { purchase_deliveries?: { order_id: string } } | null)?.purchase_deliveries
-      ?.order_id;
-    if (!row || owner !== (orderId as string)) throw new Error("Riga non valida per questo codice");
-
-    const { error } = await supabaseAdmin.rpc("set_purchase_delivery_item", {
+    // La funzione verifica che la riga appartenga all'ordine del codice.
+    const { error } = await supabaseAdmin.rpc("external_set_delivery_item", {
+      _token_hash: await hashToken(data.token),
       _delivery_item_id: data.deliveryItemId,
-      _skip_access_check: true,
       ...(data.declaredQuantity === null ? {} : { _declared_quantity: data.declaredQuantity }),
       ...(data.declaredProducer === null ? {} : { _declared_producer: data.declaredProducer }),
       ...(data.declaredProducerLot === null
@@ -151,25 +137,10 @@ export const externalSubmitDelivery = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: orderId, error: tokenError } = await supabaseAdmin.rpc(
-      "resolve_order_share_token",
-      { _token_hash: await hashToken(data.token) },
-    );
-    if (tokenError) throw new Error(tokenError.message);
-
-    const { data: delivery, error: deliveryError } = await supabaseAdmin
-      .from("purchase_deliveries")
-      .select("id, order_id")
-      .eq("id", data.deliveryId)
-      .maybeSingle();
-    if (deliveryError) throw new Error(deliveryError.message);
-    if (!delivery || delivery.order_id !== (orderId as string)) {
-      throw new Error("Dichiarazione non valida per questo codice");
-    }
-
-    const { error } = await supabaseAdmin.rpc("submit_purchase_delivery", {
+    // La funzione verifica che la dichiarazione appartenga all'ordine del codice.
+    const { error } = await supabaseAdmin.rpc("external_submit_delivery", {
+      _token_hash: await hashToken(data.token),
       _delivery_id: data.deliveryId,
-      _skip_access_check: true,
       ...(data.notes === null ? {} : { _notes: data.notes }),
       ...(data.actorLabel === null ? {} : { _actor_label: data.actorLabel }),
     });

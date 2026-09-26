@@ -74,11 +74,9 @@ export const openPurchaseDelivery = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: id, error } = await supabaseAdmin.rpc("open_purchase_delivery", {
+    const { data: id, error } = await context.supabase.rpc("open_purchase_delivery", {
       _order_id: data.orderId,
       _origin: data.origin,
-      _actor_user_id: context.userId,
       ...(data.declaredByName === null ? {} : { _declared_by_name: data.declaredByName }),
     });
     if (error) throw new Error(error.message);
@@ -102,10 +100,8 @@ export const setPurchaseDeliveryItem = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("set_purchase_delivery_item", {
+    const { error } = await context.supabase.rpc("set_purchase_delivery_item", {
       _delivery_item_id: data.deliveryItemId,
-      _actor_user_id: context.userId,
       ...(data.declaredQuantity === null ? {} : { _declared_quantity: data.declaredQuantity }),
       ...(data.declaredWeight === null ? {} : { _declared_weight: data.declaredWeight }),
       ...(data.declaredProducer === null ? {} : { _declared_producer: data.declaredProducer }),
@@ -136,13 +132,11 @@ export const addPurchaseDeliveryExtraItem = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: id, error } = await supabaseAdmin.rpc("add_purchase_delivery_extra_item", {
+    const { data: id, error } = await context.supabase.rpc("add_purchase_delivery_extra_item", {
       _delivery_id: data.deliveryId,
       _product_id: data.productId,
       _declared_quantity: data.declaredQuantity,
       _line_type: data.lineType,
-      _actor_user_id: context.userId,
       ...(data.replacesOrderItemId === null
         ? {}
         : { _replaces_order_item_id: data.replacesOrderItemId }),
@@ -165,10 +159,8 @@ export const submitPurchaseDelivery = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("submit_purchase_delivery", {
+    const { error } = await context.supabase.rpc("submit_purchase_delivery", {
       _delivery_id: data.deliveryId,
-      _actor_user_id: context.userId,
       ...(data.notes === null ? {} : { _notes: data.notes }),
       ...(data.actorLabel === null ? {} : { _actor_label: data.actorLabel }),
     });
