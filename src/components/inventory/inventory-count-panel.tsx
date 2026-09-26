@@ -1924,7 +1924,14 @@ function ProductCard({
           <p className="mt-1 text-sm font-bold leading-none">{formatQuantity(calculated, unit)}</p>
         </div>
         <div className="min-w-0">
-          <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
+          <div className="flex items-baseline justify-between gap-1">
+            <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
+            {unit ? (
+              <span className="text-[10px] font-semibold leading-none text-muted-foreground/90" aria-label="Unità di misura inventario">
+                {unit}
+              </span>
+            ) : null}
+          </div>
           <Input
             className="mt-1 h-10 px-2 text-right text-base font-bold"
             type="text"
@@ -2057,7 +2064,10 @@ function CatalogProductCard({
       <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
         <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">0</p></div>
         <div className="min-w-0">
-          <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
+          <div className="flex items-baseline justify-between gap-1">
+            <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
+            {unit ? <span className="text-[10px] font-semibold leading-none text-muted-foreground/90">{unit}</span> : null}
+          </div>
           <Input className="mt-1 h-10 px-2 text-right text-base font-bold" inputMode="decimal" value={value}
             disabled={disabled} onChange={(event) => onChange(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Enter") { event.currentTarget.blur(); onConfirm(); } }}
