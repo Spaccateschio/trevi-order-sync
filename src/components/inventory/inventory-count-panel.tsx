@@ -418,10 +418,10 @@ export function InventoryCountPanel({
 
   // Andamento prezzo in SOLA LETTURA: nessuna osservazione viene creata qui.
   const priceSeriesQuery = useQuery({
-    queryKey: ["inventario-andamento-prezzo", companyId, imageProductIds],
-    enabled: imageProductIds.length > 0,
+    queryKey: ["inventario-andamento-prezzo", companyId, visibleProductIds],
+    enabled: visibleProductIds.length > 0,
     staleTime: 5 * 60 * 1000,
-    queryFn: () => fetchPriceSeriesForProducts(companyId, imageProductIds),
+    queryFn: () => fetchPriceSeriesForProducts(companyId, visibleProductIds),
   });
   const priceSeries = useMemo(() => {
     const map = new Map<string, PriceSeriesRow>();
