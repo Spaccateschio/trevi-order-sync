@@ -4676,6 +4676,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _delivery_open_core: {
+        Args: {
+          _actor_user_id: string
+          _declared_by_name: string
+          _order_id: string
+          _origin: Database["public"]["Enums"]["purchase_delivery_origin"]
+        }
+        Returns: string
+      }
+      _delivery_set_item_core: {
+        Args: {
+          _actor_label: string
+          _actor_user_id: string
+          _declared_expiry: string
+          _declared_producer: string
+          _declared_producer_lot: string
+          _declared_quantity: number
+          _declared_weight: number
+          _delivery_item_id: string
+          _line_notes: string
+          _missing_reason: string
+        }
+        Returns: string
+      }
+      _delivery_submit_core: {
+        Args: {
+          _actor_label: string
+          _actor_user_id: string
+          _delivery_id: string
+          _notes: string
+        }
+        Returns: string
+      }
       accept_customer_invitation: {
         Args: { _buyer_company_id: string; _token: string }
         Returns: string
@@ -4730,7 +4763,6 @@ export type Database = {
       add_purchase_delivery_extra_item: {
         Args: {
           _actor_label?: string
-          _actor_user_id?: string
           _declared_producer?: string
           _declared_producer_lot?: string
           _declared_quantity: number
@@ -4739,7 +4771,6 @@ export type Database = {
           _line_type?: Database["public"]["Enums"]["purchase_delivery_line_type"]
           _product_id: string
           _replaces_order_item_id?: string
-          _skip_access_check?: boolean
           _unit_code?: string
           _unit_id?: string
         }
@@ -4986,7 +5017,30 @@ export type Database = {
         Args: { _actor_user_id?: string; _company_id: string }
         Returns: string
       }
+      external_open_delivery: { Args: { _token_hash: string }; Returns: string }
       external_order_snapshot: { Args: { _token_hash: string }; Returns: Json }
+      external_set_delivery_item: {
+        Args: {
+          _declared_expiry?: string
+          _declared_producer?: string
+          _declared_producer_lot?: string
+          _declared_quantity?: number
+          _delivery_item_id: string
+          _line_notes?: string
+          _missing_reason?: string
+          _token_hash: string
+        }
+        Returns: string
+      }
+      external_submit_delivery: {
+        Args: {
+          _actor_label?: string
+          _delivery_id: string
+          _notes?: string
+          _token_hash: string
+        }
+        Returns: string
+      }
       generate_invite_code: { Args: never; Returns: string }
       goods_receipt_history: {
         Args: { _product_id: string }
@@ -5478,11 +5532,9 @@ export type Database = {
       }
       open_purchase_delivery: {
         Args: {
-          _actor_user_id?: string
           _declared_by_name?: string
           _order_id: string
           _origin?: Database["public"]["Enums"]["purchase_delivery_origin"]
-          _skip_access_check?: boolean
         }
         Returns: string
       }
@@ -5933,7 +5985,6 @@ export type Database = {
       set_purchase_delivery_item: {
         Args: {
           _actor_label?: string
-          _actor_user_id?: string
           _declared_expiry?: string
           _declared_producer?: string
           _declared_producer_lot?: string
@@ -5942,7 +5993,6 @@ export type Database = {
           _delivery_item_id: string
           _line_notes?: string
           _missing_reason?: string
-          _skip_access_check?: boolean
         }
         Returns: string
       }
@@ -6021,13 +6071,7 @@ export type Database = {
         Returns: string
       }
       submit_purchase_delivery: {
-        Args: {
-          _actor_label?: string
-          _actor_user_id?: string
-          _delivery_id: string
-          _notes?: string
-          _skip_access_check?: boolean
-        }
+        Args: { _actor_label?: string; _delivery_id: string; _notes?: string }
         Returns: string
       }
       supplier_record_match_suggestions: {
