@@ -1565,56 +1565,56 @@ export function InventoryCountPanel({
 
       {/* Articoli senza quantità inserita */}
       <Dialog open={emptyRows !== null} onOpenChange={(open) => !open && setEmptyRows(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-base">Ci sono articoli senza quantità inserita</DialogTitle>
-            <DialogDescription className="text-xs">Non hai inserito una quantità per questi articoli:</DialogDescription>
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md gap-0 overflow-hidden p-0">
+          <DialogHeader className="space-y-1 border-b border-border bg-primary/10 px-5 py-4 text-left">
+            <DialogTitle className="text-base font-bold">
+              {(emptyRows ?? []).length === 1
+                ? "1 articolo senza quantità"
+                : `${(emptyRows ?? []).length} articoli senza quantità`}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Non hai scritto una quantità per questi articoli.
+            </DialogDescription>
           </DialogHeader>
-          <div className="max-h-64 overflow-auto rounded-md border border-border">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-muted">
-                <tr>
-                  <th className="px-2 py-1 text-left">Codice</th>
-                  <th className="px-2 py-1 text-left">Descrizione</th>
-                  <th className="px-2 py-1 text-left">U.M.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(emptyRows ?? []).map((row) => (
-                  <tr key={rowKey(row)} className="border-t border-border">
-                    <td className="px-2 py-1 font-mono">{row.code}</td>
-                    <td className="px-2 py-1">{rowName(row)}</td>
-                    <td className="px-2 py-1">{rowUnit(row)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <ul className="max-h-60 divide-y divide-border overflow-y-auto px-5">
+            {(emptyRows ?? []).map((row) => (
+              <li key={rowKey(row)} className="flex min-w-0 items-center gap-3 py-2.5">
+                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+                  {row.code}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{rowName(row)}</span>
+                <span className="shrink-0 text-xs font-semibold text-muted-foreground">{rowUnit(row)}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="space-y-3 border-t border-border px-5 py-4">
+            <p className="text-xs text-muted-foreground">
+              Vuoi inserirle ora oppure confermare questi articoli con la quantità calcolata?
+            </p>
+            <div className="grid gap-2">
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setEmptyRows(null);
+                  setWorkFilter("pending");
+                  setTab("conteggio");
+                  window.setTimeout(() => {
+                    document.querySelector<HTMLInputElement>('[data-count-input="true"]')?.focus();
+                  }, 150);
+                }}
+              >
+                Riprendi e inserisci
+              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" className="h-auto whitespace-normal py-2 text-xs" disabled={countMutation.isPending} onClick={() => void runConfirmAll(false)}>
+                  Conferma solamente
+                </Button>
+                <Button variant="outline" className="h-auto whitespace-normal py-2 text-xs" disabled={countMutation.isPending} onClick={() => void runConfirmAll(true)}>
+                  Conferma e vai al Fabbisogno
+                </Button>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Vuoi tornare al conteggio per inserire le quantità oppure confermare questi articoli con la quantità
-            attualmente calcolata?
-          </p>
-          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEmptyRows(null);
-                setWorkFilter("pending");
-                setTab("conteggio");
-                window.setTimeout(() => {
-                  document.querySelector<HTMLInputElement>('[data-count-input="true"]')?.focus();
-                }, 150);
-              }}
-            >
-              Riprendi e inserisci
-            </Button>
-            <Button variant="secondary" disabled={countMutation.isPending} onClick={() => void runConfirmAll(true)}>
-              Conferma e vai al Fabbisogno
-            </Button>
-            <Button disabled={countMutation.isPending} onClick={() => void runConfirmAll(false)}>
-              Conferma solamente
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
