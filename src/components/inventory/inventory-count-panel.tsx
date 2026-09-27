@@ -1616,13 +1616,10 @@ export function InventoryCountPanel({
       <Dialog open={emptyRows !== null} onOpenChange={(open) => !open && setEmptyRows(null)}>
         <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md gap-0 overflow-hidden p-0">
           <DialogHeader className="space-y-1 border-b border-border bg-primary/10 px-5 py-4 text-left">
-            <DialogTitle className="text-base font-bold">
-              {(emptyRows ?? []).length === 1
-                ? "1 articolo senza quantità"
-                : `${(emptyRows ?? []).length} articoli senza quantità`}
-            </DialogTitle>
+            <DialogTitle className="text-base font-bold">Inventario incompleto</DialogTitle>
             <DialogDescription className="text-xs">
-              Non hai scritto una quantità per questi articoli.
+              Ci sono {(emptyRows ?? []).length} articoli senza quantità inserita. Potresti aver dimenticato di contarli
+              oppure potrebbero essere prodotti esauriti.
             </DialogDescription>
           </DialogHeader>
           <ul className="max-h-60 divide-y divide-border overflow-y-auto px-5">
@@ -1637,31 +1634,28 @@ export function InventoryCountPanel({
             ))}
           </ul>
           <div className="space-y-3 border-t border-border px-5 py-4">
-            <p className="text-xs text-muted-foreground">
-              Vuoi inserirle ora oppure confermare questi articoli con la quantità calcolata?
-            </p>
             <div className="grid gap-2">
               <Button
                 className="w-full"
                 onClick={() => {
+                  // Non conferma nulla: le quantità scritte restano in bozza.
                   setEmptyRows(null);
                   setWorkFilter("pending");
                   setTab("conteggio");
                   window.setTimeout(() => {
-                    document.querySelector<HTMLInputElement>('[data-count-input="true"]')?.focus();
+                    const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-count-input="true"]'));
+                    (inputs.find((input) => input.value.trim() === "") ?? inputs[0])?.focus();
                   }, 150);
                 }}
               >
                 Riprendi e inserisci
               </Button>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" className="h-auto whitespace-normal py-2 text-xs" disabled={countMutation.isPending} onClick={() => void runConfirmAll(false)}>
-                  Conferma solamente
-                </Button>
-                <Button variant="outline" className="h-auto whitespace-normal py-2 text-xs" disabled={countMutation.isPending} onClick={() => void runConfirmAll(true)}>
-                  Conferma e vai al Fabbisogno
-                </Button>
-              </div>
+              <Button variant="outline" className="h-auto w-full whitespace-normal py-2 text-xs" disabled={countMutation.isPending} onClick={() => void runConfirmAll("soldOut")}>
+                Conferma gli articoli senza quantità come esauriti
+              </Button>
+              <Button variant="outline" className="h-auto w-full whitespace-normal py-2 text-xs" disabled={countMutation.isPending} onClick={() => void runConfirmAll("enteredOnly")}>
+                Conferma solo quanto inserito e vai alla Lista della Spesa
+              </Button>
             </div>
           </div>
         </DialogContent>
