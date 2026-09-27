@@ -24,7 +24,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PriceTrendIcon } from "@/components/pricing/price-trend-icon";
@@ -73,6 +73,7 @@ import {
   recordCountEntry,
   startGeneralInventory,
   getProductCountUnits,
+  manageCountDraft,
   type CatalogCandidate,
   type CountHistoryEntry,
   type InventoryCountRow,
@@ -240,6 +241,115 @@ export function InventoryCountPanel({
     },
   });
   const sessionId = sessionQuery.data?.id ?? null;
+
+  // Bozze salvate: quantità (e U.M.) scritte ma non confermate. Una bozza NON è un conteggio.
+  const draftFn = useServerFn(manageCountDraft);
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
+  const unitDraftsRef = useRef(unitDrafts);
+  unitDraftsRef.current = unitDrafts;
+  const draftTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [savedDraftKeys, setSavedDraftKeys] = useState<Set<string>>(new Set());
+  const [clearDraftsOpen, setClearDraftsOpen] = useState(false);
+  const savedDraftsQuery = useQuery({
+    queryKey: ["inventory-count-drafts", sessionId],
+    enabled: Boolean(sessionId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_count_drafts")
+        .select("product_id, location_id, quantity, unit_code")
+        .eq("session_id", sessionId!);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  useEffect(() => {
+    const list = savedDraftsQuery.data;
+    if (!list) return;
+    setDrafts((current) => {
+      const next = { ...current };
+      for (const d of list) {
+        const key = rowKey(d);
+        if (next[key] === undefined) next[key] = d.quantity;
+      }
+      return next;
+    });
+    setUnitDrafts((current) => {
+      const next = { ...current };
+      for (const d of list) {
+        const key = rowKey(d);
+        if (d.unit_code && next[key] === undefined) next[key] = d.unit_code;
+      }
+      return next;
+    });
+    setSavedDraftKeys(new Set(list.map((d) => rowKey(d))));
+  }, [savedDraftsQuery.data]);
+  useEffect(() => () => Object.values(draftTimers.current).forEach(clearTimeout), []);
+
+  function scheduleDraftSave(key: string, raw: string, unit?: string | null) {
+    if (!sessionId) return;
+    const [productId, locationId] = key.split(":");
+    if (!productId || !locationId) return;
+    if (draftTimers.current[key]) clearTimeout(draftTimers.current[key]);
+    setSavedDraftKeys((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+    draftTimers.current[key] = setTimeout(() => {
+      delete draftTimers.current[key];
+      const value = raw.trim();
+      const unitCode = unit ?? unitDraftsRef.current[key] ?? null;
+      void draftFn({
+        data: value === ""
+          ? { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null }
+          : { action: "set", sessionId, productId, locationId, quantity: value, unitCode },
+      })
+        .then(() => {
+          if (value !== "" && draftsRef.current[key]?.trim() === value) {
+            setSavedDraftKeys((current) => new Set(current).add(key));
+          }
+        })
+        .catch((error: Error) => toast.error(`Bozza non salvata: ${error.message}`));
+    }, 1000);
+  }
+
+  function clearDraftOnServer(key: string) {
+    if (!sessionId) return;
+    const [productId, locationId] = key.split(":");
+    if (!productId || !locationId) return;
+    if (draftTimers.current[key]) {
+      clearTimeout(draftTimers.current[key]);
+      delete draftTimers.current[key];
+    }
+    setSavedDraftKeys((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+    void draftFn({ data: { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null } })
+      .catch(() => undefined);
+  }
+
+  const clearAllDrafts = useMutation({
+    mutationFn: async () => {
+      Object.values(draftTimers.current).forEach(clearTimeout);
+      draftTimers.current = {};
+      if (sessionId) {
+        await draftFn({ data: { action: "clear_all", sessionId, productId: null, locationId: null, quantity: null, unitCode: null } });
+      }
+    },
+    onSuccess: async () => {
+      setDrafts({});
+      setUnitDrafts({});
+      setDraftFirst({});
+      setSavedDraftKeys(new Set());
+      setClearDraftsOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["inventory-count-drafts", sessionId] });
+      toast.success("Quantità non confermate azzerate");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   // Popolazione unica dell'Inventario: i prodotti della mia azienda
   // contrassegnati come gestiti. Vale prima e durante il conteggio, e
@@ -524,7 +634,11 @@ export function InventoryCountPanel({
     return {
       options,
       selected,
-      setSelected: (row, code) => setUnitDrafts((current) => ({ ...current, [rowKey(row)]: code })),
+      setSelected: (row, code) => {
+        setUnitDrafts((current) => ({ ...current, [rowKey(row)]: code }));
+        const raw = draftsRef.current[rowKey(row)];
+        if (raw !== undefined && raw.trim() !== "") scheduleDraftSave(rowKey(row), raw, code);
+      },
     };
   }, [countUnitsByProduct, unitDrafts]);
 
@@ -673,6 +787,7 @@ export function InventoryCountPanel({
         delete next[rowKey(input.row)];
         return next;
       });
+      clearDraftOnServer(rowKey(input.row));
       await refresh();
     },
     onError: (error: Error) => toast.error(error.message),
@@ -1014,6 +1129,7 @@ export function InventoryCountPanel({
             onDraftChange={(key, value) => {
               if (sessionId) {
                 setDrafts((current) => ({ ...current, [key]: value }));
+                scheduleDraftSave(key, value);
                 return;
               }
               const productId = key.split(":")[0];
@@ -1036,6 +1152,8 @@ export function InventoryCountPanel({
               firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: countUnitsValue.selected(row), value });
             }}
             onConfirmAll={confirmAllUnchanged}
+            onClearDrafts={() => setClearDraftsOpen(true)}
+            savedDraftCount={savedDraftKeys.size}
             onToggleFavorite={(row) =>
               favoriteMutation.mutate({ productId: row.product_id, favorite: !row.is_favorite })
             }
@@ -1436,6 +1554,23 @@ export function InventoryCountPanel({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={clearDraftsOpen} onOpenChange={setClearDraftsOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Azzerare le quantità?</DialogTitle>
+            <DialogDescription>
+              Cancello tutte le quantità scritte e non ancora confermate. I conteggi già confermati e lo storico restano invariati.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setClearDraftsOpen(false)}>Annulla</Button>
+            <Button variant="destructive" disabled={clearAllDrafts.isPending} onClick={() => clearAllDrafts.mutate()}>
+              Azzera quantità
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Storico append-only */}
       <Dialog open={historyRow !== null} onOpenChange={(open) => !open && setHistoryRow(null)}>
         <DialogContent className="max-w-lg">
@@ -1572,6 +1707,8 @@ function PhysicalCount({
   onDraftChange,
   onConfirm,
   onConfirmAll,
+  onClearDrafts,
+  savedDraftCount,
   onToggleFavorite,
   onToggleCatalogFavorite,
   onCatalogDraftChange,
@@ -1623,6 +1760,8 @@ function PhysicalCount({
   onDraftChange: (key: string, value: string) => void;
   onConfirm: (row: InventoryCountRow) => void;
   onConfirmAll: () => void;
+  onClearDrafts: () => void;
+  savedDraftCount: number;
   onToggleFavorite: (row: InventoryCountRow) => void;
   onToggleCatalogFavorite: (candidate: CatalogCandidate) => void;
   onCatalogDraftChange: (id: string, value: string) => void;
@@ -1912,7 +2051,15 @@ function PhysicalCount({
             </div>
           ) : null}
 
-          <div className="grid gap-2 border-t border-border p-2 sm:flex sm:justify-end">
+          <div className="grid gap-2 border-t border-border p-2 sm:flex sm:items-center sm:justify-end">
+            {savedDraftCount ? (
+              <span className="text-[11px] text-muted-foreground sm:mr-auto">
+                Bozza salvata · {savedDraftCount} {savedDraftCount === 1 ? "quantità non confermata" : "quantità non confermate"}
+              </span>
+            ) : null}
+            <Button size="sm" variant="ghost" onClick={onClearDrafts}>
+              Azzera quantità
+            </Button>
             <Button size="sm" variant="outline" onClick={onConfirmAll}>
               <CheckCheck /> Conferma visibili invariati
             </Button>

@@ -1576,6 +1576,74 @@ export type Database = {
           },
         ]
       }
+      inventory_count_drafts: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          location_id: string
+          product_id: string
+          quantity: string
+          session_id: string
+          unit_code: string | null
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          location_id: string
+          product_id: string
+          quantity: string
+          session_id: string
+          unit_code?: string | null
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          product_id?: string
+          quantity?: string
+          session_id?: string
+          unit_code?: string | null
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_count_drafts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_drafts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_drafts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_drafts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_count_entries: {
         Row: {
           company_id: string
@@ -5323,6 +5391,17 @@ export type Database = {
           _subcategory?: string
         }
         Returns: string
+      }
+      manage_inventory_count_draft: {
+        Args: {
+          _action: string
+          _location_id?: string
+          _product_id?: string
+          _quantity?: string
+          _session_id: string
+          _unit_code?: string
+        }
+        Returns: number
       }
       manage_inventory_location: {
         Args: {

@@ -48,3 +48,7 @@
 - [ ] Link fornitore: la sola riapertura dopo l'invio crea automaticamente una seconda consegna in bozza per il residuo; valutare creazione solo su azione esplicita
 - [ ] Contestazione consegna: la finestra "Risolvi" propone "Rettifica la quantità" come default; valutare "Accetta come dichiarato" o nessun default
 - [ ] Lista della Spesa: riconfermare una lista già confermata non cambia nulla ma scrive comunque una voce "shopping_list.confirm" nel registro attività
+
+## Inventario — Passo 2 (in attesa di via)
+- [ ] Storico conteggi della sessione (tutte le conferme e correzioni, sola lettura)
+- [ ] Dopo la conferma: finestra "Conteggio completato" → Vai al Fabbisogno / Resta nel Conteggio (nessuna aggiunta automatica alla Lista)
