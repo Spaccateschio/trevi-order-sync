@@ -1815,6 +1815,19 @@ function PhysicalCount({
     ? rows.filter((row) => supplierInfo.get(row.product_id)?.name === supplierFilter)
     : rows;
 
+  // Barra compatta (ricerca + filtri) mostrata solo quando la ricerca originale esce dallo schermo.
+  const topFiltersRef = useRef<HTMLDivElement>(null);
+  const [compactBar, setCompactBar] = useState(false);
+  useEffect(() => {
+    const el = topFiltersRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      setCompactBar(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section className="space-y-2">
       <div
@@ -1849,9 +1862,38 @@ function PhysicalCount({
             <strong className="mr-1 text-sm text-primary sm:text-base">{total - generalCompleted}</strong>mancanti
           </p>
         </div>
+        {compactBar && (
+          <div className="mt-2 space-y-1.5 border-t border-border pt-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input className="h-9 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto (barra fissa)" />
+            </div>
+            <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]">
+              <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "favorites" ? "default" : "outline"} onClick={() => onViewChange("favorites")}>
+                <Star className="size-3" /> Preferiti
+              </Button>
+              <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "all" ? "default" : "outline"} onClick={() => onViewChange("all")}>
+                Tutti
+              </Button>
+              <span className="mx-0.5 w-px shrink-0 bg-border" />
+              {([
+                ["pending", "Da controllare"],
+                ["completed", "Confermati"],
+                ["differences", "Differenze"],
+                ["not_comparable", "U.M. diverse"],
+                ["recount", "Da ricontare"],
+              ] as const).map(([value, label]) => (
+                <Button key={value} size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={workFilter === value ? "default" : "outline"} onClick={() => onWorkFilterChange(value)}>
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="relative rounded-md border border-border bg-card p-2">
+      <div ref={topFiltersRef} className="relative rounded-md border border-border bg-card p-2">
         <Search className="absolute left-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input className="h-10 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto" />
