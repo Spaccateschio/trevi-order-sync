@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Check,
@@ -175,6 +175,7 @@ export function InventoryCountPanel({
   initialTab?: "fabbisogno";
 }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const start = useServerFn(startGeneralInventory);
   const close = useServerFn(closeGeneralInventory);
   const readProgress = useServerFn(getInventoryProgress);
@@ -546,6 +547,14 @@ export function InventoryCountPanel({
     queryFn: () =>
       readRows({
         data: { sessionId: sessionId!, locationId: null, category: null, subcategory: null, search: null, favoritesOnly: false },
+      }),
+  });
+  const favoriteRowsQuery = useQuery({
+    queryKey: ["inventory-rows", sessionId, "all-favorites"],
+    enabled: Boolean(sessionId),
+    queryFn: () =>
+      readRows({
+        data: { sessionId: sessionId!, locationId: null, category: null, subcategory: null, search: null, favoritesOnly: true },
       }),
   });
   // Stesso criterio di "Da controllare": nessun conteggio registrato (0 è un conteggio valido).
@@ -1007,32 +1016,51 @@ export function InventoryCountPanel({
       unit: countUnitsValue.selected(pending.row),
       notes: pendingReason.trim(),
     });
+    const head = noteQueue.current.rows[0];
     setPending(null);
     setPendingReason("");
+    if (head && rowKey(head) === rowKey(pending.row)) {
+      noteQueue.current.rows.shift();
+      window.setTimeout(openNextNote, 0);
+    }
   };
 
-  // Solo prodotti mai contati: un conteggio già registrato (anche in U.M. diversa,
-  // con differenza null) non viene mai riconfermato automaticamente come invariato.
-  // La quantità digitata dall'operatore (anche 0) ha sempre priorità sulla calcolata.
-  const confirmTargets = () => rows.filter((row) => row.counted === null);
+  // "Conferma inventario": in vista Preferiti tutti i preferiti della sessione, in vista Tutti tutta la sessione,
+  // indipendentemente da ricerca, categoria, zona e filtri. Campo vuoto non diventa mai 0 né la calcolata.
   const typedValue = (row: InventoryCountRow) => {
     const raw = (drafts[rowKey(row)] ?? "").trim();
     return raw === "" ? null : parseQuantity(raw);
   };
+  const confirmScope = () => {
+    const all = (productView === "favorites" ? favoriteRowsQuery.data : allRowsQuery.data) ?? rows;
+    return all.filter((row) => !managedProductIds.size || managedProductIds.has(row.product_id));
+  };
+  // Note obbligatorie in coda: si passa alla Lista della Spesa solo quando sono tutte gestite.
+  const noteQueue = useRef<{ rows: InventoryCountRow[]; goToList: boolean }>({ rows: [], goToList: false });
+  const openNextNote = () => {
+    const next = noteQueue.current.rows[0];
+    if (next) {
+      setPending({ row: next, value: typedValue(next)! });
+      setPendingReason(next.note ?? "");
+      return;
+    }
+    if (noteQueue.current.goToList) {
+      noteQueue.current.goToList = false;
+      void navigate({ to: "/acquisti/lista-spesa" });
+    }
+  };
 
-  const runConfirmAll = async (goToRequirements: boolean) => {
+  const runConfirmAll = async (mode: "soldOut" | "enteredOnly") => {
+    const empty = emptyRows ?? [];
     setEmptyRows(null);
+    noteQueue.current = { rows: [], goToList: false };
     let saved = 0;
     const needNote: InventoryCountRow[] = [];
-    for (const row of confirmTargets()) {
+    for (const row of confirmScope()) {
       const typed = typedValue(row);
-      if (typed === null) {
-        await countMutation.mutateAsync({ row, value: Number(row.calculated), unit: rowUnit(row), notes: null });
-        saved += 1;
-        continue;
-      }
+      // Nessuna quantità scritta: già confermato → resta com'è; vuoto → gestito sotto solo se "Esaurito".
+      if (typed === null) continue;
       const unit = countUnitsValue.selected(row);
-      // Regola esistente: differenza a parità di U.M. richiede la nota.
       if (sameUnit(unit, rowUnit(row)) && typed !== Number(row.calculated)) {
         needNote.push(row);
         continue;
@@ -1040,24 +1068,23 @@ export function InventoryCountPanel({
       await countMutation.mutateAsync({ row, value: typed, unit, notes: null });
       saved += 1;
     }
-    if (saved) toast.success(`${saved} prodotti confermati`);
-    if (needNote.length) {
-      toast.info(`${needNote.length} prodotti con differenza richiedono la nota: completala e premi "Conferma" sulla scheda`);
-      const first = needNote[0]!;
-      setPending({ row: first, value: typedValue(first)! });
-      setPendingReason(first.note ?? "");
-      return;
+    if (mode === "soldOut") {
+      for (const row of empty) {
+        await countMutation.mutateAsync({ row, value: 0, unit: rowUnit(row), notes: "Esaurito — confermato dall'operatore" });
+        saved += 1;
+      }
     }
-    if (goToRequirements) setTab("fabbisogno");
+    if (saved) toast.success(`${saved} quantità confermate`);
+    noteQueue.current = { rows: needNote, goToList: mode === "enteredOnly" };
+    if (needNote.length) {
+      toast.info(`${needNote.length} prodotti con differenza richiedono la nota`);
+    }
+    openNextNote();
   };
 
-  const confirmAllUnchanged = async () => {
-    const targets = confirmTargets();
-    if (!targets.length) {
-      toast.info("Nessun prodotto da confermare in questa vista");
-      return;
-    }
-    const invalid = targets.find((row) => {
+  const confirmInventory = async () => {
+    const scope = confirmScope();
+    const invalid = scope.find((row) => {
       const raw = (drafts[rowKey(row)] ?? "").trim();
       return raw !== "" && parseQuantity(raw) === null;
     });
@@ -1065,12 +1092,34 @@ export function InventoryCountPanel({
       toast.error(`Quantità non valida per ${invalid.code}`);
       return;
     }
-    const empty = targets.filter((row) => typedValue(row) === null);
+    const empty = scope
+      .filter((row) => row.counted === null && typedValue(row) === null)
+      .sort((left, right) => byName(left.description, left.code, right.description, right.code));
     if (empty.length) {
       setEmptyRows(empty);
       return;
     }
-    await runConfirmAll(false);
+    if (!scope.some((row) => typedValue(row) !== null)) {
+      toast.info("Nessuna nuova quantità da confermare");
+      return;
+    }
+    noteQueue.current = { rows: [], goToList: false };
+    const needNote: InventoryCountRow[] = [];
+    let saved = 0;
+    for (const row of scope) {
+      const typed = typedValue(row);
+      if (typed === null) continue;
+      const unit = countUnitsValue.selected(row);
+      if (sameUnit(unit, rowUnit(row)) && typed !== Number(row.calculated)) {
+        needNote.push(row);
+        continue;
+      }
+      await countMutation.mutateAsync({ row, value: typed, unit, notes: null });
+      saved += 1;
+    }
+    if (saved) toast.success(`${saved} quantità confermate`);
+    noteQueue.current = { rows: needNote, goToList: false };
+    openNextNote();
   };
 
   const selectedLocation = activeLocations.find((location) => location.id === selectedLocationId) ?? null;
@@ -1215,7 +1264,7 @@ export function InventoryCountPanel({
               }
               firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: countUnitsValue.selected(row), value });
             }}
-            onConfirmAll={confirmAllUnchanged}
+            onConfirmAll={() => void confirmInventory()}
             onClearDrafts={() => setClearDraftsOpen(true)}
             savedDraftCount={savedDraftKeys.size}
             onToggleFavorite={(row) =>
@@ -2167,7 +2216,7 @@ function PhysicalCount({
               </span>
             ) : null}
             <Button size="sm" variant="outline" onClick={onConfirmAll}>
-              <CheckCheck /> Conferma visibili invariati
+              <CheckCheck /> Conferma inventario
             </Button>
           </div>
         </div>
