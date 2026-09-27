@@ -84,7 +84,7 @@ import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
 
 type ProductView = "favorites" | "all";
-type WorkFilter = "pending" | "completed" | "differences" | "not_comparable" | "recount";
+type WorkFilter = "all" | "pending" | "completed" | "differences" | "not_comparable" | "recount";
 type SupplierInfo = { name: string | null; cost: number | null };
 type FieldPreferences = ReturnType<typeof useInventoryFieldPreferences>;
 
@@ -200,7 +200,7 @@ export function InventoryCountPanel({
   const [selectingLocation, setSelectingLocation] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [productView, setProductView] = useState<ProductView>("favorites");
-  const [workFilter, setWorkFilter] = useState<WorkFilter>("pending");
+  const [workFilter, setWorkFilter] = useState<WorkFilter>("all");
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
   const [supplierFilter, setSupplierFilter] = useState<string | null>(null);
@@ -474,7 +474,7 @@ export function InventoryCountPanel({
         if (supplierFilter && candidate.sellerCompanyName !== supplierFilter) return false;
         if (category && (candidate.category ?? NO_CATEGORY) !== category) return false;
         if (subcategory && (candidate.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
-        if (workFilter !== "pending") return false;
+        if (workFilter !== "pending" && workFilter !== "all") return false;
         return !term || `${candidate.code} ${candidate.description ?? ""}`.toLowerCase().includes(term);
       })
       .sort((left, right) => byName(left.description, left.code, right.description, right.code));
@@ -572,6 +572,7 @@ export function InventoryCountPanel({
       .filter((row) => {
         // Stessa popolazione del Fabbisogno: solo prodotti gestiti dall'azienda.
         if (managedProductIds.size && !managedProductIds.has(row.product_id)) return false;
+        if (workFilter === "all") return true;
         if (workFilter === "pending") return row.counted === null;
         if (workFilter === "recount") return row.recount_requested_at !== null;
         if (workFilter === "completed") return row.counted !== null;
@@ -1985,6 +1986,7 @@ function PhysicalCount({
               </Button>
               <span className="mx-0.5 w-px shrink-0 bg-border" />
               {([
+                ["all", "Tutti gli stati"],
                 ["pending", "Da controllare"],
                 ["completed", "Confermati"],
                 ["differences", "Differenze"],
@@ -2040,7 +2042,10 @@ function PhysicalCount({
             <Button size="sm" variant="destructive" className="h-9 text-xs" onClick={onClearDrafts}>
               Azzera quantità
             </Button>
-            <div className="grid grid-cols-2 gap-1 sm:grid-cols-5">
+              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "all" ? "default" : "outline"} onClick={() => onWorkFilterChange("all")}>
+                Tutti gli stati
+              </Button>
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-6">
               <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "outline"} onClick={() => onWorkFilterChange("pending")}>
                 Da controllare
               </Button>
@@ -2101,6 +2106,7 @@ function PhysicalCount({
                 )) : <DropdownMenuItem disabled>Nessuna sottocategoria</DropdownMenuItem>}
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs">Stato conteggio</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => onWorkFilterChange("all")}>Tutti gli stati</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onWorkFilterChange("pending")}>Da controllare</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onWorkFilterChange("completed")}>Confermati</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onWorkFilterChange("differences")}>Differenze</DropdownMenuItem>
