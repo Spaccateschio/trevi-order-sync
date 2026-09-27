@@ -254,6 +254,8 @@ export function InventoryCountPanel({
   const savedDraftsQuery = useQuery({
     queryKey: ["inventory-count-drafts", sessionId],
     enabled: Boolean(sessionId),
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_count_drafts")
@@ -266,11 +268,12 @@ export function InventoryCountPanel({
   useEffect(() => {
     const list = savedDraftsQuery.data;
     if (!list) return;
+    // Le bozze del server (anche di un collega) vincono, tranne dove c'è un salvataggio locale in sospeso.
     setDrafts((current) => {
       const next = { ...current };
       for (const d of list) {
         const key = rowKey(d);
-        if (next[key] === undefined) next[key] = d.quantity;
+        if (!draftTimers.current[key]) next[key] = d.quantity;
       }
       return next;
     });
@@ -278,13 +281,58 @@ export function InventoryCountPanel({
       const next = { ...current };
       for (const d of list) {
         const key = rowKey(d);
-        if (d.unit_code && next[key] === undefined) next[key] = d.unit_code;
+        if (d.unit_code && !draftTimers.current[key]) next[key] = d.unit_code;
       }
       return next;
     });
     setSavedDraftKeys(new Set(list.map((d) => rowKey(d))));
   }, [savedDraftsQuery.data]);
-  useEffect(() => () => Object.values(draftTimers.current).forEach(clearTimeout), []);
+
+  // Salva subito le bozze in sospeso quando si esce dalla pagina o la finestra va in background.
+  const flushRef = useRef<() => void>(() => undefined);
+  flushRef.current = () => {
+    if (!sessionId) return;
+    for (const key of Object.keys(draftTimers.current)) {
+      clearTimeout(draftTimers.current[key]);
+      delete draftTimers.current[key];
+      const [productId, locationId] = key.split(":");
+      if (!productId || !locationId) continue;
+      const value = (draftsRef.current[key] ?? "").trim();
+      const unitCode = unitDraftsRef.current[key] ?? null;
+      void draftFn({
+        data: value === ""
+          ? { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null }
+          : { action: "set", sessionId, productId, locationId, quantity: value, unitCode },
+      }).catch(() => undefined);
+    }
+  };
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flushRef.current();
+    };
+    const onPageHide = () => flushRef.current();
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onPageHide);
+      flushRef.current();
+    };
+  }, []);
+
+  // Prima quantità scritta senza inventario aperto: apre l'inventario e porta le quantità in bozza.
+  const autoStartRef = useRef(false);
+  const [autoStartPending, setAutoStartPending] = useState(false);
+  useEffect(() => {
+    if (!sessionId || !autoStartPending) return;
+    setAutoStartPending(false);
+    const pending = Object.entries(draftFirst);
+    if (!pending.length) return;
+    setDrafts((current) => ({ ...current, ...draftFirst }));
+    setDraftFirst({});
+    for (const [key, value] of pending) scheduleDraftSave(key, value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, autoStartPending]);
 
   function scheduleDraftSave(key: string, raw: string, unit?: string | null) {
     if (!sessionId) return;
@@ -1132,7 +1180,24 @@ export function InventoryCountPanel({
                 scheduleDraftSave(key, value);
                 return;
               }
+              if (!isAdmin) {
+                toast.info("Chiedi a un amministratore di aprire l'inventario: senza inventario aperto le quantità non vengono salvate.");
+                return;
+              }
               setDraftFirst((current) => ({ ...current, [key]: value }));
+              if (!autoStartRef.current && archiveId && activeLocations.length) {
+                autoStartRef.current = true;
+                void start({ data: { companyId, archiveId, name: null } })
+                  .then(async () => {
+                    setAutoStartPending(true);
+                    await queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] });
+                    toast.success("Inventario generale aperto: le quantità vengono salvate come bozza");
+                  })
+                  .catch((error: Error) => {
+                    autoStartRef.current = false;
+                    toast.error(error.message);
+                  });
+              }
             }}
             onConfirm={(row) => {
               if (sessionId) {
