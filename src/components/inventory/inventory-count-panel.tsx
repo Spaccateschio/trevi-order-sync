@@ -323,6 +323,16 @@ export function InventoryCountPanel({
   // Prima quantità scritta senza inventario aperto: apre l'inventario e porta le quantità in bozza.
   const autoStartRef = useRef(false);
   const [autoStartPending, setAutoStartPending] = useState(false);
+  useEffect(() => {
+    if (!sessionId || !autoStartPending) return;
+    setAutoStartPending(false);
+    const pending = Object.entries(draftFirst);
+    if (!pending.length) return;
+    setDrafts((current) => ({ ...current, ...draftFirst }));
+    setDraftFirst({});
+    for (const [key, value] of pending) scheduleDraftSave(key, value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, autoStartPending]);
 
   function scheduleDraftSave(key: string, raw: string, unit?: string | null) {
     if (!sessionId) return;
@@ -1170,7 +1180,24 @@ export function InventoryCountPanel({
                 scheduleDraftSave(key, value);
                 return;
               }
+              if (!isAdmin) {
+                toast.info("Chiedi a un amministratore di aprire l'inventario: senza inventario aperto le quantità non vengono salvate.");
+                return;
+              }
               setDraftFirst((current) => ({ ...current, [key]: value }));
+              if (!autoStartRef.current && archiveId && activeLocations.length) {
+                autoStartRef.current = true;
+                void start({ data: { companyId, archiveId, name: null } })
+                  .then(async () => {
+                    setAutoStartPending(true);
+                    await queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] });
+                    toast.success("Inventario generale aperto: le quantità vengono salvate come bozza");
+                  })
+                  .catch((error: Error) => {
+                    autoStartRef.current = false;
+                    toast.error(error.message);
+                  });
+              }
             }}
             onConfirm={(row) => {
               if (sessionId) {
