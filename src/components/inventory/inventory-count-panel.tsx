@@ -1132,15 +1132,14 @@ export function InventoryCountPanel({
                 scheduleDraftSave(key, value);
                 return;
               }
-              const productId = key.split(":")[0];
-              if (productId) setDraftFirst((current) => ({ ...current, [productId]: value }));
+              setDraftFirst((current) => ({ ...current, [key]: value }));
             }}
             onConfirm={(row) => {
               if (sessionId) {
                 confirmRow(row);
                 return;
               }
-              const value = parseQuantity(draftFirst[row.product_id] ?? "");
+              const value = parseQuantity(draftFirst[rowKey(row)] ?? "");
               if (value === null) {
                 toast.error("Inserisci una quantità valida");
                 return;
