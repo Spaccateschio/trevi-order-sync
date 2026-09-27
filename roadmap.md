@@ -52,3 +52,7 @@
 ## Inventario — Passo 2 (in attesa di via)
 - [ ] Storico conteggi della sessione (tutte le conferme e correzioni, sola lettura)
 - [ ] Dopo la conferma: finestra "Conteggio completato" → Vai al Fabbisogno / Resta nel Conteggio (nessuna aggiunta automatica alla Lista)
+
+## Inventario come sessione persistente (analisi, in attesa del via)
+- [ ] "Conferma inventario" al posto di "Conferma visibili invariati"; popup "Inventario incompleto" con 2 azioni (Riprendi e inserisci / Conferma inventario e vai alla Lista della Spesa); vuoti restano non contati
+- [ ] Fabbisogno facoltativo (aiuto), non obbligatorio per arrivare alla Lista della Spesa
