@@ -1948,17 +1948,34 @@ function PhysicalCount({
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase leading-none text-muted-foreground">
-              {sessionActive ? "Inventario generale" : "Conteggio pronto"}
+              {sessionActive ? "Inventario generale" : "Nessun inventario in corso"}
             </p>
-            <h2 className="truncate font-display text-sm font-bold uppercase leading-tight sm:text-base">{sessionName}</h2>
+            <h2 className="truncate font-display text-sm font-bold uppercase leading-tight sm:text-base">
+              {sessionActive ? sessionName : "Scrivi una quantità per iniziare"}
+            </h2>
           </div>
-          <div className="flex shrink-0 items-baseline gap-1.5">
-            <p className="text-lg font-bold leading-none sm:text-xl">
-              {generalCompleted} / {total}
-            </p>
-            <p className="text-[10px] font-semibold text-muted-foreground">{percentage}%</p>
-          </div>
+          {sessionActive ? (
+            <div className="flex shrink-0 items-baseline gap-1.5">
+              <p className="text-lg font-bold leading-none sm:text-xl">
+                {generalCompleted} / {total}
+              </p>
+              <p className="text-[10px] font-semibold text-muted-foreground">{percentage}%</p>
+            </div>
+          ) : null}
         </div>
+        {!sessionActive && lastClosed ? (
+          <div className="mt-1.5 flex items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5">
+            <div className="min-w-0 text-xs leading-tight">
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">Ultimo inventario (chiuso)</p>
+              <p className="truncate font-medium">{lastClosed.name}</p>
+              <p className="text-muted-foreground">{lastClosed.counted} / {lastClosed.total} prodotti controllati</p>
+            </div>
+            <Button size="sm" variant="outline" className="h-8 shrink-0 text-xs" onClick={onViewLastClosed}>
+              Visualizza inventario
+            </Button>
+          </div>
+        ) : null}
+        {sessionActive ? (<></>) : null}
         <Progress value={percentage} className="mt-1.5 h-2" />
         <div className="mt-1.5 grid grid-cols-3 divide-x divide-border text-center text-[10px] leading-tight sm:text-xs">
           <p>
@@ -2737,13 +2754,17 @@ function CompletionSummary({
           <span className="text-sm text-muted-foreground">U.M. non confrontabili</span>
         </p>
       </div>
-      <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+      <p className="mt-4 text-xs text-muted-foreground">
+        Tutti gli articoli sono stati controllati. L'inventario resta in corso: puoi ricontare un articolo quando serve.
+      </p>
+      <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
         <Button variant="outline" onClick={onShowDifferences}>
           <CircleAlert /> Vedi solo differenze
         </Button>
-        <Button onClick={onClose} disabled={!isAdmin || closing} title={isAdmin ? undefined : "Solo un amministratore può chiudere l'inventario"}>
-          <CheckCheck /> Chiudi inventario
-        </Button>
+        {/* "Chiudi inventario" rimosso dal completamento: il 100% non chiude la sessione. */}
+        {void onClose}
+        {void isAdmin}
+        {void closing}
       </div>
     </section>
   );
