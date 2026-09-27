@@ -1,39 +1,17 @@
-# Inventario: bozze salvate, Azzera quantità, storico, passaggio alla Lista della Spesa
+# Conteggi in U.M. diversa: non devono diventare giacenza
 
-## Cosa cambia per l'operatore
+## Problema (confermato)
+Se un prodotto con giacenza in "pz" viene contato come "3 cs", alla chiusura dell'inventario quel 3 diventa la giacenza "3 pz". Il Fabbisogno quindi mostra una disponibilità sbagliata e propone quantità d'ordine sbagliate. Oggi l'U.M. diversa blocca solo il confronto, ma non impedisce che quel numero diventi giacenza.
 
-1. **Quantità scritte salvate in automatico (bozza)**
-   - Mentre scrivi una quantità (e la sua U.M.) viene salvata come bozza circa 1 secondo dopo.
-   - Se cambi pagina, ricarichi o apri l'inventario da un altro dispositivo, ritrovi le quantità scritte.
-   - La bozza **non** è un conteggio: non conta come "contato", non entra nel Fabbisogno e non genera differenze finché non premi Conferma.
-   - Le bozze valgono per la sessione di inventario aperta e sono condivise dagli operatori della stessa azienda.
-   - Accanto al campo compare un piccolo segno "bozza salvata".
+## Regola proposta (nessuna conversione, come deciso)
+- Un conteggio in U.M. diversa resta **valido e salvato nello storico**, conta per completare l'inventario e appare come "U.M. non confrontabili", come oggi.
+- **Non diventa però giacenza.** Per la giacenza vale l'ultimo conteggio fatto **nella stessa U.M. della giacenza**. Se non ce n'è nessuno, il prodotto resta "mai contato" (quantità sconosciuta, mai 0).
+- Nel Fabbisogno quel prodotto resta con il promemoria "Ultimo conteggio: 3 cs", già presente.
 
-2. **Pulsante "Azzera quantità"**
-   - Svuota tutte le quantità scritte e non ancora confermate (anche le bozze salvate), dopo una richiesta di conferma.
-   - Non tocca i conteggi già confermati: quelli restano nello storico.
-
-3. **Modificare un conteggio già confermato**
-   - Scrivi la nuova quantità e premi di nuovo Conferma: si aggiunge un nuovo conteggio, che diventa quello valido. Il vecchio resta nello storico (non si cancella).
-   - Aggiungo un'etichetta chiara "Modifica" sulle righe già contate, così si capisce che si può ricontare.
-
-4. **Storico della sessione**
-   - Nuovo pulsante "Storico conteggi" che apre un elenco di tutti i conteggi confermati nella sessione: data/ora, prodotto, quantità, U.M., differenza, nota, operatore. Le correzioni sono visibili come righe successive.
-   - Resta anche lo storico già esistente del singolo prodotto.
-
-5. **Dopo la conferma → Lista della Spesa**
-   - Dopo la conferma dei conteggi si apre una finestra: "Vuoi creare la Lista della Spesa?"
-   - **Sì, vai alla Lista**: aggiunge i prodotti proposti dal Fabbisogno (le stesse quantità e regole di oggi) e apre la pagina Lista della Spesa.
-   - **No, resta qui**: rimani nel Conteggio.
-   - Resta attivo il controllo dei prodotti non contati (finestra "Ci sono prodotti non ancora conteggiati").
-
-## Cosa NON cambia
-Formule del Fabbisogno, U.M. e confronti, differenze e note obbligatorie, logica "0 digitato = quantità valida", storico append-only, Lista della Spesa.
+## Cosa cambia
+- Solo il calcolo della giacenza nel database (una funzione): scarta i conteggi con U.M. diversa da quella del prodotto.
+- Nessuna modifica a menu delle U.M., schermate, formule del Fabbisogno, Lista della Spesa o storico.
 
 ## Dettagli tecnici
-- Database: nuova tabella `inventory_count_drafts` (session_id, product_id, location_id, quantity text, unit_code, updated_by, updated_at; unique su sessione+prodotto+zona), con GRANT, RLS per azienda della sessione tramite `is_company_member`. Scritture solo tramite RPC `manage_inventory_count_draft` (SECURITY DEFINER, search_path=public, autore = auth.uid(), sessione deve essere `in_corso`) con azioni set / clear_one / clear_all. Dopo un conteggio confermato la bozza della riga viene cancellata dalla stessa funzione di conteggio (solo la bozza, lo storico resta intatto).
-- Server: nuove funzioni in `inventory-count.functions.ts` con `context.supabase` (identità reale), mai client privilegiato.
-- Frontend: `inventory-count-panel.tsx` (bozze con salvataggio ritardato, Azzera, Storico sessione, finestra finale) e `inventory-requirements-panel.tsx` (riuso dell'azione "Aggiungi alla Lista" dalla finestra finale, poi navigazione a `/acquisti/lista-spesa`).
-- Storico sessione: lettura da `inventory_count_entries` della sessione, solo in lettura.
-
-Proposta: implementare in 2 passi — Passo 1 bozze + Azzera; Passo 2 storico sessione + passaggio alla Lista.
+- `inventory_location_stock`: aggiungere a `last_count` un JOIN su `products` e la condizione `coalesce(trim(c.unit_code),'') = '' OR lower(trim(c.unit_code)) = lower(trim(p.danea_um))`, con lo stesso criterio di `units_comparable`. Mantenere SECURITY DEFINER, search_path=public e EXECUTE solo per service_role (I2).
+- Prove in transazione annullata: conteggio 20 pz → giacenza 20; conteggio successivo 3 cs → giacenza resta 20; solo conteggio in cs → "mai contato"; Fabbisogno e Inventario si aprono senza errori.
