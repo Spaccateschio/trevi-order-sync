@@ -1940,8 +1940,9 @@ function PhysicalCount({
     <section className="space-y-2">
       <div
         className={cn(
-          "sticky top-0 z-20 rounded-md border px-3 py-2 shadow-sm",
-          completed ? "border-success/40 bg-success/10" : "border-primary/20 bg-card",
+          // Sotto la testata mobile (sticky top-0, h-14) e sempre con sfondo pieno.
+          "sticky top-14 z-10 rounded-md border bg-card px-3 py-2 shadow-sm lg:top-0",
+          completed ? "border-success/60" : "border-primary/20",
         )}
       >
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
