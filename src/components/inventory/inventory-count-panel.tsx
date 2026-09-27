@@ -657,7 +657,7 @@ export function InventoryCountPanel({
       await queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] });
       setDrafts({});
       setShowCompletion(true);
-      setProductView("all");
+      setProductView("favorites");
       setWorkFilter("pending");
       setCategory(null);
       setSubcategory(null);
@@ -701,7 +701,7 @@ export function InventoryCountPanel({
       setDraftFirst({});
       setDrafts({});
       setShowCompletion(true);
-      setProductView("all");
+      setProductView("favorites");
       setWorkFilter("pending");
       setCategory(null);
       setSubcategory(null);
