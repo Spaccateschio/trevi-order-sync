@@ -1975,19 +1975,22 @@ function PhysicalCount({
             </Button>
           </div>
         ) : null}
-        {sessionActive ? (<></>) : null}
-        <Progress value={percentage} className="mt-1.5 h-2" />
-        <div className="mt-1.5 grid grid-cols-3 divide-x divide-border text-center text-[10px] leading-tight sm:text-xs">
-          <p>
-            <strong className="mr-1 text-sm sm:text-base">{unchanged}</strong>confermati
-          </p>
-          <p>
-            <strong className="mr-1 text-sm text-destructive sm:text-base">{generalDifferences}</strong>differenze
-          </p>
-          <p>
-            <strong className="mr-1 text-sm text-primary sm:text-base">{total - generalCompleted}</strong>mancanti
-          </p>
-        </div>
+        {sessionActive ? (
+          <>
+            <Progress value={percentage} className="mt-1.5 h-2" />
+            <div className="mt-1.5 grid grid-cols-3 divide-x divide-border text-center text-[10px] leading-tight sm:text-xs">
+              <p>
+                <strong className="mr-1 text-sm sm:text-base">{unchanged}</strong>confermati
+              </p>
+              <p>
+                <strong className="mr-1 text-sm text-destructive sm:text-base">{generalDifferences}</strong>differenze
+              </p>
+              <p>
+                <strong className="mr-1 text-sm text-primary sm:text-base">{total - generalCompleted}</strong>mancanti
+              </p>
+            </div>
+          </>
+        ) : null}
         {compactBar && (
           <div className="mt-2 space-y-1.5 border-t border-border pt-2">
             <div className="relative">
