@@ -1822,7 +1822,7 @@ function PhysicalCount({
     const el = topFiltersRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(([entry]) => {
-      setCompactBar(!entry.isIntersecting && entry.boundingClientRect.top < 120);
+      if (entry) setCompactBar(!entry.isIntersecting && entry.boundingClientRect.top < 120);
     }, { rootMargin: "-120px 0px 0px 0px" });
     observer.observe(el);
     return () => observer.disconnect();
