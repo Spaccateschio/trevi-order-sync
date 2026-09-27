@@ -204,6 +204,7 @@ export function InventorySessionCounter({
               <th className="w-24">Differenza</th>
               <th className="w-16">U.M.</th>
               <th className="w-28">Stato</th>
+              <th className="w-40">Note</th>
             </tr>
           </thead>
           <tbody>
@@ -255,6 +256,9 @@ export function InventorySessionCounter({
                       <span className="text-muted-foreground">Da contare</span>
                     )}
                   </td>
+                  <td className="truncate text-muted-foreground" title={count?.notes ?? undefined}>
+                    {count?.notes || "—"}
+                  </td>
                 </tr>
               );
             })}
@@ -282,6 +286,7 @@ export function InventorySessionCounter({
                 Precedente: {stock?.hasCount || count ? qty(count ? count.previous_quantity : stock?.quantity) : "mai contato"}
                 {product.danea_um ? ` ${product.danea_um}` : ""}
               </p>
+              {count?.notes ? <p className="mt-1 text-xs text-muted-foreground">Nota: {count.notes}</p> : null}
               <div className="mt-2 flex items-center gap-2">
                 <Input
                   className="h-11 text-base"

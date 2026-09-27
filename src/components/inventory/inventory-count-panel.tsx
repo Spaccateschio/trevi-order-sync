@@ -82,6 +82,8 @@ import {
 } from "@/lib/inventory-count.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
+import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
+import type { SessionRow } from "@/lib/inventory";
 
 type ProductView = "favorites" | "all";
 type WorkFilter = "all" | "pending" | "completed" | "differences" | "not_comparable" | "recount";
@@ -242,6 +244,34 @@ export function InventoryCountPanel({
     },
   });
   const sessionId = sessionQuery.data?.id ?? null;
+  const [confirmedOpen, setConfirmedOpen] = useState(false);
+  const [viewClosedOpen, setViewClosedOpen] = useState(false);
+
+  // Ultimo inventario generale chiuso: solo lettura, distinto dall'inventario in corso.
+  const lastClosedQuery = useQuery({
+    queryKey: ["inventory-last-closed", companyId, archiveId],
+    enabled: Boolean(archiveId) && !sessionId && !sessionQuery.isLoading,
+    queryFn: async (): Promise<{ session: SessionRow; counted: number } | null> => {
+      const { data, error } = await supabase
+        .from("inventory_sessions")
+        .select("id, name, scope, location_id, status, archive_id, started_at, finished_at, notes")
+        .eq("company_id", companyId)
+        .eq("archive_id", archiveId!)
+        .eq("scope", "generale")
+        .eq("status", "completata")
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) return null;
+      const { data: counts, error: countsError } = await supabase
+        .from("inventory_counts")
+        .select("product_id")
+        .eq("session_id", data.id);
+      if (countsError) throw new Error(countsError.message);
+      return { session: data as SessionRow, counted: new Set((counts ?? []).map((row) => row.product_id)).size };
+    },
+  });
 
   // Bozze salvate: quantità (e U.M.) scritte ma non confermate. Una bozza NON è un conteggio.
   const draftFn = useServerFn(manageCountDraft);
@@ -1037,7 +1067,7 @@ export function InventoryCountPanel({
     return all.filter((row) => !managedProductIds.size || managedProductIds.has(row.product_id));
   };
   // Note obbligatorie in coda: si passa alla Lista della Spesa solo quando sono tutte gestite.
-  const noteQueue = useRef<{ rows: InventoryCountRow[]; goToList: boolean }>({ rows: [], goToList: false });
+  const noteQueue = useRef<{ rows: InventoryCountRow[]; goToList: boolean; showConfirmed: boolean }>({ rows: [], goToList: false, showConfirmed: false });
   const openNextNote = () => {
     const next = noteQueue.current.rows[0];
     if (next) {
@@ -1048,13 +1078,18 @@ export function InventoryCountPanel({
     if (noteQueue.current.goToList) {
       noteQueue.current.goToList = false;
       void navigate({ to: "/acquisti/lista-spesa" });
+      return;
+    }
+    if (noteQueue.current.showConfirmed) {
+      noteQueue.current.showConfirmed = false;
+      setConfirmedOpen(true);
     }
   };
 
   const runConfirmAll = async (mode: "soldOut" | "enteredOnly") => {
     const empty = emptyRows ?? [];
     setEmptyRows(null);
-    noteQueue.current = { rows: [], goToList: false };
+    noteQueue.current = { rows: [], goToList: false, showConfirmed: false };
     let saved = 0;
     const needNote: InventoryCountRow[] = [];
     for (const row of confirmScope()) {
@@ -1076,7 +1111,7 @@ export function InventoryCountPanel({
       }
     }
     if (saved) toast.success(`${saved} quantità confermate`);
-    noteQueue.current = { rows: needNote, goToList: mode === "enteredOnly" };
+    noteQueue.current = { rows: needNote, goToList: mode === "enteredOnly", showConfirmed: mode === "soldOut" };
     if (needNote.length) {
       toast.info(`${needNote.length} prodotti con differenza richiedono la nota`);
     }
@@ -1101,10 +1136,11 @@ export function InventoryCountPanel({
       return;
     }
     if (!scope.some((row) => typedValue(row) !== null)) {
-      toast.info("Nessuna nuova quantità da confermare");
+      // Perimetro già tutto controllato e nulla di nuovo: si può comunque scegliere dove andare.
+      setConfirmedOpen(true);
       return;
     }
-    noteQueue.current = { rows: [], goToList: false };
+    noteQueue.current = { rows: [], goToList: false, showConfirmed: false };
     const needNote: InventoryCountRow[] = [];
     let saved = 0;
     for (const row of scope) {
@@ -1119,7 +1155,7 @@ export function InventoryCountPanel({
       saved += 1;
     }
     if (saved) toast.success(`${saved} quantità confermate`);
-    noteQueue.current = { rows: needNote, goToList: false };
+    noteQueue.current = { rows: needNote, goToList: false, showConfirmed: true };
     openNextNote();
   };
 
@@ -1311,6 +1347,8 @@ export function InventoryCountPanel({
             }}
             onHistory={(row) => setHistoryRow(row)}
             onCloseInventory={() => closeMutation.mutate()}
+            lastClosed={lastClosedQuery.data ? { name: lastClosedQuery.data.session.name, counted: lastClosedQuery.data.counted, total: lastClosedQuery.data.counted } : null}
+            onViewLastClosed={() => setViewClosedOpen(true)}
 
             onHideCompletion={() => setShowCompletion(false)}
             closing={closeMutation.isPending}
@@ -1662,6 +1700,38 @@ export function InventoryCountPanel({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={confirmedOpen} onOpenChange={setConfirmedOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Inventario confermato</DialogTitle>
+            <DialogDescription>Tutti gli articoli sono stati controllati.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Button className="w-full" onClick={() => { setConfirmedOpen(false); void navigate({ to: "/acquisti/lista-spesa" }); }}>
+              Vai alla Lista della Spesa
+            </Button>
+            <Button variant="outline" className="w-full" onClick={() => setConfirmedOpen(false)}>
+              Resta nel Conteggio
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewClosedOpen} onOpenChange={setViewClosedOpen}>
+        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">{lastClosedQuery.data?.session.name ?? "Ultimo inventario"}</DialogTitle>
+            <DialogDescription>Inventario chiuso: stai guardando lo storico, non l'inventario in corso.</DialogDescription>
+          </DialogHeader>
+          <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
+            Inventario chiuso — sola lettura
+          </p>
+          {lastClosedQuery.data ? (
+            <InventorySessionCounter companyId={companyId} session={lastClosedQuery.data.session} locations={locations} />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={clearDraftsOpen} onOpenChange={setClearDraftsOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -1831,6 +1901,8 @@ function PhysicalCount({
   onProposal,
   onHistory,
   onCloseInventory,
+  lastClosed,
+  onViewLastClosed,
 
   onHideCompletion,
   closing,
@@ -1884,7 +1956,8 @@ function PhysicalCount({
   onProposal: (row: InventoryCountRow) => void;
   onHistory: (row: InventoryCountRow) => void;
   onCloseInventory: () => void;
-
+  lastClosed: { name: string; counted: number; total: number } | null;
+  onViewLastClosed: () => void;
   onHideCompletion: () => void;
   closing: boolean;
 }) {
@@ -1948,29 +2021,49 @@ function PhysicalCount({
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase leading-none text-muted-foreground">
-              {sessionActive ? "Inventario generale" : "Conteggio pronto"}
+              {sessionActive ? "Inventario generale" : "Nessun inventario in corso"}
             </p>
-            <h2 className="truncate font-display text-sm font-bold uppercase leading-tight sm:text-base">{sessionName}</h2>
+            <h2 className="truncate font-display text-sm font-bold uppercase leading-tight sm:text-base">
+              {sessionActive ? sessionName : "Scrivi una quantità per iniziare"}
+            </h2>
           </div>
-          <div className="flex shrink-0 items-baseline gap-1.5">
-            <p className="text-lg font-bold leading-none sm:text-xl">
-              {generalCompleted} / {total}
-            </p>
-            <p className="text-[10px] font-semibold text-muted-foreground">{percentage}%</p>
+          {sessionActive ? (
+            <div className="flex shrink-0 items-baseline gap-1.5">
+              <p className="text-lg font-bold leading-none sm:text-xl">
+                {generalCompleted} / {total}
+              </p>
+              <p className="text-[10px] font-semibold text-muted-foreground">{percentage}%</p>
+            </div>
+          ) : null}
+        </div>
+        {!sessionActive && lastClosed ? (
+          <div className="mt-1.5 flex items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5">
+            <div className="min-w-0 text-xs leading-tight">
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">Ultimo inventario (chiuso)</p>
+              <p className="truncate font-medium">{lastClosed.name}</p>
+              <p className="text-muted-foreground">{lastClosed.counted} / {lastClosed.total} prodotti controllati</p>
+            </div>
+            <Button size="sm" variant="outline" className="h-8 shrink-0 text-xs" onClick={onViewLastClosed}>
+              Visualizza inventario
+            </Button>
           </div>
-        </div>
-        <Progress value={percentage} className="mt-1.5 h-2" />
-        <div className="mt-1.5 grid grid-cols-3 divide-x divide-border text-center text-[10px] leading-tight sm:text-xs">
-          <p>
-            <strong className="mr-1 text-sm sm:text-base">{unchanged}</strong>confermati
-          </p>
-          <p>
-            <strong className="mr-1 text-sm text-destructive sm:text-base">{generalDifferences}</strong>differenze
-          </p>
-          <p>
-            <strong className="mr-1 text-sm text-primary sm:text-base">{total - generalCompleted}</strong>mancanti
-          </p>
-        </div>
+        ) : null}
+        {sessionActive ? (
+          <>
+            <Progress value={percentage} className="mt-1.5 h-2" />
+            <div className="mt-1.5 grid grid-cols-3 divide-x divide-border text-center text-[10px] leading-tight sm:text-xs">
+              <p>
+                <strong className="mr-1 text-sm sm:text-base">{unchanged}</strong>confermati
+              </p>
+              <p>
+                <strong className="mr-1 text-sm text-destructive sm:text-base">{generalDifferences}</strong>differenze
+              </p>
+              <p>
+                <strong className="mr-1 text-sm text-primary sm:text-base">{total - generalCompleted}</strong>mancanti
+              </p>
+            </div>
+          </>
+        ) : null}
         {compactBar && (
           <div className="mt-2 space-y-1.5 border-t border-border pt-2">
             <div className="relative">
@@ -2737,13 +2830,17 @@ function CompletionSummary({
           <span className="text-sm text-muted-foreground">U.M. non confrontabili</span>
         </p>
       </div>
-      <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+      <p className="mt-4 text-xs text-muted-foreground">
+        Tutti gli articoli sono stati controllati. L'inventario resta in corso: puoi ricontare un articolo quando serve.
+      </p>
+      <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
         <Button variant="outline" onClick={onShowDifferences}>
           <CircleAlert /> Vedi solo differenze
         </Button>
-        <Button onClick={onClose} disabled={!isAdmin || closing} title={isAdmin ? undefined : "Solo un amministratore può chiudere l'inventario"}>
-          <CheckCheck /> Chiudi inventario
-        </Button>
+        {/* "Chiudi inventario" rimosso dal completamento: il 100% non chiude la sessione. */}
+        {void onClose}
+        {void isAdmin}
+        {void closing}
       </div>
     </section>
   );
