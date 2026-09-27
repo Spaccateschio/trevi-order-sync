@@ -740,3 +740,31 @@ export const getOpenPurchaseProposals = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return (rows ?? []) as unknown as PurchaseProposal[];
   });
+
+/** Bozze delle quantità scritte ma non confermate: non sono conteggi. */
+export const manageCountDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        action: z.enum(["set", "clear_one", "clear_all"]),
+        sessionId: z.string().uuid(),
+        productId: z.string().uuid().nullable().default(null),
+        locationId: z.string().uuid().nullable().default(null),
+        quantity: z.string().trim().max(30).nullable().default(null),
+        unitCode: z.string().trim().max(24).nullable().default(null),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: n, error } = await context.supabase.rpc("manage_inventory_count_draft", {
+      _action: data.action,
+      _session_id: data.sessionId,
+      ...(data.productId ? { _product_id: data.productId } : {}),
+      ...(data.locationId ? { _location_id: data.locationId } : {}),
+      ...(data.quantity !== null ? { _quantity: data.quantity } : {}),
+      ...(data.unitCode ? { _unit_code: data.unitCode } : {}),
+    });
+    if (error) throw new Error(error.message);
+    return { affected: (n as number) ?? 0 };
+  });
