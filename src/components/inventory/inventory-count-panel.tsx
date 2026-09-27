@@ -1994,6 +1994,9 @@ function PhysicalCount({
                 Tutti
               </Button>
             </div>
+            <Button size="sm" variant="destructive" className="h-9 text-xs" onClick={onClearDrafts}>
+              Azzera quantità
+            </Button>
             <div className="grid grid-cols-2 gap-1 sm:grid-cols-5">
               <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "outline"} onClick={() => onWorkFilterChange("pending")}>
                 Da controllare
@@ -2163,9 +2166,6 @@ function PhysicalCount({
                 Bozza salvata · {savedDraftCount} {savedDraftCount === 1 ? "quantità non confermata" : "quantità non confermate"}
               </span>
             ) : null}
-            <Button size="sm" variant="ghost" onClick={onClearDrafts}>
-              Azzera quantità
-            </Button>
             <Button size="sm" variant="outline" onClick={onConfirmAll}>
               <CheckCheck /> Conferma visibili invariati
             </Button>
