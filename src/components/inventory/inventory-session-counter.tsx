@@ -28,10 +28,16 @@ export function InventorySessionCounter({
   companyId,
   session,
   locations,
+  isAdmin = false,
+  canCorrectCount,
+  onCorrectCount,
 }: {
   companyId: string;
   session: SessionRow;
   locations: LocationRow[];
+  isAdmin?: boolean;
+  canCorrectCount?: (count: CountRow, product: ProductRow) => boolean;
+  onCorrectCount?: (count: CountRow, product: ProductRow) => void;
 }) {
   const queryClient = useQueryClient();
   const run = useServerFn(recordInventoryCount);
@@ -194,7 +200,7 @@ export function InventorySessionCounter({
 
       {/* Computer e tablet */}
       <div className="hidden overflow-x-auto rounded-md border border-border md:block">
-        <table className="w-full min-w-[1080px] table-fixed border-separate border-spacing-0 text-xs">
+        <table className="w-full min-w-[1220px] table-fixed border-separate border-spacing-0 text-xs">
           <thead className="bg-muted">
             <tr className="[&>th]:border-r [&>th]:border-border [&>th]:px-2 [&>th]:py-2 [&>th]:text-left [&>th:last-child]:border-r-0">
               <th className="sticky left-0 z-20 w-24 bg-muted">Codice</th>
@@ -205,6 +211,7 @@ export function InventorySessionCounter({
               <th className="w-16">U.M.</th>
               <th className="w-28">Stato</th>
               <th className="w-56">Note</th>
+              {onCorrectCount ? <th className="w-36">Azioni</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -259,6 +266,27 @@ export function InventorySessionCounter({
                   <td className="whitespace-normal break-words text-muted-foreground">
                     {count?.notes || "—"}
                   </td>
+                  {onCorrectCount ? (
+                    <td>
+                      {count && isAdmin && canCorrectCount?.(count, product) ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-full text-xs font-bold"
+                          onClick={() => onCorrectCount(count, product)}
+                        >
+                          Correggi giacenza
+                        </Button>
+                      ) : count ? (
+                        <span className="text-[10px] leading-tight text-muted-foreground">
+                          {isAdmin ? "Superato da un conteggio successivo" : "Solo amministratori"}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}
@@ -305,6 +333,22 @@ export function InventorySessionCounter({
                   Salva
                 </Button>
               </div>
+              {onCorrectCount && count ? (
+                isAdmin && canCorrectCount?.(count, product) ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2 w-full font-bold"
+                    onClick={() => onCorrectCount(count, product)}
+                  >
+                    Correggi giacenza
+                  </Button>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {isAdmin ? "Questo conteggio è stato superato da uno successivo." : "La correzione è riservata agli amministratori."}
+                  </p>
+                )
+              ) : null}
             </li>
           );
         })}
@@ -315,7 +359,7 @@ export function InventorySessionCounter({
       ) : null}
       {!editable ? (
         <p className="text-xs text-muted-foreground">
-          Sessione chiusa: i conteggi non sono più modificabili. Per correggere usa una rettifica dalla scheda prodotto.
+          Sessione chiusa: i conteggi originali non si modificano. Usa “Correggi giacenza” per registrare una rettifica tracciata.
         </p>
       ) : null}
     </div>
