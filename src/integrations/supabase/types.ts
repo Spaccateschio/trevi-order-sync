@@ -2050,6 +2050,9 @@ export type Database = {
           location_id: string | null
           name: string
           notes: string | null
+          purchase_evaluated_at: string | null
+          purchase_evaluated_by: string | null
+          purchase_list_id: string | null
           scope: Database["public"]["Enums"]["inventory_session_scope"]
           started_at: string
           status: Database["public"]["Enums"]["inventory_session_status"]
@@ -2065,6 +2068,9 @@ export type Database = {
           location_id?: string | null
           name: string
           notes?: string | null
+          purchase_evaluated_at?: string | null
+          purchase_evaluated_by?: string | null
+          purchase_list_id?: string | null
           scope?: Database["public"]["Enums"]["inventory_session_scope"]
           started_at?: string
           status?: Database["public"]["Enums"]["inventory_session_status"]
@@ -2080,6 +2086,9 @@ export type Database = {
           location_id?: string | null
           name?: string
           notes?: string | null
+          purchase_evaluated_at?: string | null
+          purchase_evaluated_by?: string | null
+          purchase_list_id?: string | null
           scope?: Database["public"]["Enums"]["inventory_session_scope"]
           started_at?: string
           status?: Database["public"]["Enums"]["inventory_session_status"]
@@ -2105,6 +2114,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_sessions_purchase_list_id_fkey"
+            columns: ["purchase_list_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
             referencedColumns: ["id"]
           },
         ]
@@ -5180,6 +5196,10 @@ export type Database = {
           quantity: number
         }[]
       }
+      inventory_purchase_cycle_status: {
+        Args: { _company_id: string }
+        Returns: Json
+      }
       inventory_requirements: {
         Args: { _archive_id: string; _company_id: string; _needs?: Json }
         Returns: {
@@ -5415,6 +5435,15 @@ export type Database = {
           _notes?: string
         }
         Returns: string
+      }
+      manage_inventory_purchase_evaluation: {
+        Args: {
+          _action: string
+          _company_id: string
+          _list_id?: string
+          _session_id: string
+        }
+        Returns: undefined
       }
       manage_inventory_session: {
         Args: {

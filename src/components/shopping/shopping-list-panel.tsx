@@ -17,6 +17,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AddProductsDialog, Thumb } from "./add-products-dialog";
+import { CYCLE_QUERY_KEY, InventoryEvaluation } from "./inventory-to-evaluate";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { useShoppingListExtras } from "./use-shopping-list-extras";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,6 +40,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { dateTimeShort, parseQuantity, qty } from "@/lib/inventory";
+import { getInventoryCycleStatus } from "@/lib/inventory-cycle.functions";
 import {
   ITEM_STATUS_LABEL,
   LIST_STATUS_LABEL,
@@ -89,6 +91,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runList = useServerFn(manageShoppingList);
   const runQuantity = useServerFn(setShoppingListItemQuantity);
   const runRemove = useServerFn(removeShoppingListItem);
+  const readCycle = useServerFn(getInventoryCycleStatus);
 
   const [listId, setListId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -129,10 +132,21 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   const lists = listsQuery.data ?? [];
   const list = useMemo(
-    () => lists.find((row) => row.id === listId) ?? lists.find((row) => row.status === "aperta") ?? lists[0] ?? null,
+    // Solo una Lista corrente (Aperta o Confermata) si seleziona da sola; lo Storico solo su scelta esplicita.
+    () =>
+      lists.find((row) => row.id === listId) ??
+      lists.find((row) => row.status === "aperta") ??
+      lists.find((row) => row.status === "confermata") ??
+      null,
     [lists, listId],
   );
   const editable = list?.status === "aperta";
+  const currentList = lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null;
+  const cycleQuery = useQuery({
+    queryKey: [CYCLE_QUERY_KEY, companyId],
+    queryFn: () => readCycle({ data: { companyId } }),
+  });
+  const cycle = cycleQuery.data;
 
   const overviewQuery = useQuery({
     queryKey: ["shopping-list-overview", list?.id],
@@ -149,6 +163,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       queryClient.invalidateQueries({ queryKey: ["shopping-lists", companyId] }),
       queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
       queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+      queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
     ]);
   };
 
@@ -372,10 +387,18 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <Select value={list?.id ?? ""} onValueChange={setListId}>
             <SelectTrigger className="w-full sm:w-72" aria-label="Lista della spesa">
-              <SelectValue placeholder="Scegli una lista" />
+              <SelectValue placeholder="Storico liste" />
             </SelectTrigger>
             <SelectContent>
-              {lists.map((row) => (
+              {lists.filter((row) => row.status === "aperta" || row.status === "confermata").map((row) => (
+                <SelectItem key={row.id} value={row.id}>
+                  {row.name} · {LIST_STATUS_LABEL[row.status]}
+                </SelectItem>
+              ))}
+              {lists.some((row) => row.status === "chiusa" || row.status === "annullata") ? (
+                <div className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase text-muted-foreground">Storico</div>
+              ) : null}
+              {lists.filter((row) => row.status === "chiusa" || row.status === "annullata").map((row) => (
                 <SelectItem key={row.id} value={row.id}>
                   {row.name} · {LIST_STATUS_LABEL[row.status]}
                 </SelectItem>
@@ -430,9 +453,43 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       </div>
 
+      {list && list.status !== "aperta" && list.status !== "confermata" ? (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          Stai consultando una lista dello Storico.
+          {currentList ? (
+            <Button size="sm" variant="link" className="h-auto p-0 text-xs" onClick={() => setListId(currentList.id)}>
+              Torna alla Lista in lavorazione
+            </Button>
+          ) : (
+            <Button size="sm" variant="link" className="h-auto p-0 text-xs" onClick={() => setListId(null)}>
+              Chiudi consultazione
+            </Button>
+          )}
+        </div>
+      ) : null}
+
+      {cycle?.color === "rosso" && cycle.session_id && (!list || list.id === currentList?.id) ? (
+        <InventoryEvaluation
+          companyId={companyId}
+          cycle={cycle}
+          currentList={currentList}
+          currentListItems={currentList && list?.id === currentList.id ? allRows.length : 0}
+          existingProductIds={new Set(list?.id === currentList?.id ? allRows.map((row) => row.product_id) : [])}
+          creatingList={listMutation.isPending}
+          onCreateList={async () => {
+            try {
+              const result = await listMutation.mutateAsync("open");
+              return result.id;
+            } catch {
+              return null;
+            }
+          }}
+        />
+      ) : null}
+
       {!list ? (
         <p className="text-sm text-muted-foreground">
-          Nessuna lista: aprine una e aggiungi i prodotti dal Fabbisogno o a mano.
+          Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure consulta lo Storico dal menu delle liste.
         </p>
       ) : (
         <>
