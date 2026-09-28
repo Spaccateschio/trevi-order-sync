@@ -187,19 +187,33 @@ export function SupplierSplitDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-wrap gap-3 rounded-md border border-border bg-muted/30 p-3 text-sm">
-          <span>
-            Da acquistare <strong>{qty(item.decided_quantity)}</strong> {unit}
-          </span>
-          <span>
-            Assegnati <strong>{qty(assignedTotal)}</strong> {unit}
-          </span>
-          <span className={remaining < 0 ? "font-semibold text-destructive" : ""}>
-            {remaining < 0
-              ? `Assegnati ${qty(assignedTotal)} su ${qty(item.decided_quantity)}: correggi tu le quantità`
-              : `Residuo ${qty(remaining)} ${unit}`}
-          </span>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
+            <p className="text-[11px] text-muted-foreground">Richieste</p>
+            <p className="text-lg font-semibold leading-tight">{qty(item.decided_quantity)} {unit}</p>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
+            <p className="text-[11px] text-muted-foreground">Assegnate</p>
+            <p className="text-lg font-semibold leading-tight">{qty(assignedTotal)} {unit}</p>
+          </div>
+          <div
+            className={`rounded-md border px-2 py-1.5 ${
+              remaining < 0
+                ? "border-destructive bg-destructive/10 text-destructive"
+                : remaining === 0
+                  ? "border-success bg-success/10"
+                  : "border-primary bg-primary/10"
+            }`}
+          >
+            <p className="text-[11px]">Da assegnare</p>
+            <p className="text-lg font-semibold leading-tight">{qty(remaining)} {unit}</p>
+          </div>
         </div>
+        {remaining < 0 ? (
+          <p className="text-xs font-medium text-destructive">
+            Assegnati {qty(assignedTotal)} su {qty(item.decided_quantity)}: correggi tu le quantità.
+          </p>
+        ) : null}
 
         {!suppliers.length ? (
           <p className="text-sm text-muted-foreground">

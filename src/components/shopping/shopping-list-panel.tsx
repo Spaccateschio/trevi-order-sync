@@ -148,6 +148,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["shopping-lists", companyId] }),
       queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+      queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
     ]);
   };
 
@@ -207,7 +208,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   });
 
   const allRows = overviewQuery.data ?? [];
-  const { extras } = useShoppingListExtras(companyId, list?.id ?? null, allRows);
+  const { extras, b2bSupplierIds } = useShoppingListExtras(companyId, list?.id ?? null, allRows);
   const categories = useMemo(
     () => [...new Set([...extras.values()].map((row) => row.category).filter(Boolean) as string[])].sort(),
     [extras],
@@ -683,8 +684,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           item={splitItem}
           open={Boolean(splitItem)}
           editable={Boolean(editable)}
+          b2bSupplierIds={b2bSupplierIds}
           onOpenChange={(open) => {
-            if (!open) setSplitItem(null);
+            if (!open) {
+              setSplitItem(null);
+              void queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] });
+            }
           }}
         />
       ) : null}
