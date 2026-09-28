@@ -473,6 +473,59 @@ export function InventoryCountPanel({
       })
       .sort((left, right) => byName(left.description, left.code, right.description, right.code));
   }, [catalogPreview, category, previewFavoriteQuery.data, productView, search, subcategory]);
+  // Senza inventario aperto: giacenza reale e ultimo conteggio compatibile (inventari chiusi, stessa U.M.).
+  // Solo lettura; "Mai contato" solo se il prodotto non ha nessun conteggio compatibile.
+  const historyLocationId =
+    activeLocations.length === 1
+      ? (activeLocations[0]?.id ?? null)
+      : (activeLocations.find((location) => location.id === draftZoneId)?.id ??
+        activeLocations.find((location) => location.is_default)?.id ??
+        null);
+  const stockHistoryQuery = useQuery({
+    queryKey: ["inventario-storico-giacenza", companyId, archiveId, historyLocationId, catalogPreview.length],
+    enabled: !sessionId && !sessionQuery.isLoading && Boolean(archiveId) && Boolean(historyLocationId),
+    queryFn: async (): Promise<Map<string, StockHistory>> => {
+      const [stockResult, countsResult] = await Promise.all([
+        supabase.rpc("inventory_location_stock_list", {
+          _company_id: companyId,
+          _archive_id: archiveId!,
+          _location_id: historyLocationId!,
+        }),
+        supabase
+          .from("inventory_counts")
+          .select("product_id, counted_quantity, unit_code, counted_at, inventory_sessions!inner(status)")
+          .eq("company_id", companyId)
+          .eq("location_id", historyLocationId!)
+          .eq("inventory_sessions.status", "completata")
+          .order("counted_at", { ascending: false })
+          .limit(5000),
+      ]);
+      if (stockResult.error) throw new Error(stockResult.error.message);
+      if (countsResult.error) throw new Error(countsResult.error.message);
+      const units = new Map(catalogPreview.map((product) => [product.id, product.danea_um]));
+      const last = new Map<string, { quantity: number; unit: string | null; at: string }>();
+      for (const count of (countsResult.data ?? []) as { product_id: string; counted_quantity: number; unit_code: string | null; counted_at: string }[]) {
+        if (last.has(count.product_id)) continue;
+        const productUnit = (units.get(count.product_id) ?? "").trim().toLowerCase();
+        const countUnit = (count.unit_code ?? "").trim().toLowerCase();
+        // Stesso criterio della giacenza: vale solo il conteggio nella U.M. del prodotto.
+        if (countUnit && productUnit && countUnit !== productUnit) continue;
+        last.set(count.product_id, { quantity: Number(count.counted_quantity), unit: count.unit_code, at: count.counted_at });
+      }
+      const map = new Map<string, StockHistory>();
+      for (const row of (stockResult.data ?? []) as { product_id: string; has_count: boolean; quantity: number | null }[]) {
+        const lc = last.get(row.product_id);
+        map.set(row.product_id, {
+          hasCount: row.has_count,
+          stock: row.has_count ? Number(row.quantity ?? 0) : null,
+          lastQuantity: row.has_count && lc ? lc.quantity : null,
+          lastUnit: row.has_count && lc ? lc.unit : null,
+          lastAt: row.has_count && lc ? lc.at : null,
+        });
+      }
+      return map;
+    },
+  });
 
 
   const previewImagesQuery = useQuery({
@@ -1221,7 +1274,7 @@ export function InventoryCountPanel({
               product_id: product.id, location_id: draftLocation?.id ?? "", location_name: draftLocation?.name ?? "—",
               code: product.code, description: product.description, danea_um: product.danea_um,
               category: product.category, subcategory: product.subcategory, is_favorite: previewFavoriteQuery.data?.has(product.id) ?? false,
-              image_path: null, thumbnail_path: null, calculated: 0, counted: null, difference: null,
+              image_path: null, thumbnail_path: null, calculated: stockHistoryQuery.data?.get(product.id)?.stock ?? 0, counted: null, difference: null,
               counted_at: null, counted_by: null, note: null, recount_requested_at: null, non_compliant: false,
               non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
               min_stock: null, order_multiple: null, counted_unit_code: null, units_comparable: null,
@@ -1347,6 +1400,7 @@ export function InventoryCountPanel({
             }}
             onHistory={(row) => setHistoryRow(row)}
             onCloseInventory={() => closeMutation.mutate()}
+            stockHistory={sessionId ? null : (stockHistoryQuery.data ?? null)}
             lastClosed={lastClosedQuery.data ? { name: lastClosedQuery.data.session.name, counted: lastClosedQuery.data.counted, total: lastClosedQuery.data.counted } : null}
             onViewLastClosed={() => setViewClosedOpen(true)}
 
@@ -1692,9 +1746,6 @@ export function InventoryCountPanel({
               <Button variant="outline" className="h-auto w-full whitespace-normal py-2 text-xs" disabled={countMutation.isPending} onClick={() => void runConfirmAll("soldOut")}>
                 Conferma gli articoli senza quantità come esauriti
               </Button>
-              <Button variant="outline" className="h-auto w-full whitespace-normal py-2 text-xs" disabled={countMutation.isPending} onClick={() => void runConfirmAll("enteredOnly")}>
-                Conferma solo quanto inserito e vai alla Lista della Spesa
-              </Button>
             </div>
           </div>
         </DialogContent>
@@ -1707,8 +1758,21 @@ export function InventoryCountPanel({
             <DialogDescription>Tutti gli articoli sono stati controllati.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
-            <Button className="w-full" onClick={() => { setConfirmedOpen(false); void navigate({ to: "/acquisti/lista-spesa" }); }}>
-              Vai alla Lista della Spesa
+            <Button
+              className="h-auto w-full whitespace-normal py-2"
+              disabled={closeMutation.isPending}
+              onClick={async () => {
+                // Chiude con la funzione esistente: solo se riesce i conteggi diventano giacenza e si apre la Lista.
+                try {
+                  await closeMutation.mutateAsync();
+                } catch {
+                  return;
+                }
+                setConfirmedOpen(false);
+                void navigate({ to: "/acquisti/lista-spesa" });
+              }}
+            >
+              {closeMutation.isPending ? "Chiusura in corso…" : "Termina inventario e vai alla Lista della Spesa"}
             </Button>
             <Button variant="outline" className="w-full" onClick={() => setConfirmedOpen(false)}>
               Resta nel Conteggio
@@ -1903,6 +1967,7 @@ function PhysicalCount({
   onCloseInventory,
   lastClosed,
   onViewLastClosed,
+  stockHistory,
 
   onHideCompletion,
   closing,
@@ -1958,6 +2023,7 @@ function PhysicalCount({
   onCloseInventory: () => void;
   lastClosed: { name: string; counted: number; total: number } | null;
   onViewLastClosed: () => void;
+  stockHistory: Map<string, StockHistory> | null;
   onHideCompletion: () => void;
   closing: boolean;
 }) {
@@ -2265,6 +2331,7 @@ function PhysicalCount({
                       onRevokeNonCompliance={() => onRevokeNonCompliance(row)}
                       onProposal={() => onProposal(row)}
                       onHistory={() => onHistory(row)}
+                      history={stockHistory ? (stockHistory.get(row.product_id) ?? null) : null}
                     />
                   ),
                 })),
@@ -2335,6 +2402,15 @@ function PhysicalCount({
   );
 }
 
+/** Storico del prodotto quando non c'è un inventario aperto: giacenza reale e ultimo conteggio compatibile. */
+type StockHistory = {
+  hasCount: boolean;
+  stock: number | null;
+  lastQuantity: number | null;
+  lastUnit: string | null;
+  lastAt: string | null;
+};
+
 function ProductCard({
   companyId,
   row,
@@ -2353,6 +2429,7 @@ function ProductCard({
   onRevokeNonCompliance,
   onProposal,
   onHistory,
+  history,
 }: {
   companyId: string;
   row: InventoryCountRow;
@@ -2371,6 +2448,7 @@ function ProductCard({
   onRevokeNonCompliance: () => void;
   onProposal: () => void;
   onHistory: () => void;
+  history?: StockHistory | null;
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
   const unitsCtx = useContext(CountUnitsContext);
@@ -2392,7 +2470,7 @@ function ProductCard({
       : null;
   const confirmedDifference = isConfirmed && row.units_comparable !== false ? Number(row.difference ?? 0) : null;
   const hasDifference = isConfirmed && confirmedDifference !== null && confirmedDifference !== 0;
-  const difference = !comparable
+  const difference = !comparable || (history && !history.hasCount)
     ? null
     : counted === null
       ? (isConfirmed ? confirmedDifference : null)
@@ -2410,6 +2488,9 @@ function ProductCard({
         : Number(row.counted) === 0
           ? "Zero verificato"
           : "Confermato";
+  // Senza inventario aperto: lo stato riflette lo storico del prodotto, non la sessione.
+  const previewStatus =
+    history && !isConfirmed && !needsRecount ? (history.hasCount ? "Contato in precedenza" : "Mai contato") : null;
 
   return (
     <article
@@ -2461,6 +2542,13 @@ function ProductCard({
               Ultimo conteggio {new Date(row.counted_at).toLocaleDateString("it-IT")}
             </p>
           ) : null}
+          {history?.hasCount && history.lastQuantity !== null ? (
+            <p className="truncate text-[11px] font-semibold leading-tight text-foreground">
+              Ultimo conteggio: {formatQuantity(history.lastQuantity, history.lastUnit ?? unit)}
+              {history.lastUnit ?? unit ? ` ${history.lastUnit ?? unit}` : ""}
+              {history.lastAt ? ` · ${new Date(history.lastAt).toLocaleDateString("it-IT")}` : ""}
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <PriceTrendIcon
@@ -2492,7 +2580,7 @@ function ProductCard({
               needsRecount && "bg-primary/15 text-primary",
             )}
           >
-            {status}
+            {previewStatus ?? status}
           </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -2573,7 +2661,10 @@ function ProductCard({
       <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
         <div>
           <p className="text-[9px] leading-none text-muted-foreground">Calcolata</p>
-          <p className="mt-1 text-sm font-bold leading-none">{formatQuantity(calculated, unit)}</p>
+          <p className="mt-1 text-sm font-bold leading-none">
+            {/* Mai contato = giacenza non nota: mai mostrata come 0. */}
+            {history && !history.hasCount ? "—" : formatQuantity(calculated, unit)}
+          </p>
         </div>
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-1">
