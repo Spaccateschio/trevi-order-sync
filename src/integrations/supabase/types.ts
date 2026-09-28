@@ -5819,6 +5819,7 @@ export type Database = {
           _product_id: string
           _quantity: number
           _reason: string
+          _reference_count_id?: string
         }
         Returns: string
       }
