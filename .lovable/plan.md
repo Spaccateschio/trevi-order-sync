@@ -69,7 +69,7 @@ Database, U.M. e conversioni, divisione fornitori, conferma lista, generazione o
 - Preferiti: `company_product_favorites`.
 - Fornitori per riga: `shopping_list_item_suppliers` + `supplier_records.legal_name`.
 - B2B: fornitore con un collegamento attivo in `supplier_customer_relations`. Prima di scrivere codice verifico con una lettura che la colonna di collegamento sia quella giusta.
-- Già in ordine: esiste un `purchase_orders` con `shopping_list_id` di questa lista, non annullato, che contiene il prodotto in `purchase_order_items`.
+- Già in ordine / Da ordinare: il calcolo si fa **riga per riga**. Una riga è "Già in ordine" se una sua ripartizione (`shopping_list_item_suppliers`: prodotto + referenza fornitore) compare in un `purchase_order_items` di un ordine non annullato con `shopping_list_id` di questa lista, cioè se prodotto e `product_supplier_link_id` coincidono. Le righe che non soddisfano la condizione sono "Da ordinare". Se una riga divisa ha solo una parte negli ordini, mostro l'etichetta "In parte in ordine" e la conto tra le "Da ordinare". Gli ordini non hanno un collegamento diretto con la singola riga della lista, quindi il riconoscimento avviene con prodotto + fornitore, che nella stessa lista sono unici.
 
 **Filtri e ordinamento**: `useMemo` sulle righe di `shopping_list_overview`, con stato solo nel componente. Nessuna scrittura.
 
