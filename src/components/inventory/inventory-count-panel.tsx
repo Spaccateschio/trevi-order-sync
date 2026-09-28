@@ -1833,7 +1833,7 @@ export function InventoryCountPanel({
           <DialogHeader>
             <DialogTitle className="text-base">{lastClosedQuery.data?.session.name ?? "Ultimo inventario"}</DialogTitle>
             <DialogDescription>
-              Inventario chiuso: i conteggi originali non si modificano. Puoi correggere la giacenza con una rettifica tracciata.
+              Le quantità confermate sono visibili qui sotto. Usa “Modifica giacenza” per registrare una rettifica tracciata senza cambiare il conteggio originale.
             </DialogDescription>
           </DialogHeader>
           <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
@@ -1844,13 +1844,6 @@ export function InventoryCountPanel({
               companyId={companyId}
               session={lastClosedQuery.data.session}
               locations={locations}
-              isAdmin={isAdmin}
-              canCorrectCount={(count, product) => {
-                const history = stockHistoryQuery.data?.get(product.id);
-                return Boolean(
-                  history?.lastCountId === count.id,
-                );
-              }}
               onCorrectCount={(count, product) => {
                 setCorrection({
                   productId: product.id,
@@ -2622,7 +2615,7 @@ function ProductCard({
             </p>
           ) : null}
           {history?.hasCount && history.lastQuantity !== null ? (
-            <p className="truncate text-[11px] font-semibold leading-tight text-foreground">
+            <p className="whitespace-normal break-words text-[11px] font-semibold leading-tight text-foreground">
               Ultimo conteggio: {formatQuantity(history.lastQuantity, history.lastUnit ?? unit)}
               {history.lastUnit ?? unit ? ` ${history.lastUnit ?? unit}` : ""}
               {history.lastAt ? ` · ${new Date(history.lastAt).toLocaleDateString("it-IT")}` : ""}
@@ -2852,7 +2845,7 @@ function ProductCard({
           className="mt-1.5 h-8 w-full text-xs font-bold"
           onClick={() => cycleLock.onCorrect(row, history)}
         >
-          Correggi conteggio
+          Modifica giacenza
         </Button>
       ) : null}
       {noteOpen && hasDifference ? (
