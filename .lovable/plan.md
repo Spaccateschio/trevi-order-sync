@@ -1,66 +1,78 @@
-# Conferma inventario: tre scelte per gli articoli senza quantità
+# Lista della Spesa — Passo 1: nuova schermata, stessa logica
 
-## Decisioni fissate
-- L'inventario resta **in corso** anche per più giorni, e "Conferma inventario" non lo chiude. Nessuna modifica al database.
-- **Quali articoli controlla:** in vista **Preferiti** tutti i preferiti dell'inventario, qualunque siano la ricerca, la categoria, la zona o gli altri filtri. In vista **Tutti** tutti i prodotti dell'inventario.
-- **Campo vuoto:** non diventa mai 0 da solo e non prende mai la quantità calcolata. **0 scritto a mano** è un conteggio valido.
-- **Esaurito** = conteggio a 0 deciso esplicitamente dall'operatore.
-- Le bozze restano salvate senza scadenza e il Fabbisogno resta facoltativo.
+Principio: migliorare la Lista della Spesa che già funziona, non rifarla. Cambia solo come si vede e come si cerca. Quantità, assegnazioni, conferma e creazione degli ordini funzionano esattamente come oggi.
 
-## Il pulsante
-"Conferma visibili invariati" diventa **Conferma inventario**, nella stessa posizione.
+## 1. Barra superiore
+Una riga compatta con Cerca prodotto, Categoria, Fornitore, Altri filtri, Ordina, **+ Aggiungi prodotti** e **Stampa**. Stampa si vede ma è disattivata, con la scritta "Disponibile a breve": arriva nel Passo 3.
 
-Quando lo premi:
-1. **Articoli con quantità scritta** (anche 0): diventano conteggi.
-2. **Articoli già confermati in precedenza e non ritoccati:** restano come sono, senza un nuovo conteggio.
-3. **Articoli senza quantità e mai confermati:** li elenco nella finestra.
+## 2. Filtri (si combinano tra loro)
+- **Categoria** e **Fornitore**: menu a scelta.
+- **Altri filtri** (finestra con caselle): Senza fornitore, B2B, Non B2B, Preferiti, Da assegnare, Parzialmente assegnati, Assegnati, Già in ordine.
+- Pulsante "Azzera filtri" e numero dei filtri attivi.
+- Filtrano solo quello che vedi e non scrivono nulla.
 
-Se non ci sono articoli senza quantità, conferma e basta: nessuna finestra, resti nel Conteggio e vedi il messaggio "N quantità confermate".
+## 3. Ordinamento
+Codice, Descrizione, Categoria, Fornitore (A→Z). Il "giro del mercato" lo facciamo più avanti.
 
-## La finestra "Inventario incompleto"
-"Ci sono N articoli senza quantità inserita. Potresti aver dimenticato di contarli oppure potrebbero essere prodotti esauriti."
+## 4. Computer e tablet
+`Foto | Codice | Prodotto | Categoria | Quantità | U.M. | Fornitore/i | Note | Azioni`
+- **Prezzo e Totale per ora non ci sono**: arrivano con il Passo 2, per non mostrare numeri inventati.
+- Quantità modificabile come oggi e riga compatta.
+- Note: si vedono le note già scritte nelle ripartizioni. Una nota sulla riga richiederebbe una modifica al database, quindi per ora niente.
 
-Elenco Codice | Descrizione | U.M., scorrevole se è lungo.
+## 5. Fornitori sulla riga
+`Rossi · 10 cs`, oppure, se la merce è divisa, una riga per fornitore: `Rossi · 6 cs` / `Bianchi · 4 cs [B2B]`. Il badge B2B è piccolo, e "Nessun fornitore" è scritto in grigio.
 
-**1. Riprendi e inserisci**
-- Non conferma nulla, nemmeno le quantità scritte, che restano in bozza.
-- Torna al Conteggio con il filtro "Da controllare" e mette il cursore sul primo campo vuoto.
+## 6. Finestra Fornitori (divisione)
+Stessa logica di oggi. In alto tre numeri grandi: **Richieste 20 cs · Assegnate 16 cs · Da assegnare 4 cs**. Si aggiornano dopo ogni assegnazione e diventano verdi quando il da assegnare arriva a 0. Accanto a ogni fornitore compare il badge B2B.
 
-**2. Conferma gli articoli senza quantità come esauriti**
-- Conferma le quantità scritte e registra **0** per ciascun articolo dell'elenco.
-- Lo 0 viene registrato nella U.M. della giacenza del prodotto, così diventa davvero giacenza 0.
-- Nota automatica: "Esaurito — confermato dall'operatore". Serve perché, quando la giacenza calcolata non era 0, il sistema chiede sempre il motivo della differenza.
-- Resti nel Conteggio e l'inventario resta aperto.
+## 7. + Aggiungi prodotti
+- Una finestra con ricerca per codice o descrizione. Ogni prodotto mostra foto, codice, descrizione, categoria e U.M., con una casella per sceglierlo.
+- I prodotti **già nella Lista** hanno l'etichetta "Già in lista" e non si possono scegliere: niente doppioni.
+- Un solo pulsante: **Aggiungi alla Lista (N)**.
+- La quantità si scrive poi sulla riga. Uso la stessa funzione che aggiunge i prodotti a mano oggi. Se quella funzione non accetta una quantità vuota, ti chiedo una sola quantità comune (per esempio 1) prima di aggiungere, così non invento niente.
 
-**3. Conferma solo quanto inserito e vai alla Lista della Spesa**
-- Conferma solo le quantità scritte. Gli articoli vuoti restano **non controllati** e le loro eventuali bozze restano.
-- L'inventario resta aperto e poi si apre la Lista della Spesa.
+## 8. Smartphone
+Schede compatte, una per prodotto:
+```text
+[foto] PATATE IT ROSSE          [stato]
+       00-003 · Patate
+       [   7   ] sacchi
+       Rossi 5 · Bianchi 2 [B2B]
+       [Fornitori] [Nota] [⋮]
+```
+I filtri si aprono in un pannello dal basso. **Nessun pulsante fisso**: il riepilogo e "Prepara ordini" stanno in fondo alla lista, come nell'Inventario. Sotto ⋮ c'è Rimuovi.
 
-In tutti e tre i casi, un articolo con quantità scritta **diversa dalla calcolata nella stessa U.M.** apre come oggi la finestra della nota obbligatoria. Finché le note non sono compilate, non passo alla Lista della Spesa.
+## 9. Riepilogo
+`25 prodotti · 18 assegnati · 4 parziali · 3 da assegnare`, con il pulsante **Prepara ordini**. È il pulsante di oggi (conferma lista e crea ordini in bozza) con un nome nuovo: la logica non cambia.
 
-## Cosa non cambia
-- **Bozze:** vengono cancellate solo per gli articoli appena confermati. Le altre restano.
-- **Storico:** ogni conferma è un nuovo conteggio che si aggiunge, e i precedenti non vengono toccati.
-- **U.M.:** la quantità scritta mantiene la U.M. scelta dall'operatore. Un conteggio in U.M. diversa resta "U.M. non confrontabili" e non diventa giacenza.
-- **Giacenze:** vale sempre l'ultimo conteggio nella U.M. della giacenza. "Non controllato" resta sconosciuto.
-- **Fabbisogno e Lista della Spesa:** nessuna modifica. Il pulsante del Fabbisogno "Aggiungi alla Lista della Spesa" e il suo avviso restano com'erano.
+## 10. Non cambia
+Database, U.M. e conversioni, divisione fornitori, conferma lista, generazione ordini, ordini esistenti, Inventario, Fabbisogno e flusso B2B restano come sono, e non creo dati di prova.
 
 ## Dettagli tecnici
-- File: solo `src/components/inventory/inventory-count-panel.tsx`.
-- Articoli da controllare: prendo le righe complete dell'inventario (`allRowsQuery`). In vista Preferiti le filtro con l'insieme dei preferiti (`previewFavoriteQuery.data`), ignorando ricerca, categoria, zona, fornitore e filtro di lavoro. In vista Tutti le prendo tutte, sempre solo per i prodotti gestiti dalla mia azienda.
-- Quali confermare: righe con bozza non vuota e valida → `countMutation` con `countUnitsValue.selected(row)`. Senza bozza e `counted === null` → elenco della finestra. Senza bozza e `counted !== null` → nessuna azione. Una bozza non valida blocca con l'errore attuale "Quantità non valida".
-- Opzione 2: `countMutation` con `value: 0`, `unit: rowUnit(row)` e `notes: "Esaurito — confermato dall'operatore"`.
-- Opzione 3: dopo il salvataggio `navigate({ to: "/acquisti/lista-spesa" })`, se non restano note da compilare.
-- `runConfirmAll` riscritto per le tre modalità (`resume`, `soldOut`, `enteredOnly`). Rimossi il percorso "quantità calcolata" e "Conferma e vai al Fabbisogno".
-- Nessuna modifica a database, funzioni server, U.M., Fabbisogno o Lista della Spesa.
+**File toccati**
+- `src/components/shopping/shopping-list-panel.tsx` (layout, filtri, riepilogo).
+- `src/components/shopping/supplier-split-dialog.tsx` (solo il riquadro dei totali e il badge B2B).
+
+**Nuovi componenti**, in `src/components/shopping/`:
+- `shopping-list-toolbar.tsx`
+- `shopping-list-filters.tsx` (Popover/Sheet con Checkbox)
+- `shopping-list-row.tsx` (riga desktop e scheda mobile)
+- `add-products-dialog.tsx` (Dialog, Input, Checkbox, ScrollArea)
+
+**Componenti riutilizzati**: shadcn Dialog, Sheet, Popover, Select, Checkbox, Badge e Button; `useIsMobile`; `getProductImageUrls` (lo stesso dell'Inventario); il `SupplierSplitDialog` esistente; le server function `addShoppingListItems`, `setShoppingListItemQuantity` e `removeShoppingListItem`, invariate.
+
+**Da dove prendo i dati**, solo in lettura e con le regole di accesso già in vigore:
+- Categoria: `products.category`.
+- Foto: `getProductImageUrls` sui prodotti della lista.
+- Preferiti: `company_product_favorites`.
+- Fornitori per riga: `shopping_list_item_suppliers` + `supplier_records.legal_name`.
+- B2B: fornitore con un collegamento attivo in `supplier_customer_relations`. Prima di scrivere codice verifico con una lettura che la colonna di collegamento sia quella giusta.
+- Già in ordine: esiste un `purchase_orders` con `shopping_list_id` di questa lista, non annullato, che contiene il prodotto in `purchase_order_items`.
+
+**Filtri e ordinamento**: `useMemo` sulle righe di `shopping_list_overview`, con stato solo nel componente. Nessuna scrittura.
+
+**Database**: non serve nessuna modifica, né tabelle né funzioni né permessi.
 
 ## Prove
-1. Tutti gli articoli compilati → nessuna finestra, conteggi salvati, l'inventario resta in corso.
-2. Vista Preferiti con un filtro di ricerca attivo → la finestra elenca comunque i preferiti vuoti che non si vedono.
-3. Riprendi → nessun conteggio nuovo e bozze intatte.
-4. Esauriti → 0 nella U.M. della giacenza, con la nota e senza chiedere niente.
-5. Solo inseriti → i vuoti restano non controllati, si apre la Lista della Spesa e l'inventario è ancora in corso.
-6. 0 scritto a mano → salvato come 0 e non compare nella finestra.
-7. Quantità in U.M. diversa → mantiene la sua U.M. e va tra le "U.M. non confrontabili".
-
-Le prove 4, 5 e 6 creano conteggi veri, che poi si possono correggere ricontando. Le faccio solo con il tuo via.
+Solo lettura: filtri combinati, ordinamento, schermo a 390, 768 e 1280 px, finestra Aggiungi prodotti aperta senza confermare, finestra Fornitori aperta senza assegnare.
