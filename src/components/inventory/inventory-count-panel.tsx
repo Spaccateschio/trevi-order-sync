@@ -482,7 +482,7 @@ export function InventoryCountPanel({
         activeLocations.find((location) => location.is_default)?.id ??
         null);
   const stockHistoryQuery = useQuery({
-    queryKey: ["inventario-storico-giacenza", companyId, archiveId, historyLocationId],
+    queryKey: ["inventario-storico-giacenza", companyId, archiveId, historyLocationId, catalogPreview.length],
     enabled: !sessionId && !sessionQuery.isLoading && Boolean(archiveId) && Boolean(historyLocationId),
     queryFn: async (): Promise<Map<string, StockHistory>> => {
       const [stockResult, countsResult] = await Promise.all([
