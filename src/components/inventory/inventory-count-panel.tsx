@@ -1832,13 +1832,40 @@ export function InventoryCountPanel({
         <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-[1600px] overflow-y-auto sm:max-w-[1600px] [&>*]:min-w-0">
           <DialogHeader>
             <DialogTitle className="text-base">{lastClosedQuery.data?.session.name ?? "Ultimo inventario"}</DialogTitle>
-            <DialogDescription>Inventario chiuso: stai guardando lo storico, non l'inventario in corso.</DialogDescription>
+            <DialogDescription>
+              Inventario chiuso: i conteggi originali non si modificano. Puoi correggere la giacenza con una rettifica tracciata.
+            </DialogDescription>
           </DialogHeader>
           <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
             Inventario chiuso — sola lettura
           </p>
           {lastClosedQuery.data ? (
-            <InventorySessionCounter companyId={companyId} session={lastClosedQuery.data.session} locations={locations} />
+            <InventorySessionCounter
+              companyId={companyId}
+              session={lastClosedQuery.data.session}
+              locations={locations}
+              isAdmin={isAdmin}
+              canCorrectCount={(count, product) => {
+                const history = stockHistoryQuery.data?.get(product.id);
+                return Boolean(
+                  cycleColor === "rosso" &&
+                  history?.lastCountId === count.id &&
+                  history.lastSessionId === lastClosedQuery.data?.session.id,
+                );
+              }}
+              onCorrectCount={(count, product) => {
+                setCorrection({
+                  productId: product.id,
+                  locationId: count.location_id,
+                  countId: count.id,
+                  code: product.code,
+                  name: product.description ?? product.code,
+                  unit: count.unit_code?.trim() || product.danea_um?.trim() || "",
+                  countedQuantity: Number(count.counted_quantity),
+                  countedAt: count.counted_at,
+                });
+              }}
+            />
           ) : null}
         </DialogContent>
       </Dialog>
