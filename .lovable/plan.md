@@ -30,7 +30,7 @@ Stessa logica di oggi. In alto tre numeri grandi: **Richieste 20 cs · Assegnate
 - Una finestra con ricerca per codice o descrizione. Ogni prodotto mostra foto, codice, descrizione, categoria e U.M., con una casella per sceglierlo.
 - I prodotti **già nella Lista** hanno l'etichetta "Già in lista" e non si possono scegliere: niente doppioni.
 - Un solo pulsante: **Aggiungi alla Lista (N)**.
-- La quantità si scrive poi sulla riga. Uso la stessa funzione che aggiunge i prodotti a mano oggi. Se quella funzione non accetta una quantità vuota, ti chiedo una sola quantità comune (per esempio 1) prima di aggiungere, così non invento niente.
+- **Vincolo verificato:** oggi la Lista non accetta un prodotto senza quantità. Il database vuole una quantità decisa maggiore di 0 e scarta in silenzio le righe che non ce l'hanno. Quindi nella finestra ogni prodotto scelto ha il suo campo quantità, da scrivere a mano (vuoto all'inizio), e "Aggiungi alla Lista" resta disattivato finché qualche prodotto scelto ha il campo vuoto. Nessuna quantità inventata e nessuna modifica al database. Aggiungere un prodotto "da comprare, quantità da decidere" richiede un cambio al database, che decidiamo a parte.
 
 ## 8. Smartphone
 Schede compatte, una per prodotto:
@@ -44,7 +44,8 @@ Schede compatte, una per prodotto:
 I filtri si aprono in un pannello dal basso. **Nessun pulsante fisso**: il riepilogo e "Prepara ordini" stanno in fondo alla lista, come nell'Inventario. Sotto ⋮ c'è Rimuovi.
 
 ## 9. Riepilogo
-`25 prodotti · 18 assegnati · 4 parziali · 3 da assegnare`, con il pulsante **Prepara ordini**. È il pulsante di oggi (conferma lista e crea ordini in bozza) con un nome nuovo: la logica non cambia.
+`25 prodotti · 18 assegnati · 4 parziali · 3 da assegnare`, con il pulsante **Conferma lista**, che mantiene il nome di oggi.
+Verificato: oggi "Conferma lista" **non crea ordini**. Blocca la lista (solo se ogni prodotto è interamente assegnato) e basta. Gli ordini in bozza, uno per fornitore, si creano dopo, dalla pagina Ordini, e solo una volta per lista. Siccome non è "Prepara ordini", non lo rinomino. Aggiungo solo, a lista confermata, un collegamento "Vai agli Ordini per creare le bozze", che porta alla pagina esistente senza fare nulla da solo.
 
 ## 10. Non cambia
 Database, U.M. e conversioni, divisione fornitori, conferma lista, generazione ordini, ordini esistenti, Inventario, Fabbisogno e flusso B2B restano come sono, e non creo dati di prova.
@@ -68,7 +69,7 @@ Database, U.M. e conversioni, divisione fornitori, conferma lista, generazione o
 - Preferiti: `company_product_favorites`.
 - Fornitori per riga: `shopping_list_item_suppliers` + `supplier_records.legal_name`.
 - B2B: fornitore con un collegamento attivo in `supplier_customer_relations`. Prima di scrivere codice verifico con una lettura che la colonna di collegamento sia quella giusta.
-- Già in ordine: esiste un `purchase_orders` con `shopping_list_id` di questa lista, non annullato, che contiene il prodotto in `purchase_order_items`.
+- Già in ordine / Da ordinare: il calcolo si fa **riga per riga**. Una riga è "Già in ordine" se una sua ripartizione (`shopping_list_item_suppliers`: prodotto + referenza fornitore) compare in un `purchase_order_items` di un ordine non annullato con `shopping_list_id` di questa lista, cioè se prodotto e `product_supplier_link_id` coincidono. Le righe che non soddisfano la condizione sono "Da ordinare". Se una riga divisa ha solo una parte negli ordini, mostro l'etichetta "In parte in ordine" e la conto tra le "Da ordinare". Gli ordini non hanno un collegamento diretto con la singola riga della lista, quindi il riconoscimento avviene con prodotto + fornitore, che nella stessa lista sono unici.
 
 **Filtri e ordinamento**: `useMemo` sulle righe di `shopping_list_overview`, con stato solo nel componente. Nessuna scrittura.
 
