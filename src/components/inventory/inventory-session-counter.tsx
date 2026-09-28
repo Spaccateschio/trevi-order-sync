@@ -193,18 +193,18 @@ export function InventorySessionCounter({
       </div>
 
       {/* Computer e tablet */}
-      <div className="hidden overflow-hidden rounded-md border border-border md:block">
-        <table className="w-full table-fixed text-xs">
-          <thead className="bg-muted/50">
+      <div className="hidden overflow-x-auto rounded-md border border-border md:block">
+        <table className="w-full min-w-[1080px] table-fixed border-separate border-spacing-0 text-xs">
+          <thead className="bg-muted">
             <tr className="[&>th]:border-r [&>th]:border-border [&>th]:px-2 [&>th]:py-2 [&>th]:text-left [&>th:last-child]:border-r-0">
-              <th className="w-24">Codice</th>
-              <th>Descrizione</th>
+              <th className="sticky left-0 z-20 w-24 bg-muted">Codice</th>
+              <th className="sticky left-24 z-20 w-[300px] bg-muted">Descrizione</th>
               <th className="w-24">Precedente</th>
               <th className="w-28">Contata</th>
               <th className="w-24">Differenza</th>
               <th className="w-16">U.M.</th>
               <th className="w-28">Stato</th>
-              <th className="w-40">Note</th>
+              <th className="w-56">Note</th>
             </tr>
           </thead>
           <tbody>
@@ -219,10 +219,10 @@ export function InventorySessionCounter({
               return (
                 <tr
                   key={product.id}
-                  className="border-t border-border [&>td]:border-r [&>td]:border-border [&>td]:px-2 [&>td]:py-1 [&>td:last-child]:border-r-0"
+                  className="[&>td]:border-t [&>td]:border-border [&>td]:border-r [&>td]:border-border [&>td]:px-2 [&>td]:py-1 [&>td:last-child]:border-r-0"
                 >
-                  <td className="truncate font-mono">{product.code}</td>
-                  <td className="truncate">{product.description ?? "—"}</td>
+                  <td className="sticky left-0 z-10 bg-card font-mono">{product.code}</td>
+                  <td className="sticky left-24 z-10 whitespace-normal break-words bg-card font-medium shadow-[2px_0_0_0_var(--color-border)]">{product.description ?? "—"}</td>
                   <td className="text-muted-foreground">
                     {stock?.hasCount || count ? qty(previous) : "mai contato"}
                   </td>
@@ -256,7 +256,7 @@ export function InventorySessionCounter({
                       <span className="text-muted-foreground">Da contare</span>
                     )}
                   </td>
-                  <td className="truncate text-muted-foreground" title={count?.notes ?? undefined}>
+                  <td className="whitespace-normal break-words text-muted-foreground">
                     {count?.notes || "—"}
                   </td>
                 </tr>
