@@ -2429,6 +2429,7 @@ function ProductCard({
   onRevokeNonCompliance,
   onProposal,
   onHistory,
+  history,
 }: {
   companyId: string;
   row: InventoryCountRow;
