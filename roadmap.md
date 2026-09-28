@@ -56,3 +56,11 @@
 ## Inventario come sessione persistente (analisi, in attesa del via)
 - [x] "Conferma inventario" al posto di "Conferma visibili invariati"; popup "Inventario incompleto" con 2 azioni (Riprendi e inserisci / Conferma inventario e vai alla Lista della Spesa); vuoti restano non contati
 - [x] Fabbisogno facoltativo (aiuto), non obbligatorio per arrivare alla Lista della Spesa
+
+## Lista della Spesa (piano a passi)
+- [x] Passo 1: barra operativa, filtri, ordinamento, foto/categoria/B2B, Aggiungi prodotti multiplo, riepilogo
+- [ ] Passo 2: prezzo e totale (in attesa del via)
+- [ ] Passo 3: stampe Lista e ordine (in attesa del via)
+- [ ] Passo 4: modifica ordini in bozza (richiede modifiche DB, in attesa del via)
+- [ ] Passo 5: integrazione ordine inviato + filtri Ordini fornitori (in attesa del via)
+- [ ] Da decidere: prodotto in lista senza quantità decisa (oggi il DB richiede > 0)
