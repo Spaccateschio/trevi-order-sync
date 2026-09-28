@@ -72,12 +72,14 @@ export function SupplierSplitDialog({
   open,
   onOpenChange,
   editable,
+  b2bSupplierIds,
 }: {
   companyId: string;
   item: OverviewRow;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editable: boolean;
+  b2bSupplierIds?: Set<string>;
 }) {
   const queryClient = useQueryClient();
   const runAssign = useServerFn(assignShoppingListSupplier);
@@ -187,19 +189,33 @@ export function SupplierSplitDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-wrap gap-3 rounded-md border border-border bg-muted/30 p-3 text-sm">
-          <span>
-            Da acquistare <strong>{qty(item.decided_quantity)}</strong> {unit}
-          </span>
-          <span>
-            Assegnati <strong>{qty(assignedTotal)}</strong> {unit}
-          </span>
-          <span className={remaining < 0 ? "font-semibold text-destructive" : ""}>
-            {remaining < 0
-              ? `Assegnati ${qty(assignedTotal)} su ${qty(item.decided_quantity)}: correggi tu le quantità`
-              : `Residuo ${qty(remaining)} ${unit}`}
-          </span>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
+            <p className="text-[11px] text-muted-foreground">Richieste</p>
+            <p className="text-lg font-semibold leading-tight">{qty(item.decided_quantity)} {unit}</p>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
+            <p className="text-[11px] text-muted-foreground">Assegnate</p>
+            <p className="text-lg font-semibold leading-tight">{qty(assignedTotal)} {unit}</p>
+          </div>
+          <div
+            className={`rounded-md border px-2 py-1.5 ${
+              remaining < 0
+                ? "border-destructive bg-destructive/10 text-destructive"
+                : remaining === 0
+                  ? "border-success bg-success/10"
+                  : "border-primary bg-primary/10"
+            }`}
+          >
+            <p className="text-[11px]">Da assegnare</p>
+            <p className="text-lg font-semibold leading-tight">{qty(remaining)} {unit}</p>
+          </div>
         </div>
+        {remaining < 0 ? (
+          <p className="text-xs font-medium text-destructive">
+            Assegnati {qty(assignedTotal)} su {qty(item.decided_quantity)}: correggi tu le quantità.
+          </p>
+        ) : null}
 
         {!suppliers.length ? (
           <p className="text-sm text-muted-foreground">
@@ -230,6 +246,9 @@ export function SupplierSplitDialog({
               <li key={supplier.link_id} className="space-y-2 py-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium">{supplier.supplier_name}</span>
+                  {b2bSupplierIds?.has(supplier.supplier_record_id) ? (
+                    <span className="rounded border border-primary/50 bg-primary/10 px-1 text-[9px] font-semibold leading-4">B2B</span>
+                  ) : null}
                   {supplier.supplier_reference_label ? (
                     <span className="text-xs text-muted-foreground">{supplier.supplier_reference_label}</span>
                   ) : null}
