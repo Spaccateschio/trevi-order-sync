@@ -72,12 +72,14 @@ export function SupplierSplitDialog({
   open,
   onOpenChange,
   editable,
+  b2bSupplierIds,
 }: {
   companyId: string;
   item: OverviewRow;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editable: boolean;
+  b2bSupplierIds?: Set<string>;
 }) {
   const queryClient = useQueryClient();
   const runAssign = useServerFn(assignShoppingListSupplier);
@@ -244,6 +246,9 @@ export function SupplierSplitDialog({
               <li key={supplier.link_id} className="space-y-2 py-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium">{supplier.supplier_name}</span>
+                  {b2bSupplierIds?.has(supplier.supplier_record_id) ? (
+                    <span className="rounded border border-primary/50 bg-primary/10 px-1 text-[9px] font-semibold leading-4">B2B</span>
+                  ) : null}
                   {supplier.supplier_reference_label ? (
                     <span className="text-xs text-muted-foreground">{supplier.supplier_reference_label}</span>
                   ) : null}
