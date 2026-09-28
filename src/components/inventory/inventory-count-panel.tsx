@@ -1848,9 +1848,7 @@ export function InventoryCountPanel({
               canCorrectCount={(count, product) => {
                 const history = stockHistoryQuery.data?.get(product.id);
                 return Boolean(
-                  cycleColor === "rosso" &&
-                  history?.lastCountId === count.id &&
-                  history.lastSessionId === lastClosedQuery.data?.session.id,
+                  history?.lastCountId === count.id,
                 );
               }}
               onCorrectCount={(count, product) => {
