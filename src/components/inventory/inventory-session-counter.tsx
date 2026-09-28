@@ -211,7 +211,7 @@ export function InventorySessionCounter({
               <th className="w-16">U.M.</th>
               <th className="w-28">Stato</th>
               <th className="w-56">Note</th>
-              {onCorrectCount ? <th className="w-36">Azioni</th> : null}
+              {onCorrectCount ? <th className="sticky right-0 z-20 w-40 bg-muted shadow-[-2px_0_0_0_var(--color-border)]">Azioni</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -267,7 +267,7 @@ export function InventorySessionCounter({
                     {count?.notes || "—"}
                   </td>
                   {onCorrectCount ? (
-                    <td>
+                    <td className="sticky right-0 z-10 bg-card shadow-[-2px_0_0_0_var(--color-border)]">
                       {count && isAdmin && canCorrectCount?.(count, product) ? (
                         <Button
                           type="button"
