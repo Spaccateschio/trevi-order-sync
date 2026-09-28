@@ -1,78 +1,71 @@
-# Inventario → Prodotti da valutare → Lista della Spesa (piano definitivo)
+# Ciclo Inventario → Lista della Spesa → Ordini con semaforo
 
-## Flusso finale
 ```text
-Termina inventario (chiude la sessione, come oggi)
-  → Lista della Spesa
-      · c'è una Lista corrente Aperta → avviso "Esiste già una Lista in lavorazione"
-        (data/ora, n. prodotti, stato) → "Continua questa Lista e valuta l'inventario"
-      · nessuna Lista corrente → "Inventario del 28/09 completato · 6 prodotti"
-        → "Crea Lista della Spesa da questo inventario"
-  → presa in carico (collega Inventario ↔ Lista)
-  → riquadro "Prodotti da valutare" (quantità vuote)
-  → scrivo la quantità solo di ciò che compro → "Aggiungi" → riga reale della Lista
-  → "Termina valutazione" (conferma se restano vuoti)
-  → Lista della Spesa normale → assegnazione fornitori → Conferma Lista → Ordini
+🟢 posso contare → 🟡 sto contando → 🔴 ho contato, devo gestire gli acquisti → 🟢 tutte le decisioni sono diventate ordini
 ```
 
-## 1. Campi da aggiungere (tabella `inventory_sessions`)
-| Campo | Tipo | Nullable | Note |
-|---|---|---|---|
-| `purchase_list_id` | uuid | sì | FK → `shopping_lists.id`, ON DELETE SET NULL (le liste oggi non si cancellano; se accadesse l'inventario torna "da valutare") |
-| `purchase_evaluated_at` | timestamptz | sì | data/ora termine valutazione |
-| `purchase_evaluated_by` | uuid | sì | utente; nessuna FK verso gli utenti (come `created_by`), il nome resta visibile anche se l'utente viene disattivato |
+## 1. Semaforo nella pagina Inventario
+- 🟡 **INVENTARIO IN CORSO**: esiste una sessione `in_corso` ("4/6 controllati · 2 mancanti", anche 6/6 finché non si preme "Termina inventario").
+- 🔴 **INVENTARIO COMPLETATO — ACQUISTI DA GESTIRE**: nessuna sessione in corso e l'ultimo inventario completato **non ha il ciclo concluso** (regola al punto 4). Pulsante "Vai alla Lista della Spesa".
+- 🟢 **PRONTO PER INVENTARIO**: nessuna sessione in corso e ciclo dell'ultimo inventario concluso, oppure nessun inventario mai fatto.
+In tutti gli stati restano visibili ultimo conteggio confermato e giacenza. "Azzera quantità" invariato (solo bozze).
+Con 🔴 si può comunque aprire un nuovo inventario, ma prima compare l'avviso "C'è un ciclo acquisti ancora da gestire".
 
-Nessun'altra tabella cambia. Nessun dato esistente viene aggiornato.
+## 2. Modifica al database (piccola)
+Tabella `inventory_sessions`, tre colonne nuove, tutte facoltative, nessun dato esistente modificato:
+| Campo | Tipo | Note |
+|---|---|---|
+| `purchase_list_id` | uuid, null | FK → `shopping_lists.id`, ON DELETE SET NULL (se la Lista sparisse, l'inventario torna da valutare) |
+| `purchase_evaluated_at` | timestamptz, null | termine valutazione |
+| `purchase_evaluated_by` | uuid, null | utente; senza FK (come `created_by`), resta leggibile anche se l'utente è disattivato |
 
-## 2. Operazione server `manage_inventory_purchase_evaluation`
-Funzione DB `SECURITY DEFINER`, `search_path = public`, eseguibile dagli utenti autenticati; chiamata da una server function con la sessione dell'utente (mai client privilegiato). L'azienda si verifica con `is_company_member(auth.uid())`, mai fidandosi del browser.
+Funzioni DB nuove (`SECURITY DEFINER`, `search_path = public`, autorizzazione con `auth.uid()` + `is_company_member`), chiamate da server function con la sessione dell'utente:
+- `manage_inventory_purchase_evaluation(_company_id, _session_id, _action, _list_id)` con azioni `take` e `finish`.
+- `inventory_purchase_cycle_status(_company_id)`: restituisce colore + dettagli (inventario, lista, prodotti da valutare, acquisti senza ordine).
 
-**Prendi in carico (`take`)** — rifiuta se:
-- l'utente non è membro dell'azienda;
-- l'inventario non appartiene all'azienda o non è `completata`;
-- l'inventario non è l'ultimo completato dell'azienda (gli inventari vecchi non si propongono);
-- la valutazione è già terminata;
-- la Lista non appartiene alla stessa azienda o non è `aperta`;
-- l'inventario è già collegato a un'altra Lista ancora Aperta o Confermata (punto 3).
-Se è già collegato alla stessa Lista: nessun errore, nessuna modifica.
+## 3. Controlli delle operazioni
+**Prendi in carico (`take`)** rifiuta se: utente non dell'azienda; inventario di altra azienda o non `completata`; non è l'ultimo completato; valutazione già terminata; Lista di altra azienda o non `aperta`; inventario già collegato a un'altra Lista ancora Aperta/Confermata. Stessa Lista = nessuna modifica.
+**Termina valutazione (`finish`)** rifiuta se: controlli azienda/inventario come sopra; non preso in carico; Lista Annullata o Chiusa; già terminata. Registra solo data/ora e utente: nessuna riga, nessuno 0, nessuna giacenza toccata.
+**Lista Annullata prima del termine**: il collegamento decade, l'inventario torna da valutare e si può prendere in carico in una nuova Lista (il riferimento resta fino al nuovo collegamento).
+**Lista Chiusa**: nessuna aggiunta dal riquadro (la funzione esistente già blocca le liste non aperte).
 
-**Termina valutazione (`finish`)** — rifiuta se:
-- utente/azienda/inventario non validi come sopra;
-- l'inventario non è preso in carico, oppure la sua Lista è Annullata o Chiusa;
-- la valutazione è già terminata.
-Registra solo data/ora e utente. Non crea righe, non scrive 0, non tocca giacenze né conteggi.
+## 4. Regola ROSSO → VERDE (verificata sul codice attuale)
+Oggi gli ordini nascono **tutti insieme** dalla Lista confermata: la funzione esistente accetta solo liste Confermate (quindi con ogni riga interamente ripartita), crea un ordine per ciascun fornitore e rifiuta una seconda generazione. Un ordine può però essere annullato dopo.
+Il ciclo è 🟢 quando **tutte** queste condizioni sono vere:
+1. la valutazione dell'inventario è terminata;
+2. se la Lista collegata ha righe provenienti dalla valutazione: la Lista è Confermata o Chiusa **e** per ogni ripartizione fornitore (prodotto + collegamento fornitore) esiste una riga in un ordine **non annullato** di quella Lista, con quantità ordinata ≥ quantità ripartita;
+3. se durante la valutazione non si è deciso di comprare nulla: nessun ordine richiesto, diventa 🟢 subito.
+In ogni altro caso resta 🔴.
+- **Lista Chiusa non basta da sola**: oggi si può chiudere anche una Lista Aperta senza ordini, quindi conta solo la verifica delle ripartizioni al punto 2.
+- **Ordine annullato** dopo: la ripartizione torna senza ordine → 🔴.
+- **Lista Annullata** → 🔴 e inventario di nuovo da valutare.
 
-## 3. Inventario già collegato
-Una sola Lista per volta. Il collegamento a una Lista B è rifiutato finché la Lista A è Aperta o Confermata.
+## 5. Correggi conteggio (solo con 🔴)
+- Tecnica: usa la rettifica esistente (`inventory_adjustments`), che già registra quantità, motivo, utente, data e riferimento al conteggio originale. Il conteggio originale non cambia.
+- Esempio mostrato: "Conteggio originale 13 kg · Correzione +2 kg · Giacenza risultante 15 kg", motivo obbligatorio.
+- Se il prodotto è già nella Lista: nessun cambio automatico, avviso "Ricontrolla la quantità da acquistare".
+- Con 🟢 il pulsante sparisce; resta solo la normale "Rettifica magazzino".
+- Da verificare in implementazione: la funzione di rettifica esistente accetta il riferimento al conteggio. Se servisse cambiarla, mi fermo e te lo chiedo.
 
-## 4. Lista annullata (regola proposta)
-Se la Lista A viene **Annullata** prima di "Termina valutazione", il collegamento è considerato **decaduto**: l'inventario torna "da valutare" e può essere preso in carico in una nuova Lista. Il riferimento ad A resta registrato fino al nuovo collegamento, così si vede cosa è successo. Stessa regola se A viene **Chiusa** senza terminare la valutazione.
+## 6. Lista della Spesa
+- Selezione automatica solo della Lista corrente (Aperta/Confermata); Chiuse/Annullate in "Storico".
+- Arrivando con 🔴:
+  - Lista corrente Aperta → avviso "Esiste già una Lista della Spesa in lavorazione" (data/ora, n. prodotti, stato) → "Continua questa Lista e valuta l'inventario";
+  - nessuna Lista corrente → "Inventario del 28/09 completato · 6 prodotti" → "Crea Lista della Spesa da questo inventario".
+- Riquadro "Prodotti dall'Inventario del 28/09": foto, codice, descrizione, categoria, contato + U.M., giacenza, "Da acquistare" vuoto, "Aggiungi" (funzione esistente, quantità > 0). Vuoto ≠ 0.
+- "Termina valutazione": "4 prodotti non hanno una quantità di acquisto. Confermi di averli valutati e di non inserirli nella Lista della Spesa?" → [Torna alla valutazione] [Conferma e termina].
+- Poi flusso normale: assegnazione fornitori → Conferma Lista → Ordini (invariati).
 
-## 5. Lista chiusa (o confermata)
-Il riquadro "Prodotti da valutare" permette l'aggiunta solo con Lista **Aperta** (la funzione di aggiunta esistente già lo impone). Con Lista Confermata si può solo "Termina valutazione"; con Chiusa/Annullata vale il punto 4.
-
-## 6. Termina valutazione
-Pulsante esplicito nel riquadro. Se restano vuoti:
-"4 prodotti non hanno una quantità di acquisto. Confermi di averli valutati e di non inserirli nella Lista della Spesa?" → [Torna alla valutazione] [Conferma e termina]. Se non ne restano, conferma semplice.
-
-## 7. Dopo il termine
-Il riquadro sparisce per tutti (refresh, altro dispositivo, altro utente). L'inventario resta nello storico Inventari, invariato.
-
-## 8. Inventari precedenti e 28/09
-Nessuna modifica automatica. Si propone **solo l'ultimo inventario completato** non valutato: oggi è il 28/09, che quindi comparirà da valutare. Il 27/09 e il 22/09 restano con i campi vuoti ma non vengono mai proposti. Se in futuro si chiude un inventario nuovo senza aver valutato il precedente, si propone solo il nuovo.
-
-## 9. Interfaccia (Lista della Spesa)
-- Selezione automatica solo della Lista corrente (Aperta o Confermata); Chiuse/Annullate in "Storico".
-- Senza Lista corrente e senza inventario da valutare: "Nessuna Lista in lavorazione" + "+ Nuova lista" + "Storico".
-- Riquadro "Prodotti dall'Inventario del 28/09": foto, codice, descrizione, categoria, quantità contata + U.M., giacenza risultante, campo "Da acquistare" vuoto, "Aggiungi". Esclude i prodotti già presenti nella Lista.
+## 7. Inventari precedenti e 28/09
+Nessuna modifica automatica. Si considera solo l'**ultimo** inventario completato: il 28/09 apparirà 🔴 da valutare; 27/09 e 22/09 non vengono mai proposti.
 
 ## Non cambia
-Inventario chiuso, conteggi, giacenze, Fabbisogno, assegnazioni, conferma Lista, ordini.
+Conteggi e inventari chiusi, giacenze, Fabbisogno, assegnazioni, conferma Lista, generazione e invio ordini.
 
 ## Dettagli tecnici
-- Migrazione: 3 colonne + funzione `manage_inventory_purchase_evaluation(_company_id, _session_id, _action, _list_id)`.
-- `src/lib/inventory-evaluation.functions.ts`: server function con `requireSupabaseAuth` → `context.supabase.rpc(...)`.
-- `inventory-count-panel.tsx`: dopo la chiusura naviga a `/acquisti/lista-spesa?daInventario=<id>` (solo per mostrare l'avviso).
+- Migrazione: 3 colonne + 2 funzioni (EXECUTE ad `authenticated`).
+- `src/lib/inventory-cycle.functions.ts`: server function `requireSupabaseAuth` → `context.supabase.rpc`.
+- `inventory-count-panel.tsx`: semaforo in alto; "Correggi conteggio" solo con 🔴; dopo "Termina inventario" naviga a `/acquisti/lista-spesa?daInventario=<id>`.
 - `acquisti.lista-spesa.tsx`: `validateSearch` per `daInventario`.
-- `shopping-list-panel.tsx`: selezione Lista corrente/Storico, avviso, creazione lista + presa in carico.
-- Nuovo `inventory-to-evaluate.tsx`: letture su sessione + `inventory_count_entries` + giacenza esistente; aggiunta con `addShoppingListItems` (quantità > 0).
+- `shopping-list-panel.tsx`: Lista corrente/Storico, avviso, creazione + presa in carico, riquadro valutazione.
+- Nuovo `inventory-to-evaluate.tsx`.
