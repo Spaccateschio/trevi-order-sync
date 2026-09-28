@@ -64,3 +64,4 @@
 - [ ] Passo 4: modifica ordini in bozza (richiede modifiche DB, in attesa del via)
 - [ ] Passo 5: integrazione ordine inviato + filtri Ordini fornitori (in attesa del via)
 - [ ] Da decidere: prodotto in lista senza quantità decisa (oggi il DB richiede > 0)
+- [ ] Inventario → Lista della Spesa: prodotti da valutare + "Termina valutazione" persistente (in attesa di decisione sulla piccola modifica al database)
