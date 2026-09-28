@@ -28,15 +28,11 @@ export function InventorySessionCounter({
   companyId,
   session,
   locations,
-  isAdmin = false,
-  canCorrectCount,
   onCorrectCount,
 }: {
   companyId: string;
   session: SessionRow;
   locations: LocationRow[];
-  isAdmin?: boolean;
-  canCorrectCount?: (count: CountRow, product: ProductRow) => boolean;
   onCorrectCount?: (count: CountRow, product: ProductRow) => void;
 }) {
   const queryClient = useQueryClient();
@@ -234,20 +230,26 @@ export function InventorySessionCounter({
                     {stock?.hasCount || count ? qty(previous) : "mai contato"}
                   </td>
                   <td>
-                    <Input
-                      className="h-7 text-xs"
-                      inputMode="decimal"
-                      disabled={!editable || !locationId}
-                      value={value}
-                      aria-label={`Quantità contata ${product.code}`}
-                      onChange={(event) =>
-                        setDrafts((current) => ({ ...current, [product.id]: event.target.value }))
-                      }
-                      onBlur={() => saveRow(product)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") saveRow(product);
-                      }}
-                    />
+                    {editable ? (
+                      <Input
+                        className="h-7 text-xs"
+                        inputMode="decimal"
+                        disabled={!locationId}
+                        value={value}
+                        aria-label={`Quantità contata ${product.code}`}
+                        onChange={(event) =>
+                          setDrafts((current) => ({ ...current, [product.id]: event.target.value }))
+                        }
+                        onBlur={() => saveRow(product)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") saveRow(product);
+                        }}
+                      />
+                    ) : (
+                      <strong className="text-sm" aria-label={`Quantità contata ${product.code}`}>
+                        {count ? qty(count.counted_quantity) : "—"}
+                      </strong>
+                    )}
                   </td>
                   <td className={difference && difference < 0 ? "text-destructive" : undefined}>
                     {difference === null ? "—" : qty(difference)}
@@ -268,7 +270,7 @@ export function InventorySessionCounter({
                   </td>
                   {onCorrectCount ? (
                     <td className="sticky right-0 z-10 bg-card shadow-[-2px_0_0_0_var(--color-border)]">
-                      {count && isAdmin && canCorrectCount?.(count, product) ? (
+                      {count ? (
                         <Button
                           type="button"
                           size="sm"
@@ -276,12 +278,8 @@ export function InventorySessionCounter({
                           className="h-8 w-full text-xs font-bold"
                           onClick={() => onCorrectCount(count, product)}
                         >
-                          Correggi giacenza
+                          Modifica giacenza
                         </Button>
-                      ) : count ? (
-                        <span className="text-[10px] leading-tight text-muted-foreground">
-                          {isAdmin ? "Superato da un conteggio successivo" : "Solo amministratori"}
-                        </span>
                       ) : (
                         "—"
                       )}
@@ -315,39 +313,39 @@ export function InventorySessionCounter({
                 {product.danea_um ? ` ${product.danea_um}` : ""}
               </p>
               {count?.notes ? <p className="mt-1 text-xs text-muted-foreground">Nota: {count.notes}</p> : null}
-              <div className="mt-2 flex items-center gap-2">
-                <Input
-                  className="h-11 text-base"
-                  inputMode="decimal"
-                  disabled={!editable || !locationId}
-                  value={value}
-                  aria-label={`Quantità contata ${product.code}`}
-                  onChange={(event) => setDrafts((current) => ({ ...current, [product.id]: event.target.value }))}
-                />
-                <Button
-                  type="button"
-                  className="h-11"
-                  disabled={!editable || mutation.isPending || drafts[product.id] === undefined}
-                  onClick={() => saveRow(product)}
-                >
-                  Salva
-                </Button>
-              </div>
-              {onCorrectCount && count ? (
-                isAdmin && canCorrectCount?.(count, product) ? (
+              {editable ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <Input
+                    className="h-11 text-base"
+                    inputMode="decimal"
+                    disabled={!locationId}
+                    value={value}
+                    aria-label={`Quantità contata ${product.code}`}
+                    onChange={(event) => setDrafts((current) => ({ ...current, [product.id]: event.target.value }))}
+                  />
                   <Button
                     type="button"
-                    variant="outline"
-                    className="mt-2 w-full font-bold"
-                    onClick={() => onCorrectCount(count, product)}
+                    className="h-11"
+                    disabled={mutation.isPending || drafts[product.id] === undefined}
+                    onClick={() => saveRow(product)}
                   >
-                    Correggi giacenza
+                    Salva
                   </Button>
-                ) : (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {isAdmin ? "Questo conteggio è stato superato da uno successivo." : "La correzione è riservata agli amministratori."}
-                  </p>
-                )
+                </div>
+              ) : (
+                <p className="mt-2 text-sm">
+                  Quantità contata: <strong>{count ? qty(count.counted_quantity) : "—"} {count?.unit_code ?? product.danea_um ?? ""}</strong>
+                </p>
+              )}
+              {onCorrectCount && count ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 w-full font-bold"
+                  onClick={() => onCorrectCount(count, product)}
+                >
+                  Modifica giacenza
+                </Button>
               ) : null}
             </li>
           );
@@ -359,7 +357,7 @@ export function InventorySessionCounter({
       ) : null}
       {!editable ? (
         <p className="text-xs text-muted-foreground">
-          Sessione chiusa: i conteggi originali non si modificano. Usa “Correggi giacenza” per registrare una rettifica tracciata.
+          Sessione chiusa: i conteggi originali non si modificano. Usa “Modifica giacenza” per registrare una rettifica tracciata.
         </p>
       ) : null}
     </div>
