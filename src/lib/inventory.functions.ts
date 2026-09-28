@@ -58,6 +58,7 @@ const adjustmentSchema = z.object({
   quantity: z.number().refine((value) => value !== 0, "La rettifica non può essere zero"),
   reason: z.string().trim().min(3).max(200),
   notes: z.string().trim().max(500).nullable(),
+  referenceCountId: z.string().uuid().nullable().optional(),
 });
 
 /** L'inventario non richiede Danea: se manca un archivio si usa quello interno dei prodotti propri. */
@@ -188,6 +189,7 @@ export const recordInventoryAdjustment = createServerFn({ method: "POST" })
       _reason: data.reason,
       _actor_user_id: context.userId,
       ...(data.notes === null ? {} : { _notes: data.notes }),
+      ...(data.referenceCountId ? { _reference_count_id: data.referenceCountId } : {}),
     });
     if (error) throw new Error(error.message);
     return { id: id as string };

@@ -84,6 +84,7 @@ import {
 } from "@/lib/inventory-count.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
+import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inventory/correct-count-dialog";
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
 import type { SessionRow } from "@/lib/inventory";
 
@@ -161,6 +162,13 @@ type CountUnitsContextValue = {
   setSelected: (row: InventoryCountRow, code: string) => void;
 };
 
+/** Semaforo rosso senza inventario aperto: campi bloccati, solo «Correggi conteggio» sui conteggi del ciclo. */
+const CycleLockContext = createContext<{
+  locked: boolean;
+  cycleSessionId: string | null;
+  onCorrect: (row: InventoryCountRow, history: StockHistory) => void;
+}>({ locked: false, cycleSessionId: null, onCorrect: () => undefined });
+
 const CountUnitsContext = createContext<CountUnitsContextValue>({
   options: () => [],
   selected: (row) => rowUnit(row),
@@ -200,6 +208,7 @@ export function InventoryCountPanel({
     queryFn: () => readCycle({ data: { companyId } }),
   });
   const cycleColor = cycleQuery.data?.color;
+  const [correction, setCorrection] = useState<CountCorrectionTarget | null>(null);
 
 
   const { data: locations = [] } = useInventoryLocations(companyId);
@@ -501,7 +510,7 @@ export function InventoryCountPanel({
         }),
         supabase
           .from("inventory_counts")
-          .select("product_id, counted_quantity, unit_code, counted_at, inventory_sessions!inner(status)")
+          .select("id, session_id, product_id, counted_quantity, unit_code, counted_at, inventory_sessions!inner(status)")
           .eq("company_id", companyId)
           .eq("location_id", historyLocationId!)
           .eq("inventory_sessions.status", "completata")
@@ -511,14 +520,14 @@ export function InventoryCountPanel({
       if (stockResult.error) throw new Error(stockResult.error.message);
       if (countsResult.error) throw new Error(countsResult.error.message);
       const units = new Map(catalogPreview.map((product) => [product.id, product.danea_um]));
-      const last = new Map<string, { quantity: number; unit: string | null; at: string }>();
-      for (const count of (countsResult.data ?? []) as { product_id: string; counted_quantity: number; unit_code: string | null; counted_at: string }[]) {
+      const last = new Map<string, { quantity: number; unit: string | null; at: string; id: string; sessionId: string }>();
+      for (const count of (countsResult.data ?? []) as { id: string; session_id: string; product_id: string; counted_quantity: number; unit_code: string | null; counted_at: string }[]) {
         if (last.has(count.product_id)) continue;
         const productUnit = (units.get(count.product_id) ?? "").trim().toLowerCase();
         const countUnit = (count.unit_code ?? "").trim().toLowerCase();
         // Stesso criterio della giacenza: vale solo il conteggio nella U.M. del prodotto.
         if (countUnit && productUnit && countUnit !== productUnit) continue;
-        last.set(count.product_id, { quantity: Number(count.counted_quantity), unit: count.unit_code, at: count.counted_at });
+        last.set(count.product_id, { quantity: Number(count.counted_quantity), unit: count.unit_code, at: count.counted_at, id: count.id, sessionId: count.session_id });
       }
       const map = new Map<string, StockHistory>();
       for (const row of (stockResult.data ?? []) as { product_id: string; has_count: boolean; quantity: number | null }[]) {
@@ -529,6 +538,8 @@ export function InventoryCountPanel({
           lastQuantity: row.has_count && lc ? lc.quantity : null,
           lastUnit: row.has_count && lc ? lc.unit : null,
           lastAt: row.has_count && lc ? lc.at : null,
+          lastCountId: row.has_count && lc ? lc.id : null,
+          lastSessionId: row.has_count && lc ? lc.sessionId : null,
         });
       }
       return map;
@@ -1256,6 +1267,12 @@ export function InventoryCountPanel({
       </div>
 
       <CycleLight cycle={cycleQuery.data} sessionActive={Boolean(sessionId)} />
+      <CorrectCountDialog
+        companyId={companyId}
+        listId={cycleQuery.data?.list_id ?? null}
+        target={correction}
+        onClose={() => setCorrection(null)}
+      />
 
       <TabsContent value="conteggio">
         {sessionId && selectingLocation ? (
@@ -1274,6 +1291,18 @@ export function InventoryCountPanel({
             onContinue={() => setSelectingLocation(false)}
           />
         ) : (
+          <CycleLockContext.Provider value={{
+            locked: !sessionId && cycleColor === "rosso",
+            cycleSessionId: cycleQuery.data?.session_id ?? null,
+            onCorrect: (row, history) => {
+              if (!historyLocationId || !history.lastCountId || history.lastQuantity === null) return;
+              setCorrection({
+                productId: row.product_id, locationId: historyLocationId, countId: history.lastCountId,
+                code: row.code ?? "", name: rowName(row), unit: history.lastUnit ?? rowUnit(row) ?? "",
+                countedQuantity: history.lastQuantity, countedAt: history.lastAt,
+              });
+            },
+          }}>
           <CountUnitsContext.Provider value={countUnitsValue}>
           <PhysicalCount
             companyId={companyId}
@@ -1424,6 +1453,7 @@ export function InventoryCountPanel({
             closing={closeMutation.isPending}
           />
           </CountUnitsContext.Provider>
+          </CycleLockContext.Provider>
         )}
       </TabsContent>
 
@@ -2080,6 +2110,7 @@ function PhysicalCount({
     : rows;
 
   // Barra compatta (ricerca + filtri) mostrata solo quando la ricerca originale esce dallo schermo.
+  const cycleLock = useContext(CycleLockContext);
   const topFiltersRef = useRef<HTMLDivElement>(null);
   const [compactBar, setCompactBar] = useState(false);
   useEffect(() => {
@@ -2107,7 +2138,7 @@ function PhysicalCount({
               {sessionActive ? "Inventario generale" : "Nessun inventario in corso"}
             </p>
             <h2 className="truncate font-display text-sm font-bold uppercase leading-tight sm:text-base">
-              {sessionActive ? sessionName : "Scrivi una quantità per iniziare"}
+              {sessionActive ? sessionName : cycleLock.locked ? "Completa prima il ciclo acquisti" : "Scrivi una quantità per iniziare"}
             </h2>
           </div>
           {sessionActive ? (
@@ -2361,7 +2392,7 @@ function PhysicalCount({
                       candidate={candidate}
                       imageUrl={catalogImages.get(candidate.sellerProductId)}
                       value={catalogDrafts[candidate.sellerProductId] ?? ""}
-                      disabled={!isAdmin}
+                      disabled={!isAdmin || cycleLock.locked}
                       onChange={(value) => onCatalogDraftChange(candidate.sellerProductId, value)}
                       onConfirm={() => onCatalogConfirm(candidate)}
                       onToggleFavorite={() => onToggleCatalogFavorite(candidate)}
@@ -2426,6 +2457,8 @@ type StockHistory = {
   lastQuantity: number | null;
   lastUnit: string | null;
   lastAt: string | null;
+  lastCountId: string | null;
+  lastSessionId: string | null;
 };
 
 function ProductCard({
@@ -2469,6 +2502,10 @@ function ProductCard({
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
   const unitsCtx = useContext(CountUnitsContext);
+  const cycleLock = useContext(CycleLockContext);
+  const locked = cycleLock.locked && Boolean(history);
+  const canCorrect =
+    locked && isAdmin && Boolean(history?.lastCountId) && history?.lastSessionId === cycleLock.cycleSessionId;
   const unit = rowUnit(row);
   const name = rowName(row);
   const calculated = Number(row.calculated);
@@ -2717,6 +2754,8 @@ function ProductCard({
             autoCapitalize="off"
             spellCheck={false}
             value={value}
+            disabled={locked}
+            title={locked ? "Completa prima il ciclo acquisti: usa «Vai alla Lista della Spesa»" : undefined}
             placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
             onChange={(event) => onChange(event.target.value)}
             onFocus={(event) => event.currentTarget.select()}
@@ -2745,7 +2784,7 @@ function ProductCard({
             <p className="mt-0.5 text-[8px] leading-none text-muted-foreground">U.M. non confrontabili</p>
           ) : null}
         </div>
-        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={onConfirm}>
+        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={onConfirm} disabled={locked}>
           <Check className="size-4" />
           <span className="hidden min-[360px]:inline">Conferma</span>
         </Button>
@@ -2760,6 +2799,7 @@ function ProductCard({
             className="h-8 justify-center px-0 text-xs font-bold leading-none"
             tabIndex={-1}
             aria-label={`Aggiungi ${increment} a ${name}`}
+            disabled={locked}
             onClick={() => onChange(addToQuantity(value, increment))}
           >
             +{increment}
@@ -2773,11 +2813,23 @@ function ProductCard({
           tabIndex={-1}
           aria-label={`Azzera quantità ${name}`}
           title="Azzera"
+          disabled={locked}
           onClick={() => onChange("")}
         >
           <Delete className="size-4" />
         </Button>
       </div>
+      {canCorrect && history ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-1.5 h-8 w-full text-xs font-bold"
+          onClick={() => cycleLock.onCorrect(row, history)}
+        >
+          Correggi conteggio
+        </Button>
+      ) : null}
       {noteOpen && hasDifference ? (
         <div className="mt-1.5 space-y-1.5 rounded-sm border border-border bg-muted/30 p-1.5">
           <p className="text-[9px] font-bold uppercase leading-none text-muted-foreground">Nota differenza</p>

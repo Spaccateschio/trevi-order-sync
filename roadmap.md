@@ -66,4 +66,5 @@
 - [ ] Da decidere: prodotto in lista senza quantità decisa (oggi il DB richiede > 0)
 - [x] Inventario → Lista della Spesa: prodotti da valutare + "Termina valutazione" persistente
 - [x] Semaforo Inventario (verde/giallo/rosso)
-- [ ] Correggi conteggio con semaforo rosso — bloccato: la rettifica esistente non accetta il riferimento al conteggio, serve decisione
+- [x] Correggi conteggio con semaforo rosso (rettifica con riferimento al conteggio) + campi bloccati con rosso
+- [ ] Analisi separata dei 113 avvisi di sicurezza preesistenti (dopo test del ciclo)
