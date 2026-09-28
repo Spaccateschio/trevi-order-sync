@@ -2601,15 +2601,6 @@ function ProductCard({
               Ultimo conteggio: {formatQuantity(history.lastQuantity, history.lastUnit ?? unit)}
               {history.lastUnit ?? unit ? ` ${history.lastUnit ?? unit}` : ""}
               {history.lastAt ? ` · ${new Date(history.lastAt).toLocaleDateString("it-IT")}` : ""}
-              {canCorrect ? (
-                <button
-                  type="button"
-                  className="ml-1.5 font-bold text-primary underline underline-offset-2"
-                  onClick={() => cycleLock.onCorrect(row, history)}
-                >
-                  Correggi conteggio
-                </button>
-              ) : null}
             </p>
           ) : null}
         </div>
@@ -2828,6 +2819,17 @@ function ProductCard({
           <Delete className="size-4" />
         </Button>
       </div>
+      {canCorrect && history ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-1.5 h-8 w-full text-xs font-bold"
+          onClick={() => cycleLock.onCorrect(row, history)}
+        >
+          Correggi conteggio
+        </Button>
+      ) : null}
       {noteOpen && hasDifference ? (
         <div className="mt-1.5 space-y-1.5 rounded-sm border border-border bg-muted/30 p-1.5">
           <p className="text-[9px] font-bold uppercase leading-none text-muted-foreground">Nota differenza</p>
