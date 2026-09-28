@@ -163,6 +163,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       queryClient.invalidateQueries({ queryKey: ["shopping-lists", companyId] }),
       queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
       queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+      queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
     ]);
   };
 

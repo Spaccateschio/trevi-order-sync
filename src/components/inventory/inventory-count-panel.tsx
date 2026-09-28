@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CYCLE_QUERY_KEY } from "@/components/shopping/inventory-to-evaluate";
+import { getInventoryCycleStatus, type CycleStatus } from "@/lib/inventory-cycle.functions";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -192,6 +194,12 @@ export function InventoryCountPanel({
   const readCatalogCandidates = useServerFn(getSupplierCatalogCandidates);
   const readFavoriteProductIds = useServerFn(getFavoriteProductIds);
   const adoptProduct = useServerFn(adoptCatalogProduct);
+  const readCycle = useServerFn(getInventoryCycleStatus);
+  const cycleQuery = useQuery({
+    queryKey: [CYCLE_QUERY_KEY, companyId],
+    queryFn: () => readCycle({ data: { companyId } }),
+  });
+  const cycleColor = cycleQuery.data?.color;
 
 
   const { data: locations = [] } = useInventoryLocations(companyId);
@@ -1231,8 +1239,14 @@ export function InventoryCountPanel({
           <Button
             size="sm"
             onClick={() => startMutation.mutate()}
-            disabled={!isAdmin || !archiveId || !activeLocations.length || startMutation.isPending}
-            title={isAdmin ? undefined : "Solo un amministratore può avviare l'inventario"}
+            disabled={!isAdmin || !archiveId || !activeLocations.length || startMutation.isPending || cycleColor === "rosso"}
+            title={
+              cycleColor === "rosso"
+                ? "Completa prima Lista della Spesa e ordini dell'inventario precedente"
+                : isAdmin
+                  ? undefined
+                  : "Solo un amministratore può avviare l'inventario"
+            }
           >
             <ClipboardCheck aria-hidden="true" />
             <span className="hidden sm:inline">Nuovo conteggio</span>
@@ -1240,6 +1254,8 @@ export function InventoryCountPanel({
           </Button>
         ) : null}
       </div>
+
+      <CycleLight cycle={cycleQuery.data} sessionActive={Boolean(sessionId)} />
 
       <TabsContent value="conteggio">
         {sessionId && selectingLocation ? (
@@ -1769,6 +1785,7 @@ export function InventoryCountPanel({
                   return;
                 }
                 setConfirmedOpen(false);
+                await queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] });
                 void navigate({ to: "/acquisti/lista-spesa" });
               }}
             >
@@ -2938,3 +2955,36 @@ function CompletionSummary({
 }
 
 export { NO_CATEGORY, NO_SUBCATEGORY };
+
+/** Semaforo del ciclo Inventario → Lista della Spesa → Ordini. */
+function CycleLight({ cycle, sessionActive }: { cycle: CycleStatus | undefined; sessionActive: boolean }) {
+  if (!cycle) return null;
+  const color = sessionActive ? "giallo" : cycle.color;
+  const config = {
+    verde: { dot: "bg-success", label: "PRONTO PER INVENTARIO", text: "Nessun inventario in corso e nessun ciclo acquisti da completare." },
+    giallo: { dot: "bg-primary", label: "INVENTARIO IN CORSO", text: "Continua il conteggio: le quantità scritte restano salvate finché non termini l'inventario." },
+    rosso: {
+      dot: "bg-destructive",
+      label: "INVENTARIO COMPLETATO — ACQUISTI DA GESTIRE",
+      text: cycle.evaluated_at
+        ? `Valutazione terminata: ${cycle.missing_orders ?? 0} acquisti ancora senza ordine.`
+        : "Valuta nella Lista della Spesa cosa acquistare. Non si può iniziare un nuovo inventario finché il ciclo non è concluso.",
+    },
+  }[color];
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-card px-3 py-2">
+      <span className={`size-3 shrink-0 rounded-full ${config.dot}`} aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold tracking-wide">{config.label}</p>
+        <p className="text-xs text-muted-foreground">{config.text}</p>
+      </div>
+      {color === "rosso" ? (
+        <Button asChild size="sm">
+          <Link to={cycle.evaluated_at ? "/acquisti/ordini" : "/acquisti/lista-spesa"}>
+            {cycle.evaluated_at ? "Vai agli Ordini" : "Vai alla Lista della Spesa"}
+          </Link>
+        </Button>
+      ) : null}
+    </div>
+  );
+}
