@@ -1,10 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Plus, Search, Trash2, Truck } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import {
+  AlertTriangle,
+  ArrowDownAZ,
+  MoreVertical,
+  Plus,
+  Printer,
+  Search,
+  SlidersHorizontal,
+  Star,
+  Trash2,
+  Truck,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { AddProductsDialog, Thumb } from "./add-products-dialog";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
+import { useShoppingListExtras } from "./use-shopping-list-extras";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +42,6 @@ import { dateTimeShort, parseQuantity, qty } from "@/lib/inventory";
 import {
   ITEM_STATUS_LABEL,
   LIST_STATUS_LABEL,
-  type ItemStatus,
   type OverviewRow,
   type ShoppingListRow,
 } from "@/lib/shopping-list";
@@ -31,7 +52,36 @@ import {
 } from "@/lib/shopping-list.functions";
 
 type Archive = { id: string; name: string; is_default: boolean };
-type ProductOption = { id: string; code: string; description: string | null };
+type SortKey = "description" | "code" | "category" | "supplier";
+type FilterFlag =
+  | "senza_fornitore"
+  | "b2b"
+  | "non_b2b"
+  | "preferiti"
+  | "da_assegnare"
+  | "parziale"
+  | "assegnata"
+  | "in_ordine"
+  | "da_ordinare";
+const FILTER_FLAGS: [FilterFlag, string][] = [
+  ["senza_fornitore", "Senza fornitore"],
+  ["b2b", "B2B"],
+  ["non_b2b", "Non B2B"],
+  ["preferiti", "Preferiti"],
+  ["da_assegnare", "Da assegnare"],
+  ["parziale", "Parzialmente assegnati"],
+  ["assegnata", "Assegnati"],
+  ["in_ordine", "Già in ordine"],
+  ["da_ordinare", "Da ordinare"],
+];
+
+function B2BBadge() {
+  return (
+    <span className="shrink-0 rounded border border-primary/50 bg-primary/10 px-1 text-[9px] font-semibold leading-4 text-foreground">
+      B2B
+    </span>
+  );
+}
 
 /** Lista della Spesa operativa: suggerito e deciso separati, residuo sempre visibile. */
 export function ShoppingListPanel({ companyId }: { companyId: string }) {
@@ -42,11 +92,13 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   const [listId, setListId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"tutte" | ItemStatus>("tutte");
+  const [category, setCategory] = useState("all");
+  const [supplierFilter, setSupplierFilter] = useState("all");
+  const [flags, setFlags] = useState<Set<FilterFlag>>(new Set());
+  const [sortBy, setSortBy] = useState<SortKey>("description");
+  const [addOpen, setAddOpen] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [splitItem, setSplitItem] = useState<OverviewRow | null>(null);
-  const [manualProduct, setManualProduct] = useState("");
-  const [manualQuantity, setManualQuantity] = useState("");
 
   const archivesQuery = useQuery({
     queryKey: ["inventory-archives", companyId],
@@ -89,21 +141,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       const { data, error } = await supabase.rpc("shopping_list_overview", { _list_id: list!.id });
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as OverviewRow[];
-    },
-  });
-
-  const productsQuery = useQuery({
-    queryKey: ["shopping-products", companyId, list?.archive_id],
-    enabled: Boolean(list?.archive_id),
-    queryFn: async (): Promise<ProductOption[]> => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, code, description")
-        .eq("company_id", companyId)
-        .eq("archive_id", list!.archive_id)
-        .order("code");
-      if (error) throw new Error(error.message);
-      return (data ?? []) as ProductOption[];
     },
   });
 
@@ -165,32 +202,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     onSuccess: async () => {
       await refresh();
       toast.success("Riga rimossa");
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-
-  const addManual = useMutation({
-    mutationFn: async () => {
-      const quantity = parseQuantity(manualQuantity);
-      if (!manualProduct || !quantity || quantity <= 0) throw new Error("Scegli prodotto e quantità");
-      const { addShoppingListItems } = await import("@/lib/shopping-list.functions");
-      return addShoppingListItems({
-        data: {
-          companyId,
-          listId: list!.id,
-          items: [{ product_id: manualProduct, decided_quantity: quantity, origin: "manuale" }],
-          replaceExisting: false,
-        },
-      });
-    },
-    onSuccess: async (result) => {
-      await refresh();
-      setManualQuantity("");
-      toast.success(
-        result.added
-          ? "Prodotto aggiunto alla lista"
-          : "Il prodotto è già in lista: modifica la riga esistente",
-      );
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -309,6 +320,15 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       variant={
         row.status === "assegnata" ? "default" : row.status === "parziale" ? "secondary" : "outline"
       }
+    >
+      {ITEM_STATUS_LABEL[row.status]}
+    </Badge>
+  );
+
+  const statusBadgeSmall = (row: OverviewRow) => (
+    <Badge
+      variant={row.status === "assegnata" ? "default" : row.status === "parziale" ? "secondary" : "outline"}
+      className="shrink-0 px-1 py-0 text-[10px]"
     >
       {ITEM_STATUS_LABEL[row.status]}
     </Badge>
