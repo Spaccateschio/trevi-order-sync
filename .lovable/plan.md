@@ -1,79 +1,40 @@
-# Lista della Spesa — Passo 1: nuova schermata, stessa logica
+# Inventario → Prodotti da valutare → Lista della Spesa
 
-Principio: migliorare la Lista della Spesa che già funziona, non rifarla. Cambia solo come si vede e come si cerca. Quantità, assegnazioni, conferma e creazione degli ordini funzionano esattamente come oggi.
+## Idea chiave: nessun ID "momentaneo", il contesto si ricava dai dati già salvati
+Non serve ricordare nel browser quale inventario hai appena finito: il database lo sa già.
+- L'ultimo inventario **completato** (data di chiusura più recente) e i suoi conteggi sono salvati in modo permanente.
+- La Lista della Spesa legge ogni volta questi dati e mostra i prodotti "da valutare".
+- Quindi aggiornare la pagina, chiudere Chrome, tornare dopo un'ora o aprire da un altro dispositivo/utente dà **sempre lo stesso risultato**. Nessuna tabella nuova.
 
-## 1. Barra superiore
-Una riga compatta con Cerca prodotto, Categoria, Fornitore, Altri filtri, Ordina, **+ Aggiungi prodotti** e **Stampa**. Stampa si vede ma è disattivata, con la scritta "Disponibile a breve": arriva nel Passo 3.
+## Regole
+- **Lista corrente** = Aperta, oppure Confermata non ancora Chiusa. **Storico** = Chiusa o Annullata; mai selezionata da sola.
+- **Prodotti da valutare** = prodotti dell'ultimo inventario completato **non ancora presenti** nella Lista corrente.
+- Ogni prodotto da valutare mostra: foto, codice, descrizione, categoria, quantità contata + U.M. del conteggio, giacenza risultante (se disponibile), campo "Da acquistare" **vuoto**.
+- Vuoto = non deciso, mai 0. Nessuna quantità creata automaticamente.
+- Scrivendo una quantità > 0 e premendo "Aggiungi", si usa la funzione esistente di aggiunta: il prodotto diventa riga reale della Lista e sparisce dal riquadro "da valutare".
+- Il riquadro è modificabile solo se la Lista corrente è Aperta.
 
-## 2. Filtri (si combinano tra loro)
-- **Categoria** e **Fornitore**: menu a scelta.
-- **Altri filtri** (finestra con caselle): Senza fornitore, B2B, Non B2B, Preferiti, Da assegnare, Parzialmente assegnati, Assegnati, Già in ordine.
-- Pulsante "Azzera filtri" e numero dei filtri attivi.
-- Filtrano solo quello che vedi e non scrivono nulla.
+## Casi all'arrivo sulla Lista
+1. **Esiste una Lista corrente** → avviso "Esiste già una Lista della Spesa in lavorazione" con data/ora, numero prodotti e stato.
+   - Scelta principale: **Continua questa Lista e valuta i prodotti dell'inventario** (si apre la Lista con il riquadro sopra, nessun inserimento automatico).
+   - Se è Confermata: si spiega che per aggiungere prodotti va prima riaperta/gestita con le operazioni già esistenti; nessuna seconda Lista creata in automatico.
+   - L'avviso compare solo arrivando da "Termina inventario" (indicazione nella navigazione, solo per mostrare l'avviso; i dati non dipendono da essa).
+2. **Nessuna Lista corrente, esiste un inventario completato non ancora valutato** → "Inventario del 28/09 completato · 6 prodotti controllati" + **Crea Lista della Spesa da questo inventario** (usa la creazione già esistente, lista vuota) e sotto i 6 prodotti da valutare.
+3. **Nessuna Lista corrente e nessun inventario** → "Nessuna Lista in lavorazione" + "+ Nuova lista" e, separato, "Storico".
 
-## 3. Ordinamento
-Codice, Descrizione, Categoria, Fornitore (A→Z). Il "giro del mercato" lo facciamo più avanti.
+## Limite da decidere (unico punto dove il database potrebbe servire)
+Senza modifiche dati, il riquadro scompare solo quando: il prodotto viene aggiunto, la Lista viene Chiusa/Annullata e ne nasce una dopo l'inventario, oppure arriva un inventario più nuovo.
+Non è possibile salvare per tutti gli utenti "questo prodotto l'ho valutato e non lo compro" (es. patate lasciate vuote restano visibili). Opzioni:
+- A) accettarlo: i vuoti restano visibili finché la Lista è in lavorazione (coerente con "vuoto = non deciso");
+- B) pulsante "Nascondi" salvato solo su questo dispositivo;
+- C) piccola modifica dati per salvare "valutato, non acquisto" condivisa tra dispositivi.
+Consiglio A per ora.
 
-## 4. Computer e tablet
-`Foto | Codice | Prodotto | Categoria | Quantità | U.M. | Fornitore/i | Note | Azioni`
-- **Prezzo e Totale per ora non ci sono**: arrivano con il Passo 2, per non mostrare numeri inventati.
-- Quantità modificabile come oggi e riga compatta.
-- Note: si vedono le note già scritte nelle ripartizioni. Una nota sulla riga richiederebbe una modifica al database, quindi per ora niente.
-
-## 5. Fornitori sulla riga
-`Rossi · 10 cs`, oppure, se la merce è divisa, una riga per fornitore: `Rossi · 6 cs` / `Bianchi · 4 cs [B2B]`. Il badge B2B è piccolo, e "Nessun fornitore" è scritto in grigio.
-
-## 6. Finestra Fornitori (divisione)
-Stessa logica di oggi. In alto tre numeri grandi: **Richieste 20 cs · Assegnate 16 cs · Da assegnare 4 cs**. Si aggiornano dopo ogni assegnazione e diventano verdi quando il da assegnare arriva a 0. Accanto a ogni fornitore compare il badge B2B.
-
-## 7. + Aggiungi prodotti
-- Una finestra con ricerca per codice o descrizione. Ogni prodotto mostra foto, codice, descrizione, categoria e U.M., con una casella per sceglierlo.
-- I prodotti **già nella Lista** hanno l'etichetta "Già in lista" e non si possono scegliere: niente doppioni.
-- Un solo pulsante: **Aggiungi alla Lista (N)**.
-- **Vincolo verificato:** oggi la Lista non accetta un prodotto senza quantità. Il database vuole una quantità decisa maggiore di 0 e scarta in silenzio le righe che non ce l'hanno. Quindi nella finestra ogni prodotto scelto ha il suo campo quantità, da scrivere a mano (vuoto all'inizio), e "Aggiungi alla Lista" resta disattivato finché qualche prodotto scelto ha il campo vuoto. Nessuna quantità inventata e nessuna modifica al database. Aggiungere un prodotto "da comprare, quantità da decidere" richiede un cambio al database, che decidiamo a parte.
-
-## 8. Smartphone
-Schede compatte, una per prodotto:
-```text
-[foto] PATATE IT ROSSE          [stato]
-       00-003 · Patate
-       [   7   ] sacchi
-       Rossi 5 · Bianchi 2 [B2B]
-       [Fornitori] [Nota] [⋮]
-```
-I filtri si aprono in un pannello dal basso. **Nessun pulsante fisso**: il riepilogo e "Prepara ordini" stanno in fondo alla lista, come nell'Inventario. Sotto ⋮ c'è Rimuovi.
-
-## 9. Riepilogo
-`25 prodotti · 18 assegnati · 4 parziali · 3 da assegnare`, con il pulsante **Conferma lista**, che mantiene il nome di oggi.
-Verificato: oggi "Conferma lista" **non crea ordini**. Blocca la lista (solo se ogni prodotto è interamente assegnato) e basta. Gli ordini in bozza, uno per fornitore, si creano dopo, dalla pagina Ordini, e solo una volta per lista. Siccome non è "Prepara ordini", non lo rinomino. Aggiungo solo, a lista confermata, un collegamento "Vai agli Ordini per creare le bozze", che porta alla pagina esistente senza fare nulla da solo.
-
-## 10. Non cambia
-Database, U.M. e conversioni, divisione fornitori, conferma lista, generazione ordini, ordini esistenti, Inventario, Fabbisogno e flusso B2B restano come sono, e non creo dati di prova.
+## Cosa non cambia
+Inventario chiuso, conteggi, giacenze, Fabbisogno, ordini, database e server.
 
 ## Dettagli tecnici
-**File toccati**
-- `src/components/shopping/shopping-list-panel.tsx` (layout, filtri, riepilogo).
-- `src/components/shopping/supplier-split-dialog.tsx` (solo il riquadro dei totali e il badge B2B).
-
-**Nuovi componenti**, in `src/components/shopping/`:
-- `shopping-list-toolbar.tsx`
-- `shopping-list-filters.tsx` (Popover/Sheet con Checkbox)
-- `shopping-list-row.tsx` (riga desktop e scheda mobile)
-- `add-products-dialog.tsx` (Dialog, Input, Checkbox, ScrollArea)
-
-**Componenti riutilizzati**: shadcn Dialog, Sheet, Popover, Select, Checkbox, Badge e Button; `useIsMobile`; `getProductImageUrls` (lo stesso dell'Inventario); il `SupplierSplitDialog` esistente; le server function `addShoppingListItems`, `setShoppingListItemQuantity` e `removeShoppingListItem`, invariate.
-
-**Da dove prendo i dati**, solo in lettura e con le regole di accesso già in vigore:
-- Categoria: `products.category`.
-- Foto: `getProductImageUrls` sui prodotti della lista.
-- Preferiti: `company_product_favorites`.
-- Fornitori per riga: `shopping_list_item_suppliers` + `supplier_records.legal_name`.
-- B2B: fornitore con un collegamento attivo in `supplier_customer_relations`. Prima di scrivere codice verifico con una lettura che la colonna di collegamento sia quella giusta.
-- Già in ordine / Da ordinare: il calcolo si fa **riga per riga**. Una riga è "Già in ordine" se una sua ripartizione (`shopping_list_item_suppliers`: prodotto + referenza fornitore) compare in un `purchase_order_items` di un ordine non annullato con `shopping_list_id` di questa lista, cioè se prodotto e `product_supplier_link_id` coincidono. Le righe che non soddisfano la condizione sono "Da ordinare". Se una riga divisa ha solo una parte negli ordini, mostro l'etichetta "In parte in ordine" e la conto tra le "Da ordinare". Gli ordini non hanno un collegamento diretto con la singola riga della lista, quindi il riconoscimento avviene con prodotto + fornitore, che nella stessa lista sono unici.
-
-**Filtri e ordinamento**: `useMemo` sulle righe di `shopping_list_overview`, con stato solo nel componente. Nessuna scrittura.
-
-**Database**: non serve nessuna modifica, né tabelle né funzioni né permessi.
-
-## Prove
-Solo lettura: filtri combinati, ordinamento, schermo a 390, 768 e 1280 px, finestra Aggiungi prodotti aperta senza confermare, finestra Fornitori aperta senza assegnare.
+- `inventory-count-panel.tsx`: la navigazione dopo chiusura aggiunge `?daInventario=<sessionId>` (solo per l'avviso).
+- `acquisti.lista-spesa.tsx`: `validateSearch` per `daInventario`.
+- `shopping-list-panel.tsx`: selezione automatica solo di liste correnti; stato "Nessuna Lista in lavorazione"; selettore Storico separato; dialog avviso lista esistente.
+- Nuovo `inventory-to-evaluate.tsx`: query in sola lettura su `inventory_sessions` (status completata, ultima per `finished_at`) + `inventory_count_entries` + giacenza tramite funzione esistente; esclude i prodotti già nella lista; aggiunta con `addShoppingListItems` (origin "manuale", decided_quantity > 0).
