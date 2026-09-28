@@ -1829,7 +1829,7 @@ export function InventoryCountPanel({
       </Dialog>
 
       <Dialog open={viewClosedOpen} onOpenChange={setViewClosedOpen}>
-        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-[1600px] overflow-y-auto sm:max-w-[1600px]">
           <DialogHeader>
             <DialogTitle className="text-base">{lastClosedQuery.data?.session.name ?? "Ultimo inventario"}</DialogTitle>
             <DialogDescription>Inventario chiuso: stai guardando lo storico, non l'inventario in corso.</DialogDescription>
