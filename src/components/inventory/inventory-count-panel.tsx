@@ -1903,6 +1903,7 @@ function PhysicalCount({
   onCloseInventory,
   lastClosed,
   onViewLastClosed,
+  stockHistory,
 
   onHideCompletion,
   closing,
@@ -1958,6 +1959,7 @@ function PhysicalCount({
   onCloseInventory: () => void;
   lastClosed: { name: string; counted: number; total: number } | null;
   onViewLastClosed: () => void;
+  stockHistory: Map<string, StockHistory> | null;
   onHideCompletion: () => void;
   closing: boolean;
 }) {
@@ -2265,6 +2267,7 @@ function PhysicalCount({
                       onRevokeNonCompliance={() => onRevokeNonCompliance(row)}
                       onProposal={() => onProposal(row)}
                       onHistory={() => onHistory(row)}
+                      history={stockHistory ? (stockHistory.get(row.product_id) ?? null) : null}
                     />
                   ),
                 })),
@@ -2335,6 +2338,15 @@ function PhysicalCount({
   );
 }
 
+/** Storico del prodotto quando non c'è un inventario aperto: giacenza reale e ultimo conteggio compatibile. */
+type StockHistory = {
+  hasCount: boolean;
+  stock: number | null;
+  lastQuantity: number | null;
+  lastUnit: string | null;
+  lastAt: string | null;
+};
+
 function ProductCard({
   companyId,
   row,
@@ -2371,6 +2383,7 @@ function ProductCard({
   onRevokeNonCompliance: () => void;
   onProposal: () => void;
   onHistory: () => void;
+  history?: StockHistory | null;
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
   const unitsCtx = useContext(CountUnitsContext);
@@ -2392,7 +2405,7 @@ function ProductCard({
       : null;
   const confirmedDifference = isConfirmed && row.units_comparable !== false ? Number(row.difference ?? 0) : null;
   const hasDifference = isConfirmed && confirmedDifference !== null && confirmedDifference !== 0;
-  const difference = !comparable
+  const difference = !comparable || (history && !history.hasCount)
     ? null
     : counted === null
       ? (isConfirmed ? confirmedDifference : null)
@@ -2410,6 +2423,9 @@ function ProductCard({
         : Number(row.counted) === 0
           ? "Zero verificato"
           : "Confermato";
+  // Senza inventario aperto: lo stato riflette lo storico del prodotto, non la sessione.
+  const previewStatus =
+    history && !isConfirmed && !needsRecount ? (history.hasCount ? "Contato in precedenza" : "Mai contato") : null;
 
   return (
     <article
@@ -2461,6 +2477,13 @@ function ProductCard({
               Ultimo conteggio {new Date(row.counted_at).toLocaleDateString("it-IT")}
             </p>
           ) : null}
+          {history?.hasCount && history.lastQuantity !== null ? (
+            <p className="truncate text-[11px] font-semibold leading-tight text-foreground">
+              Ultimo conteggio: {formatQuantity(history.lastQuantity, history.lastUnit ?? unit)}
+              {history.lastUnit ?? unit ? ` ${history.lastUnit ?? unit}` : ""}
+              {history.lastAt ? ` · ${new Date(history.lastAt).toLocaleDateString("it-IT")}` : ""}
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <PriceTrendIcon
@@ -2492,7 +2515,7 @@ function ProductCard({
               needsRecount && "bg-primary/15 text-primary",
             )}
           >
-            {status}
+            {previewStatus ?? status}
           </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -2573,7 +2596,10 @@ function ProductCard({
       <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
         <div>
           <p className="text-[9px] leading-none text-muted-foreground">Calcolata</p>
-          <p className="mt-1 text-sm font-bold leading-none">{formatQuantity(calculated, unit)}</p>
+          <p className="mt-1 text-sm font-bold leading-none">
+            {/* Mai contato = giacenza non nota: mai mostrata come 0. */}
+            {history && !history.hasCount ? "—" : formatQuantity(calculated, unit)}
+          </p>
         </div>
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-1">
