@@ -2110,6 +2110,7 @@ function PhysicalCount({
     : rows;
 
   // Barra compatta (ricerca + filtri) mostrata solo quando la ricerca originale esce dallo schermo.
+  const cycleLock = useContext(CycleLockContext);
   const topFiltersRef = useRef<HTMLDivElement>(null);
   const [compactBar, setCompactBar] = useState(false);
   useEffect(() => {
@@ -2391,7 +2392,7 @@ function PhysicalCount({
                       candidate={candidate}
                       imageUrl={catalogImages.get(candidate.sellerProductId)}
                       value={catalogDrafts[candidate.sellerProductId] ?? ""}
-                      disabled={!isAdmin}
+                      disabled={!isAdmin || cycleLock.locked}
                       onChange={(value) => onCatalogDraftChange(candidate.sellerProductId, value)}
                       onConfirm={() => onCatalogConfirm(candidate)}
                       onToggleFavorite={() => onToggleCatalogFavorite(candidate)}
