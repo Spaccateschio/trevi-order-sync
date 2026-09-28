@@ -6,7 +6,6 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Thumb } from "./add-products-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -366,4 +365,3 @@ export function InventoryEvaluation({
   );
 }
 
-export { Badge };
