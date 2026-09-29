@@ -283,7 +283,7 @@ export function ShoppingListCard({
 
   if (isRow) {
     return (
-      <article className="@container min-w-0 rounded-md border-2 border-border bg-card px-2 py-1.5">
+      <article className={cn("@container min-w-0 rounded-md border-2 border-border bg-card px-2 py-1.5", locked && "border-primary/60 bg-primary/15")}>
         <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 @min-[860px]:grid-cols-[36px_minmax(0,1.2fr)_minmax(250px,1fr)_minmax(0,1.2fr)_auto]">
           {image("size-9")}
           <div className="min-w-0">
@@ -301,6 +301,7 @@ export function ShoppingListCard({
           <div className="col-span-3 grid min-w-0 gap-1 @min-[860px]:col-span-1">
             {quantityBlock}
             {quickButtons("h-8")}
+            {lockNote}
           </div>
           <div className="col-span-3 min-w-0 space-y-0.5 @min-[860px]:order-1 @min-[860px]:col-span-1">
             {splitSummary}
@@ -313,7 +314,7 @@ export function ShoppingListCard({
   }
 
   return (
-    <article className="@container flex h-full min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2 @max-[260px]:p-1.5">
+    <article className={cn("@container flex h-full min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2 @max-[260px]:p-1.5", locked && "border-primary/60 bg-primary/15")}>
       <div className="grid grid-cols-[44px_minmax(0,1fr)] items-start gap-2 @max-[260px]:grid-cols-[32px_minmax(0,1fr)] @max-[260px]:gap-1.5">
         {image("size-11 @max-[260px]:size-8")}
         <div className="min-w-0">
@@ -352,6 +353,7 @@ export function ShoppingListCard({
         <p className="text-[10px] font-semibold uppercase text-muted-foreground">Da acquistare</p>
         {quantityBlock}
         {quickButtons("h-8 @max-[260px]:h-7 @max-[260px]:text-[11px]")}
+        {lockNote}
       </div>
 
       <div className="mt-auto space-y-1 border-t border-border pt-1.5">
