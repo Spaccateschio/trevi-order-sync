@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { History, Lock, Pencil } from "lucide-react";
+import { Lock, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -42,7 +42,6 @@ export function PhysicalQuickEdit({ target, unlockedAll }: { target: PhysicalQui
   const [unlocked, setUnlocked] = useState(false);
   const [value, setValue] = useState(fmt(target.physical));
   const [reason, setReason] = useState("");
-  const [showHistory, setShowHistory] = useState(false);
   const editing = unlocked || unlockedAll;
 
   // Il valore mostrato segue sempre la quantità fisica più recente (anche modifiche dei colleghi).
@@ -107,39 +106,32 @@ export function PhysicalQuickEdit({ target, unlockedAll }: { target: PhysicalQui
     mutation.mutate();
   };
 
-  const last = target.edits[0];
-
   return (
-    <div className="mt-1.5 space-y-1.5 rounded-sm border border-border bg-muted/30 p-1.5">
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-[9px] font-bold uppercase leading-none text-muted-foreground">Quantità fisica attuale</p>
-          <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
-            Contato{target.countedAt ? ` il ${new Date(target.countedAt).toLocaleDateString("it-IT")}` : ""}: {fmt(target.countedQuantity)} {target.unit}
-          </p>
-        </div>
-        {editing ? (
-          <Input
-            className="h-9 w-24 px-2 text-right text-base font-bold"
-            inputMode="decimal"
-            autoComplete="off"
-            value={value}
-            disabled={mutation.isPending}
-            onChange={(e) => setValue(e.target.value)}
-            onFocus={(e) => e.currentTarget.select()}
-            onBlur={() => { if (!needsReason) save(); }}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); save(); } }}
-            aria-label="Nuova quantità fisica"
-          />
-        ) : (
-          <p className="text-base font-bold">{fmt(target.physical)}</p>
-        )}
-        <span className="text-xs font-semibold text-muted-foreground">{target.unit}</span>
+    <div className="space-y-1">
+      <div className="flex items-center gap-1">
+        <Input
+          className="h-10 min-w-0 flex-1 px-2 text-right text-base font-bold"
+          inputMode="decimal"
+          autoComplete="off"
+          value={value}
+          readOnly={!editing}
+          disabled={mutation.isPending}
+          onChange={(event) => setValue(event.target.value)}
+          onFocus={(event) => event.currentTarget.select()}
+          onBlur={() => { if (editing && !needsReason) save(); }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && editing) {
+              event.preventDefault();
+              save();
+            }
+          }}
+          aria-label="Quantità fisica"
+        />
         <Button
           type="button"
           variant={editing ? "secondary" : "outline"}
           size="sm"
-          className="h-8 w-8 px-0"
+          className="h-10 w-9 shrink-0 px-0"
           aria-label={editing ? "Blocca quantità" : "Modifica quantità fisica"}
           title={editing ? "Blocca" : "Modifica"}
           disabled={unlockedAll}
@@ -160,26 +152,6 @@ export function PhysicalQuickEdit({ target, unlockedAll }: { target: PhysicalQui
             </Button>
           </div>
         </div>
-      ) : null}
-      {target.edits.length ? (
-        <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-          <span className="min-w-0 break-words">
-            Modificato da {last!.by} alle {new Date(last!.at).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-          </span>
-          <button type="button" className="inline-flex shrink-0 items-center gap-1 font-semibold text-primary underline" onClick={() => setShowHistory((v) => !v)}>
-            <History className="size-3" /> Cronologia
-          </button>
-        </div>
-      ) : null}
-      {showHistory ? (
-        <ul className="space-y-0.5 text-[10px]">
-          {target.edits.map((edit, index) => (
-            <li key={index} className="break-words">
-              {new Date(edit.at).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} · {edit.by}: {fmt(edit.from)} → <strong>{fmt(edit.to)}</strong> {target.unit}
-              {edit.reason !== AUTO_REASON ? ` · ${edit.reason}` : ""}
-            </li>
-          ))}
-        </ul>
       ) : null}
     </div>
   );
