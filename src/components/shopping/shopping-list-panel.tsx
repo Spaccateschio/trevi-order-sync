@@ -196,7 +196,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   });
 
   const quantityMutation = useMutation({
-    mutationFn: (input: { itemId: string; quantity: number }) =>
+    mutationFn: (input: { itemId: string; quantity: number | null }) =>
       runQuantity({
         data: {
           companyId,
