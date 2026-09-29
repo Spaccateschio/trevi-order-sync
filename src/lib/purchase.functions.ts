@@ -94,11 +94,14 @@ export const setPurchaseDeliveryItem = createServerFn({ method: "POST" })
         declaredExpiry: z.string().trim().max(10).nullable(),
         lineNotes: z.string().trim().max(500).nullable(),
         missingReason: z.string().trim().max(300).nullable(),
+        // Quantità nella U.M. d'acquisto (es. cassette): campo separato dai kg.
+        declaredPurchaseQuantity: z.number().min(0).nullable().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.rpc("set_purchase_delivery_item", {
+      ...(data.declaredPurchaseQuantity == null ? {} : { _declared_purchase_quantity: data.declaredPurchaseQuantity }),
       _delivery_item_id: data.deliveryItemId,
       ...(data.declaredQuantity === null ? {} : { _declared_quantity: data.declaredQuantity }),
       ...(data.declaredWeight === null ? {} : { _declared_weight: data.declaredWeight }),
