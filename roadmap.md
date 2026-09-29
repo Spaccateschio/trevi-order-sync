@@ -70,3 +70,6 @@
 - [x] Semaforo Inventario (verde/giallo/rosso)
 - [x] Correggi conteggio con semaforo rosso, anche da “Visualizza inventario” (rettifica con riferimento al conteggio) + campi bloccati con rosso
 - [ ] Analisi separata dei 113 avvisi di sicurezza preesistenti (dopo test del ciclo)
+
+- [x] Ripristino barra fissa ricerca/filtri (soglia = altezza reale riquadro sticky)
+- [ ] Ridurre spazio parte superiore Inventario (da rivedere insieme; «Sblocca quantità» resta dov'è)
