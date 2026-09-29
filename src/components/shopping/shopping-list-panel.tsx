@@ -771,9 +771,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           companyId={companyId}
           cycle={cycle}
           linkedList={linkedList}
-          existingProductIds={new Set(linkedList && list?.id === linkedList.id ? allRows.map((row) => row.product_id) : [])}
+          existingProductIds={listProductIds}
           onEnsureList={ensureInventoryList}
           layout={viewMode}
+          values={evalValues}
+          onValuesChange={setEvalValues}
+          hideItems
         />
       ) : cycle?.color === "rosso" && cycle.evaluated_at && (!list || list.id === cycle.list_id) ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
@@ -783,26 +786,19 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </p>
       ) : null}
 
-      {!list && previewMode ? (
-        <div className="flex justify-end">
-          <Button type="button" size="sm" className="h-8 px-2 text-xs" onClick={() => setAddOpen(true)}>
-            <Plus aria-hidden="true" />
-            Aggiungi prodotto
-          </Button>
-        </div>
-      ) : null}
-
-      {!list && previewMode ? null : !list ? (
+      {!list && !showPending ? (
         <p className="text-sm text-muted-foreground">
           Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure consulta lo Storico dal menu delle liste.
         </p>
       ) : (
         <>
+          {list ? (
           <p className="text-xs text-muted-foreground">
             Creata {dateTimeShort(list.created_at)}
             {list.confirmed_at ? ` · confermata ${dateTimeShort(list.confirmed_at)}` : ""}
             {list.closed_at ? ` · chiusa ${dateTimeShort(list.closed_at)}` : ""}
           </p>
+          ) : null}
 
           {/* Barra operativa */}
           <div className="sticky top-14 z-10 flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-card p-1.5 lg:top-0">
@@ -868,7 +864,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 <SelectItem value="supplier">Fornitore</SelectItem>
               </SelectContent>
             </Select>
-            {editable ? (
+            {editable || (!list && previewMode) ? (
               <Button type="button" size="sm" className="h-8 px-2 text-xs" onClick={() => setAddOpen(true)}>
                 <Plus aria-hidden="true" />
                 Aggiungi prodotti
@@ -894,14 +890,32 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 : "grid grid-cols-1 gap-1.5"
             }
           >
-            {rows.map((row) => (
+            {entries.map(({ kind, row, extra, stock }) =>
+              kind === "pending" ? (
+                <ShoppingListCard
+                  key={row.item_id}
+                  pending
+                  layout={viewMode}
+                  row={row}
+                  extra={extra}
+                  stock={stock}
+                  editable={Boolean(editable || previewMode)}
+                  quantityInput={pendingInput(row)}
+                  onQuickAdd={(step) => pendingQuickAdd(row, step)}
+                  favoritePending={false}
+                  onToggleFavorite={() => undefined}
+                  onOpenSuppliers={() => undefined}
+                  onRemove={() => undefined}
+                  onToggleLock={() => undefined}
+                />
+              ) : (
               <ShoppingListCard
                 key={row.item_id}
                 layout={viewMode}
                 onQuickAdd={(step) => quickAdd(row, step)}
                 row={row}
-                extra={extras.get(row.item_id)}
-                stock={stockQuery.data?.get(row.product_id)}
+                extra={extra}
+                stock={stock}
                 editable={Boolean(editable)}
                 quantityInput={quantityInput(row, "h-9 min-w-0 flex-1 text-right text-base font-bold")}
                 favoritePending={favoriteMutation.isPending}
@@ -913,23 +927,24 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onToggleLock={() => void toggleLock(row)}
                 lockPending={lockMutation.isPending || quantityMutation.isPending}
               />
-            ))}
+              ),
+            )}
           </div>
           </div>
 
-          {!rows.length && !overviewQuery.isLoading ? (
+          {!entries.length && !overviewQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">
-              {allRows.length ? "Nessun prodotto con questi filtri." : "Nessuna riga in lista."}
+              {allRows.length || pendingEntries.length ? "Nessun prodotto con questi filtri." : "Nessun prodotto."}
             </p>
           ) : null}
 
           {/* Riepilogo finale: nessun pulsante fisso */}
-          {allRows.length ? (
+          {list && allRows.length ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
               <span>
                 <strong>{summary.total}</strong> prodotti · <strong>{summary.assigned}</strong> assegnati ·{" "}
                 <strong>{summary.partial}</strong> parziali · <strong>{summary.open}</strong> da assegnare
-                {rows.length !== allRows.length ? ` · ne vedi ${rows.length}` : ""}
+                {pendingEntries.length ? ` · ${pendingEntries.length} da valutare` : ""}
               </span>
               {editable ? (
                 <Button type="button" size="sm" className="h-8" disabled={listMutation.isPending} onClick={() => listMutation.mutate("confirm")}>
