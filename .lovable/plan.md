@@ -1,64 +1,78 @@
-# U.M. del prezzo — analisi e modello minimo (nessuna modifica ancora)
+# U.M. del prezzo — piano tecnico definitivo
 
-## 1. Cosa esiste già
+## 1. Le 6 colonne (tutte NULL = "non indicata"; nessun default)
 
-| Dato | Dove vive oggi | U.M. del prezzo? |
-|---|---|---|
-| Costo fornitore da Danea | `product_supplier_costs.supplier_net_price` | No (implicita = U.M. Danea) |
-| Costo manuale | `product_supplier_links.manual_cost` | No |
-| Storico prezzi fornitore | `supplier_price_observations.net_price` + `price_unit_code` | **Sì, già testo** |
-| Prezzo di vendita | `product_prices.net_price` (listini 1–9) | Sì, a livello prodotto: `products.price_unit_id` |
-| U.M. di vendita | `product_sale_units` (+ conversione facoltativa) | — |
-| U.M. d'acquisto | `product_supplier_link_units` (per referenza) | — |
-| Quantità ordinata | `purchase_order_items.purchase_quantity` + `purchase_unit_id/code` | — |
-| Prezzo nell'Ordine | `purchase_order_items.unit_cost` | **No: ambiguo** |
-| Consegna | `purchase_delivery_items.declared_purchase_quantity`, `declared_weight` | Nessun prezzo |
-| Ricevuto / caricato | `goods_receipt_items.verified_quantity` (U.M. d'ordine) + `stock_quantity` (magazzino) | — |
-| Costo al carico | `goods_receipt_items.unit_cost` → `stock_lots.unit_cost` | **No: ambiguo** |
+| Tabella | Colonna | Tipo | NULL | FK |
+|---|---|---|---|---|
+| product_supplier_links | price_unit_id | uuid | sì | units_of_measure(id), ON DELETE RESTRICT |
+| purchase_order_items | price_unit_id | uuid | sì | units_of_measure(id), RESTRICT |
+| purchase_order_items | price_unit_code | text | sì | — (fotografia) |
+| goods_receipt_items | price_unit_id | uuid | sì | units_of_measure(id), RESTRICT |
+| goods_receipt_items | price_unit_code | text | sì | — (fotografia) |
+| goods_receipt_items | price_quantity | numeric(18,6) | sì | — ; CHECK price_quantity > 0 quando presente |
 
-## 2. Riutilizzabile
-- Anagrafica U.M. aziendale (`units_of_measure`): nessun secondo sistema di U.M.
-- Coppia "id + codice fotografato" già usata per l'U.M. d'ordine: stessa regola per il prezzo.
-- `products.price_unit_id` per la vendita; `supplier_price_observations.price_unit_code` per lo storico.
-- `verified_quantity` e `stock_quantity` al carico: coprono già "10 casse" e "102,4 kg".
+Coerenza: trigger `SECURITY DEFINER SET search_path = public` che verifica che la U.M. appartenga alla stessa azienda. Sui documenti, se c'è `price_unit_id` il codice viene fotografato dall'anagrafica; il codice può esistere anche senza id (fornitore non B2B).
 
-## 3. Campi mancanti (minimo: 2 per tabella, solo dove c'è un prezzo)
-- `product_supplier_links`: `price_unit_id` (a che cosa si riferisce il costo manuale/referenza).
-- `purchase_order_items`: `price_unit_id` + `price_unit_code` (fotografia).
-- `goods_receipt_items`: `price_unit_id` + `price_unit_code` + `price_quantity` (la quantità su cui si applica il prezzo, es. 102,4 kg o 10 casse).
-- La Lista della Spesa non ha prezzo: nessun campo.
-- La Consegna non ha prezzo: nessun campo (il peso dichiarato resta com'è).
+## 2–3. Funzioni DB da modificare
 
-Totale: 8 colonne, nessuna tabella nuova.
+| Funzione | Cambia |
+|---|---|
+| manage_product_supplier_link | nuovo parametro facoltativo `_price_unit_id`; verifica azienda; salvato solo su referenze non B2B (per B2B rifiutato: arriva dal venditore) |
+| create_purchase_orders_from_list | copia `unit_cost` + `price_unit_id` + `price_unit_code`: non B2B dalla referenza; B2B dal prodotto del venditore (`products.price_unit_id` del prodotto originale). Fotografia definitiva |
+| open_goods_receipt | la riga di carico eredita prezzo, U.M. prezzo e codice dalla riga d'ordine; `price_quantity` vuota |
+| set_goods_receipt_item | nuovi parametri `_price_unit_id`, `_price_unit_code`, `_price_quantity`; proposta automatica di `price_quantity` solo nei casi 6–7 sotto |
+| confirm_goods_receipt | il lotto non copia più `unit_cost` del carico: applica la formula del punto 9 |
+| hook_price_from_goods_receipt | storico con `price_unit_code` = U.M. del prezzo del carico (non più U.M. d'ordine); se non indicata → vuota |
+| hook_price_from_supplier_cost (Danea) | storico con `price_unit_code` vuota (non più U.M. Danea) |
+| hook_price_from_manual_cost | storico con la U.M. prezzo della referenza; se non indicata → vuota |
+| product_lot_availability, product_supplier_overview, goods_receipt_history | restituiscono anche la U.M. del prezzo per mostrarla ("€20/CASSA", "€1,95/kg") |
 
-## 4–5. Dove vive e che tipo
-- Configurazione (referenza fornitore, prodotto di vendita): **FK** a `units_of_measure`.
-- Documenti (Ordine, Carico): **FK facoltativa + codice testo obbligatorio**, come già per l'U.M. d'ordine. Per un fornitore non B2B si può scrivere un codice anche senza FK.
+## 4. File frontend
+- `src/lib/purchase.ts`, `src/lib/purchase.functions.ts`: tipi e parametri nuovi.
+- `src/components/purchase/purchase-order-detail.tsx`: prezzo mostrato "€ X / U.M." o "U.M. prezzo non indicata"; scelta U.M. prezzo per righe non B2B.
+- `src/components/purchase/goods-receipt-panel.tsx`: campi Prezzo, U.M. prezzo, Quantità prezzo, Valore calcolato, Costo per U.M. di magazzino.
+- `src/components/products/product-suppliers-manager.tsx`: U.M. prezzo accanto al costo manuale (solo non B2B; B2B in sola lettura dal catalogo).
 
-## 6. Fotografia nell'Ordine
-Alla creazione dell'ordine si copiano `unit_cost`, `price_unit_id`, `price_unit_code` dalla referenza. Da lì l'ordine non rilegge più il prodotto: una modifica futura non cambia i vecchi ordini (stessa logica già in uso per l'U.M. d'ordine).
+## 5. U.M. prezzo non indicata
+Il prezzo si vede come "€ 2,00 · U.M. prezzo non indicata". `price_quantity` non viene proposta, il valore non viene calcolato, il costo del lotto resta vuoto. Lo storico registra il prezzo con U.M. vuota. Niente viene bloccato.
 
-## 7. Arrivo al Carico Merce
-Il carico eredita prezzo e U.M. del prezzo dalla riga d'ordine (modificabili dall'operatore). Se l'U.M. del prezzo coincide con quella d'ordine, `price_quantity` viene proposta uguale alla quantità ricevuta; se coincide con quella di magazzino, uguale alla quantità caricata; altrimenti resta vuota e va inserita. Mai riempita da una conversione media senza conferma.
+## 6. U.M. prezzo = U.M. d'ordine (es. €20/CASSA, 10 casse)
+`price_quantity` proposta = quantità ricevuta (`verified_quantity`); modificabile.
 
-## 8. Costo effettivo
-`costo = price_quantity × unit_cost`, calcolato quando c'è `price_quantity`. Esempi: 102,4 × 2,00 €/kg = €204,80; 10 × 20,00 €/cassa = €200,00. Costo per unità di magazzino da portare nei lotti: `costo / stock_quantity`. Senza `price_quantity` il costo resta vuoto, mai zero.
+## 7. U.M. prezzo = U.M. di magazzino (es. €2/kg, carico 102,4 kg)
+`price_quantity` proposta = quantità caricata (`stock_quantity`); modificabile.
 
-## 9. B2B e non B2B
-- B2B: U.M. d'ordine consentite = U.M. di vendita pubblicate dal venditore; U.M. prezzo = `price_unit_id` del prodotto del venditore. Si leggono dal suo catalogo, non dalle configurazioni locali.
-- Non B2B: l'operatore sceglie liberamente U.M. d'ordine e U.M. prezzo (elenco aziendale o codice libero sul documento).
+## 8. Diversa da entrambe
+`price_quantity` vuota: va inserita dall'operatore. Nessuna conversione media usata.
 
-## 10. Vendita in futuro
-Stesso schema: il cliente ordina in `product_sale_units`, il prezzo si applica in `products.price_unit_id`. Alla preparazione si registra la quantità reale nella U.M. del prezzo (3,27 kg); il peso medio serve solo per la stima "≈ €9,00". Non si implementa ora.
+## 9. Formula costo lotto
+```text
+valore        = price_quantity × unit_cost
+lotto.unit_cost = valore / stock_quantity
+```
+Solo se `unit_cost`, U.M. prezzo, `price_quantity` e `stock_quantity > 0` sono presenti; altrimenti vuoto (mai zero). Esempi: 10 × 20 / 102,4 = 1,953125 €/kg; 102,4 × 2 / 102,4 = 2 €/kg.
 
-## 11. Cosa si modifica (quando approvato)
-- Migrazione: le 8 colonne sopra, nessun dato storico riscritto (vuoto = non indicato).
-- Funzioni DB: `create_purchase_orders_from_list`, `manage_purchase_order`, `manage_product_supplier_link`, `confirm_goods_receipt`, gli hook dei prezzi da carico/costo manuale (per scrivere `price_unit_code` nello storico).
-- File: `purchase.functions.ts`, `purchase-order-detail.tsx`, `goods-receipt-panel.tsx`, `product-suppliers-manager.tsx`, `catalog.functions.ts` (lettura U.M. prezzo B2B).
+## 10. Storico prezzi
+Registra il prezzo sempre con la sua vera U.M. del prezzo; vuota quando non indicata. Nessuna deduzione da U.M. d'ordine o U.M. Danea. Il costo del lotto non entra nello storico dei prezzi fornitore.
 
-## 12. Cosa resta invariato
-Inventario, Fabbisogno, semaforo, Lista della Spesa, Consegne, listini di vendita, U.M. di vendita, importazione Danea, giacenze e conversioni esistenti.
+## 11. B2B
+U.M. prezzo letta dal prodotto del venditore e fotografata sull'ordine; la referenza locale non la memorizza e non può sovrascriverla.
 
-## Da decidere con te
-- Ordini e carichi già esistenti senza U.M. del prezzo: restano "non indicata", senza supposizioni.
-- Il costo Danea (`product_supplier_costs`) lo consideriamo riferito alla U.M. Danea del prodotto, o lo lasciamo "non indicato"?
+## 12. Non B2B
+U.M. prezzo impostata sulla referenza (costo manuale) e modificabile sull'ordine e sul carico, anche con un codice libero.
+
+## 13. Record storici
+Nessun aggiornamento: ordini, carichi, lotti e storico prezzi esistenti restano con U.M. prezzo vuota = "non indicata". Nessuna ricostruzione.
+
+## 14. Test (in transazioni annullate, senza dati reali)
+- €20/CASSA, 10 casse, 102,4 kg → valore 200, lotto 1,953125 €/kg, storico €20/CASSA.
+- €2/kg, 10 casse, 102,4 kg → valore 204,80, lotto 2 €/kg, storico €2/kg.
+- U.M. prezzo non indicata → nessun valore, lotto vuoto, storico con U.M. vuota.
+- U.M. diversa da ordine e magazzino → `price_quantity` non proposta.
+- Nuovo costo Danea → storico con U.M. vuota; storico esistente invariato.
+- B2B: fotografia dal venditore; modifica successiva del catalogo non cambia l'ordine.
+- U.M. di un'altra azienda rifiutata; `price_quantity` ≤ 0 rifiutata.
+- Controllo tipi e schermate Ordine/Carico nel browser senza salvare.
+
+## Invariato
+Inventario, Fabbisogno, semaforo, Lista della Spesa, Consegne, listini e U.M. di vendita, giacenze, conversioni esistenti, dati storici.
