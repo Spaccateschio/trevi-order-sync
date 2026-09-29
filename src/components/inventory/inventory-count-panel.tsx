@@ -2225,6 +2225,15 @@ function PhysicalCount({
   onHideCompletion: () => void;
   closing: boolean;
 }) {
+  // Vista Card / Righe: solo visualizzazione, preferenza sul dispositivo (nessun dato salvato nel database).
+  const [viewMode, setViewMode] = useState<"card" | "row">("card");
+  useEffect(() => {
+    if (window.localStorage.getItem("inventory-view-mode") === "row") setViewMode("row");
+  }, []);
+  const changeViewMode = (mode: "card" | "row") => {
+    setViewMode(mode);
+    window.localStorage.setItem("inventory-view-mode", mode);
+  };
   const total = progress?.total ?? 0;
   const generalCompleted = progress?.completed ?? 0;
   const generalDifferences = progress?.differences ?? 0;
@@ -2415,6 +2424,14 @@ function PhysicalCount({
                 Tutti
               </Button>
             </div>
+            <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
+              <Button size="sm" className="h-8 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => changeViewMode("card")}>
+                <LayoutGrid className="size-3.5" /> Card
+              </Button>
+              <Button size="sm" className="h-8 text-xs" variant={viewMode === "row" ? "default" : "ghost"} aria-pressed={viewMode === "row"} onClick={() => changeViewMode("row")}>
+                <Rows3 className="size-3.5" /> Righe
+              </Button>
+            </div>
             <Button size="sm" variant="destructive" className="h-9 text-xs" onClick={onClearDrafts}>
               Azzera quantità
             </Button>
@@ -2522,7 +2539,15 @@ function PhysicalCount({
           </div>
 
           {visibleRows.length || catalogCandidates.length ? (
-            <div className="grid auto-rows-fr items-stretch gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
+            <div
+              className={cn(
+                "grid gap-2 p-2",
+                // Colonne decise dallo spazio reale: min 172px per card, massimo 4 per riga.
+                viewMode === "card"
+                  ? "auto-rows-fr items-stretch grid-cols-[repeat(auto-fill,minmax(max(172px,calc((100%_-_1.5rem)/4)),1fr))]"
+                  : "grid-cols-1 gap-1.5",
+              )}
+            >
               {[
                 ...visibleRows.map((row) => ({
                   key: rowKey(row),
@@ -2530,6 +2555,7 @@ function PhysicalCount({
                   code: row.code,
                   node: (
                     <ProductCard
+                      layout={viewMode}
                       companyId={companyId}
                       row={row}
                       imageUrl={imageUrls.get(row.product_id)}
@@ -2557,6 +2583,7 @@ function PhysicalCount({
                   code: candidate.code,
                   node: (
                     <CatalogProductCard
+                      layout={viewMode}
                       candidate={candidate}
                       imageUrl={catalogImages.get(candidate.sellerProductId)}
                       value={catalogDrafts[candidate.sellerProductId] ?? ""}
@@ -3154,6 +3181,7 @@ function ProductCard({
 }
 
 function CatalogProductCard({
+  layout = "card",
   candidate,
   imageUrl,
   value,
@@ -3162,6 +3190,7 @@ function CatalogProductCard({
   onConfirm,
   onToggleFavorite,
 }: {
+  layout?: "card" | "row";
   candidate: CatalogCandidate;
   imageUrl: string | undefined;
   value: string;
@@ -3172,60 +3201,118 @@ function CatalogProductCard({
 }) {
   const name = candidate.description?.trim() || candidate.code;
   const unit = candidate.danea_um?.trim() ?? "";
+  const quickUnit = unit.toLowerCase();
+  const image = (cls: string) =>
+    imageUrl ? (
+      <img src={imageUrl} alt="" loading="lazy" className={cn("shrink-0 rounded-sm border border-border object-cover", cls)} />
+    ) : (
+      <span className={cn("flex shrink-0 items-center justify-center rounded-sm border border-border bg-muted", cls)}>
+        <Package className="size-5 text-muted-foreground" aria-hidden="true" />
+      </span>
+    );
+  const favorite = (
+    <Button type="button" variant="ghost" size="sm"
+      className={cn("h-7 w-7 px-0", candidate.isFavorite && "text-primary")}
+      aria-label={candidate.isFavorite ? `Rimuovi ${name} dai preferiti` : `Aggiungi ${name} ai preferiti`}
+      title={candidate.isFavorite ? "Rimuovi dai preferiti" : "Aggiungi ai preferiti"}
+      onClick={onToggleFavorite} disabled={disabled}>
+      <Star className={cn("size-3.5", candidate.isFavorite && "fill-current")} />
+    </Button>
+  );
+  const input = (
+    <Input className="h-10 min-w-0 flex-1 px-2 text-right text-base font-bold" inputMode="decimal" value={value}
+      disabled={disabled} onChange={(event) => onChange(event.target.value)}
+      onKeyDown={(event) => { if (event.key === "Enter") { event.currentTarget.blur(); onConfirm(); } }}
+      aria-label={`Quantità fisica ${name}`} />
+  );
+  const confirm = (cls?: string) => (
+    <Button className={cn("h-10 px-2 text-[11px] sm:px-3", cls)} onClick={onConfirm} disabled={disabled}>
+      <Check className="size-4" /><span>Conferma</span>
+    </Button>
+  );
+  const quick = (btnCls: string, clearCls: string) => (
+    <>
+      {[1, 3, 5, 10].map((increment) => (
+        <Button key={increment} type="button" variant="outline" size="sm"
+          className={cn("min-w-0 gap-0.5 overflow-hidden px-0 text-xs font-bold", btnCls)}
+          aria-label={`Aggiungi ${increment} ${quickUnit} a ${name}`}
+          disabled={disabled} onClick={() => onChange(addToQuantity(value, increment))}>
+          +{increment}{quickUnit ? <span className="font-semibold">{quickUnit}</span> : null}
+        </Button>
+      ))}
+      <Button type="button" variant="ghost" size="sm" className={cn("px-0", clearCls)} disabled={disabled}
+        onClick={() => onChange("")} aria-label={`Azzera quantità ${name}`}><Delete className="size-4" /></Button>
+    </>
+  );
+
+  if (layout === "row") {
+    return (
+      <article className="@container min-w-0 rounded-md border-2 border-border bg-card px-2 py-1.5">
+        <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 @min-[880px]:grid-cols-[36px_minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(150px,0.8fr)_minmax(230px,1.1fr)_auto_auto]">
+          {image("size-9")}
+          <div className="min-w-0">
+            <p className="truncate font-display text-sm font-bold uppercase leading-tight">
+              <span className="text-muted-foreground">{candidate.code}</span> · {name}
+            </p>
+            <p className="truncate text-[11px] leading-tight text-muted-foreground @min-[880px]:hidden">
+              {candidate.sellerCompanyName}{candidate.category ? ` · ${candidate.category}` : ""} · Mai contato
+            </p>
+          </div>
+          <div className="flex items-center justify-end gap-0.5 @min-[880px]:order-3">
+            {favorite}
+            <span className="rounded-sm bg-muted px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-muted-foreground">Mai contato</span>
+          </div>
+          <div className="hidden min-w-0 text-[11px] leading-tight @min-[880px]:block">
+            <p className="truncate text-muted-foreground">{candidate.category ?? "—"}</p>
+            <p className="truncate font-semibold">Mai contato</p>
+          </div>
+          <div className="col-span-3 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 @min-[880px]:contents">
+            <div className="flex min-w-0 items-center gap-1">
+              {input}
+              {unit ? <span className="shrink-0 text-[10px] font-semibold text-muted-foreground/90">{unit}</span> : null}
+            </div>
+            <div className="@min-[880px]:order-2">{confirm()}</div>
+          </div>
+          <div className="col-span-3 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-1.5 @min-[880px]:order-1 @min-[880px]:col-span-1">
+            {quick("h-9", "h-9 w-9")}
+          </div>
+        </div>
+      </article>
+    );
+  }
+
   return (
-    <article className="flex h-full flex-col rounded-md border-2 border-border bg-card p-2">
-      <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
-        {imageUrl ? (
-          <img src={imageUrl} alt="" loading="lazy" className="size-12 rounded-sm border border-border object-cover" />
-        ) : (
-          <span className="flex size-12 items-center justify-center rounded-sm border border-border bg-muted">
-            <Package className="size-5 text-muted-foreground" aria-hidden="true" />
-          </span>
-        )}
+    <article className="@container flex h-full min-w-0 flex-col rounded-md border-2 border-border bg-card p-2 @max-[300px]:p-1.5">
+      <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2 @max-[300px]:grid-cols-[36px_minmax(0,1fr)] @max-[300px]:gap-1.5">
+        {image("size-12 @max-[300px]:size-9")}
         <div className="min-w-0">
-          <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
-          <p className="text-[11px] leading-tight text-muted-foreground">Cod. {candidate.code}{unit ? ` · ${unit}` : ""}</p>
-          <p className="truncate text-[11px] leading-tight text-muted-foreground">
+          <p className="truncate font-display text-sm font-bold uppercase leading-tight @max-[300px]:line-clamp-2 @max-[300px]:whitespace-normal @max-[300px]:text-xs">{name}</p>
+          <p className="truncate text-[11px] leading-tight text-muted-foreground @max-[300px]:text-[10px]">Cod. {candidate.code}{unit ? ` · ${unit}` : ""}</p>
+          <p className="truncate text-[11px] leading-tight text-muted-foreground @max-[300px]:text-[10px]">
             {candidate.sellerCompanyName}{candidate.category ? ` · ${candidate.category}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-1">
-          <Button type="button" variant="ghost" size="sm"
-            className={cn("h-7 w-7 px-0", candidate.isFavorite && "text-primary")}
-            aria-label={candidate.isFavorite ? `Rimuovi ${name} dai preferiti` : `Aggiungi ${name} ai preferiti`}
-            title={candidate.isFavorite ? "Rimuovi dai preferiti" : "Aggiungi ai preferiti"}
-            onClick={onToggleFavorite} disabled={disabled}>
-            <Star className={cn("size-3.5", candidate.isFavorite && "fill-current")} />
-          </Button>
+        <div className="flex items-center gap-1 @max-[300px]:col-span-2">
+          {favorite}
           <span className="rounded-sm bg-muted px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-muted-foreground">
             Mai contato
           </span>
         </div>
       </div>
-      <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
+      <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5 @max-[300px]:mt-1.5 @max-[300px]:grid-cols-2">
         <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">0</p></div>
-        <div className="min-w-0">
+        <div className="min-w-0 @max-[300px]:order-3 @max-[300px]:col-span-2">
           <div className="flex items-baseline justify-between gap-1">
             <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
             {unit ? <span className="text-[10px] font-semibold leading-none text-muted-foreground/90">{unit}</span> : null}
           </div>
-          <Input className="mt-1 h-10 px-2 text-right text-base font-bold" inputMode="decimal" value={value}
-            disabled={disabled} onChange={(event) => onChange(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter") { event.currentTarget.blur(); onConfirm(); } }}
-            aria-label={`Quantità fisica ${name}`} />
+          <div className="mt-1 flex">{input}</div>
         </div>
-        <div className="text-right"><p className="text-[9px] leading-none text-muted-foreground">Differenza</p><p className="mt-1 text-sm font-bold leading-none">—</p></div>
-        <Button className="h-10 px-2 text-[11px] sm:px-3" onClick={onConfirm} disabled={disabled}>
-          <Check className="size-4" /><span className="hidden min-[360px]:inline">Conferma</span>
-        </Button>
+        <div className="text-right @max-[300px]:order-2"><p className="text-[9px] leading-none text-muted-foreground">Differenza</p><p className="mt-1 text-sm font-bold leading-none">—</p></div>
+        <div className="@max-[300px]:order-4 @max-[300px]:col-span-2">{confirm("w-full @max-[300px]:h-9")}</div>
       </div>
-      <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2">
-        {[1, 3, 5, 10].map((increment) => (
-          <Button key={increment} type="button" variant="outline" size="sm" className="h-8 px-0 text-xs font-bold"
-            disabled={disabled} onClick={() => onChange(addToQuantity(value, increment))}>+{increment}</Button>
-        ))}
-        <Button type="button" variant="ghost" size="sm" className="h-8 w-11 px-0" disabled={disabled}
-          onClick={() => onChange("")} aria-label={`Azzera quantità ${name}`}><Delete className="size-4" /></Button>
+      <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2 @max-[300px]:grid-cols-2 @max-[300px]:gap-1">
+        {quick("h-8", "h-8 w-11 @max-[300px]:col-span-2 @max-[300px]:h-7 @max-[300px]:w-full")}
       </div>
     </article>
   );
