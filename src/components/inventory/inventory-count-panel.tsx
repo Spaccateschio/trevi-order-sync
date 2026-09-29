@@ -2894,7 +2894,7 @@ function ProductCard({
           <Delete className="size-4" />
         </Button>
       </div>
-      {canCorrect && history && history.lastCountId && history.lastQuantity !== null && history.physical !== null && cycleLock.companyId && cycleLock.locationId ? (
+      {canCorrect && history && history.lastCountId && history.lastQuantity != null && history.physical != null && cycleLock.companyId && cycleLock.locationId ? (
         <PhysicalQuickEdit
           unlockedAll={Boolean(cycleLock.unlockedAll)}
           target={{

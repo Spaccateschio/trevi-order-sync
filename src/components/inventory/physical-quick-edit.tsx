@@ -27,7 +27,8 @@ export type PhysicalQuickEditTarget = {
 };
 
 const AUTO_REASON = "Correzione quantità fisica";
-const fmt = (n: number) => n.toLocaleString("it-IT", { maximumFractionDigits: 3 });
+const fmt = (n: number | null | undefined) =>
+  typeof n === "number" && Number.isFinite(n) ? n.toLocaleString("it-IT", { maximumFractionDigits: 3 }) : "—";
 
 /**
  * Correzione rapida dell'ultimo inventario chiuso: il conteggio originale resta intatto,
