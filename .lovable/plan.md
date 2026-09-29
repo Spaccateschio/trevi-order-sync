@@ -1,54 +1,26 @@
-# Stato bloccato delle schede dell’ultimo inventario
+# Ripristino pagina Inventario (sticky + spazio), senza toccare le card
 
-## Regola visiva
-- Una scheda con quantità già confermata, quando l’ultimo inventario è chiuso, usa uno sfondo **giallo ocra leggero** e leggibile.
-- In questo stato la scheda è interamente non operativa: l’unico comando che permette di intervenire è il pulsante generale **Sblocca quantità** sopra l’elenco.
-- Dopo **Sblocca quantità**, la scheda torna al colore normale attuale.
-- Durante un nuovo inventario o su una quantità ancora da inserire/confermare, la scheda resta sempre del colore normale.
+## Diagnosi (confronto con le versioni precedenti)
 
-## Controlli realmente presenti nella scheda
+1. **La modifica delle card di oggi (06:18–06:19) non ha toccato il layout.** Ha cambiato solo la scheda prodotto (`ProductCard`, righe ~2581–2990 di `inventory-count-panel.tsx`) e `physical-quick-edit.tsx`. Intestazione, schede, semaforo, ricerca, filtri e barra fissa sono rimasti identici.
 
-### 1. Bloccati prima di “Sblocca quantità”
-Saranno disabilitati tutti i controlli che reagiscono a un’azione:
-- campo **Quantità fisica** e matita;
-- selettore U.M., se presente;
-- `+1`, `+3`, `+5`, `+10`, Azzera e Conferma;
-- Preferito (stella);
-- andamento prezzo (€);
-- menu `⋮` completo;
-- nota della differenza, se presente.
+2. **Perché sparisce la barra fissa (ricerca + filtri)**
+   - Il comportamento sticky c'è ancora (dal 27/09, non modificato): il riquadro «Nessun inventario in corso» resta fisso. Una barra compatta con ricerca e filtri compare dentro quel riquadro quando la ricerca originale esce dallo schermo.
+   - Il meccanismo che fa comparire la barra usa una soglia fissa di **120 px** (righe 2185–2197).
+   - Il 27/09 alle 17:08 è stato aggiunto il box «Ultimo inventario (chiuso) + Visualizza inventario» dentro il riquadro fisso. Senza un inventario in corso, il riquadro è diventato alto circa 190 px.
+   - Risultato: la ricerca finisce **sotto** il riquadro fisso, ma per il sistema è ancora «visibile». Per questo la barra compatta non compare mai. Durante un inventario in corso il problema non si presenta.
 
-Le informazioni restano leggibili, ma nessun controllo interno alla scheda risponde al clic.
+3. **Cosa è cambiato sopra i prodotti**
+   - L'unico blocco nuovo è la riga separata **«Sblocca quantità»** (righe 1313–1319), aggiunta stamattina alle 05:26 con il primo sblocco delle quantità.
+   - Tutti gli altri blocchi (titolo, schede Conteggio/Fabbisogno/Zone, avviso del ciclo, riquadro inventario, ricerca, «Tutto l'inventario» con i filtri) esistevano già prima, nello stesso ordine.
 
-### 2. Riattivati dopo “Sblocca quantità”
-Tornano utilizzabili i comandi compatibili con un inventario chiuso:
-- Quantità fisica, matita, incrementi, Azzera e Conferma: salvano la correzione tramite la rettifica tracciata già esistente, senza riscrivere il conteggio storico;
-- Preferito;
-- andamento prezzo;
-- nota della differenza in consultazione;
-- nel menu `⋮`: **Proponi per l’acquisto**, **Storico dei controlli**, **Apri prodotto → Acquisto**.
+## Ripristino proposto (solo 2 punti, file `inventory-count-panel.tsx`)
 
-### 3. Non riattivabili sull’inventario chiuso
-Restano disabilitati anche dopo lo sblocco:
-- **Segna da ricontare**;
-- **Segnala/Revoca non conforme**;
-- cambio dell’U.M. del conteggio storico.
+1. **Barra fissa**: la soglia fissa di 120 px viene sostituita dall'altezza reale del riquadro fisso, misurata sulla pagina. La barra compatta ricompare appena la ricerca viene coperta, come prima. Nessun cambio di posizione, stile o contenuto.
+2. **Riga «Sblocca quantità»**: il pulsante viene spostato sulla riga già esistente delle schede, accanto a «Nuovo conteggio», e la riga dedicata viene eliminata. Si recupera così lo spazio di prima. Funzionamento e condizioni restano identici.
 
-Motivo: queste azioni oggi scrivono nuove righe dentro una sessione d’inventario aperta. Riattivarle sull’inventario chiuso richiederebbe una nuova logica dati e violerebbe il vincolo di non modificare lo storico chiuso. Non verrà inventato alcun comportamento sostitutivo.
+## Cosa NON viene toccato
+Logica delle card (ocra, matita, sblocco, Conferma, rettifica), titolo, schede, semaforo, avviso del ciclo, ricerca, barra filtri, Lista della Spesa, Fabbisogno, storico, database.
 
-## Implementazione
-- Coordinare lo stato globale **Sblocca quantità** con tutti i controlli delle schede.
-- Fare in modo che incrementi, Azzera e Conferma lavorino sulla stessa quantità fisica mostrata nella cella esistente.
-- Usare i token colore già presenti per ottenere l’ocra, senza colori inseriti direttamente nella scheda.
-- Non modificare database, funzioni server, semaforo, Lista della Spesa, Fabbisogno o storico.
-
-## File interessati
-- `src/components/inventory/inventory-count-panel.tsx`
-- `src/components/inventory/physical-quick-edit.tsx`
-- `src/styles.css` solo se manca un token semantico ocra adatto; nessun altro file.
-
-## Verifica senza dati reali
-- Alla larghezza dello screenshot: sei schede ocra e tutti i comandi interni inattivi prima dello sblocco.
-- Dopo **Sblocca quantità**: colore normale e attivazione dei soli controlli elencati al punto 2.
-- Verificare incrementi, Azzera e Conferma senza completare alcun salvataggio.
-- Verificare che Riconta, Non conforme e cambio U.M. restino indisponibili.
+## Verifica
+Controllo nell'anteprima alla tua larghezza (833 px): scorrendo, ricerca e filtri restano visibili in alto; le schede prodotto funzionano come ora. Nessun dato salvato.
