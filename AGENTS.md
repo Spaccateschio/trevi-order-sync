@@ -16,3 +16,4 @@
 - Ciclo Inventario→Lista→Ordini: colore semaforo e presa in carico decisi solo da inventory_purchase_cycle_status / manage_inventory_purchase_evaluation (colonne purchase_* su inventory_sessions); con rosso start_general_inventory rifiuta nuove sessioni: un solo ciclo aperto alla volta.
 
 - Acquisti: il dato d'ordine è quantità + U.M. d'acquisto + fornitore; assigned_quantity/ordered_quantity/declared_quantity sono solo equivalente in U.M. di magazzino (NULL senza conversione, mai 0); le colonne *_purchase_* non si usano mai per kg: evita di confondere cassette e kg.
+- U.M. del prezzo: configurazione = FK (product_supplier_links.price_unit_id, solo non B2B; B2B dal products.price_unit_id del venditore), documenti = fotografia price_unit_id+price_unit_code (ordine, carico) e price_quantity sul carico; stock_lots.unit_cost = price_quantity × unit_cost / quantità caricata, altrimenti NULL; costo Danea senza U.M.: il prezzo non è mai interpretabile senza la sua base.

@@ -259,6 +259,13 @@ export const setGoodsReceiptItem = createServerFn({ method: "POST" })
         expiryDate: z.string().trim().max(10).nullable(),
         unitCost: z.number().min(0).nullable(),
         notes: z.string().trim().max(500).nullable(),
+        /** U.M. del prezzo: id dell'anagrafica aziendale oppure solo codice libero (fornitore non B2B). */
+        priceUnitId: uuid.nullable().optional(),
+        priceUnitCode: z.string().trim().max(20).nullable().optional(),
+        clearPriceUnit: z.boolean().optional(),
+        /** Quantità nella stessa U.M. del prezzo (es. 102,4 kg oppure 10 casse). */
+        priceQuantity: z.number().positive().nullable().optional(),
+        clearPriceQuantity: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -272,6 +279,11 @@ export const setGoodsReceiptItem = createServerFn({ method: "POST" })
       ...(data.expiryDate === null ? {} : { _expiry_date: data.expiryDate }),
       ...(data.unitCost === null ? {} : { _unit_cost: data.unitCost }),
       ...(data.notes === null ? {} : { _notes: data.notes }),
+      ...(data.priceUnitId ? { _price_unit_id: data.priceUnitId } : {}),
+      ...(data.priceUnitCode ? { _price_unit_code: data.priceUnitCode } : {}),
+      ...(data.clearPriceUnit ? { _clear_price_unit: true } : {}),
+      ...(data.priceQuantity ? { _price_quantity: data.priceQuantity } : {}),
+      ...(data.clearPriceQuantity ? { _clear_price_quantity: true } : {}),
     });
     if (error) throw new Error(error.message);
     return { ok: true };

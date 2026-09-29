@@ -23,6 +23,7 @@ import {
   DELIVERY_ORIGIN_LABEL,
   DELIVERY_STATUS_LABEL,
   ORDER_STATUS_LABEL,
+  priceLabel,
   type DeliveryRow,
   type OrderItemRow,
   type OrderOverviewRow,
@@ -72,7 +73,7 @@ export function PurchaseOrderDetail({
       const { data, error } = await supabase
         .from("purchase_order_items")
         .select(
-          "id, product_id, ordered_quantity, unit_code, purchase_quantity, purchase_unit_code, unit_cost, supplier_product_code, products(code, description)",
+          "id, product_id, ordered_quantity, unit_code, purchase_quantity, purchase_unit_code, unit_cost, price_unit_code, supplier_product_code, products(code, description)",
         )
         .eq("order_id", order.order_id)
         .order("created_at");
@@ -284,6 +285,10 @@ export function PurchaseOrderDetail({
                   {qty(item.ordered_quantity)} {item.unit_code}
                 </p>
               )}
+              {/* Prezzo fotografato sull'ordine, con la sua U.M. (indipendente dalla U.M. d'ordine). */}
+              {item.unit_cost !== null ? (
+                <p className="text-xs text-muted-foreground">Prezzo: {priceLabel(item.unit_cost, item.price_unit_code)}</p>
+              ) : null}
             </div>
           </div>
         ))}
