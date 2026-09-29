@@ -235,10 +235,15 @@ export function ShoppingListCard({
         {suppliers.length ? "Aggiungi fornitore" : "Scegli fornitore"}
       </Button>
     ) : (
-      <Button type="button" size="sm" variant="outline" className="h-8 px-2 text-xs" disabled title="Disponibile a breve">
-        <Plus aria-hidden="true" />
-        Associa fornitore
-      </Button>
+      <div className="grid grid-cols-2 gap-1">
+        <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-1 text-xs" disabled title="Disponibile a breve">
+          <Plus aria-hidden="true" />
+          Associa fornitore
+        </Button>
+        <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-1 text-xs" disabled title="Disponibile a breve">
+          Acquisto manuale
+        </Button>
+      </div>
     );
 
   if (isRow) {
