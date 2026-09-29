@@ -1,31 +1,54 @@
-# Blocco e sblocco delle schede dell’ultimo inventario
+# Stato bloccato delle schede dell’ultimo inventario
 
-## Comportamento visivo
-- Quando l’ultimo inventario è completato e **Sblocca quantità** non è attivo, tutte le schede hanno uno sfondo giallo ocra e risultano chiaramente bloccate.
-- Premendo **Sblocca quantità**, le schede tornano al colore operativo normale.
-- Durante un inventario aperto o l’inserimento iniziale, le schede mantengono il colore operativo normale.
+## Regola visiva
+- Una scheda con quantità già confermata, quando l’ultimo inventario è chiuso, usa uno sfondo **giallo ocra leggero** e leggibile.
+- In questo stato la scheda è interamente non operativa: l’unico comando che permette di intervenire è il pulsante generale **Sblocca quantità** sopra l’elenco.
+- Dopo **Sblocca quantità**, la scheda torna al colore normale attuale.
+- Durante un nuovo inventario o su una quantità ancora da inserire/confermare, la scheda resta sempre del colore normale.
 
-## Comandi nella scheda
-Quando le schede sono bloccate:
-- quantità, pulsanti `+1 / +3 / +5 / +10`, azzera e conferma sono disabilitati;
-- i comandi che modificano dati sono disabilitati;
-- restano accessibili solo le consultazioni, come lo storico del prodotto e l’apertura della scheda prodotto.
+## Controlli realmente presenti nella scheda
 
-Quando si preme **Sblocca quantità**:
-- quantità, incrementi, azzera e conferma diventano utilizzabili sulla quantità fisica attuale;
-- preferito e proposta d’acquisto tornano utilizzabili perché non riscrivono il conteggio chiuso;
-- storico e apertura prodotto restano disponibili.
+### 1. Bloccati prima di “Sblocca quantità”
+Saranno disabilitati tutti i controlli che reagiscono a un’azione:
+- campo **Quantità fisica** e matita;
+- selettore U.M., se presente;
+- `+1`, `+3`, `+5`, `+10`, Azzera e Conferma;
+- Preferito (stella);
+- andamento prezzo (€);
+- menu `⋮` completo;
+- nota della differenza, se presente.
 
-## Protezione dello storico chiuso
-I comandi **Segna da ricontare** e **Non conforme** non verranno attivati sul conteggio chiuso: oggi creano nuove righe dentro una sessione aperta e riattivarli qui violerebbe la regola già approvata che lo storico completato resta immutabile. Renderli disponibili richiederebbe un intervento separato sulla logica dati, non una correzione grafica.
+Le informazioni restano leggibili, ma nessun controllo interno alla scheda risponde al clic.
 
-## Ambito tecnico
-- Modificare solo `src/components/inventory/inventory-count-panel.tsx` e, se necessario per coordinare i comandi della quantità, `src/components/inventory/physical-quick-edit.tsx`.
-- Nessuna modifica al database, alle funzioni server, al semaforo, alla Lista della Spesa o al Fabbisogno.
-- Nessun dato reale creato durante le prove.
+### 2. Riattivati dopo “Sblocca quantità”
+Tornano utilizzabili i comandi compatibili con un inventario chiuso:
+- Quantità fisica, matita, incrementi, Azzera e Conferma: salvano la correzione tramite la rettifica tracciata già esistente, senza riscrivere il conteggio storico;
+- Preferito;
+- andamento prezzo;
+- nota della differenza in consultazione;
+- nel menu `⋮`: **Proponi per l’acquisto**, **Storico dei controlli**, **Apri prodotto → Acquisto**.
 
-## Verifica
-- Controllare alla larghezza dello screenshot che tutte le schede chiuse siano ocra.
-- Controllare che prima dello sblocco i comandi di modifica siano inattivi.
-- Premere **Sblocca quantità** e verificare che quantità, incrementi, azzera, conferma, preferito e proposta siano attivi.
-- Non cambiare valori e non eseguire salvataggi.
+### 3. Non riattivabili sull’inventario chiuso
+Restano disabilitati anche dopo lo sblocco:
+- **Segna da ricontare**;
+- **Segnala/Revoca non conforme**;
+- cambio dell’U.M. del conteggio storico.
+
+Motivo: queste azioni oggi scrivono nuove righe dentro una sessione d’inventario aperta. Riattivarle sull’inventario chiuso richiederebbe una nuova logica dati e violerebbe il vincolo di non modificare lo storico chiuso. Non verrà inventato alcun comportamento sostitutivo.
+
+## Implementazione
+- Coordinare lo stato globale **Sblocca quantità** con tutti i controlli delle schede.
+- Fare in modo che incrementi, Azzera e Conferma lavorino sulla stessa quantità fisica mostrata nella cella esistente.
+- Usare i token colore già presenti per ottenere l’ocra, senza colori inseriti direttamente nella scheda.
+- Non modificare database, funzioni server, semaforo, Lista della Spesa, Fabbisogno o storico.
+
+## File interessati
+- `src/components/inventory/inventory-count-panel.tsx`
+- `src/components/inventory/physical-quick-edit.tsx`
+- `src/styles.css` solo se manca un token semantico ocra adatto; nessun altro file.
+
+## Verifica senza dati reali
+- Alla larghezza dello screenshot: sei schede ocra e tutti i comandi interni inattivi prima dello sblocco.
+- Dopo **Sblocca quantità**: colore normale e attivazione dei soli controlli elencati al punto 2.
+- Verificare incrementi, Azzera e Conferma senza completare alcun salvataggio.
+- Verificare che Riconta, Non conforme e cambio U.M. restino indisponibili.
