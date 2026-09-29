@@ -1,7 +1,7 @@
 /** Tipi e calcoli condivisi della Lista della Spesa. Nessun arrotondamento automatico: solo proposte. */
 
 export type ShoppingListStatus = "aperta" | "confermata" | "chiusa" | "annullata";
-export type ItemStatus = "da_assegnare" | "parziale" | "assegnata";
+export type ItemStatus = "da_assegnare" | "parziale" | "assegnata" | "manuale";
 
 export type ShoppingListRow = {
   id: string;
@@ -21,7 +21,8 @@ export type OverviewRow = {
   description: string | null;
   unit_code: string | null;
   suggested_quantity: number | null;
-  decided_quantity: number;
+  /** Obiettivo facoltativo in U.M. di magazzino. */
+  decided_quantity: number | null;
   change_reason: string | null;
   origin: "manuale" | "fabbisogno";
   snapshot_available: number | null;
@@ -34,7 +35,7 @@ export type OverviewRow = {
   current_order_multiple: number | null;
   current_suggested: number | null;
   assigned: number;
-  remaining: number;
+  remaining: number | null;
   status: ItemStatus;
   untranslatable: number;
   under_minimum: number;
@@ -47,8 +48,10 @@ export type AssignmentRow = {
   item_id: string;
   product_supplier_link_id: string;
   supplier_record_id: string;
-  assigned_quantity: number;
+  /** Equivalente in U.M. di magazzino: vuoto se manca la conversione (mai 0). */
+  assigned_quantity: number | null;
   purchase_quantity: number | null;
+  purchase_unit_id?: string | null;
   purchase_unit_code: string | null;
   conversion_factor: number | null;
   min_warning_accepted: boolean;
@@ -66,6 +69,7 @@ export const ITEM_STATUS_LABEL: Record<ItemStatus, string> = {
   da_assegnare: "Da assegnare",
   parziale: "Parziale",
   assegnata: "Assegnata",
+  manuale: "Acquisto manuale",
 };
 
 /** Percentuali solo di lettura: nascono dalle quantità e non vengono salvate. */

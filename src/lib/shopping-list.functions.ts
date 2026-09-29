@@ -36,7 +36,7 @@ const addSchema = z.object({
 const quantitySchema = z.object({
   companyId: z.string().uuid(),
   itemId: z.string().uuid(),
-  decidedQuantity: z.number().positive(),
+  decidedQuantity: z.number().positive().nullable(),
   reason: z.string().trim().max(200).nullable(),
   notes: z.string().trim().max(500).nullable(),
 });
@@ -52,6 +52,8 @@ const assignSchema = z.object({
   notes: z.string().trim().max(500).nullable(),
   // U.M. con cui si acquista: facoltativa, deve essere abilitata sulla referenza.
   purchaseUnitId: z.string().uuid().nullable().optional(),
+  // Ripartizione da aggiornare/rimuovere (più U.M. dello stesso fornitore).
+  assignmentId: z.string().uuid().nullable().optional(),
 });
 
 export const manageShoppingList = createServerFn({ method: "POST" })
@@ -97,7 +99,7 @@ export const setShoppingListItemQuantity = createServerFn({ method: "POST" })
     const { error } = await context.supabase.rpc("set_shopping_list_item_quantity", {
       _company_id: data.companyId,
       _item_id: data.itemId,
-      _decided_quantity: data.decidedQuantity,
+      _decided_quantity: data.decidedQuantity as number,
       _actor_user_id: context.userId,
       ...(data.reason === null ? {} : { _reason: data.reason }),
       ...(data.notes === null ? {} : { _notes: data.notes }),
@@ -136,6 +138,7 @@ export const assignShoppingListSupplier = createServerFn({ method: "POST" })
       ...(data.purchaseQuantity === null ? {} : { _purchase_quantity: data.purchaseQuantity }),
       ...(data.notes === null ? {} : { _notes: data.notes }),
       ...(data.purchaseUnitId ? { _purchase_unit_id: data.purchaseUnitId } : {}),
+      ...(data.assignmentId ? { _assignment_id: data.assignmentId } : {}),
     });
     if (error) throw new Error(error.message);
     return { ok: true };
