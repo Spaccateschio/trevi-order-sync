@@ -776,6 +776,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               />
             ))}
           </div>
+          </div>
 
           {!rows.length && !overviewQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">
