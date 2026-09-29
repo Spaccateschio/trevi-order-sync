@@ -2639,7 +2639,7 @@ function ProductCard({
             <Package className="size-5 text-muted-foreground" aria-hidden="true" />
           </span>
         )}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
           <p className="text-[11px] leading-tight text-muted-foreground">
             Cod. {row.code}
