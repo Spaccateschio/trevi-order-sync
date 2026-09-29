@@ -108,6 +108,21 @@ export const setShoppingListItemQuantity = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Conferma (blocca) o sblocca la quantità da acquistare di una riga. Autorizzazione nel DB tramite auth.uid(). */
+export const setShoppingListItemQuantityLock = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ itemId: z.string().uuid(), locked: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("set_shopping_list_item_quantity_lock", {
+      _item_id: data.itemId,
+      _locked: data.locked,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const removeShoppingListItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>

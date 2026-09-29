@@ -55,6 +55,7 @@ import {
   manageShoppingList,
   removeShoppingListItem,
   setShoppingListItemQuantity,
+  setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
 
 type Archive = { id: string; name: string; is_default: boolean };
@@ -68,7 +69,9 @@ type FilterFlag =
   | "parziale"
   | "assegnata"
   | "in_ordine"
-  | "da_ordinare";
+  | "da_ordinare"
+  | "da_confermare"
+  | "confermati";
 const FILTER_FLAGS: [FilterFlag, string][] = [
   ["senza_fornitore", "Senza fornitore"],
   ["b2b", "B2B"],
@@ -79,6 +82,8 @@ const FILTER_FLAGS: [FilterFlag, string][] = [
   ["assegnata", "Assegnati"],
   ["in_ordine", "Già in ordine"],
   ["da_ordinare", "Da ordinare"],
+  ["da_confermare", "Quantità da confermare"],
+  ["confermati", "Quantità confermate"],
 ];
 
 function B2BBadge() {
@@ -95,6 +100,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runList = useServerFn(manageShoppingList);
   const runQuantity = useServerFn(setShoppingListItemQuantity);
   const runRemove = useServerFn(removeShoppingListItem);
+  const runLock = useServerFn(setShoppingListItemQuantityLock);
   const readCycle = useServerFn(getInventoryCycleStatus);
   const runFavorite = useServerFn(manageCompanyProductFavorite);
   const runEvaluation = useServerFn(manageInventoryEvaluation);
@@ -386,6 +392,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         if (statusFlags.length && !(statusFlags as readonly string[]).includes(row.status)) return false;
         if (flags.has("in_ordine") && extra?.orderState !== "ordinato") return false;
         if (flags.has("da_ordinare") && extra?.orderState === "ordinato") return false;
+        if (flags.has("da_confermare") && extra?.lockedAt) return false;
+        if (flags.has("confermati") && !extra?.lockedAt) return false;
       }
       return true;
     });
@@ -452,7 +460,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     <Input
       className={className}
       inputMode="decimal"
-      disabled={!editable}
+      disabled={!editable || Boolean(extras.get(row.item_id)?.lockedAt)}
       value={edits[row.item_id] ?? (row.decided_quantity === null ? "" : String(row.decided_quantity))}
       aria-label={`Quantità decisa ${row.code}`}
       onChange={(event) => setEdits((current) => ({ ...current, [row.item_id]: event.target.value }))}
@@ -479,6 +487,27 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     const next = Math.round((base + step) * 1000) / 1000;
     setEdits((current) => ({ ...current, [row.item_id]: String(next) }));
     quantityMutation.mutate({ itemId: row.item_id, quantity: next });
+  };
+
+  const lockMutation = useMutation({
+    mutationFn: (input: { itemId: string; locked: boolean }) => runLock({ data: input }),
+    onSuccess: async (_r, input) => {
+      await queryClient.invalidateQueries({ queryKey: ["shopping-extras-locks"] });
+      toast.success(input.locked ? "Quantità confermata" : "Quantità sbloccata");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  // Conferma: salva prima un'eventuale quantità ancora in scrittura, poi blocca.
+  const toggleLock = async (row: OverviewRow) => {
+    const locked = Boolean(extras.get(row.item_id)?.lockedAt);
+    if (!locked) {
+      const raw = edits[row.item_id];
+      const value = raw === undefined ? null : parseQuantity(raw);
+      if (value && value !== Number(row.decided_quantity)) {
+        await quantityMutation.mutateAsync({ itemId: row.item_id, quantity: value });
+      }
+    }
+    lockMutation.mutate({ itemId: row.item_id, locked: !locked });
   };
 
   const statusBadge = (row: OverviewRow) => (
@@ -778,6 +807,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 }
                 onOpenSuppliers={() => setSplitItem(row)}
                 onRemove={() => removeMutation.mutate(row.item_id)}
+                onToggleLock={() => void toggleLock(row)}
+                lockPending={lockMutation.isPending || quantityMutation.isPending}
               />
             ))}
           </div>

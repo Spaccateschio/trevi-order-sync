@@ -3779,6 +3779,8 @@ export type Database = {
           origin: Database["public"]["Enums"]["shopping_list_item_origin"]
           product_id: string
           purchase_mode: string
+          quantity_locked_at: string | null
+          quantity_locked_by: string | null
           snapshot_available: number | null
           snapshot_min_stock: number | null
           snapshot_needed: number | null
@@ -3808,6 +3810,8 @@ export type Database = {
           origin?: Database["public"]["Enums"]["shopping_list_item_origin"]
           product_id: string
           purchase_mode?: string
+          quantity_locked_at?: string | null
+          quantity_locked_by?: string | null
           snapshot_available?: number | null
           snapshot_min_stock?: number | null
           snapshot_needed?: number | null
@@ -3837,6 +3841,8 @@ export type Database = {
           origin?: Database["public"]["Enums"]["shopping_list_item_origin"]
           product_id?: string
           purchase_mode?: string
+          quantity_locked_at?: string | null
+          quantity_locked_by?: string | null
           snapshot_available?: number | null
           snapshot_min_stock?: number | null
           snapshot_needed?: number | null
@@ -6192,6 +6198,10 @@ export type Database = {
           _notes?: string
           _reason?: string
         }
+        Returns: string
+      }
+      set_shopping_list_item_quantity_lock: {
+        Args: { _item_id: string; _locked: boolean }
         Returns: string
       }
       set_supplier_delivery_schedule: {
