@@ -85,7 +85,7 @@ import {
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
 import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inventory/correct-count-dialog";
-import { PhysicalQuickEdit, type PhysicalEdit } from "@/components/inventory/physical-quick-edit";
+import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget } from "@/components/inventory/physical-quick-edit";
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
 import type { SessionRow } from "@/lib/inventory";
 
@@ -2650,6 +2650,7 @@ function ProductCard({
         isConfirmed && !hasDifference && "border-success/50 bg-success/5",
         hasDifference && "border-destructive/50 bg-destructive/5",
         needsRecount && "border-primary/60 bg-primary/5",
+        locked && "border-primary/60 bg-primary/15",
       )}
     >
       <div className="grid grid-cols-[48px_minmax(0,1fr)_fit-content(45%)] items-center gap-2">
@@ -2717,6 +2718,7 @@ function ProductCard({
               aria-label={row.is_favorite ? `Rimuovi ${name} dai preferiti` : `Aggiungi ${name} ai preferiti`}
               title={row.is_favorite ? "Rimuovi dai preferiti" : "Aggiungi ai preferiti"}
               onClick={onToggleFavorite}
+              disabled={locked}
             >
               <Star className={cn("size-3.5", row.is_favorite && "fill-current")} />
             </Button>
@@ -2824,6 +2826,7 @@ function ProductCard({
                 className="h-4 max-w-[64px] rounded-sm border border-border bg-background px-0.5 text-[10px] font-semibold leading-none text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 value={selectedUnit}
                 onChange={(event) => unitsCtx.setSelected(row, event.target.value)}
+                disabled={cycleLocked}
                 aria-label={`Unità di misura conteggio ${name}`}
                 title={conversionHint ?? "Unità di misura del conteggio"}
               >
@@ -2839,29 +2842,9 @@ function ProductCard({
               </span>
             ) : null}
           </div>
-          {canCorrect && history?.lastCountId && history.lastQuantity != null && history.physical != null && cycleLock.companyId && cycleLock.locationId ? (
-            <div className="mt-1">
-              <PhysicalQuickEdit
-                unlockedAll={Boolean(cycleLock.unlockedAll)}
-                target={{
-                  companyId: cycleLock.companyId,
-                  listId: cycleLock.listId ?? null,
-                  productId: row.product_id,
-                  locationId: cycleLock.locationId,
-                  countId: history.lastCountId,
-                  unit: history.lastUnit ?? unit ?? "",
-                  countedQuantity: history.lastQuantity,
-                  countedAt: history.lastAt,
-                  physical: history.physical,
-                  previousQuantity: history.previousQuantity,
-                  countNote: history.countNote,
-                  edits: history.edits,
-                }}
-              />
-            </div>
-          ) : (
+          <div className="mt-1 flex items-center gap-1">
             <Input
-              className="mt-1 h-10 px-2 text-right text-base font-bold"
+              className="h-10 min-w-0 flex-1 px-2 text-right text-base font-bold disabled:opacity-100"
               type="text"
               inputMode="decimal"
               data-count-input="true"
@@ -2870,21 +2853,51 @@ function ProductCard({
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
-              value={locked && history?.physical != null ? formatQuantity(history.physical, history.lastUnit ?? unit) : value}
-              disabled={locked}
-              title={locked ? "Completa prima il ciclo acquisti: usa «Vai alla Lista della Spesa»" : undefined}
+              value={
+                correctionTarget
+                  ? correction.value
+                  : cycleLocked && history?.physical != null
+                    ? formatQuantity(history.physical, history.lastUnit ?? unit)
+                    : value
+              }
+              disabled={locked || correction.pending}
+              title={locked ? (correctionTarget ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
               placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
-              onChange={(event) => onChange(event.target.value)}
+              onChange={(event) => (correcting ? correction.setValue(event.target.value) : onChange(event.target.value))}
               onFocus={(event) => event.currentTarget.select()}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.currentTarget.blur();
-                  onConfirm();
+                  if (correcting) correction.confirm();
+                  else onConfirm();
                 }
               }}
               aria-label={`Quantità fisica ${name}`}
             />
-          )}
+            {correctionTarget ? (
+              <Button
+                type="button"
+                variant={correcting ? "secondary" : "outline"}
+                size="sm"
+                className="h-10 w-9 shrink-0 px-0"
+                aria-label={correcting ? `Blocca ${name}` : `Sblocca ${name}`}
+                title={correcting ? "Blocca" : "Sblocca"}
+                disabled={correction.pending}
+                onClick={correction.toggle}
+              >
+                {correcting ? <Lock className="size-4" /> : <Pencil className="size-4" />}
+              </Button>
+            ) : null}
+          </div>
+          {correcting && correction.needsReason ? (
+            <div className="mt-1 space-y-1">
+              <p className="text-[10px] font-semibold text-destructive">
+                Risultavano {formatQuantity(history?.previousQuantity ?? 0, unit)} {unit}: indica il motivo.
+              </p>
+              <Input className="h-8 text-xs" placeholder="Motivo (es. merce scartata)" value={correction.reason}
+                onChange={(e) => correction.setReason(e.target.value)} />
+            </div>
+          ) : null}
         </div>
         <div className="text-right">
           <p className="text-[9px] leading-none text-muted-foreground">Differenza</p>
@@ -2902,7 +2915,7 @@ function ProductCard({
             <p className="mt-0.5 text-[8px] leading-none text-muted-foreground">U.M. non confrontabili</p>
           ) : null}
         </div>
-        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={onConfirm} disabled={locked}>
+        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={correcting ? correction.confirm : onConfirm} disabled={locked || correction.pending}>
           <Check className="size-4" />
           <span className="hidden min-[360px]:inline">Conferma</span>
         </Button>
@@ -2918,7 +2931,11 @@ function ProductCard({
             tabIndex={-1}
             aria-label={`Aggiungi ${increment} a ${name}`}
             disabled={locked}
-            onClick={() => onChange(addToQuantity(value, increment))}
+            onClick={() =>
+              correcting
+                ? correction.setValue(addToQuantity(correction.value, increment))
+                : onChange(addToQuantity(value, increment))
+            }
           >
             +{increment}
           </Button>
@@ -2932,7 +2949,7 @@ function ProductCard({
           aria-label={`Azzera quantità ${name}`}
           title="Azzera"
           disabled={locked}
-          onClick={() => onChange("")}
+          onClick={() => (correcting ? correction.setValue("") : onChange(""))}
         >
           <Delete className="size-4" />
         </Button>
