@@ -50,6 +50,7 @@
 - [ ] Lista della Spesa: riconfermare una lista già confermata non cambia nulla ma scrive comunque una voce "shopping_list.confirm" nel registro attività
 
 ## Inventario — Passo 2 (in attesa di via)
+- [ ] Schede ultimo inventario: stato bloccato con sfondo ocra e tutti i comandi operativi disabilitati; dopo “Sblocca quantità” riattivare solo i comandi compatibili con lo storico chiuso
 - [ ] Storico conteggi della sessione (tutte le conferme e correzioni, sola lettura)
 - [ ] Dopo la conferma: finestra "Conteggio completato" → Vai al Fabbisogno / Resta nel Conteggio (nessuna aggiunta automatica alla Lista)
 
