@@ -2631,7 +2631,7 @@ function ProductCard({
         needsRecount && "border-primary/60 bg-primary/5",
       )}
     >
-      <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
+      <div className="grid grid-cols-[48px_minmax(0,1fr)_fit-content(45%)] items-center gap-2">
         {imageUrl ? (
           <img src={imageUrl} alt="" loading="lazy" className="size-12 rounded-sm border border-border object-cover" />
         ) : (
@@ -2679,7 +2679,7 @@ function ProductCard({
             </p>
           ) : null}
         </div>
-        <div className="flex max-w-[45%] flex-wrap items-center justify-end gap-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
           <PriceTrendIcon
             series={priceSeries}
             label={`Andamento prezzo di ${name}`}
