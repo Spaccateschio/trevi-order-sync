@@ -1,4 +1,4 @@
-import { MoreVertical, Package, Plus, Star, Trash2, Truck } from "lucide-react";
+import { Check, Lock, MoreVertical, Package, Plus, Star, Trash2, Truck } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { RowExtras } from "./use-shopping-list-extras";
@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { qty } from "@/lib/inventory";
+import { dateTimeShort, qty } from "@/lib/inventory";
 import { ITEM_STATUS_LABEL, type OverviewRow } from "@/lib/shopping-list";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +44,8 @@ export function ShoppingListCard({
   favoritePending,
   onOpenSuppliers,
   onRemove,
+  onToggleLock,
+  lockPending = false,
 }: {
   row: OverviewRow;
   extra: RowExtras | undefined;
@@ -56,6 +58,8 @@ export function ShoppingListCard({
   favoritePending: boolean;
   onOpenSuppliers: () => void;
   onRemove: () => void;
+  onToggleLock: () => void;
+  lockPending?: boolean;
 }) {
   const name = row.description ?? row.code;
   const unit = row.unit_code ?? "";
@@ -64,6 +68,8 @@ export function ShoppingListCard({
   const suggested = row.current_suggested ?? row.suggested_quantity;
   const isFavorite = Boolean(extra?.isFavorite);
   const isRow = layout === "row";
+  // Quantità confermata: bloccata finché non si sblocca (fornitori restano modificabili).
+  const locked = Boolean(extra?.lockedAt);
 
   // Senza conversione l'equivalente non esiste: non si somma e non si inventa.
   const convertible = (s: Supplier) => s.quantity !== null;
@@ -138,10 +144,27 @@ export function ShoppingListCard({
     </>
   );
 
+  const lockButton = editable ? (
+    <Button
+      type="button"
+      size="sm"
+      variant={locked ? "secondary" : "default"}
+      className="h-9 shrink-0 gap-1 px-2 text-xs"
+      disabled={lockPending || (!locked && (target === null || target <= 0))}
+      aria-label={locked ? `Sblocca quantità di ${name}` : `Conferma quantità di ${name}`}
+      title={locked ? "Sblocca per modificare" : target === null ? "Inserisci una quantità" : "Conferma e blocca"}
+      onClick={onToggleLock}
+    >
+      {locked ? <Lock className="size-3.5" aria-hidden="true" /> : <Check className="size-3.5" aria-hidden="true" />}
+      <span className="hidden min-[360px]:inline">{locked ? "Sblocca" : "Conferma"}</span>
+    </Button>
+  ) : null;
+
   const quantityBlock = (
     <div className="flex min-w-0 items-center gap-1.5">
       {editable ? quantityInput : <span className="text-sm font-semibold">{target === null ? "—" : qty(target)}</span>}
       <span className="shrink-0 text-xs font-semibold text-muted-foreground">{unit || "—"}</span>
+      {lockButton}
     </div>
   );
 
@@ -156,6 +179,7 @@ export function ShoppingListCard({
             size="sm"
             className={cn("min-w-0 gap-0.5 overflow-hidden px-0 text-xs font-bold", cls)}
             aria-label={`Aggiungi ${step} ${unitLabel} alla quantità da acquistare di ${name}`}
+            disabled={locked}
             onClick={() => onQuickAdd(step)}
           >
             +{step}
@@ -164,6 +188,12 @@ export function ShoppingListCard({
         ))}
       </div>
     ) : null;
+
+  const lockNote = locked && extra?.lockedAt ? (
+    <p className="flex items-center gap-1 text-[10px] font-semibold text-foreground">
+      <Lock className="size-3" aria-hidden="true" /> Confermata {dateTimeShort(extra.lockedAt)}
+    </p>
+  ) : null;
 
   const supplierLine = (s: Supplier) => (
     <li key={`${s.linkId}-${s.purchaseUnitCode ?? ""}`} className="flex min-w-0 items-center gap-1">
