@@ -13,7 +13,7 @@ import {
   Trash2,
   Truck,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AddProductsDialog, Thumb } from "./add-products-dialog";
@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { dateTimeShort, parseQuantity, qty } from "@/lib/inventory";
-import { getInventoryCycleStatus } from "@/lib/inventory-cycle.functions";
+import { getInventoryCycleStatus, manageInventoryEvaluation } from "@/lib/inventory-cycle.functions";
 import {
   ITEM_STATUS_LABEL,
   LIST_STATUS_LABEL,
@@ -92,6 +92,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runQuantity = useServerFn(setShoppingListItemQuantity);
   const runRemove = useServerFn(removeShoppingListItem);
   const readCycle = useServerFn(getInventoryCycleStatus);
+  const runEvaluation = useServerFn(manageInventoryEvaluation);
+  const creatingRef = useRef<Promise<string | null> | null>(null);
 
   const [listId, setListId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -131,22 +133,55 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   });
 
   const lists = listsQuery.data ?? [];
-  const list = useMemo(
-    // Solo una Lista corrente (Aperta o Confermata) si seleziona da sola; lo Storico solo su scelta esplicita.
-    () =>
-      lists.find((row) => row.id === listId) ??
-      lists.find((row) => row.status === "aperta") ??
-      lists.find((row) => row.status === "confermata") ??
-      null,
-    [lists, listId],
-  );
-  const editable = list?.status === "aperta";
-  const currentList = lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null;
   const cycleQuery = useQuery({
     queryKey: [CYCLE_QUERY_KEY, companyId],
     queryFn: () => readCycle({ data: { companyId } }),
   });
   const cycle = cycleQuery.data;
+
+  // Quale inventario ha originato ogni Lista (solo per le etichette del selettore).
+  const originsQuery = useQuery({
+    queryKey: ["shopping-list-origins", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_sessions")
+        .select("purchase_list_id, finished_at, started_at")
+        .eq("company_id", companyId)
+        .not("purchase_list_id", "is", null);
+      if (error) throw new Error(error.message);
+      return new Map(
+        (data ?? []).map((row) => [row.purchase_list_id as string, (row.finished_at ?? row.started_at) as string | null]),
+      );
+    },
+  });
+  const listLabel = (row: ShoppingListRow) => {
+    const origin = originsQuery.data?.get(row.id);
+    if (origin !== undefined || row.id === cycle?.list_id) {
+      const when = origin ?? cycle?.finished_at ?? null;
+      return `Da inventario ${when ? new Date(when).toLocaleDateString("it-IT") : ""}`.trim();
+    }
+    return `Straordinaria · ${new Date(row.created_at).toLocaleDateString("it-IT")}`;
+  };
+
+  const evaluating = Boolean(cycle?.color === "rosso" && cycle.session_id && !cycle.evaluated_at);
+  // Lista già collegata all'inventario in valutazione (se ancora in lavorazione).
+  const linkedList =
+    lists.find((row) => row.id === cycle?.list_id && (row.status === "aperta" || row.status === "confermata")) ?? null;
+  // Anteprima: inventario da valutare senza Lista collegata. Aprire la pagina non crea nulla.
+  const previewMode = evaluating && !linkedList;
+  const list = useMemo(
+    // Priorità: scelta esplicita → Lista dell'inventario → (fuori anteprima) Lista in lavorazione.
+    () =>
+      lists.find((row) => row.id === listId) ??
+      linkedList ??
+      (previewMode
+        ? null
+        : (lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null)),
+    [lists, listId, linkedList, previewMode],
+  );
+  const editable = list?.status === "aperta";
+  const currentList =
+    linkedList ?? lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null;
 
   const overviewQuery = useQuery({
     queryKey: ["shopping-list-overview", list?.id],
@@ -165,6 +200,42 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
       queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
     ]);
+  };
+
+  /**
+   * Unico punto che crea la Lista dall'inventario: alla prima azione che salva, crea la Lista
+   * e la prende in carico (funzioni esistenti), poi restituisce l'id. Doppi clic condividono la stessa promessa.
+   */
+  const ensureInventoryList = (): Promise<string | null> => {
+    if (linkedList) return Promise.resolve(linkedList.id);
+    if (!cycle?.session_id) return Promise.resolve(null);
+    if (!creatingRef.current) {
+      const sessionId = cycle.session_id;
+      creatingRef.current = (async () => {
+        try {
+          const opened = await runList({
+            data: {
+              companyId,
+              action: "open",
+              listId: null,
+              archiveId: archivesQuery.data?.[0]?.id ?? null,
+              name: null,
+              notes: null,
+            },
+          });
+          await runEvaluation({ data: { companyId, sessionId, action: "take", listId: opened.id } });
+          await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["shopping-list-origins", companyId] })]);
+          setListId(opened.id);
+          return opened.id as string;
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Lista della Spesa non creata");
+          return null;
+        } finally {
+          creatingRef.current = null;
+        }
+      })();
+    }
+    return creatingRef.current;
   };
 
   const listMutation = useMutation({
@@ -399,7 +470,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             <SelectContent>
               {lists.filter((row) => row.status === "aperta" || row.status === "confermata").map((row) => (
                 <SelectItem key={row.id} value={row.id}>
-                  {row.name} · {LIST_STATUS_LABEL[row.status]}
+                  {listLabel(row)} · {LIST_STATUS_LABEL[row.status]}
                 </SelectItem>
               ))}
               {lists.some((row) => row.status === "chiusa" || row.status === "annullata") ? (
@@ -407,7 +478,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               ) : null}
               {lists.filter((row) => row.status === "chiusa" || row.status === "annullata").map((row) => (
                 <SelectItem key={row.id} value={row.id}>
-                  {row.name} · {LIST_STATUS_LABEL[row.status]}
+                  {listLabel(row)} · {LIST_STATUS_LABEL[row.status]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -452,6 +523,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             size="sm"
             variant="outline"
             disabled={listMutation.isPending || !archivesQuery.data?.length}
+            title="Lista straordinaria, non collegata all'inventario"
             onClick={() => listMutation.mutate("open")}
           >
             <Plus aria-hidden="true" />
@@ -475,26 +547,32 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       ) : null}
 
-      {cycle?.color === "rosso" && cycle.session_id && (!list || list.id === currentList?.id) ? (
+      {evaluating && cycle && (!list || list.id === linkedList?.id) ? (
         <InventoryEvaluation
           companyId={companyId}
           cycle={cycle}
-          currentList={currentList}
-          currentListItems={currentList && list?.id === currentList.id ? allRows.length : 0}
-          existingProductIds={new Set(list?.id === currentList?.id ? allRows.map((row) => row.product_id) : [])}
-          creatingList={listMutation.isPending}
-          onCreateList={async () => {
-            try {
-              const result = await listMutation.mutateAsync("open");
-              return result.id;
-            } catch {
-              return null;
-            }
-          }}
+          linkedList={linkedList}
+          existingProductIds={new Set(linkedList && list?.id === linkedList.id ? allRows.map((row) => row.product_id) : [])}
+          onEnsureList={ensureInventoryList}
         />
+      ) : cycle?.color === "rosso" && cycle.evaluated_at && (!list || list.id === cycle.list_id) ? (
+        <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+          <span className="font-semibold">Ciclo acquisti da completare:</span> valutazione terminata,{" "}
+          {cycle.missing_orders} acquisti ancora senza ordine.{" "}
+          <Link className="underline" to="/acquisti/ordini">Vai agli Ordini</Link>
+        </p>
       ) : null}
 
-      {!list ? (
+      {!list && previewMode ? (
+        <div className="flex justify-end">
+          <Button type="button" size="sm" className="h-8 px-2 text-xs" onClick={() => setAddOpen(true)}>
+            <Plus aria-hidden="true" />
+            Aggiungi prodotto
+          </Button>
+        </div>
+      ) : null}
+
+      {!list && previewMode ? null : !list ? (
         <p className="text-sm text-muted-foreground">
           Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure consulta lo Storico dal menu delle liste.
         </p>
@@ -731,11 +809,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </>
       )}
 
-      {addOpen && list ? (
+      {addOpen && (list || (previewMode && archivesQuery.data?.[0])) ? (
         <AddProductsDialog
           companyId={companyId}
-          listId={list.id}
-          archiveId={list.archive_id}
+          listId={list?.id ?? null}
+          resolveListId={ensureInventoryList}
+          archiveId={list?.archive_id ?? archivesQuery.data?.[0]?.id ?? ""}
           existingProductIds={new Set(allRows.map((row) => row.product_id))}
           open={addOpen}
           onOpenChange={setAddOpen}

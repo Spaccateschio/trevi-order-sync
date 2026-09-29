@@ -36,13 +36,16 @@ type Product = {
 export function AddProductsDialog({
   companyId,
   listId,
+  resolveListId,
   archiveId,
   existingProductIds,
   open,
   onOpenChange,
 }: {
   companyId: string;
-  listId: string;
+  /** null = anteprima inventario: la Lista si crea solo al salvataggio tramite resolveListId. */
+  listId: string | null;
+  resolveListId?: () => Promise<string | null>;
   archiveId: string;
   existingProductIds: Set<string>;
   open: boolean;
@@ -100,11 +103,13 @@ export function AddProductsDialog({
   const products = productsQuery.data ?? [];
 
   const addMutation = useMutation({
-    mutationFn: () =>
-      runAdd({
+    mutationFn: async () => {
+      const targetId = listId ?? (await resolveListId?.()) ?? null;
+      if (!targetId) throw new Error("Lista della Spesa non creata");
+      return runAdd({
         data: {
           companyId,
-          listId,
+          listId: targetId,
           replaceExisting: false,
           items: selectedIds.map((id) => ({
             product_id: id,
@@ -112,7 +117,8 @@ export function AddProductsDialog({
             origin: "manuale" as const,
           })),
         },
-      }),
+      });
+    },
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] });
       toast.success(
