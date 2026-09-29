@@ -71,6 +71,7 @@ export function ShoppingListCard({
   const target = row.decided_quantity === null ? null : Number(row.decided_quantity);
   const gap = target === null ? null : Math.round((target - assigned) * 1000) / 1000;
   const hiddenCount = Math.max(0, suppliers.length - VISIBLE_SPLITS);
+  const hiddenUnconvertible = suppliers.slice(VISIBLE_SPLITS).filter((s) => !convertible(s)).length;
 
   const image = (cls: string) =>
     extra?.imageUrl ? (
@@ -209,6 +210,11 @@ export function ShoppingListCard({
       {hiddenCount ? (
         <p className="text-[11px] font-semibold text-primary">
           +{hiddenCount} altr{hiddenCount === 1 ? "o fornitore" : "i fornitori"}
+          {hiddenUnconvertible ? (
+            <span className="text-destructive">
+              {" "}· ⚠ {hiddenUnconvertible} non convertibil{hiddenUnconvertible === 1 ? "e" : "i"}
+            </span>
+          ) : null}
         </p>
       ) : null}
     </button>
