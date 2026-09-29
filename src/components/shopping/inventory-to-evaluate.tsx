@@ -35,59 +35,24 @@ type CountedRow = {
 
 export const CYCLE_QUERY_KEY = "inventory-cycle-status";
 
-/**
- * Ponte Inventario → Lista della Spesa.
- * I prodotti contati diventano righe della Lista solo con una quantità > 0 scritta dall'operatore:
- * vuoto significa "non deciso", mai 0.
- */
-export function InventoryEvaluation({
-  companyId,
-  cycle,
-  linkedList,
-  existingProductIds,
-  onEnsureList,
-  layout = "row",
-}: {
-  /** Solo presentazione: stessa scelta Card/Righe della Lista della Spesa. */
-  layout?: "card" | "row";
-  companyId: string;
-  cycle: CycleStatus;
-  /** Lista già collegata a questo inventario; null = anteprima, nulla ancora salvato. */
-  linkedList: ShoppingListRow | null;
-  existingProductIds: Set<string>;
-  /** Crea e collega la Lista alla prima azione che salva (una sola volta, anche con doppi clic). */
-  onEnsureList: () => Promise<string | null>;
-}) {
-  const queryClient = useQueryClient();
-  const runEvaluation = useServerFn(manageInventoryEvaluation);
-  const runAdd = useServerFn(addShoppingListItems);
+/** Prodotti contati nell'inventario da valutare: sola lettura, condivisa da sezione e raccolta unica. */
+export function useInventoryCountedRows(companyId: string, sessionId: string | null) {
   const getImageUrls = useServerFn(getProductImageUrls);
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [finishOpen, setFinishOpen] = useState(false);
-
-  const sessionId = cycle.session_id!;
-
-  const refreshCycle = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
-      queryClient.invalidateQueries({ queryKey: ["shopping-lists", companyId] }),
-      queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
-    ]);
-
   const countsQuery = useQuery({
     queryKey: ["inventory-evaluation-counts", sessionId],
+    enabled: Boolean(sessionId),
     queryFn: async (): Promise<CountedRow[]> => {
       const { data, error } = await supabase
         .from("inventory_counts")
         .select("product_id, location_id, counted_quantity, unit_code, counted_at, products(code, description, category)")
         .eq("company_id", companyId)
-        .eq("session_id", sessionId)
+        .eq("session_id", sessionId!)
         .order("counted_at", { ascending: false });
       if (error) throw new Error(error.message);
       const { data: session } = await supabase
         .from("inventory_sessions")
         .select("archive_id")
-        .eq("id", sessionId)
+        .eq("id", sessionId!)
         .maybeSingle();
       // Ultimo conteggio per prodotto (in caso di riconteggio).
       const latest = new Map<string, CountedRow>();
@@ -141,6 +106,50 @@ export function InventoryEvaluation({
     queryFn: () => getImageUrls({ data: { productIds: imageIds, thumbnail: true } }),
   });
   const images = new Map((imagesQuery.data ?? []).map((image) => [image.productId, image.url]));
+  return { allCounted, images, isLoading: countsQuery.isLoading };
+}
+
+
+/**
+ * Ponte Inventario → Lista della Spesa.
+ * I prodotti contati diventano righe della Lista solo con una quantità > 0 scritta dall'operatore:
+ * vuoto significa "non deciso", mai 0.
+ */
+export function InventoryEvaluation({
+  companyId,
+  cycle,
+  linkedList,
+  existingProductIds,
+  onEnsureList,
+  layout = "row",
+}: {
+  /** Solo presentazione: stessa scelta Card/Righe della Lista della Spesa. */
+  layout?: "card" | "row";
+  companyId: string;
+  cycle: CycleStatus;
+  /** Lista già collegata a questo inventario; null = anteprima, nulla ancora salvato. */
+  linkedList: ShoppingListRow | null;
+  existingProductIds: Set<string>;
+  /** Crea e collega la Lista alla prima azione che salva (una sola volta, anche con doppi clic). */
+  onEnsureList: () => Promise<string | null>;
+}) {
+  const queryClient = useQueryClient();
+  const runEvaluation = useServerFn(manageInventoryEvaluation);
+  const runAdd = useServerFn(addShoppingListItems);
+  const getImageUrls = useServerFn(getProductImageUrls);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [finishOpen, setFinishOpen] = useState(false);
+
+  const sessionId = cycle.session_id!;
+
+  const refreshCycle = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
+      queryClient.invalidateQueries({ queryKey: ["shopping-lists", companyId] }),
+      queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+    ]);
+
+  const { allCounted, images } = useInventoryCountedRows(companyId, sessionId);
 
   const addMutation = useMutation({
     mutationFn: async (items: { product_id: string; quantity: number }[]) => {
