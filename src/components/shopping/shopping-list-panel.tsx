@@ -319,11 +319,18 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       className={className}
       inputMode="decimal"
       disabled={!editable}
-      value={edits[row.item_id] ?? String(row.decided_quantity)}
+      value={edits[row.item_id] ?? (row.decided_quantity === null ? "" : String(row.decided_quantity))}
       aria-label={`Quantità decisa ${row.code}`}
       onChange={(event) => setEdits((current) => ({ ...current, [row.item_id]: event.target.value }))}
       onBlur={() => {
-        const value = parseQuantity(edits[row.item_id] ?? "");
+        const raw = edits[row.item_id];
+        if (raw === undefined) return;
+        // Campo svuotato: obiettivo non indicato (mai 0).
+        if (raw.trim() === "") {
+          if (row.decided_quantity !== null) quantityMutation.mutate({ itemId: row.item_id, quantity: null });
+          return;
+        }
+        const value = parseQuantity(raw);
         if (value && value !== Number(row.decided_quantity)) {
           quantityMutation.mutate({ itemId: row.item_id, quantity: value });
         }
@@ -352,7 +359,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   const detail = (row: OverviewRow) => (
     <>
-      {row.suggested_quantity !== null && Number(row.suggested_quantity) !== Number(row.decided_quantity) ? (
+      {row.suggested_quantity !== null && row.decided_quantity !== null && Number(row.suggested_quantity) !== Number(row.decided_quantity) ? (
         <span className="text-muted-foreground">
           suggerito all'inserimento {qty(row.suggested_quantity)}
         </span>
