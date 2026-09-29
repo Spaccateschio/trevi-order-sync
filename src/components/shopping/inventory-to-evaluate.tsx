@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { ClipboardCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -20,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { dateTimeShort, parseQuantity, qty } from "@/lib/inventory";
 import { manageInventoryEvaluation, type CycleStatus } from "@/lib/inventory-cycle.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
-import { LIST_STATUS_LABEL, type ShoppingListRow } from "@/lib/shopping-list";
+import { type ShoppingListRow } from "@/lib/shopping-list";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
 
 type CountedRow = {
@@ -44,19 +43,17 @@ export const CYCLE_QUERY_KEY = "inventory-cycle-status";
 export function InventoryEvaluation({
   companyId,
   cycle,
-  currentList,
-  currentListItems,
+  linkedList,
   existingProductIds,
-  creatingList,
-  onCreateList,
+  onEnsureList,
 }: {
   companyId: string;
   cycle: CycleStatus;
-  currentList: ShoppingListRow | null;
-  currentListItems: number;
+  /** Lista già collegata a questo inventario; null = anteprima, nulla ancora salvato. */
+  linkedList: ShoppingListRow | null;
   existingProductIds: Set<string>;
-  creatingList: boolean;
-  onCreateList: () => Promise<string | null>;
+  /** Crea e collega la Lista alla prima azione che salva (una sola volta, anche con doppi clic). */
+  onEnsureList: () => Promise<string | null>;
 }) {
   const queryClient = useQueryClient();
   const runEvaluation = useServerFn(manageInventoryEvaluation);
@@ -66,8 +63,6 @@ export function InventoryEvaluation({
   const [finishOpen, setFinishOpen] = useState(false);
 
   const sessionId = cycle.session_id!;
-  const linkedListId = cycle.list_id ?? null;
-  const linkedHere = Boolean(linkedListId && currentList?.id === linkedListId);
 
   const refreshCycle = () =>
     Promise.all([
@@ -144,22 +139,14 @@ export function InventoryEvaluation({
   });
   const images = new Map((imagesQuery.data ?? []).map((image) => [image.productId, image.url]));
 
-  const takeMutation = useMutation({
-    mutationFn: async (listId: string) =>
-      runEvaluation({ data: { companyId, sessionId, action: "take", listId } }),
-    onSuccess: async () => {
-      await refreshCycle();
-      toast.success("Inventario preso in carico nella Lista");
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-
   const addMutation = useMutation({
-    mutationFn: (items: { product_id: string; quantity: number }[]) =>
-      runAdd({
+    mutationFn: async (items: { product_id: string; quantity: number }[]) => {
+      const listId = await onEnsureList();
+      if (!listId) throw new Error("Lista della Spesa non creata");
+      return runAdd({
         data: {
           companyId,
-          listId: currentList!.id,
+          listId,
           replaceExisting: false,
           items: items.map((item) => ({
             product_id: item.product_id,
@@ -167,7 +154,8 @@ export function InventoryEvaluation({
             origin: "manuale" as const,
           })),
         },
-      }),
+      });
+    },
     onSuccess: async (result, items) => {
       setValues((current) => {
         const next = { ...current };
@@ -216,55 +204,15 @@ export function InventoryEvaluation({
     );
   }
 
-  // Non ancora presa in carico (o Lista precedente annullata/chiusa).
-  if (!linkedHere) {
-    return (
-      <div className="space-y-2 rounded-md border border-primary/50 bg-primary/5 p-3">
-        <p className="text-sm font-semibold">
-          {inventoryLabel} completato · {allCounted.length} prodotti controllati
-        </p>
-        {currentList && currentList.status === "aperta" ? (
-          <>
-            <p className="text-sm">
-              <span className="font-medium">Esiste già una Lista della Spesa in lavorazione:</span> {currentList.name} ·
-              creata {dateTimeShort(currentList.created_at)} · {currentListItems} prodotti ·{" "}
-              {LIST_STATUS_LABEL[currentList.status]}
-            </p>
-            <Button size="sm" disabled={takeMutation.isPending} onClick={() => takeMutation.mutate(currentList.id)}>
-              Continua questa Lista e valuta i prodotti dell'inventario
-            </Button>
-          </>
-        ) : currentList && currentList.status === "confermata" ? (
-          <p className="text-sm">
-            <span className="font-medium">Esiste già una Lista della Spesa in lavorazione:</span> {currentList.name} ·{" "}
-            {currentListItems} prodotti · Confermata. Una Lista confermata non accetta nuovi prodotti: chiudila dopo aver
-            creato gli ordini, poi potrai valutare questo inventario in una nuova Lista.
-          </p>
-        ) : (
-          <Button
-            size="sm"
-            disabled={creatingList || takeMutation.isPending}
-            onClick={async () => {
-              const id = await onCreateList();
-              if (id) takeMutation.mutate(id);
-            }}
-          >
-            <ClipboardCheck aria-hidden="true" />
-            Crea Lista della Spesa da questo inventario
-          </Button>
-        )}
-      </div>
-    );
-  }
-
-  const editable = currentList?.status === "aperta";
+  const editable = !linkedList || linkedList.status === "aperta";
   const leftEmpty = toEvaluate.filter((row) => !(values[row.product_id] ?? "").trim()).length;
 
   return (
     <div className="space-y-2 rounded-md border border-primary/50 bg-primary/5 p-2">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <p className="text-sm font-semibold">
-          Prodotti da valutare · {inventoryLabel}{" "}
+          Da {inventoryLabel.replace("Inventario", "inventario")}
+          {linkedList ? "" : " — non ancora preso in carico"} ·{" "}
           <span className="font-normal text-muted-foreground">
             ({toEvaluate.length} da valutare su {allCounted.length} contati)
           </span>
