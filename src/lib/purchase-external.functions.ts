@@ -102,6 +102,7 @@ export const externalSetDeliveryItem = createServerFn({ method: "POST" })
         declaredExpiry: z.string().trim().max(10).nullable(),
         lineNotes: z.string().trim().max(500).nullable(),
         missingReason: z.string().trim().max(300).nullable(),
+        declaredPurchaseQuantity: z.number().min(0).nullable().optional(),
       })
       .parse(input),
   )
@@ -119,6 +120,7 @@ export const externalSetDeliveryItem = createServerFn({ method: "POST" })
       ...(data.declaredExpiry === null ? {} : { _declared_expiry: data.declaredExpiry }),
       ...(data.lineNotes === null ? {} : { _line_notes: data.lineNotes }),
       ...(data.missingReason === null ? {} : { _missing_reason: data.missingReason }),
+      ...(data.declaredPurchaseQuantity == null ? {} : { _declared_purchase_quantity: data.declaredPurchaseQuantity }),
     });
     if (error) throw new Error(error.message);
     return { ok: true };
