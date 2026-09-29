@@ -85,6 +85,7 @@ import {
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
 import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inventory/correct-count-dialog";
+import { PhysicalQuickEdit, type PhysicalEdit } from "@/components/inventory/physical-quick-edit";
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
 import type { SessionRow } from "@/lib/inventory";
 
@@ -167,6 +168,10 @@ const CycleLockContext = createContext<{
   locked: boolean;
   cycleSessionId: string | null;
   onCorrect: (row: InventoryCountRow, history: StockHistory) => void;
+  companyId?: string;
+  listId?: string | null;
+  locationId?: string | null;
+  unlockedAll?: boolean;
 }>({ locked: false, cycleSessionId: null, onCorrect: () => undefined });
 
 const CountUnitsContext = createContext<CountUnitsContextValue>({
@@ -209,6 +214,7 @@ export function InventoryCountPanel({
   });
   const cycleColor = cycleQuery.data?.color;
   const [correction, setCorrection] = useState<CountCorrectionTarget | null>(null);
+  const [unlockedAll, setUnlockedAll] = useState(false);
 
 
   const { data: locations = [] } = useInventoryLocations(companyId);
@@ -500,6 +506,9 @@ export function InventoryCountPanel({
         null);
   const stockHistoryQuery = useQuery({
     queryKey: ["inventario-storico-giacenza", companyId, archiveId, historyLocationId, catalogPreview.length],
+    // Le correzioni dei colleghi compaiono da sole.
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
     enabled: !sessionId && !sessionQuery.isLoading && Boolean(archiveId) && Boolean(historyLocationId),
     queryFn: async (): Promise<Map<string, StockHistory>> => {
       const [stockResult, countsResult] = await Promise.all([
@@ -510,7 +519,7 @@ export function InventoryCountPanel({
         }),
         supabase
           .from("inventory_counts")
-          .select("id, session_id, product_id, counted_quantity, unit_code, counted_at, inventory_sessions!inner(status)")
+          .select("id, session_id, product_id, counted_quantity, previous_quantity, notes, unit_code, counted_at, inventory_sessions!inner(status)")
           .eq("company_id", companyId)
           .eq("location_id", historyLocationId!)
           .eq("inventory_sessions.status", "completata")
@@ -520,14 +529,36 @@ export function InventoryCountPanel({
       if (stockResult.error) throw new Error(stockResult.error.message);
       if (countsResult.error) throw new Error(countsResult.error.message);
       const units = new Map(catalogPreview.map((product) => [product.id, product.danea_um]));
-      const last = new Map<string, { quantity: number; unit: string | null; at: string; id: string; sessionId: string }>();
-      for (const count of (countsResult.data ?? []) as { id: string; session_id: string; product_id: string; counted_quantity: number; unit_code: string | null; counted_at: string }[]) {
+      const last = new Map<string, { quantity: number; unit: string | null; at: string; id: string; sessionId: string; previous: number | null; note: string | null }>();
+      for (const count of (countsResult.data ?? []) as { id: string; session_id: string; product_id: string; counted_quantity: number; previous_quantity: number | null; notes: string | null; unit_code: string | null; counted_at: string }[]) {
         if (last.has(count.product_id)) continue;
         const productUnit = (units.get(count.product_id) ?? "").trim().toLowerCase();
         const countUnit = (count.unit_code ?? "").trim().toLowerCase();
         // Stesso criterio della giacenza: vale solo il conteggio nella U.M. del prodotto.
         if (countUnit && productUnit && countUnit !== productUnit) continue;
-        last.set(count.product_id, { quantity: Number(count.counted_quantity), unit: count.unit_code, at: count.counted_at, id: count.id, sessionId: count.session_id });
+        last.set(count.product_id, { quantity: Number(count.counted_quantity), unit: count.unit_code, at: count.counted_at, id: count.id, sessionId: count.session_id, previous: count.previous_quantity === null ? null : Number(count.previous_quantity), note: count.notes });
+      }
+      // Correzioni rapide: rettifiche riferite all'ultimo conteggio, in ordine cronologico.
+      const countIds = [...last.values()].map((c) => c.id);
+      const adjByCount = new Map<string, { quantity: number; reason: string; created_at: string; created_by: string | null }[]>();
+      const names = new Map<string, string>();
+      if (countIds.length) {
+        const { data: adjs, error: adjError } = await supabase
+          .from("inventory_adjustments")
+          .select("reference_count_id, quantity, reason, created_at, created_by")
+          .in("reference_count_id", countIds)
+          .order("created_at", { ascending: true });
+        if (adjError) throw new Error(adjError.message);
+        for (const a of adjs ?? []) {
+          const list = adjByCount.get(a.reference_count_id!) ?? [];
+          list.push({ quantity: Number(a.quantity), reason: a.reason, created_at: a.created_at, created_by: a.created_by });
+          adjByCount.set(a.reference_count_id!, list);
+        }
+        const userIds = [...new Set((adjs ?? []).map((a) => a.created_by).filter(Boolean))] as string[];
+        if (userIds.length) {
+          const { data: profs } = await supabase.from("profiles").select("user_id, first_name, last_name").in("user_id", userIds);
+          for (const pr of profs ?? []) names.set(pr.user_id, [pr.first_name, pr.last_name].filter(Boolean).join(" ") || "Collaboratore");
+        }
       }
       const map = new Map<string, StockHistory>();
       for (const row of (stockResult.data ?? []) as { product_id: string; has_count: boolean; quantity: number | null }[]) {
@@ -540,6 +571,17 @@ export function InventoryCountPanel({
           lastAt: row.has_count && lc ? lc.at : null,
           lastCountId: row.has_count && lc ? lc.id : null,
           lastSessionId: row.has_count && lc ? lc.sessionId : null,
+          ...(() => {
+            if (!row.has_count || !lc) return { physical: null, previousQuantity: null, countNote: null, edits: [] };
+            let running = lc.quantity;
+            const edits: PhysicalEdit[] = [];
+            for (const a of adjByCount.get(lc.id) ?? []) {
+              const from = running;
+              running = Math.round((running + a.quantity) * 1000) / 1000;
+              edits.unshift({ at: a.created_at, by: (a.created_by && names.get(a.created_by)) || "Collaboratore", from, to: running, reason: a.reason });
+            }
+            return { physical: running, previousQuantity: lc.previous, countNote: lc.note, edits };
+          })(),
         });
       }
       return map;
@@ -1267,6 +1309,13 @@ export function InventoryCountPanel({
       </div>
 
       <CycleLight cycle={cycleQuery.data} sessionActive={Boolean(sessionId)} />
+      {!sessionId && cycleColor === "rosso" && isAdmin ? (
+        <div className="flex justify-end">
+          <Button type="button" size="sm" variant={unlockedAll ? "secondary" : "outline"} onClick={() => setUnlockedAll((v) => !v)}>
+            {unlockedAll ? "Blocca quantità" : "Sblocca quantità"}
+          </Button>
+        </div>
+      ) : null}
       <CorrectCountDialog
         companyId={companyId}
         listId={cycleQuery.data?.list_id ?? null}
@@ -1294,6 +1343,10 @@ export function InventoryCountPanel({
           <CycleLockContext.Provider value={{
             locked: !sessionId && cycleColor === "rosso",
             cycleSessionId: cycleQuery.data?.session_id ?? null,
+            companyId,
+            listId: cycleQuery.data?.list_id ?? null,
+            locationId: historyLocationId,
+            unlockedAll,
             onCorrect: (row, history) => {
               if (!historyLocationId || !history.lastCountId || history.lastQuantity === null) return;
               setCorrection({
@@ -2477,6 +2530,10 @@ type StockHistory = {
   lastAt: string | null;
   lastCountId: string | null;
   lastSessionId: string | null;
+  physical: number | null;
+  previousQuantity: number | null;
+  countNote: string | null;
+  edits: PhysicalEdit[];
 };
 
 function ProductCard({
@@ -2574,7 +2631,7 @@ function ProductCard({
         needsRecount && "border-primary/60 bg-primary/5",
       )}
     >
-      <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
+      <div className="grid grid-cols-[48px_minmax(0,1fr)_fit-content(45%)] items-center gap-2">
         {imageUrl ? (
           <img src={imageUrl} alt="" loading="lazy" className="size-12 rounded-sm border border-border object-cover" />
         ) : (
@@ -2582,7 +2639,7 @@ function ProductCard({
             <Package className="size-5 text-muted-foreground" aria-hidden="true" />
           </span>
         )}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
           <p className="text-[11px] leading-tight text-muted-foreground">
             Cod. {row.code}
@@ -2622,7 +2679,7 @@ function ProductCard({
             </p>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
           <PriceTrendIcon
             series={priceSeries}
             label={`Andamento prezzo di ${name}`}
@@ -2837,16 +2894,24 @@ function ProductCard({
           <Delete className="size-4" />
         </Button>
       </div>
-      {canCorrect && history ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="mt-1.5 h-8 w-full text-xs font-bold"
-          onClick={() => cycleLock.onCorrect(row, history)}
-        >
-          Modifica giacenza
-        </Button>
+      {canCorrect && history && history.lastCountId && history.lastQuantity !== null && history.physical !== null && cycleLock.companyId && cycleLock.locationId ? (
+        <PhysicalQuickEdit
+          unlockedAll={Boolean(cycleLock.unlockedAll)}
+          target={{
+            companyId: cycleLock.companyId,
+            listId: cycleLock.listId ?? null,
+            productId: row.product_id,
+            locationId: cycleLock.locationId,
+            countId: history.lastCountId,
+            unit: history.lastUnit ?? unit ?? "",
+            countedQuantity: history.lastQuantity,
+            countedAt: history.lastAt,
+            physical: history.physical,
+            previousQuantity: history.previousQuantity,
+            countNote: history.countNote,
+            edits: history.edits,
+          }}
+        />
       ) : null}
       {noteOpen && hasDifference ? (
         <div className="mt-1.5 space-y-1.5 rounded-sm border border-border bg-muted/30 p-1.5">
