@@ -33,6 +33,8 @@ type LinkRow = {
   product_id: string;
   supplier_product_code: string | null;
   purchase_unit_id: string | null;
+  /** U.M. del prezzo del costo concordato: conservata così com'è quando si salva da qui. */
+  price_unit_id: string | null;
   conversion_factor: number | null;
   conversion_reference_um: string | null;
   manual_cost: number | null;
@@ -110,7 +112,7 @@ export function SupplierProductsManager({
       const { data, error } = await supabase
         .from("product_supplier_links")
         .select(
-          "id, product_id, supplier_product_code, purchase_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, sourcing_priority, supplier_reference_label, is_active, notes, origin, products(code, description, archive_id, danea_um), units_of_measure(code), product_supplier_link_units(id, is_default, units_of_measure(code))",
+          "id, product_id, supplier_product_code, purchase_unit_id, price_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, sourcing_priority, supplier_reference_label, is_active, notes, origin, products(code, description, archive_id, danea_um), units_of_measure!product_supplier_links_purchase_unit_id_fkey(code), product_supplier_link_units(id, is_default, units_of_measure(code))",
         )
         .eq("supplier_record_id", supplierRecordId);
       if (error) throw new Error(error.message);
@@ -198,6 +200,7 @@ export function SupplierProductsManager({
           : {}),
         ...(row.products?.danea_um ? { _conversion_reference_um: row.products.danea_um } : {}),
         ...(num(draft.manualCost) !== null ? { _manual_cost: num(draft.manualCost) as number } : {}),
+        ...(row.price_unit_id ? { _price_unit_id: row.price_unit_id } : {}),
         ...(num(draft.minQuantity) !== null ? { _min_quantity: num(draft.minQuantity) as number } : {}),
         ...(num(draft.leadTimeDays) !== null ? { _lead_time_days: num(draft.leadTimeDays) as number } : {}),
         _notes: draft.notes,
