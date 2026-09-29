@@ -619,6 +619,21 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       ) : null}
 
+      {/* Unica scelta Card/Righe: vale sia per «Da inventario» sia per la Lista. */}
+      {(evaluating && cycle) || list ? (
+        <div className="flex items-center justify-end gap-2">
+        <span className="text-xs text-muted-foreground">Vista prodotti</span>
+          <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
+            <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => changeViewMode("card")}>
+              <LayoutGrid aria-hidden="true" /> Card
+            </Button>
+            <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "row" ? "default" : "ghost"} aria-pressed={viewMode === "row"} onClick={() => changeViewMode("row")}>
+              <Rows3 aria-hidden="true" /> Righe
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {evaluating && cycle && (!list || list.id === linkedList?.id) ? (
         <InventoryEvaluation
           companyId={companyId}
@@ -626,6 +641,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           linkedList={linkedList}
           existingProductIds={new Set(linkedList && list?.id === linkedList.id ? allRows.map((row) => row.product_id) : [])}
           onEnsureList={ensureInventoryList}
+          layout={viewMode}
         />
       ) : cycle?.color === "rosso" && cycle.evaluated_at && (!list || list.id === cycle.list_id) ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
@@ -735,17 +751,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 Azzera filtri
               </Button>
             ) : null}
-          </div>
-
-          <div className="flex justify-end">
-            <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
-              <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => changeViewMode("card")}>
-                <LayoutGrid aria-hidden="true" /> Card
-              </Button>
-              <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "row" ? "default" : "ghost"} aria-pressed={viewMode === "row"} onClick={() => changeViewMode("row")}>
-                <Rows3 aria-hidden="true" /> Righe
-              </Button>
-            </div>
           </div>
 
           <div className="@container">

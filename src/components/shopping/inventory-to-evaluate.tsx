@@ -46,7 +46,10 @@ export function InventoryEvaluation({
   linkedList,
   existingProductIds,
   onEnsureList,
+  layout = "row",
 }: {
+  /** Solo presentazione: stessa scelta Card/Righe della Lista della Spesa. */
+  layout?: "card" | "row";
   companyId: string;
   cycle: CycleStatus;
   /** Lista già collegata a questo inventario; null = anteprima, nulla ancora salvato. */
@@ -237,7 +240,50 @@ export function InventoryEvaluation({
       {invalid.length ? (
         <p className="px-1 text-xs text-destructive">Scrivi una quantità maggiore di zero oppure lascia il campo vuoto.</p>
       ) : null}
-      {toEvaluate.length ? (
+      {toEvaluate.length && layout === "card" ? (
+        <div className="@container">
+          <div className="grid auto-rows-fr gap-2 grid-cols-[repeat(auto-fill,minmax(max(172px,calc((100%_-_1.5rem)/4)),1fr))] @min-[600px]:grid-cols-[repeat(auto-fill,minmax(max(232px,calc((100%_-_1.5rem)/4)),1fr))]">
+            {toEvaluate.map((row) => (
+              <article key={row.product_id} className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-card p-2 text-xs">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="shrink-0"><Thumb url={images.get(row.product_id) ?? null} /></span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{row.description ?? "—"}</span>
+                    <span className="block truncate text-muted-foreground">
+                      <span className="font-mono">{row.code}</span> · {row.category ?? "—"}
+                    </span>
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 rounded-md bg-muted/50 px-2 py-1">
+                  <span className="min-w-0">
+                    <span className="block text-[10px] text-muted-foreground">Contato</span>
+                    <span className="font-semibold">{qty(row.counted)} {row.unit ?? ""}</span>
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[10px] text-muted-foreground">Giacenza</span>
+                    <span className="font-semibold">{row.stock === null ? "—" : `${qty(row.stock)} ${row.unit ?? ""}`}</span>
+                  </span>
+                </div>
+                <label className="mt-auto flex min-w-0 items-center justify-between gap-2">
+                  <span className="text-[10px] font-semibold uppercase text-muted-foreground">Da acquistare</span>
+                  <span className="flex items-center gap-1">
+                    <Input
+                      className="h-8 w-20 text-right text-xs"
+                      inputMode="decimal"
+                      placeholder="—"
+                      aria-label={`Da acquistare ${row.code}`}
+                      disabled={!editable}
+                      value={values[row.product_id] ?? ""}
+                      onChange={(event) => setValues((current) => ({ ...current, [row.product_id]: event.target.value }))}
+                    />
+                    <span className="text-muted-foreground">{row.unit ?? ""}</span>
+                  </span>
+                </label>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : toEvaluate.length ? (
         <div className="divide-y divide-border overflow-hidden rounded border border-border bg-card">
           {toEvaluate.map((row) => (
             <div
