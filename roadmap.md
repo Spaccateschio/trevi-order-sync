@@ -75,5 +75,6 @@
 - [ ] Ridurre spazio parte superiore Inventario (da rivedere insieme; «Sblocca quantità» resta dov'è)
 
 - [ ] Lista della Spesa Step 1: card stile Inventario (in attesa decisione su quantità acquisto in U.M. fornitore)
-- [ ] Step 2 modello dati Lista: in attesa approvazione su ordered_quantity, colonne acquisto manuale, vincolo U.M. multiple, semaforo
-- [ ] Step 2: righe consegna con quantità/U.M. d acquisto (in attesa autorizzazione)
+- [x] Step 2 modello dati Lista/Ordini/Consegne (quantità + U.M. d'acquisto + fornitore)
+- [ ] Step 2 aperto: righe senza equivalente non entrano nel Carico Merce (open_goods_receipt) — serve decisione dell'utente
+- [ ] Step 2 aperto: stato ordine con equivalente valutato ancora in kg (2 cs su 3 con 30 pz caricati = consegnato) — da decidere
