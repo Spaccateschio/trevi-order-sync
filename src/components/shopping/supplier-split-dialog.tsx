@@ -185,7 +185,7 @@ export function SupplierSplitDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {item.description ?? item.code} · da acquistare {qty(item.decided_quantity)} {unit}
+            {item.description ?? item.code} {item.decided_quantity !== null ? ` · obiettivo ${qty(item.decided_quantity)} ${unit}` : ""}
           </DialogTitle>
           <DialogDescription>
             Assegna la quantità a uno o più fornitori. Cambiare un fornitore non modifica gli altri.
@@ -195,7 +195,7 @@ export function SupplierSplitDialog({
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
             <p className="text-[11px] text-muted-foreground">Richieste</p>
-            <p className="text-lg font-semibold leading-tight">{qty(item.decided_quantity)} {unit}</p>
+            <p className="text-lg font-semibold leading-tight">{item.decided_quantity !== null ? `${qty(item.decided_quantity)} ${unit}` : "—"}</p>
           </div>
           <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
             <p className="text-[11px] text-muted-foreground">Assegnate</p>
