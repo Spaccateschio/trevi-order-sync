@@ -1,39 +1,34 @@
-# Lista della Spesa: si apre subito sui prodotti
+# Lista della Spesa: vista card/righe, tasti rapidi, secondo fornitore, blocco quantità, filtro fornitori
 
-## Come funziona oggi (verificato nel codice)
-- La pagina mostra in automatico la prima lista **Aperta** (o, se non c'è, la prima **Confermata**).
-- Se c'è un inventario completato da valutare e nessuna lista collegata, compare solo il riquadro con il pulsante «Crea Lista della Spesa da questo inventario». Il pulsante fa due cose: crea una lista nuova e la collega all'inventario («presa in carico»).
-- Solo dopo si vedono i prodotti contati, ognuno con il suo campo quantità.
-- «+ Nuova lista» crea sempre una lista vuota. Il database permette più liste aperte insieme, ma la pagina ne mostra una sola: la più recente.
-- Le card prodotto dello Step 1 **non sono ancora state costruite**: oggi la lista è una tabella compatta, oppure un elenco sotto il riquadro inventario.
+## Cosa cambia per l'utente
 
-## Proposta (la più sicura)
+1. **Interruttore «Card / Righe»** in alto sopra i prodotti della Lista.
+   - Card (predefinita): come l'Inventario, 2 per riga su computer/tablet, 1 su telefono.
+   - Righe: vista compatta e veloce da controllare a lista completata.
+   - La scelta resta memorizzata sul dispositivo.
+   - La sezione «Prodotti da valutare» resta com'è.
 
-### Caso 1 — c'è una lista aperta
-La pagina apre subito quella lista e i suoi prodotti. È già così: cambio solo l'ordine della schermata (piccolo riferimento «Da inventario …», poi barra filtri, poi prodotti).
+2. **Tasti rapidi +1 +3 +5 +10** nella card, sotto «Quantità da acquistare», come nella card Inventario (più il tasto per azzerare/cancellare il valore). Il campo resta anche scrivibile a mano.
 
-### Caso 2 — nessuna lista, ma un inventario completato da valutare
-- La pagina mostra **subito** i prodotti dell'inventario, **solo leggendoli**: nessuna lista viene creata aprendo la pagina.
-- In alto un riferimento piccolo: «Da inventario 28/09/2026 · 06:43 — non ancora preso in carico».
-- La lista viene creata e collegata all'inventario **solo alla prima azione reale** su un prodotto: scrivere e confermare una quantità, oppure aggiungere un prodotto. In quel momento, con un solo gesto, il sistema usa le stesse funzioni di oggi, nell'ordine attuale: crea la lista, la prende in carico, salva la quantità.
-- Se esci senza fare nulla non resta nessuna lista fantasma e il semaforo non cambia.
-- Il pulsante «Crea Lista della Spesa da questo inventario» sparisce.
+3. **Stesso prodotto da un altro fornitore**: nel riquadro «Fornitore» un pulsante **«+ Acquista anche da un altro fornitore»**. Apre la scelta del fornitore (tra quelli che vendono il prodotto), con la sua quantità e la sua U.M. d'acquisto. La card mostra poi una riga per ogni fornitore, per esempio «Rossi — 3 cs» e «Bianchi — 2 cs». Usa la ripartizione già esistente (Step 2), senza modifiche al database.
 
-### «+ Nuova lista» (lista straordinaria)
-- Resta. Crea una lista **non collegata** a nessun inventario, per acquisti immediati (limoni, basilico, cipolle).
-- Non prende in carico l'inventario e non cambia il semaforo.
-- Punto da decidere: se esistono sia la lista dell'inventario sia una lista straordinaria, serve un modo semplice per passare dall'una all'altra. Proposta: il selettore liste in alto le mostra entrambe con un'etichetta («Da inventario 28/09» / «Straordinaria»). All'apertura della pagina viene scelta per prima quella dell'inventario.
+4. **Blocco della quantità**: dopo aver inserito la quantità, il tasto **«Conferma»** la blocca (campo e tasti rapidi disattivati, lucchetto visibile). Il tasto **«Sblocca»** la rende di nuovo modificabile.
 
-### «+ Aggiungi prodotto»
-- Aggiunge prodotti alla lista in uso, senza toccare quantità o modifiche già inserite.
-- Nel Caso 2, se la lista non esiste ancora, la crea e la prende in carico come descritto sopra.
+5. **Filtro «Fornitore»**: oltre a «Tutti i fornitori» elencherà **tutti i fornitori veri dell'anagrafica** attivi, non solo quelli già scelti nella Lista.
 
-## Cosa NON cambia
-Database, funzioni del server, semaforo, Inventario, Fabbisogno, Ordini, Consegne, Carico Merce. Nessun dato di prova.
+## Da decidere (una domanda)
+
+Il blocco della quantità deve restare anche dopo aver ricaricato la pagina o su un altro dispositivo?
+- **Sì** → serve un piccolo campo in più nel database per le righe della Lista (si chiede conferma a parte, prima).
+- **No** → il blocco vale solo finché la pagina resta aperta, senza toccare il database.
+
+## Non si tocca
+
+Inventario (compresa la sua card), «Prodotti da valutare» (salvo il passaggio alla Lista), Fabbisogno, Ordini, Consegne, Carico Merce, semaforo, database Step 2.
 
 ## Dettagli tecnici
-- File: `shopping-list-panel.tsx`, `inventory-to-evaluate.tsx`.
-- Lettura in anteprima: la stessa query sui conteggi della sessione già usata da `InventoryEvaluation`.
-- La creazione alla prima azione riusa `manageShoppingList('open')` → `manageInventoryEvaluation('take')` → `addShoppingListItems`. Un blocco impedisce doppie creazioni con clic ripetuti.
-- La scelta della lista corrente dà precedenza a quella con `cycle.list_id`.
-- Le righe restano nell'aspetto attuale finché non costruiremo le card dello Step 1. Questa modifica prepara il posto dove le card andranno.
+
+- File: `shopping-list-card.tsx` (tasti rapidi, blocco, pulsante secondo fornitore), `shopping-list-panel.tsx` (interruttore, vista a righe, opzioni del filtro da `supplier_records` attivi dell'azienda).
+- Secondo fornitore: riuso di `supplier-split-dialog` / `assign_shopping_list_supplier`, una riga per fornitore+U.M. d'acquisto; quantità d'acquisto e U.M. d'acquisto per fornitore, equivalente NULL se manca conversione.
+- Tasti rapidi: sommano alla quantità obiettivo in U.M. di magazzino (mai cassette nei kg).
+- Preferenza vista in localStorage letta dopo l'avvio della pagina.
