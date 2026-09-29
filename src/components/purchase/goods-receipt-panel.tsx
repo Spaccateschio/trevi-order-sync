@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { dateTimeShort, parseQuantity, qty } from "@/lib/inventory";
-import type { ReceiptItemRow, ReceiptRow } from "@/lib/purchase";
+import { priceLabel, receiptValue, type ReceiptItemRow, type ReceiptRow } from "@/lib/purchase";
 import { confirmGoodsReceipt, setGoodsReceiptItem } from "@/lib/purchase.functions";
 
 type Row = ReceiptItemRow & {
@@ -25,17 +25,20 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
   const runConfirm = useServerFn(confirmGoodsReceipt);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [lots, setLots] = useState<Record<string, string>>({});
+  const [costs, setCosts] = useState<Record<string, string>>({});
+  const [priceUnits, setPriceUnits] = useState<Record<string, string>>({});
+  const [priceQuantities, setPriceQuantities] = useState<Record<string, string>>({});
 
   const receiptQuery = useQuery({
     queryKey: ["goods-receipt", receiptId],
-    queryFn: async (): Promise<ReceiptRow | null> => {
+    queryFn: async (): Promise<(ReceiptRow & { company_id: string }) | null> => {
       const { data, error } = await supabase
         .from("goods_receipts")
-        .select("id, number, status, location_id, received_at, confirmed_at, delivery_id")
+        .select("id, company_id, number, status, location_id, received_at, confirmed_at, delivery_id")
         .eq("id", receiptId)
         .maybeSingle();
       if (error) throw new Error(error.message);
-      return (data ?? null) as ReceiptRow | null;
+      return (data ?? null) as (ReceiptRow & { company_id: string }) | null;
     },
   });
 
@@ -45,7 +48,7 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
       const { data, error } = await supabase
         .from("goods_receipt_items")
         .select(
-          "id, product_id, delivery_item_id, verified_quantity, unit_code, unit_cost, producer_name, producer_lot_code, expiry_date, notes, products(code, description), purchase_delivery_items(declared_quantity, declared_purchase_quantity, accepted_purchase_quantity, purchase_unit_code)",
+          "id, product_id, delivery_item_id, verified_quantity, unit_code, unit_cost, price_unit_id, price_unit_code, price_quantity, producer_name, producer_lot_code, expiry_date, notes, products(code, description), purchase_delivery_items(declared_quantity, declared_purchase_quantity, accepted_purchase_quantity, purchase_unit_code)",
         )
         .eq("receipt_id", receiptId)
         .order("created_at");
@@ -64,6 +67,33 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
     },
   });
 
+  const companyId = receiptQuery.data?.company_id ?? null;
+  // U.M. dell'anagrafica aziendale proposte per il prezzo; per un fornitore non B2B si può scrivere un codice libero.
+  const unitsQuery = useQuery({
+    queryKey: ["company-units-for-price", companyId],
+    enabled: Boolean(companyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("units_of_measure")
+        .select("id, code")
+        .eq("company_id", companyId as string)
+        .eq("status", "attivo")
+        .order("code");
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const companyUnits = unitsQuery.data ?? [];
+
+  /** Quantità del prezzo proposta solo quando la U.M. del prezzo coincide con quella d'ordine o di magazzino. */
+  const proposedPriceQuantity = (row: Row, unitCode: string | null, verified: number | null) => {
+    const code = (unitCode ?? "").trim().toLowerCase();
+    if (!code) return null;
+    if (row.purchaseUnit && code === row.purchaseUnit.trim().toLowerCase()) return row.declaredPurchase;
+    if (row.unit_code && code === row.unit_code.trim().toLowerCase()) return verified;
+    return null;
+  };
+
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["goods-receipt", receiptId] }),
@@ -79,6 +109,15 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
       const raw = edits[row.id];
       const quantity = raw === undefined ? null : parseQuantity(raw);
       if (raw !== undefined && quantity === null) throw new Error("Quantità non valida");
+      const rawCost = costs[row.id];
+      const cost = rawCost === undefined || rawCost.trim() === "" ? null : parseQuantity(rawCost);
+      if (rawCost !== undefined && rawCost.trim() !== "" && cost === null) throw new Error("Prezzo non valido");
+      const rawUnit = priceUnits[row.id];
+      const unitCode = rawUnit === undefined ? undefined : rawUnit.trim();
+      const matched = unitCode ? companyUnits.find((unit) => unit.code.toLowerCase() === unitCode.toLowerCase()) : undefined;
+      const rawPq = priceQuantities[row.id];
+      const pq = rawPq === undefined || rawPq.trim() === "" ? null : parseQuantity(rawPq);
+      if (rawPq !== undefined && rawPq.trim() !== "" && (pq === null || pq <= 0)) throw new Error("Quantità del prezzo non valida");
       await runSet({
         data: {
           receiptItemId: row.id,
@@ -86,14 +125,19 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
           producerName: null,
           producerLotCode: lots[row.id]?.trim() || null,
           expiryDate: null,
-          unitCost: null,
+          unitCost: cost,
           notes: null,
+          priceUnitId: matched?.id ?? null,
+          priceUnitCode: unitCode ? (matched?.code ?? unitCode) : null,
+          clearPriceUnit: unitCode === "",
+          priceQuantity: pq,
+          clearPriceQuantity: rawPq !== undefined && rawPq.trim() === "",
         },
       });
     },
     onSuccess: async () => {
       await refresh();
-      toast.success("Quantità verificata aggiornata");
+      toast.success("Riga del carico aggiornata");
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -166,6 +210,51 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
                 placeholder="Se assente lascia vuoto"
               />
             </label>
+            <div className="hidden" />
+          </div>
+          {(() => {
+            const verifiedRaw = edits[row.id];
+            const verified = verifiedRaw === undefined ? row.verified_quantity : parseQuantity(verifiedRaw);
+            const costRaw = costs[row.id];
+            const cost = costRaw === undefined ? row.unit_cost : costRaw.trim() === "" ? null : parseQuantity(costRaw);
+            const unitCode = (priceUnits[row.id] ?? row.price_unit_code ?? "").trim() || null;
+            const pqRaw = priceQuantities[row.id];
+            const proposal = proposedPriceQuantity(row, unitCode, verified);
+            const pq = pqRaw === undefined ? (row.price_quantity ?? proposal) : pqRaw.trim() === "" ? null : parseQuantity(pqRaw);
+            const result = receiptValue({ unitCost: cost, priceUnitCode: unitCode, priceQuantity: pq, stockQuantity: verified });
+            return (
+              <div className="mt-2 space-y-2 rounded-md bg-muted/40 p-2">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <label className="text-xs text-muted-foreground">
+                    Prezzo (€)
+                    <Input className="mt-1" inputMode="decimal" disabled={!editable} value={costRaw ?? (row.unit_cost === null ? "" : String(row.unit_cost))} placeholder="Non indicato" onChange={(event) => setCosts((prev) => ({ ...prev, [row.id]: event.target.value }))} />
+                  </label>
+                  <label className="text-xs text-muted-foreground">
+                    U.M. del prezzo
+                    <Input className="mt-1" list={`price-units-${row.id}`} disabled={!editable} value={priceUnits[row.id] ?? row.price_unit_code ?? ""} placeholder="Non indicata" onChange={(event) => setPriceUnits((prev) => ({ ...prev, [row.id]: event.target.value }))} />
+                    <datalist id={`price-units-${row.id}`}>
+                      {companyUnits.map((unit) => <option key={unit.id} value={unit.code} />)}
+                    </datalist>
+                  </label>
+                  <label className="text-xs text-muted-foreground">
+                    Quantità del prezzo {unitCode ? `(${unitCode})` : ""}
+                    <Input className="mt-1" inputMode="decimal" disabled={!editable || !unitCode} value={pqRaw ?? (row.price_quantity === null ? (proposal === null ? "" : String(proposal)) : String(row.price_quantity))} placeholder={unitCode ? "Da inserire" : "Indica prima la U.M."} onChange={(event) => setPriceQuantities((prev) => ({ ...prev, [row.id]: event.target.value }))} />
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {cost === null ? "Prezzo non indicato." : `Prezzo: ${priceLabel(cost, unitCode)}.`}{" "}
+                  {result
+                    ? `Valore merce: ${priceLabel(result.value, null).replace(" · U.M. prezzo non indicata", "")}${
+                        result.stockUnitCost !== null ? ` · Costo a magazzino: ${priceLabel(result.stockUnitCost, row.unit_code)}` : ""
+                      }`
+                    : cost !== null
+                      ? "Valore non calcolabile: servono U.M. e quantità del prezzo."
+                      : ""}
+                </p>
+              </div>
+            );
+          })()}
+          <div className="mt-2 flex">
             <div className="flex items-end">
               {editable ? (
                 <Button size="sm" variant="secondary" onClick={() => saveRow.mutate(row)}>
