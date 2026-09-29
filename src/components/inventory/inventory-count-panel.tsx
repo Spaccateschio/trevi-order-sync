@@ -2186,19 +2186,36 @@ function PhysicalCount({
   const cycleLock = useContext(CycleLockContext);
   const topFiltersRef = useRef<HTMLDivElement>(null);
   const [compactBar, setCompactBar] = useState(false);
+  const stickyHeaderRef = useRef<HTMLDivElement>(null);
+  // La barra compatta compare quando la ricerca originale finisce sotto il riquadro fisso:
+  // il confronto usa la posizione reale del riquadro sticky, qualunque sia la sua altezza.
   useEffect(() => {
-    const el = topFiltersRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry) setCompactBar(!entry.isIntersecting && entry.boundingClientRect.top < 120);
-    }, { rootMargin: "-120px 0px 0px 0px" });
-    observer.observe(el);
-    return () => observer.disconnect();
+    let frame = 0;
+    const check = () => {
+      frame = 0;
+      const search = topFiltersRef.current;
+      const header = stickyHeaderRef.current;
+      if (!search || !header) return;
+      setCompactBar(search.getBoundingClientRect().bottom <= header.getBoundingClientRect().bottom);
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(check); };
+    window.addEventListener("scroll", schedule, { passive: true, capture: true });
+    window.addEventListener("resize", schedule);
+    const resizeObserver = new ResizeObserver(schedule);
+    if (stickyHeaderRef.current) resizeObserver.observe(stickyHeaderRef.current);
+    schedule();
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule, { capture: true });
+      window.removeEventListener("resize", schedule);
+      resizeObserver.disconnect();
+    };
   }, []);
 
   return (
     <section className="space-y-2">
       <div
+        ref={stickyHeaderRef}
         className={cn(
           // Sotto la testata mobile (sticky top-0, h-14) e sempre con sfondo pieno.
           "sticky top-14 z-10 rounded-md border bg-card px-3 py-2 shadow-sm lg:top-0",
