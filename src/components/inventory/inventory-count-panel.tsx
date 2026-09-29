@@ -2578,9 +2578,30 @@ function ProductCard({
   const [noteOpen, setNoteOpen] = useState(false);
   const unitsCtx = useContext(CountUnitsContext);
   const cycleLock = useContext(CycleLockContext);
-  const locked = cycleLock.locked && Boolean(history);
+  const cycleLocked = cycleLock.locked && Boolean(history);
   const canCorrect =
-    locked && isAdmin && Boolean(history?.lastCountId) && history?.lastSessionId === cycleLock.cycleSessionId;
+    cycleLocked && isAdmin && Boolean(history?.lastCountId) && history?.lastSessionId === cycleLock.cycleSessionId;
+  const correctionTarget: PhysicalQuickEditTarget | null =
+    canCorrect && history?.lastCountId && history.lastQuantity != null && history.physical != null && cycleLock.companyId && cycleLock.locationId
+      ? {
+          companyId: cycleLock.companyId,
+          listId: cycleLock.listId ?? null,
+          productId: row.product_id,
+          locationId: cycleLock.locationId,
+          countId: history.lastCountId,
+          unit: history.lastUnit ?? rowUnit(row) ?? "",
+          countedQuantity: history.lastQuantity,
+          countedAt: history.lastAt,
+          physical: history.physical,
+          previousQuantity: history.previousQuantity,
+          countNote: history.countNote,
+          edits: history.edits,
+        }
+      : null;
+  const correction = usePhysicalCorrection(correctionTarget, Boolean(cycleLock.unlockedAll));
+  const correcting = correction.editing;
+  // Bloccata: scheda ocra, controlli disabilitati (matita esclusa). Sbloccata: aspetto normale.
+  const locked = cycleLocked && !correcting;
   const unit = rowUnit(row);
   const name = rowName(row);
   const calculated = Number(row.calculated);
