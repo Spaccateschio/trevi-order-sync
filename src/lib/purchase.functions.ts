@@ -55,11 +55,6 @@ export const managePurchaseOrder = createServerFn({ method: "POST" })
         ? {}
         : { _destination_location_id: data.destinationLocationId }),
       ...(data.notes === null ? {} : { _notes: data.notes }),
-      ...(data.priceUnitId ? { _price_unit_id: data.priceUnitId } : {}),
-      ...(data.priceUnitCode ? { _price_unit_code: data.priceUnitCode } : {}),
-      ...(data.clearPriceUnit ? { _clear_price_unit: true } : {}),
-      ...(data.priceQuantity ? { _price_quantity: data.priceQuantity } : {}),
-      ...(data.clearPriceQuantity ? { _clear_price_quantity: true } : {}),
     });
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -284,6 +279,11 @@ export const setGoodsReceiptItem = createServerFn({ method: "POST" })
       ...(data.expiryDate === null ? {} : { _expiry_date: data.expiryDate }),
       ...(data.unitCost === null ? {} : { _unit_cost: data.unitCost }),
       ...(data.notes === null ? {} : { _notes: data.notes }),
+      ...(data.priceUnitId ? { _price_unit_id: data.priceUnitId } : {}),
+      ...(data.priceUnitCode ? { _price_unit_code: data.priceUnitCode } : {}),
+      ...(data.clearPriceUnit ? { _clear_price_unit: true } : {}),
+      ...(data.priceQuantity ? { _price_quantity: data.priceQuantity } : {}),
+      ...(data.clearPriceQuantity ? { _clear_price_quantity: true } : {}),
     });
     if (error) throw new Error(error.message);
     return { ok: true };
