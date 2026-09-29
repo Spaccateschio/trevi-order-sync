@@ -6,14 +6,16 @@ import {
   ArrowDownAZ,
   MoreVertical,
   Plus,
+  LayoutGrid,
   Printer,
+  Rows3,
   Search,
   SlidersHorizontal,
   Star,
   Trash2,
   Truck,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AddProductsDialog, Thumb } from "./add-products-dialog";
