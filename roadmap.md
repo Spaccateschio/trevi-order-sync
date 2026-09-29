@@ -73,3 +73,5 @@
 
 - [x] Ripristino barra fissa ricerca/filtri (soglia = altezza reale riquadro sticky)
 - [ ] Ridurre spazio parte superiore Inventario (da rivedere insieme; «Sblocca quantità» resta dov'è)
+
+- [ ] Lista della Spesa Step 1: card stile Inventario (in attesa decisione su quantità acquisto in U.M. fornitore)
