@@ -75,3 +75,4 @@
 - [ ] Ridurre spazio parte superiore Inventario (da rivedere insieme; «Sblocca quantità» resta dov'è)
 
 - [ ] Lista della Spesa Step 1: card stile Inventario (in attesa decisione su quantità acquisto in U.M. fornitore)
+- [ ] Step 2 modello dati Lista: in attesa approvazione su ordered_quantity, colonne acquisto manuale, vincolo U.M. multiple, semaforo
