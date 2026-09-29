@@ -6204,6 +6204,10 @@ export type Database = {
       }
       shares_company_with: { Args: { _user_id: string }; Returns: boolean }
       shares_relation_with: { Args: { _company_id: string }; Returns: boolean }
+      shopping_item_stock_unit_id: {
+        Args: { _item_id: string }
+        Returns: string
+      }
       shopping_list_item_state: {
         Args: { _item_id: string }
         Returns: {
