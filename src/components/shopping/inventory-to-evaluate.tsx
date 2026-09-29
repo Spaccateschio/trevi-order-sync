@@ -22,7 +22,7 @@ import { getProductImageUrls } from "@/lib/product-images.functions";
 import { type ShoppingListRow } from "@/lib/shopping-list";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
 
-type CountedRow = {
+export type CountedRow = {
   product_id: string;
   location_id: string;
   code: string;
@@ -97,7 +97,6 @@ export function useInventoryCountedRows(companyId: string, sessionId: string | n
   });
 
   const allCounted = countsQuery.data ?? [];
-  const toEvaluate = allCounted.filter((row) => !existingProductIds.has(row.product_id));
   const imageIds = useMemo(() => allCounted.slice(0, 50).map((row) => row.product_id), [allCounted]);
   const imagesQuery = useQuery({
     queryKey: ["inventory-evaluation-images", imageIds],
@@ -122,7 +121,15 @@ export function InventoryEvaluation({
   existingProductIds,
   onEnsureList,
   layout = "row",
+  values: controlledValues,
+  onValuesChange,
+  hideItems = false,
 }: {
+  /** Quantità scritte e non ancora aggiunte: gestite dalla pagina quando i prodotti sono nella raccolta unica. */
+  values?: Record<string, string>;
+  onValuesChange?: (update: (current: Record<string, string>) => Record<string, string>) => void;
+  /** Mostra solo intestazione e comandi: i prodotti sono nella raccolta unica della pagina. */
+  hideItems?: boolean;
   /** Solo presentazione: stessa scelta Card/Righe della Lista della Spesa. */
   layout?: "card" | "row";
   companyId: string;
@@ -136,8 +143,10 @@ export function InventoryEvaluation({
   const queryClient = useQueryClient();
   const runEvaluation = useServerFn(manageInventoryEvaluation);
   const runAdd = useServerFn(addShoppingListItems);
-  const getImageUrls = useServerFn(getProductImageUrls);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [ownValues, setOwnValues] = useState<Record<string, string>>({});
+  const values = controlledValues ?? ownValues;
+  const setValues = (update: (current: Record<string, string>) => Record<string, string>) =>
+    onValuesChange ? onValuesChange(update) : setOwnValues(update);
   const [finishOpen, setFinishOpen] = useState(false);
 
   const sessionId = cycle.session_id!;
@@ -150,6 +159,7 @@ export function InventoryEvaluation({
     ]);
 
   const { allCounted, images } = useInventoryCountedRows(companyId, sessionId);
+  const toEvaluate = allCounted.filter((row) => !existingProductIds.has(row.product_id));
 
   const addMutation = useMutation({
     mutationFn: async (items: { product_id: string; quantity: number }[]) => {
@@ -249,7 +259,7 @@ export function InventoryEvaluation({
       {invalid.length ? (
         <p className="px-1 text-xs text-destructive">Scrivi una quantità maggiore di zero oppure lascia il campo vuoto.</p>
       ) : null}
-      {toEvaluate.length && layout === "card" ? (
+      {hideItems ? null : toEvaluate.length && layout === "card" ? (
         <div className="@container">
           <div className="grid auto-rows-fr gap-2 grid-cols-[repeat(auto-fill,minmax(max(172px,calc((100%_-_1.5rem)/4)),1fr))] @min-[600px]:grid-cols-[repeat(auto-fill,minmax(max(232px,calc((100%_-_1.5rem)/4)),1fr))]">
             {toEvaluate.map((row) => (
