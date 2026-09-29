@@ -619,6 +619,50 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       ) : null}
 
+      {/* Unica scelta Card/Righe: vale sia per «Da inventario» sia per la Lista. */}
+      {(evaluating && cycle) || list ? (
+    <div className="flex items-center justify-end gap-2">
+          <span className="text-xs text-muted-foreground">Vista prodotti</span>
+          <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
+            <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => changeViewMode("card")}>
+              <LayoutGrid aria-hidden="true" /> Card
+            </Button>
+            <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "row" ? "default" : "ghost"} aria-pressed={viewMode === "row"} onClick={() => changeViewMode("row")}>
+              <Rows3 aria-hidden="true" /> Righe
+            </Button>
+          </div>
+        </div>
+  
+        <div className="@container">
+        <div
+          className={
+            viewMode === "card"
+              ? // Colonne decise dallo spazio reale, massimo 4: card compatta (172px) solo su spazi stretti, altrimenti almeno 232px.
+                "grid auto-rows-fr gap-2 grid-cols-[repeat(auto-fill,minmax(max(172px,calc((100%_-_1.5rem)/4)),1fr))] @min-[600px]:grid-cols-[repeat(auto-fill,minmax(max(232px,calc((100%_-_1.5rem)/4)),1fr))]"
+              : "grid grid-cols-1 gap-1.5"
+          }
+        >
+          {rows.map((row) => (
+            <ShoppingListCard
+              key={row.item_id}
+              layout={viewMode}
+              onQuickAdd={(step) => quickAdd(row, step)}
+              row={row}
+              extra={extras.get(row.item_id)}
+              stock={stockQuery.data?.get(row.product_id)}
+              editable={Boolean(editable)}
+              quantityInput={quantityInput(row, "h-9 min-w-0 flex-1 text-right text-base font-bold")}
+              favoritePending={favoriteMutation.isPending}
+              onToggleFavorite={() =>
+                favoriteMutation.mutate({ productId: row.product_id, favorite: !extras.get(row.item_id)?.isFavorite })
+              }
+              onOpenSuppliers={() => setSplitItem(row)}
+              onRemove={() => removeMutation.mutate(row.item_id)}
+            />
+          ))}
+        </div>
+      ) : null}
+
       {evaluating && cycle && (!list || list.id === linkedList?.id) ? (
         <InventoryEvaluation
           companyId={companyId}
@@ -626,6 +670,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           linkedList={linkedList}
           existingProductIds={new Set(linkedList && list?.id === linkedList.id ? allRows.map((row) => row.product_id) : [])}
           onEnsureList={ensureInventoryList}
+          layout={viewMode}
         />
       ) : cycle?.color === "rosso" && cycle.evaluated_at && (!list || list.id === cycle.list_id) ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
@@ -737,45 +782,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             ) : null}
           </div>
 
-          <div className="flex justify-end">
-            <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
-              <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => changeViewMode("card")}>
-                <LayoutGrid aria-hidden="true" /> Card
-              </Button>
-              <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "row" ? "default" : "ghost"} aria-pressed={viewMode === "row"} onClick={() => changeViewMode("row")}>
-                <Rows3 aria-hidden="true" /> Righe
-              </Button>
-            </div>
-          </div>
-
-          <div className="@container">
-          <div
-            className={
-              viewMode === "card"
-                ? // Colonne decise dallo spazio reale, massimo 4: card compatta (172px) solo su spazi stretti, altrimenti almeno 232px.
-                  "grid auto-rows-fr gap-2 grid-cols-[repeat(auto-fill,minmax(max(172px,calc((100%_-_1.5rem)/4)),1fr))] @min-[600px]:grid-cols-[repeat(auto-fill,minmax(max(232px,calc((100%_-_1.5rem)/4)),1fr))]"
-                : "grid grid-cols-1 gap-1.5"
-            }
-          >
-            {rows.map((row) => (
-              <ShoppingListCard
-                key={row.item_id}
-                layout={viewMode}
-                onQuickAdd={(step) => quickAdd(row, step)}
-                row={row}
-                extra={extras.get(row.item_id)}
-                stock={stockQuery.data?.get(row.product_id)}
-                editable={Boolean(editable)}
-                quantityInput={quantityInput(row, "h-9 min-w-0 flex-1 text-right text-base font-bold")}
-                favoritePending={favoriteMutation.isPending}
-                onToggleFavorite={() =>
-                  favoriteMutation.mutate({ productId: row.product_id, favorite: !extras.get(row.item_id)?.isFavorite })
-                }
-                onOpenSuppliers={() => setSplitItem(row)}
-                onRemove={() => removeMutation.mutate(row.item_id)}
-              />
-            ))}
-          </div>
           </div>
 
           {!rows.length && !overviewQuery.isLoading ? (
