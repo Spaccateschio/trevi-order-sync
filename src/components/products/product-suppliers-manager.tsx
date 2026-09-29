@@ -73,6 +73,7 @@ const EMPTY_DRAFT = {
   purchaseUnitId: "",
   conversionFactor: "",
   manualCost: "",
+  priceUnitId: "",
   minQuantity: "",
   leadTimeDays: "",
   notes: "",
@@ -113,6 +114,19 @@ export function ProductSuppliersManager({
       const { data, error } = await supabase.rpc("product_supplier_overview", { _product_id: productId });
       if (error) throw new Error(error.message);
       return (data ?? []) as Overview[];
+    },
+  });
+
+  // U.M. del prezzo del costo concordato (solo fornitori non B2B): letta direttamente dalla referenza.
+  const priceUnitsQuery = useQuery({
+    queryKey: ["product-supplier-price-units", productId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_supplier_links")
+        .select("id, price_unit_id")
+        .eq("product_id", productId);
+      if (error) throw new Error(error.message);
+      return Object.fromEntries((data ?? []).map((row) => [row.id, row.price_unit_id])) as Record<string, string | null>;
     },
   });
 
@@ -159,11 +173,12 @@ export function ProductSuppliersManager({
       purchaseUnitId: selected.purchase_unit_id ?? "",
       conversionFactor: selected.conversion_factor?.toString() ?? "",
       manualCost: selected.manual_cost?.toString() ?? "",
+      priceUnitId: priceUnitsQuery.data?.[selected.link_id] ?? "",
       minQuantity: selected.min_quantity?.toString() ?? "",
       leadTimeDays: selected.lead_time_days?.toString() ?? "",
       notes: selected.notes ?? "",
     });
-  }, [selected]);
+  }, [selected, priceUnitsQuery.data]);
 
   const deliveryQuery = useDeliverySchedules(productId);
   const deliveries = deliveryQuery.data ?? {};
@@ -171,11 +186,14 @@ export function ProductSuppliersManager({
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["product-supplier-links", productId] }),
+      queryClient.invalidateQueries({ queryKey: ["product-supplier-price-units", productId] }),
       queryClient.invalidateQueries({ queryKey: ["product-danea-supplier-matches", productId] }),
       queryClient.invalidateQueries({ queryKey: ["supplier-options", companyId] }),
       queryClient.invalidateQueries({ queryKey: ["product-supplier-delivery", productId] }),
     ]);
   };
+
+  const isB2b = selected?.b2b_relation_status === "attivo";
 
   const saveMutation = useMutation({
     mutationFn: async (mode: "create" | "update") => {
@@ -193,6 +211,7 @@ export function ProductSuppliersManager({
         ...(num(draft.conversionFactor, "Conversione") !== null ? { _conversion_factor: num(draft.conversionFactor, "Conversione") as number } : {}),
         ...(daneaUm ? { _conversion_reference_um: daneaUm } : {}),
         ...(num(draft.manualCost, "Costo concordato") !== null ? { _manual_cost: num(draft.manualCost, "Costo concordato") as number } : {}),
+        ...(draft.priceUnitId && !isB2b ? { _price_unit_id: draft.priceUnitId } : {}),
         ...(num(draft.minQuantity, "Quantità minima") !== null ? { _min_quantity: num(draft.minQuantity, "Quantità minima") as number } : {}),
         ...(num(draft.leadTimeDays, "Giorni di consegna") !== null ? { _lead_time_days: num(draft.leadTimeDays, "Giorni di consegna") as number } : {}),
         _notes: draft.notes,
@@ -345,6 +364,21 @@ export function ProductSuppliersManager({
         <Label className="text-xs">Costo concordato (Trevi Fruit)</Label>
         <Input inputMode="decimal" aria-invalid={isInvalidNumber(draft.manualCost)} className={invalidClass(draft.manualCost)} value={draft.manualCost} disabled={busy} placeholder="Nessuno" onChange={(event) => setDraft((current) => ({ ...current, manualCost: event.target.value }))} />
         {numberError(draft.manualCost)}
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">U.M. del prezzo</Label>
+        {isB2b && mode === "update" ? (
+          <p className="text-sm text-muted-foreground">Fornitore B2B: la U.M. del prezzo arriva dal suo catalogo.</p>
+        ) : (
+          <Select value={draft.priceUnitId || "nessuna"} disabled={busy} onValueChange={(value) => setDraft((current) => ({ ...current, priceUnitId: value === "nessuna" ? "" : value }))}>
+            <SelectTrigger><SelectValue placeholder="Non indicata" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="nessuna">Non indicata</SelectItem>
+              {units.filter((unit) => unit.status === "attivo" || unit.id === draft.priceUnitId).map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.code} — {unit.description}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <p className="text-xs text-muted-foreground">Es. costo 2,00 con U.M. kg = € 2,00/kg. Può essere diversa dalla U.M. con cui ordini.</p>
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Quantità minima</Label>
