@@ -16,6 +16,7 @@ import {
   MoreVertical,
   Package,
   PackageSearch,
+  Printer,
   RotateCcw,
   Search,
   ShoppingCart,
@@ -589,6 +590,62 @@ export function InventoryCountPanel({
       return map;
     },
   });
+
+  // Stampa delle giacenze: foglio pulito con i prodotti conteggiati e quelli mai conteggiati (quantità vuota).
+  const printStock = () => {
+    const history = stockHistoryQuery.data;
+    if (!history || catalogPreview.length === 0) return;
+    const esc = (value: string) =>
+      value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const fmtQty = (value: number) => value.toLocaleString("it-IT", { maximumFractionDigits: 3 });
+    const fmtDate = (iso: string) =>
+      new Date(iso).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const rows = [...catalogPreview]
+      .sort((a, b) => (a.code ?? "").localeCompare(b.code ?? "", "it"))
+      .map((product) => {
+        const entry = history.get(product.id);
+        return {
+          code: product.code ?? "",
+          description: product.description ?? "",
+          qty: entry?.physical ?? null,
+          unit: product.danea_um ?? "",
+          note: entry?.countNote ?? "",
+        };
+      });
+    const lastAt = [...history.values()].reduce<string | null>(
+      (acc, entry) => (entry.lastAt && (!acc || entry.lastAt > acc) ? entry.lastAt : acc),
+      null,
+    );
+    const body = rows
+      .map(
+        (row) =>
+          `<tr><td>${esc(row.code)}</td><td>${esc(row.description)}</td><td class="qty">${row.qty === null ? "" : fmtQty(row.qty)}</td><td>${esc(row.unit)}</td><td>${esc(row.note)}</td></tr>`,
+      )
+      .join("");
+    const html = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Giacenze inventario</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;color:#111;margin:24px;}
+h1{font-size:18px;margin:0 0 4px;}
+p.meta{font-size:12px;color:#444;margin:0 0 16px;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top;}
+th{background:#f0ead6;}
+td.qty{text-align:right;font-weight:600;min-width:70px;}
+@page{margin:15mm;}
+</style></head><body>
+<h1>Giacenze inventario</h1>
+<p class="meta">${lastAt ? `Ultimo inventario: ${fmtDate(lastAt)} · ` : ""}Stampato il ${fmtDate(new Date().toISOString())}</p>
+<table><thead><tr><th>Codice</th><th>Descrizione</th><th>Quantità fisica</th><th>U.M.</th><th>Note</th></tr></thead><tbody>${body}</tbody></table>
+</body></html>`;
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
+
 
 
   const previewImagesQuery = useQuery({
@@ -1311,11 +1368,25 @@ export function InventoryCountPanel({
       </div>
 
       <CycleLight cycle={cycleQuery.data} sessionActive={Boolean(sessionId)} />
-      {!sessionId && cycleColor === "rosso" && isAdmin ? (
-        <div className="flex justify-end">
-          <Button type="button" size="sm" variant={unlockedAll ? "secondary" : "outline"} onClick={() => setUnlockedAll((v) => !v)}>
-            {unlockedAll ? "Blocca quantità" : "Sblocca quantità"}
+      {!sessionId ? (
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={printStock}
+            disabled={!stockHistoryQuery.data || catalogPreview.length === 0}
+            title="Stampa le giacenze dell'ultimo inventario"
+          >
+            <Printer aria-hidden="true" />
+            <span className="hidden sm:inline">Stampa giacenze</span>
+            <span className="sm:hidden">Stampa</span>
           </Button>
+          {cycleColor === "rosso" && isAdmin ? (
+            <Button type="button" size="sm" variant={unlockedAll ? "secondary" : "outline"} onClick={() => setUnlockedAll((v) => !v)}>
+              {unlockedAll ? "Blocca quantità" : "Sblocca quantità"}
+            </Button>
+          ) : null}
         </div>
       ) : null}
       <CorrectCountDialog
