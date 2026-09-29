@@ -512,7 +512,7 @@ export function InventoryCountPanel({
     // Le correzioni dei colleghi compaiono da sole.
     refetchInterval: 15000,
     refetchOnWindowFocus: true,
-    enabled: !sessionId && !sessionQuery.isLoading && Boolean(archiveId) && Boolean(historyLocationId),
+    enabled: !sessionQuery.isLoading && Boolean(archiveId) && Boolean(historyLocationId),
     queryFn: async (): Promise<Map<string, StockHistory>> => {
       const [stockResult, countsResult] = await Promise.all([
         supabase.rpc("inventory_location_stock_list", {
@@ -1372,27 +1372,25 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
       </div>
 
       <CycleLight cycle={cycleQuery.data} sessionActive={Boolean(sessionId)} />
-      {!sessionId ? (
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={printStock}
-            disabled={!stockHistoryQuery.data || catalogPreview.length === 0}
-            title="Stampa le giacenze dell'ultimo inventario"
-          >
-            <Printer aria-hidden="true" />
-            <span className="hidden sm:inline">Stampa giacenze</span>
-            <span className="sm:hidden">Stampa</span>
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={printStock}
+          disabled={!stockHistoryQuery.data || catalogPreview.length === 0}
+          title="Stampa le giacenze dell'ultimo inventario"
+        >
+          <Printer aria-hidden="true" />
+          <span className="hidden sm:inline">Stampa giacenze</span>
+          <span className="sm:hidden">Stampa</span>
+        </Button>
+        {!sessionId && cycleColor === "rosso" && isAdmin ? (
+          <Button type="button" size="sm" variant={unlockedAll ? "secondary" : "outline"} onClick={() => setUnlockedAll((v) => !v)}>
+            {unlockedAll ? "Blocca quantità" : "Sblocca quantità"}
           </Button>
-          {cycleColor === "rosso" && isAdmin ? (
-            <Button type="button" size="sm" variant={unlockedAll ? "secondary" : "outline"} onClick={() => setUnlockedAll((v) => !v)}>
-              {unlockedAll ? "Blocca quantità" : "Sblocca quantità"}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+        ) : null}
+      </div>
       <CorrectCountDialog
         companyId={companyId}
         listId={cycleQuery.data?.list_id ?? null}
