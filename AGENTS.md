@@ -14,3 +14,5 @@
 - Flusso Acquisti (shopping-list.functions.ts, purchase.functions.ts): le RPC di utenti collegati si chiamano sempre con context.supabase, mai con il client privilegiato: le funzioni DB autorizzano con auth.uid() e senza sessione rispondono "Accesso non consentito".
 - Giacenza (inventory_location_stock): usa solo l'ultimo conteggio nella stessa U.M. del prodotto (danea_um); conteggi in U.M. diversa restano nello storico ma non diventano giacenza, perché non si fanno conversioni.
 - Ciclo Inventario→Lista→Ordini: colore semaforo e presa in carico decisi solo da inventory_purchase_cycle_status / manage_inventory_purchase_evaluation (colonne purchase_* su inventory_sessions); con rosso start_general_inventory rifiuta nuove sessioni: un solo ciclo aperto alla volta.
+
+- Acquisti: il dato d'ordine è quantità + U.M. d'acquisto + fornitore; assigned_quantity/ordered_quantity/declared_quantity sono solo equivalente in U.M. di magazzino (NULL senza conversione, mai 0); le colonne *_purchase_* non si usano mai per kg: evita di confondere cassette e kg.
