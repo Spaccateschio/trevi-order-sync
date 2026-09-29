@@ -18,7 +18,9 @@ import { toast } from "sonner";
 
 import { AddProductsDialog, Thumb } from "./add-products-dialog";
 import { CYCLE_QUERY_KEY, InventoryEvaluation } from "./inventory-to-evaluate";
+import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
+import { manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
 import { useShoppingListExtras } from "./use-shopping-list-extras";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -92,6 +94,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runQuantity = useServerFn(setShoppingListItemQuantity);
   const runRemove = useServerFn(removeShoppingListItem);
   const readCycle = useServerFn(getInventoryCycleStatus);
+  const runFavorite = useServerFn(manageCompanyProductFavorite);
   const runEvaluation = useServerFn(manageInventoryEvaluation);
   const creatingRef = useRef<Promise<string | null> | null>(null);
 
@@ -294,6 +297,55 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   });
 
   const allRows = overviewQuery.data ?? [];
+
+  // Ultimo conteggio e giacenza per le card: sola lettura, stessa fonte dell'Inventario.
+  const stockProductIds = useMemo(() => [...new Set(allRows.map((row) => row.product_id))].sort(), [allRows]);
+  const stockQuery = useQuery({
+    queryKey: ["shopping-card-stock", companyId, list?.archive_id, stockProductIds],
+    enabled: Boolean(list?.archive_id) && stockProductIds.length > 0,
+    queryFn: async () => {
+      const result = new Map<string, StockInfo>();
+      const { data: counts, error } = await supabase
+        .from("inventory_counts")
+        .select("product_id, location_id, counted_quantity, unit_code, counted_at")
+        .eq("company_id", companyId)
+        .in("product_id", stockProductIds)
+        .order("counted_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      const locations = new Set<string>();
+      for (const count of (counts ?? []) as { product_id: string; location_id: string; counted_quantity: number; unit_code: string | null; counted_at: string }[]) {
+        locations.add(count.location_id);
+        if (result.has(count.product_id)) continue;
+        result.set(count.product_id, {
+          lastQuantity: Number(count.counted_quantity),
+          lastUnit: count.unit_code,
+          lastAt: count.counted_at,
+          stock: null,
+        });
+      }
+      for (const locationId of locations) {
+        const { data: stock } = await supabase.rpc("inventory_location_stock_list", {
+          _company_id: companyId,
+          _archive_id: list!.archive_id,
+          _location_id: locationId,
+        });
+        for (const entry of (stock ?? []) as { product_id: string; has_count: boolean; quantity: number }[]) {
+          const info = result.get(entry.product_id);
+          if (info && entry.has_count) info.stock = (info.stock ?? 0) + Number(entry.quantity);
+        }
+      }
+      return result;
+    },
+  });
+
+  const favoriteMutation = useMutation({
+    mutationFn: (input: { productId: string; favorite: boolean }) =>
+      runFavorite({ data: { companyId, productId: input.productId, favorite: input.favorite } }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["shopping-extras-favorites", companyId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
   const { extras, b2bSupplierIds } = useShoppingListExtras(companyId, list?.id ?? null, allRows);
   const categories = useMemo(
     () => [...new Set([...extras.values()].map((row) => row.category).filter(Boolean) as string[])].sort(),
@@ -665,121 +717,24 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             ) : null}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-md border border-border md:block">
-            <table className="w-full min-w-[860px] table-fixed text-xs">
-              <thead className="bg-muted/50 text-muted-foreground">
-                <tr className="[&>th]:px-2 [&>th]:py-1.5 [&>th]:text-left [&>th]:font-medium">
-                  <th className="w-10"><span className="sr-only">Foto</span></th>
-                  <th className="w-20">Codice</th>
-                  <th>Prodotto</th>
-                  <th className="w-28">Categoria</th>
-                  <th className="w-20">Quantità</th>
-                  <th className="w-12">U.M.</th>
-                  <th className="w-56">Fornitore/i</th>
-                  <th className="w-32">Note</th>
-                  <th className="w-24">Azioni</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => {
-                  const extra = extras.get(row.item_id);
-                  return (
-                    <tr key={row.item_id} className="border-t border-border align-middle [&>td]:px-2 [&>td]:py-1">
-                      <td><Thumb url={extra?.imageUrl ?? null} /></td>
-                      <td className="truncate font-mono">{row.code}</td>
-                      <td>
-                        <div className="flex items-center gap-1">
-                          {extra?.isFavorite ? <Star className="size-3 shrink-0 fill-primary text-primary" aria-label="Preferito" /> : null}
-                          <span className="truncate font-medium">{row.description ?? "—"}</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1 text-[11px]">
-                          {statusBadgeSmall(row)}
-                          {orderBadge(row)}
-                          {detail(row)}
-                        </div>
-                      </td>
-                      <td className="truncate text-muted-foreground">{extra?.category ?? "—"}</td>
-                      <td>{editable ? quantityInput(row, "h-7 text-xs") : qty(row.decided_quantity)}</td>
-                      <td>{row.unit_code ?? "—"}</td>
-                      <td className="text-[11px]">{suppliersCell(row)}</td>
-                      <td className="truncate text-[11px] text-muted-foreground" title={notesOf(row)}>{notesOf(row) || "—"}</td>
-                      <td>
-                        <div className="flex gap-1">
-                          <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setSplitItem(row)}>
-                            <Truck aria-hidden="true" />
-                            Fornitori
-                          </Button>
-                          {editable ? (
-                            <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5" aria-label={`Rimuovi ${row.code}`} onClick={() => removeMutation.mutate(row.item_id)}>
-                              <Trash2 aria-hidden="true" />
-                            </Button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            {rows.map((row) => (
+              <ShoppingListCard
+                key={row.item_id}
+                row={row}
+                extra={extras.get(row.item_id)}
+                stock={stockQuery.data?.get(row.product_id)}
+                editable={Boolean(editable)}
+                quantityInput={quantityInput(row, "h-9 w-28 text-base")}
+                favoritePending={favoriteMutation.isPending}
+                onToggleFavorite={() =>
+                  favoriteMutation.mutate({ productId: row.product_id, favorite: !extras.get(row.item_id)?.isFavorite })
+                }
+                onOpenSuppliers={() => setSplitItem(row)}
+                onRemove={() => removeMutation.mutate(row.item_id)}
+              />
+            ))}
           </div>
-
-          <ul className="space-y-1.5 md:hidden">
-            {rows.map((row) => {
-              const extra = extras.get(row.item_id);
-              const note = notesOf(row);
-              return (
-                <li key={row.item_id} className="rounded-md border border-border p-2">
-                  <div className="flex items-start gap-2">
-                    <Thumb url={extra?.imageUrl ?? null} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-1">
-                        <p className="flex min-w-0 items-center gap-1 text-sm font-medium">
-                          {extra?.isFavorite ? <Star className="size-3 shrink-0 fill-primary text-primary" aria-label="Preferito" /> : null}
-                          <span className="truncate">{row.description ?? row.code}</span>
-                        </p>
-                        {statusBadgeSmall(row)}
-                      </div>
-                      <p className="truncate text-[11px] text-muted-foreground">
-                        <span className="font-mono">{row.code}</span>
-                        {extra?.category ? ` · ${extra.category}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    {quantityInput(row, "h-9 w-24 text-base")}
-                    <span className="text-xs">{row.unit_code ?? ""}</span>
-                    <div className="min-w-0 flex-1 text-[11px]">{suppliersCell(row)}</div>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
-                    {orderBadge(row)}
-                    {detail(row)}
-                    {note ? <span className="truncate text-muted-foreground">Nota: {note}</span> : null}
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-1">
-                    <Button type="button" size="sm" variant="outline" className="h-8 flex-1 px-2 text-xs" onClick={() => setSplitItem(row)}>
-                      <Truck aria-hidden="true" />
-                      Fornitori
-                    </Button>
-                    {editable ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button type="button" size="sm" variant="ghost" className="h-8 px-2" aria-label={`Altre azioni ${row.code}`}>
-                            <MoreVertical aria-hidden="true" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="text-destructive" onClick={() => removeMutation.mutate(row.item_id)}>
-                            <Trash2 aria-hidden="true" />
-                            Rimuovi
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : null}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
 
           {!rows.length && !overviewQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">
