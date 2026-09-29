@@ -19,11 +19,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AddProductsDialog, Thumb } from "./add-products-dialog";
-import { CYCLE_QUERY_KEY, InventoryEvaluation } from "./inventory-to-evaluate";
+import { CYCLE_QUERY_KEY, InventoryEvaluation, useInventoryCountedRows, type CountedRow } from "./inventory-to-evaluate";
 import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
-import { useShoppingListExtras } from "./use-shopping-list-extras";
+import { useShoppingListExtras, type RowExtras } from "./use-shopping-list-extras";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -58,9 +58,44 @@ import {
   setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
 
+/** Prodotto contato non ancora in Lista, mostrato con la stessa card: nessun dato della Lista inventato. */
+function pendingOverviewRow(row: CountedRow): OverviewRow {
+  return {
+    item_id: `pending:${row.product_id}`,
+    product_id: row.product_id,
+    code: row.code,
+    description: row.description,
+    unit_code: row.unit,
+    suggested_quantity: null,
+    decided_quantity: null,
+    change_reason: null,
+    origin: "manuale",
+    snapshot_available: null,
+    snapshot_needed: null,
+    snapshot_min_stock: null,
+    snapshot_raw_need: null,
+    snapshot_order_multiple: null,
+    current_available: null,
+    current_min_stock: null,
+    current_order_multiple: null,
+    current_suggested: null,
+    assigned: 0,
+    remaining: null,
+    status: "da_assegnare",
+    untranslatable: 0,
+    under_minimum: 0,
+    suppliers_available: 0,
+    created_at: "",
+  };
+}
+
+type Entry = { kind: "list" | "pending"; row: OverviewRow; extra: RowExtras | undefined; stock: StockInfo | undefined };
+
 type Archive = { id: string; name: string; is_default: boolean };
 type SortKey = "description" | "code" | "category" | "supplier";
 type FilterFlag =
+  | "da_valutare"
+  | "in_lista"
   | "senza_fornitore"
   | "b2b"
   | "non_b2b"
@@ -73,6 +108,8 @@ type FilterFlag =
   | "da_confermare"
   | "confermati";
 const FILTER_FLAGS: [FilterFlag, string][] = [
+  ["da_valutare", "Da valutare"],
+  ["in_lista", "In lista"],
   ["senza_fornitore", "Senza fornitore"],
   ["b2b", "B2B"],
   ["non_b2b", "Non B2B"],
@@ -115,6 +152,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [addOpen, setAddOpen] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [splitItem, setSplitItem] = useState<OverviewRow | null>(null);
+  // Quantità scritte sui prodotti «Da valutare», non ancora aggiunte alla Lista.
+  const [evalValues, setEvalValues] = useState<Record<string, string>>({});
   // Card / Righe: scelta solo visuale, ricordata sul dispositivo.
   const [viewMode, setViewMode] = useState<"card" | "row">("card");
   useEffect(() => {
@@ -364,9 +403,46 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     onError: (error: Error) => toast.error(error.message),
   });
   const { extras, b2bSupplierIds } = useShoppingListExtras(companyId, list?.id ?? null, allRows);
+  // Raccolta unica: i prodotti contati non ancora in Lista compaiono una sola volta, con la stessa card.
+  const showPending = Boolean(
+    evaluating && cycle && !cycle.evaluated_at && (!list || list.id === linkedList?.id),
+  );
+  const { allCounted, images: countedImages } = useInventoryCountedRows(companyId, showPending ? (cycle?.session_id ?? null) : null);
+  const listProductIds = useMemo(
+    () => new Set(linkedList && list?.id === linkedList.id ? allRows.map((row) => row.product_id) : []),
+    [allRows, linkedList, list?.id],
+  );
+  const pendingEntries = useMemo<Entry[]>(
+    () =>
+      showPending
+        ? allCounted
+            .filter((row) => !listProductIds.has(row.product_id))
+            .map((row) => ({
+              kind: "pending" as const,
+              row: pendingOverviewRow(row),
+              extra: {
+                category: row.category,
+                imageUrl: countedImages.get(row.product_id) ?? null,
+                isFavorite: false,
+                suppliers: [],
+                orderState: null as unknown as RowExtras["orderState"],
+                lockedAt: null,
+              },
+              stock: { lastQuantity: row.counted, lastUnit: row.unit, lastAt: null, stock: row.stock },
+            }))
+        : [],
+    [showPending, allCounted, listProductIds, countedImages],
+  );
   const categories = useMemo(
-    () => [...new Set([...extras.values()].map((row) => row.category).filter(Boolean) as string[])].sort(),
-    [extras],
+    () =>
+      [
+        ...new Set(
+          [...[...extras.values()].map((row) => row.category), ...pendingEntries.map((entry) => entry.extra?.category)].filter(
+            Boolean,
+          ) as string[],
+        ),
+      ].sort(),
+    [extras, pendingEntries],
   );
   const supplierOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -375,10 +451,20 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   }, [extras]);
 
   // Filtri e ordinamento solo in vista: nessuna scrittura.
-  const rows = useMemo(() => {
+  const entries = useMemo<Entry[]>(() => {
     const term = search.trim().toLowerCase();
-    const filtered = allRows.filter((row) => {
-      const extra = extras.get(row.item_id);
+    const all: Entry[] = [
+      ...allRows.map((row) => ({
+        kind: "list" as const,
+        row,
+        extra: extras.get(row.item_id),
+        stock: stockQuery.data?.get(row.product_id),
+      })),
+      ...pendingEntries,
+    ];
+    const filtered = all.filter(({ row, kind, extra }) => {
+      if (flags.has("da_valutare") && kind !== "pending") return false;
+      if (flags.has("in_lista") && kind !== "list") return false;
       if (term && !row.code.toLowerCase().includes(term) && !(row.description ?? "").toLowerCase().includes(term)) return false;
       if (category !== "all" && extra?.category !== category) return false;
       if (supplierFilter !== "all" && !extra?.suppliers.some((s) => s.supplierRecordId === supplierFilter)) return false;
@@ -389,7 +475,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         if (flags.has("non_b2b") && !suppliers.some((s) => !s.isB2B)) return false;
         if (flags.has("preferiti") && !extra?.isFavorite) return false;
         const statusFlags = (["da_assegnare", "parziale", "assegnata"] as const).filter((f) => flags.has(f));
-        if (statusFlags.length && !(statusFlags as readonly string[]).includes(row.status)) return false;
+        if (statusFlags.length && (kind === "pending" || !(statusFlags as readonly string[]).includes(row.status))) return false;
         if (flags.has("in_ordine") && extra?.orderState !== "ordinato") return false;
         if (flags.has("da_ordinare") && extra?.orderState === "ordinato") return false;
         if (flags.has("da_confermare") && extra?.lockedAt) return false;
@@ -397,15 +483,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       }
       return true;
     });
-    const key = (row: OverviewRow) => {
-      const extra = extras.get(row.item_id);
+    const key = ({ row, extra }: Entry) => {
       if (sortBy === "code") return row.code;
       if (sortBy === "category") return `${extra?.category ?? "\uffff"} ${row.description ?? ""}`;
       if (sortBy === "supplier") return `${extra?.suppliers[0]?.name ?? "\uffff"} ${row.description ?? ""}`;
       return row.description ?? row.code;
     };
     return [...filtered].sort((left, right) => key(left).localeCompare(key(right), "it", { numeric: true }));
-  }, [allRows, extras, search, category, supplierFilter, flags, sortBy]);
+  }, [allRows, extras, stockQuery.data, pendingEntries, search, category, supplierFilter, flags, sortBy]);
 
   const summary = useMemo(
     () => ({
@@ -479,6 +564,24 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       }}
     />
   );
+
+  // «Da valutare»: la quantità resta scritta nella pagina finché non si preme «Aggiungi alla Lista».
+  const pendingInput = (row: OverviewRow) => (
+    <Input
+      className="h-9 min-w-0 flex-1 text-right text-base font-bold"
+      inputMode="decimal"
+      placeholder="—"
+      disabled={!(editable || previewMode)}
+      value={evalValues[row.product_id] ?? ""}
+      aria-label={`Da acquistare ${row.code}`}
+      onChange={(event) => setEvalValues((current) => ({ ...current, [row.product_id]: event.target.value }))}
+    />
+  );
+  const pendingQuickAdd = (row: OverviewRow, step: number) =>
+    setEvalValues((current) => {
+      const base = parseQuantity(current[row.product_id] ?? "") ?? 0;
+      return { ...current, [row.product_id]: String(Math.round((base + step) * 1000) / 1000) };
+    });
 
   // Tasti rapidi: cambiano solo la quantità totale da acquistare, mai le ripartizioni. Nessuna conversione.
   const quickAdd = (row: OverviewRow, step: number) => {
@@ -668,9 +771,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           companyId={companyId}
           cycle={cycle}
           linkedList={linkedList}
-          existingProductIds={new Set(linkedList && list?.id === linkedList.id ? allRows.map((row) => row.product_id) : [])}
+          existingProductIds={listProductIds}
           onEnsureList={ensureInventoryList}
           layout={viewMode}
+          values={evalValues}
+          onValuesChange={setEvalValues}
+          hideItems
         />
       ) : cycle?.color === "rosso" && cycle.evaluated_at && (!list || list.id === cycle.list_id) ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
@@ -680,26 +786,19 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </p>
       ) : null}
 
-      {!list && previewMode ? (
-        <div className="flex justify-end">
-          <Button type="button" size="sm" className="h-8 px-2 text-xs" onClick={() => setAddOpen(true)}>
-            <Plus aria-hidden="true" />
-            Aggiungi prodotto
-          </Button>
-        </div>
-      ) : null}
-
-      {!list && previewMode ? null : !list ? (
+      {!list && !showPending ? (
         <p className="text-sm text-muted-foreground">
           Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure consulta lo Storico dal menu delle liste.
         </p>
       ) : (
         <>
+          {list ? (
           <p className="text-xs text-muted-foreground">
             Creata {dateTimeShort(list.created_at)}
             {list.confirmed_at ? ` · confermata ${dateTimeShort(list.confirmed_at)}` : ""}
             {list.closed_at ? ` · chiusa ${dateTimeShort(list.closed_at)}` : ""}
           </p>
+          ) : null}
 
           {/* Barra operativa */}
           <div className="sticky top-14 z-10 flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-card p-1.5 lg:top-0">
@@ -765,7 +864,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 <SelectItem value="supplier">Fornitore</SelectItem>
               </SelectContent>
             </Select>
-            {editable ? (
+            {editable || (!list && previewMode) ? (
               <Button type="button" size="sm" className="h-8 px-2 text-xs" onClick={() => setAddOpen(true)}>
                 <Plus aria-hidden="true" />
                 Aggiungi prodotti
@@ -791,14 +890,32 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 : "grid grid-cols-1 gap-1.5"
             }
           >
-            {rows.map((row) => (
+            {entries.map(({ kind, row, extra, stock }) =>
+              kind === "pending" ? (
+                <ShoppingListCard
+                  key={row.item_id}
+                  pending
+                  layout={viewMode}
+                  row={row}
+                  extra={extra}
+                  stock={stock}
+                  editable={Boolean(editable || previewMode)}
+                  quantityInput={pendingInput(row)}
+                  onQuickAdd={(step) => pendingQuickAdd(row, step)}
+                  favoritePending={false}
+                  onToggleFavorite={() => undefined}
+                  onOpenSuppliers={() => undefined}
+                  onRemove={() => undefined}
+                  onToggleLock={() => undefined}
+                />
+              ) : (
               <ShoppingListCard
                 key={row.item_id}
                 layout={viewMode}
                 onQuickAdd={(step) => quickAdd(row, step)}
                 row={row}
-                extra={extras.get(row.item_id)}
-                stock={stockQuery.data?.get(row.product_id)}
+                extra={extra}
+                stock={stock}
                 editable={Boolean(editable)}
                 quantityInput={quantityInput(row, "h-9 min-w-0 flex-1 text-right text-base font-bold")}
                 favoritePending={favoriteMutation.isPending}
@@ -810,23 +927,24 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onToggleLock={() => void toggleLock(row)}
                 lockPending={lockMutation.isPending || quantityMutation.isPending}
               />
-            ))}
+              ),
+            )}
           </div>
           </div>
 
-          {!rows.length && !overviewQuery.isLoading ? (
+          {!entries.length && !overviewQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">
-              {allRows.length ? "Nessun prodotto con questi filtri." : "Nessuna riga in lista."}
+              {allRows.length || pendingEntries.length ? "Nessun prodotto con questi filtri." : "Nessun prodotto."}
             </p>
           ) : null}
 
           {/* Riepilogo finale: nessun pulsante fisso */}
-          {allRows.length ? (
+          {list && allRows.length ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
               <span>
                 <strong>{summary.total}</strong> prodotti · <strong>{summary.assigned}</strong> assegnati ·{" "}
                 <strong>{summary.partial}</strong> parziali · <strong>{summary.open}</strong> da assegnare
-                {rows.length !== allRows.length ? ` · ne vedi ${rows.length}` : ""}
+                {pendingEntries.length ? ` · ${pendingEntries.length} da valutare` : ""}
               </span>
               {editable ? (
                 <Button type="button" size="sm" className="h-8" disabled={listMutation.isPending} onClick={() => listMutation.mutate("confirm")}>

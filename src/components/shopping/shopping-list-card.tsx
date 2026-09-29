@@ -46,7 +46,10 @@ export function ShoppingListCard({
   onRemove,
   onToggleLock,
   lockPending = false,
+  pending = false,
 }: {
+  /** Prodotto dell'inventario non ancora in Lista: stessa card, comandi della Lista non ancora attivi. */
+  pending?: boolean;
   row: OverviewRow;
   extra: RowExtras | undefined;
   stock: StockInfo | undefined;
@@ -88,7 +91,11 @@ export function ShoppingListCard({
       </span>
     );
 
-  const statusBadge = (
+  const statusBadge = pending ? (
+    <span className="rounded-sm bg-primary/20 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-foreground">Da valutare</span>
+  ) : (
+    <span className="flex items-center gap-1">
+    <span className="rounded-sm border border-border px-1.5 py-1 text-[9px] font-bold uppercase leading-none">In lista</span>
     <span
       className={cn(
         "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
@@ -97,9 +104,10 @@ export function ShoppingListCard({
     >
       {ITEM_STATUS_LABEL[row.status]}
     </span>
+    </span>
   );
 
-  const actions = (
+  const actions = pending ? null : (
     <>
       <Button
         type="button"
@@ -144,7 +152,7 @@ export function ShoppingListCard({
     </>
   );
 
-  const lockButton = editable ? (
+  const lockButton = editable && !pending ? (
     <Button
       type="button"
       size="sm"
@@ -229,7 +237,9 @@ export function ShoppingListCard({
       <p className="text-[11px] leading-tight text-muted-foreground">Assegnato {qty(assigned)} {unit} · obiettivo non indicato</p>
     ) : null;
 
-  const splitSummary = suppliers.length ? (
+  const splitSummary = pending ? (
+    <p className="text-xs text-muted-foreground">Fornitori e ripartizioni dopo «Aggiungi alla Lista»</p>
+  ) : suppliers.length ? (
     <button
       type="button"
       className="block w-full min-w-0 rounded-sm text-left text-xs hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -361,7 +371,7 @@ export function ShoppingListCard({
         {splitSummary}
         {totals}
         {orderState}
-        {editable || suppliers.length ? <div className="grid">{supplierButton}</div> : null}
+        {!pending && (editable || suppliers.length) ? <div className="grid">{supplierButton}</div> : null}
       </div>
     </article>
   );

@@ -22,7 +22,7 @@ import { getProductImageUrls } from "@/lib/product-images.functions";
 import { type ShoppingListRow } from "@/lib/shopping-list";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
 
-type CountedRow = {
+export type CountedRow = {
   product_id: string;
   location_id: string;
   code: string;
@@ -35,59 +35,24 @@ type CountedRow = {
 
 export const CYCLE_QUERY_KEY = "inventory-cycle-status";
 
-/**
- * Ponte Inventario → Lista della Spesa.
- * I prodotti contati diventano righe della Lista solo con una quantità > 0 scritta dall'operatore:
- * vuoto significa "non deciso", mai 0.
- */
-export function InventoryEvaluation({
-  companyId,
-  cycle,
-  linkedList,
-  existingProductIds,
-  onEnsureList,
-  layout = "row",
-}: {
-  /** Solo presentazione: stessa scelta Card/Righe della Lista della Spesa. */
-  layout?: "card" | "row";
-  companyId: string;
-  cycle: CycleStatus;
-  /** Lista già collegata a questo inventario; null = anteprima, nulla ancora salvato. */
-  linkedList: ShoppingListRow | null;
-  existingProductIds: Set<string>;
-  /** Crea e collega la Lista alla prima azione che salva (una sola volta, anche con doppi clic). */
-  onEnsureList: () => Promise<string | null>;
-}) {
-  const queryClient = useQueryClient();
-  const runEvaluation = useServerFn(manageInventoryEvaluation);
-  const runAdd = useServerFn(addShoppingListItems);
+/** Prodotti contati nell'inventario da valutare: sola lettura, condivisa da sezione e raccolta unica. */
+export function useInventoryCountedRows(companyId: string, sessionId: string | null) {
   const getImageUrls = useServerFn(getProductImageUrls);
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [finishOpen, setFinishOpen] = useState(false);
-
-  const sessionId = cycle.session_id!;
-
-  const refreshCycle = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
-      queryClient.invalidateQueries({ queryKey: ["shopping-lists", companyId] }),
-      queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
-    ]);
-
   const countsQuery = useQuery({
     queryKey: ["inventory-evaluation-counts", sessionId],
+    enabled: Boolean(sessionId),
     queryFn: async (): Promise<CountedRow[]> => {
       const { data, error } = await supabase
         .from("inventory_counts")
         .select("product_id, location_id, counted_quantity, unit_code, counted_at, products(code, description, category)")
         .eq("company_id", companyId)
-        .eq("session_id", sessionId)
+        .eq("session_id", sessionId!)
         .order("counted_at", { ascending: false });
       if (error) throw new Error(error.message);
       const { data: session } = await supabase
         .from("inventory_sessions")
         .select("archive_id")
-        .eq("id", sessionId)
+        .eq("id", sessionId!)
         .maybeSingle();
       // Ultimo conteggio per prodotto (in caso di riconteggio).
       const latest = new Map<string, CountedRow>();
@@ -132,7 +97,6 @@ export function InventoryEvaluation({
   });
 
   const allCounted = countsQuery.data ?? [];
-  const toEvaluate = allCounted.filter((row) => !existingProductIds.has(row.product_id));
   const imageIds = useMemo(() => allCounted.slice(0, 50).map((row) => row.product_id), [allCounted]);
   const imagesQuery = useQuery({
     queryKey: ["inventory-evaluation-images", imageIds],
@@ -141,6 +105,61 @@ export function InventoryEvaluation({
     queryFn: () => getImageUrls({ data: { productIds: imageIds, thumbnail: true } }),
   });
   const images = new Map((imagesQuery.data ?? []).map((image) => [image.productId, image.url]));
+  return { allCounted, images, isLoading: countsQuery.isLoading };
+}
+
+
+/**
+ * Ponte Inventario → Lista della Spesa.
+ * I prodotti contati diventano righe della Lista solo con una quantità > 0 scritta dall'operatore:
+ * vuoto significa "non deciso", mai 0.
+ */
+export function InventoryEvaluation({
+  companyId,
+  cycle,
+  linkedList,
+  existingProductIds,
+  onEnsureList,
+  layout = "row",
+  values: controlledValues,
+  onValuesChange,
+  hideItems = false,
+}: {
+  /** Quantità scritte e non ancora aggiunte: gestite dalla pagina quando i prodotti sono nella raccolta unica. */
+  values?: Record<string, string>;
+  onValuesChange?: (update: (current: Record<string, string>) => Record<string, string>) => void;
+  /** Mostra solo intestazione e comandi: i prodotti sono nella raccolta unica della pagina. */
+  hideItems?: boolean;
+  /** Solo presentazione: stessa scelta Card/Righe della Lista della Spesa. */
+  layout?: "card" | "row";
+  companyId: string;
+  cycle: CycleStatus;
+  /** Lista già collegata a questo inventario; null = anteprima, nulla ancora salvato. */
+  linkedList: ShoppingListRow | null;
+  existingProductIds: Set<string>;
+  /** Crea e collega la Lista alla prima azione che salva (una sola volta, anche con doppi clic). */
+  onEnsureList: () => Promise<string | null>;
+}) {
+  const queryClient = useQueryClient();
+  const runEvaluation = useServerFn(manageInventoryEvaluation);
+  const runAdd = useServerFn(addShoppingListItems);
+  const [ownValues, setOwnValues] = useState<Record<string, string>>({});
+  const values = controlledValues ?? ownValues;
+  const setValues = (update: (current: Record<string, string>) => Record<string, string>) =>
+    onValuesChange ? onValuesChange(update) : setOwnValues(update);
+  const [finishOpen, setFinishOpen] = useState(false);
+
+  const sessionId = cycle.session_id!;
+
+  const refreshCycle = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
+      queryClient.invalidateQueries({ queryKey: ["shopping-lists", companyId] }),
+      queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+    ]);
+
+  const { allCounted, images } = useInventoryCountedRows(companyId, sessionId);
+  const toEvaluate = allCounted.filter((row) => !existingProductIds.has(row.product_id));
 
   const addMutation = useMutation({
     mutationFn: async (items: { product_id: string; quantity: number }[]) => {
@@ -240,7 +259,7 @@ export function InventoryEvaluation({
       {invalid.length ? (
         <p className="px-1 text-xs text-destructive">Scrivi una quantità maggiore di zero oppure lascia il campo vuoto.</p>
       ) : null}
-      {toEvaluate.length && layout === "card" ? (
+      {hideItems ? null : toEvaluate.length && layout === "card" ? (
         <div className="@container">
           <div className="grid auto-rows-fr gap-2 grid-cols-[repeat(auto-fill,minmax(max(172px,calc((100%_-_1.5rem)/4)),1fr))] @min-[600px]:grid-cols-[repeat(auto-fill,minmax(max(232px,calc((100%_-_1.5rem)/4)),1fr))]">
             {toEvaluate.map((row) => (
