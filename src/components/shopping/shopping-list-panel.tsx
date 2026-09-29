@@ -751,8 +751,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           <div
             className={
               viewMode === "card"
-                ? // Colonne decise dallo spazio reale: minimo 168px per card, massimo 4 per riga.
-                  "grid auto-rows-fr gap-2 grid-cols-[repeat(auto-fill,minmax(max(168px,calc((100%_-_1.5rem)/4)),1fr))]"
+                ? // Colonne decise dallo spazio reale, massimo 4: card compatta (172px) solo su spazi stretti, altrimenti almeno 232px.
+                  "grid auto-rows-fr gap-2 grid-cols-[repeat(auto-fill,minmax(max(172px,calc((100%_-_1.5rem)/4)),1fr))] @min-[600px]:grid-cols-[repeat(auto-fill,minmax(max(232px,calc((100%_-_1.5rem)/4)),1fr))]"
                 : "grid grid-cols-1 gap-1.5"
             }
           >
