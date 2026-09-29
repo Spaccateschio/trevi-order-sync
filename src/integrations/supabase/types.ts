@@ -1312,6 +1312,9 @@ export type Database = {
           id: string
           notes: string | null
           order_item_id: string | null
+          price_quantity: number | null
+          price_unit_code: string | null
+          price_unit_id: string | null
           producer_lot_code: string | null
           producer_name: string | null
           product_id: string
@@ -1332,6 +1335,9 @@ export type Database = {
           id?: string
           notes?: string | null
           order_item_id?: string | null
+          price_quantity?: number | null
+          price_unit_code?: string | null
+          price_unit_id?: string | null
           producer_lot_code?: string | null
           producer_name?: string | null
           product_id: string
@@ -1352,6 +1358,9 @@ export type Database = {
           id?: string
           notes?: string | null
           order_item_id?: string | null
+          price_quantity?: number | null
+          price_unit_code?: string | null
+          price_unit_id?: string | null
           producer_lot_code?: string | null
           producer_name?: string | null
           product_id?: string
@@ -1383,6 +1392,13 @@ export type Database = {
             columns: ["order_item_id"]
             isOneToOne: false
             referencedRelation: "purchase_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipt_items_price_unit_id_fkey"
+            columns: ["price_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
           {
@@ -2747,6 +2763,7 @@ export type Database = {
           min_quantity: number | null
           notes: string | null
           origin: Database["public"]["Enums"]["product_supplier_origin"]
+          price_unit_id: string | null
           product_id: string
           purchase_unit_id: string | null
           sourcing_priority: number | null
@@ -2772,6 +2789,7 @@ export type Database = {
           min_quantity?: number | null
           notes?: string | null
           origin?: Database["public"]["Enums"]["product_supplier_origin"]
+          price_unit_id?: string | null
           product_id: string
           purchase_unit_id?: string | null
           sourcing_priority?: number | null
@@ -2797,6 +2815,7 @@ export type Database = {
           min_quantity?: number | null
           notes?: string | null
           origin?: Database["public"]["Enums"]["product_supplier_origin"]
+          price_unit_id?: string | null
           product_id?: string
           purchase_unit_id?: string | null
           sourcing_priority?: number | null
@@ -2811,6 +2830,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_supplier_links_price_unit_id_fkey"
+            columns: ["price_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
           {
@@ -3383,6 +3409,8 @@ export type Database = {
           notes: string | null
           order_id: string
           ordered_quantity: number | null
+          price_unit_code: string | null
+          price_unit_id: string | null
           product_id: string
           product_supplier_link_id: string | null
           purchase_quantity: number | null
@@ -3403,6 +3431,8 @@ export type Database = {
           notes?: string | null
           order_id: string
           ordered_quantity?: number | null
+          price_unit_code?: string | null
+          price_unit_id?: string | null
           product_id: string
           product_supplier_link_id?: string | null
           purchase_quantity?: number | null
@@ -3423,6 +3453,8 @@ export type Database = {
           notes?: string | null
           order_id?: string
           ordered_quantity?: number | null
+          price_unit_code?: string | null
+          price_unit_id?: string | null
           product_id?: string
           product_supplier_link_id?: string | null
           purchase_quantity?: number | null
@@ -3448,6 +3480,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_price_unit_id_fkey"
+            columns: ["price_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
           {
@@ -5564,6 +5603,7 @@ export type Database = {
           _manual_cost?: number
           _min_quantity?: number
           _notes?: string
+          _price_unit_id?: string
           _product_id?: string
           _purchase_unit_id?: string
           _sourcing_priority?: number
@@ -6096,8 +6136,13 @@ export type Database = {
       set_goods_receipt_item: {
         Args: {
           _actor_user_id?: string
+          _clear_price_quantity?: boolean
+          _clear_price_unit?: boolean
           _expiry_date?: string
           _notes?: string
+          _price_quantity?: number
+          _price_unit_code?: string
+          _price_unit_id?: string
           _producer_lot_code?: string
           _producer_name?: string
           _receipt_item_id: string
