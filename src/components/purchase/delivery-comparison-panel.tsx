@@ -187,15 +187,37 @@ export function DeliveryComparisonPanel({
           </div>
           <span className="block text-sm sm:text-right">
             <span className="sm:hidden">Ordinato: </span>
-            {row.line_type === "ordinata" ? qty(row.ordered) : "—"} {row.unit_code}
+            {row.comparison_basis !== "magazzino"
+              ? `${qty(row.ordered_purchase_quantity)} ${row.purchase_unit_code ?? ""}`
+              : row.line_type === "ordinata"
+                ? `${qty(row.ordered)} ${row.unit_code ?? ""}`
+                : `— ${row.unit_code ?? ""}`}
+            {row.comparison_basis === "magazzino" && row.ordered_purchase_quantity !== null && row.purchase_unit_code !== row.unit_code ? (
+              <span className="block text-xs text-muted-foreground">
+                {qty(row.ordered_purchase_quantity)} {row.purchase_unit_code}
+              </span>
+            ) : null}
           </span>
           <span className="block text-sm sm:text-right">
             <span className="sm:hidden">Dichiarato: </span>
-            {qty(row.declared)} {row.unit_code}
+            {row.comparison_basis !== "magazzino"
+              ? row.declared_purchase_quantity === null
+                ? "—"
+                : `${qty(row.declared_purchase_quantity)} ${row.purchase_unit_code ?? ""}`
+              : `${qty(row.declared)} ${row.unit_code ?? ""}`}
+            {row.comparison_basis === "magazzino" && row.declared_purchase_quantity !== null && row.purchase_unit_code !== row.unit_code ? (
+              <span className="block text-xs text-muted-foreground">
+                {qty(row.declared_purchase_quantity)} {row.purchase_unit_code}
+              </span>
+            ) : null}
           </span>
           <span className={`block text-sm sm:text-right ${outcomeTone(row.outcome)}`}>
             <span className="sm:hidden">Differenza: </span>
-            {row.line_type === "ordinata" ? qty(row.difference) : "—"}
+            {row.comparison_basis === "acquisto"
+              ? `${qty(Number(row.declared_purchase_quantity) - Number(row.ordered_purchase_quantity))} ${row.purchase_unit_code ?? ""}`
+              : row.line_type === "ordinata" && row.difference !== null
+                ? qty(row.difference)
+                : "—"}
           </span>
           <div className="text-xs">
             <p className={outcomeTone(row.outcome)}>{OUTCOME_LABEL[row.outcome]}</p>
@@ -241,7 +263,7 @@ export function DeliveryComparisonPanel({
                 size="sm"
                 onClick={() => {
                   setResolveRow(row);
-                  setResolveQuantity(String(row.declared));
+                  setResolveQuantity(String((row.comparison_basis === "magazzino" ? row.declared : row.declared_purchase_quantity) ?? ""));
                 }}
               >
                 Risolvi

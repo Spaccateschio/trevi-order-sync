@@ -41,16 +41,21 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
       const { data, error } = await supabase
         .from("goods_receipt_items")
         .select(
-          "id, product_id, delivery_item_id, verified_quantity, unit_code, unit_cost, producer_name, producer_lot_code, expiry_date, notes, products(code, description), purchase_delivery_items(declared_quantity)",
+          "id, product_id, delivery_item_id, verified_quantity, unit_code, unit_cost, producer_name, producer_lot_code, expiry_date, notes, products(code, description), purchase_delivery_items(declared_quantity, declared_purchase_quantity, accepted_purchase_quantity, purchase_unit_code)",
         )
         .eq("receipt_id", receiptId)
         .order("created_at");
       if (error) throw new Error(error.message);
       return ((data ?? []) as unknown as Array<
-        ReceiptItemRow & { purchase_delivery_items: { declared_quantity: number } | null }
+        ReceiptItemRow & { purchase_delivery_items: { declared_quantity: number | null; declared_purchase_quantity: number | null; accepted_purchase_quantity: number | null; purchase_unit_code: string | null } | null }
       >).map((row) => ({
         ...row,
         declared: row.purchase_delivery_items?.declared_quantity ?? null,
+        declaredPurchase:
+          row.purchase_delivery_items?.accepted_purchase_quantity ??
+          row.purchase_delivery_items?.declared_purchase_quantity ??
+          null,
+        purchaseUnit: row.purchase_delivery_items?.purchase_unit_code ?? null,
       }));
     },
   });
@@ -127,8 +132,14 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
             <span className="text-xs text-muted-foreground">{row.products?.description}</span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Dichiarato dal fornitore: {row.declared === null ? "—" : qty(row.declared)}{" "}
-            {row.unit_code}
+            {row.declared === null && row.declaredPurchase !== null ? (
+              <>Dichiarate: {qty(row.declaredPurchase)} {row.purchaseUnit}</>
+            ) : (
+              <>
+                Dichiarato dal fornitore: {row.declared === null ? "—" : qty(row.declared)}{" "}
+                {row.unit_code}
+              </>
+            )}
           </p>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             <label className="text-xs text-muted-foreground">

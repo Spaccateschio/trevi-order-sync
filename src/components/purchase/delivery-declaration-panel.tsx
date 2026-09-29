@@ -28,8 +28,12 @@ type DraftRow = {
   product_id: string;
   order_item_id: string | null;
   line_type: DeliveryLineType;
-  declared_quantity: number;
+  /** U.M. di magazzino: vuota sulle righe senza equivalente. */
+  declared_quantity: number | null;
   unit_code: string | null;
+  /** U.M. d'acquisto (es. cassette): campi separati, mai mescolati con i kg. */
+  declared_purchase_quantity: number | null;
+  purchase_unit_code: string | null;
   declared_weight: number | null;
   declared_producer: string | null;
   declared_producer_lot: string | null;
@@ -59,6 +63,7 @@ export function DeliveryDeclarationPanel({
   const runSubmit = useServerFn(submitPurchaseDelivery);
 
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [purchaseEdits, setPurchaseEdits] = useState<Record<string, string>>({});
   const [lots, setLots] = useState<Record<string, string>>({});
   const [declaredBy, setDeclaredBy] = useState("");
   const [extraProduct, setExtraProduct] = useState("");
@@ -73,7 +78,7 @@ export function DeliveryDeclarationPanel({
       const { data, error } = await supabase
         .from("purchase_delivery_items")
         .select(
-          "id, product_id, order_item_id, line_type, declared_quantity, unit_code, declared_weight, declared_producer, declared_producer_lot, declared_expiry, line_notes, missing_reason, products(code, description)",
+          "id, product_id, order_item_id, line_type, declared_quantity, unit_code, declared_purchase_quantity, purchase_unit_code, declared_weight, declared_producer, declared_producer_lot, declared_expiry, line_notes, missing_reason, products(code, description)",
         )
         .eq("delivery_id", deliveryId)
         .order("created_at");
@@ -104,6 +109,10 @@ export function DeliveryDeclarationPanel({
       const raw = edits[row.id];
       const quantity = raw === undefined ? null : parseQuantity(raw);
       if (raw !== undefined && quantity === null) throw new Error("Quantità non valida");
+      const rawPurchase = purchaseEdits[row.id];
+      const purchaseQuantity = rawPurchase === undefined ? null : parseQuantity(rawPurchase);
+      if (rawPurchase !== undefined && purchaseQuantity === null) throw new Error("Quantità non valida");
+      const zero = quantity === 0 || (row.declared_quantity === null && purchaseQuantity === 0);
       await runSet({
         data: {
           deliveryItemId: row.id,
@@ -113,7 +122,8 @@ export function DeliveryDeclarationPanel({
           declaredProducerLot: lots[row.id]?.trim() || null,
           declaredExpiry: null,
           lineNotes: null,
-          missingReason: quantity === 0 ? "Non disponibile" : null,
+          missingReason: zero ? "Non disponibile" : null,
+          declaredPurchaseQuantity: purchaseQuantity,
         },
       });
     },
@@ -190,17 +200,36 @@ export function DeliveryDeclarationPanel({
               </Badge>
             ) : null}
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <label className="text-xs text-muted-foreground">
-                Quantità dichiarata {row.unit_code ? `(${row.unit_code})` : ""}
-                <Input
-                  className="mt-1"
-                  inputMode="decimal"
-                  value={edits[row.id] ?? String(row.declared_quantity)}
-                  onChange={(event) =>
-                    setEdits((prev) => ({ ...prev, [row.id]: event.target.value }))
-                  }
-                />
-              </label>
+              {row.purchase_unit_code ? (
+                <label className="text-xs text-muted-foreground">
+                  Consegnato ({row.purchase_unit_code})
+                  <Input
+                    className="mt-1"
+                    inputMode="decimal"
+                    value={purchaseEdits[row.id] ?? (row.declared_purchase_quantity === null ? "" : String(row.declared_purchase_quantity))}
+                    onChange={(event) =>
+                      setPurchaseEdits((prev) => ({ ...prev, [row.id]: event.target.value }))
+                    }
+                  />
+                </label>
+              ) : null}
+              {row.declared_quantity !== null || !row.purchase_unit_code ? (
+                <label className="text-xs text-muted-foreground">
+                  Quantità dichiarata {row.unit_code ? `(${row.unit_code})` : ""}
+                  <Input
+                    className="mt-1"
+                    inputMode="decimal"
+                    value={edits[row.id] ?? (row.declared_quantity === null ? "" : String(row.declared_quantity))}
+                    onChange={(event) =>
+                      setEdits((prev) => ({ ...prev, [row.id]: event.target.value }))
+                    }
+                  />
+                </label>
+              ) : (
+                <p className="self-end text-xs text-muted-foreground">
+                  Nessun equivalente in {row.unit_code ?? "U.M. di magazzino"}: il peso reale si registra al Carico Merce.
+                </p>
+              )}
               <label className="text-xs text-muted-foreground">
                 Lotto del produttore (se disponibile)
                 <Input
@@ -288,7 +317,7 @@ export function DeliveryDeclarationPanel({
           <Send className="mr-1 h-4 w-4" /> Invia dichiarazione
         </Button>
         <span className="text-xs text-muted-foreground">
-          Totale dichiarato: {qty(rows.reduce((sum, row) => sum + Number(row.declared_quantity), 0))}
+          Totale dichiarato: {qty(rows.reduce((sum, row) => sum + Number(row.declared_quantity ?? 0), 0))}
         </span>
       </div>
     </div>
