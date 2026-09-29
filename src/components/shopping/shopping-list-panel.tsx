@@ -814,7 +814,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           companyId={companyId}
           listId={list?.id ?? null}
           resolveListId={ensureInventoryList}
-          archiveId={list?.archive_id ?? archivesQuery.data![0].id}
+          archiveId={list?.archive_id ?? archivesQuery.data?.[0]?.id ?? ""}
           existingProductIds={new Set(allRows.map((row) => row.product_id))}
           open={addOpen}
           onOpenChange={setAddOpen}

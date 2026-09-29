@@ -227,9 +227,11 @@ export function InventoryEvaluation({
               Aggiungi alla Lista ({typed.length})
             </Button>
           ) : null}
+{linkedList ? (
           <Button size="sm" variant="outline" onClick={() => setFinishOpen(true)}>
             Termina valutazione
           </Button>
+          ) : null}
         </div>
       </div>
       {invalid.length ? (
