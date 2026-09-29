@@ -6,14 +6,16 @@ import {
   ArrowDownAZ,
   MoreVertical,
   Plus,
+  LayoutGrid,
   Printer,
+  Rows3,
   Search,
   SlidersHorizontal,
   Star,
   Trash2,
   Truck,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AddProductsDialog, Thumb } from "./add-products-dialog";
@@ -107,6 +109,15 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [addOpen, setAddOpen] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [splitItem, setSplitItem] = useState<OverviewRow | null>(null);
+  // Card / Righe: scelta solo visuale, ricordata sul dispositivo.
+  const [viewMode, setViewMode] = useState<"card" | "row">("card");
+  useEffect(() => {
+    if (window.localStorage.getItem("shopping-list-view-mode") === "row") setViewMode("row");
+  }, []);
+  const changeViewMode = (mode: "card" | "row") => {
+    setViewMode(mode);
+    window.localStorage.setItem("shopping-list-view-mode", mode);
+  };
 
   const archivesQuery = useQuery({
     queryKey: ["inventory-archives", companyId],
@@ -461,6 +472,15 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     />
   );
 
+  // Tasti rapidi: cambiano solo la quantità totale da acquistare, mai le ripartizioni. Nessuna conversione.
+  const quickAdd = (row: OverviewRow, step: number) => {
+    const raw = edits[row.item_id];
+    const base = raw !== undefined ? (parseQuantity(raw) ?? 0) : Number(row.decided_quantity ?? 0);
+    const next = Math.round((base + step) * 1000) / 1000;
+    setEdits((current) => ({ ...current, [row.item_id]: String(next) }));
+    quantityMutation.mutate({ itemId: row.item_id, quantity: next });
+  };
+
   const statusBadge = (row: OverviewRow) => (
     <Badge
       variant={
@@ -717,15 +737,35 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             ) : null}
           </div>
 
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div className="flex justify-end">
+            <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
+              <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => changeViewMode("card")}>
+                <LayoutGrid aria-hidden="true" /> Card
+              </Button>
+              <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "row" ? "default" : "ghost"} aria-pressed={viewMode === "row"} onClick={() => changeViewMode("row")}>
+                <Rows3 aria-hidden="true" /> Righe
+              </Button>
+            </div>
+          </div>
+
+          <div
+            className={
+              viewMode === "card"
+                ? // Colonne decise dallo spazio reale: minimo 168px per card, massimo 4 per riga.
+                  "grid auto-rows-fr gap-2 grid-cols-[repeat(auto-fill,minmax(max(168px,calc((100%_-_1.5rem)/4)),1fr))]"
+                : "grid grid-cols-1 gap-1.5"
+            }
+          >
             {rows.map((row) => (
               <ShoppingListCard
                 key={row.item_id}
+                layout={viewMode}
+                onQuickAdd={(step) => quickAdd(row, step)}
                 row={row}
                 extra={extras.get(row.item_id)}
                 stock={stockQuery.data?.get(row.product_id)}
                 editable={Boolean(editable)}
-                quantityInput={quantityInput(row, "h-9 w-28 text-base")}
+                quantityInput={quantityInput(row, "h-9 min-w-0 flex-1 text-right text-base font-bold")}
                 favoritePending={favoriteMutation.isPending}
                 onToggleFavorite={() =>
                   favoriteMutation.mutate({ productId: row.product_id, favorite: !extras.get(row.item_id)?.isFavorite })
