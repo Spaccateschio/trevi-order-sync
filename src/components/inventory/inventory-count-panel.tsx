@@ -1152,7 +1152,11 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
 
 
   const closeMutation = useMutation({
-    mutationFn: () => close({ data: { companyId, sessionId: sessionId! } }),
+    mutationFn: () => {
+      // Nessun inventario in corso (già chiuso, anche da un altro dispositivo): niente da chiudere.
+      if (!sessionId) throw new Error("Nessun inventario in corso: è già stato chiuso.");
+      return close({ data: { companyId, sessionId } });
+    },
     onSuccess: async (summary) => {
       await queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] });
       await refresh();
@@ -1935,10 +1939,13 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
               disabled={closeMutation.isPending}
               onClick={async () => {
                 // Chiude con la funzione esistente: solo se riesce i conteggi diventano giacenza e si apre la Lista.
-                try {
-                  await closeMutation.mutateAsync();
-                } catch {
-                  return;
+                // Se l'inventario risulta già chiuso si va direttamente alla Lista, senza richiamare la chiusura.
+                if (sessionId) {
+                  try {
+                    await closeMutation.mutateAsync();
+                  } catch {
+                    return;
+                  }
                 }
                 setConfirmedOpen(false);
                 await queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] });
