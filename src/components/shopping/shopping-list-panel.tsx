@@ -432,7 +432,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           <span key={supplier.linkId} className="flex items-center gap-1 truncate">
             <span className="truncate">{supplier.name}</span>
             <span className="shrink-0 text-muted-foreground">
-              · {qty(supplier.quantity)} {row.unit_code ?? ""}
+              · {supplier.quantity === null ? "Non convertibile" : `${qty(supplier.quantity)} ${row.unit_code ?? ""}`}
             </span>
             {supplier.isB2B ? <B2BBadge /> : null}
           </span>
@@ -748,11 +748,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </div>
           </div>
 
+          <div className="@container">
           <div
             className={
               viewMode === "card"
-                ? // Colonne decise dallo spazio reale: minimo 168px per card, massimo 4 per riga.
-                  "grid auto-rows-fr gap-2 grid-cols-[repeat(auto-fill,minmax(max(168px,calc((100%_-_1.5rem)/4)),1fr))]"
+                ? // Colonne decise dallo spazio reale, massimo 4: card compatta (172px) solo su spazi stretti, altrimenti almeno 232px.
+                  "grid auto-rows-fr gap-2 grid-cols-[repeat(auto-fill,minmax(max(172px,calc((100%_-_1.5rem)/4)),1fr))] @min-[600px]:grid-cols-[repeat(auto-fill,minmax(max(232px,calc((100%_-_1.5rem)/4)),1fr))]"
                 : "grid grid-cols-1 gap-1.5"
             }
           >
@@ -774,6 +775,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onRemove={() => removeMutation.mutate(row.item_id)}
               />
             ))}
+          </div>
           </div>
 
           {!rows.length && !overviewQuery.isLoading ? (

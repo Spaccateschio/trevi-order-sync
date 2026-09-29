@@ -66,9 +66,8 @@ export function ShoppingListCard({
   const isRow = layout === "row";
 
   // Senza conversione l'equivalente non esiste: non si somma e non si inventa.
-  const convertible = (s: Supplier) =>
-    !s.purchaseUnitCode || s.purchaseUnitCode === unit || s.quantity !== 0 || s.purchaseQuantity === 0;
-  const assigned = suppliers.filter(convertible).reduce((sum, s) => sum + s.quantity, 0);
+  const convertible = (s: Supplier) => s.quantity !== null;
+  const assigned = suppliers.reduce((sum, s) => sum + (s.quantity ?? 0), 0);
   const target = row.decided_quantity === null ? null : Number(row.decided_quantity);
   const gap = target === null ? null : Math.round((target - assigned) * 1000) / 1000;
   const hiddenCount = Math.max(0, suppliers.length - VISIBLE_SPLITS);
@@ -172,12 +171,12 @@ export function ShoppingListCard({
         <span className="shrink-0 rounded border border-primary/50 bg-primary/10 px-1 text-[9px] font-semibold leading-4">B2B</span>
       ) : null}
       <span className="shrink-0 font-semibold">
-        {s.purchaseQuantity !== null ? `${qty(s.purchaseQuantity)} ${s.purchaseUnitCode ?? ""}` : `${qty(s.quantity)} ${unit}`}
+        {s.purchaseQuantity !== null ? `${qty(s.purchaseQuantity)} ${s.purchaseUnitCode ?? ""}` : `${s.quantity === null ? "—" : qty(s.quantity)} ${unit}`}
       </span>
       {!convertible(s) ? (
-        <span className="shrink-0 text-[10px] font-semibold text-destructive">· non convertibile</span>
+        <span className="shrink-0 text-[10px] font-semibold text-destructive">· Non convertibile</span>
       ) : s.purchaseUnitCode && s.purchaseUnitCode !== unit ? (
-        <span className="shrink-0 text-[10px] text-muted-foreground">≈ {qty(s.quantity)} {unit}</span>
+        <span className="shrink-0 text-[10px] text-muted-foreground">≈ {qty(s.quantity ?? 0)} {unit}</span>
       ) : null}
     </li>
   );

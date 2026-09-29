@@ -12,7 +12,8 @@ export type RowSupplier = {
   linkId: string;
   supplierRecordId: string;
   name: string;
-  quantity: number;
+  /** Equivalente in U.M. di magazzino; null = conversione inesistente (non è 0). */
+  quantity: number | null;
   purchaseQuantity: number | null;
   purchaseUnitCode: string | null;
   notes: string | null;
@@ -33,7 +34,7 @@ type AssignmentRead = {
   item_id: string;
   product_supplier_link_id: string;
   supplier_record_id: string;
-  assigned_quantity: number;
+  assigned_quantity: number | null;
   purchase_quantity: number | null;
   purchase_unit_code: string | null;
   notes: string | null;
@@ -146,7 +147,7 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
         linkId: assignment.product_supplier_link_id,
         supplierRecordId: assignment.supplier_record_id,
         name: assignment.supplier_records?.legal_name ?? "Fornitore",
-        quantity: Number(assignment.assigned_quantity),
+        quantity: assignment.assigned_quantity === null ? null : Number(assignment.assigned_quantity),
         purchaseQuantity: assignment.purchase_quantity === null ? null : Number(assignment.purchase_quantity),
         purchaseUnitCode: assignment.purchase_unit_code,
         notes: assignment.notes,
