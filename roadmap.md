@@ -78,3 +78,5 @@
 - [x] Step 2 modello dati Lista/Ordini/Consegne (quantità + U.M. d'acquisto + fornitore)
 - [ ] Step 2 aperto: righe senza equivalente non entrano nel Carico Merce (open_goods_receipt) — serve decisione dell'utente
 - [ ] Step 2 aperto: stato ordine con equivalente valutato ancora in kg (2 cs su 3 con 30 pz caricati = consegnato) — da decidere
+- [x] Lista della Spesa: apertura immediata su inventario (anteprima senza creare liste, creazione alla prima azione)
+- [ ] Lista della Spesa: Step 1 card (in attesa del via)
