@@ -28,6 +28,8 @@ export type RowExtras = {
   isFavorite: boolean;
   suppliers: RowSupplier[];
   orderState: OrderState;
+  /** Quantità confermata (bloccata): data/ora, null = sbloccata. */
+  lockedAt: string | null;
 };
 
 type AssignmentRead = {
@@ -115,6 +117,19 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
     },
   });
 
+  const locksQuery = useQuery({
+    queryKey: ["shopping-extras-locks", listId, itemIds],
+    enabled: itemIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shopping_list_items")
+        .select("id, quantity_locked_at")
+        .in("id", itemIds);
+      if (error) throw new Error(error.message);
+      return new Map((data ?? []).map((row) => [row.id, row.quantity_locked_at as string | null]));
+    },
+  });
+
   // Righe d'ordine degli ordini non annullati generati da questa lista.
   const orderedQuery = useQuery({
     queryKey: ["shopping-extras-ordered", listId],
@@ -167,10 +182,11 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
         isFavorite: favoritesQuery.data?.has(row.product_id) ?? false,
         suppliers,
         orderState,
+        lockedAt: locksQuery.data?.get(row.item_id) ?? null,
       });
     }
     return map;
-  }, [rows, b2bQuery.data, orderedQuery.data, assignmentsQuery.data, productsQuery.data, imagesQuery.data, favoritesQuery.data]);
+  }, [rows, b2bQuery.data, orderedQuery.data, assignmentsQuery.data, productsQuery.data, imagesQuery.data, favoritesQuery.data, locksQuery.data]);
 
   return { extras, b2bSupplierIds: b2bQuery.data ?? new Set<string>() };
 }
