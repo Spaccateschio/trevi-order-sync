@@ -2196,7 +2196,7 @@ function PhysicalCount({
       const search = topFiltersRef.current;
       const header = stickyHeaderRef.current;
       if (!search || !header) return;
-      setCompactBar(search.getBoundingClientRect().bottom <= header.getBoundingClientRect().bottom);
+      setCompactBar(search.getBoundingClientRect().top < header.getBoundingClientRect().bottom);
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(check); };
     window.addEventListener("scroll", schedule, { passive: true, capture: true });
