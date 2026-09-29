@@ -249,7 +249,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         if (flags.has("non_b2b") && !suppliers.some((s) => !s.isB2B)) return false;
         if (flags.has("preferiti") && !extra?.isFavorite) return false;
         const statusFlags = (["da_assegnare", "parziale", "assegnata"] as const).filter((f) => flags.has(f));
-        if (statusFlags.length && !statusFlags.includes(row.status)) return false;
+        if (statusFlags.length && !(statusFlags as readonly string[]).includes(row.status)) return false;
         if (flags.has("in_ordine") && extra?.orderState !== "ordinato") return false;
         if (flags.has("da_ordinare") && extra?.orderState === "ordinato") return false;
       }
@@ -373,7 +373,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           sotto il minimo di {row.under_minimum} fornitore/i
         </span>
       ) : null}
-      {row.remaining < 0 ? (
+      {row.remaining !== null && row.remaining < 0 ? (
         <span className="font-medium text-destructive">
           assegnati {qty(row.assigned)} su {qty(row.decided_quantity)}
         </span>
