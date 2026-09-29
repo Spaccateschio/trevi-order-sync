@@ -41,6 +41,7 @@ function ConsegnaEsterna() {
 
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [lots, setLots] = useState<Record<string, string>>({});
+  const [purchaseEdits, setPurchaseEdits] = useState<Record<string, string>>({});
   const [name, setName] = useState("");
   const [sent, setSent] = useState(false);
 
@@ -156,7 +157,7 @@ function ConsegnaEsterna() {
                 ) : null}
                 {item.declared_quantity !== null ? (
                 <label className="mt-2 block text-xs text-muted-foreground">
-                  Quantità che consegni
+                  Quantità che consegni {item.unit_code ? `(${item.unit_code})` : ""}
                   <Input
                     className="mt-1"
                     inputMode="decimal"
@@ -166,6 +167,7 @@ function ConsegnaEsterna() {
                     }
                   />
                 </label>
+                ) : null}
                 <label className="mt-2 block text-xs text-muted-foreground">
                   Lotto del produttore (se lo hai)
                   <Input
