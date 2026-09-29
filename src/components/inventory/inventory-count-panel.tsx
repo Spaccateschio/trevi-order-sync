@@ -2818,30 +2818,52 @@ function ProductCard({
               </span>
             ) : null}
           </div>
-          <Input
-            className="mt-1 h-10 px-2 text-right text-base font-bold"
-            type="text"
-            inputMode="decimal"
-            data-count-input="true"
-            pattern="[0-9]*[.,]?[0-9]*"
-            enterKeyHint="done"
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            value={value}
-            disabled={locked}
-            title={locked ? "Completa prima il ciclo acquisti: usa «Vai alla Lista della Spesa»" : undefined}
-            placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
-            onChange={(event) => onChange(event.target.value)}
-            onFocus={(event) => event.currentTarget.select()}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur();
-                onConfirm();
-              }
-            }}
-            aria-label={`Quantità fisica ${name}`}
-          />
+          {canCorrect && history?.lastCountId && history.lastQuantity != null && history.physical != null && cycleLock.companyId && cycleLock.locationId ? (
+            <div className="mt-1">
+              <PhysicalQuickEdit
+                unlockedAll={Boolean(cycleLock.unlockedAll)}
+                target={{
+                  companyId: cycleLock.companyId,
+                  listId: cycleLock.listId ?? null,
+                  productId: row.product_id,
+                  locationId: cycleLock.locationId,
+                  countId: history.lastCountId,
+                  unit: history.lastUnit ?? unit ?? "",
+                  countedQuantity: history.lastQuantity,
+                  countedAt: history.lastAt,
+                  physical: history.physical,
+                  previousQuantity: history.previousQuantity,
+                  countNote: history.countNote,
+                  edits: history.edits,
+                }}
+              />
+            </div>
+          ) : (
+            <Input
+              className="mt-1 h-10 px-2 text-right text-base font-bold"
+              type="text"
+              inputMode="decimal"
+              data-count-input="true"
+              pattern="[0-9]*[.,]?[0-9]*"
+              enterKeyHint="done"
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              value={locked && history?.physical != null ? formatQuantity(history.physical, history.lastUnit ?? unit) : value}
+              disabled={locked}
+              title={locked ? "Completa prima il ciclo acquisti: usa «Vai alla Lista della Spesa»" : undefined}
+              placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
+              onChange={(event) => onChange(event.target.value)}
+              onFocus={(event) => event.currentTarget.select()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur();
+                  onConfirm();
+                }
+              }}
+              aria-label={`Quantità fisica ${name}`}
+            />
+          )}
         </div>
         <div className="text-right">
           <p className="text-[9px] leading-none text-muted-foreground">Differenza</p>
@@ -2894,25 +2916,6 @@ function ProductCard({
           <Delete className="size-4" />
         </Button>
       </div>
-      {canCorrect && history && history.lastCountId && history.lastQuantity != null && history.physical != null && cycleLock.companyId && cycleLock.locationId ? (
-        <PhysicalQuickEdit
-          unlockedAll={Boolean(cycleLock.unlockedAll)}
-          target={{
-            companyId: cycleLock.companyId,
-            listId: cycleLock.listId ?? null,
-            productId: row.product_id,
-            locationId: cycleLock.locationId,
-            countId: history.lastCountId,
-            unit: history.lastUnit ?? unit ?? "",
-            countedQuantity: history.lastQuantity,
-            countedAt: history.lastAt,
-            physical: history.physical,
-            previousQuantity: history.previousQuantity,
-            countNote: history.countNote,
-            edits: history.edits,
-          }}
-        />
-      ) : null}
       {noteOpen && hasDifference ? (
         <div className="mt-1.5 space-y-1.5 rounded-sm border border-border bg-muted/30 p-1.5">
           <p className="text-[9px] font-bold uppercase leading-none text-muted-foreground">Nota differenza</p>
