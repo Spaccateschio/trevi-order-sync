@@ -108,7 +108,7 @@ export function AddProductsDialog({
           replaceExisting: false,
           items: selectedIds.map((id) => ({
             product_id: id,
-            decided_quantity: parseQuantity(selected[id] ?? "")!,
+            decided_quantity: parseQuantity(selected[id] ?? "") ?? null,
             origin: "manuale" as const,
           })),
         },

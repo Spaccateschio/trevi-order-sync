@@ -196,7 +196,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   });
 
   const quantityMutation = useMutation({
-    mutationFn: (input: { itemId: string; quantity: number }) =>
+    mutationFn: (input: { itemId: string; quantity: number | null }) =>
       runQuantity({
         data: {
           companyId,
@@ -249,7 +249,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         if (flags.has("non_b2b") && !suppliers.some((s) => !s.isB2B)) return false;
         if (flags.has("preferiti") && !extra?.isFavorite) return false;
         const statusFlags = (["da_assegnare", "parziale", "assegnata"] as const).filter((f) => flags.has(f));
-        if (statusFlags.length && !statusFlags.includes(row.status)) return false;
+        if (statusFlags.length && !(statusFlags as readonly string[]).includes(row.status)) return false;
         if (flags.has("in_ordine") && extra?.orderState !== "ordinato") return false;
         if (flags.has("da_ordinare") && extra?.orderState === "ordinato") return false;
       }
@@ -319,11 +319,18 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       className={className}
       inputMode="decimal"
       disabled={!editable}
-      value={edits[row.item_id] ?? String(row.decided_quantity)}
+      value={edits[row.item_id] ?? (row.decided_quantity === null ? "" : String(row.decided_quantity))}
       aria-label={`Quantità decisa ${row.code}`}
       onChange={(event) => setEdits((current) => ({ ...current, [row.item_id]: event.target.value }))}
       onBlur={() => {
-        const value = parseQuantity(edits[row.item_id] ?? "");
+        const raw = edits[row.item_id];
+        if (raw === undefined) return;
+        // Campo svuotato: obiettivo non indicato (mai 0).
+        if (raw.trim() === "") {
+          if (row.decided_quantity !== null) quantityMutation.mutate({ itemId: row.item_id, quantity: null });
+          return;
+        }
+        const value = parseQuantity(raw);
         if (value && value !== Number(row.decided_quantity)) {
           quantityMutation.mutate({ itemId: row.item_id, quantity: value });
         }
@@ -352,7 +359,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   const detail = (row: OverviewRow) => (
     <>
-      {row.suggested_quantity !== null && Number(row.suggested_quantity) !== Number(row.decided_quantity) ? (
+      {row.suggested_quantity !== null && row.decided_quantity !== null && Number(row.suggested_quantity) !== Number(row.decided_quantity) ? (
         <span className="text-muted-foreground">
           suggerito all'inserimento {qty(row.suggested_quantity)}
         </span>
@@ -373,7 +380,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           sotto il minimo di {row.under_minimum} fornitore/i
         </span>
       ) : null}
-      {row.remaining < 0 ? (
+      {row.remaining !== null && row.remaining < 0 ? (
         <span className="font-medium text-destructive">
           assegnati {qty(row.assigned)} su {qty(row.decided_quantity)}
         </span>

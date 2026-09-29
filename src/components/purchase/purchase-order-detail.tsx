@@ -265,14 +265,25 @@ export function PurchaseOrderDetail({
               ) : null}
             </div>
             <div className="text-right">
-              <p>
-                {qty(item.ordered_quantity)} {item.unit_code}
-              </p>
-              {item.purchase_quantity ? (
-                <p className="text-xs text-muted-foreground">
-                  In acquisto: {qty(item.purchase_quantity)} {item.purchase_unit_code}
+              {item.purchase_quantity !== null ? (
+                <>
+                  {/* Dato dell'ordine: quantità nella U.M. d'acquisto. */}
+                  <p>
+                    {qty(item.purchase_quantity)} {item.purchase_unit_code}
+                  </p>
+                  {item.purchase_unit_code !== item.unit_code ? (
+                    <p className="text-xs text-muted-foreground">
+                      {item.ordered_quantity !== null
+                        ? `≈ ${qty(item.ordered_quantity)} ${item.unit_code ?? ""}`
+                        : "senza equivalente: peso al Carico Merce"}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p>
+                  {qty(item.ordered_quantity)} {item.unit_code}
                 </p>
-              ) : null}
+              )}
             </div>
           </div>
         ))}

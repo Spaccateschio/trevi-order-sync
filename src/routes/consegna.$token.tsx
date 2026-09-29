@@ -41,6 +41,7 @@ function ConsegnaEsterna() {
 
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [lots, setLots] = useState<Record<string, string>>({});
+  const [purchaseEdits, setPurchaseEdits] = useState<Record<string, string>>({});
   const [name, setName] = useState("");
   const [sent, setSent] = useState(false);
 
@@ -57,7 +58,12 @@ function ConsegnaEsterna() {
       for (const item of draft.items) {
         const raw = edits[item.id];
         const lot = lots[item.id];
-        if (raw === undefined && lot === undefined) continue;
+        const rawPurchase = purchaseEdits[item.id];
+        if (raw === undefined && lot === undefined && rawPurchase === undefined) continue;
+        const purchaseQuantity = rawPurchase === undefined ? null : parseQuantity(rawPurchase);
+        if (rawPurchase !== undefined && (purchaseQuantity === null || purchaseQuantity < 0)) {
+          throw new Error(`Quantità non valida per ${item.products?.code ?? ""}`);
+        }
         const quantity = raw === undefined ? null : parseQuantity(raw);
         if (raw !== undefined && (quantity === null || quantity < 0)) {
           throw new Error(`Quantità non valida per ${item.products?.code ?? ""}`);
@@ -71,7 +77,11 @@ function ConsegnaEsterna() {
             declaredProducerLot: lot?.trim() ? lot.trim() : null,
             declaredExpiry: null,
             lineNotes: null,
-            missingReason: quantity === 0 ? "Non disponibile" : null,
+            missingReason:
+              quantity === 0 || (item.declared_quantity === null && purchaseQuantity === 0)
+                ? "Non disponibile"
+                : null,
+            declaredPurchaseQuantity: purchaseQuantity,
           },
         });
       }
@@ -127,10 +137,27 @@ function ConsegnaEsterna() {
                 <p className="font-medium">{item.products?.code}</p>
                 <p className="text-xs text-muted-foreground">{item.products?.description}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Atteso: {qty(item.declared_quantity)} {item.unit_code}
+                  Atteso:{" "}
+                  {item.purchase_unit_code
+                    ? `${qty(item.declared_purchase_quantity)} ${item.purchase_unit_code}`
+                    : `${qty(item.declared_quantity)} ${item.unit_code ?? ""}`}
                 </p>
+                {item.purchase_unit_code ? (
+                  <label className="mt-2 block text-xs text-muted-foreground">
+                    Quantità che consegni ({item.purchase_unit_code})
+                    <Input
+                      className="mt-1"
+                      inputMode="decimal"
+                      value={purchaseEdits[item.id] ?? String(item.declared_purchase_quantity ?? "")}
+                      onChange={(event) =>
+                        setPurchaseEdits((prev) => ({ ...prev, [item.id]: event.target.value }))
+                      }
+                    />
+                  </label>
+                ) : null}
+                {item.declared_quantity !== null ? (
                 <label className="mt-2 block text-xs text-muted-foreground">
-                  Quantità che consegni
+                  Quantità che consegni {item.unit_code ? `(${item.unit_code})` : ""}
                   <Input
                     className="mt-1"
                     inputMode="decimal"
@@ -140,6 +167,7 @@ function ConsegnaEsterna() {
                     }
                   />
                 </label>
+                ) : null}
                 <label className="mt-2 block text-xs text-muted-foreground">
                   Lotto del produttore (se lo hai)
                   <Input

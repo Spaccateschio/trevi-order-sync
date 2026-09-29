@@ -170,6 +170,9 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
               {order.lines} righe · ordinato {qty(order.ordered_total)} · dichiarato{" "}
               {qty(order.declared_total)} · caricato {qty(order.received_total)} ·{" "}
               {order.destination_name}
+              {order.lines_without_equivalent > 0
+                ? ` · ${order.lines_without_equivalent} righe senza equivalente`
+                : ""}
             </p>
             <p className="text-xs text-muted-foreground">
               {order.sent_at

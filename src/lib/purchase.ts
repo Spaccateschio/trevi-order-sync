@@ -41,7 +41,8 @@ export type ComparisonOutcome =
   | "superiore"
   | "non_consegnata"
   | "aggiunta_fornitore"
-  | "sostituzione";
+  | "sostituzione"
+  | "da_verificare";
 
 export const ORDER_STATUS_LABEL: Record<PurchaseOrderStatus, string> = {
   bozza: "Bozza",
@@ -97,6 +98,7 @@ export const OUTCOME_LABEL: Record<ComparisonOutcome, string> = {
   non_consegnata: "Non consegnata",
   aggiunta_fornitore: "Aggiunto dal fornitore",
   sostituzione: "Sostituzione",
+  da_verificare: "Da verificare al Carico Merce",
 };
 
 export type OrderOverviewRow = {
@@ -117,12 +119,14 @@ export type OrderOverviewRow = {
   sent_at: string | null;
   created_at: string;
   notes: string | null;
+  lines_without_equivalent: number;
 };
 
 export type OrderItemRow = {
   id: string;
   product_id: string;
-  ordered_quantity: number;
+  /** Equivalente in U.M. di magazzino; vuoto se manca la conversione. */
+  ordered_quantity: number | null;
   unit_code: string | null;
   purchase_quantity: number | null;
   purchase_unit_code: string | null;
@@ -150,10 +154,10 @@ export type ComparisonRow = {
   code: string;
   description: string | null;
   line_type: DeliveryLineType;
-  ordered: number;
-  previously_declared: number;
-  declared: number;
-  difference: number;
+  ordered: number | null;
+  previously_declared: number | null;
+  declared: number | null;
+  difference: number | null;
   unit_code: string | null;
   declared_weight: number | null;
   declared_producer: string | null;
@@ -168,6 +172,12 @@ export type ComparisonRow = {
   dispute_reason: DisputeReason | null;
   dispute_status: string | null;
   dispute_notes: string | null;
+  ordered_purchase_quantity: number | null;
+  previously_declared_purchase: number | null;
+  declared_purchase_quantity: number | null;
+  accepted_purchase_quantity: number | null;
+  purchase_unit_code: string | null;
+  comparison_basis: "magazzino" | "acquisto" | "da_verificare";
 };
 
 export type ReceiptRow = {

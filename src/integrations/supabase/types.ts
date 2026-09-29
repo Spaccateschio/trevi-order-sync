@@ -3182,6 +3182,7 @@ export type Database = {
       }
       purchase_delivery_items: {
         Row: {
+          accepted_purchase_quantity: number | null
           accepted_quantity: number | null
           company_id: string
           created_at: string
@@ -3190,7 +3191,8 @@ export type Database = {
           declared_expiry: string | null
           declared_producer: string | null
           declared_producer_lot: string | null
-          declared_quantity: number
+          declared_purchase_quantity: number | null
+          declared_quantity: number | null
           declared_weight: number | null
           delivery_id: string
           id: string
@@ -3199,6 +3201,8 @@ export type Database = {
           missing_reason: string | null
           order_item_id: string | null
           product_id: string
+          purchase_unit_code: string | null
+          purchase_unit_id: string | null
           replaces_order_item_id: string | null
           status: Database["public"]["Enums"]["purchase_delivery_line_status"]
           unit_code: string | null
@@ -3206,6 +3210,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accepted_purchase_quantity?: number | null
           accepted_quantity?: number | null
           company_id: string
           created_at?: string
@@ -3214,7 +3219,8 @@ export type Database = {
           declared_expiry?: string | null
           declared_producer?: string | null
           declared_producer_lot?: string | null
-          declared_quantity?: number
+          declared_purchase_quantity?: number | null
+          declared_quantity?: number | null
           declared_weight?: number | null
           delivery_id: string
           id?: string
@@ -3223,6 +3229,8 @@ export type Database = {
           missing_reason?: string | null
           order_item_id?: string | null
           product_id: string
+          purchase_unit_code?: string | null
+          purchase_unit_id?: string | null
           replaces_order_item_id?: string | null
           status?: Database["public"]["Enums"]["purchase_delivery_line_status"]
           unit_code?: string | null
@@ -3230,6 +3238,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accepted_purchase_quantity?: number | null
           accepted_quantity?: number | null
           company_id?: string
           created_at?: string
@@ -3238,7 +3247,8 @@ export type Database = {
           declared_expiry?: string | null
           declared_producer?: string | null
           declared_producer_lot?: string | null
-          declared_quantity?: number
+          declared_purchase_quantity?: number | null
+          declared_quantity?: number | null
           declared_weight?: number | null
           delivery_id?: string
           id?: string
@@ -3247,6 +3257,8 @@ export type Database = {
           missing_reason?: string | null
           order_item_id?: string | null
           product_id?: string
+          purchase_unit_code?: string | null
+          purchase_unit_id?: string | null
           replaces_order_item_id?: string | null
           status?: Database["public"]["Enums"]["purchase_delivery_line_status"]
           unit_code?: string | null
@@ -3280,6 +3292,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_delivery_items_purchase_unit_id_fkey"
+            columns: ["purchase_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
           {
@@ -3363,12 +3382,13 @@ export type Database = {
           id: string
           notes: string | null
           order_id: string
-          ordered_quantity: number
+          ordered_quantity: number | null
           product_id: string
           product_supplier_link_id: string | null
           purchase_quantity: number | null
           purchase_unit_code: string | null
           purchase_unit_id: string | null
+          source_assignment_id: string | null
           supplier_product_code: string | null
           unit_code: string | null
           unit_cost: number | null
@@ -3382,12 +3402,13 @@ export type Database = {
           id?: string
           notes?: string | null
           order_id: string
-          ordered_quantity: number
+          ordered_quantity?: number | null
           product_id: string
           product_supplier_link_id?: string | null
           purchase_quantity?: number | null
           purchase_unit_code?: string | null
           purchase_unit_id?: string | null
+          source_assignment_id?: string | null
           supplier_product_code?: string | null
           unit_code?: string | null
           unit_cost?: number | null
@@ -3401,12 +3422,13 @@ export type Database = {
           id?: string
           notes?: string | null
           order_id?: string
-          ordered_quantity?: number
+          ordered_quantity?: number | null
           product_id?: string
           product_supplier_link_id?: string | null
           purchase_quantity?: number | null
           purchase_unit_code?: string | null
           purchase_unit_id?: string | null
+          source_assignment_id?: string | null
           supplier_product_code?: string | null
           unit_code?: string | null
           unit_cost?: number | null
@@ -3447,6 +3469,13 @@ export type Database = {
             columns: ["purchase_unit_id"]
             isOneToOne: false
             referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_source_assignment_id_fkey"
+            columns: ["source_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_list_item_suppliers"
             referencedColumns: ["id"]
           },
           {
@@ -3627,9 +3656,12 @@ export type Database = {
       }
       shopping_list_item_suppliers: {
         Row: {
-          assigned_quantity: number
+          assigned_quantity: number | null
           company_id: string
           conversion_factor: number | null
+          conversion_type:
+            | Database["public"]["Enums"]["sale_conversion_type"]
+            | null
           created_at: string
           created_by: string | null
           id: string
@@ -3646,9 +3678,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          assigned_quantity: number
+          assigned_quantity?: number | null
           company_id: string
           conversion_factor?: number | null
+          conversion_type?:
+            | Database["public"]["Enums"]["sale_conversion_type"]
+            | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -3665,9 +3700,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          assigned_quantity?: number
+          assigned_quantity?: number | null
           company_id?: string
           conversion_factor?: number | null
+          conversion_type?:
+            | Database["public"]["Enums"]["sale_conversion_type"]
+            | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -3729,12 +3767,18 @@ export type Database = {
           created_by: string | null
           decided_at: string | null
           decided_by: string | null
-          decided_quantity: number
+          decided_quantity: number | null
           id: string
           list_id: string
+          manual_purchase_done_at: string | null
+          manual_purchase_done_by: string | null
+          manual_purchase_quantity: number | null
+          manual_purchase_unit_code: string | null
+          manual_purchase_unit_id: string | null
           notes: string | null
           origin: Database["public"]["Enums"]["shopping_list_item_origin"]
           product_id: string
+          purchase_mode: string
           snapshot_available: number | null
           snapshot_min_stock: number | null
           snapshot_needed: number | null
@@ -3752,12 +3796,18 @@ export type Database = {
           created_by?: string | null
           decided_at?: string | null
           decided_by?: string | null
-          decided_quantity: number
+          decided_quantity?: number | null
           id?: string
           list_id: string
+          manual_purchase_done_at?: string | null
+          manual_purchase_done_by?: string | null
+          manual_purchase_quantity?: number | null
+          manual_purchase_unit_code?: string | null
+          manual_purchase_unit_id?: string | null
           notes?: string | null
           origin?: Database["public"]["Enums"]["shopping_list_item_origin"]
           product_id: string
+          purchase_mode?: string
           snapshot_available?: number | null
           snapshot_min_stock?: number | null
           snapshot_needed?: number | null
@@ -3775,12 +3825,18 @@ export type Database = {
           created_by?: string | null
           decided_at?: string | null
           decided_by?: string | null
-          decided_quantity?: number
+          decided_quantity?: number | null
           id?: string
           list_id?: string
+          manual_purchase_done_at?: string | null
+          manual_purchase_done_by?: string | null
+          manual_purchase_quantity?: number | null
+          manual_purchase_unit_code?: string | null
+          manual_purchase_unit_id?: string | null
           notes?: string | null
           origin?: Database["public"]["Enums"]["shopping_list_item_origin"]
           product_id?: string
+          purchase_mode?: string
           snapshot_available?: number | null
           snapshot_min_stock?: number | null
           snapshot_needed?: number | null
@@ -3804,6 +3860,13 @@ export type Database = {
             columns: ["list_id"]
             isOneToOne: false
             referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_manual_purchase_unit_id_fkey"
+            columns: ["manual_purchase_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
           {
@@ -4776,6 +4839,7 @@ export type Database = {
           _declared_expiry: string
           _declared_producer: string
           _declared_producer_lot: string
+          _declared_purchase_quantity?: number
           _declared_quantity: number
           _declared_weight: number
           _delivery_item_id: string
@@ -4905,6 +4969,7 @@ export type Database = {
           _action: string
           _actor_user_id?: string
           _assigned_quantity?: number
+          _assignment_id?: string
           _company_id: string
           _item_id: string
           _link_id?: string
@@ -5058,12 +5123,15 @@ export type Database = {
       delivery_comparison: {
         Args: { _delivery_id: string }
         Returns: {
+          accepted_purchase_quantity: number
           accepted_quantity: number
           code: string
+          comparison_basis: string
           declared: number
           declared_expiry: string
           declared_producer: string
           declared_producer_lot: string
+          declared_purchase_quantity: number
           declared_weight: number
           delivery_item_id: string
           description: string
@@ -5077,9 +5145,12 @@ export type Database = {
           missing_reason: string
           order_item_id: string
           ordered: number
+          ordered_purchase_quantity: number
           outcome: string
           previously_declared: number
+          previously_declared_purchase: number
           product_id: string
+          purchase_unit_code: string
           status: string
           unit_code: string
         }[]
@@ -5108,6 +5179,7 @@ export type Database = {
           _declared_expiry?: string
           _declared_producer?: string
           _declared_producer_lot?: string
+          _declared_purchase_quantity?: number
           _declared_quantity?: number
           _delivery_item_id: string
           _line_notes?: string
@@ -5773,6 +5845,7 @@ export type Database = {
           destination_location_id: string
           destination_name: string
           lines: number
+          lines_without_equivalent: number
           notes: string
           number: string
           open_disputes: number
@@ -6097,6 +6170,7 @@ export type Database = {
           _declared_expiry?: string
           _declared_producer?: string
           _declared_producer_lot?: string
+          _declared_purchase_quantity?: number
           _declared_quantity?: number
           _declared_weight?: number
           _delivery_item_id: string
@@ -6130,6 +6204,10 @@ export type Database = {
       }
       shares_company_with: { Args: { _user_id: string }; Returns: boolean }
       shares_relation_with: { Args: { _company_id: string }; Returns: boolean }
+      shopping_item_stock_unit_id: {
+        Args: { _item_id: string }
+        Returns: string
+      }
       shopping_list_item_state: {
         Args: { _item_id: string }
         Returns: {
