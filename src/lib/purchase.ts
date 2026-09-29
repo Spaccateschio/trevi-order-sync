@@ -131,6 +131,8 @@ export type OrderItemRow = {
   purchase_quantity: number | null;
   purchase_unit_code: string | null;
   unit_cost: number | null;
+  /** Fotografia della U.M. del prezzo: vuota = non indicata. */
+  price_unit_code: string | null;
   supplier_product_code: string | null;
   products: { code: string; description: string | null } | null;
 };
@@ -196,7 +198,12 @@ export type ReceiptItemRow = {
   delivery_item_id: string | null;
   verified_quantity: number;
   unit_code: string | null;
+  /** Prezzo del fornitore nella U.M. del prezzo del carico. */
   unit_cost: number | null;
+  price_unit_id: string | null;
+  price_unit_code: string | null;
+  /** Quantità nella U.M. del prezzo, su cui si calcola il valore. */
+  price_quantity: number | null;
   producer_name: string | null;
   producer_lot_code: string | null;
   expiry_date: string | null;
@@ -236,4 +243,28 @@ export function outcomeTone(outcome: ComparisonOutcome) {
   if (outcome === "corretta") return "text-emerald-700 dark:text-emerald-400";
   if (outcome === "inferiore" || outcome === "non_consegnata") return "text-destructive";
   return "text-amber-700 dark:text-amber-400";
+}
+
+/** "€ 2,00 / kg" oppure "€ 2,00 · U.M. prezzo non indicata". */
+export function priceLabel(value: number | null, unitCode: string | null) {
+  if (value === null || value === undefined) return "—";
+  const amount = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 6 }).format(value);
+  return unitCode ? `${amount} / ${unitCode}` : `${amount} · U.M. prezzo non indicata`;
+}
+
+/**
+ * Valore merce e costo per U.M. di magazzino: solo con prezzo, U.M. del prezzo e quantità del prezzo.
+ * Nessuna conversione media: senza dati resta vuoto, mai zero.
+ */
+export function receiptValue(input: {
+  unitCost: number | null;
+  priceUnitCode: string | null;
+  priceQuantity: number | null;
+  stockQuantity: number | null;
+}) {
+  const { unitCost, priceUnitCode, priceQuantity, stockQuantity } = input;
+  if (unitCost === null || !priceUnitCode || priceQuantity === null || priceQuantity <= 0) return null;
+  const value = priceQuantity * unitCost;
+  const stockUnitCost = stockQuantity && stockQuantity > 0 ? value / stockQuantity : null;
+  return { value, stockUnitCost };
 }
