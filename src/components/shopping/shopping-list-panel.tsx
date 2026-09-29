@@ -432,7 +432,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           <span key={supplier.linkId} className="flex items-center gap-1 truncate">
             <span className="truncate">{supplier.name}</span>
             <span className="shrink-0 text-muted-foreground">
-              · {qty(supplier.quantity)} {row.unit_code ?? ""}
+              · {supplier.quantity === null ? "Non convertibile" : `${qty(supplier.quantity)} ${row.unit_code ?? ""}`}
             </span>
             {supplier.isB2B ? <B2BBadge /> : null}
           </span>
