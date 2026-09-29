@@ -1,34 +1,50 @@
-# Inventario: vista Card / Righe, card compatte e tasti rapidi con U.M.
+# Lista della Spesa: vista Card / Righe e acquisto dello stesso prodotto da più fornitori
 
-Lavoro solo sulla visualizzazione della pagina Inventario. Database, inventari salvati, Lista della Spesa, Fabbisogno, Ordini e semaforo non si toccano.
+Le modifiche fatte per errore alla pagina Inventario sono state annullate. La pagina è tornata com'era, e resta la correzione di «Stampa giacenze».
 
-## Risposte alle tue 8 domande (analisi del codice attuale)
+## Risposte alle tue 8 domande
 
-1. **Selettore Card / Righe**: due pulsanti «▦ Card» e «☷ Righe» nella barra in alto dei prodotti, accanto a «Preferiti / Tutti». La scelta resta memorizzata sul dispositivo (niente database). Predefinita: Card.
-2. **Quante card entrano oggi**: la griglia oggi è rigida — 1 colonna sotto 768 px, 2 da 768 px, 3 da 1280 px. Non guarda lo spazio reale, quindi un telefono largo mostra sempre 1 card e un monitor grande si ferma a 3.
-3. **Larghezza minima proposta**: circa **300 px** per card (serve per foto 48 px + nome, campo quantità + U.M. + Conferma, e i 4 tasti rapidi leggibili). Con una griglia che si adatta allo spazio del contenitore, indicativamente:
+1. **File reali della Lista della Spesa**: la pagina è `shopping-list-panel.tsx`. La card è `shopping-list-card.tsx` e la finestra «Fornitori e ripartizione» è `supplier-split-dialog.tsx`. La sezione «Prodotti da valutare» (`inventory-to-evaluate.tsx`) non si tocca.
+2. **Come si salva oggi il fornitore**: ogni scelta è una **ripartizione** separata, collegata alla riga del prodotto nella Lista. Contiene fornitore, quantità d'acquisto, U.M. d'acquisto (per esempio 3 cs) ed equivalente in U.M. di magazzino. L'equivalente resta vuoto se manca una conversione. Il prodotto non viene mai duplicato.
+3. **Cosa fa oggi «Fornitori e ripartizione»**: elenca i fornitori attivi del prodotto. Per ognuno si scrivono quantità e U.M. d'acquisto, e si può salvare o togliere. In alto mostra «Richieste / Assegnate / Da assegnare». Cambiare un fornitore non modifica gli altri.
+4. **Più fornitori per lo stesso prodotto**: **sì, è già supportato**, anche con più U.M. per lo stesso fornitore.
+5. **Serve duplicare la card?** **No.** Il sistema ha già più assegnazioni sulla stessa riga. Propongo di mostrarle **dentro la stessa card** (e la stessa riga), senza creare una seconda logica.
+6. **Quantità totale da acquistare**: è l'obiettivo scritto sulla riga, in U.M. di magazzino (per esempio 20 kg). La suggerita dell'inventario resta separata e non cambia. «Assegnato» somma gli equivalenti dei fornitori. Un'assegnazione senza conversione (per esempio 3 cs senza equivalenza in kg) **non viene sommata né inventata**: compare come «non convertibile».
+7. **Dopo, negli Ordini**: quando la Lista è confermata e si generano gli ordini, nasce **un ordine per fornitore**. Ogni ripartizione diventa una riga d'ordine con quantità e U.M. d'acquisto.
+8. **Database**: per la ripartizione tra fornitori **nessuna modifica**. Serve solo per il blocco quantità se deve restare dopo il ricaricamento (vedi sotto).
+
+## Cosa costruisco
+
+1. **Selettore «▦ Card | ☷ Righe»** in alto sopra i prodotti della Lista. Scelta ricordata sul dispositivo (`shopping-list-view-mode`), Card come predefinita.
+   - Card: il numero per riga si adatta allo spazio reale, **massimo 4**. Su un telefono largo diventano 2 solo se restano leggibili.
+   - Righe: su schermo largo `Foto | Codice · Prodotto | Da acquistare | Ripartizione | Azioni`. Su telefono una riga compatta su 3-4 linee.
+   - Stessi dati e stessi comandi. Cambiare vista non perde quantità, fornitori, ripartizioni, U.M. o modifiche non confermate.
+2. **Riepilogo ripartizione nella card/riga**:
 
 ```text
-spazio disponibile   card per riga
-< 620 px             1
-620 – 930 px         2   (anche telefono largo/orizzontale, tablet)
-930 – 1240 px        3
-> 1240 px            4   (massimo)
+Da acquistare: 20 kg
+  Fornitore A   10 kg
+  Fornitore B    8 kg
+Assegnato 18 kg / 20 kg · Da assegnare 2 kg
 ```
 
-4. **Modalità Righe compatta**: una riga alta circa una riga di tabella: Foto piccola | Codice | Prodotto | Categoria | Ultimo conteggio | Quantità | U.M. | +1 +3 +5 +10 | Conferma | ⋮. Si conta direttamente dalla riga, senza aprire il prodotto. Su schermi stretti Categoria e Ultimo conteggio vanno sotto il nome, i tasti restano.
-5. **Blocco giallo ocra**: oggi la card bloccata ha già bordo e sfondo ocra e i comandi disattivati; «Sblocca quantità» la riporta al colore normale. La vista Righe userà la **stessa identica regola** (stesso colore ocra, lucchetto e comandi disattivati), perché legge lo stesso stato.
-6. **+1/+3/+5/+10 oggi**: sommano il numero alla quantità scritta, **nella U.M. selezionata, senza conversioni** (3 casse +5 = 8 casse). Manca solo l'etichetta: oggi si legge «+1», dopo si leggerà «+1 kg», «+3 pz», «+5 cs» secondo l'U.M. scelta. Il cambio U.M. resta quello attuale dell'Inventario (solo U.M. già abilitate per il prodotto, nessuna nuova U.M., nessuna equivalenza inventata).
-7. **Passando Card ↔ Righe**: quantità scritte, bozze, U.M. scelte e blocco sono conservati nella pagina, non dentro la singola card: cambiare vista non perde nulla.
-8. **File da modificare**: solo `src/components/inventory/inventory-count-panel.tsx`.
+   Se si supera il totale compare l'avviso in rosso. Nessuna quantità degli altri fornitori cambia da sola.
+3. **«+ Aggiungi fornitore»** nella card e nel menu ⋮ apre la **stessa** finestra «Fornitori e ripartizione», già esistente. Non c'è un secondo sistema.
+4. **Tasti rapidi +1 +3 +5 +10** con l'U.M. scritta (per esempio «+1 kg»), sulla quantità da acquistare. Nessuna conversione.
+5. **Filtro Fornitore**: mostrerà **tutti i fornitori attivi dell'anagrafica**, non solo quelli già scelti.
 
-## Card più compatte
+## Da decidere
 
-Resta in vista: foto + codice + nome, categoria, ultimo conteggio, quantità + U.M., +1 +3 +5 +10, Conferma, stella e menu ⋮. Le informazioni secondarie (fornitore, prezzo, giacenza estesa, note) vanno nel menu ⋮ o in una riga ridotta.
+**Blocco «Conferma / Sblocca» della quantità da acquistare**: deve restare anche dopo aver ricaricato la pagina o su un altro telefono?
+- **Sì** → serve un campo in più nel database sulla riga della Lista. Te lo proporrei a parte, prima di farlo.
+- **No** → il blocco vale finché la pagina resta aperta, senza toccare il database.
+
+## Non si tocca
+
+Inventario, «Prodotti da valutare» (salvo il passaggio alla Lista), Fabbisogno, Ordini, Consegne, Carico Merce, semaforo, database.
 
 ## Dettagli tecnici
 
-- Griglia: `grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr))` con massimo 4 colonne (container query sulla sezione prodotti).
-- Nuovo componente interno `ProductRow` nello stesso file, che riceve le stesse props di `ProductCard` (drafts, unitsCtx, cycleLock, correzione) — nessuna logica duplicata sui dati.
-- Preferenza vista in localStorage, letta dopo il caricamento pagina per evitare sfarfallii.
-- `CatalogProductCard` (articoli dal catalogo fornitore) segue la stessa griglia e avrà una versione riga equivalente.
+- File: `shopping-list-panel.tsx` (selettore, griglia adattiva, vista righe, filtro da `supplier_records` attivi), `shopping-list-card.tsx` (prop `layout`, riepilogo ripartizione, tasti rapidi, «+ Aggiungi fornitore»).
+- Ripartizioni lette dai dati già caricati dal pannello (`shopping_list_item_suppliers`). Si scrive solo attraverso `assign_shopping_list_supplier`, già usato dalla finestra esistente.
+- Griglia: `repeat(auto-fill, minmax(max(<min>, (100% - 3 gap)/4), 1fr))`, con card che si compatta sotto i 300 px di larghezza.
