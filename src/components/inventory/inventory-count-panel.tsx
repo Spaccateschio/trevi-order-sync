@@ -27,6 +27,8 @@ import {
   Pencil,
   StickyNote,
   TriangleAlert,
+  LayoutGrid,
+  Rows3,
 } from "lucide-react";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -2650,7 +2652,9 @@ function ProductCard({
   onProposal,
   onHistory,
   history,
+  layout = "card",
 }: {
+  layout?: "card" | "row";
   companyId: string;
   row: InventoryCountRow;
   imageUrl: string | undefined;
@@ -2737,40 +2741,357 @@ function ProductCard({
   const previewStatus =
     history && !isConfirmed && !needsRecount ? (history.hasCount ? "Contato in precedenza" : "Mai contato") : null;
 
-  return (
-    <article
-      className={cn(
-        "flex h-full flex-col rounded-md border-2 bg-card p-2",
-        !isConfirmed && "border-border",
-        isConfirmed && !hasDifference && "border-success/50 bg-success/5",
-        hasDifference && "border-destructive/50 bg-destructive/5",
-        needsRecount && "border-primary/60 bg-primary/5",
-        locked && "border-primary/60 bg-primary/15",
-      )}
-    >
-      <div className="grid grid-cols-[48px_minmax(0,1fr)_fit-content(45%)] items-center gap-2">
-        {imageUrl ? (
-          <img src={imageUrl} alt="" loading="lazy" className="size-12 rounded-sm border border-border object-cover" />
-        ) : (
-          <span className="flex size-12 items-center justify-center rounded-sm border border-border bg-muted">
-            <Package className="size-5 text-muted-foreground" aria-hidden="true" />
-          </span>
+  const isRow = layout === "row";
+  // U.M. su cui agiscono i tasti rapidi: la stessa del campo quantità, senza conversioni.
+  const quickUnit = ((correctionTarget && cycleLocked ? correctionTarget.unit : selectedUnit) ?? "").trim().toLowerCase();
+  const lastCountText =
+    history?.hasCount && history.lastQuantity !== null
+      ? `${formatQuantity(history.lastQuantity, history.lastUnit ?? unit)}${history.lastUnit ?? unit ? ` ${history.lastUnit ?? unit}` : ""}${history.lastAt ? ` · ${new Date(history.lastAt).toLocaleDateString("it-IT")}` : ""}`
+      : isConfirmed
+        ? `${formatQuantity(Number(row.counted), countedUnit)} ${countedUnit ?? ""}`.trim()
+        : null;
+  const tone = cn(
+    "min-w-0 rounded-md border-2 bg-card",
+    !isConfirmed && "border-border",
+    isConfirmed && !hasDifference && "border-success/50 bg-success/5",
+    hasDifference && "border-destructive/50 bg-destructive/5",
+    needsRecount && "border-primary/60 bg-primary/5",
+    locked && "border-primary/60 bg-primary/15",
+  );
+
+  const image = (cls: string) =>
+    imageUrl ? (
+      <img src={imageUrl} alt="" loading="lazy" className={cn("shrink-0 rounded-sm border border-border object-cover", cls)} />
+    ) : (
+      <span className={cn("flex shrink-0 items-center justify-center rounded-sm border border-border bg-muted", cls)}>
+        <Package className="size-5 text-muted-foreground" aria-hidden="true" />
+      </span>
+    );
+
+  const actions = (
+    <>
+      {locked ? <Lock className="size-3.5 text-primary" aria-label="Quantità confermata e bloccata" /> : null}
+      <PriceTrendIcon series={priceSeries} label={`Andamento prezzo di ${name}`} companyId={companyId} productId={row.product_id} />
+      {isAdmin ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={cn("h-7 w-7 px-0", row.is_favorite && "text-primary")}
+          tabIndex={-1}
+          aria-label={row.is_favorite ? `Rimuovi ${name} dai preferiti` : `Aggiungi ${name} ai preferiti`}
+          title={row.is_favorite ? "Rimuovi dai preferiti" : "Aggiungi ai preferiti"}
+          onClick={onToggleFavorite}
+          disabled={locked}
+        >
+          <Star className={cn("size-3.5", row.is_favorite && "fill-current")} />
+        </Button>
+      ) : null}
+      <span
+        className={cn(
+          "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
+          !isConfirmed && "bg-muted text-muted-foreground",
+          isConfirmed && !hasDifference && "bg-success/15 text-success",
+          hasDifference && "bg-destructive/10 text-destructive",
+          needsRecount && "bg-primary/15 text-primary",
         )}
+      >
+        {previewStatus ?? status}
+      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 px-0" tabIndex={-1} aria-label={`Azioni su ${name}`}>
+            <MoreVertical className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-60">
+          <DropdownMenuItem onClick={onRecount} disabled={!isAdmin || !actionsEnabled}>
+            <RotateCcw className="size-3.5" /> Segna da ricontare
+          </DropdownMenuItem>
+          {row.non_compliant ? (
+            <DropdownMenuItem onClick={onRevokeNonCompliance} disabled={!isAdmin || !actionsEnabled}>
+              <TriangleAlert className="size-3.5" /> Revoca non conforme
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={onNonCompliance} disabled={!isAdmin || !actionsEnabled}>
+              <TriangleAlert className="size-3.5" /> Segnala non conforme
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={onProposal} disabled={!isAdmin || !actionsEnabled}>
+            <ShoppingCart className="size-3.5" />
+            {proposalOpen ? "Chiudi proposta d'acquisto" : "Proponi per l'acquisto"}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onHistory} disabled={!actionsEnabled}>
+            <History className="size-3.5" /> Storico dei controlli
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/acquisti/prodotti" search={{ prodotto: row.product_id }}>
+              <ExternalLink className="size-3.5" /> Apri prodotto → Acquisto
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {hasDifference ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={cn("h-7 w-7 px-0", row.note && "text-primary")}
+          tabIndex={-1}
+          aria-label={`Nota ${name}`}
+          title="Vedi nota"
+          onClick={() => setNoteOpen((open) => !open)}
+        >
+          <StickyNote className={cn("size-3.5", row.note && "fill-current")} />
+        </Button>
+      ) : null}
+    </>
+  );
+
+  const badges =
+    (isVisible("non_conforme") && row.non_compliant) || (isVisible("proposta") && proposalOpen) ? (
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {isVisible("non_conforme") && row.non_compliant ? (
+          <span className="rounded-sm bg-destructive/10 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-destructive">
+            Non conforme
+            {row.non_compliant_quantity === null ? "" : ` ${formatQuantity(Number(row.non_compliant_quantity), unit)}`}
+          </span>
+        ) : null}
+        {isVisible("proposta") && proposalOpen ? (
+          <span className="rounded-sm bg-primary/15 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-primary">
+            Da proporre per acquisto
+          </span>
+        ) : null}
+      </div>
+    ) : null;
+
+  const unitControl = (cls: string) =>
+    unitOptions.length > 1 ? (
+      <select
+        className={cn(
+          "rounded-sm border border-border bg-background px-0.5 font-semibold leading-none text-foreground focus:outline-none focus:ring-1 focus:ring-ring",
+          cls,
+        )}
+        value={selectedUnit}
+        onChange={(event) => unitsCtx.setSelected(row, event.target.value)}
+        disabled={cycleLocked}
+        aria-label={`Unità di misura conteggio ${name}`}
+        title={conversionHint ?? "Unità di misura del conteggio"}
+      >
+        {unitOptions.map((option) => (
+          <option key={option.unit_code} value={option.unit_code}>
+            {option.unit_code}
+          </option>
+        ))}
+      </select>
+    ) : selectedUnit ? (
+      <span className="shrink-0 text-[10px] font-semibold leading-none text-muted-foreground/90" aria-label="Unità di misura inventario">
+        {selectedUnit}
+      </span>
+    ) : null;
+
+  const quantityInput = (
+    <Input
+      className="h-10 min-w-0 flex-1 px-2 text-right text-base font-bold disabled:opacity-100"
+      type="text"
+      inputMode="decimal"
+      data-count-input="true"
+      pattern="[0-9]*[.,]?[0-9]*"
+      enterKeyHint="done"
+      autoComplete="off"
+      autoCapitalize="off"
+      spellCheck={false}
+      value={
+        correctionTarget
+          ? correction.value
+          : cycleLocked && history?.physical != null
+            ? formatQuantity(history.physical, history.lastUnit ?? unit)
+            : value
+      }
+      disabled={locked || correction.pending}
+      title={locked ? (correctionTarget ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
+      placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
+      onChange={(event) => (correcting ? correction.setValue(event.target.value) : onChange(event.target.value))}
+      onFocus={(event) => event.currentTarget.select()}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.currentTarget.blur();
+          if (correcting) correction.confirm();
+          else onConfirm();
+        }
+      }}
+      aria-label={`Quantità fisica ${name}`}
+    />
+  );
+
+  const pencil = correctionTarget ? (
+    <Button
+      type="button"
+      variant={correcting ? "secondary" : "outline"}
+      size="sm"
+      className="h-10 w-9 shrink-0 px-0"
+      aria-label={correcting ? `Blocca ${name}` : `Sblocca ${name}`}
+      title={correcting ? "Blocca" : "Sblocca"}
+      disabled={correction.pending}
+      onClick={correction.toggle}
+    >
+      {correcting ? <Lock className="size-4" /> : <Pencil className="size-4" />}
+    </Button>
+  ) : null;
+
+  const reason =
+    correcting && correction.needsReason ? (
+      <div className="mt-1 space-y-1">
+        <p className="text-[10px] font-semibold text-destructive">
+          Risultavano {formatQuantity(history?.previousQuantity ?? 0, unit)} {unit}: indica il motivo.
+        </p>
+        <Input
+          className="h-8 text-xs"
+          placeholder="Motivo (es. merce scartata)"
+          value={correction.reason}
+          onChange={(e) => correction.setReason(e.target.value)}
+        />
+      </div>
+    ) : null;
+
+  const confirmButton = (cls?: string) => (
+    <Button
+      className={cn("h-10 px-2 text-[11px] sm:px-3", cls)}
+      variant={isConfirmed ? "secondary" : "default"}
+      onClick={correcting ? correction.confirm : onConfirm}
+      disabled={locked || correction.pending}
+    >
+      <Check className="size-4" />
+      <span>Conferma</span>
+    </Button>
+  );
+
+  const quickButtons = (btnCls: string, clearCls: string) => (
+    <>
+      {[1, 3, 5, 10].map((increment) => (
+        <Button
+          key={increment}
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn("min-w-0 justify-center overflow-hidden px-0 text-xs font-bold leading-none", btnCls)}
+          tabIndex={-1}
+          aria-label={`Aggiungi ${increment} ${quickUnit} a ${name}`}
+          disabled={locked}
+          onClick={() =>
+            correcting ? correction.setValue(addToQuantity(correction.value, increment)) : onChange(addToQuantity(value, increment))
+          }
+        >
+          +{increment}
+          {quickUnit ? <span className="font-semibold">{quickUnit}</span> : null}
+        </Button>
+      ))}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className={cn("shrink-0 justify-center px-0", clearCls)}
+        tabIndex={-1}
+        aria-label={`Azzera quantità ${name}`}
+        title="Azzera"
+        disabled={locked}
+        onClick={() => (correcting ? correction.setValue("") : onChange(""))}
+      >
+        <Delete className="size-4" />
+      </Button>
+    </>
+  );
+
+  const note =
+    noteOpen && hasDifference ? (
+      <div className="mt-1.5 space-y-1.5 rounded-sm border border-border bg-muted/30 p-1.5">
+        <p className="text-[9px] font-bold uppercase leading-none text-muted-foreground">Nota differenza</p>
+        <p className="text-xs leading-snug">{row.note?.trim() || "Nessuna nota registrata."}</p>
+        {row.note?.trim() && confirmedDifference !== null ? (
+          <AiAnalysisDemo name={name} unit={unit} difference={confirmedDifference} note={row.note.trim()} />
+        ) : null}
+      </div>
+    ) : null;
+
+  const differenceBlock = (
+    <>
+      <p className="text-[9px] leading-none text-muted-foreground">Differenza</p>
+      <p
+        className={cn(
+          "mt-1 text-sm font-bold leading-none",
+          difference !== null && difference < 0 && "text-destructive",
+          difference !== null && difference > 0 && "text-success",
+        )}
+        title={!comparable ? `U.M. non confrontabili${conversionHint ? ` · ${conversionHint} (indicativa)` : ""}` : undefined}
+      >
+        {difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, unit)}`}
+      </p>
+      {!comparable ? <p className="mt-0.5 text-[8px] leading-none text-muted-foreground">U.M. non confrontabili</p> : null}
+    </>
+  );
+
+  if (isRow) {
+    // Vista Righe: stessi controlli della card, disposti su una riga (larga) o su 3-4 righe compatte (stretta).
+    return (
+      <article className={cn(tone, "@container px-2 py-1.5")}>
+        <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 @min-[880px]:grid-cols-[36px_minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(150px,0.8fr)_minmax(230px,1.1fr)_auto_auto]">
+          {image("size-9")}
+          <div className="min-w-0">
+            <p className="truncate font-display text-sm font-bold uppercase leading-tight">
+              <span className="text-muted-foreground">{row.code}</span> · {name}
+            </p>
+            <p className="truncate text-[11px] leading-tight text-muted-foreground @min-[880px]:hidden">
+              {row.category ?? "—"} · {lastCountText ? `Ultimo ${lastCountText}` : "Mai contato"}
+            </p>
+          </div>
+          <div className="flex min-w-0 items-center justify-end gap-0.5 @min-[880px]:order-3">{actions}</div>
+          <div className="hidden min-w-0 text-[11px] leading-tight @min-[880px]:block">
+            <p className="truncate text-muted-foreground">{row.category ?? "—"}</p>
+            <p className="truncate font-semibold">{lastCountText ? `Ultimo ${lastCountText}` : "Mai contato"}</p>
+          </div>
+          <div className="col-span-3 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 @min-[880px]:contents">
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-1">
+                {quantityInput}
+                {unitControl("h-10 max-w-[72px] text-xs")}
+                {pencil}
+              </div>
+              {reason}
+            </div>
+            <div className="@min-[880px]:order-2">{confirmButton()}</div>
+          </div>
+          <div className="col-span-3 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-1.5 @min-[880px]:order-1 @min-[880px]:col-span-1">
+            {quickButtons("h-9 gap-0.5", "h-9 w-9")}
+          </div>
+        </div>
+        {badges}
+        {note}
+      </article>
+    );
+  }
+
+  return (
+    <article className={cn(tone, "@container flex h-full flex-col p-2 @max-[300px]:p-1.5")}>
+      <div className="grid grid-cols-[48px_minmax(0,1fr)_fit-content(45%)] items-center gap-2 @max-[300px]:grid-cols-[36px_minmax(0,1fr)] @max-[300px]:gap-1.5">
+        {image("size-12 @max-[300px]:size-9")}
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
-          <p className="text-[11px] leading-tight text-muted-foreground">
+          <p className="truncate font-display text-sm font-bold uppercase leading-tight @max-[300px]:line-clamp-2 @max-[300px]:whitespace-normal @max-[300px]:text-xs">
+            {name}
+          </p>
+          <p className="truncate text-[11px] leading-tight text-muted-foreground @max-[300px]:text-[10px]">
             Cod. {row.code}
             {unit ? ` · ${unit}` : ""}
             {isVisible("zona") ? ` · ${row.location_name}` : ""}
           </p>
           {isVisible("categoria") && row.category ? (
-            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+            <p className="truncate text-[11px] leading-tight text-muted-foreground @max-[300px]:text-[10px]">
               {row.category}
               {isVisible("sottocategoria") && row.subcategory ? ` · ${row.subcategory}` : ""}
             </p>
           ) : null}
           {isVisible("fornitore") || isVisible("prezzo_acquisto") ? (
-            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+            <p className="truncate text-[11px] leading-tight text-muted-foreground @max-[300px]:hidden">
               {isVisible("fornitore") ? (supplier?.name ?? "Nessun fornitore collegato") : ""}
               {isVisible("prezzo_acquisto") && supplier?.cost !== null && supplier?.cost !== undefined
                 ? ` · € ${Number(supplier.cost).toFixed(2).replace(".", ",")}`
@@ -2778,134 +3099,29 @@ function ProductCard({
             </p>
           ) : null}
           {isVisible("scorta_minima") || isVisible("fabbisogno") ? (
-            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+            <p className="truncate text-[11px] leading-tight text-muted-foreground @max-[300px]:hidden">
               {isVisible("scorta_minima") ? `Scorta minima ${row.min_stock ?? "—"}` : ""}
               {isVisible("fabbisogno") && row.order_multiple ? ` · multiplo ${row.order_multiple}` : ""}
             </p>
           ) : null}
           {isVisible("ultimo_conteggio") && row.counted_at ? (
-            <p className="truncate text-[11px] leading-tight text-muted-foreground">
+            <p className="truncate text-[11px] leading-tight text-muted-foreground @max-[300px]:hidden">
               Ultimo conteggio {new Date(row.counted_at).toLocaleDateString("it-IT")}
             </p>
           ) : null}
           {history?.hasCount && history.lastQuantity !== null ? (
-            <p className="whitespace-normal break-words text-[11px] font-semibold leading-tight text-foreground">
-              Ultimo conteggio: {formatQuantity(history.lastQuantity, history.lastUnit ?? unit)}
-              {history.lastUnit ?? unit ? ` ${history.lastUnit ?? unit}` : ""}
-              {history.lastAt ? ` · ${new Date(history.lastAt).toLocaleDateString("it-IT")}` : ""}
+            <p className="whitespace-normal break-words text-[11px] font-semibold leading-tight text-foreground @max-[300px]:text-[10px]">
+              Ultimo conteggio: {lastCountText}
             </p>
           ) : null}
         </div>
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
-          <PriceTrendIcon
-            series={priceSeries}
-            label={`Andamento prezzo di ${name}`}
-            companyId={companyId}
-            productId={row.product_id}
-          />
-          {isAdmin ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={cn("h-7 w-7 px-0", row.is_favorite && "text-primary")}
-              tabIndex={-1}
-              aria-label={row.is_favorite ? `Rimuovi ${name} dai preferiti` : `Aggiungi ${name} ai preferiti`}
-              title={row.is_favorite ? "Rimuovi dai preferiti" : "Aggiungi ai preferiti"}
-              onClick={onToggleFavorite}
-              disabled={locked}
-            >
-              <Star className={cn("size-3.5", row.is_favorite && "fill-current")} />
-            </Button>
-          ) : null}
-          <span
-            className={cn(
-              "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
-              !isConfirmed && "bg-muted text-muted-foreground",
-              isConfirmed && !hasDifference && "bg-success/15 text-success",
-              hasDifference && "bg-destructive/10 text-destructive",
-              needsRecount && "bg-primary/15 text-primary",
-            )}
-          >
-            {previewStatus ?? status}
-          </span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 w-7 px-0"
-                tabIndex={-1}
-                aria-label={`Azioni su ${name}`}
-              >
-                <MoreVertical className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-60">
-              <DropdownMenuItem onClick={onRecount} disabled={!isAdmin || !actionsEnabled}>
-                <RotateCcw className="size-3.5" /> Segna da ricontare
-              </DropdownMenuItem>
-              {row.non_compliant ? (
-                <DropdownMenuItem onClick={onRevokeNonCompliance} disabled={!isAdmin || !actionsEnabled}>
-                  <TriangleAlert className="size-3.5" /> Revoca non conforme
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={onNonCompliance} disabled={!isAdmin || !actionsEnabled}>
-                  <TriangleAlert className="size-3.5" /> Segnala non conforme
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={onProposal} disabled={!isAdmin || !actionsEnabled}>
-                <ShoppingCart className="size-3.5" />
-                {proposalOpen ? "Chiudi proposta d'acquisto" : "Proponi per l'acquisto"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onHistory} disabled={!actionsEnabled}>
-                <History className="size-3.5" /> Storico dei controlli
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/acquisti/prodotti" search={{ prodotto: row.product_id }}>
-                  <ExternalLink className="size-3.5" /> Apri prodotto → Acquisto
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {hasDifference ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={cn("h-7 w-7 px-0", row.note && "text-primary")}
-              tabIndex={-1}
-              aria-label={`Nota ${name}`}
-              title="Vedi nota"
-              onClick={() => setNoteOpen((open) => !open)}
-            >
-              <StickyNote className={cn("size-3.5", row.note && "fill-current")} />
-            </Button>
-          ) : null}
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1 @max-[300px]:col-span-2 @max-[300px]:justify-start">
+          {actions}
         </div>
       </div>
-      {(isVisible("non_conforme") && row.non_compliant) || (isVisible("proposta") && proposalOpen) ? (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {isVisible("non_conforme") && row.non_compliant ? (
-            <span className="rounded-sm bg-destructive/10 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-destructive">
-              Non conforme
-              {row.non_compliant_quantity === null
-                ? ""
-                : ` ${formatQuantity(Number(row.non_compliant_quantity), unit)}`}
-            </span>
-          ) : null}
-          {isVisible("proposta") && proposalOpen ? (
-            <span className="rounded-sm bg-primary/15 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-primary">
-              Da proporre per acquisto
-            </span>
-          ) : null}
-        </div>
-      ) : null}
+      {badges}
 
-      <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
+      <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5 @max-[300px]:mt-1.5 @max-[300px]:grid-cols-2">
         <div>
           <p className="text-[9px] leading-none text-muted-foreground">Calcolata</p>
           <p className="mt-1 text-sm font-bold leading-none">
@@ -2913,151 +3129,26 @@ function ProductCard({
             {history && !history.hasCount ? "—" : formatQuantity(calculated, unit)}
           </p>
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 @max-[300px]:order-3 @max-[300px]:col-span-2">
           <div className="flex items-center justify-between gap-1">
             <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
-            {unitOptions.length > 1 ? (
-              <select
-                className="h-4 max-w-[64px] rounded-sm border border-border bg-background px-0.5 text-[10px] font-semibold leading-none text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                value={selectedUnit}
-                onChange={(event) => unitsCtx.setSelected(row, event.target.value)}
-                disabled={cycleLocked}
-                aria-label={`Unità di misura conteggio ${name}`}
-                title={conversionHint ?? "Unità di misura del conteggio"}
-              >
-                {unitOptions.map((option) => (
-                  <option key={option.unit_code} value={option.unit_code}>
-                    {option.unit_code}
-                  </option>
-                ))}
-              </select>
-            ) : selectedUnit ? (
-              <span className="text-[10px] font-semibold leading-none text-muted-foreground/90" aria-label="Unità di misura inventario">
-                {selectedUnit}
-              </span>
-            ) : null}
+            {unitControl("h-4 max-w-[64px] text-[10px] @max-[300px]:h-5")}
           </div>
           <div className="mt-1 flex items-center gap-1">
-            <Input
-              className="h-10 min-w-0 flex-1 px-2 text-right text-base font-bold disabled:opacity-100"
-              type="text"
-              inputMode="decimal"
-              data-count-input="true"
-              pattern="[0-9]*[.,]?[0-9]*"
-              enterKeyHint="done"
-              autoComplete="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              value={
-                correctionTarget
-                  ? correction.value
-                  : cycleLocked && history?.physical != null
-                    ? formatQuantity(history.physical, history.lastUnit ?? unit)
-                    : value
-              }
-              disabled={locked || correction.pending}
-              title={locked ? (correctionTarget ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
-              placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
-              onChange={(event) => (correcting ? correction.setValue(event.target.value) : onChange(event.target.value))}
-              onFocus={(event) => event.currentTarget.select()}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.currentTarget.blur();
-                  if (correcting) correction.confirm();
-                  else onConfirm();
-                }
-              }}
-              aria-label={`Quantità fisica ${name}`}
-            />
-            {correctionTarget ? (
-              <Button
-                type="button"
-                variant={correcting ? "secondary" : "outline"}
-                size="sm"
-                className="h-10 w-9 shrink-0 px-0"
-                aria-label={correcting ? `Blocca ${name}` : `Sblocca ${name}`}
-                title={correcting ? "Blocca" : "Sblocca"}
-                disabled={correction.pending}
-                onClick={correction.toggle}
-              >
-                {correcting ? <Lock className="size-4" /> : <Pencil className="size-4" />}
-              </Button>
-            ) : null}
+            {quantityInput}
+            {pencil}
           </div>
-          {correcting && correction.needsReason ? (
-            <div className="mt-1 space-y-1">
-              <p className="text-[10px] font-semibold text-destructive">
-                Risultavano {formatQuantity(history?.previousQuantity ?? 0, unit)} {unit}: indica il motivo.
-              </p>
-              <Input className="h-8 text-xs" placeholder="Motivo (es. merce scartata)" value={correction.reason}
-                onChange={(e) => correction.setReason(e.target.value)} />
-            </div>
-          ) : null}
+          {reason}
         </div>
-        <div className="text-right">
-          <p className="text-[9px] leading-none text-muted-foreground">Differenza</p>
-          <p
-            className={cn(
-              "mt-1 text-sm font-bold leading-none",
-              difference !== null && difference < 0 && "text-destructive",
-              difference !== null && difference > 0 && "text-success",
-            )}
-            title={!comparable ? `U.M. non confrontabili${conversionHint ? ` · ${conversionHint} (indicativa)` : ""}` : undefined}
-          >
-            {difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, unit)}`}
-          </p>
-          {!comparable ? (
-            <p className="mt-0.5 text-[8px] leading-none text-muted-foreground">U.M. non confrontabili</p>
-          ) : null}
+        <div className="text-right @max-[300px]:order-2">{differenceBlock}</div>
+        <div className="@max-[300px]:order-4 @max-[300px]:col-span-2">
+          {confirmButton("w-full @max-[300px]:h-9")}
         </div>
-        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={correcting ? correction.confirm : onConfirm} disabled={locked || correction.pending}>
-          <Check className="size-4" />
-          <span className="hidden min-[360px]:inline">Conferma</span>
-        </Button>
       </div>
-      <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2">
-        {[1, 3, 5, 10].map((increment) => (
-          <Button
-            key={increment}
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 justify-center px-0 text-xs font-bold leading-none"
-            tabIndex={-1}
-            aria-label={`Aggiungi ${increment} a ${name}`}
-            disabled={locked}
-            onClick={() =>
-              correcting
-                ? correction.setValue(addToQuantity(correction.value, increment))
-                : onChange(addToQuantity(value, increment))
-            }
-          >
-            +{increment}
-          </Button>
-        ))}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 w-11 shrink-0 justify-center px-0"
-          tabIndex={-1}
-          aria-label={`Azzera quantità ${name}`}
-          title="Azzera"
-          disabled={locked}
-          onClick={() => (correcting ? correction.setValue("") : onChange(""))}
-        >
-          <Delete className="size-4" />
-        </Button>
+      <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2 @max-[300px]:grid-cols-2 @max-[300px]:gap-1">
+        {quickButtons("h-8 gap-0.5", "h-8 w-11 @max-[300px]:col-span-2 @max-[300px]:h-7 @max-[300px]:w-full")}
       </div>
-      {noteOpen && hasDifference ? (
-        <div className="mt-1.5 space-y-1.5 rounded-sm border border-border bg-muted/30 p-1.5">
-          <p className="text-[9px] font-bold uppercase leading-none text-muted-foreground">Nota differenza</p>
-          <p className="text-xs leading-snug">{row.note?.trim() || "Nessuna nota registrata."}</p>
-          {row.note?.trim() && confirmedDifference !== null ? (
-            <AiAnalysisDemo name={name} unit={unit} difference={confirmedDifference} note={row.note.trim()} />
-          ) : null}
-        </div>
-      ) : null}
+      {note}
     </article>
   );
 }
