@@ -61,7 +61,7 @@ export const externalDeliveryDraft = createServerFn({ method: "POST" })
     const { data: rows, error: rowsError } = await supabaseAdmin
       .from("purchase_delivery_items")
       .select(
-        "id, product_id, order_item_id, declared_quantity, unit_code, declared_producer, declared_producer_lot, declared_expiry, line_notes, missing_reason, products(code, description)",
+        "id, product_id, order_item_id, declared_quantity, unit_code, declared_purchase_quantity, purchase_unit_code, declared_producer, declared_producer_lot, declared_expiry, line_notes, missing_reason, products(code, description)",
       )
       .eq("delivery_id", deliveryId as string)
       .order("id");
@@ -78,7 +78,9 @@ export const externalDeliveryDraft = createServerFn({ method: "POST" })
         id: string;
         product_id: string;
         order_item_id: string | null;
-        declared_quantity: number;
+        declared_quantity: number | null;
+        declared_purchase_quantity: number | null;
+        purchase_unit_code: string | null;
         unit_code: string | null;
         declared_producer: string | null;
         declared_producer_lot: string | null;
