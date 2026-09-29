@@ -12,7 +12,11 @@ import { dateTimeShort, parseQuantity, qty } from "@/lib/inventory";
 import type { ReceiptItemRow, ReceiptRow } from "@/lib/purchase";
 import { confirmGoodsReceipt, setGoodsReceiptItem } from "@/lib/purchase.functions";
 
-type Row = ReceiptItemRow & { declared: number | null };
+type Row = ReceiptItemRow & {
+  declared: number | null;
+  declaredPurchase: number | null;
+  purchaseUnit: string | null;
+};
 
 /** Carico merce: unico momento in cui nascono provenienza e giacenza. */
 export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
