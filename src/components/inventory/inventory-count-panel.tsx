@@ -22,6 +22,8 @@ import {
   SlidersHorizontal,
   Sparkles,
   Star,
+  Lock,
+  Pencil,
   StickyNote,
   TriangleAlert,
 } from "lucide-react";
