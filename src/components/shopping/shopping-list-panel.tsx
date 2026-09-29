@@ -748,6 +748,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </div>
           </div>
 
+          <div className="@container">
           <div
             className={
               viewMode === "card"
