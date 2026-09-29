@@ -2679,7 +2679,7 @@ function ProductCard({
             </p>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex max-w-[45%] flex-wrap items-center justify-end gap-1">
           <PriceTrendIcon
             series={priceSeries}
             label={`Andamento prezzo di ${name}`}
