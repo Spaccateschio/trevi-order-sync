@@ -11,6 +11,7 @@ import {
   Rows3,
   Search,
   SlidersHorizontal,
+  Eye,
   Star,
   Trash2,
   Truck,
@@ -20,6 +21,7 @@ import { toast } from "sonner";
 
 import { AddProductsDialog, Thumb } from "./add-products-dialog";
 import { CYCLE_QUERY_KEY, InventoryEvaluation, useInventoryCountedRows, type CountedRow } from "./inventory-to-evaluate";
+import { DISPLAY_FIELDS, useCardDisplay } from "./card-display";
 import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
