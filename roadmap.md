@@ -86,7 +86,7 @@
 - [ ] Lista: U.M. fornitore solo nelle ripartizioni, «Altra U.M.» per non B2B (dopo A)
 
 ## Lista della Spesa — Preferiti e ordine Trevi (30/09)
-- [ ] Stella Lista = stesso Preferito dell'Inventario (lettura reale su tutte le card)
-- [ ] Stella nella finestra «Aggiungi prodotti» (il preferito alimenta i prossimi Inventari, non la Lista)
-- [ ] Verificare PATATE BN IT preferito sì/no nel database
-- [ ] Verificare percorso BASILICO A MAZZI → ripartizione Trevi → conferma Lista → ordine
+- [x] Stella Lista = stesso Preferito dell'Inventario (lettura reale su tutte le card)
+- [x] Stella nella finestra «Aggiungi prodotti» (il preferito alimenta i prossimi Inventari, non la Lista)
+- [x] Verificare PATATE BN IT preferito sì/no nel database
+- [x] Verificare percorso BASILICO A MAZZI → ripartizione Trevi → conferma Lista → ordine
