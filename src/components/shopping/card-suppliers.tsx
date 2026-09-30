@@ -669,9 +669,6 @@ export function CardSuppliers({
 
   return (
     <div className="space-y-1">
-      {suppliers.length || orphans.length ? (
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Fornitori</p>
-      ) : null}
       <ul className="space-y-1">
         {suppliers.map((s) => supplierRow(s, show.splits ? (byLink.get(s.linkId) ?? null) : null))}
         {orphans.map(orphanRow)}
