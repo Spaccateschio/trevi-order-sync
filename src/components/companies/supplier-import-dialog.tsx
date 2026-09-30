@@ -193,15 +193,24 @@ export function SupplierImportDialog({
 
     setBusy(false);
     await onImported();
+    const summaryText = [
+      `Fornitori aggiunti: ${created}`,
+      `Fornitori aggiornati: ${updated}`,
+      failed.length ? `Non importati: ${failed.length}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    if (!failed.length) {
+      // Importazione riuscita: chiudo subito il popup, l'elenco aggiornato parla da sé.
+      toast.success(`Importazione completata — ${summaryText}`);
+      reset();
+      onOpenChange(false);
+      return;
+    }
+
     setSummary(
-      [
-        `Fornitori aggiunti: ${created}`,
-        `Fornitori aggiornati: ${updated}`,
-        failed.length ? `Non importati: ${failed.length}` : null,
-        ...failed.slice(0, 5),
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      [summaryText, ...failed.slice(0, 5)].join("\n"),
     );
     setParsed(null);
     setPreview([]);
