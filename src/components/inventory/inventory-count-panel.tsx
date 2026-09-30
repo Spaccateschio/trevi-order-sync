@@ -3233,6 +3233,11 @@ function CycleLight({ cycle, sessionActive }: { cycle: CycleStatus | undefined; 
   const color = sessionActive ? "giallo" : cycle.color;
   const config = {
     verde: { dot: "bg-success", label: "PRONTO PER INVENTARIO", text: cycle.cycle_outcome === "completato" ? "Ciclo acquisti completato: ordini e acquisti diretti gestiti." : "Nessun inventario in corso e nessun ciclo acquisti da completare." },
+    arancione: {
+      dot: "bg-warning",
+      label: "PRONTO PER INVENTARIO — CICLO CHIUSO",
+      text: `Ciclo chiuso con ${cycle.to_verify ?? 0} ${(cycle.to_verify ?? 0) === 1 ? "elemento" : "elementi"} da verificare.`,
+    },
     giallo: { dot: "bg-primary", label: "INVENTARIO IN CORSO", text: "Continua il conteggio: le quantità scritte restano salvate finché non termini l'inventario." },
     rosso: {
       dot: "bg-destructive",
@@ -3251,6 +3256,13 @@ function CycleLight({ cycle, sessionActive }: { cycle: CycleStatus | undefined; 
         <p className="text-xs font-bold tracking-wide">{config.label}</p>
         <p className="text-xs text-muted-foreground">{config.text}</p>
       </div>
+      {color === "arancione" && cycle.list_id ? (
+        <Button asChild size="sm" variant="outline">
+          <Link to="/acquisti/lista-spesa/stampa/$listId" params={{ listId: cycle.list_id }} search={{ tipo: "completa" } as never}>
+            Visualizza
+          </Link>
+        </Button>
+      ) : null}
       {color === "rosso" ? (
         <Button asChild size="sm">
           <Link to={cycle.evaluated_at ? "/acquisti/ordini" : "/acquisti/lista-spesa"}>

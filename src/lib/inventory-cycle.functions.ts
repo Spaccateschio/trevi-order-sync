@@ -5,7 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /** Ciclo Inventario → Lista della Spesa → Ordini: il colore e le autorizzazioni li decide il database. */
 
-export type CycleColor = "verde" | "giallo" | "rosso";
+export type CycleColor = "verde" | "giallo" | "arancione" | "rosso";
 export type CycleStatus = {
   color: CycleColor;
   open_session_id?: string;
