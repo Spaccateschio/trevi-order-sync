@@ -52,6 +52,7 @@ import {
   type ShoppingListRow,
 } from "@/lib/shopping-list";
 import {
+  confirmShoppingListProduct,
   manageShoppingList,
   removeShoppingListItem,
   setShoppingListItemQuantity,
@@ -138,6 +139,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runQuantity = useServerFn(setShoppingListItemQuantity);
   const runRemove = useServerFn(removeShoppingListItem);
   const runLock = useServerFn(setShoppingListItemQuantityLock);
+  const runConfirm = useServerFn(confirmShoppingListProduct);
   const readCycle = useServerFn(getInventoryCycleStatus);
   const runFavorite = useServerFn(manageCompanyProductFavorite);
   const runEvaluation = useServerFn(manageInventoryEvaluation);
@@ -613,6 +615,49 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     lockMutation.mutate({ itemId: row.item_id, locked: !locked });
   };
 
+  // «Da valutare» → Conferma: una sola operazione nel database (Lista + prodotto + quantità + blocco).
+  const [confirmingIds, setConfirmingIds] = useState<Set<string>>(new Set());
+  const confirmingRef = useRef<Set<string>>(new Set());
+  const confirmPending = async (row: OverviewRow) => {
+    const quantity = parseQuantity(evalValues[row.product_id] ?? "");
+    if (!quantity || quantity <= 0) {
+      toast.error("Inserisci una quantità prima di confermare");
+      return;
+    }
+    if (confirmingRef.current.has(row.product_id)) return;
+    confirmingRef.current.add(row.product_id);
+    setConfirmingIds(new Set(confirmingRef.current));
+    try {
+      const result = await runConfirm({
+        data: {
+          companyId,
+          productId: row.product_id,
+          quantity,
+          listId: linkedList?.id ?? null,
+          sessionId: linkedList ? null : (cycle?.session_id ?? null),
+          archiveId: archivesQuery.data?.[0]?.id ?? null,
+        },
+      });
+      setEvalValues((current) => {
+        const next = { ...current };
+        delete next[row.product_id];
+        return next;
+      });
+      if (!linkedList) setListId(result.list_id);
+      await Promise.all([
+        refresh(),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-locks"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-origins", companyId] }),
+      ]);
+      toast.success("Quantità confermata");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Conferma non riuscita");
+    } finally {
+      confirmingRef.current.delete(row.product_id);
+      setConfirmingIds(new Set(confirmingRef.current));
+    }
+  };
+
   const statusBadge = (row: OverviewRow) => (
     <Badge
       variant={
@@ -906,7 +951,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   onToggleFavorite={() => undefined}
                   onOpenSuppliers={() => undefined}
                   onRemove={() => undefined}
-                  onToggleLock={() => undefined}
+                  pendingQuantity={parseQuantity(evalValues[row.product_id] ?? "")}
+                  lockPending={confirmingIds.has(row.product_id)}
+                  onToggleLock={() => void confirmPending(row)}
                 />
               ) : (
               <ShoppingListCard

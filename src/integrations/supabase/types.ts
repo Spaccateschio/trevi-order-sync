@@ -5104,6 +5104,17 @@ export type Database = {
         Args: { _actor_user_id?: string; _receipt_id: string }
         Returns: string
       }
+      confirm_shopping_list_product: {
+        Args: {
+          _archive_id?: string
+          _company_id: string
+          _list_id?: string
+          _product_id: string
+          _quantity: number
+          _session_id?: string
+        }
+        Returns: Json
+      }
       create_customer_invitation: {
         Args: {
           _customer_record_id: string
