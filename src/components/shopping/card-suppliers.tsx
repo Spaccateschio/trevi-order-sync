@@ -464,7 +464,7 @@ export function CardSuppliers({
 
         {editingLink ? editForm(s, assignment) : null}
 
-        {(!assignment || !show.splits) && canWrite && !b2bBlocked && !noUnits ? (
+        {(!assignment || !show.splits) && !editingLink && canWrite && !b2bBlocked && !noUnits ? (
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-1">
               <Input
@@ -539,7 +539,7 @@ export function CardSuppliers({
 
   // Ripartizioni senza più un fornitore collegato attivo: restano visibili e modificabili.
   const orphanRow = (a: RowSupplier) => {
-    const editingAssignment = editing && editing.id === a.id ? editing : null;
+    const editingAssignment = orphanEditing && orphanEditing.id === a.id ? orphanEditing : null;
     const editPacks = editingAssignment ? parseQuantity(editingAssignment.quantity) : null;
     return (
       <li key={a.id} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
@@ -555,7 +555,7 @@ export function CardSuppliers({
               autoFocus
               value={editingAssignment.quantity}
               aria-label={`Quantità ${a.name}`}
-              onChange={(e) => setEditing({ id: a.id, quantity: e.target.value })}
+              onChange={(e) => setOrphanEditing({ id: a.id, quantity: e.target.value })}
             />
             <span className="text-xs font-semibold">{a.purchaseUnitCode ?? unit}</span>
             <Button
@@ -577,7 +577,7 @@ export function CardSuppliers({
             >
               Salva
             </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 px-0" aria-label="Annulla modifica" onClick={() => setEditing(null)}>
+            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 px-0" aria-label="Annulla modifica" onClick={() => setOrphanEditing(null)}>
               <X aria-hidden="true" />
             </Button>
           </div>
@@ -594,7 +594,7 @@ export function CardSuppliers({
                   variant="ghost"
                   className="h-7 gap-1 px-1.5 text-[11px]"
                   disabled={mutation.isPending || a.purchaseQuantity === null}
-                  onClick={() => setEditing({ id: a.id, quantity: a.purchaseQuantity === null ? "" : String(a.purchaseQuantity) })}
+                  onClick={() => setOrphanEditing({ id: a.id, quantity: a.purchaseQuantity === null ? "" : String(a.purchaseQuantity) })}
                 >
                   <Pencil className="size-3" aria-hidden="true" /> Modifica
                 </Button>
