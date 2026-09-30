@@ -6359,6 +6359,10 @@ export type Database = {
         Args: { _company_id: string }
         Returns: Json
       }
+      unlink_product_supplier: {
+        Args: { _company_id: string; _item_id?: string; _link_id: string }
+        Returns: string
+      }
     }
     Enums: {
       address_function:

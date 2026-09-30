@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, MoreVertical, Pencil, Star, Trash2, X } from "lucide-react";
 import { AddSupplierInline, refreshProductSuppliers, useCompanyUnits } from "./add-supplier-inline";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -290,6 +291,7 @@ export function CardSuppliers({
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [orphanEditing, setOrphanEditing] = useState<{ id: string; quantity: string } | null>(null);
   const [editing, setEditing] = useState<Edit | null>(null);
+  const [removing, setRemoving] = useState<CardSupplier | null>(null);
   const companyUnits = useCompanyUnits(companyId);
   const setEditingNull = () => {
     setEditing(null);
@@ -349,19 +351,23 @@ export function CardSuppliers({
         if (error) throw new Error(error.message);
         return;
       }
-      if (assignments.some((a) => a.linkId === input.s.linkId)) {
-        throw new Error(`${input.s.name} ha una ripartizione in questa Lista: togli prima la ripartizione, poi scollegalo.`);
-      }
-      const { error } = await supabase.rpc("manage_product_supplier_link", {
+      // Togli: una sola operazione nel database (ripartizione + collegamento + preferito), o tutto o niente.
+      const { error } = await supabase.rpc("unlink_product_supplier", {
         _company_id: companyId,
-        _action: "deactivate",
         _link_id: input.s.linkId,
+        ...(pending ? {} : { _item_id: row.item_id }),
       });
       if (error) throw new Error(error.message);
     },
     onSuccess: async (_d, input) => {
-      await refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id);
-      toast.success(input.kind === "preferred" ? `${input.s.name} è il fornitore preferito` : `${input.s.name} scollegato dal prodotto`);
+      setRemoving(null);
+      await Promise.all([
+        refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+      ]);
+      toast.success(input.kind === "preferred" ? `${input.s.name} è il fornitore preferito` : `${input.s.name} tolto dal prodotto`);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -610,7 +616,7 @@ export function CardSuppliers({
                   <Star className={s.isPreferred ? "fill-primary text-primary" : ""} aria-hidden="true" />
                   {s.isPreferred ? "Fornitore preferito" : "Imposta come fornitore preferito"}
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" disabled={linkMutation.isPending} onSelect={() => linkMutation.mutate({ kind: "unlink", s })}>
+                <DropdownMenuItem className="text-destructive" disabled={linkMutation.isPending} onSelect={() => setRemoving(s)}>
                   <X aria-hidden="true" /> Scollega dal prodotto
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -659,9 +665,7 @@ export function CardSuppliers({
                   variant="ghost"
                   className="h-7 gap-1 px-1.5 text-[11px] text-destructive"
                   disabled={busy}
-                  onClick={() =>
-                    mutation.mutate({ action: "remove", linkId: s.linkId, packs: null, accepted: false, unitId: null, manualUnitCode: null, assignmentId: assignment.id })
-                  }
+                  onClick={() => setRemoving(s)}
                 >
                   <Trash2 className="size-3" aria-hidden="true" /> Togli
                 </Button>
@@ -674,6 +678,9 @@ export function CardSuppliers({
           <div className="flex justify-end">
             <Button type="button" size="sm" variant="ghost" className="h-6 gap-1 px-1.5 text-[11px]" disabled={busy} onClick={() => startEdit(s, null)}>
               <Pencil className="size-3" aria-hidden="true" /> Modifica
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="h-6 gap-1 px-1.5 text-[11px] text-destructive" disabled={busy} onClick={() => setRemoving(s)}>
+              <Trash2 className="size-3" aria-hidden="true" /> Togli
             </Button>
           </div>
         ) : null}
@@ -847,11 +854,34 @@ export function CardSuppliers({
     />
   ) : null;
 
+  const removeDialog = (
+    <AlertDialog open={removing !== null} onOpenChange={(o) => { if (!o && !linkMutation.isPending) setRemoving(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Togliere {removing?.name} da questo prodotto?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Il fornitore verrà rimosso dall'acquisto corrente e scollegato dal prodotto. Non comparirà più automaticamente nelle prossime Liste. Lo storico rimarrà invariato.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={linkMutation.isPending}>Annulla</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={linkMutation.isPending}
+            onClick={(ev) => { ev.preventDefault(); if (removing) linkMutation.mutate({ kind: "unlink", s: removing }); }}
+          >
+            Togli fornitore
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   if (!suppliers.length && !assignments.length)
     return (
       <div className="space-y-1">
         <p className="text-xs font-medium">Fornitore da definire</p>
         {addButton}
+        {removeDialog}
       </div>
     );
 
@@ -867,6 +897,7 @@ export function CardSuppliers({
         <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p>
       ) : null}
       {addButton}
+      {removeDialog}
     </div>
   );
 }
