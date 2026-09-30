@@ -47,9 +47,12 @@ export function ShoppingListCard({
   onToggleLock,
   lockPending = false,
   pending = false,
+  pendingQuantity,
 }: {
   /** Prodotto dell'inventario non ancora in Lista: stessa card, comandi della Lista non ancora attivi. */
   pending?: boolean;
+  /** Quantità scritta su un prodotto «Da valutare» (serve solo ad abilitare Conferma). */
+  pendingQuantity?: number | null;
   row: OverviewRow;
   extra: RowExtras | undefined;
   stock: StockInfo | undefined;
@@ -152,15 +155,16 @@ export function ShoppingListCard({
     </>
   );
 
-  const lockButton = editable && !pending ? (
+  const confirmTarget = pending ? (pendingQuantity ?? null) : target;
+  const lockButton = editable ? (
     <Button
       type="button"
       size="sm"
       variant={locked ? "secondary" : "default"}
       className="h-9 shrink-0 gap-1 px-2 text-xs"
-      disabled={lockPending || (!locked && (target === null || target <= 0))}
+      disabled={lockPending || (!locked && (confirmTarget === null || confirmTarget <= 0))}
       aria-label={locked ? `Sblocca quantità di ${name}` : `Conferma quantità di ${name}`}
-      title={locked ? "Sblocca per modificare" : target === null ? "Inserisci una quantità" : "Conferma e blocca"}
+      title={locked ? "Sblocca per modificare" : confirmTarget === null ? "Inserisci una quantità" : "Conferma e blocca"}
       onClick={onToggleLock}
     >
       {locked ? <Lock className="size-3.5" aria-hidden="true" /> : <Check className="size-3.5" aria-hidden="true" />}
