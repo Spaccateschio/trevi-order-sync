@@ -1,4 +1,4 @@
-import { Check, Lock, MoreVertical, Package, Plus, Star, Trash2, Truck } from "lucide-react";
+import { Check, Lock, MoreVertical, Package, Plus, Star, Trash2, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
@@ -120,6 +120,8 @@ export function ShoppingListCard({
   lockPending?: boolean;
   /** Cambio U.M. di «Da acquistare»: (null, null) = U.M. del prodotto. */
   onUnitChange?: (unitId: string | null, unitCode: string | null) => void;
+  /** Svuota la quantità «Da acquistare» (obiettivo non indicato, mai 0). */
+  onClearQuantity?: () => void;
 }) {
   const name = row.description ?? row.code;
   const unit = row.unit_code ?? "";
