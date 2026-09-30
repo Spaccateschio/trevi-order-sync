@@ -1093,6 +1093,10 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onRemove={() => removeMutation.mutate(row.item_id)}
                 onToggleLock={() => void toggleLock(row)}
                 lockPending={lockMutation.isPending || quantityMutation.isPending}
+                onClearQuantity={() => {
+                  setEdits((current) => ({ ...current, [row.item_id]: "" }));
+                  if (row.decided_quantity !== null) quantityMutation.mutate({ itemId: row.item_id, quantity: null });
+                }}
                 onUnitChange={(unitId, unitCode) => {
                   const raw = edits[row.item_id];
                   const value = raw !== undefined ? parseQuantity(raw) : row.decided_quantity === null ? null : Number(row.decided_quantity);
