@@ -1,0 +1,4 @@
+- U.M. ripartizione: B2B solo U.M. pubblicate dal venditore, non B2B U.M. referenza o testo manuale (purchase_unit_id NULL); controllo in assign_shopping_list_supplier: il browser non lo aggira.
+- «+ Aggiungi fornitore» usa manage_product_supplier_link; nessun abbinamento automatico B2B: un solo dato per Prodotto e Fornitore.
+- «Togli fornitore» usa solo unlink_product_supplier (una transazione): niente stati a metà, storico intatto.
+- Chiusura: solo close_shopping_list (atomica, idempotente, finale «chiusa», numero LS alla chiusura) e shopping_list_close_preview, entrambe su _shopping_list_close_plan; send_status ordini separato: anteprima e chiusura non divergono, Lista chiusa immutabile.
