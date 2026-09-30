@@ -366,6 +366,210 @@ export function CardSuppliers({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Salva modifiche: un solo pulsante. Non B2B → prima i dati permanenti del collegamento
+  // (stessa RPC della scheda Prodotto), poi la quantità di questa Lista con la regola di sempre.
+  const editMutation = useMutation({
+    mutationFn: async ({ s, e }: { s: CardSupplier; e: Edit }) => {
+      const packs = e.quantity.trim() ? parseQuantity(e.quantity) : null;
+      if (e.quantity.trim() && (packs === null || packs <= 0)) throw new Error("Quantità non valida");
+      if (e.assignmentId && !packs) throw new Error("Indica la quantità");
+      const isManual = e.unit === MANUAL;
+      if (packs && !isManual && !e.unit) throw new Error("Scegli l'U.M. d'acquisto");
+      if (isManual && !e.manual.trim()) throw new Error("Scrivi l'U.M. d'acquisto");
+      if (!s.isB2B) {
+        const cost = e.price.trim() ? parseQuantity(e.price) : null;
+        if (e.price.trim() && (cost === null || cost < 0)) throw new Error("Prezzo non valido");
+        const priceUnitId = e.priceUnit === NO_PRICE_UNIT ? null : e.priceUnit;
+        if (cost !== s.manualCost || priceUnitId !== s.priceUnitId) {
+          const { data: link, error: readError } = await supabase
+            .from("product_supplier_links")
+            .select("supplier_product_code, supplier_reference_label, sourcing_priority, purchase_unit_id, conversion_factor, conversion_reference_um, min_quantity, lead_time_days, notes")
+            .eq("id", s.linkId)
+            .maybeSingle();
+          if (readError || !link) throw new Error(readError?.message ?? "Collegamento non trovato");
+          const { error } = await supabase.rpc("manage_product_supplier_link", {
+            _company_id: companyId,
+            _action: "update",
+            _link_id: s.linkId,
+            _supplier_product_code: link.supplier_product_code ?? undefined,
+            _supplier_reference_label: link.supplier_reference_label ?? undefined,
+            _sourcing_priority: link.sourcing_priority ?? undefined,
+            _purchase_unit_id: link.purchase_unit_id ?? undefined,
+            _conversion_factor: link.conversion_factor ?? undefined,
+            _conversion_reference_um: link.conversion_reference_um ?? undefined,
+            _min_quantity: link.min_quantity ?? undefined,
+            _lead_time_days: link.lead_time_days ?? undefined,
+            _notes: link.notes ?? undefined,
+            ...(cost !== null ? { _manual_cost: cost } : {}),
+            ...(priceUnitId ? { _price_unit_id: priceUnitId } : {}),
+          });
+          if (error) throw new Error(error.message);
+        }
+        // Nuova U.M. d'acquisto dell'elenco aziendale: diventa U.M. del collegamento (resta per le prossime Liste).
+        if (e.unit && !isManual && !s.units.some((u) => u.unitId === e.unit)) {
+          const args = { _company_id: companyId, _link_id: s.linkId, _unit_id: e.unit };
+          const { error } = await supabase.rpc("manage_product_supplier_link_unit", { ...args, _action: "add" });
+          if (error) throw new Error(error.message);
+          if (!s.units.length) {
+            const { error: defError } = await supabase.rpc("manage_product_supplier_link_unit", { ...args, _action: "set_default" });
+            if (defError) throw new Error(defError.message);
+          }
+        }
+      }
+      if (packs && !pending) {
+        await runAssign({
+          data: {
+            companyId,
+            itemId: row.item_id,
+            action: "set",
+            linkId: s.linkId,
+            assignedQuantity: null,
+            purchaseQuantity: packs,
+            minWarningAccepted: true,
+            notes: null,
+            purchaseUnitId: isManual ? null : e.unit,
+            assignmentId: e.assignmentId,
+            manualUnitCode: isManual ? e.manual : null,
+          },
+        });
+      }
+    },
+    onSuccess: async () => {
+      setEditingNull();
+      await Promise.all([
+        refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+      ]);
+      toast.success("Modifiche salvate");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const busy = mutation.isPending || editMutation.isPending;
+
+  const startEdit = (s: CardSupplier, assignment: RowSupplier | null) => {
+    const single = s.units.length === 1 && !s.allowManual;
+    setOrphanEditing(null);
+    setEditing({
+      linkId: s.linkId,
+      assignmentId: assignment?.id ?? null,
+      quantity: assignment?.purchaseQuantity != null ? String(assignment.purchaseQuantity) : "",
+      unit: assignment ? (assignment.purchaseUnitId ?? MANUAL) : single ? s.units[0]!.unitId : "",
+      manual: assignment && !assignment.purchaseUnitId ? (assignment.purchaseUnitCode ?? "") : "",
+      price: s.manualCost === null ? "" : String(s.manualCost).replace(".", ","),
+      priceUnit: s.priceUnitId ?? NO_PRICE_UNIT,
+    });
+  };
+
+  const editForm = (s: CardSupplier, assignment: RowSupplier | null) => {
+    const e = editing!;
+    const patch = (p: Partial<Edit>) => setEditing({ ...e, ...p });
+    const allUnits = companyUnits.data ?? [];
+    // Non B2B: U.M. del collegamento + elenco aziendale d'acquisto + «Altra U.M.». B2B: solo quelle pubblicate dal venditore.
+    const options = s.isB2B
+      ? s.units.map((u) => ({ id: u.unitId, text: label(u) }))
+      : [
+          ...s.units.map((u) => ({ id: u.unitId, text: label(u) })),
+          ...allUnits
+            .filter((u) => u.usage !== "vendita" && !s.units.some((x) => x.unitId === u.id))
+            .map((u) => ({ id: u.id, text: label({ unitId: u.id, code: u.code }) })),
+        ];
+    const b2bSingle = s.isB2B && options.length === 1;
+    const canQuantity = !pending && !(s.isB2B && (!s.sourceLinked || !s.units.length));
+    return (
+      <div className="space-y-1.5 rounded-sm border border-primary/40 bg-muted/40 p-1.5">
+        {s.isB2B ? (
+          <p className="text-[11px] text-muted-foreground">
+            {s.price ? "Prezzo pubblicato dal venditore: non modificabile" : "Prezzo: lo decide il venditore"}
+          </p>
+        ) : (
+          <>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dati del fornitore per questo prodotto</p>
+            <div className="flex flex-wrap items-center gap-1">
+              <Input
+                className="h-8 w-20 text-right"
+                inputMode="decimal"
+                placeholder="Prezzo"
+                value={e.price}
+                aria-label={`Prezzo ${s.name}`}
+                onChange={(ev) => patch({ price: ev.target.value })}
+              />
+              <span className="text-xs">€ /</span>
+              <Select value={e.priceUnit} onValueChange={(v) => patch({ priceUnit: v })}>
+                <SelectTrigger className="h-8 w-auto min-w-20 text-xs" aria-label={`U.M. prezzo ${s.name}`}>
+                  <SelectValue placeholder="U.M. prezzo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_PRICE_UNIT}>U.M. prezzo non indicata</SelectItem>
+                  {allUnits.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{label({ unitId: u.id, code: u.code })}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
+        {canQuantity || !s.isB2B ? (
+          <>
+            {!s.isB2B ? <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Acquisto</p> : null}
+            <div className="flex flex-wrap items-center gap-1">
+              {canQuantity ? (
+                <Input
+                  className="h-8 w-16 text-right"
+                  inputMode="decimal"
+                  placeholder="Qtà"
+                  autoFocus
+                  value={e.quantity}
+                  aria-label={`Quantità ${s.name}`}
+                  onChange={(ev) => patch({ quantity: ev.target.value })}
+                />
+              ) : null}
+              {b2bSingle ? (
+                <span className="text-xs font-semibold">{options[0]!.text}</span>
+              ) : options.length || !s.isB2B ? (
+                <Select value={e.unit} onValueChange={(v) => patch({ unit: v })}>
+                  <SelectTrigger className="h-8 w-auto min-w-24 max-w-40 text-xs" aria-label={`U.M. acquisto ${s.name}`}>
+                    <SelectValue placeholder="U.M. acquisto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {options.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>{o.text}</SelectItem>
+                    ))}
+                    {!s.isB2B ? <SelectItem value={MANUAL}>Altra U.M.</SelectItem> : null}
+                  </SelectContent>
+                </Select>
+              ) : null}
+              {e.unit === MANUAL ? (
+                <Input
+                  className="h-8 w-24 uppercase"
+                  maxLength={20}
+                  placeholder="es. PEDANE"
+                  value={e.manual}
+                  aria-label={`Altra U.M. ${s.name}`}
+                  onChange={(ev) => patch({ manual: ev.target.value })}
+                />
+              ) : null}
+            </div>
+            {e.unit === MANUAL && !canQuantity ? (
+              <p className="text-[11px] text-muted-foreground">«Altra U.M.» vale solo per l'acquisto di questa Lista.</p>
+            ) : null}
+          </>
+        ) : null}
+        <div className="flex items-center gap-1">
+          <Button type="button" size="sm" className="h-8 px-2 text-xs" disabled={busy} onClick={() => editMutation.mutate({ s, e })}>
+            Salva modifiche
+          </Button>
+          <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setEditing(null)}>
+            Annulla
+          </Button>
+          {assignment ? null : null}
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <p className="text-xs text-muted-foreground">Caricamento fornitori…</p>;
 
   const byLink = new Map(assignments.map((a) => [a.linkId, a]));
