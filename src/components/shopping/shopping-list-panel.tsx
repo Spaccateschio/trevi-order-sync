@@ -15,6 +15,7 @@ import {
   Star,
   Trash2,
   Truck,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
