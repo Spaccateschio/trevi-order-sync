@@ -253,7 +253,7 @@ export const closeShoppingList = createServerFn({ method: "POST" })
       _company_id: data.companyId,
       _list_id: data.listId,
       _delivery: data.delivery,
-      _general_notes: data.generalNotes ?? undefined,
+      ...(data.generalNotes ? { _general_notes: data.generalNotes } : {}),
       _supplier_overrides: data.supplierOverrides,
       _direct_notes: data.directNotes,
     });

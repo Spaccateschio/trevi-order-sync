@@ -370,7 +370,7 @@ export function ShoppingListCard({
         : null,
     ].filter(Boolean);
     return (
-      <article className={cn("@container min-w-0 rounded-md border-2 border-border bg-card px-2 py-1.5", locked && "border-primary/60 bg-primary/15")}>
+      <article id={`item-${row.item_id}`} className={cn("@container min-w-0 rounded-md border-2 border-border bg-card px-2 py-1.5", locked && "border-primary/60 bg-primary/15")}>
         <div
           className={cn(
             "grid items-center gap-x-2 gap-y-1.5",
@@ -413,7 +413,7 @@ export function ShoppingListCard({
 
   const anyStat = show.lastCount || show.stock || show.suggested;
   return (
-    <article className={cn("@container flex h-full min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2 @max-[260px]:p-1.5", locked && "border-primary/60 bg-primary/15")}>
+    <article id={`item-${row.item_id}`} className={cn("@container flex h-full min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2 @max-[260px]:p-1.5", locked && "border-primary/60 bg-primary/15")}>
       <div className={cn("grid items-start gap-2 @max-[260px]:gap-1.5", show.photo ? "grid-cols-[44px_minmax(0,1fr)] @max-[260px]:grid-cols-[32px_minmax(0,1fr)]" : "grid-cols-1")}>
         {show.photo ? image("size-11 @max-[260px]:size-8") : null}
         <div className="min-w-0">
