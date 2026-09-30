@@ -222,11 +222,10 @@ export function ShoppingListCard({
           "text-[11px] font-semibold leading-tight",
           gap !== null && gap < 0 && "text-destructive",
           gap === 0 && "text-success",
-          gap !== null && gap > 0 && "text-primary",
         )}
       >
         Assegnato {qty(assigned)} / {qty(target)} {unit}
-        {gap === null || gap === 0 ? " · completo" : gap > 0 ? ` · Mancano ${qty(gap)} ${unit}` : ` · Eccedenza +${qty(-gap)} ${unit}`}
+        {gap === null || gap === 0 ? " · completo" : gap > 0 ? "" : ` · Eccedenza +${qty(-gap)} ${unit}`}
       </p>
     ) : suppliers.length ? (
       <p className="text-[11px] leading-tight text-muted-foreground">Assegnato {qty(assigned)} {unit} · obiettivo non indicato</p>
