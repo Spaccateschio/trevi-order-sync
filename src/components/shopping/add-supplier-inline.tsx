@@ -51,12 +51,15 @@ export function AddSupplierInline({
   itemId,
   linkedSupplierIds,
   daneaUm,
+  onLinked,
 }: {
   companyId: string;
   productId: string;
   itemId: string | null;
   linkedSupplierIds: Set<string>;
   daneaUm: string | null;
+  /** Dopo il collegamento: la card preseleziona l'U.M. d'acquisto appena scelta. */
+  onLinked?: (linkId: string, unitId: string | null) => void;
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
