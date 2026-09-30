@@ -123,6 +123,34 @@ export const setShoppingListItemQuantityLock = createServerFn({ method: "POST" }
     return { ok: true };
   });
 
+/** Conferma atomica di un prodotto «Da valutare»: Lista (se serve) + inserimento + quantità + blocco in una sola transazione. */
+export const confirmShoppingListProduct = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        companyId: z.string().uuid(),
+        productId: z.string().uuid(),
+        quantity: z.number().positive(),
+        listId: z.string().uuid().nullable(),
+        sessionId: z.string().uuid().nullable(),
+        archiveId: z.string().uuid().nullable(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("confirm_shopping_list_product", {
+      _company_id: data.companyId,
+      _product_id: data.productId,
+      _quantity: data.quantity,
+      ...(data.listId ? { _list_id: data.listId } : {}),
+      ...(data.sessionId ? { _session_id: data.sessionId } : {}),
+      ...(data.archiveId ? { _archive_id: data.archiveId } : {}),
+    });
+    if (error) throw new Error(error.message);
+    return result as { list_id: string; item_id: string };
+  });
+
 export const removeShoppingListItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
