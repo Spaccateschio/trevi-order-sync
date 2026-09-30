@@ -1,40 +1,54 @@
-# U.M. libera nella zona «Da acquistare»
+# Chiusura della Lista della Spesa: confronto con l'esistente e piano
 
-## Obiettivo
-Nella zona DA ACQUISTARE della card: `[ quantità ] [ U.M. ▼ ] [ Conferma ]`. La U.M. si può scegliere sempre, anche senza conversione. Mai inventare conversioni: senza conversione la quantità resta nella U.M. scelta e basta («3 casse · Non convertibile»), senza forzarla in kg/pz.
+## 1. Cosa esiste già
+- **Lista**: stati `aperta → confermata → chiusa / annullata`, con `confirmed_at`, `confirmed_by` e `closed_at`. Una nuova Lista nasce solo alla prima azione salvata.
+- **Conferma** (`manage_shopping_list`, azione confirm): oggi blocca la conferma se un prodotto non ha una ripartizione valida.
+- **Generazione ordini** (`create_purchase_orders_from_list`): funziona solo su una Lista confermata e raggruppa per fornitore. Ogni ordine riceve il numero `ORD` (`next_document_number`) e resta collegato a `shopping_list_id`. Se la Lista ha già ordini si ferma, quindi non ne crea di doppi.
+- **Fotografia sulle righe d'ordine**: quantità, U.M. d'acquisto, fattore di conversione, prezzo, U.M. del prezzo, codice del fornitore e collegamento alla ripartizione di origine.
+- **Ordine**: stati `bozza → inviato → …`, con `sent_at` e note. `manage_purchase_order` si occupa di invio, destinazione, note, annullamento e chiusura. Dopo l'invio non si possono più cambiare destinazione e righe.
+- **Link esterno per il fornitore** (`purchase_order_share_links`), con numero di accessi.
 
-## Regole fisse (dalle tue indicazioni)
-- La conversione NON è obbligatoria per acquistare.
-- Se esiste conversione (es. 1 cassa = 10 kg): mostro «3 casse ≈ 30 kg».
-- Se non esiste: «3 casse · Non convertibile», nessun valore inventato (mai 0 kg, mai 3 kg).
-- I tasti rapidi seguono la U.M. scelta: con CASSA → +1 cs +3 cs…, con KG → +1 kg…
-- La U.M. scelta resta associata alla quantità salvata.
-- Ricevimento merce/DDT/fattura NON toccati ora; il dato resta compatibile con quel flusso futuro.
+## 2. Cosa manca
+| Punto richiesto | Stato oggi |
+|---|---|
+| Numero Lista `LS-000123` | Manca: esiste solo un nome libero |
+| Righe incomplete: la quantità mancante blocca, il fornitore mancante è solo un avviso con «Conferma comunque» | Oggi il fornitore mancante blocca la conferma |
+| Riepilogo prima della conferma (prodotti, ordini per fornitore) | Manca |
+| Data, fascia oraria e indirizzo di consegna per questa Lista, precompilati dall'azienda | Manca (gli ordini hanno solo il magazzino di destinazione) |
+| Note per singolo fornitore | In parte: gli ordini hanno le note, la Lista no |
+| Conferma e generazione ordini in un'unica operazione | Oggi sono due passaggi separati |
+| Protezione dal doppio clic lato database | In parte: c'è il controllo «ordini già presenti», ma senza blocco della Lista |
+| Fotografia del nome prodotto e dei dati di consegna | Manca: il nome prodotto viene letto dalla scheda attuale |
+| Stato di invio separato (DA INVIARE / INVIATO / ERRORE INVIO) e storico degli invii e reinvii | Manca: c'è solo `sent_at` |
+| Storico Liste, dettaglio, stampa | Manca |
+| Area di lavoro pulita dopo la chiusura | Già così: una Lista confermata non è più «aperta» |
 
-## Modifica database (migration)
-1. `shopping_list_items`: aggiungo due colonne nullable:
-   - `decided_unit_id uuid REFERENCES units_of_measure(id)` — U.M. scelta per la quantità da acquistare (NULL = U.M. del prodotto, come oggi);
-   - `decided_unit_code text` — fotografia del codice (es. «cs», «kg»).
-   Righe esistenti: restano NULL → comportamento invariato.
-2. `set_shopping_list_item_quantity`: nuovo parametro `_decided_unit_id`/`_decided_unit_code`; salva la U.M. insieme alla quantità. Se la U.M. è quella del prodotto, salva NULL (nessun dato inutile).
-3. `confirm_shopping_list_product`: nessun cambiamento di logica (blocca la quantità come oggi); la U.M. scelta resta salvata sulla riga.
-4. `shopping_list_item_state` (stato Da assegnare/Parziale/Assegnata): il confronto con le ripartizioni resta in U.M. prodotto quando la quantità decisa è convertibile; se la U.M. decisa non è convertibile, lo stato si basa solo sulla presenza di ripartizioni valide (mai su somme inventate).
-5. `create_purchase_orders_from_list`: invariato (ordina dalle ripartizioni fornitore, come oggi).
+## 3. Cosa si può riutilizzare
+Le tabelle `shopping_lists`, `shopping_list_items`, `shopping_list_item_suppliers`, `purchase_orders` e `purchase_order_items`. Le funzioni `next_document_number`, `create_purchase_orders_from_list` (la logica di raggruppamento), `manage_purchase_order` e `shopping_list_overview`.
 
-## Interfaccia (shopping-list-card.tsx + shopping-list-panel.tsx)
-- Zona DA ACQUISTARE: campo quantità + menu a tendina U.M. + Conferma.
-  - Il menu propone: U.M. del prodotto (sempre) + le U.M. d'acquisto configurate sui fornitori collegati al prodotto + «Altra U.M.» (testo libero normalizzato, come nelle ripartizioni).
-  - Default: U.M. del prodotto (comportamento identico a oggi finché non cambi scelta).
-- Tasti rapidi +1/+3/+5/+10 con il codice della U.M. selezionata.
-- Se la U.M. scelta ha conversione verso l'U.M. prodotto, mostro l'equivalente «≈ 30 kg»; altrimenti «Non convertibile» (solo informativo, non blocca).
-- Riepilogo «Assegnato X / Y»: se la quantità decisa non è in U.M. prodotto e non è convertibile, il totale mostra le ripartizioni per quello che sono, senza somme forzate.
+## 4. Modifiche al database davvero necessarie
+1. `shopping_lists`: aggiungere `number` (LS-…), `delivery_date`, `delivery_time_from`/`to`, `delivery_address_id` più la fotografia testuale dell'indirizzo, e `general_notes`.
+2. `purchase_orders`: aggiungere `send_status` (da_inviare / inviato / errore_invio), `delivery_*` (fotografia) e `supplier_notes`.
+3. `purchase_order_items`: fotografia di `product_name` e `product_code`.
+4. Nuova tabella `purchase_order_send_events`: invio, reinvio ed errore, con canale, data e autore. Solo inserimento, mai modifiche.
+5. Nuova funzione `close_shopping_list(list, dati consegna, note, note per fornitore, accept_unassigned)` descritta al punto 5.
+6. Blocco delle modifiche su Lista, righe e ripartizioni quando lo stato non è `aperta`. In parte esiste già con `assert_shopping_list_open`: va verificato che copra tutto.
 
-## Cosa NON tocco
-- Ripartizioni fornitore (già funzionano così: U.M. libera, conversione facoltativa).
-- Ordini, Consegne, Carico Merce, DDT, fatture.
-- Inventario, Fabbisogno, semaforo, stato «Da assegnare» come concetto.
-- Conferma/Sblocca, card ocra, preferiti.
+## 5. Chiusura atomica
+Una sola funzione nel database, in un'unica transazione:
+1. Blocca la Lista (`SELECT … FOR UPDATE`). Se è già confermata e ha ordini, restituisce gli stessi ordini senza creare nulla: così il doppio clic è innocuo.
+2. Controlla che ogni prodotto abbia una quantità. Se ne manca una, si ferma ed elenca i prodotti.
+3. Se ci sono prodotti senza ripartizione e l'utente non ha scelto «Conferma comunque», si ferma e li elenca.
+4. Assegna il numero LS, salva la fotografia dei dati di consegna e delle note, e porta la Lista a `confermata`.
+5. Crea gli ordini per fornitore con la logica attuale, con `send_status = da_inviare` e la fotografia del prodotto.
+6. Se un passaggio fallisce, annulla tutto.
 
-## Verifica
-- Prove in transazione annullata sul database (nessun dato reale modificato): quantità in U.M. prodotto, in U.M. fornitore con conversione, in U.M. senza conversione, «Altra U.M.».
-- Verifica in pagina: menu visibile, tasti rapidi che cambiano codice, conferma e sblocco come prima.
+L'invio (WhatsApp, email, link, B2B) resta un'operazione separata. Se fallisce, registra «errore invio» e la Lista resta chiusa. «Riprova invio» e «Rinvia» aggiungono solo un evento, senza creare nuovi ordini.
+
+## 6. Interfaccia (dopo il database)
+- «Conferma lista» apre un riepilogo con gli errori bloccanti, gli avvisi, gli ordini per fornitore, i dati di consegna modificabili e le note, poi il pulsante «Conferma e genera ordini».
+- Pagina «Storico Liste» con dettaglio e stampa (la stampa del browser permette anche di salvare in PDF).
+
+## Da decidere
+- Prodotti senza fornitore dopo «Conferma comunque»: restano nella Lista chiusa come «non ordinati» (proposta), oppure passano automaticamente nella Lista successiva?
+- Fonte dei dati di consegna abituali: oggi non esiste un campo aziendale con giorni e orari preferiti. Proposta: precompilare solo l'indirizzo di consegna dell'azienda e lasciare data e orario da inserire.
