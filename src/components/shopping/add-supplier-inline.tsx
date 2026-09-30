@@ -67,10 +67,10 @@ export function AddSupplierInline({
   const [purchaseUnit, setPurchaseUnit] = useState("");
 
   const suppliers = useQuery({
-    queryKey: ["shopping-filter-suppliers", companyId],
+    queryKey: ["shopping-card-active-suppliers", companyId],
     enabled: open,
     queryFn: async () => {
-      const { data, error } = await supabase.from("supplier_records").select("id, legal_name").eq("buyer_company_id", companyId).order("legal_name");
+      const { data, error } = await supabase.from("supplier_records").select("id, legal_name").eq("buyer_company_id", companyId).eq("status", "attivo").order("legal_name");
       if (error) throw new Error(error.message);
       return (data ?? []) as { id: string; legal_name: string }[];
     },
