@@ -95,8 +95,6 @@ type Entry = { kind: "list" | "pending"; row: OverviewRow; extra: RowExtras | un
 type Archive = { id: string; name: string; is_default: boolean };
 type SortKey = "description" | "code" | "category" | "supplier";
 type FilterFlag =
-  | "da_valutare"
-  | "in_lista"
   | "senza_fornitore"
   | "b2b"
   | "non_b2b"
@@ -108,20 +106,15 @@ type FilterFlag =
   | "da_ordinare"
   | "da_confermare"
   | "confermati";
-const FILTER_FLAGS: [FilterFlag, string][] = [
-  ["da_valutare", "Da valutare"],
-  ["in_lista", "In lista"],
-  ["senza_fornitore", "Senza fornitore"],
-  ["b2b", "B2B"],
-  ["non_b2b", "Non B2B"],
-  ["preferiti", "Preferiti"],
-  ["da_assegnare", "Da assegnare"],
-  ["parziale", "Parzialmente assegnati"],
-  ["assegnata", "Assegnati"],
-  ["in_ordine", "Già in ordine"],
-  ["da_ordinare", "Da ordinare"],
-  ["da_confermare", "Quantità da confermare"],
-  ["confermati", "Quantità confermate"],
+/** «Filtra card»: decide quali prodotti si vedono. */
+const FILTER_GROUPS: [string, [FilterFlag, string][]][] = [
+  ["Prodotto", [["preferiti", "★ Preferiti"], ["b2b", "B2B"], ["non_b2b", "Non B2B"]]],
+  ["Quantità", [["da_confermare", "Quantità da confermare"], ["confermati", "Quantità confermata"]]],
+  [
+    "Fornitore / assegnazione",
+    [["senza_fornitore", "Senza fornitore"], ["da_assegnare", "Da assegnare"], ["parziale", "Parzialmente assegnati"], ["assegnata", "Assegnati"]],
+  ],
+  ["Ordine", [["da_ordinare", "Da ordinare"], ["in_ordine", "Già in ordine"]]],
 ];
 
 function B2BBadge() {
@@ -153,6 +146,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [category, setCategory] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [flags, setFlags] = useState<Set<FilterFlag>>(new Set());
+  const display = useCardDisplay();
   const [sortBy, setSortBy] = useState<SortKey>("description");
   const [addOpen, setAddOpen] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -515,8 +509,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       ...pendingEntries,
     ];
     const filtered = all.filter(({ row, kind, extra }) => {
-      if (flags.has("da_valutare") && kind !== "pending") return false;
-      if (flags.has("in_lista") && kind !== "list") return false;
       if (term && !row.code.toLowerCase().includes(term) && !(row.description ?? "").toLowerCase().includes(term)) return false;
       if (category !== "all" && extra?.category !== category) return false;
       if (
@@ -564,6 +556,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     ? `${summary.open} prodott${summary.open === 1 ? "o" : "i"} senza fornitore, quantità e U.M. d'acquisto`
     : undefined;
   const activeFilters = flags.size + (category !== "all" ? 1 : 0) + (supplierFilter !== "all" ? 1 : 0);
+  const hiddenFields = DISPLAY_FIELDS.filter(([field]) => !display.prefs[field]).length;
   const resetFilters = () => {
     setFlags(new Set());
     setCategory("all");
@@ -942,20 +935,52 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </Select>
             <Popover>
               <PopoverTrigger asChild>
-                <Button type="button" size="sm" variant="outline" className="h-8 px-2 text-xs">
+                <Button type="button" size="sm" variant={flags.size ? "secondary" : "outline"} className="h-8 px-2 text-xs">
                   <SlidersHorizontal aria-hidden="true" />
-                  Altri filtri{flags.size ? ` (${flags.size})` : ""}
+                  Filtra card{flags.size ? ` (${flags.size})` : ""}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-60 p-2">
-                <div className="grid gap-1">
-                  {FILTER_FLAGS.map(([flag, label]) => (
-                    <label key={flag} className="flex items-center gap-2 rounded px-1 py-1 text-xs hover:bg-muted">
-                      <Checkbox checked={flags.has(flag)} onCheckedChange={(checked) => toggleFlag(flag, checked === true)} />
+              <PopoverContent align="end" className="w-64 p-2">
+                <p className="px-1 pb-1 text-[11px] text-muted-foreground">Quali prodotti voglio vedere?</p>
+                <div className="grid gap-2">
+                  {FILTER_GROUPS.map(([title, group]) => (
+                    <div key={title}>
+                      <p className="px-1 text-[10px] font-semibold uppercase text-muted-foreground">{title}</p>
+                      {group.map(([flag, label]) => (
+                        <label key={flag} className="flex items-center gap-2 rounded px-1 py-1 text-xs hover:bg-muted">
+                          <Checkbox checked={flags.has(flag)} onCheckedChange={(checked) => toggleFlag(flag, checked === true)} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button type="button" size="sm" variant={hiddenFields ? "secondary" : "outline"} className="h-8 px-2 text-xs">
+                  <Eye aria-hidden="true" />
+                  Visualizza dati{hiddenFields ? ` (${hiddenFields} nascosti)` : ""}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64 p-2">
+                <p className="px-1 pb-1 text-[11px] text-muted-foreground">
+                  Cosa vedere dentro le card. Non nasconde prodotti e non modifica dati.
+                </p>
+                <div className="grid max-h-80 gap-0.5 overflow-y-auto">
+                  {DISPLAY_FIELDS.map(([field, label]) => (
+                    <label key={field} className="flex items-center gap-2 rounded px-1 py-1 text-xs hover:bg-muted">
+                      <Checkbox checked={display.prefs[field]} onCheckedChange={(checked) => display.setField(field, checked === true)} />
                       {label}
                     </label>
                   ))}
                 </div>
+                {hiddenFields ? (
+                  <Button type="button" size="sm" variant="ghost" className="mt-1 h-7 w-full text-xs" onClick={display.reset}>
+                    Mostra tutto
+                  </Button>
+                ) : null}
               </PopoverContent>
             </Popover>
             <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortKey)}>
@@ -1000,6 +1025,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               kind === "pending" ? (
                 <ShoppingListCard
                   key={row.item_id}
+                  show={display.prefs}
                   pending
                   layout={viewMode}
                   row={row}
@@ -1020,6 +1046,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               ) : (
               <ShoppingListCard
                 key={row.item_id}
+                show={display.prefs}
                 companyId={companyId}
                 layout={viewMode}
                 onQuickAdd={(step) => quickAdd(row, step)}
