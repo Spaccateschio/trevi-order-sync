@@ -15,6 +15,7 @@ import {
   Star,
   Trash2,
   Truck,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -959,6 +960,21 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 </div>
               </PopoverContent>
             </Popover>
+            {/* Solo i filtri cliccati si vedono: un'etichetta ciascuno, la ✕ lo toglie. */}
+            {FILTER_GROUPS.flatMap(([, group]) => group)
+              .filter(([flag]) => flags.has(flag))
+              .map(([flag, label]) => (
+                <button
+                  key={flag}
+                  type="button"
+                  onClick={() => toggleFlag(flag, false)}
+                  className="inline-flex h-8 items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 text-xs font-medium text-foreground hover:bg-primary/20"
+                  aria-label={`Togli il filtro ${label}`}
+                >
+                  {label}
+                  <X className="size-3 text-muted-foreground" aria-hidden="true" />
+                </button>
+              ))}
             <Popover>
               <PopoverTrigger asChild>
                 <Button type="button" size="sm" variant={hiddenFields ? "secondary" : "outline"} className="h-8 px-2 text-xs">
