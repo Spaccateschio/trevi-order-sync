@@ -83,3 +83,22 @@ C'è una sola ripartizione in tutto il database: fornitore «trevi srl» (B2B), 
 ## Frontend (dopo l'applicazione)
 - `supplier-split-dialog.tsx`: U.M. B2B dal venditore oppure il messaggio «non collegato»; per i non B2B «Altra U.M.» con testo libero; nessuna U.M. preselezionata in automatico.
 - `shopping-list.functions.ts`: aggiunta di `manualUnitCode`.
+
+## Verifica aggiuntiva (percorso fino all'ordine)
+
+**Trovato un blocco da correggere nella stessa migrazione:** la funzione che calcola lo stato della riga (`shopping_list_item_state`) considera valida una ripartizione con quantità d'acquisto solo se `purchase_unit_id IS NOT NULL`. Con «3 PEDANE» (id NULL) la riga risulterebbe «Da assegnare» e la conferma della Lista verrebbe rifiutata, quindi l'ordine non partirebbe.
+
+Correzione proposta (una riga):
+`valid = (purchase_quantity > 0 AND (purchase_unit_id IS NOT NULL OR btrim(coalesce(purchase_unit_code,'')) <> '')) OR (purchase_quantity IS NULL AND assigned_quantity > 0)`
+
+**Creazione ordini (`create_purchase_orders_from_list`)**: copia `purchase_quantity`, `purchase_unit_id`, `purchase_unit_code` e `conversion_factor`, e mette `assigned_quantity` in `ordered_quantity`. Tutte queste colonne accettano NULL; non ci sono controlli né trigger sulla U.M. d'acquisto. Risultato: «3 PEDANE», con id NULL e ordered NULL. Nessuna modifica necessaria.
+
+**Da segnalare, da non toccare ora — Consegne**: con `purchase_unit_id` NULL il fornitore non può dichiarare una quantità diversa in PEDANE, perché resta quella ordinata (`_delivery_set_item_core`). Il Carico Merce lavora in U.M. di magazzino: non si blocca, ma senza conversione il peso va inserito a mano.
+
+**Vecchia ripartizione**:
+- prodotto: PATATE NOVELLE (00-001), Lista del 26/09, chiusa, da cui è già stato generato un ordine;
+- è valida secondo la regola vecchia (quantità in magazzino > 0) e conta 5 pz nel totale assegnato;
+- la Lista è chiusa, quindi non può più generare ordini;
+- la nuova regola non la riscrive. È un dato storico innocuo.
+
+**Indici**: c'è una sola riga in tutto, con id e testo NULL, che resta fuori da entrambi i nuovi indici. Nessuna violazione.
