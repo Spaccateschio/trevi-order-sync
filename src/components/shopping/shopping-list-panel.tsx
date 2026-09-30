@@ -22,7 +22,7 @@ import { AddProductsDialog, Thumb } from "./add-products-dialog";
 import { CYCLE_QUERY_KEY, InventoryEvaluation, useInventoryCountedRows, type CountedRow } from "./inventory-to-evaluate";
 import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
-import { manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
+import { getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
 import { useShoppingListExtras, type RowExtras } from "./use-shopping-list-extras";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -144,6 +144,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runConfirm = useServerFn(confirmShoppingListProduct);
   const readCycle = useServerFn(getInventoryCycleStatus);
   const runFavorite = useServerFn(manageCompanyProductFavorite);
+  const readFavorites = useServerFn(getFavoriteProductIds);
   const runEvaluation = useServerFn(manageInventoryEvaluation);
   const creatingRef = useRef<Promise<string | null> | null>(null);
 
@@ -402,7 +403,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     mutationFn: (input: { productId: string; favorite: boolean }) =>
       runFavorite({ data: { companyId, productId: input.productId, favorite: input.favorite } }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["shopping-extras-favorites", companyId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-favorites", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventario-preferiti-prodotti"] }),
+        queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
+      ]);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -424,15 +429,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const pendingFavoritesQuery = useQuery({
     queryKey: ["shopping-extras-favorites", companyId, "pending", pendingProductIds],
     enabled: pendingProductIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("company_product_favorites")
-        .select("product_id")
-        .eq("company_id", companyId)
-        .in("product_id", pendingProductIds);
-      if (error) throw new Error(error.message);
-      return new Set((data ?? []).map((row) => row.product_id as string));
-    },
+    queryFn: async () => new Set(await readFavorites({ data: { companyId, productIds: pendingProductIds } })),
   });
   const pendingFavorites = pendingFavoritesQuery.data ?? EMPTY_SET;
   // Tutta l'anagrafica fornitori e, per prodotto, i fornitori associati (per il filtro).
