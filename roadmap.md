@@ -81,3 +81,6 @@
 - [x] Lista della Spesa: apertura immediata su inventario (anteprima senza creare liste, creazione alla prima azione)
 - [ ] Lista della Spesa: Step 1 card (in attesa del via)
 - [ ] Lista della Spesa: analisi approvata prima dell’unificazione in una sola area prodotti e della gestione U.M. B2B/manuali; nessuna implementazione finché l’utente non dà il via
+
+- [ ] Lista: Conferma atomica anche su «Da valutare» (in attesa di approvazione modifica DB)
+- [ ] Lista: U.M. fornitore solo nelle ripartizioni, «Altra U.M.» per non B2B (dopo A)
