@@ -1,7 +1,9 @@
 import { ALL_VISIBLE, type DisplayPrefs } from "./card-display";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Pencil, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, MoreVertical, Pencil, Star, Trash2, X } from "lucide-react";
+import { AddSupplierInline, refreshProductSuppliers, useCompanyUnits } from "./add-supplier-inline";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -32,6 +34,7 @@ type CardSupplier = {
   minQuantity: number | null;
   units: Unit[];
   price: { net: number | null; gross: number | null; unitCode: string | null } | null;
+  isPreferred: boolean;
 };
 
 type OverviewRead = {
@@ -40,6 +43,8 @@ type OverviewRead = {
   supplier_name: string;
   min_quantity: number | null;
   is_active: boolean;
+  is_preferred: boolean | null;
+  manual_cost: number | null;
   purchase_units: { unit_id: string; code: string; is_active: boolean; conversion_factor: number | null; conversion_type: string | null }[] | null;
 };
 type LinkUnitsRead = {
@@ -152,6 +157,18 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
     },
   });
 
+  // Prezzo concordato dei fornitori non B2B con la sua U.M. prezzo (stesso dato della scheda Prodotto).
+  const companyUnits = useCompanyUnits(companyId);
+  const linkPrices = useQuery({
+    queryKey: ["shopping-card-link-prices", productId],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("product_supplier_links").select("id, price_unit_id").eq("product_id", productId);
+      if (error) throw new Error(error.message);
+      return new Map((data ?? []).map((l) => [l.id as string, (l.price_unit_id as string | null) ?? null]));
+    },
+  });
+
   const unitIds = [
     ...new Set(
       [
@@ -198,7 +215,17 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
       price:
         isB2B && sourceLinked && price.data
           ? { ...price.data, unitCode: source.data?.priceUnitCode ?? null }
-          : null,
+          : !isB2B && s.manual_cost !== null
+            ? {
+                net: Number(s.manual_cost),
+                gross: null,
+                unitCode: (() => {
+                  const id = linkPrices.data?.get(s.link_id) ?? null;
+                  return id ? (companyUnits.data ?? []).find((u) => u.id === id)?.code ?? null : null;
+                })(),
+              }
+            : null,
+      isPreferred: Boolean(s.is_preferred),
     };
   });
 
@@ -250,7 +277,6 @@ export function CardSuppliers({
   const queryClient = useQueryClient();
   const runAssign = useServerFn(assignShoppingListSupplier);
   const { suppliers, loading, label } = useCardSuppliers(companyId, row, pending);
-  const [adding, setAdding] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [editing, setEditing] = useState<{ id: string; quantity: string } | null>(null);
   const unit = row.unit_code ?? "";
@@ -283,7 +309,6 @@ export function CardSuppliers({
     onSuccess: async (_data, input) => {
       setDrafts((current) => ({ ...current, [input.linkId]: { unit: "", manual: "", quantity: "", accepted: false } }));
       setEditing(null);
-      setAdding(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
@@ -295,6 +320,35 @@ export function CardSuppliers({
   });
 
   const canWrite = editable && !pending;
+
+  // Collegamento Prodotto ↔ Fornitore (non la ripartizione della Lista): stesse RPC della scheda Prodotto.
+  const linkMutation = useMutation({
+    mutationFn: async (input: { kind: "preferred" | "unlink"; s: CardSupplier }) => {
+      if (input.kind === "preferred") {
+        const { error } = await supabase.rpc("set_preferred_product_supplier", {
+          _company_id: companyId,
+          _product_id: row.product_id,
+          _supplier_record_id: input.s.supplierRecordId,
+        });
+        if (error) throw new Error(error.message);
+        return;
+      }
+      if (assignments.some((a) => a.linkId === input.s.linkId)) {
+        throw new Error(`${input.s.name} ha una ripartizione in questa Lista: togli prima la ripartizione, poi scollegalo.`);
+      }
+      const { error } = await supabase.rpc("manage_product_supplier_link", {
+        _company_id: companyId,
+        _action: "deactivate",
+        _link_id: input.s.linkId,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: async (_d, input) => {
+      await refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id);
+      toast.success(input.kind === "preferred" ? `${input.s.name} è il fornitore preferito` : `${input.s.name} scollegato dal prodotto`);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   if (loading) return <p className="text-xs text-muted-foreground">Caricamento fornitori…</p>;
 
@@ -402,8 +456,27 @@ export function CardSuppliers({
     return (
       <li key={s.linkId} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
         <div className="flex min-w-0 items-center gap-1 text-xs">
+          {s.isPreferred ? <Star className="size-3 shrink-0 fill-primary text-primary" aria-label="Fornitore preferito" /> : null}
           <span className="min-w-0 flex-1 truncate font-semibold">{s.name}</span>
           {show.b2b && s.isB2B ? <B2BBadge /> : null}
+          {editable ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" size="sm" variant="ghost" className="h-6 w-6 px-0" aria-label={`Azioni ${s.name}`}>
+                  <MoreVertical className="size-3.5" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem disabled={s.isPreferred || linkMutation.isPending} onSelect={() => linkMutation.mutate({ kind: "preferred", s })}>
+                  <Star className={s.isPreferred ? "fill-primary text-primary" : ""} aria-hidden="true" />
+                  {s.isPreferred ? "Fornitore preferito" : "Imposta come fornitore preferito"}
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" disabled={linkMutation.isPending} onSelect={() => linkMutation.mutate({ kind: "unlink", s })}>
+                  <X aria-hidden="true" /> Scollega dal prodotto
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </div>
         {show.price && s.price ? <PriceLine price={s.price} /> : null}
         {b2bBlocked ? (
@@ -499,22 +572,44 @@ export function CardSuppliers({
     );
   };
 
-  if (!suppliers.length && !assignments.length) return <p className="text-xs font-medium">Fornitore da definire</p>;
+  const addButton = editable ? (
+    <AddSupplierInline
+      companyId={companyId}
+      productId={row.product_id}
+      itemId={pending ? null : row.item_id}
+      linkedSupplierIds={new Set(suppliers.map((s) => s.supplierRecordId))}
+      daneaUm={row.unit_code ?? null}
+    />
+  ) : null;
 
-  const showAvailable = !assignments.length || adding;
+  if (!suppliers.length && !assignments.length)
+    return (
+      <div className="space-y-1">
+        <p className="text-xs font-medium">Fornitore da definire</p>
+        {addButton}
+      </div>
+    );
+
   return (
     <div className="space-y-1">
-      {assignments.length && show.splits ? <ul className="space-y-1">{assignments.map(savedLine)}</ul> : null}
-      {showAvailable ? <ul className="space-y-1">{suppliers.map(supplierBlock)}</ul> : null}
+      {assignments.length && show.splits ? (
+        <>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Assegnati in questa Lista</p>
+          <ul className="space-y-1">{assignments.map(savedLine)}</ul>
+        </>
+      ) : null}
+      {suppliers.length ? (
+        <>
+          {assignments.length && show.splits ? (
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Collegati al prodotto</p>
+          ) : null}
+          <ul className="space-y-1">{suppliers.map(supplierBlock)}</ul>
+        </>
+      ) : null}
       {pending && suppliers.length ? (
         <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p>
       ) : null}
-      {canWrite && assignments.length && suppliers.length ? (
-        <Button type="button" size="sm" variant="outline" className="h-8 w-full px-2 text-xs" onClick={() => setAdding((v) => !v)}>
-          {adding ? <X aria-hidden="true" /> : <Plus aria-hidden="true" />}
-          {adding ? "Chiudi" : "Aggiungi altro fornitore"}
-        </Button>
-      ) : null}
+      {addButton}
     </div>
   );
 }
