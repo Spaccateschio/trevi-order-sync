@@ -277,7 +277,6 @@ export function CardSuppliers({
   const queryClient = useQueryClient();
   const runAssign = useServerFn(assignShoppingListSupplier);
   const { suppliers, loading, label } = useCardSuppliers(companyId, row, pending);
-  const [adding, setAdding] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [editing, setEditing] = useState<{ id: string; quantity: string } | null>(null);
   const unit = row.unit_code ?? "";
@@ -310,7 +309,6 @@ export function CardSuppliers({
     onSuccess: async (_data, input) => {
       setDrafts((current) => ({ ...current, [input.linkId]: { unit: "", manual: "", quantity: "", accepted: false } }));
       setEditing(null);
-      setAdding(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
