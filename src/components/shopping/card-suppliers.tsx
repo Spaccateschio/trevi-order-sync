@@ -387,7 +387,7 @@ export function CardSuppliers({
             .eq("id", s.linkId)
             .maybeSingle();
           if (readError || !link) throw new Error(readError?.message ?? "Collegamento non trovato");
-          const { error } = await supabase.rpc("manage_product_supplier_link", {
+          const { error } = await supabase.rpc("manage_product_supplier_link", stripUndefined({
             _company_id: companyId,
             _action: "update",
             _link_id: s.linkId,
@@ -402,7 +402,7 @@ export function CardSuppliers({
             _notes: link.notes ?? undefined,
             ...(cost !== null ? { _manual_cost: cost } : {}),
             ...(priceUnitId ? { _price_unit_id: priceUnitId } : {}),
-          });
+          }));
           if (error) throw new Error(error.message);
         }
         // Nuova U.M. d'acquisto dell'elenco aziendale: diventa U.M. del collegamento (resta per le prossime Liste).
@@ -869,4 +869,8 @@ export function CardSuppliers({
       {addButton}
     </div>
   );
+}
+
+function stripUndefined<T extends Record<string, unknown>>(obj: T) {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as { [K in keyof T]: Exclude<T[K], undefined> } & { _company_id: string; _action: string };
 }
