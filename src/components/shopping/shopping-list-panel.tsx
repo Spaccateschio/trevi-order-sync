@@ -133,6 +133,8 @@ function B2BBadge() {
 }
 
 /** Lista della Spesa operativa: suggerito e deciso separati, residuo sempre visibile. */
+const EMPTY_SET = new Set<string>();
+
 export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
   const runList = useServerFn(manageShoppingList);
@@ -414,6 +416,56 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     () => new Set(linkedList && list?.id === linkedList.id ? allRows.map((row) => row.product_id) : []),
     [allRows, linkedList, list?.id],
   );
+  const pendingProductIds = useMemo(
+    () => (showPending ? [...new Set(allCounted.map((row) => row.product_id))].sort() : []),
+    [showPending, allCounted],
+  );
+  // Stesso Preferito dell'Inventario anche per i prodotti «Da valutare».
+  const pendingFavoritesQuery = useQuery({
+    queryKey: ["shopping-extras-favorites", companyId, "pending", pendingProductIds],
+    enabled: pendingProductIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_product_favorites")
+        .select("product_id")
+        .eq("company_id", companyId)
+        .in("product_id", pendingProductIds);
+      if (error) throw new Error(error.message);
+      return new Set((data ?? []).map((row) => row.product_id as string));
+    },
+  });
+  const pendingFavorites = pendingFavoritesQuery.data ?? EMPTY_SET;
+  // Tutta l'anagrafica fornitori e, per prodotto, i fornitori associati (per il filtro).
+  const supplierRecordsQuery = useQuery({
+    queryKey: ["shopping-filter-suppliers", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("supplier_records")
+        .select("id, legal_name")
+        .eq("buyer_company_id", companyId)
+        .order("legal_name");
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { id: string; legal_name: string }[];
+    },
+  });
+  const productLinksQuery = useQuery({
+    queryKey: ["shopping-filter-links", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_supplier_links")
+        .select("product_id, supplier_record_id")
+        .eq("company_id", companyId)
+        .eq("is_active", true);
+      if (error) throw new Error(error.message);
+      const map = new Map<string, Set<string>>();
+      for (const link of data ?? []) {
+        const set = map.get(link.product_id as string) ?? new Set<string>();
+        set.add(link.supplier_record_id as string);
+        map.set(link.product_id as string, set);
+      }
+      return map;
+    },
+  });
   const pendingEntries = useMemo<Entry[]>(
     () =>
       showPending
@@ -425,7 +477,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               extra: {
                 category: row.category,
                 imageUrl: countedImages.get(row.product_id) ?? null,
-                isFavorite: false,
+                isFavorite: pendingFavorites.has(row.product_id),
                 suppliers: [],
                 orderState: null as unknown as RowExtras["orderState"],
                 lockedAt: null,
@@ -433,7 +485,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               stock: { lastQuantity: row.counted, lastUnit: row.unit, lastAt: null, stock: row.stock },
             }))
         : [],
-    [showPending, allCounted, listProductIds, countedImages],
+    [showPending, allCounted, listProductIds, countedImages, pendingFavorites],
   );
   const categories = useMemo(
     () =>
@@ -448,9 +500,10 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   );
   const supplierOptions = useMemo(() => {
     const map = new Map<string, string>();
+    for (const record of supplierRecordsQuery.data ?? []) map.set(record.id, record.legal_name);
     for (const row of extras.values()) for (const supplier of row.suppliers) map.set(supplier.supplierRecordId, supplier.name);
     return [...map.entries()].sort((left, right) => left[1].localeCompare(right[1], "it"));
-  }, [extras]);
+  }, [extras, supplierRecordsQuery.data]);
 
   // Filtri e ordinamento solo in vista: nessuna scrittura.
   const entries = useMemo<Entry[]>(() => {
@@ -469,7 +522,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       if (flags.has("in_lista") && kind !== "list") return false;
       if (term && !row.code.toLowerCase().includes(term) && !(row.description ?? "").toLowerCase().includes(term)) return false;
       if (category !== "all" && extra?.category !== category) return false;
-      if (supplierFilter !== "all" && !extra?.suppliers.some((s) => s.supplierRecordId === supplierFilter)) return false;
+      if (
+        supplierFilter !== "all" &&
+        !extra?.suppliers.some((s) => s.supplierRecordId === supplierFilter) &&
+        !productLinksQuery.data?.get(row.product_id)?.has(supplierFilter)
+      )
+        return false;
       if (flags.size) {
         const suppliers = extra?.suppliers ?? [];
         if (flags.has("senza_fornitore") && suppliers.length > 0) return false;
@@ -492,7 +550,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       return row.description ?? row.code;
     };
     return [...filtered].sort((left, right) => key(left).localeCompare(key(right), "it", { numeric: true }));
-  }, [allRows, extras, stockQuery.data, pendingEntries, search, category, supplierFilter, flags, sortBy]);
+  }, [allRows, extras, stockQuery.data, pendingEntries, search, category, supplierFilter, flags, sortBy, productLinksQuery.data]);
 
   const summary = useMemo(
     () => ({
@@ -931,7 +989,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             className={
               viewMode === "card"
                 ? // Colonne decise dallo spazio reale, massimo 4: card compatta (172px) solo su spazi stretti, altrimenti almeno 232px.
-                  "grid auto-rows-fr gap-2 grid-cols-[repeat(auto-fill,minmax(max(172px,calc((100%_-_1.5rem)/4)),1fr))] @min-[600px]:grid-cols-[repeat(auto-fill,minmax(max(232px,calc((100%_-_1.5rem)/4)),1fr))]"
+                  "grid grid-cols-1 items-start gap-2 @min-[600px]:grid-cols-[repeat(auto-fill,minmax(max(290px,calc((100%_-_1.5rem)/4)),1fr))]"
                 : "grid grid-cols-1 gap-1.5"
             }
           >
@@ -947,8 +1005,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   editable={Boolean(editable || previewMode)}
                   quantityInput={pendingInput(row)}
                   onQuickAdd={(step) => pendingQuickAdd(row, step)}
-                  favoritePending={false}
-                  onToggleFavorite={() => undefined}
+                  companyId={companyId}
+                  favoritePending={favoriteMutation.isPending}
+                  onToggleFavorite={() => favoriteMutation.mutate({ productId: row.product_id, favorite: !pendingFavorites.has(row.product_id) })}
                   onOpenSuppliers={() => undefined}
                   onRemove={() => undefined}
                   pendingQuantity={parseQuantity(evalValues[row.product_id] ?? "")}
@@ -958,6 +1017,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               ) : (
               <ShoppingListCard
                 key={row.item_id}
+                companyId={companyId}
                 layout={viewMode}
                 onQuickAdd={(step) => quickAdd(row, step)}
                 row={row}
