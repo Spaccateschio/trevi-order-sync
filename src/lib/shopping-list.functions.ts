@@ -54,6 +54,8 @@ const assignSchema = z.object({
   purchaseUnitId: z.string().uuid().nullable().optional(),
   // Ripartizione da aggiornare/rimuovere (più U.M. dello stesso fornitore).
   assignmentId: z.string().uuid().nullable().optional(),
+  // «Altra U.M.» scritta a mano (solo fornitori non B2B): salvata solo nella ripartizione.
+  manualUnitCode: z.string().trim().max(20).nullable().optional(),
 });
 
 export const manageShoppingList = createServerFn({ method: "POST" })
@@ -182,6 +184,7 @@ export const assignShoppingListSupplier = createServerFn({ method: "POST" })
       ...(data.notes === null ? {} : { _notes: data.notes }),
       ...(data.purchaseUnitId ? { _purchase_unit_id: data.purchaseUnitId } : {}),
       ...(data.assignmentId ? { _assignment_id: data.assignmentId } : {}),
+      ...(data.manualUnitCode ? { _manual_unit_code: data.manualUnitCode } : {}),
     });
     if (error) throw new Error(error.message);
     return { ok: true };
