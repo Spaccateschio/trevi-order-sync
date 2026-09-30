@@ -9,6 +9,9 @@ import type { OverviewRow } from "@/lib/shopping-list";
 /** Dati di sola lettura per la Lista della Spesa: nessuna scrittura, solo presentazione. */
 
 export type RowSupplier = {
+  /** Id della ripartizione salvata. */
+  id: string;
+  purchaseUnitId: string | null;
   linkId: string;
   supplierRecordId: string;
   name: string;
@@ -33,6 +36,8 @@ export type RowExtras = {
 };
 
 type AssignmentRead = {
+  id: string;
+  purchase_unit_id: string | null;
   item_id: string;
   product_supplier_link_id: string;
   supplier_record_id: string;
@@ -109,7 +114,7 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
       const { data, error } = await supabase
         .from("shopping_list_item_suppliers")
         .select(
-          "item_id, product_supplier_link_id, supplier_record_id, assigned_quantity, purchase_quantity, purchase_unit_code, notes, supplier_records(legal_name)",
+          "id, purchase_unit_id, item_id, product_supplier_link_id, supplier_record_id, assigned_quantity, purchase_quantity, purchase_unit_code, notes, supplier_records(legal_name)",
         )
         .in("item_id", itemIds);
       if (error) throw new Error(error.message);
@@ -159,6 +164,8 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
     for (const assignment of assignmentsQuery.data ?? []) {
       const list = byItem.get(assignment.item_id) ?? [];
       list.push({
+        id: assignment.id,
+        purchaseUnitId: assignment.purchase_unit_id,
         linkId: assignment.product_supplier_link_id,
         supplierRecordId: assignment.supplier_record_id,
         name: assignment.supplier_records?.legal_name ?? "Fornitore",
