@@ -20,3 +20,5 @@
 - Lista della Spesa, U.M. ripartizione: B2B solo U.M. pubblicate dal venditore (product_sale_units del prodotto created_from_product_id), non B2B U.M. referenza o testo manuale (purchase_unit_id NULL, nessuna conversione); controllo in assign_shopping_list_supplier: il browser non può aggirarlo.
 - Lista della Spesa: «+ Aggiungi fornitore» nella card crea il collegamento prodotto↔fornitore con manage_product_supplier_link (stesse RPC della scheda Prodotto); nessun abbinamento automatico alla referenza B2B: un solo dato per Prodotto e Fornitore.
 - «Togli fornitore» nella Lista usa solo unlink_product_supplier (ripartizione corrente + scollegamento + preferito in un'unica transazione): niente stati a metà, storico intatto.
+
+- Chiusura Lista della Spesa: solo close_shopping_list (atomica, idempotente, stato finale chiusa, numero LS assegnato alla chiusura) e shopping_list_close_preview, entrambe basate su _shopping_list_close_plan; send_status degli ordini separato dallo stato Lista: anteprima e chiusura non possono divergere e la Lista chiusa è fotografia immutabile.
