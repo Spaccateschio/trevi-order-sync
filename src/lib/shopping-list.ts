@@ -6,6 +6,8 @@ export type ItemStatus = "da_assegnare" | "parziale" | "assegnata" | "manuale";
 export type ShoppingListRow = {
   id: string;
   name: string;
+  /** Numero definitivo LS-…, assegnato solo alla chiusura. */
+  number?: string | null;
   status: ShoppingListStatus;
   archive_id: string;
   notes: string | null;

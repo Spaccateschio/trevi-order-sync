@@ -194,3 +194,69 @@ export const assignShoppingListSupplier = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export type ClosePreview = {
+  list_id: string;
+  status: string;
+  number: string | null;
+  items_total: number;
+  ordered_products: number;
+  missing: { item_id: string; name: string; code: string | null }[];
+  direct: { item_id: string; name: string; code: string | null; quantity: number; unit_code: string | null; origin: "intero" | "residuo" }[];
+  uncertain: { item_id: string; name: string; code: string | null; reason: string }[];
+  orders: { supplier_record_id: string; name: string; lines: number }[];
+  default_address: { id: string; text: string } | null;
+};
+
+/** Anteprima della chiusura: stesse regole della chiusura definitiva (calcolate nel database). */
+export const getShoppingListClosePreview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ listId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("shopping_list_close_preview", { _list_id: data.listId });
+    if (error) throw new Error(error.message);
+    return result as unknown as ClosePreview;
+  });
+
+const deliverySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  time_from: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
+  time_to: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
+  address_id: z.string().uuid().nullable(),
+  address_text: z.string().trim().max(300).nullable(),
+});
+
+/** Chiusura definitiva e atomica: numero LS, fotografia, acquisti diretti e ordini per fornitore. */
+export const closeShoppingList = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        companyId: z.string().uuid(),
+        listId: z.string().uuid(),
+        delivery: deliverySchema,
+        generalNotes: z.string().trim().max(1000).nullable(),
+        supplierOverrides: z
+          .array(
+            deliverySchema.omit({ address_id: true }).extend({
+              supplier_record_id: z.string().uuid(),
+              notes: z.string().trim().max(1000).nullable(),
+            }),
+          )
+          .max(200),
+        directNotes: z.array(z.object({ item_id: z.string().uuid(), notes: z.string().trim().max(300) })).max(1000),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("close_shopping_list", {
+      _company_id: data.companyId,
+      _list_id: data.listId,
+      _delivery: data.delivery,
+      ...(data.generalNotes ? { _general_notes: data.generalNotes } : {}),
+      _supplier_overrides: data.supplierOverrides,
+      _direct_notes: data.directNotes,
+    });
+    if (error) throw new Error(error.message);
+    return result as unknown as { list_id: string; number: string; already_closed: boolean; order_ids: string[] };
+  });
