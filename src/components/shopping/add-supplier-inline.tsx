@@ -51,12 +51,15 @@ export function AddSupplierInline({
   itemId,
   linkedSupplierIds,
   daneaUm,
+  onLinked,
 }: {
   companyId: string;
   productId: string;
   itemId: string | null;
   linkedSupplierIds: Set<string>;
   daneaUm: string | null;
+  /** Dopo il collegamento: la card preseleziona l'U.M. d'acquisto appena scelta. */
+  onLinked?: (linkId: string, unitId: string | null) => void;
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -133,11 +136,13 @@ export function AddSupplierInline({
         const { error: defError } = await supabase.rpc("manage_product_supplier_link_unit", { ...args, _action: "set_default" });
         if (defError) throw new Error(defError.message);
       }
+      return { linkId: (linkId as string | null) ?? null, unitId };
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       const name = chosen?.legal_name ?? "Fornitore";
       reset();
       await refreshProductSuppliers(queryClient, productId, itemId);
+      if (result.linkId) onLinked?.(result.linkId, result.unitId);
       toast.success(`${name} collegato al prodotto`);
     },
     onError: (error: Error) => toast.error(error.message),

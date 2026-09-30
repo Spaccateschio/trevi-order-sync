@@ -579,6 +579,9 @@ export function CardSuppliers({
       itemId={pending ? null : row.item_id}
       linkedSupplierIds={new Set(suppliers.map((s) => s.supplierRecordId))}
       daneaUm={row.unit_code ?? null}
+      onLinked={(linkId, unitId) => {
+        if (unitId) setDrafts((c) => ({ ...c, [linkId]: { unit: unitId, manual: "", quantity: "", accepted: false } }));
+      }}
     />
   ) : null;
 
