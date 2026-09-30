@@ -116,7 +116,15 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
       const unitCode = rawUnit === undefined ? undefined : rawUnit.trim();
       const matched = unitCode ? companyUnits.find((unit) => unit.code.toLowerCase() === unitCode.toLowerCase()) : undefined;
       const rawPq = priceQuantities[row.id];
-      const pq = rawPq === undefined || rawPq.trim() === "" ? null : parseQuantity(rawPq);
+      // Se l'utente non ha toccato il campo, salva lo stesso valore mostrato (proposta inclusa).
+      const shownUnit = (unitCode ?? row.price_unit_code ?? "").trim() || null;
+      const shownVerified = raw === undefined ? row.verified_quantity : quantity;
+      const pq =
+        rawPq === undefined
+          ? (row.price_quantity ?? proposedPriceQuantity(row, shownUnit, shownVerified))
+          : rawPq.trim() === ""
+            ? null
+            : parseQuantity(rawPq);
       if (rawPq !== undefined && rawPq.trim() !== "" && (pq === null || pq <= 0)) throw new Error("Quantità del prezzo non valida");
       await runSet({
         data: {

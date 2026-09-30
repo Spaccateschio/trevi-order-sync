@@ -685,7 +685,7 @@ export function CardSuppliers({
 
         {editingLink ? editForm(s, assignment) : null}
 
-        {(!assignment || !show.splits) && !editingLink && canWrite && !b2bBlocked && !noUnits ? (
+        {!assignment && !editingLink && canWrite && !b2bBlocked && !noUnits ? (
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-1">
               <Input
@@ -888,7 +888,7 @@ export function CardSuppliers({
   return (
     <div className="space-y-1">
       <ul className="space-y-1">
-        {suppliers.map((s) => supplierRow(s, show.splits ? (byLink.get(s.linkId) ?? null) : null))}
+        {suppliers.map((s) => supplierRow(s, byLink.get(s.linkId) ?? null))}
         {orphans.map(orphanRow)}
       </ul>
       {pending && suppliers.length ? (
