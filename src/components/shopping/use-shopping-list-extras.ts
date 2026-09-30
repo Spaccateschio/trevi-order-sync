@@ -34,6 +34,9 @@ export type RowExtras = {
   orderState: OrderState;
   /** Quantità confermata (bloccata): data/ora, null = sbloccata. */
   lockedAt: string | null;
+  /** U.M. scelta per «Da acquistare»: entrambi null = U.M. del prodotto. */
+  decidedUnitId: string | null;
+  decidedUnitCode: string | null;
 };
 
 type AssignmentRead = {
@@ -123,10 +126,19 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shopping_list_items")
-        .select("id, quantity_locked_at")
+        .select("id, quantity_locked_at, decided_unit_id, decided_unit_code")
         .in("id", itemIds);
       if (error) throw new Error(error.message);
-      return new Map((data ?? []).map((row) => [row.id, row.quantity_locked_at as string | null]));
+      return new Map(
+        (data ?? []).map((row) => [
+          row.id,
+          {
+            lockedAt: row.quantity_locked_at as string | null,
+            unitId: (row.decided_unit_id as string | null) ?? null,
+            unitCode: (row.decided_unit_code as string | null) ?? null,
+          },
+        ]),
+      );
     },
   });
 
@@ -184,7 +196,9 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
         isFavorite: favoritesQuery.data?.has(row.product_id) ?? false,
         suppliers,
         orderState,
-        lockedAt: locksQuery.data?.get(row.item_id) ?? null,
+        lockedAt: locksQuery.data?.get(row.item_id)?.lockedAt ?? null,
+        decidedUnitId: locksQuery.data?.get(row.item_id)?.unitId ?? null,
+        decidedUnitCode: locksQuery.data?.get(row.item_id)?.unitCode ?? null,
       });
     }
     return map;

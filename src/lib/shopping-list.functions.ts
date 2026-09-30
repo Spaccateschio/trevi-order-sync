@@ -39,6 +39,9 @@ const quantitySchema = z.object({
   decidedQuantity: z.number().positive().nullable(),
   reason: z.string().trim().max(200).nullable(),
   notes: z.string().trim().max(500).nullable(),
+  // U.M. scelta in «Da acquistare»: entrambe null = U.M. del prodotto.
+  decidedUnitId: z.string().uuid().nullable().optional(),
+  decidedUnitCode: z.string().trim().max(20).nullable().optional(),
 });
 
 const assignSchema = z.object({
@@ -105,6 +108,8 @@ export const setShoppingListItemQuantity = createServerFn({ method: "POST" })
       _actor_user_id: context.userId,
       ...(data.reason === null ? {} : { _reason: data.reason }),
       ...(data.notes === null ? {} : { _notes: data.notes }),
+      ...(data.decidedUnitId ? { _decided_unit_id: data.decidedUnitId } : {}),
+      ...(data.decidedUnitCode ? { _decided_unit_code: data.decidedUnitCode } : {}),
     });
     if (error) throw new Error(error.message);
     return { ok: true };

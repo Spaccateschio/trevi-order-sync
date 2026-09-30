@@ -1,10 +1,13 @@
 import { Check, Lock, MoreVertical, Package, Plus, Star, Trash2, Truck } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
 import { ALL_VISIBLE, type DisplayPrefs } from "./card-display";
 import { CardSuppliers } from "./card-suppliers";
 import type { RowExtras } from "./use-shopping-list-extras";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +27,51 @@ export type StockInfo = {
 };
 
 const QUICK_STEPS = [1, 3, 5, 10] as const;
+const PRODUCT_UNIT = "__prodotto__";
+
+type UnitOption = { key: string; unitId: string | null; code: string; factor: number | null };
+
+/**
+ * U.M. per «Da acquistare»: U.M. del prodotto + U.M. già configurate sui fornitori collegati (anche manuali), senza doppioni.
+ * L'equivalente si mostra solo se TUTTI i fornitori che offrono quella U.M. hanno la stessa conversione: mai applicare
+ * la conversione di un fornitore agli altri.
+ */
+function useDecidedUnitOptions(itemId: string, enabled: boolean, manualCodes: string[]) {
+  const query = useQuery({
+    queryKey: ["shopping-item-supplier-units", itemId],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("shopping_item_supplier_units", { _item_id: itemId });
+      if (error) throw new Error(error.message);
+      return Object.fromEntries(
+        ((data ?? []) as unknown as { link_id: string; units: { unit_id: string; code: string; conversion_factor: number | null }[] }[]).map((r) => [r.link_id, r]),
+      );
+    },
+  });
+  const byUnit = new Map<string, { code: string; factors: (number | null)[] }>();
+  for (const link of Object.values(query.data ?? {})) {
+    for (const u of link.units ?? []) {
+      const entry = byUnit.get(u.unit_id) ?? { code: u.code, factors: [] };
+      entry.factors.push(u.conversion_factor === null || u.conversion_factor === undefined ? null : Number(u.conversion_factor));
+      byUnit.set(u.unit_id, entry);
+    }
+  }
+  const options: UnitOption[] = [];
+  const seen = new Set<string>();
+  for (const [unitId, { code, factors }] of byUnit) {
+    const first = factors[0];
+    const certain = first !== null && factors.every((f) => f === first);
+    options.push({ key: unitId, unitId, code, factor: certain ? (first ?? null) : null });
+    seen.add(code.trim().toUpperCase());
+  }
+  for (const raw of manualCodes) {
+    const code = raw.trim().toUpperCase();
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    options.push({ key: `m:${code}`, unitId: null, code, factor: null });
+  }
+  return options;
+}
 
 /**
  * Card / Riga della Lista della Spesa: stessi dati e stessi comandi, cambia solo la disposizione.
@@ -45,6 +93,7 @@ export function ShoppingListCard({
   onRemove,
   onToggleLock,
   lockPending = false,
+  onUnitChange,
   pending = false,
   pendingQuantity,
   show = ALL_VISIBLE,
@@ -69,11 +118,26 @@ export function ShoppingListCard({
   onRemove: () => void;
   onToggleLock: () => void;
   lockPending?: boolean;
+  /** Cambio U.M. di «Da acquistare»: (null, null) = U.M. del prodotto. */
+  onUnitChange?: (unitId: string | null, unitCode: string | null) => void;
 }) {
   const name = row.description ?? row.code;
   const unit = row.unit_code ?? "";
-  const unitLabel = unit.trim().toLowerCase();
   const suppliers = extra?.suppliers ?? [];
+  const unitOptions = useDecidedUnitOptions(
+    row.item_id,
+    !pending && Boolean(onUnitChange),
+    suppliers.filter((s) => !s.purchaseUnitId && s.purchaseUnitCode).map((s) => s.purchaseUnitCode as string),
+  ).filter((o) => o.code.trim().toLowerCase() !== unit.trim().toLowerCase());
+  const decidedKey = extra?.decidedUnitId
+    ? extra.decidedUnitId
+    : extra?.decidedUnitCode
+      ? `m:${extra.decidedUnitCode.trim().toUpperCase()}`
+      : PRODUCT_UNIT;
+  const decidedOption = unitOptions.find((o) => o.key === decidedKey) ?? null;
+  const otherUnit = decidedKey !== PRODUCT_UNIT;
+  const decidedCode = otherUnit ? (decidedOption?.code ?? extra?.decidedUnitCode ?? "") : unit;
+  const unitLabel = decidedCode.trim().toLowerCase();
   const suggested = row.current_suggested ?? row.suggested_quantity;
   const isFavorite = Boolean(extra?.isFavorite);
   const isRow = layout === "row";
@@ -83,7 +147,9 @@ export function ShoppingListCard({
   // Senza conversione l'equivalente non esiste: non si somma e non si inventa.
   const assigned = suppliers.reduce((sum, s) => sum + (s.quantity ?? 0), 0);
   const target = row.decided_quantity === null ? null : Number(row.decided_quantity);
-  const gap = target === null ? null : Math.round((target - assigned) * 1000) / 1000;
+  // Quantità in altra U.M.: nessun confronto in U.M. prodotto (mai 3 casse → 3 kg).
+  const gap = target === null || otherUnit ? null : Math.round((target - assigned) * 1000) / 1000;
+  const equivalent = otherUnit && target !== null && decidedOption?.factor ? target * decidedOption.factor : null;
 
   const image = (cls: string) =>
     extra?.imageUrl ? (
@@ -183,10 +249,43 @@ export function ShoppingListCard({
   const quantityBlock = (
     <div className="flex min-w-0 items-center gap-1.5">
       {editable ? quantityInput : <span className="text-sm font-semibold">{target === null ? "—" : qty(target)}</span>}
-      <span className="shrink-0 text-xs font-semibold text-muted-foreground">{unit || "—"}</span>
+      {editable && !pending && onUnitChange && unitOptions.length ? (
+        <Select
+          value={decidedKey}
+          disabled={locked || lockPending}
+          onValueChange={(key) => {
+            if (key === PRODUCT_UNIT) return onUnitChange(null, null);
+            const option = unitOptions.find((o) => o.key === key);
+            if (option) onUnitChange(option.unitId, option.code);
+          }}
+        >
+          <SelectTrigger className="h-9 w-auto min-w-16 max-w-28 shrink-0 px-2 text-xs font-semibold" aria-label={`U.M. da acquistare ${name}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-60 overflow-y-auto">
+            <SelectItem value={PRODUCT_UNIT}>{unit || "U.M. prodotto"}</SelectItem>
+            {unitOptions.map((o) => (
+              <SelectItem key={o.key} value={o.key}>
+                {o.code}
+              </SelectItem>
+            ))}
+            {otherUnit && !decidedOption && extra?.decidedUnitCode ? (
+              <SelectItem value={decidedKey}>{extra.decidedUnitCode}</SelectItem>
+            ) : null}
+          </SelectContent>
+        </Select>
+      ) : (
+        <span className="shrink-0 text-xs font-semibold text-muted-foreground">{decidedCode || "—"}</span>
+      )}
       {lockButton}
     </div>
   );
+  const equivalentNote =
+    otherUnit && target !== null ? (
+      <p className="text-[11px] leading-tight text-muted-foreground">
+        {equivalent !== null ? `≈ ${qty(equivalent)} ${unit}` : "Non convertibile"}
+      </p>
+    ) : null;
 
   const quickButtons = (cls: string) =>
     editable ? (
@@ -224,8 +323,10 @@ export function ShoppingListCard({
           gap === 0 && "text-success",
         )}
       >
-        Assegnato {qty(assigned)} / {qty(target)} {unit}
-        {gap === null || gap === 0 ? " · completo" : gap > 0 ? "" : ` · Eccedenza +${qty(-gap)} ${unit}`}
+        {otherUnit
+          ? `Da acquistare ${qty(target)} ${decidedCode}`
+          : `Assegnato ${qty(assigned)} / ${qty(target)} ${unit}`}
+        {otherUnit ? "" : gap === null || gap === 0 ? " · completo" : gap > 0 ? "" : ` · Eccedenza +${qty(-gap)} ${unit}`}
       </p>
     ) : suppliers.length ? (
       <p className="text-[11px] leading-tight text-muted-foreground">Assegnato {qty(assigned)} {unit} · obiettivo non indicato</p>
@@ -275,6 +376,7 @@ export function ShoppingListCard({
           </div>
           <div className={cn("grid min-w-0 gap-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
             {show.toBuy ? quantityBlock : null}
+            {show.toBuy ? equivalentNote : null}
             {show.quick ? quickButtons("h-8") : null}
             {show.lockDate ? lockNote : null}
           </div>
@@ -344,6 +446,7 @@ export function ShoppingListCard({
             <>
               <p className="text-[10px] font-semibold uppercase text-muted-foreground">Da acquistare</p>
               {quantityBlock}
+              {equivalentNote}
             </>
           ) : null}
           {show.quick ? quickButtons("h-8 @max-[260px]:h-7 @max-[260px]:text-[11px]") : null}
