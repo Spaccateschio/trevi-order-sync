@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.set_preferred_product_supplier(uuid, uuid, uuid) TO authenticated;
