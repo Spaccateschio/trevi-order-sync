@@ -3807,6 +3807,8 @@ export type Database = {
           decided_at: string | null
           decided_by: string | null
           decided_quantity: number | null
+          decided_unit_code: string | null
+          decided_unit_id: string | null
           id: string
           list_id: string
           manual_purchase_done_at: string | null
@@ -3838,6 +3840,8 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decided_quantity?: number | null
+          decided_unit_code?: string | null
+          decided_unit_id?: string | null
           id?: string
           list_id: string
           manual_purchase_done_at?: string | null
@@ -3869,6 +3873,8 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decided_quantity?: number | null
+          decided_unit_code?: string | null
+          decided_unit_id?: string | null
           id?: string
           list_id?: string
           manual_purchase_done_at?: string | null
@@ -3898,6 +3904,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_decided_unit_id_fkey"
+            columns: ["decided_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
           {
@@ -6251,6 +6264,8 @@ export type Database = {
           _actor_user_id?: string
           _company_id: string
           _decided_quantity: number
+          _decided_unit_code?: string
+          _decided_unit_id?: string
           _item_id: string
           _notes?: string
           _reason?: string
