@@ -1,19 +1,40 @@
-# Modifica e Togli sul fornitore nella card
+# U.M. libera nella zona «Da acquistare»
 
-## Cosa cambia per te
-**Modifica** apre un solo riquadro con tutto quello che si può cambiare:
-- **Fornitore non B2B** (es. Breda): Prezzo, U.M. del prezzo, U.M. d'acquisto (esistente o «Altra U.M.»), Quantità. Salva una volta sola.
-- **Fornitore B2B** (es. trevi): solo U.M. d'acquisto (tra quelle pubblicate dal venditore) e Quantità. Il prezzo si vede ma non si modifica: lo decide il venditore.
+## Obiettivo
+Nella zona DA ACQUISTARE della card: `[ quantità ] [ U.M. ▼ ] [ Conferma ]`. La U.M. si può scegliere sempre, anche senza conversione. Mai inventare conversioni: senza conversione la quantità resta nella U.M. scelta e basta («3 casse · Non convertibile»), senza forzarla in kg/pz.
 
-Prezzo e U.M. d'acquisto si salvano sul collegamento prodotto↔fornitore, quindi valgono anche per le prossime Liste e ordini. La quantità resta dell'acquisto di questa Lista.
+## Regole fisse (dalle tue indicazioni)
+- La conversione NON è obbligatoria per acquistare.
+- Se esiste conversione (es. 1 cassa = 10 kg): mostro «3 casse ≈ 30 kg».
+- Se non esiste: «3 casse · Non convertibile», nessun valore inventato (mai 0 kg, mai 3 kg).
+- I tasti rapidi seguono la U.M. scelta: con CASSA → +1 cs +3 cs…, con KG → +1 kg…
+- La U.M. scelta resta associata alla quantità salvata.
+- Ricevimento merce/DDT/fattura NON toccati ora; il dato resta compatibile con quel flusso futuro.
 
-**Togli** toglie la quantità da questa Lista **e scollega il fornitore dal prodotto**, dopo una richiesta di conferma («Togliere Breda da questo prodotto? Non comparirà più nelle prossime Liste»). Il menu ⋮ resta com'è.
+## Modifica database (migration)
+1. `shopping_list_items`: aggiungo due colonne nullable:
+   - `decided_unit_id uuid REFERENCES units_of_measure(id)` — U.M. scelta per la quantità da acquistare (NULL = U.M. del prodotto, come oggi);
+   - `decided_unit_code text` — fotografia del codice (es. «cs», «kg»).
+   Righe esistenti: restano NULL → comportamento invariato.
+2. `set_shopping_list_item_quantity`: nuovo parametro `_decided_unit_id`/`_decided_unit_code`; salva la U.M. insieme alla quantità. Se la U.M. è quella del prodotto, salva NULL (nessun dato inutile).
+3. `confirm_shopping_list_product`: nessun cambiamento di logica (blocca la quantità come oggi); la U.M. scelta resta salvata sulla riga.
+4. `shopping_list_item_state` (stato Da assegnare/Parziale/Assegnata): il confronto con le ripartizioni resta in U.M. prodotto quando la quantità decisa è convertibile; se la U.M. decisa non è convertibile, lo stato si basa solo sulla presenza di ripartizioni valide (mai su somme inventate).
+5. `create_purchase_orders_from_list`: invariato (ordina dalle ripartizioni fornitore, come oggi).
 
-## Cosa non cambia
-Regole di salvataggio della ripartizione, conversioni, U.M. B2B decise dal venditore, Conferma/Sblocca, colore ocra, «Da acquistare», Ordini, Consegne, Carico Merce.
+## Interfaccia (shopping-list-card.tsx + shopping-list-panel.tsx)
+- Zona DA ACQUISTARE: campo quantità + menu a tendina U.M. + Conferma.
+  - Il menu propone: U.M. del prodotto (sempre) + le U.M. d'acquisto configurate sui fornitori collegati al prodotto + «Altra U.M.» (testo libero normalizzato, come nelle ripartizioni).
+  - Default: U.M. del prodotto (comportamento identico a oggi finché non cambi scelta).
+- Tasti rapidi +1/+3/+5/+10 con il codice della U.M. selezionata.
+- Se la U.M. scelta ha conversione verso l'U.M. prodotto, mostro l'equivalente «≈ 30 kg»; altrimenti «Non convertibile» (solo informativo, non blocca).
+- Riepilogo «Assegnato X / Y»: se la quantità decisa non è in U.M. prodotto e non è convertibile, il totale mostra le ripartizioni per quello che sono, senza somme forzate.
 
-## Dettagli tecnici
-- Solo `src/components/shopping/card-suppliers.tsx`.
-- Salva di Modifica: per non B2B `manage_product_supplier_link` `_action "update"` (`_manual_cost`, `_price_unit_id`) + `manage_product_supplier_link_unit` add/set_default se cambia l'U.M. d'acquisto; poi la stessa `assignShoppingListSupplier` di oggi per quantità+U.M. B2B: solo `assignShoppingListSupplier`.
-- Togli: rimozione ripartizione esistente, poi `manage_product_supplier_link` `_action "deactivate"`; se la seconda fallisce, messaggio chiaro e ripartizione già tolta.
-- Verifica in transazione annullata/scollegamento del fornitore di prova, nessun dato reale modificato.
+## Cosa NON tocco
+- Ripartizioni fornitore (già funzionano così: U.M. libera, conversione facoltativa).
+- Ordini, Consegne, Carico Merce, DDT, fatture.
+- Inventario, Fabbisogno, semaforo, stato «Da assegnare» come concetto.
+- Conferma/Sblocca, card ocra, preferiti.
+
+## Verifica
+- Prove in transazione annullata sul database (nessun dato reale modificato): quantità in U.M. prodotto, in U.M. fornitore con conversione, in U.M. senza conversione, «Altra U.M.».
+- Verifica in pagina: menu visibile, tasti rapidi che cambiano codice, conferma e sblocco come prima.
