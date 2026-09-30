@@ -38,6 +38,8 @@ type CardSupplier = {
   units: Unit[];
   price: { net: number | null; gross: number | null; unitCode: string | null } | null;
   isPreferred: boolean;
+  priceUnitId: string | null;
+  manualCost: number | null;
 };
 
 type OverviewRead = {
@@ -229,6 +231,8 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
               }
             : null,
       isPreferred: Boolean(s.is_preferred),
+      priceUnitId: linkPrices.data?.get(s.link_id) ?? null,
+      manualCost: s.manual_cost === null ? null : Number(s.manual_cost),
     };
   });
 
@@ -320,7 +324,7 @@ export function CardSuppliers({
       }),
     onSuccess: async (_data, input) => {
       setDrafts((current) => ({ ...current, [input.linkId]: { unit: "", manual: "", quantity: "", accepted: false } }));
-      setEditing(null);
+      setEditingNull();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
