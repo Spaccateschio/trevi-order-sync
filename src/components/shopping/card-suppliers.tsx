@@ -400,9 +400,7 @@ export function CardSuppliers({
             <span className="font-bold">
               {a.purchaseQuantity !== null ? `${qty(a.purchaseQuantity)} ${a.purchaseUnitCode ?? ""}` : `${a.quantity === null ? "—" : qty(a.quantity)} ${unit}`}
             </span>
-            {!show.conversion ? null : a.quantity === null ? (
-              <span className="text-[11px] font-semibold text-destructive">· Non convertibile</span>
-            ) : a.purchaseUnitCode && a.purchaseUnitCode !== unit ? (
+            {show.conversion && a.quantity !== null && a.purchaseUnitCode && a.purchaseUnitCode !== unit ? (
               <span className="text-[11px] text-muted-foreground">≈ {qty(a.quantity)} {unit}</span>
             ) : null}
             {canWrite ? (
@@ -548,16 +546,9 @@ export function CardSuppliers({
                 Salva
               </Button>
             </div>
-            {show.conversion && packs && (chosen || (isManual && code)) ? (
+            {show.conversion && packs && equivalent !== null && (chosen || (isManual && code)) ? (
               <p className="text-[11px] text-muted-foreground">
-                {qty(packs)} {code}{" "}
-                {equivalent !== null ? (
-                  <>
-                    {chosen?.conversionType === "esatta" ? "=" : "≈"} {qty(Number(equivalent.toFixed(3)))} {unit}
-                  </>
-                ) : (
-                  <span className="font-semibold text-destructive">· Non convertibile</span>
-                )}
+                {qty(packs)} {code} {chosen?.conversionType === "esatta" ? "=" : "≈"} {qty(Number(equivalent.toFixed(3)))} {unit}
               </p>
             ) : null}
             {belowMin ? (
