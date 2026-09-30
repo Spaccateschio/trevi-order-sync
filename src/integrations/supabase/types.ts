@@ -3411,7 +3411,9 @@ export type Database = {
           ordered_quantity: number | null
           price_unit_code: string | null
           price_unit_id: string | null
+          product_code: string | null
           product_id: string
+          product_name: string | null
           product_supplier_link_id: string | null
           purchase_quantity: number | null
           purchase_unit_code: string | null
@@ -3433,7 +3435,9 @@ export type Database = {
           ordered_quantity?: number | null
           price_unit_code?: string | null
           price_unit_id?: string | null
+          product_code?: string | null
           product_id: string
+          product_name?: string | null
           product_supplier_link_id?: string | null
           purchase_quantity?: number | null
           purchase_unit_code?: string | null
@@ -3455,7 +3459,9 @@ export type Database = {
           ordered_quantity?: number | null
           price_unit_code?: string | null
           price_unit_id?: string | null
+          product_code?: string | null
           product_id?: string
+          product_name?: string | null
           product_supplier_link_id?: string | null
           purchase_quantity?: number | null
           purchase_unit_code?: string | null
@@ -3593,15 +3599,21 @@ export type Database = {
           company_id: string
           created_at: string
           created_by: string | null
+          delivery_address_text: string | null
+          delivery_date: string | null
+          delivery_time_from: string | null
+          delivery_time_to: string | null
           destination_address_id: string | null
           destination_location_id: string
           id: string
           notes: string | null
           number: string
           relation_id: string | null
+          send_status: string
           sent_at: string | null
           shopping_list_id: string | null
           status: Database["public"]["Enums"]["purchase_order_status"]
+          supplier_notes: string | null
           supplier_record_id: string
           updated_at: string
         }
@@ -3611,15 +3623,21 @@ export type Database = {
           company_id: string
           created_at?: string
           created_by?: string | null
+          delivery_address_text?: string | null
+          delivery_date?: string | null
+          delivery_time_from?: string | null
+          delivery_time_to?: string | null
           destination_address_id?: string | null
           destination_location_id: string
           id?: string
           notes?: string | null
           number: string
           relation_id?: string | null
+          send_status?: string
           sent_at?: string | null
           shopping_list_id?: string | null
           status?: Database["public"]["Enums"]["purchase_order_status"]
+          supplier_notes?: string | null
           supplier_record_id: string
           updated_at?: string
         }
@@ -3629,15 +3647,21 @@ export type Database = {
           company_id?: string
           created_at?: string
           created_by?: string | null
+          delivery_address_text?: string | null
+          delivery_date?: string | null
+          delivery_time_from?: string | null
+          delivery_time_to?: string | null
           destination_address_id?: string | null
           destination_location_id?: string
           id?: string
           notes?: string | null
           number?: string
           relation_id?: string | null
+          send_status?: string
           sent_at?: string | null
           shopping_list_id?: string | null
           status?: Database["public"]["Enums"]["purchase_order_status"]
+          supplier_notes?: string | null
           supplier_record_id?: string
           updated_at?: string
         }
@@ -3689,6 +3713,96 @@ export type Database = {
             columns: ["supplier_record_id"]
             isOneToOne: false
             referencedRelation: "supplier_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_list_direct_purchases: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          item_id: string | null
+          list_id: string
+          notes: string | null
+          origin: string
+          product_code: string | null
+          product_id: string | null
+          product_name: string
+          quantity: number | null
+          reason: string | null
+          unit_code: string | null
+          unit_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id?: string | null
+          list_id: string
+          notes?: string | null
+          origin: string
+          product_code?: string | null
+          product_id?: string | null
+          product_name: string
+          quantity?: number | null
+          reason?: string | null
+          unit_code?: string | null
+          unit_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id?: string | null
+          list_id?: string
+          notes?: string | null
+          origin?: string
+          product_code?: string | null
+          product_id?: string | null
+          product_name?: string
+          quantity?: number | null
+          reason?: string | null
+          unit_code?: string | null
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_direct_purchases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_direct_purchases_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_list_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_direct_purchases_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_direct_purchases_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_direct_purchases_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
         ]
@@ -3952,9 +4066,16 @@ export type Database = {
           confirmed_by: string | null
           created_at: string
           created_by: string | null
+          delivery_address_id: string | null
+          delivery_address_text: string | null
+          delivery_date: string | null
+          delivery_time_from: string | null
+          delivery_time_to: string | null
+          general_notes: string | null
           id: string
           name: string
           notes: string | null
+          number: string | null
           status: Database["public"]["Enums"]["shopping_list_status"]
           updated_at: string
         }
@@ -3966,9 +4087,16 @@ export type Database = {
           confirmed_by?: string | null
           created_at?: string
           created_by?: string | null
+          delivery_address_id?: string | null
+          delivery_address_text?: string | null
+          delivery_date?: string | null
+          delivery_time_from?: string | null
+          delivery_time_to?: string | null
+          general_notes?: string | null
           id?: string
           name: string
           notes?: string | null
+          number?: string | null
           status?: Database["public"]["Enums"]["shopping_list_status"]
           updated_at?: string
         }
@@ -3980,9 +4108,16 @@ export type Database = {
           confirmed_by?: string | null
           created_at?: string
           created_by?: string | null
+          delivery_address_id?: string | null
+          delivery_address_text?: string | null
+          delivery_date?: string | null
+          delivery_time_from?: string | null
+          delivery_time_to?: string | null
+          general_notes?: string | null
           id?: string
           name?: string
           notes?: string | null
+          number?: string | null
           status?: Database["public"]["Enums"]["shopping_list_status"]
           updated_at?: string
         }
@@ -3999,6 +4134,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_lists_delivery_address_id_fkey"
+            columns: ["delivery_address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -4915,6 +5057,20 @@ export type Database = {
         }
         Returns: string
       }
+      _shopping_list_close_plan: {
+        Args: { _list_id: string }
+        Returns: {
+          item_id: string
+          kind: string
+          product_code: string
+          product_id: string
+          product_name: string
+          quantity: number
+          reason: string
+          unit_code: string
+          unit_id: string
+        }[]
+      }
       accept_customer_invitation: {
         Args: { _buyer_company_id: string; _token: string }
         Returns: string
@@ -5092,6 +5248,17 @@ export type Database = {
           _actor_user_id?: string
           _company_id: string
           _session_id: string
+        }
+        Returns: Json
+      }
+      close_shopping_list: {
+        Args: {
+          _company_id: string
+          _delivery?: Json
+          _direct_notes?: Json
+          _general_notes?: string
+          _list_id: string
+          _supplier_overrides?: Json
         }
         Returns: Json
       }
@@ -6307,6 +6474,7 @@ export type Database = {
           source_product_id: string
         }[]
       }
+      shopping_list_close_preview: { Args: { _list_id: string }; Returns: Json }
       shopping_list_item_state: {
         Args: { _item_id: string }
         Returns: {
