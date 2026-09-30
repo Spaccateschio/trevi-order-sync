@@ -507,7 +507,7 @@ export function CardSuppliers({
                 <SelectTrigger className="h-8 w-auto min-w-20 text-xs" aria-label={`U.M. prezzo ${s.name}`}>
                   <SelectValue placeholder="U.M. prezzo" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   <SelectItem value={NO_PRICE_UNIT}>U.M. prezzo non indicata</SelectItem>
                   {allUnits.map((u) => (
                     <SelectItem key={u.id} value={u.id}>{label({ unitId: u.id, code: u.code })}</SelectItem>
@@ -539,7 +539,7 @@ export function CardSuppliers({
                   <SelectTrigger className="h-8 w-auto min-w-24 max-w-40 text-xs" aria-label={`U.M. acquisto ${s.name}`}>
                     <SelectValue placeholder="U.M. acquisto" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {options.map((o) => (
                       <SelectItem key={o.id} value={o.id}>{o.text}</SelectItem>
                     ))}
@@ -628,9 +628,7 @@ export function CardSuppliers({
           <p className="flex items-center gap-1 text-[11px] font-medium text-destructive">
             <AlertTriangle className="size-3" aria-hidden="true" /> Prodotto del fornitore non collegato: U.M. non disponibili
           </p>
-        ) : noUnits ? (
-          <p className="text-[11px] font-medium text-destructive">U.M. acquisto non pubblicate dal venditore</p>
-        ) : show.purchaseUnit && (s.units.length || s.allowManual) ? (
+        ) : noUnits ? null : show.purchaseUnit && (s.units.length || s.allowManual) ? (
           <p className="text-[11px] leading-tight text-muted-foreground">
             Acquisto in: <span className="font-medium text-foreground">{s.units.map(label).join(" · ") || "—"}</span>
             {s.allowManual ? " · Altra U.M." : ""}
@@ -705,7 +703,7 @@ export function CardSuppliers({
                   <SelectTrigger className="h-8 w-auto min-w-24 max-w-40 text-xs" aria-label={`U.M. ${s.name}`}>
                     <SelectValue placeholder="U.M." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     {s.units.map((u) => (
                       <SelectItem key={u.unitId} value={u.unitId}>{label(u)}</SelectItem>
                     ))}
