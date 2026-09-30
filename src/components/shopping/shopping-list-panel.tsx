@@ -25,6 +25,8 @@ import { CYCLE_QUERY_KEY, InventoryEvaluation, useInventoryCountedRows, type Cou
 import { DISPLAY_FIELDS, useCardDisplay } from "./card-display";
 import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
+import { CloseListDialog } from "./close-list-dialog";
+import { ListHistoryDialog } from "./list-history-dialog";
 import { getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
 import { useShoppingListExtras, type RowExtras } from "./use-shopping-list-extras";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -134,6 +136,8 @@ const EMPTY_SET = new Set<string>();
 export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
   const runList = useServerFn(manageShoppingList);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const runQuantity = useServerFn(setShoppingListItemQuantity);
   const runRemove = useServerFn(removeShoppingListItem);
   const runLock = useServerFn(setShoppingListItemQuantityLock);
@@ -185,7 +189,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     queryFn: async (): Promise<ShoppingListRow[]> => {
       const { data, error } = await supabase
         .from("shopping_lists")
-        .select("id, name, status, archive_id, notes, created_at, confirmed_at, closed_at")
+        .select("id, name, number, status, archive_id, notes, created_at, confirmed_at, closed_at")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
@@ -216,6 +220,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     },
   });
   const listLabel = (row: ShoppingListRow) => {
+    if (row.number) return `${row.number} · ${new Date(row.confirmed_at ?? row.created_at).toLocaleDateString("it-IT")}`;
     const origin = originsQuery.data?.get(row.id);
     if (origin !== undefined || row.id === cycle?.list_id) {
       const when = origin ?? cycle?.finished_at ?? null;
@@ -814,13 +819,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               >
                 Annulla lista
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={listMutation.isPending || confirmBlocked}
-                title={confirmBlockedTitle}
-                onClick={() => listMutation.mutate("confirm")}
-              >
+              <Button type="button" size="sm" disabled={listMutation.isPending} onClick={() => setCloseOpen(true)}>
                 Conferma lista
               </Button>
             </>
@@ -836,6 +835,23 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               Chiudi lista
             </Button>
           ) : null}
+          {list?.number ? (
+            <>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/acquisti/lista-spesa/stampa/$listId" params={{ listId: list.id }} search={{ tipo: "completa" }}>
+                  Visualizza / Stampa
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/acquisti/lista-spesa/stampa/$listId" params={{ listId: list.id }} search={{ tipo: "diretti" }}>
+                  Stampa acquisti diretti
+                </Link>
+              </Button>
+            </>
+          ) : null}
+          <Button type="button" size="sm" variant="outline" onClick={() => setHistoryOpen(true)}>
+            Storico liste
+          </Button>
           <Button
             type="button"
             size="sm"
@@ -1121,14 +1137,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 <strong>{summary.total}</strong> prodotti · <strong>{summary.assigned}</strong> assegnati ·{" "}
                 <strong>{summary.partial}</strong> parziali · <strong>{summary.open}</strong> da assegnare
                 {pendingEntries.length ? ` · ${pendingEntries.length} da valutare` : ""}
-                {confirmBlocked ? (
-                  <span className="block font-semibold text-destructive">
-                    Per confermare la Lista assegna fornitore, quantità e U.M. ai {summary.open} prodotti «Da assegnare».
+                {summary.open ? (
+                  <span className="block text-muted-foreground">
+                    I prodotti senza fornitore diventeranno acquisti diretti.
                   </span>
                 ) : null}
               </span>
               {editable ? (
-                <Button type="button" size="sm" className="h-8" disabled={listMutation.isPending || confirmBlocked} title={confirmBlockedTitle} onClick={() => listMutation.mutate("confirm")}>
+                <Button type="button" size="sm" className="h-8" disabled={listMutation.isPending} onClick={() => setCloseOpen(true)}>
                   Conferma lista
                 </Button>
               ) : list.status === "confermata" ? (
@@ -1152,6 +1168,25 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           onOpenChange={setAddOpen}
         />
       ) : null}
+
+      {closeOpen && list && editable ? (
+        <CloseListDialog
+          companyId={companyId}
+          listId={list.id}
+          open={closeOpen}
+          onOpenChange={setCloseOpen}
+          onClosed={() => {
+            setCloseOpen(false);
+            // Area operativa pulita: la prossima azione crea una nuova Lista.
+            setListId(null);
+          }}
+          onGoToItem={(itemId) => {
+            setCloseOpen(false);
+            window.setTimeout(() => document.getElementById(`item-${itemId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
+          }}
+        />
+      ) : null}
+      <ListHistoryDialog companyId={companyId} open={historyOpen} onOpenChange={setHistoryOpen} />
 
       {splitItem ? (
         <SupplierSplitDialog
