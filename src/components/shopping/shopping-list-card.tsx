@@ -1,6 +1,7 @@
 import { Check, Lock, MoreVertical, Package, Plus, Star, Trash2, Truck } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { ALL_VISIBLE, type DisplayPrefs } from "./card-display";
 import { CardSuppliers } from "./card-suppliers";
 import type { RowExtras } from "./use-shopping-list-extras";
 import { Button } from "@/components/ui/button";
@@ -46,11 +47,14 @@ export function ShoppingListCard({
   lockPending = false,
   pending = false,
   pendingQuantity,
+  show = ALL_VISIBLE,
 }: {
   /** Prodotto dell'inventario non ancora in Lista: stessa card, comandi della Lista non ancora attivi. */
   pending?: boolean;
   /** Quantità scritta su un prodotto «Da valutare» (serve solo ad abilitare Conferma). */
   pendingQuantity?: number | null;
+  /** «Visualizza dati»: nasconde solo informazioni, non cambia dati né comandi salvati. */
+  show?: DisplayPrefs;
   companyId: string;
   row: OverviewRow;
   extra: RowExtras | undefined;
@@ -90,19 +94,25 @@ export function ShoppingListCard({
       </span>
     );
 
-  const statusBadge = pending ? (
-    <span className="rounded-sm bg-primary/20 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-foreground">Da valutare</span>
+  const statusBadge = !show.status && !show.assignStatus ? null : pending ? (
+    show.status ? (
+      <span className="rounded-sm bg-primary/20 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-foreground">Da valutare</span>
+    ) : null
   ) : (
     <span className="flex items-center gap-1">
-    <span className="rounded-sm border border-border px-1.5 py-1 text-[9px] font-bold uppercase leading-none">In lista</span>
-    <span
-      className={cn(
-        "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
-        row.status === "assegnata" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
-      )}
-    >
-      {ITEM_STATUS_LABEL[row.status]}
-    </span>
+      {show.status ? (
+        <span className="rounded-sm border border-border px-1.5 py-1 text-[9px] font-bold uppercase leading-none">In lista</span>
+      ) : null}
+      {show.assignStatus ? (
+        <span
+          className={cn(
+            "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
+            row.status === "assegnata" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
+          )}
+        >
+          {ITEM_STATUS_LABEL[row.status]}
+        </span>
+      ) : null}
     </span>
   );
 
@@ -223,7 +233,7 @@ export function ShoppingListCard({
     ) : null;
 
   const splitSummary = (
-    <CardSuppliers companyId={companyId} row={row} pending={pending} editable={editable} assignments={suppliers} />
+    <CardSuppliers companyId={companyId} row={row} pending={pending} editable={editable} assignments={suppliers} show={show} />
   );
 
   const orderState =
@@ -234,86 +244,122 @@ export function ShoppingListCard({
     ) : null;
 
   if (isRow) {
+    const rowMeta = [
+      show.category ? extra?.category ?? "—" : null,
+      show.suggested ? `Suggerita ${suggested !== null && suggested !== undefined ? `${qty(suggested)} ${unit}` : "—"}` : null,
+      show.stock && stock?.stock !== null && stock?.stock !== undefined ? `Giacenza ${qty(stock.stock)} ${unit}` : null,
+      show.lastCount && stock?.lastQuantity !== null && stock?.lastQuantity !== undefined
+        ? `Ult. conteggio ${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}`
+        : null,
+    ].filter(Boolean);
     return (
       <article className={cn("@container min-w-0 rounded-md border-2 border-border bg-card px-2 py-1.5", locked && "border-primary/60 bg-primary/15")}>
-        <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 @min-[860px]:grid-cols-[36px_minmax(0,1.2fr)_minmax(250px,1fr)_minmax(0,1.2fr)_auto]">
-          {image("size-9")}
+        <div
+          className={cn(
+            "grid items-center gap-x-2 gap-y-1.5",
+            show.photo
+              ? "grid-cols-[36px_minmax(0,1fr)_auto] @min-[860px]:grid-cols-[36px_minmax(0,1.2fr)_minmax(250px,1fr)_minmax(0,1.2fr)_auto]"
+              : "grid-cols-[minmax(0,1fr)_auto] @min-[860px]:grid-cols-[minmax(0,1.2fr)_minmax(250px,1fr)_minmax(0,1.2fr)_auto]",
+          )}
+        >
+          {show.photo ? image("size-9") : null}
           <div className="min-w-0">
             <p className="truncate font-display text-sm font-bold uppercase leading-tight" title={name}>
-              <span className="text-muted-foreground">{row.code}</span> · {name}
+              {show.code ? <span className="text-muted-foreground">{row.code} · </span> : null}
+              {name}
             </p>
-            <p className="truncate text-[11px] leading-tight text-muted-foreground">
-              {extra?.category ?? "—"} · Suggerita {suggested !== null && suggested !== undefined ? `${qty(suggested)} ${unit}` : "—"}
-            </p>
+            {rowMeta.length ? <p className="truncate text-[11px] leading-tight text-muted-foreground">{rowMeta.join(" · ")}</p> : null}
           </div>
           <div className="flex items-center justify-end gap-0.5 @min-[860px]:order-2">
             {statusBadge}
             {actions}
           </div>
-          <div className="col-span-3 grid min-w-0 gap-1 @min-[860px]:col-span-1">
-            {quantityBlock}
-            {quickButtons("h-8")}
-            {lockNote}
+          <div className={cn("grid min-w-0 gap-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
+            {show.toBuy ? quantityBlock : null}
+            {show.quick ? quickButtons("h-8") : null}
+            {show.lockDate ? lockNote : null}
           </div>
-          <div className="col-span-3 min-w-0 space-y-0.5 @min-[860px]:order-1 @min-[860px]:col-span-1">
-            {splitSummary}
-            {totals}
-            {orderState}
+          <div className={cn("min-w-0 space-y-0.5 @min-[860px]:order-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
+            {show.suppliers ? (
+              <>
+                {splitSummary}
+                {show.splits ? totals : null}
+                {orderState}
+              </>
+            ) : null}
           </div>
         </div>
       </article>
     );
   }
 
+  const anyStat = show.lastCount || show.stock || show.suggested;
   return (
     <article className={cn("@container flex h-full min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2 @max-[260px]:p-1.5", locked && "border-primary/60 bg-primary/15")}>
-      <div className="grid grid-cols-[44px_minmax(0,1fr)] items-start gap-2 @max-[260px]:grid-cols-[32px_minmax(0,1fr)] @max-[260px]:gap-1.5">
-        {image("size-11 @max-[260px]:size-8")}
+      <div className={cn("grid items-start gap-2 @max-[260px]:gap-1.5", show.photo ? "grid-cols-[44px_minmax(0,1fr)] @max-[260px]:grid-cols-[32px_minmax(0,1fr)]" : "grid-cols-1")}>
+        {show.photo ? image("size-11 @max-[260px]:size-8") : null}
         <div className="min-w-0">
           <p className="line-clamp-2 font-display text-sm font-bold uppercase leading-tight @max-[260px]:text-xs" title={name}>
             {name}
           </p>
-          <p className="truncate text-[11px] leading-tight text-muted-foreground @max-[260px]:text-[10px]">
-            Cod. {row.code}
-            {extra?.category ? ` · ${extra.category}` : ""}
-          </p>
+          {show.code || (show.category && extra?.category) ? (
+            <p className="truncate text-[11px] leading-tight text-muted-foreground @max-[260px]:text-[10px]">
+              {[show.code ? `Cod. ${row.code}` : null, show.category ? extra?.category : null].filter(Boolean).join(" · ")}
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-1">
-        {statusBadge}
+        {statusBadge ?? <span />}
         <div className="flex items-center">{actions}</div>
       </div>
 
-      <dl className="grid grid-cols-3 gap-1 rounded-sm bg-muted/40 px-1.5 py-1 text-[10px] leading-tight">
-        <div className="min-w-0">
-          <dt className="truncate text-muted-foreground">Ult. conteggio</dt>
-          <dd className="truncate font-semibold">
-            {stock?.lastQuantity !== null && stock?.lastQuantity !== undefined ? `${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}` : "—"}
-          </dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="truncate text-muted-foreground">Giacenza</dt>
-          <dd className="truncate font-semibold">{stock?.stock !== null && stock?.stock !== undefined ? `${qty(stock.stock)} ${unit}` : "—"}</dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="truncate text-muted-foreground">Suggerita</dt>
-          <dd className="truncate font-semibold">{suggested !== null && suggested !== undefined ? `${qty(suggested)} ${unit}` : "—"}</dd>
-        </div>
-      </dl>
+      {anyStat ? (
+        <dl className="grid grid-flow-col auto-cols-fr gap-1 rounded-sm bg-muted/40 px-1.5 py-1 text-[10px] leading-tight">
+          {show.lastCount ? (
+            <div className="min-w-0">
+              <dt className="truncate text-muted-foreground">Ult. conteggio</dt>
+              <dd className="truncate font-semibold">
+                {stock?.lastQuantity !== null && stock?.lastQuantity !== undefined ? `${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}` : "—"}
+              </dd>
+            </div>
+          ) : null}
+          {show.stock ? (
+            <div className="min-w-0">
+              <dt className="truncate text-muted-foreground">Giacenza</dt>
+              <dd className="truncate font-semibold">{stock?.stock !== null && stock?.stock !== undefined ? `${qty(stock.stock)} ${unit}` : "—"}</dd>
+            </div>
+          ) : null}
+          {show.suggested ? (
+            <div className="min-w-0">
+              <dt className="truncate text-muted-foreground">Suggerita</dt>
+              <dd className="truncate font-semibold">{suggested !== null && suggested !== undefined ? `${qty(suggested)} ${unit}` : "—"}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
 
-      <div className="space-y-1">
-        <p className="text-[10px] font-semibold uppercase text-muted-foreground">Da acquistare</p>
-        {quantityBlock}
-        {quickButtons("h-8 @max-[260px]:h-7 @max-[260px]:text-[11px]")}
-        {lockNote}
-      </div>
+      {show.toBuy || show.quick || (show.lockDate && lockNote) ? (
+        <div className="space-y-1">
+          {show.toBuy ? (
+            <>
+              <p className="text-[10px] font-semibold uppercase text-muted-foreground">Da acquistare</p>
+              {quantityBlock}
+            </>
+          ) : null}
+          {show.quick ? quickButtons("h-8 @max-[260px]:h-7 @max-[260px]:text-[11px]") : null}
+          {show.lockDate ? lockNote : null}
+        </div>
+      ) : null}
 
-      <div className="mt-auto space-y-1 border-t border-border pt-1.5">
-        <p className="text-[10px] font-semibold uppercase text-muted-foreground">Fornitori</p>
-        {splitSummary}
-        {totals}
-        {orderState}
-      </div>
+      {show.suppliers ? (
+        <div className="mt-auto space-y-1 border-t border-border pt-1.5">
+          <p className="text-[10px] font-semibold uppercase text-muted-foreground">Fornitori</p>
+          {splitSummary}
+          {show.splits ? totals : null}
+          {orderState}
+        </div>
+      ) : null}
     </article>
   );
 }
