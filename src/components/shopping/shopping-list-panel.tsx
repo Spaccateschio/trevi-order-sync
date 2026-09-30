@@ -483,6 +483,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 suppliers: [],
                 orderState: null as unknown as RowExtras["orderState"],
                 lockedAt: null,
+                decidedUnitId: null,
+                decidedUnitCode: null,
               },
               stock: { lastQuantity: row.counted, lastUnit: row.unit, lastAt: null, stock: row.stock },
             }))
