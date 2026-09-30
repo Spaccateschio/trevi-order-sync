@@ -359,7 +359,8 @@ export function CardSuppliers({
 
   // Una riga per fornitore collegato: ripartizione salvata (Modifica/Togli) oppure modulo Qtà/U.M./Salva.
   const supplierRow = (s: CardSupplier, assignment: RowSupplier | null) => {
-    const editingAssignment = assignment && editing && editing.id === assignment.id ? editing : null;
+    const editingLink = editing && editing.linkId === s.linkId ? editing : null;
+    const editingAssignment = assignment && editingLink ? editingLink : null;
     const draft = drafts[s.linkId] ?? { unit: "", manual: "", quantity: "", accepted: false };
     const set = (patch: Partial<Draft>) => setDrafts((c) => ({ ...c, [s.linkId]: { ...draft, ...patch } }));
     const b2bBlocked = s.isB2B && !s.sourceLinked;
@@ -374,7 +375,6 @@ export function CardSuppliers({
     const belowMin = s.minQuantity !== null && equivalent !== null && equivalent < s.minQuantity;
     const canSave =
       canWrite && !mutation.isPending && !b2bBlocked && (packs ?? 0) > 0 && (isManual ? code.length > 0 : Boolean(chosen)) && (!belowMin || draft.accepted);
-    const editPacks = editingAssignment ? parseQuantity(editingAssignment.quantity) : null;
 
     return (
       <li key={s.linkId} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
