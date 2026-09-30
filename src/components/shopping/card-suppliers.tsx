@@ -236,12 +236,15 @@ export function CardSuppliers({
   pending,
   editable,
   assignments,
+  show = ALL_VISIBLE,
 }: {
   companyId: string;
   row: OverviewRow;
   pending: boolean;
   editable: boolean;
   assignments: RowSupplier[];
+  /** Solo visualizzazione: non cambia salvataggi né regole. */
+  show?: DisplayPrefs;
 }) {
   const queryClient = useQueryClient();
   const runAssign = useServerFn(assignShoppingListSupplier);
@@ -301,7 +304,7 @@ export function CardSuppliers({
       <li key={a.id} className="space-y-1 rounded-sm bg-muted/40 px-1.5 py-1">
         <div className="flex min-w-0 items-center gap-1 text-xs">
           <span className="min-w-0 flex-1 truncate font-semibold">{a.name}</span>
-          {a.isB2B ? <B2BBadge /> : null}
+          {show.b2b && a.isB2B ? <B2BBadge /> : null}
         </div>
         {isEditing ? (
           <div className="flex items-center gap-1">
@@ -342,7 +345,7 @@ export function CardSuppliers({
             <span className="font-bold">
               {a.purchaseQuantity !== null ? `${qty(a.purchaseQuantity)} ${a.purchaseUnitCode ?? ""}` : `${a.quantity === null ? "—" : qty(a.quantity)} ${unit}`}
             </span>
-            {a.quantity === null ? (
+            {!show.conversion ? null : a.quantity === null ? (
               <span className="text-[11px] font-semibold text-destructive">· Non convertibile</span>
             ) : a.purchaseUnitCode && a.purchaseUnitCode !== unit ? (
               <span className="text-[11px] text-muted-foreground">≈ {qty(a.quantity)} {unit}</span>
@@ -399,16 +402,16 @@ export function CardSuppliers({
       <li key={s.linkId} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
         <div className="flex min-w-0 items-center gap-1 text-xs">
           <span className="min-w-0 flex-1 truncate font-semibold">{s.name}</span>
-          {s.isB2B ? <B2BBadge /> : null}
+          {show.b2b && s.isB2B ? <B2BBadge /> : null}
         </div>
-        {s.price ? <PriceLine price={s.price} /> : null}
+        {show.price && s.price ? <PriceLine price={s.price} /> : null}
         {b2bBlocked ? (
           <p className="flex items-center gap-1 text-[11px] font-medium text-destructive">
             <AlertTriangle className="size-3" aria-hidden="true" /> Prodotto del fornitore non collegato: U.M. non disponibili
           </p>
         ) : noUnits ? (
           <p className="text-[11px] font-medium text-destructive">U.M. acquisto non pubblicate dal venditore</p>
-        ) : s.units.length || s.allowManual ? (
+        ) : show.purchaseUnit && (s.units.length || s.allowManual) ? (
           <p className="text-[11px] leading-tight text-muted-foreground">
             Acquisto in: <span className="font-medium text-foreground">{s.units.map(label).join(" · ") || "—"}</span>
             {s.allowManual ? " · Altra U.M." : ""}
@@ -471,7 +474,7 @@ export function CardSuppliers({
                 Salva
               </Button>
             </div>
-            {packs && (chosen || (isManual && code)) ? (
+            {show.conversion && packs && (chosen || (isManual && code)) ? (
               <p className="text-[11px] text-muted-foreground">
                 {qty(packs)} {code}{" "}
                 {equivalent !== null ? (
@@ -500,7 +503,7 @@ export function CardSuppliers({
   const showAvailable = !assignments.length || adding;
   return (
     <div className="space-y-1">
-      {assignments.length ? <ul className="space-y-1">{assignments.map(savedLine)}</ul> : null}
+      {assignments.length && show.splits ? <ul className="space-y-1">{assignments.map(savedLine)}</ul> : null}
       {showAvailable ? <ul className="space-y-1">{suppliers.map(supplierBlock)}</ul> : null}
       {pending && suppliers.length ? (
         <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p>
