@@ -349,19 +349,23 @@ export function CardSuppliers({
         if (error) throw new Error(error.message);
         return;
       }
-      if (assignments.some((a) => a.linkId === input.s.linkId)) {
-        throw new Error(`${input.s.name} ha una ripartizione in questa Lista: togli prima la ripartizione, poi scollegalo.`);
-      }
-      const { error } = await supabase.rpc("manage_product_supplier_link", {
+      // Togli: una sola operazione nel database (ripartizione + collegamento + preferito), o tutto o niente.
+      const { error } = await supabase.rpc("unlink_product_supplier", {
         _company_id: companyId,
-        _action: "deactivate",
         _link_id: input.s.linkId,
+        ...(pending ? {} : { _item_id: row.item_id }),
       });
       if (error) throw new Error(error.message);
     },
     onSuccess: async (_d, input) => {
-      await refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id);
-      toast.success(input.kind === "preferred" ? `${input.s.name} è il fornitore preferito` : `${input.s.name} scollegato dal prodotto`);
+      setRemoving(null);
+      await Promise.all([
+        refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+      ]);
+      toast.success(input.kind === "preferred" ? `${input.s.name} è il fornitore preferito` : `${input.s.name} tolto dal prodotto`);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -659,9 +663,7 @@ export function CardSuppliers({
                   variant="ghost"
                   className="h-7 gap-1 px-1.5 text-[11px] text-destructive"
                   disabled={busy}
-                  onClick={() =>
-                    mutation.mutate({ action: "remove", linkId: s.linkId, packs: null, accepted: false, unitId: null, manualUnitCode: null, assignmentId: assignment.id })
-                  }
+                  onClick={() => setRemoving(s)}
                 >
                   <Trash2 className="size-3" aria-hidden="true" /> Togli
                 </Button>
@@ -674,6 +676,9 @@ export function CardSuppliers({
           <div className="flex justify-end">
             <Button type="button" size="sm" variant="ghost" className="h-6 gap-1 px-1.5 text-[11px]" disabled={busy} onClick={() => startEdit(s, null)}>
               <Pencil className="size-3" aria-hidden="true" /> Modifica
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="h-6 gap-1 px-1.5 text-[11px] text-destructive" disabled={busy} onClick={() => setRemoving(s)}>
+              <Trash2 className="size-3" aria-hidden="true" /> Togli
             </Button>
           </div>
         ) : null}
