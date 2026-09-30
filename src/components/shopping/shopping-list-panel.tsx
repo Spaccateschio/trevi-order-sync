@@ -561,6 +561,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     }),
     [allRows],
   );
+  // La Lista si conferma solo con ogni prodotto ripartito: prima si spiega, poi il database verifica comunque.
+  const confirmBlocked = summary.open > 0;
+  const confirmBlockedTitle = confirmBlocked
+    ? `${summary.open} prodott${summary.open === 1 ? "o" : "i"} senza fornitore, quantità e U.M. d'acquisto`
+    : undefined;
   const activeFilters = flags.size + (category !== "all" ? 1 : 0) + (supplierFilter !== "all" ? 1 : 0);
   const resetFilters = () => {
     setFlags(new Set());
@@ -807,7 +812,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               <Button
                 type="button"
                 size="sm"
-                disabled={listMutation.isPending}
+                disabled={listMutation.isPending || confirmBlocked}
+                title={confirmBlockedTitle}
                 onClick={() => listMutation.mutate("confirm")}
               >
                 Conferma lista
@@ -1052,9 +1058,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 <strong>{summary.total}</strong> prodotti · <strong>{summary.assigned}</strong> assegnati ·{" "}
                 <strong>{summary.partial}</strong> parziali · <strong>{summary.open}</strong> da assegnare
                 {pendingEntries.length ? ` · ${pendingEntries.length} da valutare` : ""}
+                {confirmBlocked ? (
+                  <span className="block font-semibold text-destructive">
+                    Per confermare la Lista assegna fornitore, quantità e U.M. ai {summary.open} prodotti «Da assegnare».
+                  </span>
+                ) : null}
               </span>
               {editable ? (
-                <Button type="button" size="sm" className="h-8" disabled={listMutation.isPending} onClick={() => listMutation.mutate("confirm")}>
+                <Button type="button" size="sm" className="h-8" disabled={listMutation.isPending || confirmBlocked} title={confirmBlockedTitle} onClick={() => listMutation.mutate("confirm")}>
                   Conferma lista
                 </Button>
               ) : list.status === "confermata" ? (
