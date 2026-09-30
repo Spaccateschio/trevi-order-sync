@@ -3232,12 +3232,14 @@ function CycleLight({ cycle, sessionActive }: { cycle: CycleStatus | undefined; 
   if (!cycle) return null;
   const color = sessionActive ? "giallo" : cycle.color;
   const config = {
-    verde: { dot: "bg-success", label: "PRONTO PER INVENTARIO", text: "Nessun inventario in corso e nessun ciclo acquisti da completare." },
+    verde: { dot: "bg-success", label: "PRONTO PER INVENTARIO", text: cycle.cycle_outcome === "completato" ? "Ciclo acquisti completato: ordini e acquisti diretti gestiti." : "Nessun inventario in corso e nessun ciclo acquisti da completare." },
     giallo: { dot: "bg-primary", label: "INVENTARIO IN CORSO", text: "Continua il conteggio: le quantità scritte restano salvate finché non termini l'inventario." },
     rosso: {
       dot: "bg-destructive",
       label: "INVENTARIO COMPLETATO — ACQUISTI DA GESTIRE",
-      text: cycle.evaluated_at
+      text: cycle.cycle_outcome === "da_verificare"
+        ? `Ciclo chiuso con ${cycle.to_verify ?? 0} elementi da verificare (quantità non determinabili con certezza).`
+        : cycle.evaluated_at
         ? `Valutazione terminata: ${cycle.missing_orders ?? 0} acquisti ancora senza ordine.`
         : "Valuta nella Lista della Spesa cosa acquistare. Non si può iniziare un nuovo inventario finché il ciclo non è concluso.",
     },

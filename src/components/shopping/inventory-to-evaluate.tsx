@@ -217,7 +217,9 @@ export function InventoryEvaluation({
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
         <span>
           <span className="font-semibold">Ciclo acquisti da completare:</span> valutazione terminata,{" "}
-          {cycle.missing_orders} acquisti ancora senza ordine.
+          {cycle.cycle_outcome === "da_verificare"
+            ? `ciclo chiuso con ${cycle.to_verify} elementi da verificare.`
+            : `${cycle.missing_orders} acquisti ancora senza ordine.`}
         </span>
         <Button asChild size="sm" variant="outline">
           <Link to="/acquisti/ordini">Vai agli Ordini</Link>

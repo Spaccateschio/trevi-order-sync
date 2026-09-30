@@ -911,7 +911,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       ) : cycle?.color === "rosso" && cycle.evaluated_at && (!list || list.id === cycle.list_id) ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
           <span className="font-semibold">Ciclo acquisti da completare:</span> valutazione terminata,{" "}
-          {cycle.missing_orders} acquisti ancora senza ordine.{" "}
+          {cycle.cycle_outcome === "da_verificare"
+            ? `ciclo chiuso con ${cycle.to_verify} elementi da verificare.`
+            : `${cycle.missing_orders} acquisti ancora senza ordine.`}{" "}
           <Link className="underline" to="/acquisti/ordini">Vai agli Ordini</Link>
         </p>
       ) : null}

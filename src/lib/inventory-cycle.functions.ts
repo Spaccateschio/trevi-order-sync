@@ -18,6 +18,8 @@ export type CycleStatus = {
   list_status?: string | null;
   list_items?: number;
   missing_orders?: number;
+  cycle_outcome?: "completato" | "da_verificare" | null;
+  to_verify?: number;
 };
 
 export const getInventoryCycleStatus = createServerFn({ method: "POST" })
