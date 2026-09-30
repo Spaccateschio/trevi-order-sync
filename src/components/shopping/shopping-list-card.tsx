@@ -61,7 +61,7 @@ function useDecidedUnitOptions(itemId: string, enabled: boolean, manualCodes: st
   for (const [unitId, { code, factors }] of byUnit) {
     const first = factors[0];
     const certain = first !== null && factors.every((f) => f === first);
-    options.push({ key: unitId, unitId, code, factor: certain ? first : null });
+    options.push({ key: unitId, unitId, code, factor: certain ? (first ?? null) : null });
     seen.add(code.trim().toUpperCase());
   }
   for (const raw of manualCodes) {
