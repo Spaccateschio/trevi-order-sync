@@ -20,51 +20,48 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
 import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
-import {
-  isTranslatable,
-  packProposal,
-  sharePercent,
-  type AssignmentRow,
-  type OverviewRow,
-} from "@/lib/shopping-list";
+import { sharePercent, type AssignmentRow, type OverviewRow } from "@/lib/shopping-list";
 import { assignShoppingListSupplier } from "@/lib/shopping-list.functions";
-
-type PurchaseUnit = {
-  id: string;
-  unit_id: string;
-  code: string;
-  description: string | null;
-  is_default: boolean;
-  is_active: boolean;
-  conversion_factor: number | null;
-  conversion_type: "esatta" | "indicativa";
-};
 
 type SupplierOption = {
   link_id: string;
   supplier_record_id: string;
   supplier_name: string;
-  purchase_unit_code: string | null;
-  conversion_factor: number | null;
-  conversion_reference_um: string | null;
-  manual_cost: number | null;
-  manual_cost_at: string | null;
-  danea_net_cost: number | null;
-  danea_cost_at: string | null;
   min_quantity: number | null;
   lead_time_days: number | null;
-  is_preferred: boolean;
+  manual_cost: number | null;
+  danea_net_cost: number | null;
   sourcing_priority: number | null;
   supplier_reference_label: string | null;
   is_active: boolean;
-  purchase_units: PurchaseUnit[] | null;
 };
 
-type Draft = { quantity: string; packs: string; accepted: boolean; unitId: string };
+type UnitOption = {
+  unit_id: string;
+  code: string;
+  is_default: boolean;
+  conversion_factor: number | null;
+  conversion_type: "esatta" | "indicativa" | null;
+};
+
+type LinkUnits = {
+  link_id: string;
+  is_b2b: boolean;
+  source_linked: boolean;
+  allow_manual: boolean;
+  units: UnitOption[];
+};
+
+const MANUAL = "__manuale__";
+
+/** Nuova ripartizione in preparazione: U.M. sempre scelta esplicitamente (nessuna predefinita automatica). */
+type Draft = { unit: string; manual: string; quantity: string; accepted: boolean };
+const EMPTY: Draft = { unit: "", manual: "", quantity: "", accepted: false };
 
 /**
- * Ripartizione della quantità tra fornitori: nessuna redistribuzione automatica e nessun
- * arrotondamento imposto. Le confezioni intere restano una proposta da confermare.
+ * Ripartizione della quantità tra fornitori. Ogni ripartizione = quantità + U.M. d'acquisto del fornitore.
+ * B2B: solo U.M. pubblicate dal venditore. Non B2B: U.M. esistente oppure «Altra U.M.» (senza conversione).
+ * La quantità totale della Lista non viene mai toccata.
  */
 export function SupplierSplitDialog({
   companyId,
@@ -72,7 +69,6 @@ export function SupplierSplitDialog({
   open,
   onOpenChange,
   editable,
-  b2bSupplierIds,
 }: {
   companyId: string;
   item: OverviewRow;
@@ -85,19 +81,31 @@ export function SupplierSplitDialog({
   const runAssign = useServerFn(assignShoppingListSupplier);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
 
+  useEffect(() => {
+    if (!open) setDrafts({});
+  }, [open]);
+
   const suppliersQuery = useQuery({
     queryKey: ["product-supplier-overview", item.product_id],
     enabled: open,
     queryFn: async (): Promise<SupplierOption[]> => {
-      const { data, error } = await supabase.rpc("product_supplier_overview", {
-        _product_id: item.product_id,
-      });
+      const { data, error } = await supabase.rpc("product_supplier_overview", { _product_id: item.product_id });
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as SupplierOption[];
     },
   });
 
-  // Giorni di consegna: sola segnalazione, nessun filtro sulle righe.
+  const unitsQuery = useQuery({
+    queryKey: ["shopping-item-supplier-units", item.item_id],
+    enabled: open,
+    queryFn: async (): Promise<Record<string, LinkUnits>> => {
+      const { data, error } = await supabase.rpc("shopping_item_supplier_units", { _item_id: item.item_id });
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []) as unknown as LinkUnits[];
+      return Object.fromEntries(rows.map((row) => [row.link_id, row]));
+    },
+  });
+
   const deliveries = useDeliverySchedules(item.product_id, open).data ?? {};
 
   const assignmentsQuery = useQuery({
@@ -115,38 +123,14 @@ export function SupplierSplitDialog({
     },
   });
 
-  useEffect(() => {
-    if (!open) {
-      setDrafts({});
-      return;
-    }
-    const existing = assignmentsQuery.data;
-    if (!existing) return;
-    // Le righe già salvate aggiornano i campi; le quantità digitate e non ancora salvate
-    // per gli altri fornitori restano intatte.
-    setDrafts((current) => {
-      const next = { ...current };
-      for (const row of existing) {
-        next[row.product_supplier_link_id] = {
-          quantity: row.assigned_quantity !== null ? String(row.assigned_quantity) : "",
-          packs: row.purchase_quantity !== null ? String(row.purchase_quantity) : "",
-          accepted: row.min_warning_accepted,
-          unitId: next[row.product_supplier_link_id]?.unitId || row.purchase_unit_id || "",
-        };
-      }
-      return next;
-    });
-  }, [open, assignmentsQuery.data]);
-
-
   const mutation = useMutation({
     mutationFn: (input: {
       action: "set" | "remove";
       linkId: string;
-      quantity: number | null;
       packs: number | null;
       accepted: boolean;
       unitId?: string | null;
+      manualUnitCode?: string | null;
       assignmentId?: string | null;
     }) =>
       runAssign({
@@ -155,28 +139,33 @@ export function SupplierSplitDialog({
           itemId: item.item_id,
           action: input.action,
           linkId: input.linkId,
-          assignedQuantity: input.quantity,
+          assignedQuantity: null,
           purchaseQuantity: input.packs,
           minWarningAccepted: input.accepted,
           notes: null,
           purchaseUnitId: input.unitId ?? null,
           assignmentId: input.assignmentId ?? null,
+          manualUnitCode: input.manualUnitCode ?? null,
         },
       }),
-    onSuccess: async () => {
+    onSuccess: async (_data, input) => {
+      if (input.action === "set") setDrafts((current) => ({ ...current, [input.linkId]: EMPTY }));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", item.item_id] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
       ]);
-      toast.success("Assegnazione aggiornata");
+      toast.success("Ripartizione aggiornata");
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   const suppliers = (suppliersQuery.data ?? []).filter((row) => row.is_active);
+  const unitsByLink = unitsQuery.data ?? {};
   const assignments = assignmentsQuery.data ?? [];
+  // Solo le ripartizioni con equivalente entrano nel totale: «Non convertibile» non vale 0.
   const assignedTotal = assignments.reduce((sum, row) => sum + Number(row.assigned_quantity ?? 0), 0);
-  // Obiettivo facoltativo: senza quantità decisa non esiste un «da assegnare».
+  const unconvertible = assignments.filter((row) => row.assigned_quantity === null).length;
   const remaining = item.decided_quantity === null ? null : Number(item.decided_quantity) - assignedTotal;
   const unit = item.unit_code ?? "";
 
@@ -185,21 +174,23 @@ export function SupplierSplitDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {item.description ?? item.code} {item.decided_quantity !== null ? ` · obiettivo ${qty(item.decided_quantity)} ${unit}` : ""}
+            {item.description ?? item.code}
+            {item.decided_quantity !== null ? ` · da acquistare ${qty(item.decided_quantity)} ${unit}` : ""}
           </DialogTitle>
           <DialogDescription>
-            Assegna la quantità a uno o più fornitori. Cambiare un fornitore non modifica gli altri.
+            Ripartisci l'acquisto tra uno o più fornitori, ognuno con la sua U.M. La quantità da acquistare non cambia.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
-            <p className="text-[11px] text-muted-foreground">Richieste</p>
+            <p className="text-[11px] text-muted-foreground">Da acquistare</p>
             <p className="text-lg font-semibold leading-tight">{item.decided_quantity !== null ? `${qty(item.decided_quantity)} ${unit}` : "—"}</p>
           </div>
           <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
             <p className="text-[11px] text-muted-foreground">Assegnate</p>
             <p className="text-lg font-semibold leading-tight">{qty(assignedTotal)} {unit}</p>
+            {unconvertible ? <p className="text-[10px] font-semibold text-destructive">+{unconvertible} non convertibil{unconvertible === 1 ? "e" : "i"}</p> : null}
           </div>
           <div
             className={`rounded-md border px-2 py-1.5 ${
@@ -210,46 +201,41 @@ export function SupplierSplitDialog({
                   : "border-primary bg-primary/10"
             }`}
           >
-            <p className="text-[11px]">Da assegnare</p>
+            <p className="text-[11px]">Mancano</p>
             <p className="text-lg font-semibold leading-tight">{remaining === null ? "—" : `${qty(remaining)} ${unit}`}</p>
           </div>
         </div>
-        {remaining !== null && remaining < 0 ? (
-          <p className="text-xs font-medium text-destructive">
-            Assegnati {qty(assignedTotal)} su {qty(item.decided_quantity)}: correggi tu le quantità.
-          </p>
-        ) : null}
 
         {!suppliers.length ? (
-          <p className="text-sm text-muted-foreground">
-            Nessun fornitore attivo per questo prodotto: associane uno dalla scheda prodotto.
-          </p>
+          <p className="text-sm text-muted-foreground">Nessun fornitore attivo per questo prodotto: associane uno dalla scheda prodotto.</p>
         ) : null}
 
         <ul className="divide-y divide-border">
           {suppliers.map((supplier) => {
-            const draft = drafts[supplier.link_id] ?? { quantity: "", packs: "", accepted: false, unitId: "" };
-            const existing = assignments.find((row) => row.product_supplier_link_id === supplier.link_id);
-            const quantity = parseQuantity(draft.quantity) ?? 0;
-            // U.M. acquistabili della referenza: la scelta è dell'operatore, la predefinita è solo un suggerimento.
-            const purchaseUnits = (supplier.purchase_units ?? []).filter((row) => row.is_active);
-            const chosen =
-              purchaseUnits.find((row) => row.unit_id === draft.unitId) ??
-              purchaseUnits.find((row) => row.is_default) ??
-              (purchaseUnits.length === 1 ? purchaseUnits[0] : null);
-            const purchaseCode = chosen?.code ?? supplier.purchase_unit_code ?? supplier.conversion_reference_um;
-            // Senza conversione registrata non esistono equivalenze: nessuna proposta a confezioni.
-            const factor = chosen ? chosen.conversion_factor : supplier.conversion_factor;
-            const translatable = isTranslatable(item.unit_code, purchaseCode, factor);
-            const proposal = packProposal(quantity, factor);
+            const info = unitsByLink[supplier.link_id];
+            const options = info?.units ?? [];
+            const draft = drafts[supplier.link_id] ?? EMPTY;
+            const rows = assignments.filter((row) => row.product_supplier_link_id === supplier.link_id);
+            const isManual = draft.unit === MANUAL;
+            const chosen = options.find((row) => row.unit_id === draft.unit) ?? null;
+            const packs = parseQuantity(draft.quantity);
+            const code = isManual ? draft.manual.trim().toUpperCase() : chosen?.code ?? "";
+            const equivalent = chosen?.conversion_factor && packs ? packs * Number(chosen.conversion_factor) : null;
             const belowMin =
-              supplier.min_quantity !== null && quantity > 0 && quantity < Number(supplier.min_quantity);
+              supplier.min_quantity !== null && equivalent !== null && equivalent < Number(supplier.min_quantity);
+            const b2bBlocked = Boolean(info?.is_b2b && !info.source_linked);
+            const canSave =
+              editable &&
+              !mutation.isPending &&
+              !b2bBlocked &&
+              (packs ?? 0) > 0 &&
+              (isManual ? code.length > 0 : Boolean(chosen));
 
             return (
               <li key={supplier.link_id} className="space-y-2 py-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium">{supplier.supplier_name}</span>
-                  {b2bSupplierIds?.has(supplier.supplier_record_id) ? (
+                  {info?.is_b2b ? (
                     <span className="rounded border border-primary/50 bg-primary/10 px-1 text-[9px] font-semibold leading-4">B2B</span>
                   ) : null}
                   {supplier.supplier_reference_label ? (
@@ -261,185 +247,157 @@ export function SupplierSplitDialog({
                       Priorità {supplier.sourcing_priority}
                     </Badge>
                   ) : null}
-                  {existing ? (
-                    <Badge variant="outline">
-                      {existing.purchase_quantity !== null
-                        ? `${qty(existing.purchase_quantity)} ${existing.purchase_unit_code ?? ""}`
-                        : `${qty(existing.assigned_quantity)} ${unit}`}
-                      {existing.assigned_quantity !== null && existing.purchase_quantity !== null && existing.purchase_unit_code !== item.unit_code
-                        ? ` ≈ ${qty(existing.assigned_quantity)} ${unit}`
-                        : ""}
-                      {existing.assigned_quantity === null ? " · senza equivalente" : ` · ${sharePercent(Number(existing.assigned_quantity), assignedTotal)}%`}
-                    </Badge>
-                  ) : null}
-                  {deliveries[supplier.link_id] ? (
-                    <DeliveryHintBadge schedule={deliveries[supplier.link_id]!.schedule} />
-                  ) : null}
+                  {deliveries[supplier.link_id] ? <DeliveryHintBadge schedule={deliveries[supplier.link_id]!.schedule} /> : null}
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  U.M. acquisto {purchaseCode ?? "—"}
-                  {factor
-                    ? ` · 1 ${purchaseCode} ${chosen?.conversion_type === "esatta" ? "=" : "≈"} ${qty(factor)} ${supplier.conversion_reference_um ?? unit}`
-                    : " · nessuna conversione"}
-                  {supplier.min_quantity !== null ? ` · minimo ${qty(supplier.min_quantity)}` : ""}
+                  {supplier.min_quantity !== null ? `Minimo ${qty(supplier.min_quantity)} ${unit}` : "Nessun minimo"}
                   {supplier.lead_time_days !== null ? ` · consegna ${supplier.lead_time_days} gg` : ""}
                   {supplier.danea_net_cost !== null ? ` · costo Danea ${euro(supplier.danea_net_cost)}` : ""}
                   {supplier.manual_cost !== null ? ` · costo Trevi Fruit ${euro(supplier.manual_cost)}` : ""}
                 </p>
 
-                {purchaseUnits.length > 1 ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Acquisto in:</span>
-                    {purchaseUnits.map((row) => (
-                      <Button
-                        key={row.id}
-                        type="button"
-                        size="sm"
-                        variant={chosen?.unit_id === row.unit_id ? "default" : "outline"}
-                        aria-pressed={chosen?.unit_id === row.unit_id}
-                        disabled={!editable || mutation.isPending}
-                        onClick={() =>
-                          setDrafts((current) => ({
-                            ...current,
-                            [supplier.link_id]: { ...draft, unitId: row.unit_id, packs: "" },
-                          }))
-                        }
-                      >
-                        {row.code}
-                        {row.is_default ? <Star className="fill-current" aria-hidden="true" /> : null}
-                      </Button>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="flex flex-wrap items-end gap-2">
-                  <label className="text-xs">
-                    Quantità ({unit || "U.M. lista"})
-                    <Input
-                      className="mt-1 h-9 w-28"
-                      inputMode="decimal"
-                      value={draft.quantity}
-                      disabled={!editable}
-                      aria-label={`Quantità ${supplier.supplier_name}`}
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [supplier.link_id]: { ...draft, quantity: event.target.value },
-                        }))
-                      }
-                    />
-                  </label>
-                  <label className="text-xs">
-                    Quantità da acquistare ({purchaseCode ?? "U.M. acquisto"})
-                    <Input
-                      className="mt-1 h-9 w-28"
-                      inputMode="decimal"
-                      value={draft.packs}
-                      disabled={!editable}
-                      aria-label={`Quantità da acquistare ${supplier.supplier_name}`}
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [supplier.link_id]: { ...draft, packs: event.target.value },
-                        }))
-                      }
-                    />
-                  </label>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={!editable || ((parseQuantity(draft.packs) ?? 0) <= 0 && quantity <= 0) || mutation.isPending}
-                    onClick={() =>
-                      mutation.mutate({
-                        action: "set",
-                        linkId: supplier.link_id,
-                        quantity,
-                        packs: parseQuantity(draft.packs),
-                        accepted: belowMin ? draft.accepted : false,
-                        unitId: chosen?.unit_id ?? null,
-                        assignmentId: existing?.id ?? null,
-                      })
-                    }
-                  >
-                    Salva
-                  </Button>
-                  {existing ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!editable || mutation.isPending}
-                      onClick={() =>
-                        mutation.mutate({
-                          action: "remove",
-                          linkId: supplier.link_id,
-                          quantity: null,
-                          packs: null,
-                          accepted: false,
-                          assignmentId: existing?.id ?? null,
-                        })
-                      }
-                    >
-                      <Trash2 aria-hidden="true" />
-                      Togli
-                    </Button>
-                  ) : null}
-                </div>
-
-                {proposal && quantity > 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    {qty(quantity)} {unit} ≈ {qty(Number(proposal.rawPacks.toFixed(2)))} {purchaseCode}
-                    {proposal.exact ? null : (
-                      <>
-                        {" "}
-                        · in confezioni intere {proposal.wholePacks} {purchaseCode} ≈ {qty(proposal.equivalent)}{" "}
-                        {unit} (+{qty(proposal.surplus)} {unit})
+                {rows.length ? (
+                  <ul className="space-y-1">
+                    {rows.map((row) => (
+                      <li key={row.id} className="flex flex-wrap items-center gap-2 rounded-sm bg-muted/40 px-2 py-1 text-sm">
+                        <span className="font-semibold">
+                          {row.purchase_quantity !== null
+                            ? `${qty(row.purchase_quantity)} ${row.purchase_unit_code ?? ""}`
+                            : `${qty(row.assigned_quantity)} ${unit}`}
+                        </span>
+                        {row.assigned_quantity === null ? (
+                          <span className="text-xs font-semibold text-destructive">· Non convertibile</span>
+                        ) : row.purchase_unit_code && row.purchase_unit_code !== unit ? (
+                          <span className="text-xs text-muted-foreground">≈ {qty(row.assigned_quantity)} {unit}</span>
+                        ) : null}
+                        {row.assigned_quantity !== null && assignedTotal > 0 ? (
+                          <span className="text-xs text-muted-foreground">· {sharePercent(Number(row.assigned_quantity), assignedTotal)}%</span>
+                        ) : null}
                         {editable ? (
                           <Button
                             type="button"
                             size="sm"
                             variant="ghost"
-                            className="ml-1 h-6 px-2"
+                            className="ml-auto h-7 px-2"
+                            disabled={mutation.isPending}
+                            aria-label={`Togli ${row.purchase_unit_code ?? ""} di ${supplier.supplier_name}`}
                             onClick={() =>
-                              setDrafts((current) => ({
-                                ...current,
-                                [supplier.link_id]: { ...draft, packs: String(proposal.wholePacks) },
-                              }))
+                              mutation.mutate({ action: "remove", linkId: supplier.link_id, packs: null, accepted: false, assignmentId: row.id })
                             }
                           >
-                            Usa {proposal.wholePacks}
+                            <Trash2 aria-hidden="true" />
+                            Togli
                           </Button>
                         ) : null}
-                      </>
-                    )}
-                  </p>
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
 
-                {!translatable ? (
+                {b2bBlocked ? (
                   <p className="flex items-center gap-1 text-xs font-medium text-destructive">
                     <AlertTriangle className="size-3.5" aria-hidden="true" />
-                    Conversione {unit}↔{purchaseCode} mancante: imposta la conversione nella scheda prodotto,
-                    altrimenti la riga non può essere completata.
+                    Prodotto del fornitore non collegato: U.M. non disponibili
                   </p>
-                ) : null}
-
-                {belowMin ? (
-                  <label className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
-                    <input
-                      type="checkbox"
-                      checked={draft.accepted}
-                      disabled={!editable}
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [supplier.link_id]: { ...draft, accepted: event.target.checked },
-                        }))
-                      }
-                    />
-                    Sotto il minimo di {supplier.supplier_name} ({qty(supplier.min_quantity)} {unit}):
-                    procedo comunque
-                  </label>
+                ) : editable ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">U.M.:</span>
+                      {options.map((row) => (
+                        <Button
+                          key={row.unit_id}
+                          type="button"
+                          size="sm"
+                          variant={draft.unit === row.unit_id ? "default" : "outline"}
+                          aria-pressed={draft.unit === row.unit_id}
+                          className="h-8 px-2"
+                          onClick={() => setDrafts((c) => ({ ...c, [supplier.link_id]: { ...draft, unit: row.unit_id } }))}
+                        >
+                          {row.code}
+                        </Button>
+                      ))}
+                      {info?.allow_manual ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={isManual ? "default" : "outline"}
+                          aria-pressed={isManual}
+                          className="h-8 px-2"
+                          onClick={() => setDrafts((c) => ({ ...c, [supplier.link_id]: { ...draft, unit: MANUAL } }))}
+                        >
+                          Altra U.M.
+                        </Button>
+                      ) : null}
+                      {info?.is_b2b && !options.length ? (
+                        <span className="text-xs text-destructive">Il venditore non ha pubblicato U.M. per questo prodotto</span>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap items-end gap-2">
+                      {isManual ? (
+                        <label className="text-xs">
+                          Altra U.M.
+                          <Input
+                            className="mt-1 h-9 w-32 uppercase"
+                            maxLength={20}
+                            placeholder="es. PEDANE"
+                            value={draft.manual}
+                            aria-label={`Altra U.M. ${supplier.supplier_name}`}
+                            onChange={(e) => setDrafts((c) => ({ ...c, [supplier.link_id]: { ...draft, manual: e.target.value } }))}
+                          />
+                        </label>
+                      ) : null}
+                      <label className="text-xs">
+                        Quantità {code ? `(${code})` : ""}
+                        <Input
+                          className="mt-1 h-9 w-28"
+                          inputMode="decimal"
+                          value={draft.quantity}
+                          aria-label={`Quantità ${supplier.supplier_name}`}
+                          onChange={(e) => setDrafts((c) => ({ ...c, [supplier.link_id]: { ...draft, quantity: e.target.value } }))}
+                        />
+                      </label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!canSave}
+                        onClick={() =>
+                          mutation.mutate({
+                            action: "set",
+                            linkId: supplier.link_id,
+                            packs,
+                            accepted: belowMin ? draft.accepted : false,
+                            unitId: isManual ? null : chosen?.unit_id ?? null,
+                            manualUnitCode: isManual ? draft.manual : null,
+                          })
+                        }
+                      >
+                        Salva
+                      </Button>
+                    </div>
+                    {packs && (chosen || isManual) ? (
+                      <p className="text-xs text-muted-foreground">
+                        {qty(packs)} {code}{" "}
+                        {equivalent !== null ? (
+                          <>
+                            {chosen?.conversion_type === "esatta" ? "=" : "≈"} {qty(Number(equivalent.toFixed(3)))} {unit}
+                          </>
+                        ) : (
+                          <span className="font-semibold text-destructive">· Non convertibile (non conta nel totale assegnato)</span>
+                        )}
+                      </p>
+                    ) : null}
+                    {belowMin ? (
+                      <label className="flex items-center gap-2 text-xs text-destructive">
+                        <input
+                          type="checkbox"
+                          checked={draft.accepted}
+                          onChange={(e) => setDrafts((c) => ({ ...c, [supplier.link_id]: { ...draft, accepted: e.target.checked } }))}
+                        />
+                        Sotto il minimo di {supplier.supplier_name} ({qty(supplier.min_quantity)} {unit}): procedo comunque
+                      </label>
+                    ) : null}
+                  </div>
                 ) : null}
               </li>
             );
