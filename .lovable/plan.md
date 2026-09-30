@@ -1,54 +1,32 @@
-# Chiusura della Lista della Spesa: confronto con l'esistente e piano
+# Chiusura della Lista della Spesa
 
-## 1. Cosa esiste già
-- **Lista**: stati `aperta → confermata → chiusa / annullata`, con `confirmed_at`, `confirmed_by` e `closed_at`. Una nuova Lista nasce solo alla prima azione salvata.
-- **Conferma** (`manage_shopping_list`, azione confirm): oggi blocca la conferma se un prodotto non ha una ripartizione valida.
-- **Generazione ordini** (`create_purchase_orders_from_list`): funziona solo su una Lista confermata e raggruppa per fornitore. Ogni ordine riceve il numero `ORD` (`next_document_number`) e resta collegato a `shopping_list_id`. Se la Lista ha già ordini si ferma, quindi non ne crea di doppi.
-- **Fotografia sulle righe d'ordine**: quantità, U.M. d'acquisto, fattore di conversione, prezzo, U.M. del prezzo, codice del fornitore e collegamento alla ripartizione di origine.
-- **Ordine**: stati `bozza → inviato → …`, con `sent_at` e note. `manage_purchase_order` si occupa di invio, destinazione, note, annullamento e chiusura. Dopo l'invio non si possono più cambiare destinazione e righe.
-- **Link esterno per il fornitore** (`purchase_order_share_links`), con numero di accessi.
+## Regole decise
+- **Quantità mancante (vuota o 0)**: errore bloccante, con l'elenco dei prodotti e un link alle card.
+- **Quantità senza fornitore**: non è un errore. Diventa **ACQUISTO DIRETTO** (nessuna domanda «Conferma comunque»).
+- **Assegnazione parziale** (20 kg, di cui Trevi 10 kg): il residuo va negli acquisti diretti solo se si calcola con certezza (stessa U.M. o conversione certa). Altrimenti lo segnalo nel riepilogo senza inventare quantità.
+- Gli acquisti diretti restano nella Lista chiusa e non vengono copiati nella Lista successiva.
+- **Consegna**: indirizzo aziendale precompilato; data, fascia «dalle–alle» e note generali modificabili. Sono il valore di partenza per ogni ordine, ma si possono cambiare per il singolo fornitore. La fotografia viene salvata su ogni ordine.
+- **Note**: generali della Lista, per singolo ordine fornitore e per singolo acquisto diretto (luogo facoltativo, es. «prendere al CAR»).
+- Dopo la chiusura la Lista è storico e non si può più modificare. L'area di lavoro si svuota e la prossima azione crea una nuova Lista LS.
+- Gli ordini nascono **DA INVIARE**. L'invio è un passaggio separato (lo faremo dopo).
 
-## 2. Cosa manca
-| Punto richiesto | Stato oggi |
-|---|---|
-| Numero Lista `LS-000123` | Manca: esiste solo un nome libero |
-| Righe incomplete: la quantità mancante blocca, il fornitore mancante è solo un avviso con «Conferma comunque» | Oggi il fornitore mancante blocca la conferma |
-| Riepilogo prima della conferma (prodotti, ordini per fornitore) | Manca |
-| Data, fascia oraria e indirizzo di consegna per questa Lista, precompilati dall'azienda | Manca (gli ordini hanno solo il magazzino di destinazione) |
-| Note per singolo fornitore | In parte: gli ordini hanno le note, la Lista no |
-| Conferma e generazione ordini in un'unica operazione | Oggi sono due passaggi separati |
-| Protezione dal doppio clic lato database | In parte: c'è il controllo «ordini già presenti», ma senza blocco della Lista |
-| Fotografia del nome prodotto e dei dati di consegna | Manca: il nome prodotto viene letto dalla scheda attuale |
-| Stato di invio separato (DA INVIARE / INVIATO / ERRORE INVIO) e storico degli invii e reinvii | Manca: c'è solo `sent_at` |
-| Storico Liste, dettaglio, stampa | Manca |
-| Area di lavoro pulita dopo la chiusura | Già così: una Lista confermata non è più «aperta» |
-
-## 3. Cosa si può riutilizzare
-Le tabelle `shopping_lists`, `shopping_list_items`, `shopping_list_item_suppliers`, `purchase_orders` e `purchase_order_items`. Le funzioni `next_document_number`, `create_purchase_orders_from_list` (la logica di raggruppamento), `manage_purchase_order` e `shopping_list_overview`.
-
-## 4. Modifiche al database davvero necessarie
-1. `shopping_lists`: aggiungere `number` (LS-…), `delivery_date`, `delivery_time_from`/`to`, `delivery_address_id` più la fotografia testuale dell'indirizzo, e `general_notes`.
-2. `purchase_orders`: aggiungere `send_status` (da_inviare / inviato / errore_invio), `delivery_*` (fotografia) e `supplier_notes`.
+## Modifiche al database
+1. `shopping_lists`: `number` (LS-000001, numerazione esistente), `delivery_date`, `delivery_time_from`, `delivery_time_to`, `delivery_address_id`, `delivery_address_text` (fotografia), `general_notes`.
+2. `purchase_orders`: `send_status` (da_inviare / inviato / errore_invio, predefinito da_inviare), gli stessi campi di consegna come fotografia e `supplier_notes`. Gli ordini esistenti restano validi.
 3. `purchase_order_items`: fotografia di `product_name` e `product_code`.
-4. Nuova tabella `purchase_order_send_events`: invio, reinvio ed errore, con canale, data e autore. Solo inserimento, mai modifiche.
-5. Nuova funzione `close_shopping_list(list, dati consegna, note, note per fornitore, accept_unassigned)` descritta al punto 5.
-6. Blocco delle modifiche su Lista, righe e ripartizioni quando lo stato non è `aperta`. In parte esiste già con `assert_shopping_list_open`: va verificato che copra tutto.
+4. Nuova tabella `shopping_list_direct_purchases`: Lista, prodotto, fotografia di nome e codice, quantità, U.M. (id + codice), nota e origine (intero / residuo). Solo lettura dopo la chiusura, con accesso limitato all'azienda.
+5. Nuova funzione `close_shopping_list(list, consegna generale, note generali, eccezioni per fornitore in jsonb, note acquisti diretti in jsonb)`, in un'unica transazione:
+   blocco della Lista → se è già chiusa restituisce il risultato esistente (doppio clic innocuo) → validazione delle quantità → numero LS → fotografia dei dati di consegna e delle note → acquisti diretti (interi e residui certi) → ordini per fornitore con la logica attuale di `create_purchase_orders_from_list` → Lista `confermata`. Se un passaggio fallisce, annulla tutto.
+6. Funzione di anteprima `shopping_list_close_preview(list)`: prodotti, errori, ordini per fornitore, acquisti diretti e residui non calcolabili. Usa le stesse regole della chiusura.
+7. Verifico che tutte le modifiche a Lista, righe e ripartizioni siano rifiutate quando la Lista non è aperta.
 
-## 5. Chiusura atomica
-Una sola funzione nel database, in un'unica transazione:
-1. Blocca la Lista (`SELECT … FOR UPDATE`). Se è già confermata e ha ordini, restituisce gli stessi ordini senza creare nulla: così il doppio clic è innocuo.
-2. Controlla che ogni prodotto abbia una quantità. Se ne manca una, si ferma ed elenca i prodotti.
-3. Se ci sono prodotti senza ripartizione e l'utente non ha scelto «Conferma comunque», si ferma e li elenca.
-4. Assegna il numero LS, salva la fotografia dei dati di consegna e delle note, e porta la Lista a `confermata`.
-5. Crea gli ordini per fornitore con la logica attuale, con `send_status = da_inviare` e la fotografia del prodotto.
-6. Se un passaggio fallisce, annulla tutto.
+## Interfaccia
+- «Conferma lista» apre il riepilogo con: errori, dati di consegna generali, ordini per fornitore (apribili per modificare consegna e note), acquisti diretti con nota, e in evidenza «15 prodotti verranno ordinati / 3 acquisti diretti». Poi «Conferma e genera», protetto dal doppio clic.
+- Pagina **Storico Liste**: numero, data, stato, prodotti, fornitori, ordini, data di consegna, chi ha confermato. Il dettaglio mostra gli ordini generati e gli acquisti diretti.
+- **Stampa**: Lista completa e «Stampa acquisti diretti» con la casella ☐ per ogni riga (dalla stampa del browser si può salvare in PDF).
 
-L'invio (WhatsApp, email, link, B2B) resta un'operazione separata. Se fallisce, registra «errore invio» e la Lista resta chiusa. «Riprova invio» e «Rinvia» aggiungono solo un evento, senza creare nuovi ordini.
+## Verifiche
+Prove della chiusura in una transazione annullata alla fine: blocco per quantità mancante, acquisto diretto intero e residuo, residuo non calcolabile, doppia chiamata, consegna per fornitore, rollback. Nessun dato reale modificato.
 
-## 6. Interfaccia (dopo il database)
-- «Conferma lista» apre un riepilogo con gli errori bloccanti, gli avvisi, gli ordini per fornitore, i dati di consegna modificabili e le note, poi il pulsante «Conferma e genera ordini».
-- Pagina «Storico Liste» con dettaglio e stampa (la stampa del browser permette anche di salvare in PDF).
-
-## Da decidere
-- Prodotti senza fornitore dopo «Conferma comunque»: restano nella Lista chiusa come «non ordinati» (proposta), oppure passano automaticamente nella Lista successiva?
-- Fonte dei dati di consegna abituali: oggi non esiste un campo aziendale con giorni e orari preferiti. Proposta: precompilare solo l'indirizzo di consegna dell'azienda e lasciare data e orario da inserire.
+## Fuori da questo lavoro
+Invio, reinvio e storico invii, Carico Merce, DDT, preferenze di consegna aziendali.
