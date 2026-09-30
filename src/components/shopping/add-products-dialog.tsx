@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ImageOff, Search } from "lucide-react";
+import { ImageOff, Search, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -18,6 +18,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity } from "@/lib/inventory";
+import { getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
+import { cn } from "@/lib/utils";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
 
@@ -54,6 +56,8 @@ export function AddProductsDialog({
   const queryClient = useQueryClient();
   const runAdd = useServerFn(addShoppingListItems);
   const getImageUrls = useServerFn(getProductImageUrls);
+  const readFavorites = useServerFn(getFavoriteProductIds);
+  const runFavorite = useServerFn(manageCompanyProductFavorite);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Record<string, string>>({});
 
@@ -94,6 +98,27 @@ export function AddProductsDialog({
     () => new Map((imagesQuery.data ?? []).map((image) => [image.productId, image.url])),
     [imagesQuery.data],
   );
+
+  // Stesso Preferito dell'Inventario: con la stella il prodotto torna nei prossimi Inventari (non entra da solo in Lista).
+  const favoriteIds = useMemo(() => visible.map((row) => row.id).sort(), [visible]);
+  const favoritesQuery = useQuery({
+    queryKey: ["shopping-extras-favorites", companyId, "add", favoriteIds],
+    enabled: open && favoriteIds.length > 0,
+    queryFn: async () => new Set(await readFavorites({ data: { companyId, productIds: favoriteIds } })),
+  });
+  const favoriteMutation = useMutation({
+    mutationFn: (input: { productId: string; favorite: boolean }) =>
+      runFavorite({ data: { companyId, productId: input.productId, favorite: input.favorite } }),
+    onSuccess: async (_result, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-favorites", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventario-preferiti-prodotti"] }),
+        queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
+      ]);
+      toast.success(input.favorite ? "Preferito: lo ritroverai nei prossimi Inventari" : "Tolto dai preferiti");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const selectedIds = Object.keys(selected);
   const missingQuantity = selectedIds.filter((id) => {
@@ -146,7 +171,7 @@ export function AddProductsDialog({
         <DialogHeader>
           <DialogTitle>Aggiungi prodotti</DialogTitle>
           <DialogDescription>
-            Scegli uno o più prodotti e scrivi per ognuno la quantità da acquistare.
+            Scegli uno o più prodotti e scrivi per ognuno la quantità da acquistare. Con la stella ★ il prodotto diventa preferito e lo ritroverai nei prossimi Inventari.
           </DialogDescription>
         </DialogHeader>
         <div className="relative">
@@ -181,6 +206,24 @@ export function AddProductsDialog({
                     {row.danea_um ? ` · ${row.danea_um}` : ""}
                   </p>
                 </div>
+                {(() => {
+                  const fav = favoritesQuery.data?.has(row.id) ?? false;
+                  return (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn("h-7 w-7 shrink-0 px-0", fav && "text-primary")}
+                      disabled={favoriteMutation.isPending || !favoritesQuery.data}
+                      aria-pressed={fav}
+                      aria-label={fav ? `Togli ${row.code} dai preferiti` : `Metti ${row.code} nei preferiti`}
+                      title={fav ? "Togli dai preferiti" : "Preferito: torna nei prossimi Inventari"}
+                      onClick={() => favoriteMutation.mutate({ productId: row.id, favorite: !fav })}
+                    >
+                      <Star className={cn("size-3.5", fav && "fill-current")} aria-hidden="true" />
+                    </Button>
+                  );
+                })()}
                 {inList ? (
                   <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">Già in lista</Badge>
                 ) : isSelected ? (

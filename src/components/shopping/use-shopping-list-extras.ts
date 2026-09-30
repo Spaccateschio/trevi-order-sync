@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { getFavoriteProductIds } from "@/lib/inventory-count.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import type { OverviewRow } from "@/lib/shopping-list";
 
@@ -50,6 +51,7 @@ type AssignmentRead = {
 
 export function useShoppingListExtras(companyId: string, listId: string | null, rows: OverviewRow[]) {
   const getImageUrls = useServerFn(getProductImageUrls);
+  const readFavorites = useServerFn(getFavoriteProductIds);
   const productIds = useMemo(() => [...new Set(rows.map((row) => row.product_id))].sort(), [rows]);
   const itemIds = useMemo(() => rows.map((row) => row.item_id).sort(), [rows]);
 
@@ -66,15 +68,8 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
   const favoritesQuery = useQuery({
     queryKey: ["shopping-extras-favorites", companyId, productIds],
     enabled: productIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("company_product_favorites")
-        .select("product_id")
-        .eq("company_id", companyId)
-        .in("product_id", productIds);
-      if (error) throw new Error(error.message);
-      return new Set((data ?? []).map((row) => row.product_id));
-    },
+    // Stesso Preferito dell'Inventario: stella sul prodotto oppure sulla referenza del catalogo fornitore.
+    queryFn: async () => new Set(await readFavorites({ data: { companyId, productIds } })),
   });
 
   const imagesQuery = useQuery({
