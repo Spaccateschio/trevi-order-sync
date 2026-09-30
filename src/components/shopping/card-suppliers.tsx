@@ -260,6 +260,9 @@ function PriceLine({ price }: { price: NonNullable<CardSupplier["price"]> }) {
 }
 
 type Draft = { unit: string; manual: string; quantity: string; accepted: boolean };
+/** Modifica: dati permanenti del collegamento (solo non B2B) + quantità di questa Lista. */
+type Edit = { linkId: string; assignmentId: string | null; quantity: string; unit: string; manual: string; price: string; priceUnit: string };
+const NO_PRICE_UNIT = "__nessuna__";
 
 export function CardSuppliers({
   companyId,
@@ -281,7 +284,13 @@ export function CardSuppliers({
   const runAssign = useServerFn(assignShoppingListSupplier);
   const { suppliers, loading, label } = useCardSuppliers(companyId, row, pending);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
-  const [editing, setEditing] = useState<{ id: string; quantity: string } | null>(null);
+  const [orphanEditing, setOrphanEditing] = useState<{ id: string; quantity: string } | null>(null);
+  const [editing, setEditing] = useState<Edit | null>(null);
+  const companyUnits = useCompanyUnits(companyId);
+  const setEditingNull = () => {
+    setEditing(null);
+    setOrphanEditing(null);
+  };
   const unit = row.unit_code ?? "";
 
   const mutation = useMutation({
