@@ -94,6 +94,7 @@ export function ShoppingListCard({
   onToggleLock,
   lockPending = false,
   onUnitChange,
+  onClearQuantity,
   pending = false,
   pendingQuantity,
   show = ALL_VISIBLE,
@@ -251,6 +252,20 @@ export function ShoppingListCard({
   const quantityBlock = (
     <div className="flex min-w-0 items-center gap-1.5">
       {editable ? quantityInput : <span className="text-sm font-semibold">{target === null ? "—" : qty(target)}</span>}
+      {editable && onClearQuantity && target !== null ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-9 w-7 shrink-0 px-0 text-muted-foreground"
+          aria-label={`Cancella la quantità da acquistare di ${name}`}
+          title="Cancella la quantità"
+          disabled={locked || lockPending}
+          onClick={onClearQuantity}
+        >
+          <X className="size-3.5" aria-hidden="true" />
+        </Button>
+      ) : null}
       {editable && !pending && onUnitChange && unitOptions.length ? (
         <Select
           value={decidedKey}
