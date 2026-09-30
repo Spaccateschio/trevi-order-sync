@@ -24,9 +24,18 @@ Cosa vedrai nella finestra «Fornitori e ripartizione» (e nel riepilogo della c
 Inventario, Fabbisogno, Ordini, Consegne, Carico Merce, semaforo, U.M. del prezzo, regole di conversione.
 
 ## Dettagli tecnici
-A. Frontend (nessuna modifica DB prevista):
-- `shopping-list-panel.tsx`: per le righe pending, `onToggleLock` = helper protetto dai doppi clic che (1) assicura la lista (helper esistente), (2) `addShoppingListItems` con la quantità, (3) `setShoppingListItemQuantity` se serve, (4) `setShoppingListItemQuantityLock(true)`. In caso di errore a metà il prodotto resta in Lista sbloccato e si mostra l'errore.
-- `shopping-list-card.tsx`: mostrare `lockButton` anche con `pending`.
+A. Conferma atomica (richiede una piccola modifica DB, da approvare prima):
+- Verifica: oggi creare la lista, aggiungere il prodotto e bloccarlo sono tre regole separate nel database; chiamarle in fila dal browser può lasciare «In lista ma non confermato». Quindi serve una sola regola nuova.
+- Nuova RPC `confirm_shopping_list_product(_company_id, _list_id uuid NULL, _inventory_session_id uuid NULL, _product_id, _quantity numeric, _suggested numeric NULL)` SECURITY DEFINER, search_path = public, autorizzazione con auth.uid() + is_company_member:
+  1. se `_list_id` è NULL crea la lista collegata all'inventario con la stessa logica di `manage_shopping_list` (nessuna lista fantasma: nasce solo qui);
+  2. richiede `_quantity > 0`;
+  3. inserisce la riga (U.M. di magazzino come `add_shopping_list_items`) oppure, se il prodotto è già in lista, aggiorna la quantità solo se non è già bloccata;
+  4. imposta `quantity_locked_at = now()`, `quantity_locked_by = auth.uid()`;
+  5. tutto in un'unica transazione: se un passo fallisce non resta nulla di parziale. Restituisce list_id e item_id.
+  - GRANT EXECUTE solo ad authenticated; nessuna nuova tabella/colonna.
+- `shopping-list.functions.ts`: `confirmShoppingListProduct` con context.supabase.
+- `shopping-list-panel.tsx`: sulle card «Da valutare» la Conferma chiama solo questa funzione (protetta dai doppi clic), poi ricarica.
+- `shopping-list-card.tsx`: Conferma visibile anche su «Da valutare»; sfondo/bordo ocra dell'intera card deciso solo da `quantity_locked_at` letto dal database; bloccati solo quantità e +1/+3/+5/+10; fornitori, ripartizioni, U.M. fornitore e menu restano attivi.
 
 B. Ripartizione:
 - `supplier-split-dialog.tsx`: B2B → solo `purchase_units` attive del venditore (già così, verifico che non ci siano fallback); non B2B → elenco U.M. esistenti + campo «Altra U.M.» testuale.
