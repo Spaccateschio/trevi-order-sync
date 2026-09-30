@@ -432,8 +432,8 @@ export function CardSuppliers({
                   size="sm"
                   variant="ghost"
                   className="h-7 gap-1 px-1.5 text-[11px]"
-                  disabled={mutation.isPending || assignment.purchaseQuantity === null}
-                  onClick={() => setEditing({ id: assignment.id, quantity: assignment.purchaseQuantity === null ? "" : String(assignment.purchaseQuantity) })}
+                  disabled={busy}
+                  onClick={() => startEdit(s, assignment)}
                 >
                   <Pencil className="size-3" aria-hidden="true" /> Modifica
                 </Button>
@@ -442,7 +442,7 @@ export function CardSuppliers({
                   size="sm"
                   variant="ghost"
                   className="h-7 gap-1 px-1.5 text-[11px] text-destructive"
-                  disabled={mutation.isPending}
+                  disabled={busy}
                   onClick={() =>
                     mutation.mutate({ action: "remove", linkId: s.linkId, packs: null, accepted: false, unitId: null, manualUnitCode: null, assignmentId: assignment.id })
                   }
@@ -454,41 +454,15 @@ export function CardSuppliers({
           </div>
         ) : null}
 
-        {editingAssignment && assignment ? (
-          <div className="flex items-center gap-1">
-            <Input
-              className="h-8 w-20 text-right"
-              inputMode="decimal"
-              autoFocus
-              value={editingAssignment.quantity}
-              aria-label={`Quantità ${s.name}`}
-              onChange={(e) => setEditing({ id: assignment.id, quantity: e.target.value })}
-            />
-            <span className="text-xs font-semibold">{assignment.purchaseUnitCode ?? unit}</span>
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              disabled={mutation.isPending || !editPacks || editPacks <= 0}
-              onClick={() =>
-                mutation.mutate({
-                  action: "set",
-                  linkId: s.linkId,
-                  packs: editPacks,
-                  accepted: true,
-                  unitId: assignment.purchaseUnitId,
-                  manualUnitCode: assignment.purchaseUnitId ? null : assignment.purchaseUnitCode,
-                  assignmentId: assignment.id,
-                })
-              }
-            >
-              Salva
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 px-0" aria-label="Annulla modifica" onClick={() => setEditing(null)}>
-              <X aria-hidden="true" />
+        {!assignment && editable && !editingLink ? (
+          <div className="flex justify-end">
+            <Button type="button" size="sm" variant="ghost" className="h-6 gap-1 px-1.5 text-[11px]" disabled={busy} onClick={() => startEdit(s, null)}>
+              <Pencil className="size-3" aria-hidden="true" /> Modifica
             </Button>
           </div>
         ) : null}
+
+        {editingLink ? editForm(s, assignment) : null}
 
         {(!assignment || !show.splits) && canWrite && !b2bBlocked && !noUnits ? (
           <div className="space-y-1">
