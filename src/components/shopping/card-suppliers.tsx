@@ -38,6 +38,8 @@ type CardSupplier = {
   units: Unit[];
   price: { net: number | null; gross: number | null; unitCode: string | null } | null;
   isPreferred: boolean;
+  priceUnitId: string | null;
+  manualCost: number | null;
 };
 
 type OverviewRead = {
@@ -229,6 +231,8 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
               }
             : null,
       isPreferred: Boolean(s.is_preferred),
+      priceUnitId: linkPrices.data?.get(s.link_id) ?? null,
+      manualCost: s.manual_cost === null ? null : Number(s.manual_cost),
     };
   });
 
@@ -260,6 +264,9 @@ function PriceLine({ price }: { price: NonNullable<CardSupplier["price"]> }) {
 }
 
 type Draft = { unit: string; manual: string; quantity: string; accepted: boolean };
+/** Modifica: dati permanenti del collegamento (solo non B2B) + quantità di questa Lista. */
+type Edit = { linkId: string; assignmentId: string | null; quantity: string; unit: string; manual: string; price: string; priceUnit: string };
+const NO_PRICE_UNIT = "__nessuna__";
 
 export function CardSuppliers({
   companyId,
@@ -281,7 +288,13 @@ export function CardSuppliers({
   const runAssign = useServerFn(assignShoppingListSupplier);
   const { suppliers, loading, label } = useCardSuppliers(companyId, row, pending);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
-  const [editing, setEditing] = useState<{ id: string; quantity: string } | null>(null);
+  const [orphanEditing, setOrphanEditing] = useState<{ id: string; quantity: string } | null>(null);
+  const [editing, setEditing] = useState<Edit | null>(null);
+  const companyUnits = useCompanyUnits(companyId);
+  const setEditingNull = () => {
+    setEditing(null);
+    setOrphanEditing(null);
+  };
   const unit = row.unit_code ?? "";
 
   const mutation = useMutation({
@@ -311,7 +324,7 @@ export function CardSuppliers({
       }),
     onSuccess: async (_data, input) => {
       setDrafts((current) => ({ ...current, [input.linkId]: { unit: "", manual: "", quantity: "", accepted: false } }));
-      setEditing(null);
+      setEditingNull();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
@@ -353,13 +366,217 @@ export function CardSuppliers({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Salva modifiche: un solo pulsante. Non B2B → prima i dati permanenti del collegamento
+  // (stessa RPC della scheda Prodotto), poi la quantità di questa Lista con la regola di sempre.
+  const editMutation = useMutation({
+    mutationFn: async ({ s, e }: { s: CardSupplier; e: Edit }) => {
+      const packs = e.quantity.trim() ? parseQuantity(e.quantity) : null;
+      if (e.quantity.trim() && (packs === null || packs <= 0)) throw new Error("Quantità non valida");
+      if (e.assignmentId && !packs) throw new Error("Indica la quantità");
+      const isManual = e.unit === MANUAL;
+      if (packs && !isManual && !e.unit) throw new Error("Scegli l'U.M. d'acquisto");
+      if (isManual && !e.manual.trim()) throw new Error("Scrivi l'U.M. d'acquisto");
+      if (!s.isB2B) {
+        const cost = e.price.trim() ? parseQuantity(e.price) : null;
+        if (e.price.trim() && (cost === null || cost < 0)) throw new Error("Prezzo non valido");
+        const priceUnitId = e.priceUnit === NO_PRICE_UNIT ? null : e.priceUnit;
+        if (cost !== s.manualCost || priceUnitId !== s.priceUnitId) {
+          const { data: link, error: readError } = await supabase
+            .from("product_supplier_links")
+            .select("supplier_product_code, supplier_reference_label, sourcing_priority, purchase_unit_id, conversion_factor, conversion_reference_um, min_quantity, lead_time_days, notes")
+            .eq("id", s.linkId)
+            .maybeSingle();
+          if (readError || !link) throw new Error(readError?.message ?? "Collegamento non trovato");
+          const { error } = await supabase.rpc("manage_product_supplier_link", stripUndefined({
+            _company_id: companyId,
+            _action: "update",
+            _link_id: s.linkId,
+            _supplier_product_code: link.supplier_product_code ?? undefined,
+            _supplier_reference_label: link.supplier_reference_label ?? undefined,
+            _sourcing_priority: link.sourcing_priority ?? undefined,
+            _purchase_unit_id: link.purchase_unit_id ?? undefined,
+            _conversion_factor: link.conversion_factor === null ? undefined : Number(link.conversion_factor),
+            _conversion_reference_um: link.conversion_reference_um ?? undefined,
+            _min_quantity: link.min_quantity === null ? undefined : Number(link.min_quantity),
+            _lead_time_days: link.lead_time_days ?? undefined,
+            _notes: link.notes ?? undefined,
+            ...(cost !== null ? { _manual_cost: cost } : {}),
+            ...(priceUnitId ? { _price_unit_id: priceUnitId } : {}),
+          }));
+          if (error) throw new Error(error.message);
+        }
+        // Nuova U.M. d'acquisto dell'elenco aziendale: diventa U.M. del collegamento (resta per le prossime Liste).
+        if (e.unit && !isManual && !s.units.some((u) => u.unitId === e.unit)) {
+          const args = { _company_id: companyId, _link_id: s.linkId, _unit_id: e.unit };
+          const { error } = await supabase.rpc("manage_product_supplier_link_unit", { ...args, _action: "add" });
+          if (error) throw new Error(error.message);
+          if (!s.units.length) {
+            const { error: defError } = await supabase.rpc("manage_product_supplier_link_unit", { ...args, _action: "set_default" });
+            if (defError) throw new Error(defError.message);
+          }
+        }
+      }
+      if (packs && !pending) {
+        await runAssign({
+          data: {
+            companyId,
+            itemId: row.item_id,
+            action: "set",
+            linkId: s.linkId,
+            assignedQuantity: null,
+            purchaseQuantity: packs,
+            minWarningAccepted: true,
+            notes: null,
+            purchaseUnitId: isManual ? null : e.unit,
+            assignmentId: e.assignmentId,
+            manualUnitCode: isManual ? e.manual : null,
+          },
+        });
+      }
+    },
+    onSuccess: async () => {
+      setEditingNull();
+      await Promise.all([
+        refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+      ]);
+      toast.success("Modifiche salvate");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const busy = mutation.isPending || editMutation.isPending;
+
+  const startEdit = (s: CardSupplier, assignment: RowSupplier | null) => {
+    const single = s.units.length === 1 && !s.allowManual;
+    setOrphanEditing(null);
+    setEditing({
+      linkId: s.linkId,
+      assignmentId: assignment?.id ?? null,
+      quantity: assignment?.purchaseQuantity != null ? String(assignment.purchaseQuantity) : "",
+      unit: assignment ? (assignment.purchaseUnitId ?? MANUAL) : single ? s.units[0]!.unitId : "",
+      manual: assignment && !assignment.purchaseUnitId ? (assignment.purchaseUnitCode ?? "") : "",
+      price: s.manualCost === null ? "" : String(s.manualCost).replace(".", ","),
+      priceUnit: s.priceUnitId ?? NO_PRICE_UNIT,
+    });
+  };
+
+  const editForm = (s: CardSupplier, assignment: RowSupplier | null) => {
+    const e = editing!;
+    const patch = (p: Partial<Edit>) => setEditing({ ...e, ...p });
+    const allUnits = companyUnits.data ?? [];
+    // Non B2B: U.M. del collegamento + elenco aziendale d'acquisto + «Altra U.M.». B2B: solo quelle pubblicate dal venditore.
+    const options = s.isB2B
+      ? s.units.map((u) => ({ id: u.unitId, text: label(u) }))
+      : [
+          ...s.units.map((u) => ({ id: u.unitId, text: label(u) })),
+          ...allUnits
+            .filter((u) => u.usage !== "vendita" && !s.units.some((x) => x.unitId === u.id))
+            .map((u) => ({ id: u.id, text: label({ unitId: u.id, code: u.code }) })),
+        ];
+    const b2bSingle = s.isB2B && options.length === 1;
+    const canQuantity = !pending && !(s.isB2B && (!s.sourceLinked || !s.units.length));
+    return (
+      <div className="space-y-1.5 rounded-sm border border-primary/40 bg-muted/40 p-1.5">
+        {s.isB2B ? (
+          <p className="text-[11px] text-muted-foreground">
+            {s.price ? "Prezzo pubblicato dal venditore: non modificabile" : "Prezzo: lo decide il venditore"}
+          </p>
+        ) : (
+          <>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dati del fornitore per questo prodotto</p>
+            <div className="flex flex-wrap items-center gap-1">
+              <Input
+                className="h-8 w-20 text-right"
+                inputMode="decimal"
+                placeholder="Prezzo"
+                value={e.price}
+                aria-label={`Prezzo ${s.name}`}
+                onChange={(ev) => patch({ price: ev.target.value })}
+              />
+              <span className="text-xs">€ /</span>
+              <Select value={e.priceUnit} onValueChange={(v) => patch({ priceUnit: v })}>
+                <SelectTrigger className="h-8 w-auto min-w-20 text-xs" aria-label={`U.M. prezzo ${s.name}`}>
+                  <SelectValue placeholder="U.M. prezzo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_PRICE_UNIT}>U.M. prezzo non indicata</SelectItem>
+                  {allUnits.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{label({ unitId: u.id, code: u.code })}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
+        {canQuantity || !s.isB2B ? (
+          <>
+            {!s.isB2B ? <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Acquisto</p> : null}
+            <div className="flex flex-wrap items-center gap-1">
+              {canQuantity ? (
+                <Input
+                  className="h-8 w-16 text-right"
+                  inputMode="decimal"
+                  placeholder="Qtà"
+                  autoFocus
+                  value={e.quantity}
+                  aria-label={`Quantità ${s.name}`}
+                  onChange={(ev) => patch({ quantity: ev.target.value })}
+                />
+              ) : null}
+              {b2bSingle ? (
+                <span className="text-xs font-semibold">{options[0]!.text}</span>
+              ) : options.length || !s.isB2B ? (
+                <Select value={e.unit} onValueChange={(v) => patch({ unit: v })}>
+                  <SelectTrigger className="h-8 w-auto min-w-24 max-w-40 text-xs" aria-label={`U.M. acquisto ${s.name}`}>
+                    <SelectValue placeholder="U.M. acquisto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {options.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>{o.text}</SelectItem>
+                    ))}
+                    {!s.isB2B ? <SelectItem value={MANUAL}>Altra U.M.</SelectItem> : null}
+                  </SelectContent>
+                </Select>
+              ) : null}
+              {e.unit === MANUAL ? (
+                <Input
+                  className="h-8 w-24 uppercase"
+                  maxLength={20}
+                  placeholder="es. PEDANE"
+                  value={e.manual}
+                  aria-label={`Altra U.M. ${s.name}`}
+                  onChange={(ev) => patch({ manual: ev.target.value })}
+                />
+              ) : null}
+            </div>
+            {e.unit === MANUAL && !canQuantity ? (
+              <p className="text-[11px] text-muted-foreground">«Altra U.M.» vale solo per l'acquisto di questa Lista.</p>
+            ) : null}
+          </>
+        ) : null}
+        <div className="flex items-center gap-1">
+          <Button type="button" size="sm" className="h-8 px-2 text-xs" disabled={busy} onClick={() => editMutation.mutate({ s, e })}>
+            Salva modifiche
+          </Button>
+          <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setEditing(null)}>
+            Annulla
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <p className="text-xs text-muted-foreground">Caricamento fornitori…</p>;
 
   const byLink = new Map(assignments.map((a) => [a.linkId, a]));
 
   // Una riga per fornitore collegato: ripartizione salvata (Modifica/Togli) oppure modulo Qtà/U.M./Salva.
   const supplierRow = (s: CardSupplier, assignment: RowSupplier | null) => {
-    const editingAssignment = assignment && editing && editing.id === assignment.id ? editing : null;
+    const editingLink = editing && editing.linkId === s.linkId ? editing : null;
+    const editingAssignment = assignment && editingLink ? editingLink : null;
     const draft = drafts[s.linkId] ?? { unit: "", manual: "", quantity: "", accepted: false };
     const set = (patch: Partial<Draft>) => setDrafts((c) => ({ ...c, [s.linkId]: { ...draft, ...patch } }));
     const b2bBlocked = s.isB2B && !s.sourceLinked;
@@ -374,7 +591,6 @@ export function CardSuppliers({
     const belowMin = s.minQuantity !== null && equivalent !== null && equivalent < s.minQuantity;
     const canSave =
       canWrite && !mutation.isPending && !b2bBlocked && (packs ?? 0) > 0 && (isManual ? code.length > 0 : Boolean(chosen)) && (!belowMin || draft.accepted);
-    const editPacks = editingAssignment ? parseQuantity(editingAssignment.quantity) : null;
 
     return (
       <li key={s.linkId} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
@@ -432,8 +648,8 @@ export function CardSuppliers({
                   size="sm"
                   variant="ghost"
                   className="h-7 gap-1 px-1.5 text-[11px]"
-                  disabled={mutation.isPending || assignment.purchaseQuantity === null}
-                  onClick={() => setEditing({ id: assignment.id, quantity: assignment.purchaseQuantity === null ? "" : String(assignment.purchaseQuantity) })}
+                  disabled={busy}
+                  onClick={() => startEdit(s, assignment)}
                 >
                   <Pencil className="size-3" aria-hidden="true" /> Modifica
                 </Button>
@@ -442,7 +658,7 @@ export function CardSuppliers({
                   size="sm"
                   variant="ghost"
                   className="h-7 gap-1 px-1.5 text-[11px] text-destructive"
-                  disabled={mutation.isPending}
+                  disabled={busy}
                   onClick={() =>
                     mutation.mutate({ action: "remove", linkId: s.linkId, packs: null, accepted: false, unitId: null, manualUnitCode: null, assignmentId: assignment.id })
                   }
@@ -454,43 +670,17 @@ export function CardSuppliers({
           </div>
         ) : null}
 
-        {editingAssignment && assignment ? (
-          <div className="flex items-center gap-1">
-            <Input
-              className="h-8 w-20 text-right"
-              inputMode="decimal"
-              autoFocus
-              value={editingAssignment.quantity}
-              aria-label={`Quantità ${s.name}`}
-              onChange={(e) => setEditing({ id: assignment.id, quantity: e.target.value })}
-            />
-            <span className="text-xs font-semibold">{assignment.purchaseUnitCode ?? unit}</span>
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              disabled={mutation.isPending || !editPacks || editPacks <= 0}
-              onClick={() =>
-                mutation.mutate({
-                  action: "set",
-                  linkId: s.linkId,
-                  packs: editPacks,
-                  accepted: true,
-                  unitId: assignment.purchaseUnitId,
-                  manualUnitCode: assignment.purchaseUnitId ? null : assignment.purchaseUnitCode,
-                  assignmentId: assignment.id,
-                })
-              }
-            >
-              Salva
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 px-0" aria-label="Annulla modifica" onClick={() => setEditing(null)}>
-              <X aria-hidden="true" />
+        {!assignment && editable && !editingLink ? (
+          <div className="flex justify-end">
+            <Button type="button" size="sm" variant="ghost" className="h-6 gap-1 px-1.5 text-[11px]" disabled={busy} onClick={() => startEdit(s, null)}>
+              <Pencil className="size-3" aria-hidden="true" /> Modifica
             </Button>
           </div>
         ) : null}
 
-        {(!assignment || !show.splits) && canWrite && !b2bBlocked && !noUnits ? (
+        {editingLink ? editForm(s, assignment) : null}
+
+        {(!assignment || !show.splits) && !editingLink && canWrite && !b2bBlocked && !noUnits ? (
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-1">
               <Input
@@ -565,7 +755,7 @@ export function CardSuppliers({
 
   // Ripartizioni senza più un fornitore collegato attivo: restano visibili e modificabili.
   const orphanRow = (a: RowSupplier) => {
-    const editingAssignment = editing && editing.id === a.id ? editing : null;
+    const editingAssignment = orphanEditing && orphanEditing.id === a.id ? orphanEditing : null;
     const editPacks = editingAssignment ? parseQuantity(editingAssignment.quantity) : null;
     return (
       <li key={a.id} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
@@ -581,7 +771,7 @@ export function CardSuppliers({
               autoFocus
               value={editingAssignment.quantity}
               aria-label={`Quantità ${a.name}`}
-              onChange={(e) => setEditing({ id: a.id, quantity: e.target.value })}
+              onChange={(e) => setOrphanEditing({ id: a.id, quantity: e.target.value })}
             />
             <span className="text-xs font-semibold">{a.purchaseUnitCode ?? unit}</span>
             <Button
@@ -603,7 +793,7 @@ export function CardSuppliers({
             >
               Salva
             </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 px-0" aria-label="Annulla modifica" onClick={() => setEditing(null)}>
+            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 px-0" aria-label="Annulla modifica" onClick={() => setOrphanEditing(null)}>
               <X aria-hidden="true" />
             </Button>
           </div>
@@ -620,7 +810,7 @@ export function CardSuppliers({
                   variant="ghost"
                   className="h-7 gap-1 px-1.5 text-[11px]"
                   disabled={mutation.isPending || a.purchaseQuantity === null}
-                  onClick={() => setEditing({ id: a.id, quantity: a.purchaseQuantity === null ? "" : String(a.purchaseQuantity) })}
+                  onClick={() => setOrphanEditing({ id: a.id, quantity: a.purchaseQuantity === null ? "" : String(a.purchaseQuantity) })}
                 >
                   <Pencil className="size-3" aria-hidden="true" /> Modifica
                 </Button>
@@ -679,4 +869,8 @@ export function CardSuppliers({
       {addButton}
     </div>
   );
+}
+
+function stripUndefined<T extends Record<string, unknown>>(obj: T) {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as { [K in keyof T]: Exclude<T[K], undefined> } & { _company_id: string; _action: string };
 }
