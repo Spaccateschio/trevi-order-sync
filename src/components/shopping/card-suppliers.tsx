@@ -564,7 +564,6 @@ export function CardSuppliers({
           <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setEditing(null)}>
             Annulla
           </Button>
-          {assignment ? null : null}
         </div>
       </div>
     );
