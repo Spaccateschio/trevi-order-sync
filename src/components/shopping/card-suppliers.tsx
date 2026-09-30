@@ -21,6 +21,9 @@ import { assignShoppingListSupplier } from "@/lib/shopping-list.functions";
  * Sezione FORNITORI della card: solo presentazione + la stessa regola di salvataggio della finestra
  * «Fornitori e ripartizione» (assignShoppingListSupplier). Nessuna logica nuova di U.M. o conversione:
  * per le righe in Lista le U.M. arrivano da shopping_item_supplier_units (regole B2B/non B2B del database).
+ *
+ * Un fornitore collegato appare UNA sola volta: con la ripartizione salvata (Modifica/Togli)
+ * oppure con il modulo Qtà/U.M./Salva se non ha ancora una ripartizione in questa Lista.
  */
 
 type Unit = { unitId: string; code: string; conversionFactor: number | null; conversionType: string | null };
@@ -352,90 +355,11 @@ export function CardSuppliers({
 
   if (loading) return <p className="text-xs text-muted-foreground">Caricamento fornitori…</p>;
 
-  const savedLine = (a: RowSupplier) => {
-    const isEditing = editing?.id === a.id;
-    const packs = isEditing ? parseQuantity(editing.quantity) : null;
-    return (
-      <li key={a.id} className="space-y-1 rounded-sm bg-muted/40 px-1.5 py-1">
-        <div className="flex min-w-0 items-center gap-1 text-xs">
-          <span className="min-w-0 flex-1 truncate font-semibold">{a.name}</span>
-          {show.b2b && a.isB2B ? <B2BBadge /> : null}
-        </div>
-        {isEditing ? (
-          <div className="flex items-center gap-1">
-            <Input
-              className="h-8 w-20 text-right"
-              inputMode="decimal"
-              autoFocus
-              value={editing.quantity}
-              aria-label={`Quantità ${a.name}`}
-              onChange={(e) => setEditing({ id: a.id, quantity: e.target.value })}
-            />
-            <span className="text-xs font-semibold">{a.purchaseUnitCode ?? unit}</span>
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              disabled={mutation.isPending || !packs || packs <= 0}
-              onClick={() =>
-                mutation.mutate({
-                  action: "set",
-                  linkId: a.linkId,
-                  packs,
-                  accepted: true,
-                  unitId: a.purchaseUnitId,
-                  manualUnitCode: a.purchaseUnitId ? null : a.purchaseUnitCode,
-                  assignmentId: a.id,
-                })
-              }
-            >
-              Salva
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 px-0" aria-label="Annulla modifica" onClick={() => setEditing(null)}>
-              <X aria-hidden="true" />
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-x-1 text-xs">
-            <span className="font-bold">
-              {a.purchaseQuantity !== null ? `${qty(a.purchaseQuantity)} ${a.purchaseUnitCode ?? ""}` : `${a.quantity === null ? "—" : qty(a.quantity)} ${unit}`}
-            </span>
-            {show.conversion && a.quantity !== null && a.purchaseUnitCode && a.purchaseUnitCode !== unit ? (
-              <span className="text-[11px] text-muted-foreground">≈ {qty(a.quantity)} {unit}</span>
-            ) : null}
-            {canWrite ? (
-              <span className="ml-auto flex items-center">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 gap-1 px-1.5 text-[11px]"
-                  disabled={mutation.isPending || a.purchaseQuantity === null}
-                  onClick={() => setEditing({ id: a.id, quantity: a.purchaseQuantity === null ? "" : String(a.purchaseQuantity) })}
-                >
-                  <Pencil className="size-3" aria-hidden="true" /> Modifica
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 gap-1 px-1.5 text-[11px] text-destructive"
-                  disabled={mutation.isPending}
-                  onClick={() =>
-                    mutation.mutate({ action: "remove", linkId: a.linkId, packs: null, accepted: false, unitId: null, manualUnitCode: null, assignmentId: a.id })
-                  }
-                >
-                  <Trash2 className="size-3" aria-hidden="true" /> Togli
-                </Button>
-              </span>
-            ) : null}
-          </div>
-        )}
-      </li>
-    );
-  };
+  const byLink = new Map(assignments.map((a) => [a.linkId, a]));
 
-  const supplierBlock = (s: CardSupplier) => {
+  // Una riga per fornitore collegato: ripartizione salvata (Modifica/Togli) oppure modulo Qtà/U.M./Salva.
+  const supplierRow = (s: CardSupplier, assignment: RowSupplier | null) => {
+    const editingAssignment = assignment && editing && editing.id === assignment.id ? editing : null;
     const draft = drafts[s.linkId] ?? { unit: "", manual: "", quantity: "", accepted: false };
     const set = (patch: Partial<Draft>) => setDrafts((c) => ({ ...c, [s.linkId]: { ...draft, ...patch } }));
     const b2bBlocked = s.isB2B && !s.sourceLinked;
@@ -450,6 +374,7 @@ export function CardSuppliers({
     const belowMin = s.minQuantity !== null && equivalent !== null && equivalent < s.minQuantity;
     const canSave =
       canWrite && !mutation.isPending && !b2bBlocked && (packs ?? 0) > 0 && (isManual ? code.length > 0 : Boolean(chosen)) && (!belowMin || draft.accepted);
+    const editPacks = editingAssignment ? parseQuantity(editingAssignment.quantity) : null;
 
     return (
       <li key={s.linkId} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
@@ -490,7 +415,82 @@ export function CardSuppliers({
           </p>
         ) : null}
 
-        {canWrite && !b2bBlocked && !noUnits ? (
+        {assignment && show.splits && !editingAssignment ? (
+          <div className="flex flex-wrap items-center gap-x-1 text-xs">
+            <span className="font-bold">
+              {assignment.purchaseQuantity !== null
+                ? `${qty(assignment.purchaseQuantity)} ${assignment.purchaseUnitCode ?? ""}`
+                : `${assignment.quantity === null ? "—" : qty(assignment.quantity)} ${unit}`}
+            </span>
+            {show.conversion && assignment.quantity !== null && assignment.purchaseUnitCode && assignment.purchaseUnitCode !== unit ? (
+              <span className="text-[11px] text-muted-foreground">≈ {qty(assignment.quantity)} {unit}</span>
+            ) : null}
+            {canWrite ? (
+              <span className="ml-auto flex items-center">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1 px-1.5 text-[11px]"
+                  disabled={mutation.isPending || assignment.purchaseQuantity === null}
+                  onClick={() => setEditing({ id: assignment.id, quantity: assignment.purchaseQuantity === null ? "" : String(assignment.purchaseQuantity) })}
+                >
+                  <Pencil className="size-3" aria-hidden="true" /> Modifica
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1 px-1.5 text-[11px] text-destructive"
+                  disabled={mutation.isPending}
+                  onClick={() =>
+                    mutation.mutate({ action: "remove", linkId: s.linkId, packs: null, accepted: false, unitId: null, manualUnitCode: null, assignmentId: assignment.id })
+                  }
+                >
+                  <Trash2 className="size-3" aria-hidden="true" /> Togli
+                </Button>
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
+        {editingAssignment && assignment ? (
+          <div className="flex items-center gap-1">
+            <Input
+              className="h-8 w-20 text-right"
+              inputMode="decimal"
+              autoFocus
+              value={editingAssignment.quantity}
+              aria-label={`Quantità ${s.name}`}
+              onChange={(e) => setEditing({ id: assignment.id, quantity: e.target.value })}
+            />
+            <span className="text-xs font-semibold">{assignment.purchaseUnitCode ?? unit}</span>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 px-2 text-xs"
+              disabled={mutation.isPending || !editPacks || editPacks <= 0}
+              onClick={() =>
+                mutation.mutate({
+                  action: "set",
+                  linkId: s.linkId,
+                  packs: editPacks,
+                  accepted: true,
+                  unitId: assignment.purchaseUnitId,
+                  manualUnitCode: assignment.purchaseUnitId ? null : assignment.purchaseUnitCode,
+                  assignmentId: assignment.id,
+                })
+              }
+            >
+              Salva
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 px-0" aria-label="Annulla modifica" onClick={() => setEditing(null)}>
+              <X aria-hidden="true" />
+            </Button>
+          </div>
+        ) : null}
+
+        {(!assignment || !show.splits) && canWrite && !b2bBlocked && !noUnits ? (
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-1">
               <Input
@@ -563,6 +563,87 @@ export function CardSuppliers({
     );
   };
 
+  // Ripartizioni senza più un fornitore collegato attivo: restano visibili e modificabili.
+  const orphanRow = (a: RowSupplier) => {
+    const editingAssignment = editing && editing.id === a.id ? editing : null;
+    const editPacks = editingAssignment ? parseQuantity(editingAssignment.quantity) : null;
+    return (
+      <li key={a.id} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
+        <div className="flex min-w-0 items-center gap-1 text-xs">
+          <span className="min-w-0 flex-1 truncate font-semibold">{a.name}</span>
+          {show.b2b && a.isB2B ? <B2BBadge /> : null}
+        </div>
+        {editingAssignment ? (
+          <div className="flex items-center gap-1">
+            <Input
+              className="h-8 w-20 text-right"
+              inputMode="decimal"
+              autoFocus
+              value={editingAssignment.quantity}
+              aria-label={`Quantità ${a.name}`}
+              onChange={(e) => setEditing({ id: a.id, quantity: e.target.value })}
+            />
+            <span className="text-xs font-semibold">{a.purchaseUnitCode ?? unit}</span>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 px-2 text-xs"
+              disabled={mutation.isPending || !editPacks || editPacks <= 0}
+              onClick={() =>
+                mutation.mutate({
+                  action: "set",
+                  linkId: a.linkId,
+                  packs: editPacks,
+                  accepted: true,
+                  unitId: a.purchaseUnitId,
+                  manualUnitCode: a.purchaseUnitId ? null : a.purchaseUnitCode,
+                  assignmentId: a.id,
+                })
+              }
+            >
+              Salva
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 px-0" aria-label="Annulla modifica" onClick={() => setEditing(null)}>
+              <X aria-hidden="true" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-1 text-xs">
+            <span className="font-bold">
+              {a.purchaseQuantity !== null ? `${qty(a.purchaseQuantity)} ${a.purchaseUnitCode ?? ""}` : `${a.quantity === null ? "—" : qty(a.quantity)} ${unit}`}
+            </span>
+            {canWrite ? (
+              <span className="ml-auto flex items-center">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1 px-1.5 text-[11px]"
+                  disabled={mutation.isPending || a.purchaseQuantity === null}
+                  onClick={() => setEditing({ id: a.id, quantity: a.purchaseQuantity === null ? "" : String(a.purchaseQuantity) })}
+                >
+                  <Pencil className="size-3" aria-hidden="true" /> Modifica
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1 px-1.5 text-[11px] text-destructive"
+                  disabled={mutation.isPending}
+                  onClick={() =>
+                    mutation.mutate({ action: "remove", linkId: a.linkId, packs: null, accepted: false, unitId: null, manualUnitCode: null, assignmentId: a.id })
+                  }
+                >
+                  <Trash2 className="size-3" aria-hidden="true" /> Togli
+                </Button>
+              </span>
+            ) : null}
+          </div>
+        )}
+      </li>
+    );
+  };
+
   const addButton = editable ? (
     <AddSupplierInline
       companyId={companyId}
@@ -584,22 +665,17 @@ export function CardSuppliers({
       </div>
     );
 
+  const orphans = assignments.filter((a) => !byLink.has(a.linkId));
+
   return (
     <div className="space-y-1">
-      {assignments.length && show.splits ? (
-        <>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Assegnati in questa Lista</p>
-          <ul className="space-y-1">{assignments.map(savedLine)}</ul>
-        </>
+      {suppliers.length || orphans.length ? (
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Fornitori</p>
       ) : null}
-      {suppliers.length ? (
-        <>
-          {assignments.length && show.splits ? (
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Collegati al prodotto</p>
-          ) : null}
-          <ul className="space-y-1">{suppliers.map(supplierBlock)}</ul>
-        </>
-      ) : null}
+      <ul className="space-y-1">
+        {suppliers.map((s) => supplierRow(s, show.splits ? (byLink.get(s.linkId) ?? null) : null))}
+        {orphans.map(orphanRow)}
+      </ul>
       {pending && suppliers.length ? (
         <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p>
       ) : null}
