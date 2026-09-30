@@ -328,17 +328,25 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   });
 
   const quantityMutation = useMutation({
-    mutationFn: (input: { itemId: string; quantity: number | null }) =>
-      runQuantity({
+    mutationFn: (input: { itemId: string; quantity: number | null; unitId?: string | null; unitCode?: string | null }) => {
+      // Se non indicata, resta la U.M. già scelta: la quantità non cambia mai U.M. da sola.
+      const current = extras.get(input.itemId);
+      const unitId = input.unitId !== undefined ? input.unitId : (current?.decidedUnitId ?? null);
+      const unitCode = input.unitCode !== undefined ? input.unitCode : (current?.decidedUnitCode ?? null);
+      return runQuantity({
         data: {
           companyId,
           itemId: input.itemId,
           decidedQuantity: input.quantity,
           reason: "Modifica manuale dell'operatore",
           notes: null,
+          decidedUnitId: unitId,
+          decidedUnitCode: unitCode,
         },
-      }),
+      });
+    },
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["shopping-extras-locks"] });
       await refresh();
       toast.success("Quantità aggiornata: il suggerito resta registrato");
     },
@@ -1083,6 +1091,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onRemove={() => removeMutation.mutate(row.item_id)}
                 onToggleLock={() => void toggleLock(row)}
                 lockPending={lockMutation.isPending || quantityMutation.isPending}
+                onUnitChange={(unitId, unitCode) => {
+                  const raw = edits[row.item_id];
+                  const value = raw !== undefined ? parseQuantity(raw) : row.decided_quantity === null ? null : Number(row.decided_quantity);
+                  quantityMutation.mutate({ itemId: row.item_id, quantity: value ?? null, unitId, unitCode });
+                }}
               />
               ),
             )}
