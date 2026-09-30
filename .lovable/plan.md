@@ -1,45 +1,85 @@
-# Lista della Spesa: Conferma su tutte le card + U.M. solo nelle ripartizioni fornitore
+# Punto B — Proposta modifica DB/RPC (NON applicata)
 
-Regola fissa: **«20 kg da acquistare» appartiene alla Lista** (U.M. del prodotto/magazzino, mai cambiata). **«2 casse da Garbaglia» appartiene alla ripartizione del fornitore.** Due livelli separati.
+## 1-2. Funzione attuale e firma
+`assign_shopping_list_supplier(_company_id uuid, _item_id uuid, _action text, _link_id uuid, _assigned_quantity numeric, _purchase_quantity numeric, _min_warning_accepted boolean, _notes text, _actor_user_id uuid, _purchase_unit_id uuid, _assignment_id uuid)`
 
-## Punto A — Conferma anche sui prodotti «Da valutare»
-Cosa vedrai:
-- Ogni card «Da valutare» ha **✓ Conferma** (non serve più prima «Aggiungi alla Lista»).
-- Scrivi 4 pz → Conferma → in un solo passaggio il prodotto entra in Lista, la quantità 4 pz viene salvata e bloccata, la card diventa ocra, compare **Sblocca**.
-- Campo quantità e +1/+3/+5/+10 bloccati; fornitori restano modificabili.
-- Senza lista aperta, la Conferma crea la lista collegata all'inventario (come oggi fa la prima azione che salva), senza liste fantasma.
-- Stato persistente nel database (quello già esistente del blocco).
-- Accanto a «Da acquistare» resta **solo la U.M. del prodotto** (kg, pz…): nessun selettore di U.M.
+Toccata anche, in sola lettura: `product_supplier_overview(_product_id uuid)`. Oggi restituisce `purchase_units` dalle U.M. locali della referenza (`product_supplier_link_units`).
 
-## Punto B — U.M. del fornitore solo dentro la sua ripartizione
-Cosa vedrai nella finestra «Fornitori e ripartizione» (e nel riepilogo della card):
-- Per ogni fornitore scegli quantità + U.M. d'acquisto: `Garbaglia → 2 CASSE`, `Rossi → 5 KG`.
-- **Fornitore B2B**: solo le U.M. che quel fornitore ha configurato per il prodotto nel suo catalogo (es. KG, CASSA). Nessuna U.M. inventata.
-- **Fornitore non B2B**: scegli una U.M. esistente **oppure** ne scrivi una a mano (es. PEDANE). Resta salvata solo in quella ripartizione, non entra nell'elenco generale e non si propaga.
-- Più fornitori sullo stesso prodotto: **una sola card, un solo prodotto**, più ripartizioni (già supportato: una riga per fornitore + U.M.). Nessun duplicato.
-- Senza conversione verso la U.M. del prodotto: la ripartizione mostra «Non convertibile» e non entra nel totale «Assegnato»; nessuna conversione stimata.
-- Cambiare la U.M. di un fornitore **non** cambia i 20 kg della card.
+## 3. Nuova firma
+Uguale a quella attuale, più un parametro in fondo:
+`_manual_unit_code text DEFAULT NULL`.
+È retrocompatibile: chi non lo passa continua a funzionare, ma senza più ripieghi.
 
-## Non tocco
-Inventario, Fabbisogno, Ordini, Consegne, Carico Merce, semaforo, U.M. del prezzo, regole di conversione.
+`product_supplier_overview`: stessa firma, con due nuovi campi in uscita:
+- `is_b2b boolean`;
+- `b2b_source_linked boolean`.
 
-## Dettagli tecnici
-A. Conferma atomica (richiede una piccola modifica DB, da approvare prima):
-- Verifica: oggi creare la lista, aggiungere il prodotto e bloccarlo sono tre regole separate nel database; chiamarle in fila dal browser può lasciare «In lista ma non confermato». Quindi serve una sola regola nuova.
-- Nuova RPC `confirm_shopping_list_product(_company_id, _list_id uuid NULL, _inventory_session_id uuid NULL, _product_id, _quantity numeric, _suggested numeric NULL)` SECURITY DEFINER, search_path = public, autorizzazione con auth.uid() + is_company_member:
-  1. se `_list_id` è NULL crea la lista collegata all'inventario con la stessa logica di `manage_shopping_list` (nessuna lista fantasma: nasce solo qui);
-  2. richiede `_quantity > 0`;
-  3. inserisce la riga (U.M. di magazzino come `add_shopping_list_items`) oppure, se il prodotto è già in lista, aggiorna la quantità solo se non è già bloccata;
-  4. imposta `quantity_locked_at = now()`, `quantity_locked_by = auth.uid()`;
-  5. tutto in un'unica transazione: se un passo fallisce non resta nulla di parziale. Restituisce list_id e item_id.
-  - GRANT EXECUTE solo ad authenticated; nessuna nuova tabella/colonna.
-- `shopping-list.functions.ts`: `confirmShoppingListProduct` con context.supabase.
-- `shopping-list-panel.tsx`: sulle card «Da valutare» la Conferma chiama solo questa funzione (protetta dai doppi clic), poi ricarica.
-- `shopping-list-card.tsx`: Conferma visibile anche su «Da valutare»; sfondo/bordo ocra dell'intera card deciso solo da `quantity_locked_at` letto dal database; bloccati solo quantità e +1/+3/+5/+10; fornitori, ripartizioni, U.M. fornitore e menu restano attivi.
+Per i B2B, `purchase_units` viene letto dal venditore.
 
-B. Ripartizione:
-- `supplier-split-dialog.tsx`: B2B → solo `purchase_units` attive del venditore (già così, verifico che non ci siano fallback); non B2B → elenco U.M. esistenti + campo «Altra U.M.» testuale.
-- Da verificare prima di scrivere codice: se `assign_shopping_list_supplier` accetta un `purchase_unit_code` testuale senza `purchase_unit_id`. Se **no**, serve una piccola migrazione (parametro testo facoltativo, ammesso solo per fornitori non B2B, equivalente NULL). Te la mostro separatamente prima di applicarla.
-- Riepilogo card: già mostra `fornitore → quantità U.M. d'acquisto`; nessun cambio di logica.
+## 4. Colonne coinvolte (`shopping_list_item_suppliers`)
+`purchase_unit_id`, `purchase_unit_code`, `purchase_quantity`, `assigned_quantity`, `conversion_factor`, `conversion_type`. Nessuna colonna nuova.
 
-Ordine: prima A (solo frontend), poi verifica e B.
+## 5. Indice UNICO attuale
+`shopping_list_item_suppliers_unique (item_id, product_supplier_link_id, COALESCE(purchase_unit_id, '0000…'))`.
+Con questo indice tutte le U.M. manuali (id nullo) coincidono, quindi PEDANA e RETINA non possono convivere.
+
+## 6. Indice nuovo
+```sql
+DROP INDEX shopping_list_item_suppliers_unique;
+CREATE UNIQUE INDEX shopping_list_item_suppliers_unique_unit
+  ON shopping_list_item_suppliers (item_id, product_supplier_link_id, purchase_unit_id)
+  WHERE purchase_unit_id IS NOT NULL;
+CREATE UNIQUE INDEX shopping_list_item_suppliers_unique_manual
+  ON shopping_list_item_suppliers (item_id, product_supplier_link_id, upper(btrim(purchase_unit_code)))
+  WHERE purchase_unit_id IS NULL AND purchase_unit_code IS NOT NULL;
+```
+Risultato:
+- «PEDANE», «pedane» e « Pedane » sono la stessa U.M. e non creano duplicati;
+- PEDANE e RETINE convivono sullo stesso fornitore e prodotto.
+
+## 7. Normalizzazione
+- Testo manuale: `upper(regexp_replace(btrim(_manual_unit_code), '\s+', ' ', 'g'))`, massimo 20 caratteri, non vuoto.
+- Viene salvato già normalizzato (es. «PEDANE»).
+- Se esiste già la stessa U.M. manuale per quel fornitore su quella riga, si aggiorna quella ripartizione invece di crearne una nuova.
+
+## 8. Come si riconosce un fornitore B2B (lato DB)
+Esiste `supplier_customer_relations r` con `r.supplier_record_id = link.supplier_record_id`, `r.buyer_company_id = _company_id` e `relation_is_operational(r.seller_company_id, _company_id)`.
+
+## 9. Prodotto originale del venditore
+Si usa `products.created_from_product_id` del mio prodotto, con `created_from_company_id = r.seller_company_id`.
+Non si fanno abbinamenti per nome o codice. Se il collegamento manca, il prodotto risulta «non collegato».
+
+## 10. Da dove si leggono le U.M. pubblicate
+`product_sale_units` del prodotto originale, con `is_active AND is_customer_visible`, unito a `units_of_measure` per il codice.
+
+## 11. Conversione
+Da `product_sale_units.conversion_factor`/`conversion_type` del venditore, e solo se `conversion_reference_um` coincide con la U.M. di magazzino della mia riga. Altrimenti l'equivalente resta NULL e appare «Non convertibile».
+
+Per le U.M. non B2B esistenti resta la conversione della referenza (`product_supplier_link_units`), come oggi. Per le U.M. manuali: conversione ed equivalente sempre NULL.
+
+## 12. Cosa viene rifiutato lato DB
+- «U.M. d'acquisto obbligatoria: sceglila esplicitamente»: quando non viene passata né una U.M. né un testo. Scompare il ripiego su predefinita o magazzino.
+- «Indica una U.M. esistente oppure un'altra U.M., non entrambe»: quando vengono passate entrambe.
+- Fornitore B2B:
+  - testo manuale → «Per i fornitori B2B la U.M. la decide il venditore»;
+  - prodotto non collegato → «Prodotto del fornitore non collegato: U.M. non disponibili»;
+  - U.M. non pubblicata o non visibile → «U.M. non pubblicata dal venditore».
+- Fornitore non B2B, U.M. esistente non abilitata sulla referenza → errore già attuale.
+- Quantità assente o ≤ 0 → già attuale.
+- Quantità in U.M. di magazzino senza U.M. esplicita: si accetta solo se `_purchase_unit_id` è la U.M. di magazzino. Vale anche per i B2B, ma solo se il venditore la pubblica.
+
+## 13. Dati esistenti interessati
+C'è una sola ripartizione in tutto il database: fornitore «trevi srl» (B2B), 5 in U.M. di magazzino, con U.M. e quantità d'acquisto vuote (dato vecchio).
+- L'indice nuovo non la tocca: con U.M. e testo nulli non rientra in nessuno dei due indici.
+- La migrazione non riscrive nessun dato.
+- Riferimenti B2B collegati al prodotto originale: 6 in totale.
+
+## 14. Retrocompatibilità
+- Le ripartizioni esistenti restano leggibili e modificabili.
+- Chi la salva di nuovo dovrà scegliere la U.M. esplicitamente.
+- Ordini generati da ripartizioni con U.M. manuale: il codice resta come fotografia e la U.M. collegata è NULL. Resta da verificare che la creazione ordini accetti una U.M. nulla. Questa verifica si fa prima di applicare; se serve un adeguamento, lo mostro a parte.
+- Punto A (Conferma, Sblocca, card ocra, quantità totale) non viene toccato.
+
+## Frontend (dopo l'applicazione)
+- `supplier-split-dialog.tsx`: U.M. B2B dal venditore oppure il messaggio «non collegato»; per i non B2B «Altra U.M.» con testo libero; nessuna U.M. preselezionata in automatico.
+- `shopping-list.functions.ts`: aggiunta di `manualUnitCode`.
