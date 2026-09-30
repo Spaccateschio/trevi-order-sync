@@ -1,6 +1,7 @@
 import { Check, Lock, MoreVertical, Package, Plus, Star, Trash2, Truck } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { CardSuppliers } from "./card-suppliers";
 import type { RowExtras } from "./use-shopping-list-extras";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,10 +23,6 @@ export type StockInfo = {
 };
 
 const QUICK_STEPS = [1, 3, 5, 10] as const;
-/** Ripartizioni mostrate direttamente: le altre restano nella finestra «Fornitori e ripartizione». */
-const VISIBLE_SPLITS = 2;
-
-type Supplier = RowExtras["suppliers"][number];
 
 /**
  * Card / Riga della Lista della Spesa: stessi dati e stessi comandi, cambia solo la disposizione.
@@ -33,6 +30,7 @@ type Supplier = RowExtras["suppliers"][number];
  * e non vengono mai modificate dai tasti rapidi.
  */
 export function ShoppingListCard({
+  companyId,
   row,
   extra,
   stock,
@@ -53,6 +51,7 @@ export function ShoppingListCard({
   pending?: boolean;
   /** Quantità scritta su un prodotto «Da valutare» (serve solo ad abilitare Conferma). */
   pendingQuantity?: number | null;
+  companyId: string;
   row: OverviewRow;
   extra: RowExtras | undefined;
   stock: StockInfo | undefined;
@@ -78,12 +77,9 @@ export function ShoppingListCard({
   const locked = Boolean(extra?.lockedAt);
 
   // Senza conversione l'equivalente non esiste: non si somma e non si inventa.
-  const convertible = (s: Supplier) => s.quantity !== null;
   const assigned = suppliers.reduce((sum, s) => sum + (s.quantity ?? 0), 0);
   const target = row.decided_quantity === null ? null : Number(row.decided_quantity);
   const gap = target === null ? null : Math.round((target - assigned) * 1000) / 1000;
-  const hiddenCount = Math.max(0, suppliers.length - VISIBLE_SPLITS);
-  const hiddenUnconvertible = suppliers.slice(VISIBLE_SPLITS).filter((s) => !convertible(s)).length;
 
   const image = (cls: string) =>
     extra?.imageUrl ? (
@@ -110,7 +106,7 @@ export function ShoppingListCard({
     </span>
   );
 
-  const actions = pending ? null : (
+  const actions = (
     <>
       <Button
         type="button"
@@ -124,6 +120,7 @@ export function ShoppingListCard({
       >
         <Star className={cn("size-3.5", isFavorite && "fill-current")} />
       </Button>
+      {pending ? null : (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" size="sm" variant="ghost" className="h-7 w-7 px-0" aria-label={`Altre azioni ${row.code}`}>
@@ -152,6 +149,7 @@ export function ShoppingListCard({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      )}
     </>
   );
 
@@ -207,23 +205,6 @@ export function ShoppingListCard({
     </p>
   ) : null;
 
-  const supplierLine = (s: Supplier) => (
-    <li key={`${s.linkId}-${s.purchaseUnitCode ?? ""}`} className="flex min-w-0 items-center gap-1">
-      <span className="min-w-0 flex-1 truncate">{s.name}</span>
-      {s.isB2B ? (
-        <span className="shrink-0 rounded border border-primary/50 bg-primary/10 px-1 text-[9px] font-semibold leading-4">B2B</span>
-      ) : null}
-      <span className="shrink-0 font-semibold">
-        {s.purchaseQuantity !== null ? `${qty(s.purchaseQuantity)} ${s.purchaseUnitCode ?? ""}` : `${s.quantity === null ? "—" : qty(s.quantity)} ${unit}`}
-      </span>
-      {!convertible(s) ? (
-        <span className="shrink-0 text-[10px] font-semibold text-destructive">· Non convertibile</span>
-      ) : s.purchaseUnitCode && s.purchaseUnitCode !== unit ? (
-        <span className="shrink-0 text-[10px] text-muted-foreground">≈ {qty(s.quantity ?? 0)} {unit}</span>
-      ) : null}
-    </li>
-  );
-
   const totals =
     suppliers.length && target !== null ? (
       <p
@@ -241,33 +222,8 @@ export function ShoppingListCard({
       <p className="text-[11px] leading-tight text-muted-foreground">Assegnato {qty(assigned)} {unit} · obiettivo non indicato</p>
     ) : null;
 
-  const splitSummary = pending ? (
-    <p className="text-xs text-muted-foreground">Fornitori e ripartizioni dopo «Aggiungi alla Lista»</p>
-  ) : suppliers.length ? (
-    <button
-      type="button"
-      className="block w-full min-w-0 rounded-sm text-left text-xs hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      onClick={onOpenSuppliers}
-      aria-label={`Fornitori e ripartizione di ${name}`}
-    >
-      <ul className="space-y-0.5">{suppliers.slice(0, VISIBLE_SPLITS).map(supplierLine)}</ul>
-      {hiddenCount ? (
-        <p className="text-[11px] font-semibold text-primary">
-          +{hiddenCount} altr{hiddenCount === 1 ? "o fornitore" : "i fornitori"}
-          {hiddenUnconvertible ? (
-            <span className="text-destructive">
-              {" "}· ⚠ {hiddenUnconvertible} non convertibil{hiddenUnconvertible === 1 ? "e" : "i"}
-            </span>
-          ) : null}
-        </p>
-      ) : null}
-    </button>
-  ) : row.suppliers_available > 0 ? (
-    <p className="text-xs text-muted-foreground">
-      {row.suppliers_available} fornitor{row.suppliers_available === 1 ? "e disponibile" : "i disponibili"}, nessuno scelto
-    </p>
-  ) : (
-    <p className="text-xs font-medium">Fornitore da definire</p>
+  const splitSummary = (
+    <CardSuppliers companyId={companyId} row={row} pending={pending} editable={editable} assignments={suppliers} />
   );
 
   const orderState =
@@ -276,24 +232,6 @@ export function ShoppingListCard({
     ) : extra?.orderState === "in_parte" ? (
       <p className="text-[11px] font-semibold text-muted-foreground">In parte in ordine</p>
     ) : null;
-
-  const supplierButton =
-    row.suppliers_available > 0 || suppliers.length ? (
-      <Button type="button" size="sm" variant="outline" className="h-8 px-2 text-xs" onClick={onOpenSuppliers} disabled={!editable && !suppliers.length}>
-        <Plus aria-hidden="true" />
-        {suppliers.length ? "Aggiungi fornitore" : "Scegli fornitore"}
-      </Button>
-    ) : (
-      <div className="grid grid-cols-2 gap-1">
-        <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-1 text-xs" disabled title="Disponibile a breve">
-          <Plus aria-hidden="true" />
-          Associa fornitore
-        </Button>
-        <Button type="button" size="sm" variant="outline" className="h-8 min-w-0 px-1 text-xs" disabled title="Disponibile a breve">
-          Acquisto manuale
-        </Button>
-      </div>
-    );
 
   if (isRow) {
     return (
@@ -375,7 +313,6 @@ export function ShoppingListCard({
         {splitSummary}
         {totals}
         {orderState}
-        {!pending && (editable || suppliers.length) ? <div className="grid">{supplierButton}</div> : null}
       </div>
     </article>
   );

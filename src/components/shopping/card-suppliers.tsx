@@ -290,13 +290,11 @@ export function CardSuppliers({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const byLink = new Map(suppliers.map((s) => [s.linkId, s]));
   const canWrite = editable && !pending;
 
   if (loading) return <p className="text-xs text-muted-foreground">Caricamento fornitori…</p>;
 
   const savedLine = (a: RowSupplier) => {
-    const info = byLink.get(a.linkId);
     const isEditing = editing?.id === a.id;
     const packs = isEditing ? parseQuantity(editing.quantity) : null;
     return (
@@ -377,7 +375,6 @@ export function CardSuppliers({
             ) : null}
           </div>
         )}
-        {info === undefined ? null : null}
       </li>
     );
   };
