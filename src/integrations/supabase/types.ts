@@ -5018,6 +5018,7 @@ export type Database = {
           _company_id: string
           _item_id: string
           _link_id?: string
+          _manual_unit_code?: string
           _min_warning_accepted?: boolean
           _notes?: string
           _purchase_quantity?: number
@@ -6273,6 +6274,23 @@ export type Database = {
       shopping_item_stock_unit_id: {
         Args: { _item_id: string }
         Returns: string
+      }
+      shopping_item_supplier_units: {
+        Args: { _item_id: string }
+        Returns: {
+          allow_manual: boolean
+          is_b2b: boolean
+          link_id: string
+          source_linked: boolean
+          units: Json
+        }[]
+      }
+      shopping_link_b2b_source: {
+        Args: { _company_id: string; _link_id: string }
+        Returns: {
+          is_b2b: boolean
+          source_product_id: string
+        }[]
       }
       shopping_list_item_state: {
         Args: { _item_id: string }
