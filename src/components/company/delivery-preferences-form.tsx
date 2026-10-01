@@ -30,7 +30,7 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
   }, [prefs.data]);
 
   const save = async () => {
-    if (from && to && from >= to) return toast.error("L'orario «dalle» deve precedere «alle»");
+    if (from && to && from >= to) { toast.error("L'orario «dalle» deve precedere «alle»"); return; }
     setSaving(true);
     const { error } = await supabase.rpc("manage_company_delivery_preferences", {
       _company_id: companyId,
@@ -40,7 +40,7 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
       _day: day,
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     await queryClient.invalidateQueries({ queryKey: ["delivery-preferences", companyId] });
     toast.success("Preferenze di consegna salvate");
   };

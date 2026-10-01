@@ -85,10 +85,10 @@ export function CloseListDialog({
 
   const submit = async () => {
     if (!preview || blocked || pendingRef.current) return;
-    if (from && to && from >= to) return toast.error("L'orario «dalle» deve precedere «alle»");
-    if (date && date < today) return toast.error("La data di consegna non può essere passata");
+    if (from && to && from >= to) { toast.error("L'orario «dalle» deve precedere «alle»"); return; }
+    if (date && date < today) { toast.error("La data di consegna non può essere passata"); return; }
     const badOv = Object.values(overrides).find((o) => o.from && o.to && o.from >= o.to);
-    if (badOv) return toast.error("In un fornitore l'orario «dalle» deve precedere «alle»");
+    if (badOv) { toast.error("In un fornitore l'orario «dalle» deve precedere «alle»"); return; }
     pendingRef.current = true;
     setPending(true);
     try {

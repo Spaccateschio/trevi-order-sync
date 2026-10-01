@@ -39,8 +39,8 @@ export function OrderDeliverySection({ order, companyId }: { order: OrderOvervie
   };
 
   const save = async () => {
-    if (from && to && from >= to) return toast.error("L'orario «dalle» deve precedere «alle»");
-    if (date && date < today) return toast.error("La data di consegna non può essere passata");
+    if (from && to && from >= to) { toast.error("L'orario «dalle» deve precedere «alle»"); return; }
+    if (date && date < today) { toast.error("La data di consegna non può essere passata"); return; }
     setSaving(true);
     try {
       await run({

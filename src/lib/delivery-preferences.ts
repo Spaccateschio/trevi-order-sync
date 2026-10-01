@@ -28,7 +28,7 @@ export function localToday(timezone: string, now = new Date()): string {
 }
 
 export function addDays(iso: string, days: number): string {
-  const [y, m, d] = iso.split("-").map(Number);
+  const [y = 0, m = 1, d = 1] = iso.split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d + days));
   return date.toISOString().slice(0, 10);
 }
