@@ -1,3 +1,4 @@
+import type * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,5 +88,30 @@ export function DeliveryPlacePicker({
         />
       ) : null}
     </div>
+  );
+}
+
+/** Orario sempre in formato italiano 24 ore (HH:mm), senza AM/PM. */
+export function TimeInput24({
+  value,
+  onChange,
+  ...rest
+}: { value: string; onChange: (value: string) => void } & Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "type">) {
+  const format = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 4);
+    return digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
+  };
+  const valid = !value || /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+  return (
+    <Input
+      {...rest}
+      type="text"
+      inputMode="numeric"
+      placeholder="HH:mm"
+      maxLength={5}
+      value={value}
+      aria-invalid={!valid}
+      onChange={(e) => onChange(format(e.target.value))}
+    />
   );
 }

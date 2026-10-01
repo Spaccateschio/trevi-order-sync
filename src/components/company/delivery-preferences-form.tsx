@@ -72,11 +72,11 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label htmlFor="dp-from">Orario predefinito — dalle</Label>
-            <Input id="dp-from" type="time" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <TimeInput24 id="dp-from" value={from} onChange={(v) => setFrom(v)} />
           </div>
           <div>
             <Label htmlFor="dp-to">alle</Label>
-            <Input id="dp-to" type="time" value={to} onChange={(e) => setTo(e.target.value)} />
+            <TimeInput24 id="dp-to" value={to} onChange={(v) => setTo(v)} />
           </div>
         </div>
         <div className="space-y-1">
