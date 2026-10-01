@@ -60,6 +60,37 @@ export const managePurchaseOrder = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Consegna e note dell'ordine DA INVIARE: modifica solo l'ordine, mai la Lista storica. */
+export const setPurchaseOrderDelivery = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        orderId: uuid,
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+        timeFrom: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).nullable(),
+        timeTo: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).nullable(),
+        addressId: uuid.nullable(),
+        addressText: z.string().trim().max(500).nullable(),
+        supplierNotes: z.string().trim().max(2000).nullable(),
+      })
+      .refine((d) => !d.timeFrom || !d.timeTo || d.timeFrom < d.timeTo, "L'orario «dalle» deve precedere «alle»")
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("set_purchase_order_delivery", {
+      _order_id: data.orderId,
+      _date: data.date as string,
+      _time_from: data.timeFrom as string,
+      _time_to: data.timeTo as string,
+      _address_id: data.addressId as string,
+      _address_text: data.addressText as string,
+      _supplier_notes: data.supplierNotes as string,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const openPurchaseDelivery = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
