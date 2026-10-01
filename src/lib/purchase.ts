@@ -120,6 +120,23 @@ export type OrderOverviewRow = {
   created_at: string;
   notes: string | null;
   lines_without_equivalent: number;
+  /** Stato di invio, separato dallo stato operativo. */
+  send_status: SendStatus;
+  delivery_date: string | null;
+  delivery_time_from: string | null;
+  delivery_time_to: string | null;
+  delivery_address_id: string | null;
+  delivery_address_text: string | null;
+  supplier_notes: string | null;
+  shopping_list_number: string | null;
+};
+
+export type SendStatus = "da_inviare" | "inviato" | "errore_invio";
+
+export const SEND_STATUS_LABEL: Record<SendStatus, string> = {
+  da_inviare: "DA INVIARE",
+  inviato: "INVIATO",
+  errore_invio: "ERRORE INVIO",
 };
 
 export type OrderItemRow = {

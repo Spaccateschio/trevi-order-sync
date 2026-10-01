@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { DeliveryComparisonPanel } from "./delivery-comparison-panel";
 import { DeliveryDeclarationPanel } from "./delivery-declaration-panel";
 import { GoodsReceiptPanel } from "./goods-receipt-panel";
+import { OrderDeliverySection } from "./order-delivery-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,7 @@ import {
   DELIVERY_ORIGIN_LABEL,
   DELIVERY_STATUS_LABEL,
   ORDER_STATUS_LABEL,
+  SEND_STATUS_LABEL,
   priceLabel,
   type DeliveryRow,
   type OrderItemRow,
@@ -207,9 +209,16 @@ export function PurchaseOrderDetail({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-base font-semibold">{order.number}</span>
+        <Badge variant={order.send_status === "da_inviare" ? "default" : order.send_status === "errore_invio" ? "destructive" : "secondary"}>
+          {SEND_STATUS_LABEL[order.send_status]}
+        </Badge>
         <Badge variant="outline">{ORDER_STATUS_LABEL[order.status]}</Badge>
-        <span className="text-sm text-muted-foreground">{order.supplier_name}</span>
+        {order.shopping_list_number ? (
+          <span className="text-sm text-muted-foreground">da {order.shopping_list_number}</span>
+        ) : null}
       </div>
+
+      <OrderDeliverySection order={order} companyId={companyId} />
 
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="rounded-lg border border-border p-3 text-sm">

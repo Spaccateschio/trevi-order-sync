@@ -546,6 +546,10 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          default_delivery_address_id: string | null
+          default_delivery_day: string
+          default_delivery_time_from: string | null
+          default_delivery_time_to: string | null
           default_price_list_number: number | null
           display_name: string
           notes: string | null
@@ -555,6 +559,10 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
+          default_delivery_address_id?: string | null
+          default_delivery_day?: string
+          default_delivery_time_from?: string | null
+          default_delivery_time_to?: string | null
           default_price_list_number?: number | null
           display_name: string
           notes?: string | null
@@ -564,6 +572,10 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
+          default_delivery_address_id?: string | null
+          default_delivery_day?: string
+          default_delivery_time_from?: string | null
+          default_delivery_time_to?: string | null
           default_price_list_number?: number | null
           display_name?: string
           notes?: string | null
@@ -576,6 +588,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: true
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_settings_default_delivery_address_id_fkey"
+            columns: ["default_delivery_address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -5263,10 +5282,22 @@ export type Database = {
         Returns: Json
       }
       company_buys: { Args: { _company_id: string }; Returns: boolean }
+      company_delivery_addresses: {
+        Args: { _company_id: string }
+        Returns: {
+          address_line: string
+          city: string
+          id: string
+          label: string
+          postal_code: string
+          street_number: string
+        }[]
+      }
       company_exists_for_vat: {
         Args: { _vat_number: string }
         Returns: boolean
       }
+      company_local_today: { Args: { _company_id: string }; Returns: string }
       company_sells: { Args: { _company_id: string }; Returns: boolean }
       compute_purchase_need: {
         Args: {
@@ -5628,6 +5659,16 @@ export type Database = {
       link_supplier_record_to_relation: {
         Args: { _relation_id: string; _supplier_record_id: string }
         Returns: string
+      }
+      manage_company_delivery_preferences: {
+        Args: {
+          _address_id: string
+          _company_id: string
+          _day: string
+          _time_from: string
+          _time_to: string
+        }
+        Returns: undefined
       }
       manage_company_product_favorite: {
         Args: {
@@ -6080,6 +6121,11 @@ export type Database = {
           created_at: string
           declared_total: number
           deliveries: number
+          delivery_address_id: string
+          delivery_address_text: string
+          delivery_date: string
+          delivery_time_from: string
+          delivery_time_to: string
           destination_location_id: string
           destination_name: string
           lines: number
@@ -6090,9 +6136,12 @@ export type Database = {
           order_id: string
           ordered_total: number
           received_total: number
+          send_status: string
           sent_at: string
+          shopping_list_number: string
           status: string
           supplier_name: string
+          supplier_notes: string
           supplier_record_id: string
         }[]
       }
@@ -6419,6 +6468,18 @@ export type Database = {
           _delivery_item_id: string
           _line_notes?: string
           _missing_reason?: string
+        }
+        Returns: string
+      }
+      set_purchase_order_delivery: {
+        Args: {
+          _address_id: string
+          _address_text: string
+          _date: string
+          _order_id: string
+          _supplier_notes: string
+          _time_from: string
+          _time_to: string
         }
         Returns: string
       }

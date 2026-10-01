@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DeliveryDatePicker, DeliveryPlacePicker } from "@/components/purchase/delivery-fields";
+import { addDays, hhmm, localToday, useDeliveryPreferences } from "@/lib/delivery-preferences";
 import { qty } from "@/lib/inventory";
 import { closeShoppingList, getShoppingListClosePreview } from "@/lib/shopping-list.functions";
 
@@ -56,13 +58,26 @@ export function CloseListDialog({
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
 
+  const prefs = useDeliveryPreferences(open ? companyId : null);
+  const today = localToday(prefs.data?.timezone ?? "Europe/Rome");
+  const initRef = useRef(false);
+  // Precompilazione dalle preferenze aziendali: solo valori iniziali, non le modifica.
   useEffect(() => {
-    if (preview?.default_address && !address) {
+    if (initRef.current || !prefs.data || !preview) return;
+    initRef.current = true;
+    const p = prefs.data;
+    setDate(p.day === "domani" ? addDays(today, 1) : today);
+    setFrom(hhmm(p.timeFrom));
+    setTo(hhmm(p.timeTo));
+    const preferred = p.addresses.find((a) => a.id === p.addressId);
+    if (preferred) {
+      setAddress(preferred.text);
+      setAddressId(preferred.id);
+    } else if (preview.default_address) {
       setAddress(preview.default_address.text);
       setAddressId(preview.default_address.id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview?.default_address?.id]);
+  }, [prefs.data, preview, today]);
 
   const blocked = Boolean(preview?.missing.length);
   const setOv = (id: string, patch: Partial<Override>) =>
@@ -70,6 +85,10 @@ export function CloseListDialog({
 
   const submit = async () => {
     if (!preview || blocked || pendingRef.current) return;
+    if (from && to && from >= to) { toast.error("L'orario «dalle» deve precedere «alle»"); return; }
+    if (date && date < today) { toast.error("La data di consegna non può essere passata"); return; }
+    const badOv = Object.values(overrides).find((o) => o.from && o.to && o.from >= o.to);
+    if (badOv) { toast.error("In un fornitore l'orario «dalle» deve precedere «alle»"); return; }
     pendingRef.current = true;
     setPending(true);
     try {
@@ -81,8 +100,8 @@ export function CloseListDialog({
             date: date || null,
             time_from: from || null,
             time_to: to || null,
-            // Indirizzo modificato a mano: vale la fotografia testuale, non l'anagrafica.
-            address_id: addressId && preview.default_address && address === preview.default_address.text ? addressId : null,
+            // Luogo scritto a mano: vale solo la fotografia testuale, nessun nuovo indirizzo in anagrafica.
+            address_id: addressId,
             address_text: address.trim() || null,
           },
           generalNotes: notes.trim() || null,
@@ -170,11 +189,8 @@ export function CloseListDialog({
 
             <section className="space-y-2">
               <h3 className="font-semibold uppercase tracking-wide text-muted-foreground">Consegna generale</h3>
-              <div className="grid gap-2 sm:grid-cols-3">
-                <div>
-                  <Label htmlFor="cl-date">Data consegna</Label>
-                  <Input id="cl-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                </div>
+              <DeliveryDatePicker id="cl-date" value={date} today={today} onChange={setDate} />
+              <div className="grid grid-cols-2 gap-2 sm:w-80">
                 <div>
                   <Label htmlFor="cl-from">Dalle</Label>
                   <Input id="cl-from" type="time" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -184,10 +200,15 @@ export function CloseListDialog({
                   <Input id="cl-to" type="time" value={to} onChange={(e) => setTo(e.target.value)} />
                 </div>
               </div>
-              <div>
-                <Label htmlFor="cl-addr">Indirizzo consegna</Label>
-                <Input id="cl-addr" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Indirizzo" />
-              </div>
+              <DeliveryPlacePicker
+                addresses={prefs.data?.addresses ?? []}
+                addressId={addressId}
+                text={address}
+                onChange={(next) => {
+                  setAddressId(next.addressId);
+                  setAddress(next.text);
+                }}
+              />
               <div>
                 <Label htmlFor="cl-notes">Note generali</Label>
                 <Textarea id="cl-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
