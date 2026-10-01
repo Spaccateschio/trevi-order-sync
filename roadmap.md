@@ -90,3 +90,5 @@
 - [x] Stella nella finestra «Aggiungi prodotti» (il preferito alimenta i prossimi Inventari, non la Lista)
 - [x] Verificare PATATE BN IT preferito sì/no nel database
 - [x] Verificare percorso BASILICO A MAZZI → ripartizione Trevi → conferma Lista → ordine
+
+- [ ] Ordini da inviare: riquadro, dettaglio, modifica consegna/note, preferenze consegna, precompilazione chiusura Lista (nessun invio reale)
