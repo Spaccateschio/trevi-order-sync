@@ -5167,6 +5167,10 @@ export type Database = {
         }
         Returns: Json
       }
+      address_has_partner_function: {
+        Args: { _address_id: string }
+        Returns: boolean
+      }
       applicable_b2b_price: {
         Args: {
           _buyer_company_id: string
