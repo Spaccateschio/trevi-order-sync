@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.company_delivery_addresses(uuid);
