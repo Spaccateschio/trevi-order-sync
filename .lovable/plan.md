@@ -1,32 +1,33 @@
-# Chiusura della Lista della Spesa
+# Ordini da inviare — schermata operativa (senza invio reale)
 
-## Regole decise
-- **Quantità mancante (vuota o 0)**: errore bloccante, con l'elenco dei prodotti e un link alle card.
-- **Quantità senza fornitore**: non è un errore. Diventa **ACQUISTO DIRETTO** (nessuna domanda «Conferma comunque»).
-- **Assegnazione parziale** (20 kg, di cui Trevi 10 kg): il residuo va negli acquisti diretti solo se si calcola con certezza (stessa U.M. o conversione certa). Altrimenti lo segnalo nel riepilogo senza inventare quantità.
-- Gli acquisti diretti restano nella Lista chiusa e non vengono copiati nella Lista successiva.
-- **Consegna**: indirizzo aziendale precompilato; data, fascia «dalle–alle» e note generali modificabili. Sono il valore di partenza per ogni ordine, ma si possono cambiare per il singolo fornitore. La fotografia viene salvata su ogni ordine.
-- **Note**: generali della Lista, per singolo ordine fornitore e per singolo acquisto diretto (luogo facoltativo, es. «prendere al CAR»).
-- Dopo la chiusura la Lista è storico e non si può più modificare. L'area di lavoro si svuota e la prossima azione crea una nuova Lista LS.
-- Gli ordini nascono **DA INVIARE**. L'invio è un passaggio separato (lo faremo dopo).
+Non si implementano: invio B2B, WhatsApp, email, notifiche, PDF, conferma fornitore, dichiarazione di consegna. La Lista della Spesa non viene toccata.
 
-## Modifiche al database
-1. `shopping_lists`: `number` (LS-000001, numerazione esistente), `delivery_date`, `delivery_time_from`, `delivery_time_to`, `delivery_address_id`, `delivery_address_text` (fotografia), `general_notes`.
-2. `purchase_orders`: `send_status` (da_inviare / inviato / errore_invio, predefinito da_inviare), gli stessi campi di consegna come fotografia e `supplier_notes`. Gli ordini esistenti restano validi.
-3. `purchase_order_items`: fotografia di `product_name` e `product_code`.
-4. Nuova tabella `shopping_list_direct_purchases`: Lista, prodotto, fotografia di nome e codice, quantità, U.M. (id + codice), nota e origine (intero / residuo). Solo lettura dopo la chiusura, con accesso limitato all'azienda.
-5. Nuova funzione `close_shopping_list(list, consegna generale, note generali, eccezioni per fornitore in jsonb, note acquisti diretti in jsonb)`, in un'unica transazione:
-   blocco della Lista → se è già chiusa restituisce il risultato esistente (doppio clic innocuo) → validazione delle quantità → numero LS → fotografia dei dati di consegna e delle note → acquisti diretti (interi e residui certi) → ordini per fornitore con la logica attuale di `create_purchase_orders_from_list` → Lista `confermata`. Se un passaggio fallisce, annulla tutto.
-6. Funzione di anteprima `shopping_list_close_preview(list)`: prodotti, errori, ordini per fornitore, acquisti diretti e residui non calcolabili. Usa le stesse regole della chiusura.
-7. Verifico che tutte le modifiche a Lista, righe e ripartizioni siano rifiutate quando la Lista non è aperta.
+## Cosa esiste già (riutilizzo)
+- Ordine: `status` (bozza/inviato/…) e `send_status` (da_inviare/inviato/errore_invio) già separati; data, dalle, alle, indirizzo (id + testo) e note fornitore già salvati sull'ordine alla chiusura Lista.
+- Indirizzi aziendali con funzioni (sede, consegna, magazzino) e impostazioni aziendali (`company_settings`, con fuso orario): si riusano, nessun duplicato.
 
-## Interfaccia
-- «Conferma lista» apre il riepilogo con: errori, dati di consegna generali, ordini per fornitore (apribili per modificare consegna e note), acquisti diretti con nota, e in evidenza «15 prodotti verranno ordinati / 3 acquisti diretti». Poi «Conferma e genera», protetto dal doppio clic.
-- Pagina **Storico Liste**: numero, data, stato, prodotti, fornitori, ordini, data di consegna, chi ha confermato. Il dettaglio mostra gli ordini generati e gli acquisti diretti.
-- **Stampa**: Lista completa e «Stampa acquisti diretti» con la casella ☐ per ogni riga (dalla stampa del browser si può salvare in PDF).
+## 1. Acquisti → Ordini
+- Riquadro in evidenza **«Ordini da inviare — N»** (send_status = da_inviare e ordine non annullato).
+- Card: fornitore, numero ORD, n. prodotti, «Consegna: Oggi · 01/10/2026», «06:00 – 09:00», indirizzo, badge **DA INVIARE**, pulsante «Visualizza ordine».
+- Sotto: gruppi **Inviati** ed **Errore invio** (quest'ultimo visibile solo se esistono ordini in errore). Lo stato operativo (Bozza, Parzialmente consegnato…) resta mostrato a parte.
 
-## Verifiche
-Prove della chiusura in una transazione annullata alla fine: blocco per quantità mancante, acquisto diretto intero e residuo, residuo non calcolabile, doppia chiamata, consegna per fornitore, rollback. Nessun dato reale modificato.
+## 2. Dettaglio ordine
+- Sezioni FORNITORE, CONSEGNA (data con Oggi/Domani, fascia, indirizzo), NOTE, PRODOTTI (quantità + U.M. d'acquisto; equivalente e prezzo solo se presenti).
+- Se DA INVIARE: pulsante «Modifica consegna e note» → data (Oggi / Domani / Altra data, niente date passate), dalle/alle (controllo dalle < alle), destinazione (indirizzi aziendali o testo), note per il fornitore. Salva solo sull'ordine: la Lista LS resta com'è.
+- Se INVIATO: tutto in sola lettura (regola già pronta per il futuro invio).
 
-## Fuori da questo lavoro
-Invio, reinvio e storico invii, Carico Merce, DDT, preferenze di consegna aziendali.
+## 3. Preferenze di consegna (Impostazioni azienda)
+- Nuova sezione «Preferenze di consegna»: destinazione predefinita (tra gli indirizzi aziendali), orario predefinito dalle/alle, data predefinita Oggi/Domani (salvata come scelta, non come data fissa; default Oggi).
+- Solo gli amministratori dell'azienda possono modificarle.
+
+## 4. Chiusura Lista — solo precompilazione
+- Nella finestra di chiusura esistente: data con `[Oggi] [Domani] [Altra data]`, fascia e destinazione precompilate dalle preferenze. Oggi/Domani calcolati con il fuso dell'azienda (non UTC). Modifiche occasionali non cambiano le preferenze. Override per singolo fornitore invariato.
+- Nessuna modifica alla logica di chiusura.
+
+## Dettagli tecnici
+- Migrazione: colonne su `company_settings`: `default_delivery_address_id uuid`, `default_delivery_time_from/to time`, `default_delivery_day text check in ('oggi','domani') default 'oggi'`.
+- `manage_purchase_order`: nuova azione `delivery` (data, dalle, alle, indirizzo id/testo, note fornitore), consentita solo con send_status = da_inviare e status = bozza; rifiuta date passate (fuso azienda) e dalle ≥ alle. Le note dopo l'invio diventano non modificabili (oggi lo sono).
+- RPC `manage_company_delivery_preferences` (SECURITY DEFINER, search_path public, verifica is_company_admin).
+- `purchase_order_overview`: aggiungere send_status, campi consegna e n. prodotti.
+- UI: `purchase-orders-panel.tsx`, `purchase-order-detail.tsx`, nuovo componente preferenze in Impostazioni, `close-list-dialog.tsx` (solo precompilazione/selettore data).
+- Verifica: prove in transazione annullata (modifica ordine, Lista invariata, rifiuto dopo invio) e controllo a schermo dei punti 1–8.
