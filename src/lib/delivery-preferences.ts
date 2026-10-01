@@ -82,14 +82,7 @@ export function useDeliveryPreferences(companyId: string | null | undefined) {
           .select("timezone, default_delivery_address_id, default_delivery_time_from, default_delivery_time_to, default_delivery_day")
           .eq("company_id", companyId!)
           .maybeSingle(),
-        supabase
-          .from("addresses")
-          .select("id, label, address_line, street_number, postal_code, city")
-          .eq("company_id", companyId!)
-          .is("customer_record_id", null)
-          .is("supplier_record_id", null)
-          .eq("status", "attivo")
-          .order("created_at"),
+        supabase.rpc("company_delivery_addresses", { _company_id: companyId! }),
       ]);
       if (settings.error) throw new Error(settings.error.message);
       if (addresses.error) throw new Error(addresses.error.message);
