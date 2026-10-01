@@ -236,8 +236,8 @@ export function CloseListDialog({
                         <p className="text-xs text-muted-foreground">Vuoto = uguale alla consegna generale.</p>
                         <div className="grid gap-2 sm:grid-cols-3">
                           <Input type="date" aria-label={`Data ${o.name}`} value={ov?.date ?? ""} onChange={(e) => setOv(o.supplier_record_id, { date: e.target.value })} />
-                          <Input type="time" aria-label={`Dalle ${o.name}`} value={ov?.from ?? ""} X />
-                          <Input type="time" aria-label={`Alle ${o.name}`} value={ov?.to ?? ""} X />
+                          <TimeInput24 aria-label={`Dalle ${o.name}`} value={ov?.from ?? ""} onChange={(v) => setOv(o.supplier_record_id, { from: v })} />
+                          <TimeInput24 aria-label={`Alle ${o.name}`} value={ov?.to ?? ""} onChange={(v) => setOv(o.supplier_record_id, { to: v })} />
                         </div>
                         <Input placeholder="Indirizzo (se diverso)" value={ov?.address ?? ""} onChange={(e) => setOv(o.supplier_record_id, { address: e.target.value })} />
                         <Textarea rows={2} placeholder={`Note per ${o.name}`} value={ov?.notes ?? ""} onChange={(e) => setOv(o.supplier_record_id, { notes: e.target.value })} />
