@@ -15,8 +15,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { deliveryDateLabel, localToday, timeRangeLabel, useDeliveryPreferences } from "@/lib/delivery-preferences";
 import { dateTimeShort, qty, type LocationRow } from "@/lib/inventory";
-import { ORDER_STATUS_LABEL, type OrderOverviewRow } from "@/lib/purchase";
+import { ORDER_STATUS_LABEL, SEND_STATUS_LABEL, type OrderOverviewRow } from "@/lib/purchase";
 import { createPurchaseOrdersFromList } from "@/lib/purchase.functions";
 
 type ConfirmedList = { id: string; name: string; confirmed_at: string | null };
@@ -96,10 +97,22 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
 
   const orders = ordersQuery.data ?? [];
   const locations = locationsQuery.data ?? [];
+  const prefs = useDeliveryPreferences(companyId);
+  const today = localToday(prefs.data?.timezone ?? "Europe/Rome");
   const current = useMemo(
     () => orders.find((order) => order.order_id === selected) ?? null,
     [orders, selected],
   );
+  // Raggruppamento per stato di invio; ordini annullati restano tra gli inviati/storico.
+  const groups = useMemo(() => {
+    const live = orders.filter((o) => o.status !== "annullato");
+    return [
+      { key: "da_inviare", title: "Ordini da inviare", rows: live.filter((o) => o.send_status === "da_inviare") },
+      { key: "errore_invio", title: "Errore invio", rows: live.filter((o) => o.send_status === "errore_invio") },
+      { key: "inviato", title: "Inviati", rows: live.filter((o) => o.send_status === "inviato") },
+      { key: "annullati", title: "Annullati", rows: orders.filter((o) => o.status === "annullato") },
+    ];
+  }, [orders]);
 
   if (current) {
     return (
@@ -150,41 +163,63 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
         </div>
       </section>
 
-      <section className="space-y-2">
-        {orders.map((order) => (
-          <button
-            key={order.order_id}
-            type="button"
-            onClick={() => setSelected(order.order_id)}
-            className="w-full rounded-lg border border-border p-3 text-left transition hover:border-primary"
+      {groups.map((group) =>
+        group.rows.length || group.key === "da_inviare" ? (
+          <section
+            key={group.key}
+            className={
+              group.key === "da_inviare"
+                ? "space-y-2 rounded-lg border-2 border-primary bg-primary/5 p-3"
+                : group.key === "errore_invio"
+                  ? "space-y-2 rounded-lg border-2 border-destructive p-3"
+                  : "space-y-2"
+            }
           >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium">{order.number}</span>
-              <Badge variant="outline">{ORDER_STATUS_LABEL[order.status]}</Badge>
-              {order.open_disputes > 0 ? (
-                <Badge variant="destructive">{order.open_disputes} da risolvere</Badge>
-              ) : null}
-            </div>
-            <p className="mt-1 text-sm">{order.supplier_name}</p>
-            <p className="text-xs text-muted-foreground">
-              {order.lines} righe · ordinato {qty(order.ordered_total)} · dichiarato{" "}
-              {qty(order.declared_total)} · caricato {qty(order.received_total)} ·{" "}
-              {order.destination_name}
-              {order.lines_without_equivalent > 0
-                ? ` · ${order.lines_without_equivalent} righe senza equivalente`
-                : ""}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {order.sent_at
-                ? `Inviato il ${dateTimeShort(order.sent_at)}`
-                : `Creato il ${dateTimeShort(order.created_at)}`}
-            </p>
-          </button>
-        ))}
-        {orders.length === 0 && !ordersQuery.isLoading ? (
-          <p className="text-sm text-muted-foreground">Nessun ordine fornitore.</p>
-        ) : null}
-      </section>
+            <h2 className="text-base font-bold">
+              {group.title} — {group.rows.length}
+            </h2>
+            {group.rows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nessun ordine da inviare.</p>
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2">
+                {group.rows.map((order) => (
+                  <div key={order.order_id} className="rounded-lg border border-border bg-card p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold">{order.supplier_name}</span>
+                      <Badge variant={order.send_status === "errore_invio" ? "destructive" : order.send_status === "da_inviare" ? "default" : "secondary"}>
+                        {SEND_STATUS_LABEL[order.send_status]}
+                      </Badge>
+                      <Badge variant="outline">{ORDER_STATUS_LABEL[order.status]}</Badge>
+                      {order.open_disputes > 0 ? (
+                        <Badge variant="destructive">{order.open_disputes} da risolvere</Badge>
+                      ) : null}
+                    </div>
+                    <p className="text-sm">
+                      {order.number} · {order.lines} prodotti
+                      {order.shopping_list_number ? ` · da ${order.shopping_list_number}` : ""}
+                    </p>
+                    <p className="mt-1 text-sm font-medium">
+                      Consegna: {deliveryDateLabel(order.delivery_date, today).replace(" — ", " · ")}
+                    </p>
+                    <p className="text-sm font-medium">{timeRangeLabel(order.delivery_time_from, order.delivery_time_to)}</p>
+                    <p className="text-sm">{order.delivery_address_text || "Luogo non indicato"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {order.sent_at ? `Inviato il ${dateTimeShort(order.sent_at)}` : `Creato il ${dateTimeShort(order.created_at)}`}
+                      {order.status !== "bozza" ? ` · ordinato ${qty(order.ordered_total)} · caricato ${qty(order.received_total)}` : ""}
+                    </p>
+                    <Button size="sm" variant="outline" className="mt-2" onClick={() => setSelected(order.order_id)}>
+                      Visualizza ordine
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null,
+      )}
+      {orders.length === 0 && !ordersQuery.isLoading ? (
+        <p className="text-sm text-muted-foreground">Nessun ordine fornitore.</p>
+      ) : null}
     </div>
   );
 }
