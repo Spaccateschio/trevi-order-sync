@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { DeliveryDatePicker, DeliveryPlacePicker } from "@/components/purchase/delivery-fields";
+import { DeliveryDatePicker, DeliveryPlacePicker, TimeInput24 } from "@/components/purchase/delivery-fields";
 import { addDays, hhmm, localToday, useDeliveryPreferences } from "@/lib/delivery-preferences";
 import { qty } from "@/lib/inventory";
 import { closeShoppingList, getShoppingListClosePreview } from "@/lib/shopping-list.functions";
@@ -193,11 +193,11 @@ export function CloseListDialog({
               <div className="grid grid-cols-2 gap-2 sm:w-80">
                 <div>
                   <Label htmlFor="cl-from">Dalle</Label>
-                  <Input id="cl-from" type="time" value={from} onChange={(e) => setFrom(e.target.value)} />
+                  <TimeInput24 id="cl-from" value={from} onChange={(v) => setFrom(v)} />
                 </div>
                 <div>
                   <Label htmlFor="cl-to">Alle</Label>
-                  <Input id="cl-to" type="time" value={to} onChange={(e) => setTo(e.target.value)} />
+                  <TimeInput24 id="cl-to" value={to} onChange={(v) => setTo(v)} />
                 </div>
               </div>
               <DeliveryPlacePicker
@@ -236,8 +236,8 @@ export function CloseListDialog({
                         <p className="text-xs text-muted-foreground">Vuoto = uguale alla consegna generale.</p>
                         <div className="grid gap-2 sm:grid-cols-3">
                           <Input type="date" aria-label={`Data ${o.name}`} value={ov?.date ?? ""} onChange={(e) => setOv(o.supplier_record_id, { date: e.target.value })} />
-                          <Input type="time" aria-label={`Dalle ${o.name}`} value={ov?.from ?? ""} onChange={(e) => setOv(o.supplier_record_id, { from: e.target.value })} />
-                          <Input type="time" aria-label={`Alle ${o.name}`} value={ov?.to ?? ""} onChange={(e) => setOv(o.supplier_record_id, { to: e.target.value })} />
+                          <TimeInput24 aria-label={`Dalle ${o.name}`} value={ov?.from ?? ""} onChange={(v) => setOv(o.supplier_record_id, { from: v })} />
+                          <TimeInput24 aria-label={`Alle ${o.name}`} value={ov?.to ?? ""} onChange={(v) => setOv(o.supplier_record_id, { to: v })} />
                         </div>
                         <Input placeholder="Indirizzo (se diverso)" value={ov?.address ?? ""} onChange={(e) => setOv(o.supplier_record_id, { address: e.target.value })} />
                         <Textarea rows={2} placeholder={`Note per ${o.name}`} value={ov?.notes ?? ""} onChange={(e) => setOv(o.supplier_record_id, { notes: e.target.value })} />

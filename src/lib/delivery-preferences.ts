@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAddresses } from "@/lib/company-addresses";
 
 /** Preferenze di consegna aziendali: solo valori iniziali, mai vincoli sulla singola Lista/ordine. */
 export type DeliveryDay = "oggi" | "domani";
 
-export type CompanyAddressOption = { id: string; text: string };
+export type CompanyAddressOption = { id: string; text: string; functions: string[] };
 
 export type DeliveryPreferences = {
   timezone: string;
@@ -82,10 +83,9 @@ export function useDeliveryPreferences(companyId: string | null | undefined) {
           .select("timezone, default_delivery_address_id, default_delivery_time_from, default_delivery_time_to, default_delivery_day")
           .eq("company_id", companyId!)
           .maybeSingle(),
-        supabase.rpc("company_delivery_addresses", { _company_id: companyId! }),
+        fetchAddresses("company_id", companyId!),
       ]);
       if (settings.error) throw new Error(settings.error.message);
-      if (addresses.error) throw new Error(addresses.error.message);
       const s = settings.data;
       return {
         timezone: s?.timezone || DEFAULT_TZ,
@@ -93,7 +93,7 @@ export function useDeliveryPreferences(companyId: string | null | undefined) {
         timeFrom: s?.default_delivery_time_from ?? null,
         timeTo: s?.default_delivery_time_to ?? null,
         day: (s?.default_delivery_day as DeliveryDay) ?? "oggi",
-        addresses: ((addresses.data ?? []) as AddressRow[]).map((a) => ({ id: a.id, text: addressText(a) })),
+        addresses: addresses.filter((a) => a.status === "attivo").map((a) => ({ id: a.id, text: addressText(a), functions: a.address_functions.map((f) => f.function) })),
       };
     },
   });

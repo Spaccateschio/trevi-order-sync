@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAddresses } from "@/lib/company-addresses";
 
 /**
  * Indirizzi multipli: un elenco per azienda o per scheda cliente.
@@ -124,17 +125,8 @@ export function AddressManager({
 
   const addressesQuery = useQuery({
     queryKey,
-    queryFn: async (): Promise<AddressRow[]> => {
-      const { data, error } = await supabase
-        .from("addresses")
-        .select(
-          "id, label, address_line, street_number, postal_code, city, province, country, contact_name, phone, notes, status, visible_to_partners, address_functions(id, function, is_default)",
-        )
-        .eq(filter.column, filter.value)
-        .order("label");
-      if (error) throw error;
-      return (data ?? []) as AddressRow[];
-    },
+    queryFn: async (): Promise<AddressRow[]> =>
+      (await fetchAddresses(filter.column, filter.value)) as unknown as AddressRow[],
   });
 
   function openNew() {

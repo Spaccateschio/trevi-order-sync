@@ -5286,17 +5286,6 @@ export type Database = {
         Returns: Json
       }
       company_buys: { Args: { _company_id: string }; Returns: boolean }
-      company_delivery_addresses: {
-        Args: { _company_id: string }
-        Returns: {
-          address_line: string
-          city: string
-          id: string
-          label: string
-          postal_code: string
-          street_number: string
-        }[]
-      }
       company_exists_for_vat: {
         Args: { _vat_number: string }
         Returns: boolean

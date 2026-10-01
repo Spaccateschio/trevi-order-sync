@@ -4,7 +4,7 @@ import { Loader2, Pencil } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { DeliveryDatePicker, DeliveryPlacePicker } from "./delivery-fields";
+import { DeliveryDatePicker, DeliveryPlacePicker, TimeInput24 } from "./delivery-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,11 +76,11 @@ export function OrderDeliverySection({ order, companyId }: { order: OrderOvervie
           <div className="grid grid-cols-2 gap-2 sm:w-80">
             <div>
               <Label htmlFor="od-from">Dalle</Label>
-              <Input id="od-from" type="time" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <TimeInput24 id="od-from" value={from} onChange={(v) => setFrom(v)} />
             </div>
             <div>
               <Label htmlFor="od-to">Alle</Label>
-              <Input id="od-to" type="time" value={to} onChange={(e) => setTo(e.target.value)} />
+              <TimeInput24 id="od-to" value={to} onChange={(v) => setTo(v)} />
             </div>
           </div>
           <DeliveryPlacePicker
