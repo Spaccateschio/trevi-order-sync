@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { AppShell, PlaceholderCard } from "@/components/app-shell";
 import { AddressManager } from "@/components/companies/address-manager";
+import { DeliveryPreferencesForm } from "@/components/company/delivery-preferences-form";
 import { UnitCatalogue } from "@/components/company/unit-catalogue";
 import { InventoryLocationsManager } from "@/components/inventory/inventory-locations-manager";
 import { Button } from "@/components/ui/button";
@@ -147,12 +148,7 @@ function Amministrazione() {
           </TabsContent>
 
           <TabsContent value="preferenze">
-            <section className="rounded-lg border border-border bg-card p-5 shadow-sm">
-              <h2 className="font-display text-base font-semibold">Preferenze aziendali</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Questa sezione resta invariata. Il mockup riguarda esclusivamente la configurazione delle zone di magazzino.
-              </p>
-            </section>
+            <DeliveryPreferencesForm companyId={company.companyId} />
           </TabsContent>
         </Tabs>
       ) : (
