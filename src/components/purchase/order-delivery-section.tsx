@@ -4,7 +4,7 @@ import { Loader2, Pencil } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { DeliveryDatePicker, DeliveryPlacePicker } from "./delivery-fields";
+import { DeliveryDatePicker, DeliveryPlacePicker, TimeInput24 } from "./delivery-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

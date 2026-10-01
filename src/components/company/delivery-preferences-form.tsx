@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { hhmm, useDeliveryPreferences, type DeliveryDay } from "@/lib/delivery-preferences";
+import { TimeInput24 } from "@/components/purchase/delivery-fields";
 
 const NONE = "__nessuna__";
 
