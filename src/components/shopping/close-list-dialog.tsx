@@ -93,10 +93,10 @@ export function CloseListDialog({
       toast.error("Inserisci un orario valido (es. 10:00)");
       return;
     }
-    const from = nFrom;
-    const to = nTo;
+    const fromN = nFrom;
+    const toN = nTo;
     const overridesN = Object.fromEntries(nOv) as Record<string, Override>;
-    if (from && to && from >= to) { toast.error("L'orario «dalle» deve precedere «alle»"); return; }
+    if (fromN && toN && fromN >= toN) { toast.error("L'orario «dalle» deve precedere «alle»"); return; }
     if (date && date < today) { toast.error("La data di consegna non può essere passata"); return; }
     const badOv = Object.values(overridesN).find((o) => o.from && o.to && o.from >= o.to);
     if (badOv) { toast.error("In un fornitore l'orario «dalle» deve precedere «alle»"); return; }
@@ -109,8 +109,8 @@ export function CloseListDialog({
           listId,
           delivery: {
             date: date || null,
-            time_from: from || null,
-            time_to: to || null,
+            time_from: fromN || null,
+            time_to: toN || null,
             // Luogo scritto a mano: vale solo la fotografia testuale, nessun nuovo indirizzo in anagrafica.
             address_id: addressId,
             address_text: address.trim() || null,
