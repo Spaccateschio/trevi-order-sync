@@ -90,7 +90,8 @@ import { cn } from "@/lib/utils";
 import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inventory/correct-count-dialog";
 import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget } from "@/components/inventory/physical-quick-edit";
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
-import type { SessionRow } from "@/lib/inventory";
+import { dateTimeShort, type SessionRow } from "@/lib/inventory";
+import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 
 type ProductView = "favorites" | "all";
 type WorkFilter = "all" | "pending" | "completed" | "differences" | "not_comparable" | "recount";
@@ -272,15 +273,17 @@ export function InventoryCountPanel({
   const sessionId = sessionQuery.data?.id ?? null;
   const [confirmedOpen, setConfirmedOpen] = useState(false);
   const [viewClosedOpen, setViewClosedOpen] = useState(false);
+  const [viewedSession, setViewedSession] = useState<SessionRow | null>(null);
+  const [inventoryHistoryOpen, setInventoryHistoryOpen] = useState(false);
 
   // Ultimo inventario generale chiuso: solo lettura, distinto dall'inventario in corso.
   const lastClosedQuery = useQuery({
     queryKey: ["inventory-last-closed", companyId, archiveId],
     enabled: Boolean(archiveId) && !sessionId && !sessionQuery.isLoading,
-    queryFn: async (): Promise<{ session: SessionRow; counted: number } | null> => {
+    queryFn: async (): Promise<{ session: SessionRow; counted: number; author: string | null } | null> => {
       const { data, error } = await supabase
         .from("inventory_sessions")
-        .select("id, name, scope, location_id, status, archive_id, started_at, finished_at, notes")
+        .select("id, name, scope, location_id, status, archive_id, started_at, finished_at, notes, created_by")
         .eq("company_id", companyId)
         .eq("archive_id", archiveId!)
         .eq("scope", "generale")
@@ -295,7 +298,8 @@ export function InventoryCountPanel({
         .select("product_id")
         .eq("session_id", data.id);
       if (countsError) throw new Error(countsError.message);
-      return { session: data as SessionRow, counted: new Set((counts ?? []).map((row) => row.product_id)).size };
+      const author = await sessionAuthorName(data.created_by);
+      return { session: data as SessionRow, counted: new Set((counts ?? []).map((row) => row.product_id)).size, author };
     },
   });
 
@@ -1573,9 +1577,18 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             }}
             onHistory={(row) => setHistoryRow(row)}
             onCloseInventory={() => closeMutation.mutate()}
-            stockHistory={sessionId ? null : (stockHistoryQuery.data ?? null)}
-            lastClosed={lastClosedQuery.data ? { name: lastClosedQuery.data.session.name, counted: lastClosedQuery.data.counted, total: lastClosedQuery.data.counted } : null}
-            onViewLastClosed={() => setViewClosedOpen(true)}
+            // Ciclo concluso (verde/arancione): le card sono pronte per un nuovo conteggio,
+            // senza le quantità dell'inventario precedente. Il passato resta nello storico.
+            stockHistory={sessionId || cycleColor !== "rosso" ? null : (stockHistoryQuery.data ?? null)}
+            lastClosed={lastClosedQuery.data ? {
+              name: lastClosedQuery.data.session.name,
+              counted: lastClosedQuery.data.counted,
+              total: lastClosedQuery.data.counted,
+              finishedAt: lastClosedQuery.data.session.finished_at,
+              author: lastClosedQuery.data.author,
+            } : null}
+            onViewLastClosed={() => { setViewedSession(null); setViewClosedOpen(true); }}
+            onOpenInventoryHistory={() => setInventoryHistoryOpen(true)}
 
             onHideCompletion={() => setShowCompletion(false)}
             closing={closeMutation.isPending}
@@ -1962,7 +1975,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
       <Dialog open={viewClosedOpen} onOpenChange={setViewClosedOpen}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-[1600px] overflow-y-auto sm:max-w-[1600px] [&>*]:min-w-0">
           <DialogHeader>
-            <DialogTitle className="text-base">{lastClosedQuery.data?.session.name ?? "Ultimo inventario"}</DialogTitle>
+            <DialogTitle className="text-base">{(viewedSession ?? lastClosedQuery.data?.session)?.name ?? "Ultimo inventario"}</DialogTitle>
             <DialogDescription>
               Le quantità confermate sono visibili qui sotto. Usa “Modifica giacenza” per registrare una rettifica tracciata senza cambiare il conteggio originale.
             </DialogDescription>
@@ -1970,10 +1983,10 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
           <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
             Inventario chiuso — sola lettura
           </p>
-          {lastClosedQuery.data ? (
+          {viewedSession ?? lastClosedQuery.data ? (
             <InventorySessionCounter
               companyId={companyId}
-              session={lastClosedQuery.data.session}
+              session={(viewedSession ?? lastClosedQuery.data?.session)!}
               locations={locations}
               onCorrectCount={(count, product) => {
                 setCorrection({
@@ -1991,6 +2004,18 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <InventoryHistoryDialog
+        companyId={companyId}
+        archiveId={archiveId}
+        open={inventoryHistoryOpen}
+        onOpenChange={setInventoryHistoryOpen}
+        onView={(session) => {
+          setViewedSession(session);
+          setInventoryHistoryOpen(false);
+          setViewClosedOpen(true);
+        }}
+      />
 
       <Dialog open={clearDraftsOpen} onOpenChange={setClearDraftsOpen}>
         <DialogContent className="max-w-sm">
@@ -2163,6 +2188,7 @@ function PhysicalCount({
   onCloseInventory,
   lastClosed,
   onViewLastClosed,
+  onOpenInventoryHistory,
   stockHistory,
 
   onHideCompletion,
@@ -2217,8 +2243,9 @@ function PhysicalCount({
   onProposal: (row: InventoryCountRow) => void;
   onHistory: (row: InventoryCountRow) => void;
   onCloseInventory: () => void;
-  lastClosed: { name: string; counted: number; total: number } | null;
+  lastClosed: { name: string; counted: number; total: number; finishedAt: string | null; author: string | null } | null;
   onViewLastClosed: () => void;
+  onOpenInventoryHistory: () => void;
   stockHistory: Map<string, StockHistory> | null;
   onHideCompletion: () => void;
   closing: boolean;
@@ -2317,15 +2344,25 @@ function PhysicalCount({
           ) : null}
         </div>
         {!sessionActive && lastClosed ? (
-          <div className="mt-1.5 flex items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5">
-            <div className="min-w-0 text-xs leading-tight">
-              <p className="text-[10px] font-semibold uppercase text-muted-foreground">Ultimo inventario (chiuso)</p>
-              <p className="truncate font-medium">{lastClosed.name}</p>
-              <p className="text-muted-foreground">{lastClosed.counted} / {lastClosed.total} prodotti controllati</p>
+          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1.5">
+            <div className="min-w-0 text-xs leading-tight text-muted-foreground">
+              <p className="text-[10px] font-semibold uppercase">Ultimo inventario · passato, non è il conteggio da fare ora</p>
+              <p className="font-medium text-foreground">
+                {lastClosed.finishedAt ? dateTimeShort(lastClosed.finishedAt) : lastClosed.name}
+              </p>
+              <p>
+                {lastClosed.author ? `Fatto da ${lastClosed.author} · ` : ""}
+                {lastClosed.counted} prodotti contati
+              </p>
             </div>
-            <Button size="sm" variant="outline" className="h-8 shrink-0 text-xs" onClick={onViewLastClosed}>
-              Visualizza inventario
-            </Button>
+            <div className="flex shrink-0 gap-1.5">
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onViewLastClosed}>
+                Visualizza
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onOpenInventoryHistory}>
+                Storico inventari
+              </Button>
+            </div>
           </div>
         ) : null}
         {sessionActive ? (
