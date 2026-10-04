@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { DeliveryDatePicker, DeliveryPlacePicker, TimeInput24 } from "@/components/purchase/delivery-fields";
+import { DeliveryDatePicker, DeliveryPlacePicker, TimeInput24, normalizeTime } from "@/components/purchase/delivery-fields";
 import { addDays, hhmm, localToday, useDeliveryPreferences } from "@/lib/delivery-preferences";
 import { qty } from "@/lib/inventory";
 import { closeShoppingList, getShoppingListClosePreview } from "@/lib/shopping-list.functions";
@@ -85,9 +85,20 @@ export function CloseListDialog({
 
   const submit = async () => {
     if (!preview || blocked || pendingRef.current) return;
-    if (from && to && from >= to) { toast.error("L'orario «dalle» deve precedere «alle»"); return; }
+    // Orari scritti a mano: «10» → «10:00»; se non interpretabili, messaggio chiaro (mai errori tecnici).
+    const nFrom = normalizeTime(from);
+    const nTo = normalizeTime(to);
+    const nOv = Object.entries(overrides).map(([id, o]) => [id, { ...o, from: normalizeTime(o.from), to: normalizeTime(o.to) }] as const);
+    if (nFrom === null || nTo === null || nOv.some(([, o]) => o.from === null || o.to === null)) {
+      toast.error("Inserisci un orario valido (es. 10:00)");
+      return;
+    }
+    const fromN = nFrom;
+    const toN = nTo;
+    const overridesN = Object.fromEntries(nOv) as Record<string, Override>;
+    if (fromN && toN && fromN >= toN) { toast.error("L'orario «dalle» deve precedere «alle»"); return; }
     if (date && date < today) { toast.error("La data di consegna non può essere passata"); return; }
-    const badOv = Object.values(overrides).find((o) => o.from && o.to && o.from >= o.to);
+    const badOv = Object.values(overridesN).find((o) => o.from && o.to && o.from >= o.to);
     if (badOv) { toast.error("In un fornitore l'orario «dalle» deve precedere «alle»"); return; }
     pendingRef.current = true;
     setPending(true);
@@ -98,14 +109,14 @@ export function CloseListDialog({
           listId,
           delivery: {
             date: date || null,
-            time_from: from || null,
-            time_to: to || null,
+            time_from: fromN || null,
+            time_to: toN || null,
             // Luogo scritto a mano: vale solo la fotografia testuale, nessun nuovo indirizzo in anagrafica.
             address_id: addressId,
             address_text: address.trim() || null,
           },
           generalNotes: notes.trim() || null,
-          supplierOverrides: Object.entries(overrides).map(([id, o]) => ({
+          supplierOverrides: Object.entries(overridesN).map(([id, o]) => ({
             supplier_record_id: id,
             date: o.date || null,
             time_from: o.from || null,
@@ -122,7 +133,8 @@ export function CloseListDialog({
       toast.success(`Lista ${result.number} chiusa: ${result.order_ids.length} ordini da inviare`);
       onClosed(result.number, result.list_id);
     } catch (error) {
-      toast.error((error as Error).message);
+      const message = (error as Error).message ?? "";
+      toast.error(message.trim().startsWith("[") || message.trim().startsWith("{") ? "Controlla i dati inseriti: alcuni valori non sono validi" : message);
       void previewQuery.refetch();
     } finally {
       pendingRef.current = false;
