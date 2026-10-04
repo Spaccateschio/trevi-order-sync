@@ -350,7 +350,18 @@ export function ShoppingListCard({
     ) : null;
 
   const splitSummary = (
-    <CardSuppliers companyId={companyId} row={row} pending={pending} editable={editable} assignments={suppliers} show={show} />
+    <CardSuppliers
+      companyId={companyId}
+      row={row}
+      pending={pending}
+      editable={editable}
+      assignments={suppliers}
+      show={show}
+      target={locked ? target : null}
+      decidedUnitId={otherUnit ? (extra?.decidedUnitId ?? null) : null}
+      decidedCode={decidedCode}
+      lockedAt={extra?.lockedAt ?? null}
+    />
   );
 
   const orderState =

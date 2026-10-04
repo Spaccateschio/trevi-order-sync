@@ -1,11 +1,11 @@
 import { ALL_VISIBLE, type DisplayPrefs } from "./card-display";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, MoreVertical, Pencil, Star, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, Info, MoreVertical, Pencil, Split, Star, Trash2, X } from "lucide-react";
 import { AddSupplierInline, refreshProductSuppliers, useCompanyUnits } from "./add-supplier-inline";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { RowSupplier } from "./use-shopping-list-extras";
@@ -276,6 +276,10 @@ export function CardSuppliers({
   editable,
   assignments,
   show = ALL_VISIBLE,
+  target = null,
+  decidedUnitId = null,
+  decidedCode = "",
+  lockedAt = null,
 }: {
   companyId: string;
   row: OverviewRow;
@@ -284,6 +288,11 @@ export function CardSuppliers({
   assignments: RowSupplier[];
   /** Solo visualizzazione: non cambia salvataggi né regole. */
   show?: DisplayPrefs;
+  /** Quantità «Da acquistare» confermata e la sua U.M. (assegnazione con un tocco). */
+  target?: number | null;
+  decidedUnitId?: string | null;
+  decidedCode?: string;
+  lockedAt?: string | null;
 }) {
   const queryClient = useQueryClient();
   const runAssign = useServerFn(assignShoppingListSupplier);
@@ -292,6 +301,10 @@ export function CardSuppliers({
   const [orphanEditing, setOrphanEditing] = useState<{ id: string; quantity: string } | null>(null);
   const [editing, setEditing] = useState<Edit | null>(null);
   const [removing, setRemoving] = useState<CardSupplier | null>(null);
+  // Vista operativa semplice: ripartizione e dettagli (prezzo, B2B, U.M.) solo su richiesta.
+  const [split, setSplit] = useState(false);
+  const [details, setDetails] = useState(false);
+  const autoRef = useRef(false);
   const companyUnits = useCompanyUnits(companyId);
   const setEditingNull = () => {
     setEditing(null);
@@ -575,6 +588,35 @@ export function CardSuppliers({
     );
   };
 
+  // U.M. per l'assegnazione con un tocco: la stessa di «Da acquistare», solo se il fornitore la offre
+  // (B2B: tra le pubblicate; non B2B: U.M. del collegamento o testo manuale). Nessuna conversione.
+  const quickFor = (s: CardSupplier): { unitId: string | null; manual: string | null } | null => {
+    if (s.isB2B && !s.sourceLinked) return null;
+    if (decidedUnitId) {
+      const hit = s.units.find((u) => u.unitId === decidedUnitId);
+      return hit ? { unitId: hit.unitId, manual: null } : null;
+    }
+    const code = decidedCode.trim().toUpperCase();
+    if (!code) return null;
+    const hit = s.units.find((u) => u.code.trim().toUpperCase() === code);
+    if (hit) return { unitId: hit.unitId, manual: null };
+    return s.allowManual ? { unitId: null, manual: code } : null;
+  };
+  const assignAll = (s: CardSupplier, q: { unitId: string | null; manual: string | null }) =>
+    mutation.mutate({ action: "set", linkId: s.linkId, packs: target, accepted: true, unitId: q.unitId, manualUnitCode: q.manual, assignmentId: null });
+
+  // Un solo fornitore: appena confermata la quantità, gli viene assegnata tutta (una volta sola).
+  // Solo per conferme appena fatte: le card confermate in passato non cambiano da sole.
+  const only = suppliers.length === 1 ? suppliers[0]! : null;
+  const onlyQuick = only ? quickFor(only) : null;
+  const fresh = lockedAt ? Date.now() - new Date(lockedAt).getTime() < 2 * 60_000 : false;
+  useEffect(() => {
+    if (autoRef.current || !canWrite || !fresh || !only || !onlyQuick || !target || target <= 0 || assignments.length || mutation.isPending) return;
+    autoRef.current = true;
+    assignAll(only, onlyQuick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canWrite, fresh, only?.linkId, onlyQuick?.unitId, onlyQuick?.manual, target, assignments.length]);
+
   if (loading) return <p className="text-xs text-muted-foreground">Caricamento fornitori…</p>;
 
   const byLink = new Map(assignments.map((a) => [a.linkId, a]));
@@ -603,7 +645,7 @@ export function CardSuppliers({
         <div className="flex min-w-0 items-center gap-1 text-xs">
           {s.isPreferred ? <Star className="size-3 shrink-0 fill-primary text-primary" aria-label="Fornitore preferito" /> : null}
           <span className="min-w-0 flex-1 truncate font-semibold">{s.name}</span>
-          {show.b2b && s.isB2B ? <B2BBadge /> : null}
+          {show.b2b && details && s.isB2B ? <B2BBadge /> : null}
           {editable ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -612,6 +654,24 @@ export function CardSuppliers({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {canWrite ? (
+                  <DropdownMenuItem disabled={busy} onSelect={() => startEdit(s, assignment)}>
+                    <Pencil aria-hidden="true" /> Modifica
+                  </DropdownMenuItem>
+                ) : null}
+                {canWrite && assignment ? (
+                  <DropdownMenuItem
+                    disabled={busy}
+                    onSelect={() =>
+                      mutation.mutate({ action: "remove", linkId: s.linkId, packs: null, accepted: false, unitId: null, manualUnitCode: null, assignmentId: assignment.id })
+                    }
+                  >
+                    <Trash2 aria-hidden="true" /> Togli da questa Lista
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem onSelect={() => setDetails((d) => !d)}>
+                  <Info aria-hidden="true" /> {details ? "Nascondi dettagli" : "Dettagli (prezzo, U.M., B2B)"}
+                </DropdownMenuItem>
                 <DropdownMenuItem disabled={s.isPreferred || linkMutation.isPending} onSelect={() => linkMutation.mutate({ kind: "preferred", s })}>
                   <Star className={s.isPreferred ? "fill-primary text-primary" : ""} aria-hidden="true" />
                   {s.isPreferred ? "Fornitore preferito" : "Imposta come fornitore preferito"}
@@ -623,12 +683,12 @@ export function CardSuppliers({
             </DropdownMenu>
           ) : null}
         </div>
-        {show.price && s.price ? <PriceLine price={s.price} /> : null}
+        {show.price && details && s.price ? <PriceLine price={s.price} /> : null}
         {b2bBlocked ? (
           <p className="flex items-center gap-1 text-[11px] font-medium text-destructive">
             <AlertTriangle className="size-3" aria-hidden="true" /> Prodotto del fornitore non collegato: U.M. non disponibili
           </p>
-        ) : noUnits ? null : show.purchaseUnit && (s.units.length || s.allowManual) ? (
+        ) : noUnits || !details ? null : show.purchaseUnit && (s.units.length || s.allowManual) ? (
           <p className="text-[11px] leading-tight text-muted-foreground">
             Acquisto in: <span className="font-medium text-foreground">{s.units.map(label).join(" · ") || "—"}</span>
             {s.allowManual ? " · Altra U.M." : ""}
@@ -645,47 +705,13 @@ export function CardSuppliers({
             {show.conversion && assignment.quantity !== null && assignment.purchaseUnitCode && assignment.purchaseUnitCode !== unit ? (
               <span className="text-[11px] text-muted-foreground">≈ {qty(assignment.quantity)} {unit}</span>
             ) : null}
-            {canWrite ? (
-              <span className="ml-auto flex items-center">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 gap-1 px-1.5 text-[11px]"
-                  disabled={busy}
-                  onClick={() => startEdit(s, assignment)}
-                >
-                  <Pencil className="size-3" aria-hidden="true" /> Modifica
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 gap-1 px-1.5 text-[11px] text-destructive"
-                  disabled={busy}
-                  onClick={() => setRemoving(s)}
-                >
-                  <Trash2 className="size-3" aria-hidden="true" /> Togli
-                </Button>
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
-        {!assignment && editable && !editingLink ? (
-          <div className="flex justify-end">
-            <Button type="button" size="sm" variant="ghost" className="h-6 gap-1 px-1.5 text-[11px]" disabled={busy} onClick={() => startEdit(s, null)}>
-              <Pencil className="size-3" aria-hidden="true" /> Modifica
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-6 gap-1 px-1.5 text-[11px] text-destructive" disabled={busy} onClick={() => setRemoving(s)}>
-              <Trash2 className="size-3" aria-hidden="true" /> Togli
-            </Button>
+            <Check className="size-3.5 text-success" aria-label="Assegnato" />
           </div>
         ) : null}
 
         {editingLink ? editForm(s, assignment) : null}
 
-        {!assignment && !editingLink && canWrite && !b2bBlocked && !noUnits ? (
+        {split && !assignment && !editingLink && canWrite && !b2bBlocked && !noUnits ? (
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-1">
               <Input
@@ -877,7 +903,7 @@ export function CardSuppliers({
   if (!suppliers.length && !assignments.length)
     return (
       <div className="space-y-1">
-        <p className="text-xs font-medium">Fornitore da definire</p>
+        <p className="text-xs">Fornitore: <span className="font-semibold">Acquisto diretto</span></p>
         {addButton}
         {removeDialog}
       </div>
@@ -888,9 +914,51 @@ export function CardSuppliers({
   return (
     <div className="space-y-1">
       <ul className="space-y-1">
-        {suppliers.map((s) => supplierRow(s, byLink.get(s.linkId) ?? null))}
+        {suppliers
+          .filter((s) => split || byLink.has(s.linkId) || editing?.linkId === s.linkId)
+          .map((s) => supplierRow(s, byLink.get(s.linkId) ?? null))}
         {orphans.map(orphanRow)}
       </ul>
+      {!split && !assignments.length && !pending && suppliers.length ? (
+        <div className="space-y-1">
+          <p className="text-xs font-semibold">Da chi lo compri?</p>
+          <div className="flex flex-wrap gap-1">
+            {suppliers.map((s) => {
+              const q = quickFor(s);
+              return (
+                <Button
+                  key={s.linkId}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 gap-1 px-3 text-xs"
+                  disabled={!canWrite || busy}
+                  title={q && target ? `${s.name} → ${qty(target)} ${decidedCode}` : "Scegli quantità e U.M. del fornitore"}
+                  onClick={() => (q && target ? assignAll(s, q) : setSplit(true))}
+                >
+                  {s.isPreferred ? <Star className="size-3 fill-primary text-primary" aria-hidden="true" /> : null}
+                  {s.name}
+                </Button>
+              );
+            })}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-9 px-3 text-xs"
+              onClick={() => toast.info("Resta acquisto diretto (CAR, mercato, negozio): non genera ordini")}
+            >
+              Acquisto diretto
+            </Button>
+          </div>
+          {canWrite && !target ? <p className="text-[11px] text-muted-foreground">Conferma prima la quantità da acquistare.</p> : null}
+        </div>
+      ) : null}
+      {canWrite && suppliers.length ? (
+        <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-1.5 text-[11px]" onClick={() => setSplit((v) => !v)}>
+          <Split className="size-3" aria-hidden="true" /> {split ? "Chiudi ripartizione" : "Dividi tra fornitori"}
+        </Button>
+      ) : null}
       {pending && suppliers.length ? (
         <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p>
       ) : null}
