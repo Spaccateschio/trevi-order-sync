@@ -92,3 +92,5 @@
 - [x] Verificare percorso BASILICO A MAZZI → ripartizione Trevi → conferma Lista → ordine
 
 - [ ] Ordini da inviare: riquadro, dettaglio, modifica consegna/note, preferenze consegna, precompilazione chiusura Lista (nessun invio reale)
+
+- [x] Ciclo concluso: Inventario e Lista puliti, Storico inventari per sessione, pagina Ricezione ordini (verifica a ciclo verde/arancione reale ancora da fare)

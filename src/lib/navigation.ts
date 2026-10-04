@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Link2,
   Package,
+  PackageCheck,
   PlugZap,
   ReceiptText,
   Settings,
@@ -26,6 +27,7 @@ export type ModuleKey =
   | "acquisti"
   | "acquisti.lista-spesa"
   | "acquisti.ordini"
+  | "acquisti.ricezione"
   | "acquisti.inventario"
   | "acquisti.fabbisogno"
   | "acquisti.fornitori"
@@ -67,6 +69,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "acquisti", group: "acquisti", to: "/acquisti", label: "Acquisti", short: "Acquisti", description: "Fornitori, ordini, inventario e fabbisogno.", icon: ShoppingBasket, capability: "buys", menu: true, dashboard: "main" },
   { key: "acquisti.lista-spesa", group: "acquisti", to: "/acquisti/lista-spesa", label: "Lista della Spesa", short: "Spesa", description: "Prepara e assegna gli acquisti ai fornitori.", icon: ShoppingCart, capability: "buys", menu: true, dashboard: "acquisti" },
   { key: "acquisti.ordini", group: "acquisti", to: "/acquisti/ordini", label: "Ordini fornitore", short: "Ordini", description: "Segui ordini, consegne e ricevute.", icon: ClipboardList, capability: "buys", menu: true, dashboard: "acquisti" },
+  { key: "acquisti.ricezione", group: "acquisti", to: "/acquisti/ricezione", label: "Ricezione ordini", short: "Ricezione", description: "Ordini inviati in attesa di merce.", icon: PackageCheck, capability: "buys", menu: true, dashboard: "acquisti" },
   { key: "acquisti.inventario", group: "acquisti", to: "/acquisti/inventario", label: "Inventario", short: "Inventario", description: "Conta i prodotti per zona di magazzino.", icon: Boxes, capability: "buys", menu: true, dashboard: "acquisti" },
   { key: "acquisti.fabbisogno", group: "acquisti", to: "/acquisti/inventario", search: { sezione: "fabbisogno" }, label: "Fabbisogno", short: "Fabbisogno", description: "Consulta le quantità necessarie da acquistare.", icon: ReceiptText, capability: "buys", menu: true, dashboard: "acquisti" },
   { key: "acquisti.fornitori", group: "acquisti", to: "/acquisti/fornitori", label: "Fornitori", short: "Fornitori", description: "Gestisci anagrafiche e rapporti di fornitura.", icon: Store, capability: "buys", menu: true, dashboard: "acquisti" },

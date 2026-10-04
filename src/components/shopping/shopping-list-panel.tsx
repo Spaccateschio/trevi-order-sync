@@ -866,6 +866,27 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       </div>
 
+      {!list && !previewMode && !listsQuery.isLoading ? (() => {
+        // Ciclo concluso: la zona operativa è vuota, il passato vive nello Storico.
+        const lastClosed = lists
+          .filter((row) => row.status === "chiusa" && row.number)
+          .sort((a, b) => String(b.closed_at ?? "").localeCompare(String(a.closed_at ?? "")))[0];
+        return (
+          <div className="rounded-lg border border-border bg-muted/40 p-3">
+            <p className="text-base font-bold">Nessuna lista in corso</p>
+            {lastClosed ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Ultima: <strong>{lastClosed.number}</strong>
+                {lastClosed.closed_at ? ` · chiusa il ${new Date(lastClosed.closed_at).toLocaleDateString("it-IT")}` : ""}
+              </p>
+            ) : null}
+            <Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => setHistoryOpen(true)}>
+              Storico liste
+            </Button>
+          </div>
+        );
+      })() : null}
+
       {list && list.status !== "aperta" && list.status !== "confermata" ? (
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           Stai consultando una lista dello Storico.
