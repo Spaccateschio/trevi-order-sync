@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791127282722,
+      "tag": "0000_unlink_supplier_clears_orphan_decided_unit",
+      "breakpoints": true
+    }
+  ]
+}
