@@ -91,27 +91,51 @@ export function DeliveryPlacePicker({
   );
 }
 
-/** Orario sempre in formato italiano 24 ore (HH:mm), senza AM/PM. */
+/** Normalizza un orario scritto a mano: «10» → «10:00», «8:30» → «08:30», «830» → «08:30». Vuoto → "", non valido → null. */
+export function normalizeTime(raw: string): string | null {
+  const v = raw.trim().replace(/[.,]/g, ":");
+  if (!v) return "";
+  let h: number;
+  let m: number;
+  const parts = v.match(/^(\d{1,2})(?::(\d{1,2}))?$/);
+  if (parts) {
+    h = Number(parts[1]);
+    m = parts[2] === undefined ? 0 : Number(parts[2]);
+    if (parts[2] !== undefined && parts[2].length === 1) m = m * 10;
+  } else if (/^\d{3,4}$/.test(v)) {
+    h = Number(v.slice(0, v.length - 2));
+    m = Number(v.slice(-2));
+  } else return null;
+  if (h > 23 || m > 59) return null;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** Orario sempre in formato italiano 24 ore (HH:mm), senza AM/PM; si completa uscendo dal campo. */
 export function TimeInput24({
   value,
   onChange,
+  onBlur,
   ...rest
 }: { value: string; onChange: (value: string) => void } & Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "type">) {
-  const format = (raw: string) => {
-    const digits = raw.replace(/\D/g, "").slice(0, 4);
-    return digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
-  };
-  const valid = !value || /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+  const valid = normalizeTime(value) !== null;
   return (
-    <Input
-      {...rest}
-      type="text"
-      inputMode="numeric"
-      placeholder="HH:mm"
-      maxLength={5}
-      value={value}
-      aria-invalid={!valid}
-      onChange={(e) => onChange(format(e.target.value))}
-    />
+    <div className="space-y-0.5">
+      <Input
+        {...rest}
+        type="text"
+        inputMode="numeric"
+        placeholder="HH:mm"
+        maxLength={5}
+        value={value}
+        aria-invalid={!valid}
+        onChange={(e) => onChange(e.target.value.replace(/[^\d:.,]/g, ""))}
+        onBlur={(e) => {
+          const n = normalizeTime(value);
+          if (n !== null && n !== value) onChange(n);
+          onBlur?.(e);
+        }}
+      />
+      {!valid ? <p className="text-[11px] text-destructive">Inserisci un orario valido</p> : null}
+    </div>
   );
 }
