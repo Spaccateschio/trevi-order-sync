@@ -10,7 +10,7 @@ import { deliveryDateLabel, localToday, timeRangeLabel, useDeliveryPreferences }
 import { qty, type LocationRow } from "@/lib/inventory";
 import type { OrderOverviewRow } from "@/lib/purchase";
 
-type Line = { order_id: string; product_name: string | null; product_code: string | null; purchase_quantity: number | null; purchase_unit_code: string | null; ordered_quantity: number; unit_code: string | null };
+type Line = { order_id: string; product_name: string | null; product_code: string | null; purchase_quantity: number | null; purchase_unit_code: string | null; ordered_quantity: number; unit_code: string | null; products: { code: string; description: string | null } | null };
 
 /**
  * Ricezione ordini: ordini inviati con merce ancora da ricevere.
@@ -47,14 +47,14 @@ export function OrderReceivingPanel({ companyId }: { companyId: string }) {
       const [lines, receipts] = await Promise.all([
         supabase
           .from("purchase_order_items")
-          .select("order_id, product_name, product_code, purchase_quantity, purchase_unit_code, ordered_quantity, unit_code")
+          .select("order_id, product_name, product_code, purchase_quantity, purchase_unit_code, ordered_quantity, unit_code, products(code, description)")
           .in("order_id", ids),
         supabase.from("goods_receipts").select("order_id").in("order_id", ids),
       ]);
       if (lines.error) throw new Error(lines.error.message);
       if (receipts.error) throw new Error(receipts.error.message);
       return {
-        lines: (lines.data ?? []) as Line[],
+        lines: (lines.data ?? []) as unknown as Line[],
         started: new Set((receipts.data ?? []).map((r) => r.order_id as string)),
       };
     },
@@ -111,7 +111,7 @@ export function OrderReceivingPanel({ companyId }: { companyId: string }) {
               <ul className="mt-2 space-y-0.5 text-sm">
                 {lines.map((l, i) => (
                   <li key={i}>
-                    {l.product_name ?? l.product_code ?? "Prodotto"} —{" "}
+                    {l.product_name ?? l.products?.description ?? l.product_code ?? l.products?.code ?? "Prodotto"} —{" "}
                     {l.purchase_quantity != null && l.purchase_unit_code
                       ? `${qty(Number(l.purchase_quantity))} ${l.purchase_unit_code}`
                       : `${qty(Number(l.ordered_quantity))} ${l.unit_code ?? ""}`}
