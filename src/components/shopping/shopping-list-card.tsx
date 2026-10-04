@@ -266,7 +266,7 @@ export function ShoppingListCard({
           <X className="size-3.5" aria-hidden="true" />
         </Button>
       ) : null}
-      {editable && !pending && onUnitChange && unitOptions.length ? (
+      {editable && !pending && onUnitChange ? (
         <Select
           value={decidedKey}
           disabled={locked || lockPending}
