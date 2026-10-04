@@ -660,7 +660,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
       getImageUrls({ data: { productIds: catalogPreview.slice(0, 50).map((p) => p.id), thumbnail: true } }),
   });
   const previewImages = useMemo(
-    () => new Map((previewImagesQuery.data ?? []).map((image) => [image.productId, image.url])),
+    () => new Map((previewImagesQuery.data ?? []).filter((image) => image && image.productId).map((image) => [image.productId, image.url])),
     [previewImagesQuery.data],
   );
 
@@ -708,7 +708,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
     },
   });
   const catalogImages = useMemo(
-    () => new Map((catalogImagesQuery.data ?? []).map((image) => [image.productId, image.url])),
+    () => new Map((catalogImagesQuery.data ?? []).filter((image) => image && image.productId).map((image) => [image.productId, image.url])),
     [catalogImagesQuery.data],
   );
 
@@ -805,7 +805,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
     queryFn: () => getImageUrls({ data: { productIds: imageProductIds, thumbnail: true } }),
   });
   const imageUrls = useMemo(
-    () => new Map((imagesQuery.data ?? []).map((image) => [image.productId, image.url])),
+    () => new Map((imagesQuery.data ?? []).filter((image) => image && image.productId).map((image) => [image.productId, image.url])),
     [imagesQuery.data],
   );
 
