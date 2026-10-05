@@ -162,6 +162,8 @@ export function SupplierRecordsPanel({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteFor, setDeleteFor] = useState<SupplierRecord | null>(null);
   const [deletedOpen, setDeletedOpen] = useState(false);
+  const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const [search, setSearch] = useState("");
   const [visibleColumns, setVisibleColumns] = useState<SupplierColumnKey[]>(() =>
@@ -298,6 +300,35 @@ export function SupplierRecordsPanel({
     setDeleteFor(null);
     await refresh();
     toast.success("Fornitore eliminato: puoi recuperarlo da “Fornitori eliminati”.");
+  }
+
+  /** Eliminazione morbida di massa: stessa RPC, un fornitore alla volta. */
+  async function bulkSoftDelete() {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    const failed: string[] = [];
+    for (const id of ids) {
+      const { error } = await supabase.rpc("manage_supplier_record_status", {
+        _buyer_company_id: companyId,
+        _supplier_record_id: id,
+        _action: "delete",
+      });
+      if (error) failed.push(error.message);
+    }
+    setBulkBusy(false);
+    setDeleteSelectedOpen(false);
+    setSelectedIds(new Set());
+    await refresh();
+    if (failed.length) {
+      toast.error(
+        `${ids.length - failed.length} eliminati, ${failed.length} non eliminati: ${failed[0]}`,
+      );
+    } else {
+      toast.success(
+        `${ids.length} ${ids.length === 1 ? "fornitore eliminato" : "fornitori eliminati"}: recuperabili da “Fornitori eliminati”.`,
+      );
+    }
   }
 
   async function restoreRecord(record: SupplierRecord) {
