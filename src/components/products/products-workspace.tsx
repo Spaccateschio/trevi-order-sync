@@ -286,8 +286,15 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
     const row = preferencesQuery.data;
     const columns = row?.columns as Partial<GridPreferences> | undefined;
     const savedSort = row?.sort as SortingState | undefined;
-    setVisibility({ ...defaults.visibility, ...(columns?.visibility ?? {}) });
+    const mergedVisibility = { ...defaults.visibility, ...(columns?.visibility ?? {}) };
     const savedOrder = columns?.order ?? [];
+    // Colonne aggiunte dopo che l'utente aveva già salvato le preferenze: se fanno parte
+    // delle colonne iniziali della pagina e le preferenze salvate non le conoscono, le mostro.
+    for (const id of initialVisibleColumns ?? []) {
+      const known = (columns?.visibility && id in columns.visibility) || savedOrder.includes(id);
+      if (!known) mergedVisibility[id] = true;
+    }
+    setVisibility(mergedVisibility);
     setColumnOrder([...savedOrder, ...defaults.order.filter((id) => !savedOrder.includes(id))]);
     setColumnSizing({ ...defaults.sizing, ...(columns?.sizing ?? {}) });
     setSorting(Array.isArray(savedSort) ? savedSort : defaults.sorting);
