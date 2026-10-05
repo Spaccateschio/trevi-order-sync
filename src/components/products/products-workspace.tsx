@@ -107,6 +107,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
   const userId = identity?.userId ?? null;
   const isAdmin = hasRole(identity, "amministratore");
   const queryClient = useQueryClient();
+  const pendingSaveRef = useRef<(() => Promise<void>) | null>(null);
   const defaults = useMemo(() => defaultGridPreferences(initialVisibleColumns), [initialVisibleColumns]);
 
   const [search, setSearch] = useState("");
@@ -307,23 +308,26 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
     const columns = { visibility, order: columnOrder, sizing: columnSizing };
     // Aggiorno subito la copia in memoria: rientrando nella pagina ritrovo l'ultima disposizione.
     queryClient.setQueryData(["product-grid-preferences", gridKey, userId, deviceClass], { columns: columns as Json, sort: sorting as unknown as Json });
-    let saved = false;
     const save = async () => {
-      if (saved) return;
-      saved = true;
+      if (pendingSaveRef.current !== save) return;
+      pendingSaveRef.current = null;
       const { error } = await supabase.from("user_grid_preferences").upsert({ user_id: userId, grid_key: gridKey, device_class: deviceClass, columns: columns as Json, sort: sorting as unknown as Json }, { onConflict: "user_id,grid_key,device_class" });
       if (error) toast.error("Impossibile salvare le preferenze della griglia");
     };
+    pendingSaveRef.current = save;
     const timer = window.setTimeout(save, 500);
-    // Uscendo dalla pagina prima del salvataggio, salvo comunque.
-    const onHide = () => void save();
-    window.addEventListener("pagehide", onHide);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("pagehide", onHide);
-      void save();
-    };
+    return () => window.clearTimeout(timer);
   }, [columnOrder, columnSizing, deviceClass, gridKey, preferencesReady, queryClient, sorting, userId, visibility]);
+
+  // Uscendo dalla pagina prima del salvataggio ritardato, salvo comunque l'ultima disposizione.
+  useEffect(() => {
+    const flush = () => void pendingSaveRef.current?.();
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, []);
 
   const costsQuery = useQuery({
     queryKey: ["danea-costi", companyId, selected?.id],
