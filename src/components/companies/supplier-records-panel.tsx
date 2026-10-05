@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Download, FileSpreadsheet, Printer } from "lucide-react";
+import { Download, FileSpreadsheet, Printer, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -162,6 +162,8 @@ export function SupplierRecordsPanel({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteFor, setDeleteFor] = useState<SupplierRecord | null>(null);
   const [deletedOpen, setDeletedOpen] = useState(false);
+  const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const [search, setSearch] = useState("");
   const [visibleColumns, setVisibleColumns] = useState<SupplierColumnKey[]>(() =>
@@ -298,6 +300,35 @@ export function SupplierRecordsPanel({
     setDeleteFor(null);
     await refresh();
     toast.success("Fornitore eliminato: puoi recuperarlo da “Fornitori eliminati”.");
+  }
+
+  /** Eliminazione morbida di massa: stessa RPC, un fornitore alla volta. */
+  async function bulkSoftDelete() {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    const failed: string[] = [];
+    for (const id of ids) {
+      const { error } = await supabase.rpc("manage_supplier_record_status", {
+        _buyer_company_id: companyId,
+        _supplier_record_id: id,
+        _action: "delete",
+      });
+      if (error) failed.push(error.message);
+    }
+    setBulkBusy(false);
+    setDeleteSelectedOpen(false);
+    setSelectedIds(new Set());
+    await refresh();
+    if (failed.length) {
+      toast.error(
+        `${ids.length - failed.length} eliminati, ${failed.length} non eliminati: ${failed[0]}`,
+      );
+    } else {
+      toast.success(
+        `${ids.length} ${ids.length === 1 ? "fornitore eliminato" : "fornitori eliminati"}: recuperabili da “Fornitori eliminati”.`,
+      );
+    }
   }
 
   async function restoreRecord(record: SupplierRecord) {
@@ -545,6 +576,15 @@ export function SupplierRecordsPanel({
             <Button
               size="sm"
               variant="outline"
+              className="h-7 border-destructive/40 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
+              disabled={!isAdmin || bulkBusy}
+              onClick={() => setDeleteSelectedOpen(true)}
+            >
+              <Trash2 /> Elimina
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               className="h-7 text-xs"
               onClick={() => {
                 try {
@@ -786,6 +826,34 @@ export function SupplierRecordsPanel({
             <AlertDialogCancel>Annulla</AlertDialogCancel>
             <AlertDialogAction onClick={() => deleteFor && void softDelete(deleteFor)}>
               Elimina fornitore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteSelectedOpen} onOpenChange={setDeleteSelectedOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Eliminare {selectedIds.size}{" "}
+              {selectedIds.size === 1 ? "fornitore" : "fornitori"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              I fornitori verranno nascosti dall’elenco, ma i loro dati non vengono cancellati:
+              potrai recuperarli dal pulsante “Fornitori eliminati” in fondo alla pagina.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkBusy}>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={bulkBusy}
+              onClick={(event) => {
+                event.preventDefault();
+                void bulkSoftDelete();
+              }}
+            >
+              {bulkBusy ? "Eliminazione…" : "Elimina"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
