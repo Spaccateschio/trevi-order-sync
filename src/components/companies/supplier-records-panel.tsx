@@ -576,6 +576,15 @@ export function SupplierRecordsPanel({
             <Button
               size="sm"
               variant="outline"
+              className="h-7 border-destructive/40 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
+              disabled={!isAdmin || bulkBusy}
+              onClick={() => setDeleteSelectedOpen(true)}
+            >
+              <Trash2 /> Elimina
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               className="h-7 text-xs"
               onClick={() => {
                 try {
