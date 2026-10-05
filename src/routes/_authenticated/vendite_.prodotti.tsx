@@ -25,7 +25,7 @@ function VenditeProdottiPage() {
       gridKey="vendite.prodotti"
       prodottoParam={prodotto}
       initialTab="vendita"
-      initialVisibleColumns={["code", "description", "danea_um", "sale_units", "price_1"]}
+      initialVisibleColumns={["code", "description", "danea_um", "sale_units", "price_1", "supplier_price"]}
     />
   );
 }
