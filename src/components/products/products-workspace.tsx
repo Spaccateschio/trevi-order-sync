@@ -108,6 +108,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
   const isAdmin = hasRole(identity, "amministratore");
   const queryClient = useQueryClient();
   const pendingSaveRef = useRef<(() => Promise<void>) | null>(null);
+  const appliedPrefsKeyRef = useRef<string | null>(null);
   const defaults = useMemo(() => defaultGridPreferences(initialVisibleColumns), [initialVisibleColumns]);
 
   const [search, setSearch] = useState("");
@@ -285,6 +286,11 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
 
   useEffect(() => {
     if (preferencesQuery.isLoading) return;
+    // Applico le preferenze salvate una sola volta per griglia/dispositivo:
+    // gli aggiornamenti successivi della copia in memoria nascono da questa stessa pagina.
+    const appliedKey = `${gridKey}|${userId}|${deviceClass}`;
+    if (appliedPrefsKeyRef.current === appliedKey) return;
+    appliedPrefsKeyRef.current = appliedKey;
     const row = preferencesQuery.data;
     const columns = row?.columns as Partial<GridPreferences> | undefined;
     const savedSort = row?.sort as SortingState | undefined;
