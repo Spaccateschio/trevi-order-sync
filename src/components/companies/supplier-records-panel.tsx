@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Download, FileSpreadsheet, Printer } from "lucide-react";
+import { Download, FileSpreadsheet, Printer, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -826,6 +826,34 @@ export function SupplierRecordsPanel({
             <AlertDialogCancel>Annulla</AlertDialogCancel>
             <AlertDialogAction onClick={() => deleteFor && void softDelete(deleteFor)}>
               Elimina fornitore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteSelectedOpen} onOpenChange={setDeleteSelectedOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Eliminare {selectedIds.size}{" "}
+              {selectedIds.size === 1 ? "fornitore" : "fornitori"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              I fornitori verranno nascosti dall’elenco, ma i loro dati non vengono cancellati:
+              potrai recuperarli dal pulsante “Fornitori eliminati” in fondo alla pagina.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkBusy}>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={bulkBusy}
+              onClick={(event) => {
+                event.preventDefault();
+                void bulkSoftDelete();
+              }}
+            >
+              {bulkBusy ? "Eliminazione…" : "Elimina"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
