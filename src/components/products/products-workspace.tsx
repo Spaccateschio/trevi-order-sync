@@ -115,6 +115,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
   const [status, setStatus] = useState("pubblicato");
   const [imageFilter, setImageFilter] = useState("tutte");
   const [page, setPage] = useState(0);
+  const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<ProductRow | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
@@ -398,7 +399,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
   const sortedFiltered = useMemo(() => sortProducts(filtered, sorting, archiveNameById), [archiveNameById, filtered, sorting]);
   const pageCount = Math.max(1, Math.ceil(sortedFiltered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
-  const visible = sortedFiltered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const visible = showAll ? sortedFiltered : sortedFiltered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
   const getImageUrls = useServerFn(getProductImageUrls);
   const imageColumnVisible = visibility["image"] !== false;
   const needsThumbnails = imageColumnVisible || deviceClass === "smartphone";
@@ -497,7 +498,8 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
       <ProductMobileList products={visible} selectedIds={selectedIds} imageUrls={imageUrls} columns={mobileColumns} archives={archiveNameById} listName={listName} onSelect={(id, checked) => setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; })} onOpen={setSelected} />
 
 
-      {pageCount > 1 ? <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><Button variant="outline" size="sm" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Precedenti</Button><span className="truncate text-center text-xs text-muted-foreground">Pagina {currentPage + 1} di {pageCount}</span><Button variant="outline" size="sm" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>Successivi</Button></div> : null}
+      {pageCount > 1 && !showAll ? <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><Button variant="outline" size="sm" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Precedenti</Button><span className="truncate text-center text-xs text-muted-foreground">Pagina {currentPage + 1} di {pageCount}</span><Button variant="outline" size="sm" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>Successivi</Button></div> : null}
+      {pageCount > 1 ? <div className="flex justify-center"><Button variant="ghost" size="sm" onClick={() => { setShowAll((current) => !current); setPage(0); }}>{showAll ? "Mostra a pagine" : `Mostra tutti i ${sortedFiltered.length} prodotti`}</Button></div> : null}
     </div>
 
     <div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column ? columnLabel(column, listName) : ""}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>
