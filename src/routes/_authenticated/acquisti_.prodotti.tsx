@@ -25,7 +25,7 @@ function AcquistiProdottiPage() {
       gridKey="acquisti.prodotti"
       prodottoParam={prodotto}
       initialTab="acquisto"
-      initialVisibleColumns={["description", "code", "danea_um", "supplier_name", "supplier_product_code", "purchase_cost", "supplier_price", "category"]}
+      initialVisibleColumns={["description", "code", "danea_um", "supplier_name", "supplier_product_code", "purchase_cost", "supplier_price", "danea_cost", "category"]}
     />
   );
 }
