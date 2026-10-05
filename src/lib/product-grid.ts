@@ -56,6 +56,9 @@ export type ProductRow = {
   purchase_cost?: number | null;
   /** Prezzo attuale nel catalogo del fornitore B2B collegato. */
   supplier_price?: number | null;
+  /** Costo fornitore netto ricevuto dall'ultima importazione Danea (U.M. prezzo non inviata da Danea). */
+  danea_cost?: number | null;
+  danea_cost_supplier?: string | null;
 };
 
 export const AVAILABILITY_LABELS: Record<ProductRow["commercial_availability"], string> = {
@@ -154,6 +157,18 @@ export const PRODUCT_COLUMNS: ProductColumn[] = [
   { id: "supplier_product_code", label: "Cod. prod. fornitore", size: 165, minSize: 120, adminOnly: true, value: (p) => text(p.supplier_product_code || p.link_supplier_product_code) },
   { id: "purchase_cost", label: "Costo acquisto", size: 130, minSize: 100, adminOnly: true, numeric: true, value: (p) => p.purchase_cost ?? null },
   { id: "supplier_price", label: "Prezzo fornitore", size: 140, minSize: 110, adminOnly: true, numeric: true, value: (p) => p.supplier_price ?? null },
+  {
+    id: "danea_cost",
+    label: "Costo Danea",
+    size: 280,
+    minSize: 160,
+    adminOnly: true,
+    value: (p) => {
+      if (p.danea_cost == null) return "—";
+      const price = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(p.danea_cost);
+      return `${price} (U.M. prezzo non indicata) · ${p.danea_cost_supplier || "Fornitore non indicato"}`;
+    },
+  },
   { id: "supplier_notes", label: "Note fornitore", size: 220, minSize: 140, adminOnly: true, value: (p) => text(p.supplier_notes) },
   { id: "notes", label: "Note", size: 240, minSize: 140, value: (p) => text(p.notes) },
   { id: "image_file_name", label: "Nome file immagine", size: 180, minSize: 120, value: (p) => text(p.image_file_name) },

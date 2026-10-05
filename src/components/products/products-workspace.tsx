@@ -344,6 +344,19 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
     return map;
   }, [supplierLinks]);
   const supplierPrices = supplierPricesQuery.data;
+  // Costi fornitore ricevuti da Danea (anche senza fornitore indicato): sola lettura.
+  const daneaCostsQuery = useQuery({
+    queryKey: ["prodotti-costi-danea", companyId],
+    enabled: Boolean(companyId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_supplier_costs")
+        .select("product_id, supplier_name, supplier_net_price");
+      if (error) throw new Error(error.message);
+      return new Map((data ?? []).map((row) => [row.product_id as string, row]));
+    },
+  });
+  const daneaCosts = daneaCostsQuery.data;
   const allProducts = useMemo(() => (productsQuery.data ?? []).map((product) => {
     const links = linksByProduct.get(product.id) ?? [];
     const main = links[0];
@@ -355,8 +368,10 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
       link_supplier_count: links.length,
       purchase_cost: main?.manual_cost ?? null,
       supplier_price: supplierPrices?.get(product.id) ?? null,
+      danea_cost: daneaCosts?.get(product.id)?.supplier_net_price ?? null,
+      danea_cost_supplier: daneaCosts?.get(product.id)?.supplier_name ?? null,
     };
-  }), [linksByProduct, productsQuery.data, saleUnitsQuery.data, supplierPrices]);
+  }), [linksByProduct, productsQuery.data, saleUnitsQuery.data, supplierPrices, daneaCosts]);
   const currentProduct = selected ? allProducts.find((product) => product.id === selected.id) ?? selected : null;
   // Apertura diretta della scheda quando si arriva dalla sezione Prodotti forniti del fornitore.
   const openedFromParam = useRef<string | null>(null);
