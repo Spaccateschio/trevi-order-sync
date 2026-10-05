@@ -304,13 +304,26 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
 
   useEffect(() => {
     if (!preferencesReady || !userId) return;
-    const timer = window.setTimeout(async () => {
-      const columns = { visibility, order: columnOrder, sizing: columnSizing };
+    const columns = { visibility, order: columnOrder, sizing: columnSizing };
+    // Aggiorno subito la copia in memoria: rientrando nella pagina ritrovo l'ultima disposizione.
+    queryClient.setQueryData(["product-grid-preferences", gridKey, userId, deviceClass], { columns: columns as Json, sort: sorting as unknown as Json });
+    let saved = false;
+    const save = async () => {
+      if (saved) return;
+      saved = true;
       const { error } = await supabase.from("user_grid_preferences").upsert({ user_id: userId, grid_key: gridKey, device_class: deviceClass, columns: columns as Json, sort: sorting as unknown as Json }, { onConflict: "user_id,grid_key,device_class" });
       if (error) toast.error("Impossibile salvare le preferenze della griglia");
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [columnOrder, columnSizing, deviceClass, gridKey, preferencesReady, sorting, userId, visibility]);
+    };
+    const timer = window.setTimeout(save, 500);
+    // Uscendo dalla pagina prima del salvataggio, salvo comunque.
+    const onHide = () => void save();
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("pagehide", onHide);
+      void save();
+    };
+  }, [columnOrder, columnSizing, deviceClass, gridKey, preferencesReady, queryClient, sorting, userId, visibility]);
 
   const costsQuery = useQuery({
     queryKey: ["danea-costi", companyId, selected?.id],
