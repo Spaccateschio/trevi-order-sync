@@ -1,24 +1,19 @@
-# Ciclo chiuso = pagine pulite + storici a un click
+# Costi fornitore Danea visibili in Prodotti
 
-## Regola
-Quando la Lista è chiusa e il semaforo è verde (o arancione), il ciclo è finito:
-- **Inventario**: nessuna quantità del ciclo precedente nelle card. Le card mostrano solo il prodotto, con il campo vuoto da contare. In alto c'è un riquadro: «Ultimo inventario: 02/10/2026 alle 07:30, fatto da Mario — Visualizza storico».
-- **Lista della Spesa**: vuota, con il messaggio «Nessuna lista in corso — l'ultima (LS-000001) è stata chiusa il 02/10 — Storico liste».
-- **Semaforo rosso** (Lista ancora aperta): il lavoro a metà resta visibile, con l'avviso «Lavoro iniziato il 02/10 da Mario: continua o completa».
+## A. Nuova colonna «Costo Danea» (codice)
+- In Vendite → Prodotti e Acquisti → Prodotti compare una colonna **«Costo Danea»** con il costo fornitore netto ricevuto dall'ultima importazione Danea (es. «€ 1,20»).
+- Se Danea indica il fornitore, sotto il prezzo appare il suo nome; altrimenti «Fornitore non indicato».
+- Danea non invia l'U.M. del prezzo: accanto al valore compare «U.M. prezzo non indicata», per non far credere che sia a kg o a cassetta.
+- La colonna «Prezzo fornitore» (listino B2B) resta com'è: sono due informazioni diverse.
+- La colonna nuova sarà visibile subito, anche con preferenze griglia già salvate.
+- Nessuna modifica al database, all'importazione Danea, allo storico prezzi o agli acquisti.
 
-I dati non vengono cancellati: giacenze, conteggi e liste chiuse restano nello storico. Cambia solo cosa si vede.
-
-## Storici a un click
-- **Inventario**: pulsante «Storico inventari», che apre l'elenco dei conteggi chiusi con data, autore e quantità (in sola lettura, stampabile).
-- **Lista**: resta «Storico liste», già esistente.
-
-## Pagina Ricezione ordini
-Nuova voce Acquisti → «Ricezione ordini», con gli ordini inviati in attesa di consegna. Per ognuno: fornitore, numero, data e fascia di consegna, prodotti ordinati e il pulsante per registrare cosa è arrivato. Questo riusa il Carico Merce esistente, senza crearne un secondo.
-
-## Cosa non cambia
-Lista della Spesa (logica di chiusura), ordini, semaforo, giacenze, Carico Merce (regole).
+## B. Completare i dati in Danea Easyfatt (a cura tua)
+- In Easyfatt, nella scheda di ogni prodotto, compila **Fornitore** e **Cod. prodotto fornitore**.
+- Al prossimo invio da Danea i costi si collegano al fornitore giusto ed entrano nello storico prezzi.
+- Nell'app non serve fare nulla.
 
 ## Dettagli tecnici
-- inventory-count-panel.tsx: quando non c'è una sessione aperta e il ciclo non è rosso, non passare stockHistory alle card. Aggiungere un banner con l'ultima sessione chiusa (data, autore) e un dialog «Storico inventari» basato su inventory_count_history.
-- shopping-list-panel.tsx: il banner vuoto con l'ultima LS chiusa c'è già in parte; va completato con data e autore.
-- Nuova route /acquisti/ricezione-ordini: elenco da purchase_order_overview filtrato su send_status=inviato e status non consegnato/chiuso; link al Carico Merce dell'ordine.
+- `products-workspace.tsx`: query in blocco su `product_supplier_costs` (product_id, supplier_name, supplier_net_price, received_at) filtrata per i prodotti caricati; aggiunta della colonna `danea_cost` alla definizione griglia.
+- Pagina Vendite/Acquisti prodotti: `danea_cost` in `initialVisibleColumns`.
+- Lettura con il client del browser: le regole di accesso esistenti limitano ai dati della propria azienda.
