@@ -15,6 +15,12 @@
 - Le card di un ordine già inviato non si sbloccano. Compare l'avviso «Ordine già inviato: chiama il fornitore».
 - Il semaforo resta rosso finché ci sono card da controllare.
 
+**4. Unità di misura libera in inventario (es. vino: casse e bottiglie)**
+- In ogni card dell'inventario puoi cambiare l'unità di misura a piacere per quel conteggio (bottiglia, cassa, pezzo...), come già fai nella Lista della Spesa.
+- Se l'acquisto avviene a casse da 6 bottiglie e conti a bottiglie, la card mostra anche il **resto**: «21 bottiglie = 3 casse piene + 3 bottiglie». Così chi ordina capisce subito che restano 3 bottiglie sfuse.
+- Nella Lista della Spesa la stessa riga mostra «3 casse + 3 bottiglie» accanto alla quantità da ordinare, così chi ordina vede i quantitativi esatti.
+- Il resto si calcola solo quando la conversione è certa (cassa = 6 bottiglie dichiarate); altrimenti compare solo il numero contato, senza inventare conversioni.
+
 **3. Invio degli ordini della Lista**
 - Quando sono partiti tutti gli ordini, Inventario e Lista della Spesa ripartono puliti: card vuote, «Nessuna lista in corso». Lo storico resta intatto.
 - In alto compare **un solo banner** sottile che scorre: «Ordine ORD-2026-000XX inviato a FORNITORE». Mostra solo l'ultimo ordine, così non copre lo schermo.
@@ -26,6 +32,7 @@
 - Alla riconferma del conteggio, per ogni prodotto con quantità diversa e riga in Lista non ancora ordinata: azzera `quantity_locked_at` e valorizza i due campi. `confirm_shopping_list_product` li ripulisce.
 - Il semaforo (`inventory_purchase_cycle_status`) considera le righe con `inventory_changed_at` come «da gestire». La modifica è minima e non cambia le altre regole.
 - Il reset dopo l'invio si appoggia alla regola già esistente: con il ciclo non rosso, le pagine operative mostrano solo il lavoro corrente. Verifico che l'invio dell'ultimo ordine chiuda la Lista (stato chiusa) e chiuda la valutazione.
+- U.M. inventario: la card del conteggio usa lo stesso menu U.M. della Lista (U.M. del prodotto, U.M. d'acquisto collegate, altra U.M. libera); la scelta si salva sulla riga del conteggio. Il resto («X casse + Y bottiglie») è solo una scritta calcolata dalle conversioni esatte già presenti (product_sale_units esatta), nessuna conversione nuova inventata; la giacenza resta nella U.M. del prodotto come da regola esistente.
 - Banner: nuovo componente `sent-orders-banner.tsx` (una sola riga marquee con token del tema, Link all'ordine più recente, freccia con Collapsible shadcn per gli altri ordini) nelle pagine Inventario, Lista e Ordini. Legge gli ordini inviati nelle ultime ore dalla Lista chiusa; la chiusura con ✕ resta salvata sul dispositivo.
 - File: inventory-count-panel.tsx, componenti della Lista (card + filtro), nuovo banner, una migrazione. Non tocco Consegne, Carico Merce e Danea.
 - Test: prova su 3 EMME (modifica 1 quantità → solo quella card risulta da controllare; invio ordini → pagine pulite + banner).

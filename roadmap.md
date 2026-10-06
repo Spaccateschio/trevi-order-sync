@@ -99,3 +99,4 @@
 
 - [ ] Inventario modificabile + Lista «Da controllare» + banner ordini inviati (piano in attesa di approvazione)
 - [ ] Da decidere: Lista divisa per reparti/ruoli (es. ristorante: vino, carne, pesce)
+- [ ] Da decidere: U.M. libera in inventario con resto (casse + bottiglie) per chi ordina
