@@ -2403,9 +2403,11 @@ function PhysicalCount({
               <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "favorites" ? "default" : "outline"} onClick={() => onViewChange("favorites")}>
                 <Star className="size-3" /> Preferiti
               </Button>
-              <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "all" ? "default" : "outline"} onClick={() => onViewChange("all")}>
-                Tutti
-              </Button>
+              {favoritesForced ? null : (
+                <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "all" ? "default" : "outline"} onClick={() => onViewChange("all")}>
+                  Tutti
+                </Button>
+              )}
               <span className="mx-0.5 w-px shrink-0 bg-border" />
               {([
                 ["all", "Tutti gli stati"],
@@ -2448,7 +2450,7 @@ function PhysicalCount({
                 <strong>{notComparable}</strong> · Mancanti <strong>{progress?.pending ?? 0}</strong>
               </p>
             </div>
-            <div className="grid grid-cols-2 rounded-md border border-border p-0.5">
+            <div className={cn("grid rounded-md border border-border p-0.5", favoritesForced ? "grid-cols-1" : "grid-cols-2")}>
               <Button
                 size="sm"
                 className="h-8 text-xs"
@@ -2457,9 +2459,11 @@ function PhysicalCount({
               >
                 <Star className="size-3.5" /> Preferiti
               </Button>
-              <Button size="sm" className="h-8 text-xs" variant={productView === "all" ? "default" : "ghost"} onClick={() => onViewChange("all")}>
-                Tutti
-              </Button>
+              {favoritesForced ? null : (
+                <Button size="sm" className="h-8 text-xs" variant={productView === "all" ? "default" : "ghost"} onClick={() => onViewChange("all")}>
+                  Tutti
+                </Button>
+              )}
             </div>
             <Button size="sm" variant="destructive" className="h-9 text-xs" onClick={onClearDrafts}>
               Azzera quantità
