@@ -80,7 +80,7 @@ function EditForm({ order, onClose, onSaved }: { order: OrderOverviewRow; onClos
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_order_items")
-        .select("id, product_name, product_code, purchase_quantity, purchase_unit_code, unit_code, product_supplier_link_id")
+        .select("id, product_name, product_code, purchase_quantity, ordered_quantity, purchase_unit_code, unit_code, product_supplier_link_id")
         .eq("order_id", order.order_id)
         .order("created_at");
       if (error) throw new Error(error.message);
@@ -112,7 +112,7 @@ function EditForm({ order, onClose, onSaved }: { order: OrderOverviewRow; onClos
           link_id: it.product_supplier_link_id ?? undefined,
           name: it.product_name ?? it.product_code ?? "Prodotto",
           unit: it.purchase_unit_code ?? it.unit_code ?? "",
-          quantity: it.purchase_quantity != null ? String(it.purchase_quantity) : "",
+          quantity: String(it.purchase_quantity ?? it.ordered_quantity ?? ""),
         })),
       );
     }
