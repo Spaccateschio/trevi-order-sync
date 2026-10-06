@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, FilePlus2, Lock, Pencil, Trash2 } from "lucide-react";
-import { OrderEditDialog, OrderCancelDialog } from "./order-customer-actions";
+import { OrderEditDialog, OrderCancelDialog, orderLabel } from "./order-customer-actions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
