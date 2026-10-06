@@ -63,7 +63,7 @@ export function OrderEditDialog({
   );
 }
 
-type EditLine = { key: string; item_id?: string; link_id?: string; name: string; unit: string; quantity: string };
+type EditLine = { key: string; item_id?: string | undefined; link_id?: string | undefined; name: string; unit: string; quantity: string };
 
 function EditForm({ order, onClose, onSaved }: { order: OrderOverviewRow; onClose: () => void; onSaved: () => Promise<unknown> }) {
   const [date, setDate] = useState(order.delivery_date ?? "");
