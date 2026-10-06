@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell, PlaceholderCard } from "@/components/app-shell";
 import { AddressManager } from "@/components/companies/address-manager";
 import { DeliveryPreferencesForm } from "@/components/company/delivery-preferences-form";
+import { CompanyPhoneForm } from "@/components/company/company-phone-form";
 import { UnitCatalogue } from "@/components/company/unit-catalogue";
 import { InventoryLocationsManager } from "@/components/inventory/inventory-locations-manager";
 import { Button } from "@/components/ui/button";
@@ -124,6 +125,8 @@ function Amministrazione() {
                   <AddressManager owner={{ companyId: company.companyId }} isAdmin={allowed} />
                 </div>
               </section>
+
+              <CompanyPhoneForm companyId={company.companyId} isAdmin={allowed} />
 
               {sells ? <UnitCatalogue companyId={company.companyId} /> : null}
 
