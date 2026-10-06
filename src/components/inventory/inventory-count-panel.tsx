@@ -1479,7 +1479,6 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             imageUrls={sessionId ? imageUrls : previewImages}
             drafts={sessionId ? drafts : draftFirst}
             productView={effectiveProductView}
-            favoritesForced={favoritesForced}
             workFilter={workFilter}
             category={category}
             subcategory={subcategory}
@@ -2168,7 +2167,6 @@ function PhysicalCount({
   imageUrls,
   drafts,
   productView,
-  favoritesForced,
   workFilter,
   category,
   subcategory,
@@ -2226,7 +2224,6 @@ function PhysicalCount({
   imageUrls: Map<string, string>;
   drafts: Record<string, string>;
   productView: ProductView;
-  favoritesForced: boolean;
   workFilter: WorkFilter;
   category: string | null;
   subcategory: string | null;

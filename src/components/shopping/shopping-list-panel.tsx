@@ -103,7 +103,7 @@ type FilterFlag =
   | "senza_fornitore"
   | "b2b"
   | "non_b2b"
-  | "preferiti" // riservato: il filtro preferiti è fisso, non più una voce del menu
+  | "preferiti"
   | "da_assegnare"
   | "parziale"
   | "assegnata"
@@ -113,7 +113,7 @@ type FilterFlag =
   | "confermati";
 /** «Filtra card»: decide quali prodotti si vedono. */
 const FILTER_GROUPS: [string, [FilterFlag, string][]][] = [
-  ["Prodotto", [["b2b", "B2B"], ["non_b2b", "Non B2B"]]],
+  ["Prodotto", [["preferiti", "★ Preferiti"], ["b2b", "B2B"], ["non_b2b", "Non B2B"]]],
   ["Quantità", [["da_confermare", "Quantità da confermare"], ["confermati", "Quantità confermata"]]],
   [
     "Fornitore / assegnazione",
