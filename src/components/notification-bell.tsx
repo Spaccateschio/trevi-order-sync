@@ -41,7 +41,7 @@ export function NotificationBell({ companyId, className }: { companyId: string |
   const unread = items.filter((i) => !i.read).length;
 
   async function markRead(ids: string[] | null) {
-    await supabase.rpc("mark_notifications_read", { _ids: ids ?? undefined });
+    await supabase.rpc("mark_notifications_read", ids ? { _ids: ids } : {});
     await qc.invalidateQueries({ queryKey: key });
   }
 
