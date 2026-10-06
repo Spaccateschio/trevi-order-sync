@@ -1,25 +1,40 @@
-# Lista della Spesa: scegliere i prodotti da tutto ciò che si può comprare
+# Lista della Spesa: aggiunta prodotti con filtri completi e U.M. d'acquisto
 
 ## Obiettivo
-Da «Aggiungi prodotti» si vedono, senza uscire dalla Lista:
-- i propri prodotti (come oggi);
-- i prodotti pubblicati dai fornitori collegati in B2B (es. i 115 di Trevi), anche se non sono ancora tra i propri prodotti.
+Nella Lista della Spesa, «Aggiungi prodotti» deve mostrare tutto ciò che l'azienda può comprare (prodotti propri + cataloghi dei fornitori collegati in B2B), con filtri per fornitore, categoria e sottocategoria, selezione multipla e impostazione della U.M. d'acquisto al momento dell'aggiunta.
 
-Si possono filtrare, selezionare uno o più prodotti, scrivere la quantità e aggiungerli alla Lista in un solo passaggio.
+## Stato attuale
+- `add-products-dialog.tsx` mostra solo i prodotti già propri, ricerca solo per nome/codice, massimo 100 righe, nessuna scelta U.M.
+- Il fornitore si associa da solo solo per prodotti aggiunti dal catalogo B2B (`add_catalog_product_to_own_products`).
+- Prodotti Danea senza fornitore: restano senza fornitore (si sistemerà lato Danea, fuori da questo intervento).
 
-## Cosa cambia nella finestra «Aggiungi prodotti»
-- **Filtri**: Cerca (codice/descrizione), **Fornitore** (tutti / uno specifico, compresi i fornitori B2B), **Categoria**, **Sottocategoria** (dipende dalla categoria scelta). Etichette ✕ per togliere i filtri attivi.
-- **Elenco**: per ogni riga foto, descrizione, codice, categoria/sottocategoria, U.M., fornitore e, per i prodotti B2B, il prezzo del listino a me riservato.
-- **Niente limite di 100 righe**: si scorre tutto l'elenco filtrato.
-- **Prodotto del catalogo fornitore non ancora mio**: selezionandolo e confermando, il programma lo aggiunge prima ai miei prodotti, già collegato a quel fornitore, e poi lo inserisce nella Lista. Il passaggio usa la funzione già esistente per aggiungere un prodotto dal catalogo ai propri prodotti, quindi nessun duplicato: se è già mio, uso quello.
-- **Stella ★** resta disponibile su ogni riga: diventa preferito per i prossimi Inventari e per l'apertura della Lista.
-- Quantità obbligatoria per ogni prodotto scelto (regola attuale invariata).
+## Modifiche
 
-## Cosa non cambia
-Card della Lista, conferma/chiusura, ordini, inventario, semaforo, database.
+### 1. Sorgente prodotti allargata
+- Il dialogo mostra: prodotti propri dell'azienda **più** i prodotti pubblicati nei cataloghi dei fornitori con rapporto attivo.
+- Se l'utente aggiunge un prodotto del catalogo fornitore non ancora proprio, si riusa la RPC esistente `add_catalog_product_to_own_products`: il prodotto diventa proprio e il collegamento fornitore nasce in automatico (niente doppioni).
 
-## Dettagli tecnici
-- File: `src/components/shopping/add-products-dialog.tsx` (unico file toccato, più eventuale piccola funzione di lettura in `src/lib/shopping-list.functions.ts` per il catalogo B2B dei fornitori attivi, letto con i permessi dell'utente).
-- Prodotti propri: `products` + fornitori da `product_supplier_links` per il filtro Fornitore; sottocategoria dal campo già importato da Danea.
-- Catalogo B2B: prodotti pubblicati dei venditori con rapporto attivo (stessa fonte del catalogo B2B), prezzi da `buyer_catalog_prices`.
-- Aggiunta: per le righe B2B non ancora proprie, `add_catalog_product_to_own_products` poi `addShoppingListItems` con l'id del prodotto proprio.
+### 2. Filtri nel dialogo «Aggiungi prodotti»
+- Filtro **Fornitore** (elenco fornitori attivi collegati + «senza fornitore»).
+- Filtro **Categoria** e **Sottocategoria** (dai dati prodotto esistenti).
+- Ricerca testuale nome/codice mantenuta.
+- Rimosso il limite dei 100 con caricamento a scorrimento o paginazione semplice.
+
+### 3. U.M. d'acquisto all'aggiunta
+- Per ogni prodotto selezionato, nel dialogo si può impostare quantità e **U.M. d'acquisto**:
+  - B2B: solo U.M. pubblicate dal venditore (regola esistente, invariata).
+  - Non-B2B: U.M. configurate nei collegamenti fornitore + U.M. principale prodotto; «Altra U.M.» testuale come da regole esistenti.
+- Se non impostata, il prodotto entra in lista come oggi (da completare in card).
+
+### 4. Cosa NON cambia
+- Filtro preferiti all'apertura di Lista e Inventario (resta com'è).
+- Regole U.M. B2B/non-B2B, chiusura lista, semaforo, Inventario, Ordini, Consegne, Carico Merce: nessuna modifica.
+- Nessuna modifica al database se non emergesse una lacuna (verrà segnalata prima).
+
+## File previsti
+- `src/components/shopping/add-products-dialog.tsx` (riscrittura del dialogo)
+- eventuale nuovo hook/query in `src/lib/` per cataloghi fornitori (RPC esistenti: `available_suppliers`, `buyer_catalog_prices`, `add_catalog_product_to_own_products`)
+- nessun altro file toccato senza segnalazione
+
+## Verifica
+- Prova a schermo: apertura dialogo, filtri fornitore/categoria, aggiunta multipla con U.M., prodotto B2B che nasce con fornitore già associato.
