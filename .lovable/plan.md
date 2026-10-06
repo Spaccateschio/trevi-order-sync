@@ -1,7 +1,7 @@
 # Lista della Spesa: aggiunta prodotti con filtri completi e U.M. d'acquisto
 
 ## Obiettivo
-Nella Lista della Spesa, «Aggiungi prodotti» deve mostrare tutto ciò che l'azienda può comprare (prodotti propri + cataloghi dei fornitori collegati in B2B), con filtri per fornitore, categoria e sottocategoria, selezione multipla e impostazione della U.M. d'acquisto al momento dell'aggiunta.
+La Lista della Spesa si apre sempre sui preferiti (comportamento attuale, invariato). Quando l'utente vuole aggiungere un nuovo articolo, «Aggiungi prodotti» mostra tutto ciò che l'azienda può comprare — preferiti e non — con filtri per fornitore, categoria e sottocategoria, selezione multipla e impostazione della U.M. d'acquisto al momento dell'aggiunta.
 
 ## Stato attuale
 - `add-products-dialog.tsx` mostra solo i prodotti già propri, ricerca solo per nome/codice, massimo 100 righe, nessuna scelta U.M.
