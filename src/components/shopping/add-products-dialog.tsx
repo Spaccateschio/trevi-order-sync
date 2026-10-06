@@ -342,7 +342,7 @@ export function AddProductsDialog({
           productId = (data as { product_id?: string } | null)?.product_id ?? null;
           if (!productId) throw new Error(`Prodotto non creato per ${row.code}`);
         }
-        const draft = selected[key];
+        const draft = selected[key] ?? { qty: "", unit: "", manual: "" };
         const unitCode = draft.unit === MANUAL ? draft.manual.trim().toUpperCase() : draft.unit || null;
         items.push({
           product_id: productId,
@@ -378,7 +378,10 @@ export function AddProductsDialog({
     });
 
   const patch = (key: string, part: Partial<Draft>) =>
-    setSelected((current) => ({ ...current, [key]: { ...current[key], ...part } }));
+    setSelected((current) => ({
+      ...current,
+      [key]: { qty: "", unit: "", manual: "", ...current[key], ...part },
+    }));
 
   const loading = productsQuery.isLoading || linksQuery.isLoading || cataloguesQuery.isLoading;
 
