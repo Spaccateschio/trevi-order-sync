@@ -1193,6 +1193,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti-tutti"] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferito"] }),
         queryClient.invalidateQueries({ queryKey: ["inventario-preferiti-prodotti"] }),
+        queryClient.invalidateQueries({ queryKey: ["company-has-favorites", companyId] }),
       ]);
     },
     onError: (error: Error) => toast.error(error.message),
@@ -1209,6 +1210,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
         queryClient.invalidateQueries({ queryKey: ["inventario-catalogo-candidati", companyId] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti-tutti"] }),
+        queryClient.invalidateQueries({ queryKey: ["company-has-favorites", companyId] }),
       ]);
     },
     onError: (error: Error) => toast.error(error.message),
@@ -2163,6 +2165,7 @@ function PhysicalCount({
   imageUrls,
   drafts,
   productView,
+  favoritesForced,
   workFilter,
   category,
   subcategory,
@@ -2220,6 +2223,7 @@ function PhysicalCount({
   imageUrls: Map<string, string>;
   drafts: Record<string, string>;
   productView: ProductView;
+  favoritesForced: boolean;
   workFilter: WorkFilter;
   category: string | null;
   subcategory: string | null;
