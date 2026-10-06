@@ -15,6 +15,13 @@
       "when": 1791265314713,
       "tag": "0001_fix_sync_danea_supplier_links_conflict",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791271101461,
+      "tag": "0002_add_shopping_list_items_decided_unit",
+      "breakpoints": true
     }
   ]
 }
