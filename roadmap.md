@@ -96,3 +96,6 @@
 - [x] Ciclo concluso: Inventario e Lista puliti, Storico inventari per sessione, pagina Ricezione ordini (verifica a ciclo verde/arancione reale ancora da fare)
 
 - [ ] Inventario: definire sblocco card dopo invio ordini e aggiornamento con Carico merce (in attesa conferma utente)
+
+- [ ] Inventario modificabile + Lista «Da controllare» + banner ordini inviati (piano in attesa di approvazione)
+- [ ] Da decidere: Lista divisa per reparti/ruoli (es. ristorante: vino, carne, pesce)
