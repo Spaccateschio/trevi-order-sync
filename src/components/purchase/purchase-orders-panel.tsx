@@ -96,6 +96,43 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
   });
 
   const orders = ordersQuery.data ?? [];
+
+  // Ordini B2B (con rapporto) e data di presa in carico del fornitore.
+  const seenQuery = useQuery({
+    queryKey: ["purchase-orders-seen", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("purchase_orders")
+        .select("id, relation_id, seen_by_supplier_at")
+        .eq("company_id", companyId);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const seenMap = new Map<string, string | null>();
+  const seenRelation = new Set<string>();
+  for (const r of seenQuery.data ?? []) {
+    seenMap.set(r.id, r.seen_by_supplier_at);
+    if (r.relation_id) seenRelation.add(r.id);
+  }
+  const [editing, setEditing] = useState<OrderOverviewRow | null>(null);
+  const [cancelling, setCancelling] = useState<OrderOverviewRow | null>(null);
+  const runOrder = useServerFn(managePurchaseOrder);
+  const refreshOrders = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders", companyId] }),
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders-seen", companyId] }),
+    ]);
+  const cancelOrder = useMutation({
+    mutationFn: (o: OrderOverviewRow) =>
+      runOrder({ data: { orderId: o.order_id, action: "cancel", destinationLocationId: null, notes: null } }),
+    onSuccess: async () => {
+      setCancelling(null);
+      await refreshOrders();
+      toast.success("Ordine annullato: il fornitore riceve la notifica");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
   const locations = locationsQuery.data ?? [];
   const prefs = useDeliveryPreferences(companyId);
   const today = localToday(prefs.data?.timezone ?? "Europe/Rome");
@@ -186,10 +223,15 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
                   <div key={order.order_id} className="rounded-lg border border-border bg-card p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold">{order.supplier_name}</span>
-                      <Badge variant={order.send_status === "errore_invio" ? "destructive" : order.send_status === "da_inviare" ? "default" : "secondary"}>
-                        {SEND_STATUS_LABEL[order.send_status]}
-                      </Badge>
-                      <Badge variant="outline">{ORDER_STATUS_LABEL[order.status]}</Badge>
+                      {(() => {
+                        const s = orderLabel(order, seenMap.get(order.order_id) ?? null);
+                        return (
+                          <Badge variant={s.variant}>
+                            {s.locked ? <Lock className="mr-1 h-3 w-3" /> : null}
+                            {s.label}
+                          </Badge>
+                        );
+                      })()}
                       {order.open_disputes > 0 ? (
                         <Badge variant="destructive">{order.open_disputes} da risolvere</Badge>
                       ) : null}
@@ -207,9 +249,33 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
                       {order.sent_at ? `Inviato il ${dateTimeShort(order.sent_at)}` : `Creato il ${dateTimeShort(order.created_at)}`}
                       {order.status !== "bozza" ? ` · ordinato ${qty(order.ordered_total)} · caricato ${qty(order.received_total)}` : ""}
                     </p>
-                    <Button size="sm" variant="outline" className="mt-2" onClick={() => setSelected(order.order_id)}>
-                      Visualizza ordine
-                    </Button>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setSelected(order.order_id)}>
+                        Visualizza ordine
+                      </Button>
+                      {order.status === "inviato" && seenRelation.has(order.order_id) ? (
+                        seenMap.get(order.order_id) ? (
+                          <p className="text-xs text-muted-foreground">
+                            <Lock className="mr-1 inline h-3 w-3" />
+                            Il fornitore ha già preso in carico l'ordine: per annullare o modificare chiama il fornitore.
+                          </p>
+                        ) : (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => setEditing(order)}>
+                              <Pencil className="mr-1 h-4 w-4" /> Modifica
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              aria-label="Annulla ordine"
+                              onClick={() => setCancelling(order)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )
+                      ) : null}
+                    </div>
                   </div>
                 ))}
               </div>
