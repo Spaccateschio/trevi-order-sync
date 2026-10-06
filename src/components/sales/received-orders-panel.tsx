@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Inbox } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight, Inbox, MessageSquare, TriangleAlert, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +22,10 @@ type OrderRow = {
   delivery_address_text: string | null;
   notes: string | null;
   buyer: string;
+  modified_at: string | null;
+  seen_at: string | null;
+  danea_exported_at: string | null;
+  cancel_reason: string | null;
 };
 
 type ItemRow = {
@@ -32,6 +40,7 @@ type ItemRow = {
   unit_cost: number | null;
   price_unit_code: string | null;
   notes: string | null;
+  previous_quantity: number | null;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -64,7 +73,7 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
     queryFn: async (): Promise<OrderRow[]> => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("id,number,status,created_at,sent_at,delivery_date,delivery_time_from,delivery_time_to,delivery_address_text,notes,seen_by_supplier_at,companies!purchase_orders_company_id_fkey(legal_name)")
+        .select("id,number,status,created_at,sent_at,delivery_date,delivery_time_from,delivery_time_to,delivery_address_text,notes,seen_by_supplier_at,customer_modified_at,danea_exported_at,cancel_reason,companies!purchase_orders_company_id_fkey(legal_name)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       // Annullato prima che il fornitore lo aprisse: non c'è nulla da preparare,
@@ -80,6 +89,10 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
         delivery_time_to: o.delivery_time_to,
         delivery_address_text: o.delivery_address_text,
         notes: o.notes,
+        modified_at: o.customer_modified_at,
+        seen_at: o.seen_by_supplier_at,
+        danea_exported_at: o.danea_exported_at,
+        cancel_reason: o.cancel_reason,
         buyer: (o.companies as { legal_name: string | null } | null)?.legal_name ?? "Cliente",
       }));
     },
@@ -91,10 +104,63 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
     queryFn: async (): Promise<ItemRow[]> => {
       const { data, error } = await supabase
         .from("purchase_order_items")
-        .select("id,order_id,product_name,product_code,purchase_quantity,purchase_unit_code,ordered_quantity,unit_code,unit_cost,price_unit_code,notes");
+        .select("id,order_id,product_name,product_code,purchase_quantity,purchase_unit_code,ordered_quantity,unit_code,unit_cost,price_unit_code,notes,previous_quantity");
       if (error) throw error;
       return (data ?? []) as ItemRow[];
     },
+  });
+
+  const qc = useQueryClient();
+  const refresh = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: ["received-orders", companyId] }),
+      qc.invalidateQueries({ queryKey: ["received-order-items", companyId] }),
+      qc.invalidateQueries({ queryKey: ["received-order-extras", companyId] }),
+    ]);
+  const extrasQuery = useQuery({
+    queryKey: ["received-order-extras", companyId],
+    enabled: Boolean(companyId),
+    queryFn: async () => {
+      const [{ data: reqs }, { data: removed }] = await Promise.all([
+        supabase.from("purchase_order_change_requests").select("id,order_id,note,status,requested_at").eq("seller_company_id", companyId).eq("status", "in_attesa"),
+        supabase.from("purchase_order_changes").select("order_id,label,old_value,changed_at").eq("seller_company_id", companyId).eq("field", "item_removed"),
+      ]);
+      return { reqs: reqs ?? [], removed: removed ?? [] };
+    },
+  });
+  const [cancelling, setCancelling] = useState<OrderRow | null>(null);
+  const [reason, setReason] = useState("");
+  const [danea, setDanea] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
+  const decide = useMutation({
+    mutationFn: async (v: { id: string; accept: boolean; note: string }) => {
+      const { error } = await supabase.rpc("decide_order_change", { _request_id: v.id, _accept: v.accept, _note: v.note });
+      if (error) throw new Error(error.message);
+      return v.accept;
+    },
+    onSuccess: async (accept) => {
+      setRejecting(null);
+      setRejectNote("");
+      await refresh();
+      toast.success(accept ? "Richiesta accettata: il cliente può modificare l'ordine" : "Richiesta rifiutata: il cliente riceve la notifica");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const cancel = useMutation({
+    mutationFn: async (o: OrderRow) => {
+      const { data, error } = await supabase.rpc("supplier_cancel_order", { _order_id: o.id, _reason: reason });
+      if (error) throw new Error(error.message);
+      return data as string | null;
+    },
+    onSuccess: async (exported) => {
+      setCancelling(null);
+      setReason("");
+      await refresh();
+      toast.success("Ordine annullato: il cliente riceve la notifica");
+      if (exported) setDanea(exported);
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const orders = ordersQuery.data ?? [];
@@ -127,6 +193,48 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
 
   return (
     <div className="space-y-2">
+      <Dialog open={Boolean(cancelling)} onOpenChange={(v) => (!v ? setCancelling(null) : null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Annullare l'ordine {cancelling?.number}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Il cliente riceve la notifica. Resta nello storico con il motivo.</p>
+          <Textarea aria-label="Motivo" placeholder="Motivo dell'annullamento" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelling(null)}>No</Button>
+            <Button variant="destructive" disabled={cancel.isPending} onClick={() => cancelling && cancel.mutate(cancelling)}>
+              Sì, annulla ordine
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={Boolean(danea)} onOpenChange={(v) => (!v ? setDanea(null) : null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Promemoria Danea</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm">
+            Ordine già esportato in Danea il {danea ? fmtDateTime.format(new Date(danea)) : ""} — ricordati di annullarlo anche in Danea.
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setDanea(null)}>Ho capito</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={Boolean(rejecting)} onOpenChange={(v) => (!v ? setRejecting(null) : null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rifiuta la richiesta</DialogTitle>
+          </DialogHeader>
+          <Textarea aria-label="Motivo rifiuto" placeholder="Motivo (facoltativo)" value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejecting(null)}>Chiudi</Button>
+            <Button disabled={decide.isPending} onClick={() => rejecting && decide.mutate({ id: rejecting, accept: false, note: rejectNote })}>
+              Rifiuta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {orders.map((o) => {
         const items = itemsByOrder.get(o.id) ?? [];
         const expanded = open === o.id;
@@ -148,6 +256,12 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{o.number ?? "Ordine"}</span>
                   <Badge variant={STATUS_VARIANT[o.status] ?? "outline"}>{STATUS_LABEL[o.status] ?? o.status}</Badge>
+                  {o.modified_at && !o.seen_at && o.status === "inviato" ? (
+                    <Badge variant="outline" className="border-warning text-warning-foreground bg-warning/20">Modificato</Badge>
+                  ) : null}
+                  {(extrasQuery.data?.reqs ?? []).some((r) => r.order_id === o.id) ? (
+                    <Badge variant="outline"><MessageSquare className="mr-1 h-3 w-3" />Richiesta modifica</Badge>
+                  ) : null}
                 </div>
                 <p className="truncate text-sm text-muted-foreground">
                   {o.buyer} · {fmtDateTime.format(new Date(o.sent_at ?? o.created_at))}
@@ -157,6 +271,21 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
             </button>
             {expanded ? (
               <CardContent className="space-y-3 border-t pt-3">
+                {(extrasQuery.data?.reqs ?? []).filter((r) => r.order_id === o.id).map((r) => (
+                  <div key={r.id} className="space-y-2 rounded-md border border-warning bg-warning/10 p-3 text-sm">
+                    <p className="font-medium">Il cliente chiede una modifica</p>
+                    <p>{r.note}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" disabled={decide.isPending} onClick={() => decide.mutate({ id: r.id, accept: true, note: "" })}>
+                        Accetta (sblocca l'ordine)
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setRejecting(r.id)}>Rifiuta</Button>
+                    </div>
+                  </div>
+                ))}
+                {o.status === "annullato" && o.cancel_reason ? (
+                  <p className="text-sm text-destructive">Motivo annullamento: {o.cancel_reason}</p>
+                ) : null}
                 {o.delivery_date || o.delivery_address_text ? (
                   <div className="text-sm">
                     <p className="font-medium">Consegna richiesta</p>
@@ -182,7 +311,12 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
                   ) : (
                     <ul className="divide-y rounded-md border">
                       {items.map((it) => (
-                        <li key={it.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                        <li
+                          key={it.id}
+                          className={`flex items-center justify-between gap-3 px-3 py-2 text-sm ${
+                            it.previous_quantity != null && it.previous_quantity !== it.purchase_quantity ? "border-l-4 border-l-warning bg-warning/10" : ""
+                          }`}
+                        >
                           <div className="min-w-0">
                             <p className="truncate font-medium">{it.product_name ?? "Prodotto"}</p>
                             {it.product_code ? <p className="text-xs text-muted-foreground">Cod. {it.product_code}</p> : null}
@@ -192,6 +326,12 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
                               {it.purchase_quantity != null ? fmtQty.format(it.purchase_quantity) : "—"}{" "}
                               {it.purchase_unit_code ?? it.unit_code ?? ""}
                             </p>
+                            {it.previous_quantity != null && it.previous_quantity !== it.purchase_quantity ? (
+                              <p className="text-xs">
+                                <TriangleAlert className="mr-1 inline h-3 w-3" />
+                                {it.previous_quantity === 0 ? "Nuovo prodotto" : `prima ${fmtQty.format(it.previous_quantity)}, ora ${fmtQty.format(it.purchase_quantity ?? 0)}`}
+                              </p>
+                            ) : null}
                             {it.unit_cost != null ? (
                               <p className="text-xs text-muted-foreground">
                                 {fmtPrice.format(it.unit_cost)}{it.price_unit_code ? ` / ${it.price_unit_code}` : ""}
@@ -202,7 +342,17 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
                       ))}
                     </ul>
                   )}
+                  {(extrasQuery.data?.removed ?? []).filter((r) => r.order_id === o.id).map((r, i) => (
+                    <p key={i} className="rounded-md border-l-4 border-l-warning bg-warning/10 px-3 py-1 text-sm line-through">
+                      {r.label} {r.old_value ? `(${r.old_value})` : ""} — tolto dal cliente
+                    </p>
+                  ))}
                 </div>
+                {o.status === "inviato" ? (
+                  <Button size="sm" variant="destructive" onClick={() => setCancelling(o)}>
+                    <Trash2 className="mr-1 h-4 w-4" /> Annulla ordine
+                  </Button>
+                ) : null}
               </CardContent>
             ) : null}
           </Card>
