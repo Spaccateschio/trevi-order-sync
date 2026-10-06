@@ -64,10 +64,12 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
     queryFn: async (): Promise<OrderRow[]> => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("id,number,status,created_at,sent_at,delivery_date,delivery_time_from,delivery_time_to,delivery_address_text,notes,companies!purchase_orders_company_id_fkey(legal_name)")
+        .select("id,number,status,created_at,sent_at,delivery_date,delivery_time_from,delivery_time_to,delivery_address_text,notes,seen_by_supplier_at,companies!purchase_orders_company_id_fkey(legal_name)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((o) => ({
+      // Annullato prima che il fornitore lo aprisse: non c'è nulla da preparare,
+      // quindi non compare nella schermata operativa (resta solo la notifica).
+      return (data ?? []).filter((o) => !(o.status === "annullato" && !o.seen_by_supplier_at)).map((o) => ({
         id: o.id,
         number: o.number,
         status: o.status,
@@ -136,7 +138,7 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
               onClick={() => {
                 setOpen(expanded ? null : o.id);
                 // Prima apertura del fornitore: blocca l'ordine lato cliente (lucchetto).
-                if (!expanded && o.status !== "bozza") {
+                if (!expanded && o.status !== "bozza" && o.status !== "annullato") {
                   void supabase.rpc("mark_order_seen_by_supplier", { _order_id: o.id });
                 }
               }}
