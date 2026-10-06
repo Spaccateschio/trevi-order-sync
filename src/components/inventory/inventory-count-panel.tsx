@@ -71,6 +71,7 @@ import {
   getInventoryProgress,
   getInventoryRows,
   getFavoriteProductIds,
+  getCompanyHasFavorites,
   getSupplierCatalogCandidates,
   manageCatalogProductFavorite,
   manageCompanyProductFavorite,
@@ -210,6 +211,7 @@ export function InventoryCountPanel({
   const getSellerImageUrls = useServerFn(getCatalogImageUrls);
   const readCatalogCandidates = useServerFn(getSupplierCatalogCandidates);
   const readFavoriteProductIds = useServerFn(getFavoriteProductIds);
+  const readHasFavorites = useServerFn(getCompanyHasFavorites);
   const adoptProduct = useServerFn(adoptCatalogProduct);
   const readCycle = useServerFn(getInventoryCycleStatus);
   const cycleQuery = useQuery({
@@ -229,6 +231,14 @@ export function InventoryCountPanel({
   const [selectingLocation, setSelectingLocation] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [productView, setProductView] = useState<ProductView>("favorites");
+  // Con almeno un preferito la vista è fissa sui preferiti; senza preferiti si vedono tutti.
+  const hasFavoritesQuery = useQuery({
+    queryKey: ["company-has-favorites", companyId],
+    staleTime: 60 * 1000,
+    queryFn: () => readHasFavorites({ data: { companyId } }),
+  });
+  const favoritesForced = hasFavoritesQuery.data === true;
+  const effectiveProductView: ProductView = favoritesForced ? "favorites" : productView;
   const [workFilter, setWorkFilter] = useState<WorkFilter>("all");
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
@@ -496,13 +506,13 @@ export function InventoryCountPanel({
     const term = search.trim().toLowerCase();
     return catalogPreview
       .filter((product) => {
-        if (productView === "favorites" && !previewFavoriteQuery.data?.has(product.id)) return false;
+        if (effectiveProductView === "favorites" && !previewFavoriteQuery.data?.has(product.id)) return false;
         if (category && (product.category ?? NO_CATEGORY) !== category) return false;
         if (subcategory && (product.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
         return !term || `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term);
       })
       .sort((left, right) => byName(left.description, left.code, right.description, right.code));
-  }, [catalogPreview, category, previewFavoriteQuery.data, productView, search, subcategory]);
+  }, [catalogPreview, category, previewFavoriteQuery.data, effectiveProductView, search, subcategory]);
   // Senza inventario aperto: giacenza reale e ultimo conteggio compatibile (inventari chiusi, stessa U.M.).
   // Solo lettura; "Mai contato" solo se il prodotto non ha nessun conteggio compatibile.
   const historyLocationId =
@@ -677,7 +687,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
     const term = search.trim().toLowerCase();
     return catalogCandidates
       .filter((candidate) => {
-        if (productView === "favorites" && !candidate.isFavorite) return false;
+        if (effectiveProductView === "favorites" && !candidate.isFavorite) return false;
         if (supplierFilter && candidate.sellerCompanyName !== supplierFilter) return false;
         if (category && (candidate.category ?? NO_CATEGORY) !== category) return false;
         if (subcategory && (candidate.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
@@ -686,7 +696,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
       })
       .sort((left, right) => byName(left.description, left.code, right.description, right.code));
 
-  }, [catalogCandidates, category, productView, search, subcategory, supplierFilter, workFilter]);
+  }, [catalogCandidates, category, effectiveProductView, search, subcategory, supplierFilter, workFilter]);
 
   const catalogImagesQuery = useQuery({
     queryKey: ["inventario-catalogo-immagini", companyId, catalogCandidates.length],
@@ -731,7 +741,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
       searching ? null : category,
       searching ? null : subcategory,
       searching ? search.trim() : null,
-      productView,
+      effectiveProductView,
     ],
     enabled: Boolean(sessionId),
     queryFn: () =>
@@ -742,7 +752,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
           category: searching ? null : category,
           subcategory: searching ? null : subcategory,
           search: searching ? search.trim() : null,
-          favoritesOnly: productView === "favorites",
+          favoritesOnly: effectiveProductView === "favorites",
         },
       }),
   });
@@ -1183,6 +1193,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti-tutti"] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferito"] }),
         queryClient.invalidateQueries({ queryKey: ["inventario-preferiti-prodotti"] }),
+        queryClient.invalidateQueries({ queryKey: ["company-has-favorites", companyId] }),
       ]);
     },
     onError: (error: Error) => toast.error(error.message),
@@ -1199,6 +1210,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
         queryClient.invalidateQueries({ queryKey: ["inventario-catalogo-candidati", companyId] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti-tutti"] }),
+        queryClient.invalidateQueries({ queryKey: ["company-has-favorites", companyId] }),
       ]);
     },
     onError: (error: Error) => toast.error(error.message),
@@ -1244,7 +1256,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
     return raw === "" ? null : parseQuantity(raw);
   };
   const confirmScope = () => {
-    const all = (productView === "favorites" ? favoriteRowsQuery.data : allRowsQuery.data) ?? rows;
+    const all = (effectiveProductView === "favorites" ? favoriteRowsQuery.data : allRowsQuery.data) ?? rows;
     return all.filter((row) => !managedProductIds.size || managedProductIds.has(row.product_id));
   };
   // Note obbligatorie in coda: si passa alla Lista della Spesa solo quando sono tutte gestite.
@@ -1463,7 +1475,8 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             loading={sessionId ? rowsQuery.isLoading : catalogPreviewQuery.isLoading}
             imageUrls={sessionId ? imageUrls : previewImages}
             drafts={sessionId ? drafts : draftFirst}
-            productView={productView}
+            productView={effectiveProductView}
+            favoritesForced={favoritesForced}
             workFilter={workFilter}
             category={category}
             subcategory={subcategory}
@@ -2152,6 +2165,7 @@ function PhysicalCount({
   imageUrls,
   drafts,
   productView,
+  favoritesForced,
   workFilter,
   category,
   subcategory,
@@ -2209,6 +2223,7 @@ function PhysicalCount({
   imageUrls: Map<string, string>;
   drafts: Record<string, string>;
   productView: ProductView;
+  favoritesForced: boolean;
   workFilter: WorkFilter;
   category: string | null;
   subcategory: string | null;
@@ -2392,9 +2407,11 @@ function PhysicalCount({
               <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "favorites" ? "default" : "outline"} onClick={() => onViewChange("favorites")}>
                 <Star className="size-3" /> Preferiti
               </Button>
-              <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "all" ? "default" : "outline"} onClick={() => onViewChange("all")}>
-                Tutti
-              </Button>
+              {favoritesForced ? null : (
+                <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "all" ? "default" : "outline"} onClick={() => onViewChange("all")}>
+                  Tutti
+                </Button>
+              )}
               <span className="mx-0.5 w-px shrink-0 bg-border" />
               {([
                 ["all", "Tutti gli stati"],
@@ -2437,7 +2454,7 @@ function PhysicalCount({
                 <strong>{notComparable}</strong> · Mancanti <strong>{progress?.pending ?? 0}</strong>
               </p>
             </div>
-            <div className="grid grid-cols-2 rounded-md border border-border p-0.5">
+            <div className={cn("grid rounded-md border border-border p-0.5", favoritesForced ? "grid-cols-1" : "grid-cols-2")}>
               <Button
                 size="sm"
                 className="h-8 text-xs"
@@ -2446,9 +2463,11 @@ function PhysicalCount({
               >
                 <Star className="size-3.5" /> Preferiti
               </Button>
-              <Button size="sm" className="h-8 text-xs" variant={productView === "all" ? "default" : "ghost"} onClick={() => onViewChange("all")}>
-                Tutti
-              </Button>
+              {favoritesForced ? null : (
+                <Button size="sm" className="h-8 text-xs" variant={productView === "all" ? "default" : "ghost"} onClick={() => onViewChange("all")}>
+                  Tutti
+                </Button>
+              )}
             </div>
             <Button size="sm" variant="destructive" className="h-9 text-xs" onClick={onClearDrafts}>
               Azzera quantità

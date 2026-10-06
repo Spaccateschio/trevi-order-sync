@@ -357,6 +357,27 @@ export const getFavoriteProductIds = createServerFn({ method: "POST" })
     return [...favorites];
   });
 
+/** True se l'azienda ha almeno un preferito (proprio o da catalogo venditore). */
+export const getCompanyHasFavorites = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ companyId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const [{ count: ownCount, error: ownError }, { count: catalogCount, error: catalogError }] = await Promise.all([
+      context.supabase
+        .from("company_product_favorites")
+        .select("product_id", { count: "exact", head: true })
+        .eq("company_id", data.companyId),
+      context.supabase
+        .from("buyer_product_favorites")
+        .select("product_id", { count: "exact", head: true })
+        .eq("buyer_company_id", data.companyId),
+    ]);
+    if (ownError) throw new Error(ownError.message);
+    if (catalogError) throw new Error(catalogError.message);
+    return (ownCount ?? 0) + (catalogCount ?? 0) > 0;
+  });
+
+
 
 export const getInventoryProgress = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
