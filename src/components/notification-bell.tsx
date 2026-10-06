@@ -31,7 +31,7 @@ export function NotificationBell({ companyId, className }: { companyId: string |
 
   useEffect(() => {
     if (!companyId) return;
-    const channel = supabase.channel(`notifications-${companyId}`)
+    const channel = supabase.channel(`notifications-${companyId}-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `company_id=eq.${companyId}` }, () => { void qc.invalidateQueries({ queryKey: ["notifications", companyId] }); })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
