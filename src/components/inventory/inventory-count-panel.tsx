@@ -512,7 +512,7 @@ export function InventoryCountPanel({
         return !term || `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term);
       })
       .sort((left, right) => byName(left.description, left.code, right.description, right.code));
-  }, [catalogPreview, category, previewFavoriteQuery.data, productView, search, subcategory]);
+  }, [catalogPreview, category, previewFavoriteQuery.data, effectiveProductView, search, subcategory]);
   // Senza inventario aperto: giacenza reale e ultimo conteggio compatibile (inventari chiusi, stessa U.M.).
   // Solo lettura; "Mai contato" solo se il prodotto non ha nessun conteggio compatibile.
   const historyLocationId =
@@ -696,7 +696,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
       })
       .sort((left, right) => byName(left.description, left.code, right.description, right.code));
 
-  }, [catalogCandidates, category, productView, search, subcategory, supplierFilter, workFilter]);
+  }, [catalogCandidates, category, effectiveProductView, search, subcategory, supplierFilter, workFilter]);
 
   const catalogImagesQuery = useQuery({
     queryKey: ["inventario-catalogo-immagini", companyId, catalogCandidates.length],
@@ -1473,7 +1473,8 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             loading={sessionId ? rowsQuery.isLoading : catalogPreviewQuery.isLoading}
             imageUrls={sessionId ? imageUrls : previewImages}
             drafts={sessionId ? drafts : draftFirst}
-            productView={productView}
+            productView={effectiveProductView}
+            favoritesForced={favoritesForced}
             workFilter={workFilter}
             category={category}
             subcategory={subcategory}
