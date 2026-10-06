@@ -3492,6 +3492,106 @@ export type Database = {
           },
         ]
       }
+      purchase_order_change_requests: {
+        Row: {
+          buyer_company_id: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          note: string
+          order_id: string
+          requested_at: string
+          requested_by: string | null
+          seller_company_id: string
+          status: string
+        }
+        Insert: {
+          buyer_company_id: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          note: string
+          order_id: string
+          requested_at?: string
+          requested_by?: string | null
+          seller_company_id: string
+          status?: string
+        }
+        Update: {
+          buyer_company_id?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          note?: string
+          order_id?: string
+          requested_at?: string
+          requested_by?: string | null
+          seller_company_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_change_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_order_changes: {
+        Row: {
+          buyer_company_id: string
+          changed_at: string
+          changed_by: string | null
+          field: string
+          id: string
+          item_id: string | null
+          label: string | null
+          new_value: string | null
+          old_value: string | null
+          order_id: string
+          seller_company_id: string | null
+        }
+        Insert: {
+          buyer_company_id: string
+          changed_at?: string
+          changed_by?: string | null
+          field: string
+          id?: string
+          item_id?: string | null
+          label?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          order_id: string
+          seller_company_id?: string | null
+        }
+        Update: {
+          buyer_company_id?: string
+          changed_at?: string
+          changed_by?: string | null
+          field?: string
+          id?: string
+          item_id?: string | null
+          label?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          order_id?: string
+          seller_company_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_changes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_order_items: {
         Row: {
           company_id: string
@@ -3501,6 +3601,7 @@ export type Database = {
           notes: string | null
           order_id: string
           ordered_quantity: number | null
+          previous_quantity: number | null
           price_unit_code: string | null
           price_unit_id: string | null
           product_code: string | null
@@ -3525,6 +3626,7 @@ export type Database = {
           notes?: string | null
           order_id: string
           ordered_quantity?: number | null
+          previous_quantity?: number | null
           price_unit_code?: string | null
           price_unit_id?: string | null
           product_code?: string | null
@@ -3549,6 +3651,7 @@ export type Database = {
           notes?: string | null
           order_id?: string
           ordered_quantity?: number | null
+          previous_quantity?: number | null
           price_unit_code?: string | null
           price_unit_id?: string | null
           product_code?: string | null
@@ -3687,10 +3790,15 @@ export type Database = {
       purchase_orders: {
         Row: {
           archive_id: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           closed_at: string | null
           company_id: string
           created_at: string
           created_by: string | null
+          customer_modified_at: string | null
+          danea_exported_at: string | null
           delivery_address_text: string | null
           delivery_date: string | null
           delivery_time_from: string | null
@@ -3713,10 +3821,15 @@ export type Database = {
         }
         Insert: {
           archive_id: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           closed_at?: string | null
           company_id: string
           created_at?: string
           created_by?: string | null
+          customer_modified_at?: string | null
+          danea_exported_at?: string | null
           delivery_address_text?: string | null
           delivery_date?: string | null
           delivery_time_from?: string | null
@@ -3739,10 +3852,15 @@ export type Database = {
         }
         Update: {
           archive_id?: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           closed_at?: string | null
           company_id?: string
           created_at?: string
           created_by?: string | null
+          customer_modified_at?: string | null
+          danea_exported_at?: string | null
           delivery_address_text?: string | null
           delivery_date?: string | null
           delivery_time_from?: string | null
@@ -5469,8 +5587,24 @@ export type Database = {
         }
         Returns: undefined
       }
+      customer_update_order_full: {
+        Args: {
+          _address: string
+          _delivery_date: string
+          _items: Json
+          _notes: string
+          _order_id: string
+          _time_from: string
+          _time_to: string
+        }
+        Returns: string
+      }
       decide_company_relation: {
         Args: { _accept: boolean; _relation_id: string }
+        Returns: undefined
+      }
+      decide_order_change: {
+        Args: { _accept: boolean; _note: string; _request_id: string }
         Returns: undefined
       }
       decide_proposed_update: {
@@ -6382,6 +6516,10 @@ export type Database = {
         Args: { _company_id: string; _reset?: boolean; _session_id: string }
         Returns: Json
       }
+      request_order_change: {
+        Args: { _note: string; _order_id: string }
+        Returns: string
+      }
       request_supplier_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
         Returns: string
@@ -6686,6 +6824,10 @@ export type Database = {
       }
       submit_purchase_delivery: {
         Args: { _actor_label?: string; _delivery_id: string; _notes?: string }
+        Returns: string
+      }
+      supplier_cancel_order: {
+        Args: { _order_id: string; _reason: string }
         Returns: string
       }
       supplier_record_match_suggestions: {
