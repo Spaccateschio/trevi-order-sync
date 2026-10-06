@@ -16,24 +16,61 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { activeCompany, isRelationOperational, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchSellerCatalogue } from "@/lib/catalog";
 import { parseQuantity } from "@/lib/inventory";
 import { getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
-import { cn } from "@/lib/utils";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
+import { cn } from "@/lib/utils";
 
-type Product = {
+const MANUAL = "__manuale__";
+const PAGE = 100;
+
+type OwnProduct = {
   id: string;
   code: string;
   description: string | null;
   category: string | null;
+  subcategory: string | null;
   danea_um: string | null;
+  created_from_product_id: string | null;
 };
 
+type Row = {
+  key: string;
+  /** Prodotto proprio; null = referenza del catalogo fornitore non ancora fra i propri prodotti. */
+  ownProductId: string | null;
+  sellerId: string | null;
+  sellerName: string | null;
+  code: string;
+  description: string | null;
+  category: string | null;
+  subcategory: string | null;
+  baseUm: string | null;
+  /** Nomi fornitore per il filtro (collegamenti propri o venditore B2B). */
+  supplierNames: string[];
+  /** U.M. d'acquisto proponibili: codici già configurati. */
+  unitCodes: string[];
+  /** B2B: solo U.M. pubblicate dal venditore, niente «Altra U.M.». */
+  isB2b: boolean;
+};
+
+type Draft = { qty: string; unit: string; manual: string };
+
 /**
- * Aggiunta multipla alla Lista. Il modello attuale richiede una quantità decisa > 0:
- * ogni prodotto scelto ha il proprio campo, inizialmente vuoto. Nessuna quantità automatica.
+ * Aggiunta multipla alla Lista: prodotti propri + cataloghi dei fornitori collegati.
+ * Filtri per fornitore, categoria e sottocategoria; quantità e U.M. d'acquisto si
+ * impostano qui. La referenza di catalogo diventa prodotto proprio con fornitore
+ * collegato (add_catalog_product_to_own_products), senza doppioni.
  */
 export function AddProductsDialog({
   companyId,
@@ -58,36 +95,182 @@ export function AddProductsDialog({
   const getImageUrls = useServerFn(getProductImageUrls);
   const readFavorites = useServerFn(getFavoriteProductIds);
   const runFavorite = useServerFn(manageCompanyProductFavorite);
+  const { data: identity } = useIdentity();
+  const company = activeCompany(identity);
+
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Record<string, string>>({});
+  const [supplierFilter, setSupplierFilter] = useState("tutti");
+  const [categoryFilter, setCategoryFilter] = useState("tutte");
+  const [subcategoryFilter, setSubcategoryFilter] = useState("tutte");
+  const [limit, setLimit] = useState(PAGE);
+  const [selected, setSelected] = useState<Record<string, Draft>>({});
 
   const productsQuery = useQuery({
     queryKey: ["shopping-add-products", companyId, archiveId],
     enabled: open,
-    queryFn: async (): Promise<Product[]> => {
+    queryFn: async (): Promise<OwnProduct[]> => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, code, description, category, danea_um")
+        .select("id, code, description, category, subcategory, danea_um, created_from_product_id")
         .eq("company_id", companyId)
         .eq("archive_id", archiveId)
         .order("code");
       if (error) throw new Error(error.message);
-      return (data ?? []) as Product[];
+      return (data ?? []) as OwnProduct[];
     },
   });
 
-  const visible = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const all = productsQuery.data ?? [];
-    const filtered = term
-      ? all.filter(
-          (row) => row.code.toLowerCase().includes(term) || (row.description ?? "").toLowerCase().includes(term),
+  /** Collegamenti fornitore dei prodotti propri: nomi per il filtro e U.M. d'acquisto configurate. */
+  const linksQuery = useQuery({
+    queryKey: ["shopping-add-links", companyId],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_supplier_links")
+        .select(
+          "product_id, supplier_record_id, purchase_unit_id, supplier_records(legal_name), units_of_measure!purchase_unit_id(code)",
         )
-      : all;
-    return filtered.slice(0, 100);
-  }, [productsQuery.data, search]);
+        .eq("company_id", companyId);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as {
+        product_id: string;
+        supplier_record_id: string | null;
+        purchase_unit_id: string | null;
+        supplier_records: { legal_name: string } | null;
+        units_of_measure: { code: string } | null;
+      }[];
+    },
+  });
 
-  const imageIds = useMemo(() => visible.slice(0, 50).map((row) => row.id), [visible]);
+  /** Cataloghi dei fornitori con rapporto operativo (stessa fonte della pagina Catalogo). */
+  const sellers = useMemo(() => {
+    const relations = (identity?.relations ?? []).filter(
+      (r) => r.buyerCompanyId === company?.companyId && isRelationOperational(r),
+    );
+    return relations.map((r) => ({
+      sellerId: r.sellerCompanyId,
+      sellerName: r.sellerCompanyName ?? "Fornitore",
+    }));
+  }, [identity, company]);
+  const sellerKey = sellers.map((s) => s.sellerId).join(",");
+
+  const cataloguesQuery = useQuery({
+    queryKey: ["shopping-add-catalogues", companyId, sellerKey],
+    enabled: open && sellers.length > 0,
+    queryFn: async () => {
+      const result: { sellerId: string; sellerName: string; products: Awaited<ReturnType<typeof fetchSellerCatalogue>> }[] = [];
+      for (const seller of sellers) {
+        const products = await fetchSellerCatalogue(seller.sellerId);
+        result.push({ ...seller, products });
+      }
+      return result;
+    },
+  });
+
+  const rows = useMemo<Row[]>(() => {
+    const linksByProduct = new Map<string, { names: Set<string>; units: Set<string> }>();
+    for (const link of linksQuery.data ?? []) {
+      const entry = linksByProduct.get(link.product_id) ?? { names: new Set<string>(), units: new Set<string>() };
+      if (link.supplier_records?.legal_name) entry.names.add(link.supplier_records.legal_name);
+      if (link.units_of_measure?.code) entry.units.add(link.units_of_measure.code);
+      linksByProduct.set(link.product_id, entry);
+    }
+
+    const own: Row[] = (productsQuery.data ?? []).map((p) => {
+      const links = linksByProduct.get(p.id);
+      const units = new Set<string>();
+      if (p.danea_um) units.add(p.danea_um);
+      for (const code of links?.units ?? []) units.add(code);
+      return {
+        key: `own:${p.id}`,
+        ownProductId: p.id,
+        sellerId: null,
+        sellerName: null,
+        code: p.code,
+        description: p.description,
+        category: p.category,
+        subcategory: p.subcategory,
+        baseUm: p.danea_um,
+        supplierNames: [...(links?.names ?? [])],
+        unitCodes: [...units],
+        isB2b: false,
+      };
+    });
+
+    // Referenze di catalogo già diventate prodotti propri: non si mostrano due volte.
+    const ownedFromCatalog = new Set(
+      (productsQuery.data ?? [])
+        .map((p) => p.created_from_product_id)
+        .filter((id): id is string => Boolean(id)),
+    );
+    const catalog: Row[] = [];
+    for (const cat of cataloguesQuery.data ?? []) {
+      for (const p of cat.products) {
+        if (ownedFromCatalog.has(p.id)) continue;
+        catalog.push({
+          key: `cat:${p.id}`,
+          ownProductId: null,
+          sellerId: cat.sellerId,
+          sellerName: cat.sellerName,
+          code: p.code,
+          description: p.description,
+          category: p.category,
+          subcategory: p.subcategory,
+          baseUm: p.danea_um,
+          supplierNames: [cat.sellerName],
+          unitCodes: p.product_sale_units
+            .map((u) => u.units_of_measure?.code)
+            .filter((code): code is string => Boolean(code)),
+          isB2b: true,
+        });
+      }
+    }
+    return [...own, ...catalog];
+  }, [productsQuery.data, linksQuery.data, cataloguesQuery.data]);
+
+  const supplierOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const row of rows) for (const name of row.supplierNames) names.add(name);
+    return [...names].sort((a, b) => a.localeCompare(b, "it"));
+  }, [rows]);
+
+  const categoryOptions = useMemo(() => {
+    const values = new Set<string>();
+    for (const row of rows) if (row.category) values.add(row.category);
+    return [...values].sort((a, b) => a.localeCompare(b, "it"));
+  }, [rows]);
+
+  const subcategoryOptions = useMemo(() => {
+    const values = new Set<string>();
+    for (const row of rows) {
+      if (categoryFilter !== "tutte" && row.category !== categoryFilter) continue;
+      if (row.subcategory) values.add(row.subcategory);
+    }
+    return [...values].sort((a, b) => a.localeCompare(b, "it"));
+  }, [rows, categoryFilter]);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (supplierFilter === "senza" && row.supplierNames.length > 0) return false;
+      if (supplierFilter !== "tutti" && supplierFilter !== "senza" && !row.supplierNames.includes(supplierFilter))
+        return false;
+      if (categoryFilter !== "tutte" && row.category !== categoryFilter) return false;
+      if (subcategoryFilter !== "tutte" && row.subcategory !== subcategoryFilter) return false;
+      if (!term) return true;
+      return (
+        row.code.toLowerCase().includes(term) ||
+        (row.description ?? "").toLowerCase().includes(term)
+      );
+    });
+  }, [rows, search, supplierFilter, categoryFilter, subcategoryFilter]);
+
+  const visible = filtered.slice(0, limit);
+
+  const imageIds = useMemo(
+    () => visible.map((row) => row.ownProductId).filter((id): id is string => Boolean(id)).slice(0, 50),
+    [visible],
+  );
   const imagesQuery = useQuery({
     queryKey: ["shopping-add-images", imageIds],
     enabled: open && imageIds.length > 0,
@@ -100,7 +283,10 @@ export function AddProductsDialog({
   );
 
   // Stesso Preferito dell'Inventario: con la stella il prodotto torna nei prossimi Inventari (non entra da solo in Lista).
-  const favoriteIds = useMemo(() => visible.map((row) => row.id).sort(), [visible]);
+  const favoriteIds = useMemo(
+    () => visible.map((row) => row.ownProductId).filter((id): id is string => Boolean(id)).sort(),
+    [visible],
+  );
   const favoritesQuery = useQuery({
     queryKey: ["shopping-extras-favorites", companyId, "add", favoriteIds],
     enabled: open && favoriteIds.length > 0,
@@ -120,32 +306,58 @@ export function AddProductsDialog({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const selectedIds = Object.keys(selected);
-  const missingQuantity = selectedIds.filter((id) => {
-    const value = parseQuantity(selected[id] ?? "");
+  const selectedKeys = Object.keys(selected);
+  const missingQuantity = selectedKeys.filter((key) => {
+    const value = parseQuantity(selected[key]?.qty ?? "");
     return !value || value <= 0;
   });
-  const products = productsQuery.data ?? [];
+  const missingUnit = selectedKeys.filter((key) => {
+    const draft = selected[key];
+    return draft?.unit === MANUAL && !draft.manual.trim();
+  });
 
   const addMutation = useMutation({
     mutationFn: async () => {
       const targetId = listId ?? (await resolveListId?.()) ?? null;
       if (!targetId) throw new Error("Lista della Spesa non creata");
+      const byKey = new Map(rows.map((row) => [row.key, row]));
+      const items: {
+        product_id: string;
+        decided_quantity: number | null;
+        decided_unit_code: string | null;
+        origin: "manuale";
+      }[] = [];
+      for (const key of selectedKeys) {
+        const row = byKey.get(key);
+        if (!row) continue;
+        let productId = row.ownProductId;
+        if (!productId) {
+          // Referenza di catalogo: diventa prodotto proprio con il fornitore già collegato.
+          const { data, error } = await supabase.rpc("add_catalog_product_to_own_products", {
+            _buyer_company_id: companyId,
+            _seller_company_id: row.sellerId!,
+            _seller_product_id: key.slice(4),
+          });
+          if (error) throw new Error(error.message);
+          productId = (data as { product_id?: string } | null)?.product_id ?? null;
+          if (!productId) throw new Error(`Prodotto non creato per ${row.code}`);
+        }
+        const draft = selected[key];
+        const unitCode = draft.unit === MANUAL ? draft.manual.trim().toUpperCase() : draft.unit || null;
+        items.push({
+          product_id: productId,
+          decided_quantity: parseQuantity(draft.qty) ?? null,
+          decided_unit_code: unitCode,
+          origin: "manuale",
+        });
+      }
       return runAdd({
-        data: {
-          companyId,
-          listId: targetId,
-          replaceExisting: false,
-          items: selectedIds.map((id) => ({
-            product_id: id,
-            decided_quantity: parseQuantity(selected[id] ?? "") ?? null,
-            origin: "manuale" as const,
-          })),
-        },
+        data: { companyId, listId: targetId, replaceExisting: false, items },
       });
     },
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] });
+      await queryClient.invalidateQueries({ queryKey: ["shopping-add-products", companyId] });
       toast.success(
         `${result.added} prodott${result.added === 1 ? "o aggiunto" : "i aggiunti"}` +
           (result.skipped ? ` · ${result.skipped} già in lista` : ""),
@@ -157,94 +369,206 @@ export function AddProductsDialog({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const toggle = (id: string, checked: boolean) =>
+  const toggle = (key: string, checked: boolean) =>
     setSelected((current) => {
       const next = { ...current };
-      if (checked) next[id] = next[id] ?? "";
-      else delete next[id];
+      if (checked) next[key] = next[key] ?? { qty: "", unit: "", manual: "" };
+      else delete next[key];
       return next;
     });
 
+  const patch = (key: string, part: Partial<Draft>) =>
+    setSelected((current) => ({ ...current, [key]: { ...current[key], ...part } }));
+
+  const loading = productsQuery.isLoading || linksQuery.isLoading || cataloguesQuery.isLoading;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-3 sm:max-w-2xl">
+      <DialogContent className="flex max-h-[90vh] flex-col gap-3 sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Aggiungi prodotti</DialogTitle>
           <DialogDescription>
-            Scegli uno o più prodotti e scrivi per ognuno la quantità da acquistare. Con la stella ★ il prodotto diventa preferito e lo ritroverai nei prossimi Inventari.
+            Vedi tutto quello che puoi comprare: i tuoi prodotti e i cataloghi dei fornitori collegati. Filtra per
+            fornitore, categoria o sottocategoria, scegli quantità e U.M. d'acquisto. Con la stella ★ il prodotto
+            diventa preferito e lo ritroverai nei prossimi Inventari.
           </DialogDescription>
         </DialogHeader>
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input
-            className="h-8 pl-8 text-sm"
-            autoFocus
-            value={search}
-            placeholder="Cerca per codice o descrizione"
-            aria-label="Cerca prodotto da aggiungere"
-            onChange={(event) => setSearch(event.target.value)}
-          />
+
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              className="h-8 pl-8 text-sm"
+              autoFocus
+              value={search}
+              placeholder="Codice o descrizione"
+              aria-label="Cerca prodotto da aggiungere"
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setLimit(PAGE);
+              }}
+            />
+          </div>
+          <Select
+            value={supplierFilter}
+            onValueChange={(value) => {
+              setSupplierFilter(value);
+              setLimit(PAGE);
+            }}
+          >
+            <SelectTrigger className="h-8 text-sm" aria-label="Filtra per fornitore">
+              <SelectValue placeholder="Fornitore" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tutti">Tutti i fornitori</SelectItem>
+              {supplierOptions.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+              <SelectItem value="senza">Senza fornitore</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={categoryFilter}
+            onValueChange={(value) => {
+              setCategoryFilter(value);
+              setSubcategoryFilter("tutte");
+              setLimit(PAGE);
+            }}
+          >
+            <SelectTrigger className="h-8 text-sm" aria-label="Filtra per categoria">
+              <SelectValue placeholder="Categoria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tutte">Tutte le categorie</SelectItem>
+              {categoryOptions.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={subcategoryFilter}
+            onValueChange={(value) => {
+              setSubcategoryFilter(value);
+              setLimit(PAGE);
+            }}
+          >
+            <SelectTrigger className="h-8 text-sm" aria-label="Filtra per sottocategoria">
+              <SelectValue placeholder="Sottocategoria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tutte">Tutte le sottocategorie</SelectItem>
+              {subcategoryOptions.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+
         <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto rounded-md border border-border">
           {visible.map((row) => {
-            const inList = existingProductIds.has(row.id);
-            const isSelected = row.id in selected;
+            const inList = row.ownProductId ? existingProductIds.has(row.ownProductId) : false;
+            const isSelected = row.key in selected;
+            const draft = selected[row.key];
             return (
-              <li key={row.id} className={`flex items-center gap-2 px-2 py-1 ${inList ? "opacity-60" : ""}`}>
+              <li key={row.key} className={`flex items-center gap-2 px-2 py-1 ${inList ? "opacity-60" : ""}`}>
                 <Checkbox
                   checked={isSelected}
                   disabled={inList}
                   aria-label={`Scegli ${row.code}`}
-                  onCheckedChange={(checked) => toggle(row.id, checked === true)}
+                  onCheckedChange={(checked) => toggle(row.key, checked === true)}
                 />
-                <Thumb url={images.get(row.id) ?? null} />
+                <Thumb url={row.ownProductId ? (images.get(row.ownProductId) ?? null) : null} />
                 <div className="min-w-0 flex-1 text-xs">
                   <p className="truncate font-medium">{row.description ?? row.code}</p>
                   <p className="truncate text-muted-foreground">
                     <span className="font-mono">{row.code}</span>
                     {row.category ? ` · ${row.category}` : ""}
-                    {row.danea_um ? ` · ${row.danea_um}` : ""}
+                    {row.subcategory ? ` · ${row.subcategory}` : ""}
+                    {row.baseUm ? ` · ${row.baseUm}` : ""}
+                  </p>
+                  <p className="truncate text-muted-foreground">
+                    {row.supplierNames.length ? row.supplierNames.join(", ") : "Senza fornitore"}
+                    {row.isB2b ? " · catalogo B2B" : ""}
                   </p>
                 </div>
-                {(() => {
-                  const fav = favoritesQuery.data?.has(row.id) ?? false;
-                  return (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className={cn("h-7 w-7 shrink-0 px-0", fav && "text-primary")}
-                      disabled={favoriteMutation.isPending || !favoritesQuery.data}
-                      aria-pressed={fav}
-                      aria-label={fav ? `Togli ${row.code} dai preferiti` : `Metti ${row.code} nei preferiti`}
-                      title={fav ? "Togli dai preferiti" : "Preferito: torna nei prossimi Inventari"}
-                      onClick={() => favoriteMutation.mutate({ productId: row.id, favorite: !fav })}
-                    >
-                      <Star className={cn("size-3.5", fav && "fill-current")} aria-hidden="true" />
-                    </Button>
-                  );
-                })()}
+                {row.ownProductId
+                  ? (() => {
+                      const fav = favoritesQuery.data?.has(row.ownProductId!) ?? false;
+                      return (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className={cn("h-7 w-7 shrink-0 px-0", fav && "text-primary")}
+                          disabled={favoriteMutation.isPending || !favoritesQuery.data}
+                          aria-pressed={fav}
+                          aria-label={fav ? `Togli ${row.code} dai preferiti` : `Metti ${row.code} nei preferiti`}
+                          title={fav ? "Togli dai preferiti" : "Preferito: torna nei prossimi Inventari"}
+                          onClick={() => favoriteMutation.mutate({ productId: row.ownProductId!, favorite: !fav })}
+                        >
+                          <Star className={cn("size-3.5", fav && "fill-current")} aria-hidden="true" />
+                        </Button>
+                      );
+                    })()
+                  : null}
                 {inList ? (
                   <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">Già in lista</Badge>
-                ) : isSelected ? (
-                  <Input
-                    className="h-7 w-20 text-xs"
-                    inputMode="decimal"
-                    placeholder="Q.tà"
-                    value={selected[row.id] ?? ""}
-                    aria-label={`Quantità ${row.code}`}
-                    onChange={(event) => setSelected((current) => ({ ...current, [row.id]: event.target.value }))}
-                  />
+                ) : isSelected && draft ? (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Input
+                      className="h-7 w-20 text-xs"
+                      inputMode="decimal"
+                      placeholder="Q.tà"
+                      value={draft.qty}
+                      aria-label={`Quantità ${row.code}`}
+                      onChange={(event) => patch(row.key, { qty: event.target.value })}
+                    />
+                    <Select
+                      value={draft.unit}
+                      onValueChange={(value) => patch(row.key, { unit: value })}
+                    >
+                      <SelectTrigger className="h-7 w-24 text-xs" aria-label={`U.M. acquisto ${row.code}`}>
+                        <SelectValue placeholder={row.baseUm ?? "U.M."} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {row.unitCodes.map((code) => (
+                          <SelectItem key={code} value={code}>
+                            {code}
+                          </SelectItem>
+                        ))}
+                        {!row.isB2b ? <SelectItem value={MANUAL}>Altra U.M.</SelectItem> : null}
+                      </SelectContent>
+                    </Select>
+                    {draft.unit === MANUAL ? (
+                      <Input
+                        className="h-7 w-20 text-xs uppercase"
+                        placeholder="Es. PEDANA"
+                        value={draft.manual}
+                        aria-label={`Altra U.M. ${row.code}`}
+                        onChange={(event) => patch(row.key, { manual: event.target.value })}
+                      />
+                    ) : null}
+                  </div>
                 ) : null}
               </li>
             );
           })}
-          {!visible.length && !productsQuery.isLoading ? (
-            <li className="p-3 text-xs text-muted-foreground">Nessun prodotto trovato.</li>
+          {!visible.length && !loading ? (
+            <li className="p-3 text-xs text-muted-foreground">Nessun prodotto trovato con questi filtri.</li>
           ) : null}
+          {loading ? <li className="p-3 text-xs text-muted-foreground">Caricamento prodotti…</li> : null}
         </ul>
-        {products.length > visible.length && !search ? (
-          <p className="text-xs text-muted-foreground">Mostro i primi 100: usa la ricerca per trovare gli altri.</p>
+
+        {filtered.length > visible.length ? (
+          <Button type="button" variant="outline" size="sm" onClick={() => setLimit((value) => value + PAGE)}>
+            Mostra altri ({filtered.length - visible.length} rimanenti)
+          </Button>
         ) : null}
         {missingQuantity.length ? (
           <p className="text-xs text-destructive">
@@ -252,15 +576,18 @@ export function AddProductsDialog({
             {missingQuantity.length === 1 ? "o" : "i"}: senza quantità oggi non si può aggiungere.
           </p>
         ) : null}
+        {missingUnit.length ? (
+          <p className="text-xs text-destructive">Scrivi l'U.M. per chi ha «Altra U.M.».</p>
+        ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annulla
           </Button>
           <Button
-            disabled={!selectedIds.length || missingQuantity.length > 0 || addMutation.isPending}
+            disabled={!selectedKeys.length || missingQuantity.length > 0 || missingUnit.length > 0 || addMutation.isPending}
             onClick={() => addMutation.mutate()}
           >
-            Aggiungi alla Lista ({selectedIds.length})
+            Aggiungi alla Lista ({selectedKeys.length})
           </Button>
         </DialogFooter>
       </DialogContent>
