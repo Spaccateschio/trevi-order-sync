@@ -110,11 +110,12 @@ type FilterFlag =
   | "in_ordine"
   | "da_ordinare"
   | "da_confermare"
-  | "confermati";
+  | "confermati"
+  | "da_controllare";
 /** «Filtra card»: decide quali prodotti si vedono. */
 const FILTER_GROUPS: [string, [FilterFlag, string][]][] = [
   ["Prodotto", [["preferiti", "★ Preferiti"], ["b2b", "B2B"], ["non_b2b", "Non B2B"]]],
-  ["Quantità", [["da_confermare", "Quantità da confermare"], ["confermati", "Quantità confermata"]]],
+  ["Quantità", [["da_controllare", "Da controllare"], ["da_confermare", "Quantità da confermare"], ["confermati", "Quantità confermata"]]],
   [
     "Fornitore / assegnazione",
     [["senza_fornitore", "Senza fornitore"], ["da_assegnare", "Da assegnare"], ["parziale", "Parzialmente assegnati"], ["assegnata", "Assegnati"]],
@@ -437,6 +438,23 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     }
   }, [hasFavoritesQuery.data]);
   const { extras, b2bSupplierIds } = useShoppingListExtras(companyId, list?.id ?? null, allRows);
+  // Righe sbloccate da una modifica all'inventario: la Lista si apre su «Da controllare» al posto dei Preferiti.
+  const recheckCount = useMemo(
+    () => [...extras.values()].filter((e) => e.inventoryChangedAt && e.orderState !== "ordinato").length,
+    [extras],
+  );
+  const recheckDefaultedRef = useRef(false);
+  useEffect(() => {
+    if (recheckCount > 0 && !recheckDefaultedRef.current) {
+      recheckDefaultedRef.current = true;
+      setFlags((prev) => {
+        const next = new Set(prev);
+        next.delete("preferiti");
+        next.add("da_controllare");
+        return next;
+      });
+    }
+  }, [recheckCount]);
   // Raccolta unica: i prodotti contati non ancora in Lista compaiono una sola volta, con la stessa card.
   const showPending = Boolean(
     evaluating && cycle && !cycle.evaluated_at && (!list || list.id === linkedList?.id),
@@ -503,6 +521,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 suppliers: [],
                 orderState: null as unknown as RowExtras["orderState"],
                 lockedAt: null,
+                inventoryChangedAt: null,
+                inventoryPreviousQuantity: null,
                 decidedUnitId: null,
                 decidedUnitCode: null,
               },
@@ -562,6 +582,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         if (flags.has("da_ordinare") && extra?.orderState === "ordinato") return false;
         if (flags.has("da_confermare") && extra?.lockedAt) return false;
         if (flags.has("confermati") && !extra?.lockedAt) return false;
+        if (flags.has("da_controllare") && !(extra?.inventoryChangedAt && extra?.orderState !== "ordinato")) return false;
       }
       return true;
     });

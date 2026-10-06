@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { InventoryCountPanel } from "@/components/inventory/inventory-count-panel";
+import { SentOrdersBanner } from "@/components/purchase/sent-orders-banner";
 import { ensureInventoryArchive } from "@/lib/inventory.functions";
 import { activeCompany, companyBuys, hasRole, useIdentity } from "@/hooks/use-identity";
 
@@ -60,6 +61,7 @@ function Inventario() {
       description="Conteggio fisico rapido per zona, con giacenza calcolata sempre visibile."
       wide
     >
+      {!isLoading && company ? <SentOrdersBanner companyId={company.companyId} /> : null}
       {!isLoading && company ? (
         <InventoryCountPanel
           companyId={company.companyId}

@@ -34,6 +34,10 @@ export type RowExtras = {
   orderState: OrderState;
   /** Quantità confermata (bloccata): data/ora, null = sbloccata. */
   lockedAt: string | null;
+  /** Inventario modificato dopo la conferma: la riga va ricontrollata (null = tutto a posto). */
+  inventoryChangedAt: string | null;
+  /** Quantità contata prima della modifica che ha sbloccato la riga. */
+  inventoryPreviousQuantity: number | null;
   /** U.M. scelta per «Da acquistare»: entrambi null = U.M. del prodotto. */
   decidedUnitId: string | null;
   decidedUnitCode: string | null;
@@ -126,7 +130,7 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shopping_list_items")
-        .select("id, quantity_locked_at, decided_unit_id, decided_unit_code")
+        .select("id, quantity_locked_at, decided_unit_id, decided_unit_code, inventory_changed_at, inventory_previous_quantity")
         .in("id", itemIds);
       if (error) throw new Error(error.message);
       return new Map(
@@ -136,6 +140,11 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
             lockedAt: row.quantity_locked_at as string | null,
             unitId: (row.decided_unit_id as string | null) ?? null,
             unitCode: (row.decided_unit_code as string | null) ?? null,
+            inventoryChangedAt: (row.inventory_changed_at as string | null) ?? null,
+            inventoryPreviousQuantity:
+              row.inventory_previous_quantity === null || row.inventory_previous_quantity === undefined
+                ? null
+                : Number(row.inventory_previous_quantity),
           },
         ]),
       );
@@ -197,6 +206,8 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
         suppliers,
         orderState,
         lockedAt: locksQuery.data?.get(row.item_id)?.lockedAt ?? null,
+        inventoryChangedAt: locksQuery.data?.get(row.item_id)?.inventoryChangedAt ?? null,
+        inventoryPreviousQuantity: locksQuery.data?.get(row.item_id)?.inventoryPreviousQuantity ?? null,
         decidedUnitId: locksQuery.data?.get(row.item_id)?.unitId ?? null,
         decidedUnitCode: locksQuery.data?.get(row.item_id)?.unitCode ?? null,
       });

@@ -2088,6 +2088,7 @@ export type Database = {
           purchase_evaluated_at: string | null
           purchase_evaluated_by: string | null
           purchase_list_id: string | null
+          reopen_baseline: Json | null
           scope: Database["public"]["Enums"]["inventory_session_scope"]
           started_at: string
           status: Database["public"]["Enums"]["inventory_session_status"]
@@ -2106,6 +2107,7 @@ export type Database = {
           purchase_evaluated_at?: string | null
           purchase_evaluated_by?: string | null
           purchase_list_id?: string | null
+          reopen_baseline?: Json | null
           scope?: Database["public"]["Enums"]["inventory_session_scope"]
           started_at?: string
           status?: Database["public"]["Enums"]["inventory_session_status"]
@@ -2124,6 +2126,7 @@ export type Database = {
           purchase_evaluated_at?: string | null
           purchase_evaluated_by?: string | null
           purchase_list_id?: string | null
+          reopen_baseline?: Json | null
           scope?: Database["public"]["Enums"]["inventory_session_scope"]
           started_at?: string
           status?: Database["public"]["Enums"]["inventory_session_status"]
@@ -4019,6 +4022,8 @@ export type Database = {
           decided_unit_code: string | null
           decided_unit_id: string | null
           id: string
+          inventory_changed_at: string | null
+          inventory_previous_quantity: number | null
           list_id: string
           manual_purchase_done_at: string | null
           manual_purchase_done_by: string | null
@@ -4052,6 +4057,8 @@ export type Database = {
           decided_unit_code?: string | null
           decided_unit_id?: string | null
           id?: string
+          inventory_changed_at?: string | null
+          inventory_previous_quantity?: number | null
           list_id: string
           manual_purchase_done_at?: string | null
           manual_purchase_done_by?: string | null
@@ -4085,6 +4092,8 @@ export type Database = {
           decided_unit_code?: string | null
           decided_unit_id?: string | null
           id?: string
+          inventory_changed_at?: string | null
+          inventory_previous_quantity?: number | null
           list_id?: string
           manual_purchase_done_at?: string | null
           manual_purchase_done_by?: string | null
@@ -6368,6 +6377,10 @@ export type Database = {
       remove_shopping_list_item: {
         Args: { _actor_user_id?: string; _company_id: string; _item_id: string }
         Returns: boolean
+      }
+      reopen_inventory_count: {
+        Args: { _company_id: string; _reset?: boolean; _session_id: string }
+        Returns: Json
       }
       request_supplier_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }

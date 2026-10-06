@@ -80,6 +80,7 @@ import {
   startGeneralInventory,
   getProductCountUnits,
   manageCountDraft,
+  reopenInventoryCount,
   type CatalogCandidate,
   type CountHistoryEntry,
   type InventoryCountRow,
@@ -452,6 +453,27 @@ export function InventoryCountPanel({
     void draftFn({ data: { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null } })
       .catch(() => undefined);
   }
+
+  const reopenCountFn = useServerFn(reopenInventoryCount);
+  const [reopenResetOpen, setReopenResetOpen] = useState(false);
+  // «Modifica conteggio» / «Azzera quantità» su un conteggio confermato: il database rifiuta se gli ordini sono già partiti.
+  const reopenCount = useMutation({
+    mutationFn: async (reset: boolean) => {
+      const cycleSession = cycleQuery.data?.session_id;
+      if (!cycleSession) throw new Error("Nessun conteggio da riaprire");
+      await reopenCountFn({ data: { companyId, sessionId: cycleSession, reset } });
+    },
+    onSuccess: async (_result, reset) => {
+      setReopenResetOpen(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory-last-closed", companyId, archiveId] }),
+      ]);
+      toast.success(reset ? "Conteggio riaperto e quantità azzerate" : "Conteggio riaperto: puoi correggere le quantità");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const clearAllDrafts = useMutation({
     mutationFn: async () => {
@@ -1404,6 +1426,20 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
           <span className="hidden sm:inline">Stampa giacenze</span>
           <span className="sm:hidden">Stampa</span>
         </Button>
+        {!sessionId && cycleColor === "rosso" && isAdmin && cycleQuery.data?.session_id && cycleQuery.data?.list_status !== "chiusa" ? (
+          <>
+            <Button type="button" size="sm" variant="outline" disabled={reopenCount.isPending} onClick={() => reopenCount.mutate(false)}>
+              <Pencil aria-hidden="true" />
+              <span className="hidden sm:inline">Modifica conteggio</span>
+              <span className="sm:hidden">Modifica</span>
+            </Button>
+            <Button type="button" size="sm" variant="outline" disabled={reopenCount.isPending} onClick={() => setReopenResetOpen(true)}>
+              <RotateCcw aria-hidden="true" />
+              <span className="hidden sm:inline">Azzera quantità</span>
+              <span className="sm:hidden">Azzera</span>
+            </Button>
+          </>
+        ) : null}
         {!sessionId && cycleColor === "rosso" && isAdmin ? (
           <Button type="button" size="sm" variant={unlockedAll ? "secondary" : "outline"} onClick={() => setUnlockedAll((v) => !v)}>
             {unlockedAll ? "Blocca quantità" : "Sblocca quantità"}
@@ -2043,6 +2079,23 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setClearDraftsOpen(false)}>Annulla</Button>
             <Button variant="destructive" disabled={clearAllDrafts.isPending} onClick={() => clearAllDrafts.mutate()}>
+              Azzera quantità
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reopenResetOpen} onOpenChange={setReopenResetOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Rifare l'inventario da zero?</DialogTitle>
+            <DialogDescription>
+              Il conteggio confermato viene riaperto e tutte le quantità cancellate: le card si sbloccano vuote. La Lista della Spesa resta com'è e lo storico non si perde.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setReopenResetOpen(false)}>Annulla</Button>
+            <Button variant="destructive" disabled={reopenCount.isPending} onClick={() => reopenCount.mutate(true)}>
               Azzera quantità
             </Button>
           </DialogFooter>
@@ -2765,6 +2818,25 @@ function ProductCard({
     conversion && !conversion.is_base && conversion.conversion_factor
       ? `1 ${conversion.unit_code} ≈ ${formatQuantity(Number(conversion.conversion_factor), conversion.conversion_reference_um ?? unit)} ${conversion.conversion_reference_um ?? unit}`
       : null;
+  // Resto per chi ordina: contato nella U.M. base e acquisto a colli → «3 casse piene + 3 bottiglie».
+  // Solo con conversione esatta e intera già dichiarata: mai inventare fattori.
+  const remainderNote = (() => {
+    if (counted === null || counted <= 0 || !sameUnit(effectiveUnit, unit)) return null;
+    const pack = unitOptions.find(
+      (option) =>
+        !option.is_base &&
+        option.conversion_factor &&
+        Number.isInteger(Number(option.conversion_factor)) &&
+        Number(option.conversion_factor) > 1 &&
+        sameUnit(option.conversion_reference_um ?? unit, unit),
+    );
+    if (!pack) return null;
+    const factor = Number(pack.conversion_factor);
+    const full = Math.floor(counted / factor);
+    const rest = counted - full * factor;
+    if (full === 0 || rest === 0) return null;
+    return `= ${full} ${pack.unit_code} + ${formatQuantity(rest, unit)} ${unit}`;
+  })();
   const confirmedDifference = isConfirmed && row.units_comparable !== false ? Number(row.difference ?? 0) : null;
   const hasDifference = isConfirmed && confirmedDifference !== null && confirmedDifference !== 0;
   const difference = !comparable || (history && !history.hasCount)
@@ -3044,6 +3116,11 @@ function ProductCard({
               <Input className="h-8 text-xs" placeholder="Motivo (es. merce scartata)" value={correction.reason}
                 onChange={(e) => correction.setReason(e.target.value)} />
             </div>
+          ) : null}
+          {remainderNote ? (
+            <p className="mt-1 text-[10px] font-semibold leading-tight text-muted-foreground" title="Colli pieni e pezzi sfusi, per chi ordina">
+              {remainderNote}
+            </p>
           ) : null}
         </div>
         <div className="text-right">

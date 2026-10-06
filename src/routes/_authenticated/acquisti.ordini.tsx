@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
 import { PurchaseOrdersPanel } from "@/components/purchase/purchase-orders-panel";
+import { SentOrdersBanner } from "@/components/purchase/sent-orders-banner";
 import { activeCompany, companyBuys, useIdentity } from "@/hooks/use-identity";
 
 const description =
@@ -40,6 +41,7 @@ function OrdiniFornitore() {
       title="Ordini fornitore"
       description="L'ordine non è giacenza: il magazzino si muove solo quando confermi il carico merce."
     >
+      {company ? <SentOrdersBanner companyId={company.companyId} /> : null}
       {company ? <PurchaseOrdersPanel companyId={company.companyId} /> : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
     </AppShell>
