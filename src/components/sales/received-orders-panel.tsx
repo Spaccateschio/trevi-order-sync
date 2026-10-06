@@ -247,7 +247,8 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
                 setOpen(expanded ? null : o.id);
                 // Prima apertura del fornitore: blocca l'ordine lato cliente (lucchetto).
                 if (!expanded && o.status !== "bozza" && o.status !== "annullato") {
-                  void supabase.rpc("mark_order_seen_by_supplier", { _order_id: o.id });
+                  // La chiamata va attesa (.then): senza, la richiesta non parte mai.
+                  void supabase.rpc("mark_order_seen_by_supplier", { _order_id: o.id }).then(() => refresh());
                 }
               }}
             >

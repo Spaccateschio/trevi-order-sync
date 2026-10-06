@@ -78,6 +78,13 @@
       "when": 1791313294145,
       "tag": "0010_supplier_cancel_order_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791315039159,
+      "tag": "0011_order_edit_previous_qty_fallback",
+      "breakpoints": true
     }
   ]
 }
