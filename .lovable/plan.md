@@ -15,6 +15,12 @@
 - Le card di un ordine già inviato non si sbloccano. Compare l'avviso «Ordine già inviato: chiama il fornitore».
 - Il semaforo resta rosso finché ci sono card da controllare.
 
+**4. Unità di misura libera in inventario (es. vino: casse e bottiglie)**
+- In ogni card dell'inventario puoi cambiare l'unità di misura a piacere per quel conteggio (bottiglia, cassa, pezzo...), come già fai nella Lista della Spesa.
+- Se l'acquisto avviene a casse da 6 bottiglie e conti a bottiglie, la card mostra anche il **resto**: «21 bottiglie = 3 casse piene + 3 bottiglie». Così chi ordina capisce subito che restano 3 bottiglie sfuse.
+- Nella Lista della Spesa la stessa riga mostra «3 casse + 3 bottiglie» accanto alla quantità da ordinare, così chi ordina vede i quantitativi esatti.
+- Il resto si calcola solo quando la conversione è certa (cassa = 6 bottiglie dichiarate); altrimenti compare solo il numero contato, senza inventare conversioni.
+
 **3. Invio degli ordini della Lista**
 - Quando sono partiti tutti gli ordini, Inventario e Lista della Spesa ripartono puliti: card vuote, «Nessuna lista in corso». Lo storico resta intatto.
 - In alto compare **un solo banner** sottile che scorre: «Ordine ORD-2026-000XX inviato a FORNITORE». Mostra solo l'ultimo ordine, così non copre lo schermo.
