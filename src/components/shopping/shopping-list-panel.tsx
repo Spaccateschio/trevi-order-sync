@@ -549,7 +549,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         if (flags.has("senza_fornitore") && suppliers.length > 0) return false;
         if (flags.has("b2b") && !suppliers.some((s) => s.isB2B)) return false;
         if (flags.has("non_b2b") && !suppliers.some((s) => !s.isB2B)) return false;
-        if (flags.has("preferiti") && !extra?.isFavorite) return false;
+        if (favoritesForced && !extra?.isFavorite) return false;
         const statusFlags = (["da_assegnare", "parziale", "assegnata"] as const).filter((f) => flags.has(f));
         if (statusFlags.length && (kind === "pending" || !(statusFlags as readonly string[]).includes(row.status))) return false;
         if (flags.has("in_ordine") && extra?.orderState !== "ordinato") return false;
