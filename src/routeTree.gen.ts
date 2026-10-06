@@ -35,6 +35,7 @@ import { Route as AuthenticatedAcquistiRicezioneRouteImport } from './routes/_au
 import { Route as AuthenticatedAcquistiProdottiRouteImport } from './routes/_authenticated/acquisti_.prodotti'
 import { Route as AuthenticatedImpostazioniNavigazioneRouteImport } from './routes/_authenticated/impostazioni_.navigazione'
 import { Route as AuthenticatedVenditeClientiRouteImport } from './routes/_authenticated/vendite_.clienti'
+import { Route as AuthenticatedVenditeOrdiniClientiRouteImport } from './routes/_authenticated/vendite_.ordini-clienti'
 import { Route as AuthenticatedVenditeProdottiRouteImport } from './routes/_authenticated/vendite_.prodotti'
 import { Route as AuthenticatedAcquistiCatalogoIndexRouteImport } from './routes/_authenticated/acquisti.catalogo.index'
 import { Route as ApiPublicDaneaProductsRouteImport } from './routes/api/public/danea/products'
@@ -184,6 +185,12 @@ const AuthenticatedVenditeClientiRoute =
     path: '/vendite/clienti',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedVenditeOrdiniClientiRoute =
+  AuthenticatedVenditeOrdiniClientiRouteImport.update({
+    id: '/vendite_/ordini-clienti',
+    path: '/vendite/ordini-clienti',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedVenditeProdottiRoute =
   AuthenticatedVenditeProdottiRouteImport.update({
     id: '/vendite_/prodotti',
@@ -251,6 +258,7 @@ export interface FileRoutesByFullPath {
   '/acquisti/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/impostazioni/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
+  '/vendite/ordini-clienti': typeof AuthenticatedVenditeOrdiniClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti/': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
@@ -285,6 +293,7 @@ export interface FileRoutesByTo {
   '/acquisti/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/impostazioni/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
+  '/vendite/ordini-clienti': typeof AuthenticatedVenditeOrdiniClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/acquisti': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
@@ -321,6 +330,7 @@ export interface FileRoutesById {
   '/_authenticated/acquisti_/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/_authenticated/impostazioni_/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/_authenticated/vendite_/clienti': typeof AuthenticatedVenditeClientiRoute
+  '/_authenticated/vendite_/ordini-clienti': typeof AuthenticatedVenditeOrdiniClientiRoute
   '/_authenticated/vendite_/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/_authenticated/acquisti/': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
@@ -357,6 +367,7 @@ export interface FileRouteTypes {
     | '/acquisti/prodotti'
     | '/impostazioni/navigazione'
     | '/vendite/clienti'
+    | '/vendite/ordini-clienti'
     | '/vendite/prodotti'
     | '/acquisti/'
     | '/api/public/danea/products'
@@ -391,6 +402,7 @@ export interface FileRouteTypes {
     | '/acquisti/prodotti'
     | '/impostazioni/navigazione'
     | '/vendite/clienti'
+    | '/vendite/ordini-clienti'
     | '/vendite/prodotti'
     | '/acquisti'
     | '/api/public/danea/products'
@@ -426,6 +438,7 @@ export interface FileRouteTypes {
     | '/_authenticated/acquisti_/prodotti'
     | '/_authenticated/impostazioni_/navigazione'
     | '/_authenticated/vendite_/clienti'
+    | '/_authenticated/vendite_/ordini-clienti'
     | '/_authenticated/vendite_/prodotti'
     | '/_authenticated/acquisti/'
     | '/api/public/danea/products'
@@ -631,6 +644,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVenditeClientiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/vendite_/ordini-clienti': {
+      id: '/_authenticated/vendite_/ordini-clienti'
+      path: '/vendite/ordini-clienti'
+      fullPath: '/vendite/ordini-clienti'
+      preLoaderRoute: typeof AuthenticatedVenditeOrdiniClientiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/vendite_/prodotti': {
       id: '/_authenticated/vendite_/prodotti'
       path: '/vendite/prodotti'
@@ -703,6 +723,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAcquistiProdottiRoute: typeof AuthenticatedAcquistiProdottiRoute
   AuthenticatedImpostazioniNavigazioneRoute: typeof AuthenticatedImpostazioniNavigazioneRoute
   AuthenticatedVenditeClientiRoute: typeof AuthenticatedVenditeClientiRoute
+  AuthenticatedVenditeOrdiniClientiRoute: typeof AuthenticatedVenditeOrdiniClientiRoute
   AuthenticatedVenditeProdottiRoute: typeof AuthenticatedVenditeProdottiRoute
   AuthenticatedAcquistiIndexRoute: typeof AuthenticatedAcquistiIndexRoute
   AuthenticatedAcquistiCatalogoIndexRoute: typeof AuthenticatedAcquistiCatalogoIndexRoute
@@ -732,6 +753,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedImpostazioniNavigazioneRoute:
     AuthenticatedImpostazioniNavigazioneRoute,
   AuthenticatedVenditeClientiRoute: AuthenticatedVenditeClientiRoute,
+  AuthenticatedVenditeOrdiniClientiRoute:
+    AuthenticatedVenditeOrdiniClientiRoute,
   AuthenticatedVenditeProdottiRoute: AuthenticatedVenditeProdottiRoute,
   AuthenticatedAcquistiIndexRoute: AuthenticatedAcquistiIndexRoute,
   AuthenticatedAcquistiCatalogoIndexRoute:

@@ -6,7 +6,7 @@ import { activeCompany, companySells, useIdentity } from "@/hooks/use-identity";
 
 const description = "Ordini inviati dai tuoi clienti B2B, con prodotti, quantità e consegna richiesta.";
 
-export const Route = createFileRoute("/_authenticated/vendite/ordini-clienti")({
+export const Route = createFileRoute("/_authenticated/vendite_/ordini-clienti")({
   head: () => ({
     meta: [
       { title: "Ordini clienti — Trevi Fruit" },
