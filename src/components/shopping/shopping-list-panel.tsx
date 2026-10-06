@@ -572,7 +572,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       return row.description ?? row.code;
     };
     return [...filtered].sort((left, right) => key(left).localeCompare(key(right), "it", { numeric: true }));
-  }, [allRows, extras, stockQuery.data, pendingEntries, search, category, supplierFilter, flags, sortBy, productLinksQuery.data, favoritesForced]);
+  }, [allRows, extras, stockQuery.data, pendingEntries, search, category, supplierFilter, flags, sortBy, productLinksQuery.data]);
 
   const summary = useMemo(
     () => ({
