@@ -166,6 +166,13 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
 
   return (
     <div className="space-y-6">
+      <OrderEditDialog order={editing} onClose={() => setEditing(null)} onSaved={refreshOrders} />
+      <OrderCancelDialog
+        order={cancelling}
+        pending={cancelOrder.isPending}
+        onClose={() => setCancelling(null)}
+        onConfirm={(o) => cancelOrder.mutate(o)}
+      />
       <section className="rounded-lg border border-dashed border-border p-3">
         <p className="text-sm font-medium">Genera gli ordini da una Lista della Spesa confermata</p>
         <p className="text-xs text-muted-foreground">
