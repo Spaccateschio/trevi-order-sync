@@ -8,6 +8,13 @@
       "when": 1791127282722,
       "tag": "0000_unlink_supplier_clears_orphan_decided_unit",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791265314713,
+      "tag": "0001_fix_sync_danea_supplier_links_conflict",
+      "breakpoints": true
     }
   ]
 }
