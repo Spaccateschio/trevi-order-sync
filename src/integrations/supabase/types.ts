@@ -2162,16 +2162,19 @@ export type Database = {
       }
       notification_reads: {
         Row: {
+          dismissed_at: string | null
           notification_id: string
           read_at: string
           user_id: string
         }
         Insert: {
+          dismissed_at?: string | null
           notification_id: string
           read_at?: string
           user_id: string
         }
         Update: {
+          dismissed_at?: string | null
           notification_id?: string
           read_at?: string
           user_id?: string
@@ -5483,6 +5486,7 @@ export type Database = {
           unit_code: string
         }[]
       }
+      dismiss_notifications: { Args: { _ids?: string[] }; Returns: number }
       dispute_purchase_delivery_item: {
         Args: {
           _actor_user_id?: string
