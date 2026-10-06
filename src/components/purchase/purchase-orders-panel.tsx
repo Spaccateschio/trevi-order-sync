@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, FilePlus2, Lock, Pencil, Trash2 } from "lucide-react";
-import { OrderEditDialog, OrderCancelDialog, orderLabel } from "./order-customer-actions";
+import { ArrowLeft, FilePlus2, Lock, MessageSquare, Pencil, Trash2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { CallSupplierButton, ChangeRequestDialog, OrderEditDialog, OrderCancelDialog, orderLabel } from "./order-customer-actions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -105,20 +106,48 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("id, relation_id, seen_by_supplier_at")
+        .select("id, relation_id, seen_by_supplier_at, cancel_reason")
         .eq("company_id", companyId);
       if (error) throw new Error(error.message);
-      return data ?? [];
+      const rows = data ?? [];
+      const relIds = [...new Set(rows.map((r) => r.relation_id).filter((x): x is string => Boolean(x)))];
+      const phoneByRel = new Map<string, string | null>();
+      if (relIds.length) {
+        const { data: rels } = await supabase.from("supplier_customer_relations").select("id, seller_company_id").in("id", relIds);
+        const sellerIds = [...new Set((rels ?? []).map((r) => r.seller_company_id))];
+        const { data: comps } = sellerIds.length
+          ? await supabase.from("companies").select("id, phone").in("id", sellerIds)
+          : { data: [] as { id: string; phone: string | null }[] };
+        const phoneByCompany = new Map((comps ?? []).map((c) => [c.id, c.phone]));
+        for (const r of rels ?? []) phoneByRel.set(r.id, phoneByCompany.get(r.seller_company_id) ?? null);
+      }
+      const { data: reqs } = await supabase
+        .from("purchase_order_change_requests")
+        .select("order_id, status, decision_note, requested_at")
+        .eq("buyer_company_id", companyId)
+        .order("requested_at", { ascending: false });
+      const lastReq = new Map<string, { status: string; decision_note: string | null }>();
+      for (const r of reqs ?? []) if (!lastReq.has(r.order_id)) lastReq.set(r.order_id, r);
+      return rows.map((r) => ({
+        ...r,
+        phone: r.relation_id ? (phoneByRel.get(r.relation_id) ?? null) : null,
+        request: lastReq.get(r.id) ?? null,
+      }));
     },
   });
   const seenMap = new Map<string, string | null>();
   const seenRelation = new Set<string>();
+  const phoneMap = new Map<string, string | null>();
+  const requestMap = new Map<string, { status: string; decision_note: string | null } | null>();
   for (const r of seenQuery.data ?? []) {
     seenMap.set(r.id, r.seen_by_supplier_at);
+    phoneMap.set(r.id, r.phone);
+    requestMap.set(r.id, r.request);
     if (r.relation_id) seenRelation.add(r.id);
   }
   const [editing, setEditing] = useState<OrderOverviewRow | null>(null);
   const [cancelling, setCancelling] = useState<OrderOverviewRow | null>(null);
+  const [requesting, setRequesting] = useState<OrderOverviewRow | null>(null);
   const runOrder = useServerFn(managePurchaseOrder);
   const refreshOrders = () =>
     Promise.all([
@@ -167,6 +196,7 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
   return (
     <div className="space-y-6">
       <OrderEditDialog order={editing} onClose={() => setEditing(null)} onSaved={refreshOrders} />
+      <ChangeRequestDialog order={requesting} onClose={() => setRequesting(null)} onSent={refreshOrders} />
       <OrderCancelDialog
         order={cancelling}
         pending={cancelOrder.isPending}
@@ -264,10 +294,35 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
                       </Button>
                       {order.status === "inviato" && seenRelation.has(order.order_id) ? (
                         seenMap.get(order.order_id) ? (
-                          <p className="text-xs text-muted-foreground">
-                            <Lock className="mr-1 inline h-3 w-3" />
-                            Il fornitore ha già preso in carico l'ordine: per annullare o modificare chiama il fornitore.
-                          </p>
+                          <div className="w-full space-y-2">
+                            <p className="text-xs text-muted-foreground">
+                              <Lock className="mr-1 inline h-3 w-3" />
+                              Ordine preso in carico dal fornitore. Per modifiche chiama il fornitore oppure crea un nuovo ordine.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <Button size="sm" variant="outline" disabled>
+                                <Pencil className="mr-1 h-4 w-4" /> Modifica
+                              </Button>
+                              {requestMap.get(order.order_id)?.status === "in_attesa" ? (
+                                <span className="self-center text-xs text-muted-foreground">Richiesta di modifica in attesa</span>
+                              ) : (
+                                <Button size="sm" variant="outline" onClick={() => setRequesting(order)}>
+                                  <MessageSquare className="mr-1 h-4 w-4" /> Chiedi modifica
+                                </Button>
+                              )}
+                              <CallSupplierButton phone={phoneMap.get(order.order_id)} label="Chiama" />
+                              <Button size="sm" variant="outline" asChild>
+                                <Link to="/acquisti/lista-spesa">
+                                  <FilePlus2 className="mr-1 h-4 w-4" /> Nuovo ordine
+                                </Link>
+                              </Button>
+                            </div>
+                            {requestMap.get(order.order_id)?.status === "rifiutata" ? (
+                              <p className="text-xs text-destructive">
+                                Richiesta rifiutata{requestMap.get(order.order_id)?.decision_note ? `: ${requestMap.get(order.order_id)?.decision_note}` : ""}
+                              </p>
+                            ) : null}
+                          </div>
                         ) : (
                           <>
                             <Button size="sm" variant="outline" onClick={() => setEditing(order)}>
@@ -283,6 +338,11 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
                             </Button>
                           </>
                         )
+                      ) : null}
+                      {order.status === "annullato" && seenQuery.data?.find((r) => r.id === order.order_id)?.cancel_reason ? (
+                        <p className="w-full text-xs text-destructive">
+                          Motivo: {seenQuery.data?.find((r) => r.id === order.order_id)?.cancel_reason}
+                        </p>
                       ) : null}
                     </div>
                   </div>

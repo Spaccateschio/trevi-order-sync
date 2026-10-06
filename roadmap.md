@@ -100,3 +100,11 @@
 - [ ] Inventario modificabile + Lista «Da controllare» + banner ordini inviati (piano in attesa di approvazione)
 - [ ] Da decidere: Lista divisa per reparti/ruoli (es. ristorante: vino, carne, pesce)
 - [ ] Da decidere: U.M. libera in inventario con resto (casse + bottiglie) per chi ordina
+
+## Ordini cliente – modifica completa (in corso)
+- [ ] Modifica righe/quantità prima del lucchetto (RPC con controllo concorrenza), storico modifiche
+- [ ] «Chiedi modifica» dopo lucchetto, accetta/rifiuta lato fornitore
+- [ ] Badge «Modificato» + righe prima/ora lato fornitore
+- [ ] Pulsante «Chiama il fornitore» (telefono ordini nei dati aziendali), tel:/Copia, «Nuovo ordine»
+- [ ] Annullamento fornitore dopo export Danea: promemoria + storico motivo
+- [ ] Prove a schermo complete
