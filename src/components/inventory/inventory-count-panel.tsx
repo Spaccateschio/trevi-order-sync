@@ -237,8 +237,11 @@ export function InventoryCountPanel({
     staleTime: 60 * 1000,
     queryFn: () => readHasFavorites({ data: { companyId } }),
   });
-  const favoritesForced = hasFavoritesQuery.data === true;
-  const effectiveProductView: ProductView = favoritesForced ? "favorites" : productView;
+  // Vista iniziale: preferiti se esistono, altrimenti tutti. L'utente può sempre passare a «Tutti».
+  useEffect(() => {
+    if (hasFavoritesQuery.data === false) setProductView("all");
+  }, [hasFavoritesQuery.data]);
+  const effectiveProductView: ProductView = productView;
   const [workFilter, setWorkFilter] = useState<WorkFilter>("all");
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
@@ -1476,7 +1479,6 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             imageUrls={sessionId ? imageUrls : previewImages}
             drafts={sessionId ? drafts : draftFirst}
             productView={effectiveProductView}
-            favoritesForced={favoritesForced}
             workFilter={workFilter}
             category={category}
             subcategory={subcategory}
@@ -2165,7 +2167,6 @@ function PhysicalCount({
   imageUrls,
   drafts,
   productView,
-  favoritesForced,
   workFilter,
   category,
   subcategory,
@@ -2223,7 +2224,6 @@ function PhysicalCount({
   imageUrls: Map<string, string>;
   drafts: Record<string, string>;
   productView: ProductView;
-  favoritesForced: boolean;
   workFilter: WorkFilter;
   category: string | null;
   subcategory: string | null;
@@ -2407,11 +2407,9 @@ function PhysicalCount({
               <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "favorites" ? "default" : "outline"} onClick={() => onViewChange("favorites")}>
                 <Star className="size-3" /> Preferiti
               </Button>
-              {favoritesForced ? null : (
-                <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "all" ? "default" : "outline"} onClick={() => onViewChange("all")}>
-                  Tutti
-                </Button>
-              )}
+              <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "all" ? "default" : "outline"} onClick={() => onViewChange("all")}>
+                Tutti
+              </Button>
               <span className="mx-0.5 w-px shrink-0 bg-border" />
               {([
                 ["all", "Tutti gli stati"],
@@ -2454,7 +2452,7 @@ function PhysicalCount({
                 <strong>{notComparable}</strong> · Mancanti <strong>{progress?.pending ?? 0}</strong>
               </p>
             </div>
-            <div className={cn("grid rounded-md border border-border p-0.5", favoritesForced ? "grid-cols-1" : "grid-cols-2")}>
+            <div className="grid grid-cols-2 rounded-md border border-border p-0.5">
               <Button
                 size="sm"
                 className="h-8 text-xs"
@@ -2463,11 +2461,9 @@ function PhysicalCount({
               >
                 <Star className="size-3.5" /> Preferiti
               </Button>
-              {favoritesForced ? null : (
-                <Button size="sm" className="h-8 text-xs" variant={productView === "all" ? "default" : "ghost"} onClick={() => onViewChange("all")}>
-                  Tutti
-                </Button>
-              )}
+              <Button size="sm" className="h-8 text-xs" variant={productView === "all" ? "default" : "ghost"} onClick={() => onViewChange("all")}>
+                Tutti
+              </Button>
             </div>
             <Button size="sm" variant="destructive" className="h-9 text-xs" onClick={onClearDrafts}>
               Azzera quantità
