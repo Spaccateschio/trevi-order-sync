@@ -3698,6 +3698,8 @@ export type Database = {
           notes: string | null
           number: string
           relation_id: string | null
+          seen_by_supplier_at: string | null
+          seen_by_supplier_by: string | null
           send_status: string
           sent_at: string | null
           shopping_list_id: string | null
@@ -3722,6 +3724,8 @@ export type Database = {
           notes?: string | null
           number: string
           relation_id?: string | null
+          seen_by_supplier_at?: string | null
+          seen_by_supplier_by?: string | null
           send_status?: string
           sent_at?: string | null
           shopping_list_id?: string | null
@@ -3746,6 +3750,8 @@ export type Database = {
           notes?: string | null
           number?: string
           relation_id?: string | null
+          seen_by_supplier_at?: string | null
+          seen_by_supplier_by?: string | null
           send_status?: string
           sent_at?: string | null
           shopping_list_id?: string | null
@@ -5443,6 +5449,17 @@ export type Database = {
           vat_normalized: string
         }[]
       }
+      customer_update_order: {
+        Args: {
+          _address: string
+          _delivery_date: string
+          _notes: string
+          _order_id: string
+          _time_from: string
+          _time_to: string
+        }
+        Returns: undefined
+      }
       decide_company_relation: {
         Args: { _accept: boolean; _relation_id: string }
         Returns: undefined
@@ -6028,6 +6045,10 @@ export type Database = {
         Returns: string
       }
       mark_notifications_read: { Args: { _ids?: string[] }; Returns: number }
+      mark_order_seen_by_supplier: {
+        Args: { _order_id: string }
+        Returns: undefined
+      }
       next_document_number: {
         Args: { _company_id: string; _prefix: string }
         Returns: string

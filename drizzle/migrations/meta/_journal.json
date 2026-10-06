@@ -43,6 +43,13 @@
       "when": 1791272786586,
       "tag": "0005_notifications_link_ordini_clienti",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791273209473,
+      "tag": "0006_order_seen_lock",
+      "breakpoints": true
     }
   ]
 }
