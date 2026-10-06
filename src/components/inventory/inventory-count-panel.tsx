@@ -71,6 +71,7 @@ import {
   getInventoryProgress,
   getInventoryRows,
   getFavoriteProductIds,
+  getCompanyHasFavorites,
   getSupplierCatalogCandidates,
   manageCatalogProductFavorite,
   manageCompanyProductFavorite,
@@ -210,6 +211,15 @@ export function InventoryCountPanel({
   const getSellerImageUrls = useServerFn(getCatalogImageUrls);
   const readCatalogCandidates = useServerFn(getSupplierCatalogCandidates);
   const readFavoriteProductIds = useServerFn(getFavoriteProductIds);
+  const readHasFavorites = useServerFn(getCompanyHasFavorites);
+  // Con almeno un preferito la vista è fissa sui preferiti; senza preferiti si vedono tutti.
+  const hasFavoritesQuery = useQuery({
+    queryKey: ["company-has-favorites", companyId],
+    staleTime: 60 * 1000,
+    queryFn: () => readHasFavorites({ data: { companyId } }),
+  });
+  const favoritesForced = hasFavoritesQuery.data === true;
+  const effectiveProductView: ProductView = favoritesForced ? "favorites" : productView;
   const adoptProduct = useServerFn(adoptCatalogProduct);
   const readCycle = useServerFn(getInventoryCycleStatus);
   const cycleQuery = useQuery({
