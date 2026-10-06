@@ -57,6 +57,13 @@
       "when": 1791276679084,
       "tag": "0007_inventory_reopen_and_list_recheck",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791277494388,
+      "tag": "0008_lock_clears_inventory_recheck",
+      "breakpoints": true
     }
   ]
 }
