@@ -2160,6 +2160,73 @@ export type Database = {
           },
         ]
       }
+      notification_reads: {
+        Row: {
+          notification_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          notification_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          notification_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_reads_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          company_id: string
+          created_at: string
+          entity_id: string | null
+          id: string
+          link: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          company_id: string
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          link?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          body?: string | null
+          company_id?: string
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          link?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_danea_supplier_matches: {
         Row: {
           company_id: string
@@ -5956,6 +6023,7 @@ export type Database = {
         }
         Returns: string
       }
+      mark_notifications_read: { Args: { _ids?: string[] }; Returns: number }
       next_document_number: {
         Args: { _company_id: string; _prefix: string }
         Returns: string
