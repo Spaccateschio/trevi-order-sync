@@ -422,14 +422,20 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     },
     onError: (error: Error) => toast.error(error.message),
   });
-  // Con almeno un preferito la Lista mostra solo i preferiti; senza preferiti mostra tutto.
+  // Con almeno un preferito la Lista si apre filtrata sui preferiti; il filtro resta disattivabile.
   const readHasFavorites = useServerFn(getCompanyHasFavorites);
   const hasFavoritesQuery = useQuery({
     queryKey: ["company-has-favorites", companyId],
     staleTime: 60 * 1000,
     queryFn: () => readHasFavorites({ data: { companyId } }),
   });
-  const favoritesForced = hasFavoritesQuery.data === true;
+  const favoritesDefaultedRef = useRef(false);
+  useEffect(() => {
+    if (hasFavoritesQuery.data === true && !favoritesDefaultedRef.current) {
+      favoritesDefaultedRef.current = true;
+      setFlags((prev) => new Set(prev).add("preferiti"));
+    }
+  }, [hasFavoritesQuery.data]);
   const { extras, b2bSupplierIds } = useShoppingListExtras(companyId, list?.id ?? null, allRows);
   // Raccolta unica: i prodotti contati non ancora in Lista compaiono una sola volta, con la stessa card.
   const showPending = Boolean(
@@ -549,7 +555,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         if (flags.has("senza_fornitore") && suppliers.length > 0) return false;
         if (flags.has("b2b") && !suppliers.some((s) => s.isB2B)) return false;
         if (flags.has("non_b2b") && !suppliers.some((s) => !s.isB2B)) return false;
-        if (favoritesForced && !extra?.isFavorite) return false;
+        if (flags.has("preferiti") && !extra?.isFavorite) return false;
         const statusFlags = (["da_assegnare", "parziale", "assegnata"] as const).filter((f) => flags.has(f));
         if (statusFlags.length && (kind === "pending" || !(statusFlags as readonly string[]).includes(row.status))) return false;
         if (flags.has("in_ordine") && extra?.orderState !== "ordinato") return false;
