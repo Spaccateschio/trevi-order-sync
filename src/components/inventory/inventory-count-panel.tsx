@@ -231,6 +231,14 @@ export function InventoryCountPanel({
   const [selectingLocation, setSelectingLocation] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [productView, setProductView] = useState<ProductView>("favorites");
+  // Con almeno un preferito la vista è fissa sui preferiti; senza preferiti si vedono tutti.
+  const hasFavoritesQuery = useQuery({
+    queryKey: ["company-has-favorites", companyId],
+    staleTime: 60 * 1000,
+    queryFn: () => readHasFavorites({ data: { companyId } }),
+  });
+  const favoritesForced = hasFavoritesQuery.data === true;
+  const effectiveProductView: ProductView = favoritesForced ? "favorites" : productView;
   const [workFilter, setWorkFilter] = useState<WorkFilter>("all");
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
