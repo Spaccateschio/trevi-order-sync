@@ -506,7 +506,7 @@ export function InventoryCountPanel({
     const term = search.trim().toLowerCase();
     return catalogPreview
       .filter((product) => {
-        if (productView === "favorites" && !previewFavoriteQuery.data?.has(product.id)) return false;
+        if (effectiveProductView === "favorites" && !previewFavoriteQuery.data?.has(product.id)) return false;
         if (category && (product.category ?? NO_CATEGORY) !== category) return false;
         if (subcategory && (product.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
         return !term || `${product.code} ${product.description ?? ""}`.toLowerCase().includes(term);
@@ -687,7 +687,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
     const term = search.trim().toLowerCase();
     return catalogCandidates
       .filter((candidate) => {
-        if (productView === "favorites" && !candidate.isFavorite) return false;
+        if (effectiveProductView === "favorites" && !candidate.isFavorite) return false;
         if (supplierFilter && candidate.sellerCompanyName !== supplierFilter) return false;
         if (category && (candidate.category ?? NO_CATEGORY) !== category) return false;
         if (subcategory && (candidate.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
