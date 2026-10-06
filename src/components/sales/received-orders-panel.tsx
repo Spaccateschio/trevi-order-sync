@@ -133,7 +133,13 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
             <button
               type="button"
               className="flex w-full items-center gap-3 px-4 py-3 text-left"
-              onClick={() => setOpen(expanded ? null : o.id)}
+              onClick={() => {
+                setOpen(expanded ? null : o.id);
+                // Prima apertura del fornitore: blocca l'ordine lato cliente (lucchetto).
+                if (!expanded && o.status !== "bozza") {
+                  void supabase.rpc("mark_order_seen_by_supplier", { _order_id: o.id });
+                }
+              }}
             >
               {expanded ? <ChevronDown className="size-4 shrink-0" /> : <ChevronRight className="size-4 shrink-0" />}
               <div className="min-w-0 flex-1">
