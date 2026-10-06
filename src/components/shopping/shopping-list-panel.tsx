@@ -27,7 +27,7 @@ import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { CloseListDialog } from "./close-list-dialog";
 import { ListHistoryDialog } from "./list-history-dialog";
-import { getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
+import { getCompanyHasFavorites, getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
 import { useShoppingListExtras, type RowExtras } from "./use-shopping-list-extras";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -113,7 +113,7 @@ type FilterFlag =
   | "confermati";
 /** «Filtra card»: decide quali prodotti si vedono. */
 const FILTER_GROUPS: [string, [FilterFlag, string][]][] = [
-  ["Prodotto", [["preferiti", "★ Preferiti"], ["b2b", "B2B"], ["non_b2b", "Non B2B"]]],
+  ["Prodotto", [["b2b", "B2B"], ["non_b2b", "Non B2B"]]],
   ["Quantità", [["da_confermare", "Quantità da confermare"], ["confermati", "Quantità confermata"]]],
   [
     "Fornitore / assegnazione",
