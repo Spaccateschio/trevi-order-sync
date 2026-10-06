@@ -25,7 +25,10 @@ export function CompanyPhoneForm({ companyId, isAdmin }: { companyId: string; is
     setBusy(true);
     const { error } = await supabase.from("companies").update({ phone: phone.trim() || null }).eq("id", companyId);
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Telefono salvato");
     await qc.invalidateQueries({ queryKey: ["company-phone", companyId] });
   }
