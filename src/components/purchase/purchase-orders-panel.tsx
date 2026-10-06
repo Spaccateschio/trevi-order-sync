@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, FilePlus2, Lock, Pencil, Trash2 } from "lucide-react";
-import { OrderEditDialog, OrderCancelDialog, orderLabel } from "./order-customer-actions";
+import { ArrowLeft, FilePlus2, Lock, MessageSquare, Pencil, Trash2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { CallSupplierButton, ChangeRequestDialog, OrderEditDialog, OrderCancelDialog, orderLabel } from "./order-customer-actions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -195,6 +196,7 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
   return (
     <div className="space-y-6">
       <OrderEditDialog order={editing} onClose={() => setEditing(null)} onSaved={refreshOrders} />
+      <ChangeRequestDialog order={requesting} onClose={() => setRequesting(null)} onSent={refreshOrders} />
       <OrderCancelDialog
         order={cancelling}
         pending={cancelOrder.isPending}
@@ -292,10 +294,35 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
                       </Button>
                       {order.status === "inviato" && seenRelation.has(order.order_id) ? (
                         seenMap.get(order.order_id) ? (
-                          <p className="text-xs text-muted-foreground">
-                            <Lock className="mr-1 inline h-3 w-3" />
-                            Il fornitore ha già preso in carico l'ordine: per annullare o modificare chiama il fornitore.
-                          </p>
+                          <div className="w-full space-y-2">
+                            <p className="text-xs text-muted-foreground">
+                              <Lock className="mr-1 inline h-3 w-3" />
+                              Ordine preso in carico dal fornitore. Per modifiche chiama il fornitore oppure crea un nuovo ordine.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <Button size="sm" variant="outline" disabled>
+                                <Pencil className="mr-1 h-4 w-4" /> Modifica
+                              </Button>
+                              {requestMap.get(order.order_id)?.status === "in_attesa" ? (
+                                <span className="self-center text-xs text-muted-foreground">Richiesta di modifica in attesa</span>
+                              ) : (
+                                <Button size="sm" variant="outline" onClick={() => setRequesting(order)}>
+                                  <MessageSquare className="mr-1 h-4 w-4" /> Chiedi modifica
+                                </Button>
+                              )}
+                              <CallSupplierButton phone={phoneMap.get(order.order_id)} label="Chiama" />
+                              <Button size="sm" variant="outline" asChild>
+                                <Link to="/acquisti/lista-spesa">
+                                  <FilePlus2 className="mr-1 h-4 w-4" /> Nuovo ordine
+                                </Link>
+                              </Button>
+                            </div>
+                            {requestMap.get(order.order_id)?.status === "rifiutata" ? (
+                              <p className="text-xs text-destructive">
+                                Richiesta rifiutata{requestMap.get(order.order_id)?.decision_note ? `: ${requestMap.get(order.order_id)?.decision_note}` : ""}
+                              </p>
+                            ) : null}
+                          </div>
                         ) : (
                           <>
                             <Button size="sm" variant="outline" onClick={() => setEditing(order)}>
@@ -311,6 +338,11 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
                             </Button>
                           </>
                         )
+                      ) : null}
+                      {order.status === "annullato" && seenQuery.data?.find((r) => r.id === order.order_id)?.cancel_reason ? (
+                        <p className="w-full text-xs text-destructive">
+                          Motivo: {seenQuery.data?.find((r) => r.id === order.order_id)?.cancel_reason}
+                        </p>
                       ) : null}
                     </div>
                   </div>
