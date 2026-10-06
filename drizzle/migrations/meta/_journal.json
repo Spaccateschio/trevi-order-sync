@@ -50,6 +50,20 @@
       "when": 1791273209473,
       "tag": "0006_order_seen_lock",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791276679084,
+      "tag": "0007_inventory_reopen_and_list_recheck",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791277494388,
+      "tag": "0008_lock_clears_inventory_recheck",
+      "breakpoints": true
     }
   ]
 }

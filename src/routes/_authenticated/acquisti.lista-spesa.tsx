@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
+import { SentOrdersBanner } from "@/components/purchase/sent-orders-banner";
 import { ShoppingListPanel } from "@/components/shopping/shopping-list-panel";
 import { activeCompany, companyBuys, useIdentity } from "@/hooks/use-identity";
 
@@ -45,6 +46,7 @@ function ListaSpesa() {
       title="Lista della Spesa"
       description="Quello che serve e quello che compriamo davvero restano due numeri distinti."
     >
+      {company ? <SentOrdersBanner companyId={company.companyId} /> : null}
       {company ? <ShoppingListPanel companyId={company.companyId} /> : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
     </AppShell>

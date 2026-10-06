@@ -789,3 +789,25 @@ export const manageCountDraft = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { affected: (n as number) ?? 0 };
   });
+
+/** Riapre un conteggio confermato: Modifica conteggio (reset=false) o Azzera quantità (reset=true). */
+export const reopenInventoryCount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        companyId: z.string().uuid(),
+        sessionId: z.string().uuid(),
+        reset: z.boolean().default(false),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("reopen_inventory_count", {
+      _company_id: data.companyId,
+      _session_id: data.sessionId,
+      _reset: data.reset,
+    });
+    if (error) throw new Error(error.message);
+    return result as { session_id: string; reset: boolean };
+  });

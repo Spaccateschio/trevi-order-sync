@@ -1,4 +1,4 @@
-import { Check, Lock, MoreVertical, Package, Plus, Star, Trash2, Truck, X } from "lucide-react";
+import { Check, Lock, MoreVertical, Package, Plus, Star, Trash2, TriangleAlert, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
@@ -146,6 +146,8 @@ export function ShoppingListCard({
   const isRow = layout === "row";
   // Quantità confermata: bloccata finché non si sblocca (fornitori restano modificabili).
   const locked = Boolean(extra?.lockedAt);
+  // Inventario modificato dopo la conferma: card da ricontrollare (mai se la riga è già in un ordine).
+  const recheck = Boolean(extra?.inventoryChangedAt) && extra?.orderState !== "ordinato";
 
   // Senza conversione l'equivalente non esiste: non si somma e non si inventa.
   const assigned = suppliers.reduce((sum, s) => sum + (s.quantity ?? 0), 0);
@@ -331,6 +333,14 @@ export function ShoppingListCard({
     </p>
   ) : null;
 
+  const recheckNote = recheck ? (
+    <p className="flex items-center gap-1 text-[10px] font-semibold text-warning-foreground">
+      <TriangleAlert className="size-3 shrink-0" aria-hidden="true" />
+      Inventario cambiato: prima {extra?.inventoryPreviousQuantity !== null && extra?.inventoryPreviousQuantity !== undefined ? qty(extra.inventoryPreviousQuantity) : "—"}
+      {stock?.lastQuantity !== null && stock?.lastQuantity !== undefined ? `, ora ${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}` : ""}
+    </p>
+  ) : null;
+
   const totals =
     suppliers.length && target !== null ? (
       <p
@@ -381,7 +391,7 @@ export function ShoppingListCard({
         : null,
     ].filter(Boolean);
     return (
-      <article id={`item-${row.item_id}`} className={cn("@container min-w-0 rounded-md border-2 border-border bg-card px-2 py-1.5", locked && "border-primary/60 bg-primary/15")}>
+      <article id={`item-${row.item_id}`} className={cn("@container min-w-0 rounded-md border-2 border-border bg-card px-2 py-1.5", locked && "border-primary/60 bg-primary/15", recheck && "border-warning bg-warning/10")}>
         <div
           className={cn(
             "grid items-center gap-x-2 gap-y-1.5",
@@ -407,6 +417,7 @@ export function ShoppingListCard({
             {show.toBuy ? equivalentNote : null}
             {show.quick ? quickButtons("h-8") : null}
             {show.lockDate ? lockNote : null}
+            {recheckNote}
           </div>
           <div className={cn("min-w-0 space-y-0.5 @min-[860px]:order-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
             {show.suppliers ? (
@@ -424,7 +435,7 @@ export function ShoppingListCard({
 
   const anyStat = show.lastCount || show.stock || show.suggested;
   return (
-    <article id={`item-${row.item_id}`} className={cn("@container flex h-full min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2 @max-[260px]:p-1.5", locked && "border-primary/60 bg-primary/15")}>
+    <article id={`item-${row.item_id}`} className={cn("@container flex h-full min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2 @max-[260px]:p-1.5", locked && "border-primary/60 bg-primary/15", recheck && "border-warning bg-warning/10")}>
       <div className={cn("grid items-start gap-2 @max-[260px]:gap-1.5", show.photo ? "grid-cols-[44px_minmax(0,1fr)] @max-[260px]:grid-cols-[32px_minmax(0,1fr)]" : "grid-cols-1")}>
         {show.photo ? image("size-11 @max-[260px]:size-8") : null}
         <div className="min-w-0">
@@ -479,6 +490,7 @@ export function ShoppingListCard({
           ) : null}
           {show.quick ? quickButtons("h-8 @max-[260px]:h-7 @max-[260px]:text-[11px]") : null}
           {show.lockDate ? lockNote : null}
+          {recheckNote}
         </div>
       ) : null}
 
