@@ -741,7 +741,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
       searching ? null : category,
       searching ? null : subcategory,
       searching ? search.trim() : null,
-      productView,
+      effectiveProductView,
     ],
     enabled: Boolean(sessionId),
     queryFn: () =>
@@ -752,7 +752,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
           category: searching ? null : category,
           subcategory: searching ? null : subcategory,
           search: searching ? search.trim() : null,
-          favoritesOnly: productView === "favorites",
+          favoritesOnly: effectiveProductView === "favorites",
         },
       }),
   });
@@ -1254,7 +1254,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
     return raw === "" ? null : parseQuantity(raw);
   };
   const confirmScope = () => {
-    const all = (productView === "favorites" ? favoriteRowsQuery.data : allRowsQuery.data) ?? rows;
+    const all = (effectiveProductView === "favorites" ? favoriteRowsQuery.data : allRowsQuery.data) ?? rows;
     return all.filter((row) => !managedProductIds.size || managedProductIds.has(row.product_id));
   };
   // Note obbligatorie in coda: si passa alla Lista della Spesa solo quando sono tutte gestite.
