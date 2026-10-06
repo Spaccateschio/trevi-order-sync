@@ -103,7 +103,7 @@ type FilterFlag =
   | "senza_fornitore"
   | "b2b"
   | "non_b2b"
-  | "preferiti"
+  | "preferiti" // riservato: il filtro preferiti è fisso, non più una voce del menu
   | "da_assegnare"
   | "parziale"
   | "assegnata"
@@ -417,10 +417,19 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         queryClient.invalidateQueries({ queryKey: ["shopping-extras-favorites", companyId] }),
         queryClient.invalidateQueries({ queryKey: ["inventario-preferiti-prodotti"] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
+        queryClient.invalidateQueries({ queryKey: ["company-has-favorites", companyId] }),
       ]);
     },
     onError: (error: Error) => toast.error(error.message),
   });
+  // Con almeno un preferito la Lista mostra solo i preferiti; senza preferiti mostra tutto.
+  const readHasFavorites = useServerFn(getCompanyHasFavorites);
+  const hasFavoritesQuery = useQuery({
+    queryKey: ["company-has-favorites", companyId],
+    staleTime: 60 * 1000,
+    queryFn: () => readHasFavorites({ data: { companyId } }),
+  });
+  const favoritesForced = hasFavoritesQuery.data === true;
   const { extras, b2bSupplierIds } = useShoppingListExtras(companyId, list?.id ?? null, allRows);
   // Raccolta unica: i prodotti contati non ancora in Lista compaiono una sola volta, con la stessa card.
   const showPending = Boolean(
