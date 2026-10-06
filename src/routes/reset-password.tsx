@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { BrandMark } from "@/components/brand-mark";
@@ -24,11 +24,65 @@ export const Route = createFileRoute("/reset-password")({
   component: ResetPassword,
 });
 
+type LinkState = "checking" | "ready" | "invalid";
+
 function ResetPassword() {
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
+  const [linkState, setLinkState] = useState<LinkState>("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      if (session && (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN")) {
+        setLinkState("ready");
+      }
+    });
+
+    async function init() {
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const query = new URLSearchParams(window.location.search);
+
+      // Link già usato o scaduto: la sessione di recupero non esiste.
+      if (hash.get("error") || query.get("error")) {
+        const { data } = await supabase.auth.getSession();
+        if (!cancelled) setLinkState(data.session ? "ready" : "invalid");
+        return;
+      }
+
+      const accessToken = hash.get("access_token");
+      const refreshToken = hash.get("refresh_token");
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        window.history.replaceState(null, "", window.location.pathname);
+        if (!cancelled) setLinkState(error ? "invalid" : "ready");
+        return;
+      }
+
+      const code = query.get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        window.history.replaceState(null, "", window.location.pathname);
+        if (!cancelled) setLinkState(error ? "invalid" : "ready");
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      if (!cancelled) setLinkState(data.session ? "ready" : "invalid");
+    }
+
+    void init();
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -40,11 +94,47 @@ function ResetPassword() {
     const { error } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (error) {
-      toast.error(error.message);
+      if (/session/i.test(error.message)) {
+        setLinkState("invalid");
+        toast.error("Il link non è più valido: richiedine uno nuovo");
+      } else {
+        toast.error(error.message);
+      }
       return;
     }
     toast.success("Password aggiornata");
     navigate({ to: "/dashboard", replace: true });
+  }
+
+  if (linkState !== "ready") {
+    return (
+      <div className="flex min-h-screen flex-col bg-sidebar px-4 py-6 sm:px-6">
+        <BrandMark tone="dark" />
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-8">
+          <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-lg sm:p-8">
+            {linkState === "checking" ? (
+              <p className="text-sm text-muted-foreground">Verifica del link in corso…</p>
+            ) : (
+              <>
+                <h1 className="font-display text-xl font-semibold">Link scaduto o già usato</h1>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Ogni link per reimpostare la password funziona una sola volta. Torna
+                  all'accesso, inserisci la tua email e premi di nuovo «Password dimenticata»,
+                  poi apri soltanto l'ultima email ricevuta.
+                </p>
+                <Button
+                  className="mt-6 w-full"
+                  size="lg"
+                  onClick={() => navigate({ to: "/auth", replace: true })}
+                >
+                  Torna all'accesso
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
