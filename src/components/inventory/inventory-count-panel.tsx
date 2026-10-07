@@ -5,6 +5,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Check,
+  ChevronDown,
   CheckCheck,
   CircleAlert,
   ClipboardCheck,
@@ -29,7 +30,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { PriceTrendIcon } from "@/components/pricing/price-trend-icon";
@@ -97,6 +98,14 @@ import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventor
 
 type ProductView = "favorites" | "all";
 type WorkFilter = "all" | "pending" | "completed" | "differences" | "not_comparable" | "recount";
+const WORK_FILTER_LABELS: Record<WorkFilter, string> = {
+  all: "Tutti gli stati",
+  pending: "Da controllare",
+  completed: "Confermati",
+  differences: "Differenze",
+  not_comparable: "U.M. diverse",
+  recount: "Da ricontare",
+};
 type SupplierInfo = { name: string | null; cost: number | null };
 type FieldPreferences = ReturnType<typeof useInventoryFieldPreferences>;
 
