@@ -61,7 +61,7 @@ function Inventario() {
       description="Conteggio fisico rapido per zona, con giacenza calcolata sempre visibile."
       wide
     >
-      {!isLoading && company ? <SentOrdersBanner companyId={company.companyId} /> : null}
+      {!isLoading && company ? <SentOrdersBanner companyId={company.companyId} measuredScroll /> : null}
       {!isLoading && company ? (
         <InventoryCountPanel
           companyId={company.companyId}

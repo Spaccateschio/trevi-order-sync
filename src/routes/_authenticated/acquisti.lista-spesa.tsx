@@ -46,7 +46,7 @@ function ListaSpesa() {
       title="Lista della Spesa"
       description="Quello che serve e quello che compriamo davvero restano due numeri distinti."
     >
-      {company ? <SentOrdersBanner companyId={company.companyId} /> : null}
+      {company ? <SentOrdersBanner companyId={company.companyId} measuredScroll /> : null}
       {company ? <ShoppingListPanel companyId={company.companyId} /> : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
     </AppShell>
