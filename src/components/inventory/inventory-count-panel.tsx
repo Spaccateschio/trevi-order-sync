@@ -3037,7 +3037,7 @@ function ProductCard({
                     : value
               }
               disabled={locked || correction.pending || unitMissing}
-              title={unitMissing ? "Imposta prima la U.M. di magazzino nella scheda prodotto" : locked ? (correctionTarget ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
+              title={unitMissing ? "Nessuna U.M.: impostala nella scheda prodotto (Inventario)" : locked ? (correctionTarget ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
               placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
               onChange={(event) => (correcting ? correction.setValue(event.target.value) : onChange(event.target.value))}
               onFocus={(event) => event.currentTarget.select()}
