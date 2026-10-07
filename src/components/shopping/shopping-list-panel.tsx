@@ -1039,6 +1039,17 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 ))}
               </SelectContent>
             </Select>
+            {/* Il filtro Preferiti resta sempre visibile: un tocco lo accende, un altro lo spegne. */}
+            <Button
+              type="button"
+              size="sm"
+              variant={flags.has("preferiti") ? "secondary" : "outline"}
+              className="h-8 px-2 text-xs"
+              aria-pressed={flags.has("preferiti")}
+              onClick={() => toggleFlag("preferiti", !flags.has("preferiti"))}
+            >
+              ★ Preferiti
+            </Button>
             <Popover>
               <PopoverTrigger asChild>
                 <Button type="button" size="sm" variant={flags.size ? "secondary" : "outline"} className="h-8 px-2 text-xs">
@@ -1065,7 +1076,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </Popover>
             {/* Solo i filtri cliccati si vedono: un'etichetta ciascuno, la ✕ lo toglie. */}
             {FILTER_GROUPS.flatMap(([, group]) => group)
-              .filter(([flag]) => flags.has(flag))
+              .filter(([flag]) => flag !== "preferiti" && flags.has(flag))
               .map(([flag, label]) => (
                 <button
                   key={flag}
