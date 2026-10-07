@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AddProductsDialog, Thumb } from "./add-products-dialog";
+import { CatalogProductCard, useCatalogActions, useCatalogEntries, useCatalogImages, type CatalogEntry } from "./catalog-entries";
 import { CYCLE_QUERY_KEY, InventoryEvaluation, useInventoryCountedRows, type CountedRow } from "./inventory-to-evaluate";
 import { DISPLAY_FIELDS, useCardDisplay } from "./card-display";
 import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
@@ -611,6 +612,56 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     return [...filtered].sort((left, right) => key(left).localeCompare(key(right), "it", { numeric: true }));
   }, [allRows, extras, stockQuery.data, pendingEntries, search, category, supplierFilter, flags, sortBy, productLinksQuery.data]);
 
+  // ★ Preferiti spento: stessa vista, alimentata anche dai prodotti propri e dai cataloghi B2B (sola lettura).
+  const catalogArchiveId = list?.archive_id ?? archivesQuery.data?.[0]?.id ?? "";
+  const showCatalog = !flags.has("preferiti") && Boolean(list || (previewMode && catalogArchiveId));
+  const catalog = useCatalogEntries({ companyId, archiveId: catalogArchiveId, enabled: showCatalog });
+  const catalogActions = useCatalogActions({ companyId, listId: list?.id ?? null, resolveListId: ensureInventoryList });
+  const [catalogLimit, setCatalogLimit] = useState(60);
+  const catalogFiltered = useMemo<CatalogEntry[]>(() => {
+    if (!showCatalog) return [];
+    const blocking = ["da_assegnare", "parziale", "assegnata", "in_ordine", "da_ordinare", "da_confermare", "confermati", "da_controllare"] as const;
+    if (blocking.some((f) => flags.has(f as FilterFlag))) return [];
+    const shown = new Set<string>([...allRows.map((r) => r.product_id), ...pendingEntries.map((e) => e.row.product_id)]);
+    const term = search.trim().toLowerCase();
+    return catalog.entries.filter((e) => {
+      if (e.ownProductId && shown.has(e.ownProductId)) return false;
+      if (term && !e.code.toLowerCase().includes(term) && !(e.description ?? "").toLowerCase().includes(term)) return false;
+      if (category !== "all" && e.category !== category) return false;
+      if (supplierFilter !== "all" && !e.supplierRecordIds.includes(supplierFilter)) return false;
+      if (flags.has("senza_fornitore") && e.supplierRecordIds.length > 0) return false;
+      if (flags.has("b2b") && !e.isB2b) return false;
+      if (flags.has("non_b2b") && e.isB2b) return false;
+      return true;
+    });
+  }, [showCatalog, catalog.entries, allRows, pendingEntries, search, category, supplierFilter, flags]);
+  // Un solo ordinamento per card della Lista e prodotti non in lista: la stella non sposta nulla.
+  const merged = useMemo(() => {
+    type Item = { kind: "entry"; value: Entry; sortKey: string } | { kind: "catalog"; value: CatalogEntry; sortKey: string };
+    const entryKey = ({ row, extra }: Entry) => {
+      if (sortBy === "code") return row.code;
+      if (sortBy === "category") return `${extra?.category ?? "\uffff"} ${row.description ?? ""}`;
+      if (sortBy === "supplier") return `${extra?.suppliers[0]?.name ?? "\uffff"} ${row.description ?? ""}`;
+      return row.description ?? row.code;
+    };
+    const catKey = (e: CatalogEntry) => {
+      if (sortBy === "code") return e.code;
+      if (sortBy === "category") return `${e.category ?? "\uffff"} ${e.description ?? ""}`;
+      if (sortBy === "supplier") return `${e.supplierNames[0] ?? "\uffff"} ${e.description ?? ""}`;
+      return e.description ?? e.code;
+    };
+    const items: Item[] = [
+      ...entries.map((value) => ({ kind: "entry" as const, value, sortKey: entryKey(value) })),
+      ...catalogFiltered.map((value) => ({ kind: "catalog" as const, value, sortKey: catKey(value) })),
+    ];
+    items.sort((l, r) => l.sortKey.localeCompare(r.sortKey, "it", { numeric: true }) || (l.kind === "entry" ? l.value.row.code : l.value.code).localeCompare(r.kind === "entry" ? r.value.row.code : r.value.code, "it"));
+    // Limite solo sui prodotti non in lista: le card della Lista si vedono sempre tutte.
+    let count = 0;
+    return items.filter((item) => item.kind === "entry" || ++count <= catalogLimit);
+  }, [entries, catalogFiltered, sortBy, catalogLimit]);
+  const catalogHidden = Math.max(0, catalogFiltered.length - catalogLimit);
+  const catalogImages = useCatalogImages(merged.filter((i) => i.kind === "catalog").map((i) => i.value as CatalogEntry));
+
   const summary = useMemo(
     () => ({
       total: allRows.length,
@@ -1144,20 +1195,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             ) : null}
           </div>
 
-          {!flags.has("preferiti") && (list || (previewMode && archivesQuery.data?.[0])) ? (
-            // Preferiti spento: un unico elenco con tutto il catalogo; i prodotti già in Lista sono evidenziati.
-            <AddProductsDialog
-              inline
-              companyId={companyId}
-              listId={list?.id ?? null}
-              resolveListId={ensureInventoryList}
-              archiveId={list?.archive_id ?? archivesQuery.data?.[0]?.id ?? ""}
-              existingProductIds={new Set(allRows.map((row) => row.product_id))}
-              open
-              onOpenChange={() => undefined}
-            />
-          ) : (
-          <>
           <div className="@container">
           <div
             className={
@@ -1167,8 +1204,31 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 : "grid grid-cols-1 gap-1.5"
             }
           >
-            {entries.map(({ kind, row, extra, stock }) =>
-              kind === "pending" ? (
+            {merged.map((item) => {
+              if (item.kind === "catalog") {
+                const entry = item.value;
+                return (
+                  <CatalogProductCard
+                    key={entry.key}
+                    entry={entry}
+                    layout={viewMode}
+                    imageUrl={catalogImages.get(entry.key) ?? null}
+                    isFavorite={Boolean(entry.ownProductId && catalog.favorites.has(entry.ownProductId))}
+                    favoriteDisabled={catalogActions.favorite.isPending || (Boolean(entry.ownProductId) && !catalog.favoritesReady)}
+                    canAdd={Boolean(editable || previewMode)}
+                    adding={catalogActions.add.isPending}
+                    onToggleFavorite={() =>
+                      catalogActions.favorite.mutate({
+                        entry,
+                        value: !(entry.ownProductId && catalog.favorites.has(entry.ownProductId)),
+                      })
+                    }
+                    onAdd={(quantity, unitCode) => catalogActions.add.mutate({ entry, quantity, unitCode })}
+                  />
+                );
+              }
+              const { kind, row, extra, stock } = item.value;
+              return kind === "pending" ? (
                 <ShoppingListCard
                   key={row.item_id}
                   show={display.prefs}
@@ -1219,18 +1279,22 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   quantityMutation.mutate({ itemId: row.item_id, quantity: value ?? null, unitId, unitCode });
                 }}
               />
-              ),
-            )}
+              );
+            })}
           </div>
           </div>
+          {catalogHidden ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setCatalogLimit((v) => v + 60)}>
+              Mostra altri prodotti ({catalogHidden})
+            </Button>
+          ) : null}
+          {showCatalog && catalog.loading ? <p className="text-xs text-muted-foreground">Caricamento prodotti dei fornitori…</p> : null}
 
-          {!entries.length && !overviewQuery.isLoading ? (
+          {!merged.length && !overviewQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">
               {allRows.length || pendingEntries.length ? "Nessun prodotto con questi filtri." : "Nessun prodotto."}
             </p>
           ) : null}
-          </>
-          )}
 
           {/* Riepilogo finale: nessun pulsante fisso */}
           {list && allRows.length ? (
