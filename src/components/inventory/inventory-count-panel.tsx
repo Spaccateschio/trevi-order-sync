@@ -2489,61 +2489,43 @@ function PhysicalCount({
 
       <div className="overflow-hidden rounded-md border border-border bg-card">
         <div className="overflow-hidden rounded-md border border-border bg-card">
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-border p-2 [&>div:first-child]:basis-full">
-            <div className="min-w-0">
-              <p className="font-display font-semibold">{scope}</p>
-              <p className="text-xs text-muted-foreground">
-                Selezione corrente:{" "}
-                <strong>
-                  {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? visibleRows.length}
-                </strong>{" "}
-                completati
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Confermati <strong>{unchanged}</strong> · Differenze reali{" "}
-                <strong className="text-destructive">{generalDifferences}</strong> · U.M. non confrontabili{" "}
-                <strong>{notComparable}</strong> · Mancanti <strong>{progress?.pending ?? 0}</strong>
-              </p>
-            </div>
+          {scope !== "Tutto l'inventario" ? (
+            <p className="border-b border-border px-2 py-1 text-xs text-muted-foreground">
+              <strong className="text-foreground">{scope}</strong> · {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? visibleRows.length} completati
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border p-2">
             <div className="grid grid-cols-2 rounded-md border border-border p-0.5">
-              <Button
-                size="sm"
-                className="h-8 text-xs"
-                variant={productView === "favorites" ? "default" : "ghost"}
-                onClick={() => onViewChange("favorites")}
-              >
+              <Button size="sm" className="h-8 text-xs" variant={productView === "favorites" ? "default" : "ghost"} onClick={() => onViewChange("favorites")}>
                 <Star className="size-3.5" /> Preferiti
               </Button>
               <Button size="sm" className="h-8 text-xs" variant={productView === "all" ? "default" : "ghost"} onClick={() => onViewChange("all")}>
                 Tutti
               </Button>
             </div>
-            <Button size="sm" variant="destructive" className="h-9 text-xs" onClick={onClearDrafts}>
-              Azzera quantità
+            <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={onClearDrafts}>
+              Azzera<span className="hidden sm:inline"> quantità</span>
             </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "all" ? "default" : "outline"} onClick={() => onWorkFilterChange("all")}>
-                Tutti gli stati
-              </Button>
-            <div className="grid grid-cols-2 gap-1 sm:grid-cols-6">
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "outline"} onClick={() => onWorkFilterChange("pending")}>
-                Da controllare
-              </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "completed" ? "default" : "outline"} onClick={() => onWorkFilterChange("completed")}>
-                Confermati
-              </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "differences" ? "default" : "outline"} onClick={() => onWorkFilterChange("differences")}>
-                Differenze
-              </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "not_comparable" ? "default" : "outline"} onClick={() => onWorkFilterChange("not_comparable")}>
-                U.M. diverse
-              </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "recount" ? "default" : "outline"} onClick={() => onWorkFilterChange("recount")}>
-                Da ricontare
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-2 py-1.5">
+            <Button size="sm" className="h-8 px-2 text-xs" variant={workFilter === "all" ? "default" : "outline"} onClick={() => onWorkFilterChange("all")}>
+              Tutti gli stati
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="h-8 px-2 text-xs" variant={workFilter !== "all" ? "default" : "outline"}>
+                  {workFilter !== "all" ? `Altri stati: ${WORK_FILTER_LABELS[workFilter]}` : "Altri stati"}
+                  <ChevronDown className="size-3.5" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                {(["pending", "completed", "differences", "not_comparable", "recount"] as const).map((value) => (
+                  <DropdownMenuCheckboxItem key={value} checked={workFilter === value} onCheckedChange={() => onWorkFilterChange(value)}>
+                    {WORK_FILTER_LABELS[value]}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
+            <div className="flex flex-wrap items-center gap-1.5 rounded-md bg-muted/50 p-0.5">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" className="h-8 text-[11px]">
