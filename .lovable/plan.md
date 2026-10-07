@@ -38,7 +38,21 @@ Soluzione proposta: ogni conversione corrente dichiara per quale U.M. di magazzi
 
 Regole confermate:
 - Fissa con confezione: il fattore è **sempre** la quantità della confezione; non si inserisce un fattore separato.
-- Se modifichi la quantità di una confezione, le conversioni collegate diventano «da riconfermare» (una data di versione della confezione più recente della verifica). Mai aggiornate in silenzio.
+- Se modifichi una confezione in modo sostanziale, le conversioni collegate diventano «da riconfermare». Mai aggiornate in silenzio. Il meccanismo è un numero di versione, descritto sotto.
+
+**Versione delle confezioni (nessun campo simile esiste oggi: va aggiunto)**
+1. **Campi:**
+   - `product_stock_packages.package_version integer NOT NULL DEFAULT 1`;
+   - `product_stock_packages.verified_stock_unit_id`: la U.M. di magazzino per cui vale la quantità;
+   - `product_supplier_link_units.verified_package_version integer`, accanto a `package_id` e `verified_stock_unit_id`.
+2. **Quando aumenta:** un trigger sul database aumenta `package_version` di 1 quando cambia la quantità equivalente, la U.M. della confezione o la U.M. di magazzino di riferimento. Il nome e lo stato attiva/disattiva non cambiano la versione: lo stato viene controllato a parte.
+3. **Cosa memorizza il fornitore:** quando confermi una conversione collegata a una confezione, la funzione salva `verified_package_version = package_version` attuale e `verified_stock_unit_id = products.stock_unit_id`. Il valore viene scritto solo da quella funzione, mai dal browser.
+4. **Come la rileva `product_unit_config_issues`:** motivo «confezione modificata dopo la conferma (versione X → Y)» quando:
+   - `verified_package_version` è diversa da `package_version`;
+   - oppure la confezione è disattivata o «da rivedere»;
+   - oppure `verified_stock_unit_id` è diversa da `products.stock_unit_id`.
+5. **Come il database ne impedisce l'uso:** `effective_supplier_conversion` restituisce un fattore solo se versione, U.M. di magazzino e stato attivo corrispondono; altrimenti restituisce «nessuna conversione». Un controllo sui nuovi documenti rifiuta snapshot con conversioni non valide. Lo storico di ordini, carichi e movimenti non viene mai riscritto.
+6. **Nessuna confezione «da rivedere» come stato separato:** «da rivedere» significa che `verified_stock_unit_id` della confezione è diversa dalla U.M. di magazzino attuale. Lo stato si ricava dai dati, quindi non può andare fuori sincronia.
 - Una confezione «da rivedere» o disattivata non può essere scelta in nuove configurazioni né usata in nuovi documenti.
 - Un fattore diretto del fornitore non crea mai una confezione.
 - Storico: l'invalidazione riguarda solo la configurazione corrente. Ordini, carichi e movimenti conservano la loro fotografia e non vengono toccati.
@@ -140,4 +154,4 @@ Un prodotto può avere più motivi. Il contatore compare sopra l'elenco e il mot
 - Controllo prima/dopo: conteggi, rettifiche, movimenti, righe ordine e carichi identici (stessi totali del Passo 1).
 - Prova nel browser: assegnare «pz» a un prodotto di prova, vedere l'avviso, creare «Cassa 6 bt», collegarla a un fornitore e controllare che l'Inventario non sia cambiato.
 - Ananas e Avocado non vengono toccati prima del Passo 3.
-- Test: conversione con U.M. verificata diversa = non valida; modifica di una confezione = conversioni da riconfermare; confezione «da rivedere» rifiutata; fattore fornitore senza confezione non crea confezioni.
+- Test: modifica della quantità = versione +1 e conversione da riconfermare; modifica del solo nome = versione invariata; conversione con U.M. verificata diversa = non valida; modifica di una confezione = conversioni da riconfermare; confezione «da rivedere» rifiutata; fattore fornitore senza confezione non crea confezioni.
