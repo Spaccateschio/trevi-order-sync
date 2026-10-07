@@ -92,6 +92,13 @@
       "when": 1791349959201,
       "tag": "0012_stock_unit_foundations",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791352570186,
+      "tag": "0013_stock_unit_configuration",
+      "breakpoints": true
     }
   ]
 }
