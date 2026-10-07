@@ -165,6 +165,13 @@ function rowUnit(row: InventoryCountRow) {
   return row.stock_unit_code?.trim() || "";
 }
 
+/** U.M. ammesse per prodotto e U.M. scelta da chi conta (solo etichetta, nessun calcolo). */
+const UnitChoiceContext = createContext<{
+  allowed: Map<string, { id: string; code: string }[]>;
+  chosen: Record<string, string>;
+  choose: (productId: string, unitId: string) => void;
+}>({ allowed: new Map(), chosen: {}, choose: () => {} });
+
 /** Semaforo rosso senza inventario aperto: campi bloccati, solo «Correggi conteggio» sui conteggi del ciclo. */
 const CycleLockContext = createContext<{
   locked: boolean;
@@ -194,6 +201,32 @@ export function InventoryCountPanel({
   const readProgress = useServerFn(getInventoryProgress);
   const readRows = useServerFn(getInventoryRows);
   const saveEntry = useServerFn(recordCountEntry);
+  // U.M. ammesse per prodotto (scheda prodotto → Inventario): chi conta sceglie solo tra queste.
+  const allowedUnitsQuery = useQuery({
+    queryKey: ["inventory-allowed-units", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_inventory_units")
+        .select("product_id, unit_id, units_of_measure(code)")
+        .eq("company_id", companyId)
+        .order("created_at");
+      if (error) throw new Error(error.message);
+      const map = new Map<string, { id: string; code: string }[]>();
+      for (const row of data ?? []) {
+        const code = (row.units_of_measure as { code: string } | null)?.code ?? "";
+        const list = map.get(row.product_id) ?? [];
+        list.push({ id: row.unit_id, code });
+        map.set(row.product_id, list);
+      }
+      return map;
+    },
+  });
+  const [chosenUnits, setChosenUnits] = useState<Record<string, string>>({});
+  const unitChoice = useMemo(() => ({
+    allowed: allowedUnitsQuery.data ?? new Map<string, { id: string; code: string }[]>(),
+    chosen: chosenUnits,
+    choose: (productId: string, unitId: string) => setChosenUnits((current) => ({ ...current, [productId]: unitId })),
+  }), [allowedUnitsQuery.data, chosenUnits]);
   const readHistory = useServerFn(getCountHistory);
   const manageProposal = useServerFn(managePurchaseProposal);
   const toggleFavorite = useServerFn(manageCompanyProductFavorite);
@@ -1007,6 +1040,9 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
           entryType: input.row.counted !== null ? "riconteggio" : "conteggio",
           countedQuantity: input.value,
           unitCode: input.unit || null,
+          unitId: unitChoice.chosen[input.row.product_id]
+            ?? unitChoice.allowed.get(input.row.product_id)?.find((option) => option.code === input.row.counted_unit_code?.trim())?.id
+            ?? null,
           notes: input.notes,
           nonCompliant: null,
           nonCompliantQuantity: null,
@@ -1367,6 +1403,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             onContinue={() => setSelectingLocation(false)}
           />
         ) : (
+          <UnitChoiceContext.Provider value={unitChoice}>
           <CycleLockContext.Provider value={{
             locked: !sessionId && cycleColor === "rosso",
             cycleSessionId: cycleQuery.data?.session_id ?? null,
@@ -1579,6 +1616,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             closing={closeMutation.isPending}
           />
           </CycleLockContext.Provider>
+          </UnitChoiceContext.Provider>
         )}
       </TabsContent>
 
@@ -2391,8 +2429,8 @@ function PhysicalCount({
                 onClick={() => onWorkFilterChange(workFilter === "missing_unit" ? "all" : "missing_unit")}
                 className="mt-1.5 block w-full cursor-pointer rounded-sm border border-warning/50 bg-warning/10 px-2 py-1 text-left text-[10px] font-semibold text-warning-foreground transition-colors hover:bg-warning/20"
               >
-                {progress!.missing_unit} {progress!.missing_unit === 1 ? "prodotto senza" : "prodotti senza"} U.M. di magazzino: non
-                entra nella giacenza e blocca la chiusura.{" "}
+                {progress!.missing_unit} {progress!.missing_unit === 1 ? "prodotto senza" : "prodotti senza"} U.M.: la loro card resta bloccata,
+                ma l'inventario si può chiudere lo stesso.{" "}
                 <span className="underline underline-offset-2">
                   {workFilter === "missing_unit" ? "Togli il filtro per vedere tutti i prodotti." : "Tocca qui per vedere quali sono."}
                 </span>
@@ -2740,7 +2778,15 @@ function ProductCard({
   const correcting = correction.editing;
   // Bloccata: scheda ocra, controlli disabilitati (matita esclusa). Sbloccata: aspetto normale.
   const locked = cycleLocked && !correcting;
-  const unit = rowUnit(row);
+  const unitChoice = useContext(UnitChoiceContext);
+  const allowedUnits = unitChoice.allowed.get(row.product_id) ?? [];
+  // Default: U.M. dell'ultimo conteggio se ammessa, altrimenti la principale.
+  const lastCountedUnitId = allowedUnits.find((option) => option.code === row.counted_unit_code?.trim())?.id;
+  const chosenUnitId = unitChoice.chosen[row.product_id]
+    ?? lastCountedUnitId
+    ?? allowedUnits.find((option) => option.code === rowUnit(row))?.id
+    ?? allowedUnits[0]?.id;
+  const unit = allowedUnits.find((option) => option.id === chosenUnitId)?.code ?? rowUnit(row);
   const unitMissing = row.stock_unit_missing;
   const name = rowName(row);
   // Giacenza "Da verificare": nessun numero finché non c'è un conteggio nella U.M. di magazzino.
@@ -2957,7 +3003,16 @@ function ProductCard({
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-1">
             <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
-            {unit ? (
+            {allowedUnits.length > 1 && !locked ? (
+              <select
+                className="h-5 rounded border border-border bg-background px-1 text-[10px] font-semibold leading-none"
+                aria-label="Unità di misura inventario"
+                value={chosenUnitId ?? ""}
+                onChange={(event) => unitChoice.choose(row.product_id, event.target.value)}
+              >
+                {allowedUnits.map((option) => <option key={option.id} value={option.id}>{option.code}</option>)}
+              </select>
+            ) : unit ? (
               <span className="text-[10px] font-semibold leading-none text-muted-foreground/90" aria-label="Unità di misura inventario">
                 {unit}
               </span>
@@ -2982,7 +3037,7 @@ function ProductCard({
                     : value
               }
               disabled={locked || correction.pending || unitMissing}
-              title={unitMissing ? "Imposta prima la U.M. di magazzino nella scheda prodotto" : locked ? (correctionTarget ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
+              title={unitMissing ? "Nessuna U.M.: impostala nella scheda prodotto (Inventario)" : locked ? (correctionTarget ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
               placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
               onChange={(event) => (correcting ? correction.setValue(event.target.value) : onChange(event.target.value))}
               onFocus={(event) => event.currentTarget.select()}

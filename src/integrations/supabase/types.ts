@@ -2463,6 +2463,55 @@ export type Database = {
           },
         ]
       }
+      product_inventory_units: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          product_id: string
+          unit_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id: string
+          unit_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_inventory_units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_inventory_units_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_inventory_units_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_prices: {
         Row: {
           company_id: string
@@ -6298,6 +6347,10 @@ export type Database = {
           _session_id?: string
         }
         Returns: string
+      }
+      manage_product_inventory_unit: {
+        Args: { _add: boolean; _product_id: string; _unit_id: string }
+        Returns: Json
       }
       manage_product_stock_package: {
         Args: {

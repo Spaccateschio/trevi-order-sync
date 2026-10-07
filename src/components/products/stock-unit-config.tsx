@@ -4,16 +4,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -127,7 +117,16 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
   const stockQuery = useProductStockUnit(productId);
   const packagesQuery = useStockPackages(productId);
   const issuesQuery = useUnitConfigIssues(companyId, productId);
-  const [pendingUnit, setPendingUnit] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const allowedQuery = useQuery({
+    queryKey: ["product-inventory-units", productId],
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase.from("product_inventory_units").select("unit_id").eq("product_id", productId).order("created_at");
+      if (error) throw new Error(error.message);
+      return (data ?? []).map((row) => row.unit_id);
+    },
+  });
+  const allowedIds = allowedQuery.data ?? [];
   const [packageDraft, setPackageDraft] = useState<{ id: string | null; name: string; unitId: string; quantity: string; active: boolean } | null>(null);
 
   const stockUnitId = stockQuery.data?.stock_unit_id ?? null;
@@ -135,14 +134,17 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
   const stockCode = stockUnitId ? unitCode(stockUnitId) : null;
   const differsFromDanea = Boolean(stockCode && daneaUm && stockCode.toLowerCase() !== daneaUm.trim().toLowerCase());
 
-  const unitMutation = useMutation({
-    mutationFn: async (unitId: string) => {
-      const { error } = await supabase.rpc("set_product_stock_unit", { _product_id: productId, _unit_id: unitId });
+  const toggleMutation = useMutation({
+    mutationFn: async ({ unitId, add }: { unitId: string; add: boolean }) => {
+      const { error } = await supabase.rpc("manage_product_inventory_unit", { _product_id: productId, _unit_id: unitId, _add: add });
       if (error) throw new Error(error.message);
     },
-    onSuccess: () => { toast.success("U.M. di magazzino aggiornata"); invalidate(); },
+    onSuccess: () => {
+      invalidate();
+      void queryClient.invalidateQueries({ queryKey: ["product-inventory-units", productId] });
+      void queryClient.invalidateQueries({ queryKey: ["inventory-allowed-units"] });
+    },
     onError: (error: Error) => toast.error(error.message),
-    onSettled: () => setPendingUnit(null),
   });
 
   const packageMutation = useMutation({
@@ -175,24 +177,35 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
           <dd className="mt-1 flex items-center gap-2 text-sm"><Badge variant="outline" className="font-mono">{daneaUm?.trim() || "—"}</Badge><span className="text-xs text-muted-foreground">solo informativa</span></dd>
         </div>
         <div>
-          <dt className="text-xs uppercase text-muted-foreground">U.M. di magazzino</dt>
-          <dd className="mt-1 space-y-1">
-            <Select value={stockUnitId ?? ""} disabled={!editable || unitMutation.isPending || stockQuery.isLoading} onValueChange={(value) => { if (value !== stockUnitId) setPendingUnit(value); }}>
-              <SelectTrigger aria-label="U.M. di magazzino" className="w-full sm:w-48"><SelectValue placeholder="Da impostare" /></SelectTrigger>
-              <SelectContent>
-                {activeUnits.map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.code} — {unit.description}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {!stockUnitId && !stockQuery.isLoading ? <p className="text-xs font-medium text-destructive">U.M. magazzino da impostare{daneaUm ? ` (Danea: ${daneaUm})` : ""}</p> : null}
-            {differsFromDanea ? <p className="text-xs text-muted-foreground">Diversa da Danea</p> : null}
-            {stockQuery.data?.stock_base_at ? <p className="text-xs text-muted-foreground">Base dal {new Date(stockQuery.data.stock_base_at).toLocaleDateString("it-IT")}</p> : null}
+          <dt className="text-xs uppercase text-muted-foreground">U.M. per l'inventario</dt>
+          <dd className="mt-1 space-y-2">
+            <div className="flex flex-wrap gap-1.5">
+              {allowedIds.map((id) => (
+                <Badge key={id} variant={id === stockUnitId ? "default" : "secondary"} className="gap-1 font-mono">
+                  {unitCode(id)}{id === stockUnitId ? " · principale" : ""}
+                  {editable ? (
+                    <button type="button" aria-label={`Togli ${unitCode(id)}`} className="ml-1 rounded px-0.5 hover:opacity-70" disabled={toggleMutation.isPending} onClick={() => toggleMutation.mutate({ unitId: id, add: false })}>×</button>
+                  ) : null}
+                </Badge>
+              ))}
+              {!allowedIds.length && !allowedQuery.isLoading ? <p className="text-xs font-medium text-destructive">Nessuna U.M.: nell'inventario la card resta bloccata.</p> : null}
+            </div>
+            {editable ? (
+              <Select value="" disabled={toggleMutation.isPending} onValueChange={(value) => toggleMutation.mutate({ unitId: value, add: true })}>
+                <SelectTrigger aria-label="Aggiungi U.M." className="w-full sm:w-48"><SelectValue placeholder="+ Aggiungi U.M." /></SelectTrigger>
+                <SelectContent>
+                  {activeUnits.filter((unit) => !allowedIds.includes(unit.id)).map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.code} — {unit.description}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            ) : null}
+            {differsFromDanea ? <p className="text-xs text-muted-foreground">Principale diversa da Danea</p> : null}
           </dd>
         </div>
       </dl>
 
       <Alert>
         <Info />
-        <AlertDescription className="text-xs">La nuova U.M. di magazzino è configurata ma non è ancora utilizzata dall'Inventario. Diventerà operativa con il Passo 3.</AlertDescription>
+        <AlertDescription className="text-xs">Chi fa l'inventario può scegliere solo tra queste U.M. Sono solo un'etichetta per capire la quantità: nessun calcolo.</AlertDescription>
       </Alert>
 
       <IssuesList issues={issuesQuery.data ?? []} />
@@ -224,29 +237,6 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
         ) : stockUnitId ? <p className="text-xs text-muted-foreground">Nessuna confezione dichiarata.</p> : null}
       </div>
 
-      <AlertDialog open={pendingUnit !== null} onOpenChange={(open) => { if (!open) setPendingUnit(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cambiare la U.M. di magazzino{stockCode ? ` da ${stockCode}` : ""} a {unitCode(pendingUnit)}?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm">
-                <p>Stai cambiando la U.M. di magazzino. La giacenza attuale non verrà convertita e resterà "Da verificare" finché non verrà effettuato un nuovo conteggio. Continuare?</p>
-                <ul className="list-disc pl-4 text-xs">
-                  <li>I vecchi conteggi non vengono convertiti.</li>
-                  <li>Servirà un nuovo conteggio fisico.</li>
-                  <li>La data di base viene aggiornata a oggi.</li>
-                  <li>Confezioni e conversioni dei fornitori andranno riconfermate.</li>
-                  <li>Non è possibile con un inventario in corso.</li>
-                </ul>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (pendingUnit) unitMutation.mutate(pendingUnit); }}>Continua</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <Dialog open={packageDraft !== null} onOpenChange={(open) => { if (!open) setPackageDraft(null); }}>
         <DialogContent>
