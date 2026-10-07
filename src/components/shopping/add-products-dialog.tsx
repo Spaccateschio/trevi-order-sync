@@ -27,7 +27,12 @@ import { activeCompany, isRelationOperational, useIdentity } from "@/hooks/use-i
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSellerCatalogue } from "@/lib/catalog";
 import { parseQuantity } from "@/lib/inventory";
-import { getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
+import {
+  adoptCatalogProduct,
+  getFavoriteProductIds,
+  manageCatalogProductFavorite,
+  manageCompanyProductFavorite,
+} from "@/lib/inventory-count.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
 import { cn } from "@/lib/utils";
@@ -95,6 +100,8 @@ export function AddProductsDialog({
   const getImageUrls = useServerFn(getProductImageUrls);
   const readFavorites = useServerFn(getFavoriteProductIds);
   const runFavorite = useServerFn(manageCompanyProductFavorite);
+  const runCatalogFavorite = useServerFn(manageCatalogProductFavorite);
+  const runAdopt = useServerFn(adoptCatalogProduct);
   const { data: identity } = useIdentity();
   const company = activeCompany(identity);
 
@@ -103,6 +110,8 @@ export function AddProductsDialog({
   const [categoryFilter, setCategoryFilter] = useState("tutte");
   const [subcategoryFilter, setSubcategoryFilter] = useState("tutte");
   const [limit, setLimit] = useState(PAGE);
+  /** All'apertura solo i Preferiti; togliendo il filtro si vedono anche i cataloghi B2B. */
+  const [favoritesOnly, setFavoritesOnly] = useState(true);
   const [selected, setSelected] = useState<Record<string, Draft>>({});
 
   const productsQuery = useQuery({
@@ -249,9 +258,23 @@ export function AddProductsDialog({
     return [...values].sort((a, b) => a.localeCompare(b, "it"));
   }, [rows, categoryFilter]);
 
+  const favoriteIds = useMemo(
+    () => (productsQuery.data ?? []).map((p) => p.id).sort().slice(0, 500),
+    [productsQuery.data],
+  );
+  const favoritesQuery = useQuery({
+    queryKey: ["shopping-extras-favorites", companyId, "add", favoriteIds],
+    enabled: open && favoriteIds.length > 0,
+    queryFn: async () => new Set(await readFavorites({ data: { companyId, productIds: favoriteIds } })),
+  });
+  // Senza nessun preferito il filtro non avrebbe senso: si vede tutto.
+  const hasFavorites = (favoritesQuery.data?.size ?? 0) > 0;
+  const applyFavorites = favoritesOnly && hasFavorites;
+
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
+      if (applyFavorites && !(row.ownProductId && favoritesQuery.data?.has(row.ownProductId))) return false;
       if (supplierFilter === "senza" && row.supplierNames.length > 0) return false;
       if (supplierFilter !== "tutti" && supplierFilter !== "senza" && !row.supplierNames.includes(supplierFilter))
         return false;
@@ -263,7 +286,7 @@ export function AddProductsDialog({
         (row.description ?? "").toLowerCase().includes(term)
       );
     });
-  }, [rows, search, supplierFilter, categoryFilter, subcategoryFilter]);
+  }, [rows, search, supplierFilter, categoryFilter, subcategoryFilter, applyFavorites, favoritesQuery.data]);
 
   const visible = filtered.slice(0, limit);
 
@@ -282,26 +305,36 @@ export function AddProductsDialog({
     [imagesQuery.data],
   );
 
-  // Stesso Preferito dell'Inventario: con la stella il prodotto torna nei prossimi Inventari (non entra da solo in Lista).
-  const favoriteIds = useMemo(
-    () => visible.map((row) => row.ownProductId).filter((id): id is string => Boolean(id)).sort(),
-    [visible],
-  );
-  const favoritesQuery = useQuery({
-    queryKey: ["shopping-extras-favorites", companyId, "add", favoriteIds],
-    enabled: open && favoriteIds.length > 0,
-    queryFn: async () => new Set(await readFavorites({ data: { companyId, productIds: favoriteIds } })),
-  });
   const favoriteMutation = useMutation({
-    mutationFn: (input: { productId: string; favorite: boolean }) =>
-      runFavorite({ data: { companyId, productId: input.productId, favorite: input.favorite } }),
+    mutationFn: async (input: { productId: string | null; row?: Row; favorite: boolean }) => {
+      if (input.productId) {
+        return runFavorite({ data: { companyId, productId: input.productId, favorite: input.favorite } });
+      }
+      // Referenza B2B: stella del Catalogo + stesso meccanismo d'importazione del Catalogo
+      // (prodotto proprio con fornitore collegato, nessun doppione).
+      const row = input.row!;
+      const sellerProductId = row.key.slice(4);
+      await runCatalogFavorite({
+        data: { companyId, sellerCompanyId: row.sellerId!, sellerProductId, favorite: true },
+      });
+      await runAdopt({ data: { companyId, sellerCompanyId: row.sellerId!, sellerProductId } });
+      return { favorite: true };
+    },
     onSuccess: async (_result, input) => {
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["shopping-add-products", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-add-links", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventario-catalogo-candidati", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["company-has-favorites", companyId] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-extras-favorites", companyId] }),
         queryClient.invalidateQueries({ queryKey: ["inventario-preferiti-prodotti"] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
       ]);
-      toast.success(input.favorite ? "Preferito: lo ritroverai nei prossimi Inventari" : "Tolto dai preferiti");
+      toast.success(
+        input.favorite
+          ? "Preferito: lo ritrovi nei Preferiti di Lista della Spesa e Inventario"
+          : "Tolto dai preferiti",
+      );
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -396,6 +429,29 @@ export function AddProductsDialog({
             diventa preferito e lo ritroverai nei prossimi Inventari.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={applyFavorites ? "default" : "outline"}
+            className="h-8 gap-1"
+            aria-pressed={applyFavorites}
+            disabled={!hasFavorites}
+            onClick={() => {
+              setFavoritesOnly((value) => !value);
+              setLimit(PAGE);
+            }}
+          >
+            <Star className={cn("size-3.5", applyFavorites && "fill-current")} aria-hidden="true" />
+            Preferiti
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {applyFavorites
+              ? "Solo preferiti. Tocca per vedere tutti i prodotti, anche dei fornitori B2B."
+              : "Tutti i prodotti: tuoi e dei fornitori B2B collegati."}
+          </span>
+        </div>
 
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className="relative">
@@ -500,26 +556,26 @@ export function AddProductsDialog({
                     {row.isB2b ? " · catalogo B2B" : ""}
                   </p>
                 </div>
-                {row.ownProductId
-                  ? (() => {
-                      const fav = favoritesQuery.data?.has(row.ownProductId!) ?? false;
-                      return (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className={cn("h-7 w-7 shrink-0 px-0", fav && "text-primary")}
-                          disabled={favoriteMutation.isPending || !favoritesQuery.data}
-                          aria-pressed={fav}
-                          aria-label={fav ? `Togli ${row.code} dai preferiti` : `Metti ${row.code} nei preferiti`}
-                          title={fav ? "Togli dai preferiti" : "Preferito: torna nei prossimi Inventari"}
-                          onClick={() => favoriteMutation.mutate({ productId: row.ownProductId!, favorite: !fav })}
-                        >
-                          <Star className={cn("size-3.5", fav && "fill-current")} aria-hidden="true" />
-                        </Button>
-                      );
-                    })()
-                  : null}
+                {(() => {
+                  const fav = row.ownProductId ? (favoritesQuery.data?.has(row.ownProductId) ?? false) : false;
+                  return (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn("h-7 w-7 shrink-0 px-0", fav && "text-primary")}
+                      disabled={favoriteMutation.isPending || (Boolean(row.ownProductId) && !favoritesQuery.data)}
+                      aria-pressed={fav}
+                      aria-label={fav ? `Togli ${row.code} dai preferiti` : `Metti ${row.code} nei preferiti`}
+                      title={fav ? "Togli dai preferiti" : "Metti nei preferiti"}
+                      onClick={() =>
+                        favoriteMutation.mutate({ productId: row.ownProductId, row, favorite: !fav })
+                      }
+                    >
+                      <Star className={cn("size-3.5", fav && "fill-current")} aria-hidden="true" />
+                    </Button>
+                  );
+                })()}
                 {inList ? (
                   <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">Già in lista</Badge>
                 ) : isSelected && draft ? (
