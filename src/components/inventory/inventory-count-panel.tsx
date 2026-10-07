@@ -5,6 +5,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Check,
+  ChevronDown,
   CheckCheck,
   CircleAlert,
   ClipboardCheck,
@@ -29,7 +30,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { PriceTrendIcon } from "@/components/pricing/price-trend-icon";
@@ -97,6 +98,14 @@ import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventor
 
 type ProductView = "favorites" | "all";
 type WorkFilter = "all" | "pending" | "completed" | "differences" | "not_comparable" | "recount";
+const WORK_FILTER_LABELS: Record<WorkFilter, string> = {
+  all: "Tutti gli stati",
+  pending: "Da controllare",
+  completed: "Confermati",
+  differences: "Differenze",
+  not_comparable: "U.M. diverse",
+  recount: "Da ricontare",
+};
 type SupplierInfo = { name: string | null; cost: number | null };
 type FieldPreferences = ReturnType<typeof useInventoryFieldPreferences>;
 
@@ -1412,40 +1421,6 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
         ) : null}
       </div>
 
-      <CycleLight cycle={cycleQuery.data} sessionActive={Boolean(sessionId)} />
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={printStock}
-          disabled={!stockHistoryQuery.data || catalogPreview.length === 0}
-          title="Stampa le giacenze dell'ultimo inventario"
-        >
-          <Printer aria-hidden="true" />
-          <span className="hidden sm:inline">Stampa giacenze</span>
-          <span className="sm:hidden">Stampa</span>
-        </Button>
-        {!sessionId && cycleColor === "rosso" && isAdmin && cycleQuery.data?.session_id && cycleQuery.data?.list_status !== "chiusa" ? (
-          <>
-            <Button type="button" size="sm" variant="outline" disabled={reopenCount.isPending} onClick={() => reopenCount.mutate(false)}>
-              <Pencil aria-hidden="true" />
-              <span className="hidden sm:inline">Modifica conteggio</span>
-              <span className="sm:hidden">Modifica</span>
-            </Button>
-            <Button type="button" size="sm" variant="outline" disabled={reopenCount.isPending} onClick={() => setReopenResetOpen(true)}>
-              <RotateCcw aria-hidden="true" />
-              <span className="hidden sm:inline">Azzera quantità</span>
-              <span className="sm:hidden">Azzera</span>
-            </Button>
-          </>
-        ) : null}
-        {!sessionId && cycleColor === "rosso" && isAdmin ? (
-          <Button type="button" size="sm" variant={unlockedAll ? "secondary" : "outline"} onClick={() => setUnlockedAll((v) => !v)}>
-            {unlockedAll ? "Blocca quantità" : "Sblocca quantità"}
-          </Button>
-        ) : null}
-      </div>
       <CorrectCountDialog
         companyId={companyId}
         listId={cycleQuery.data?.list_id ?? null}
@@ -1491,6 +1466,43 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             companyId={companyId}
             sessionActive={Boolean(sessionId)}
             sessionName={progress?.session_name ?? sessionQuery.data?.name ?? "Inventario generale"}
+            statusSlot={
+              <div className="mt-1.5 space-y-1.5">
+                <CycleLight cycle={cycleQuery.data} sessionActive={Boolean(sessionId)} />
+                {!sessionId && cycleColor === "rosso" && isAdmin ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {cycleQuery.data?.session_id && cycleQuery.data?.list_status !== "chiusa" ? (
+                      <>
+                        <Button type="button" size="sm" variant="outline" className="h-8 text-xs" disabled={reopenCount.isPending} onClick={() => reopenCount.mutate(false)}>
+                          <Pencil aria-hidden="true" /> Modifica conteggio
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" className="h-8 text-xs" disabled={reopenCount.isPending} onClick={() => setReopenResetOpen(true)}>
+                          <RotateCcw aria-hidden="true" /> Azzera quantità
+                        </Button>
+                      </>
+                    ) : null}
+                    <Button type="button" size="sm" className="h-8 text-xs" variant={unlockedAll ? "secondary" : "outline"} onClick={() => setUnlockedAll((v) => !v)}>
+                      {unlockedAll ? "Blocca quantità" : "Sblocca quantità"}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            }
+            printAction={
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 text-[11px]"
+                onClick={printStock}
+                disabled={!stockHistoryQuery.data || catalogPreview.length === 0}
+                title="Stampa le giacenze dell'ultimo inventario"
+              >
+                <Printer aria-hidden="true" />
+                <span className="hidden sm:inline">Stampa giacenze</span>
+                <span className="sm:hidden">Stampa</span>
+              </Button>
+            }
             progress={progress}
             locations={activeLocations.map((location) => ({
               id: location.id,
@@ -2261,6 +2273,8 @@ function PhysicalCount({
 
   onHideCompletion,
   closing,
+  statusSlot,
+  printAction,
 }: {
   companyId: string;
   sessionActive: boolean;
@@ -2317,6 +2331,8 @@ function PhysicalCount({
   stockHistory: Map<string, StockHistory> | null;
   onHideCompletion: () => void;
   closing: boolean;
+  statusSlot?: ReactNode;
+  printAction?: ReactNode;
 }) {
   const total = progress?.total ?? 0;
   const generalCompleted = progress?.completed ?? 0;
@@ -2411,6 +2427,7 @@ function PhysicalCount({
             </div>
           ) : null}
         </div>
+        {statusSlot}
         {!sessionActive && lastClosed ? (
           <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1.5">
             <div className="min-w-0 text-xs leading-tight text-muted-foreground">
@@ -2464,18 +2481,24 @@ function PhysicalCount({
                 Tutti
               </Button>
               <span className="mx-0.5 w-px shrink-0 bg-border" />
-              {([
-                ["all", "Tutti gli stati"],
-                ["pending", "Da controllare"],
-                ["completed", "Confermati"],
-                ["differences", "Differenze"],
-                ["not_comparable", "U.M. diverse"],
-                ["recount", "Da ricontare"],
-              ] as const).map(([value, label]) => (
-                <Button key={value} size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={workFilter === value ? "default" : "outline"} onClick={() => onWorkFilterChange(value)}>
-                  {label}
-                </Button>
-              ))}
+              <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={workFilter === "all" ? "default" : "outline"} onClick={() => onWorkFilterChange("all")}>
+                Tutti gli stati
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={workFilter !== "all" ? "default" : "outline"}>
+                    {workFilter !== "all" ? `Altri stati: ${WORK_FILTER_LABELS[workFilter]}` : "Altri stati"}
+                    <ChevronDown className="size-3" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {(["pending", "completed", "differences", "not_comparable", "recount"] as const).map((value) => (
+                    <DropdownMenuCheckboxItem key={value} checked={workFilter === value} onCheckedChange={() => onWorkFilterChange(value)}>
+                      {WORK_FILTER_LABELS[value]}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         )}
@@ -2489,61 +2512,43 @@ function PhysicalCount({
 
       <div className="overflow-hidden rounded-md border border-border bg-card">
         <div className="overflow-hidden rounded-md border border-border bg-card">
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-border p-2 [&>div:first-child]:basis-full">
-            <div className="min-w-0">
-              <p className="font-display font-semibold">{scope}</p>
-              <p className="text-xs text-muted-foreground">
-                Selezione corrente:{" "}
-                <strong>
-                  {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? visibleRows.length}
-                </strong>{" "}
-                completati
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Confermati <strong>{unchanged}</strong> · Differenze reali{" "}
-                <strong className="text-destructive">{generalDifferences}</strong> · U.M. non confrontabili{" "}
-                <strong>{notComparable}</strong> · Mancanti <strong>{progress?.pending ?? 0}</strong>
-              </p>
-            </div>
+          {scope !== "Tutto l'inventario" ? (
+            <p className="border-b border-border px-2 py-1 text-xs text-muted-foreground">
+              <strong className="text-foreground">{scope}</strong> · {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? visibleRows.length} completati
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border p-2">
             <div className="grid grid-cols-2 rounded-md border border-border p-0.5">
-              <Button
-                size="sm"
-                className="h-8 text-xs"
-                variant={productView === "favorites" ? "default" : "ghost"}
-                onClick={() => onViewChange("favorites")}
-              >
+              <Button size="sm" className="h-8 text-xs" variant={productView === "favorites" ? "default" : "ghost"} onClick={() => onViewChange("favorites")}>
                 <Star className="size-3.5" /> Preferiti
               </Button>
               <Button size="sm" className="h-8 text-xs" variant={productView === "all" ? "default" : "ghost"} onClick={() => onViewChange("all")}>
                 Tutti
               </Button>
             </div>
-            <Button size="sm" variant="destructive" className="h-9 text-xs" onClick={onClearDrafts}>
-              Azzera quantità
+            <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={onClearDrafts}>
+              Azzera<span className="hidden sm:inline"> quantità</span>
             </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "all" ? "default" : "outline"} onClick={() => onWorkFilterChange("all")}>
-                Tutti gli stati
-              </Button>
-            <div className="grid grid-cols-2 gap-1 sm:grid-cols-6">
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "pending" ? "default" : "outline"} onClick={() => onWorkFilterChange("pending")}>
-                Da controllare
-              </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "completed" ? "default" : "outline"} onClick={() => onWorkFilterChange("completed")}>
-                Confermati
-              </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "differences" ? "default" : "outline"} onClick={() => onWorkFilterChange("differences")}>
-                Differenze
-              </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "not_comparable" ? "default" : "outline"} onClick={() => onWorkFilterChange("not_comparable")}>
-                U.M. diverse
-              </Button>
-              <Button size="sm" className="h-8 px-2 text-[11px]" variant={workFilter === "recount" ? "default" : "outline"} onClick={() => onWorkFilterChange("recount")}>
-                Da ricontare
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-2 py-1.5">
+            <Button size="sm" className="h-8 px-2 text-xs" variant={workFilter === "all" ? "default" : "outline"} onClick={() => onWorkFilterChange("all")}>
+              Tutti gli stati
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="h-8 px-2 text-xs" variant={workFilter !== "all" ? "default" : "outline"}>
+                  {workFilter !== "all" ? `Altri stati: ${WORK_FILTER_LABELS[workFilter]}` : "Altri stati"}
+                  <ChevronDown className="size-3.5" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                {(["pending", "completed", "differences", "not_comparable", "recount"] as const).map((value) => (
+                  <DropdownMenuCheckboxItem key={value} checked={workFilter === value} onCheckedChange={() => onWorkFilterChange(value)}>
+                    {WORK_FILTER_LABELS[value]}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
+            <div className="flex flex-wrap items-center gap-1.5 rounded-md bg-muted/50 p-0.5">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" className="h-8 text-[11px]">
@@ -2616,12 +2621,9 @@ function PhysicalCount({
                 <DropdownMenuItem onClick={fieldPreferences.reset}>Ripristina predefinite</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <p className="text-[10px] text-muted-foreground">
-              Costo e unità di misura della giacenza sono in sola lettura: si gestiscono nella scheda prodotto.
-              {excludedCatalogCount
-                ? ` ${excludedCatalogCount} articoli dei cataloghi dei fornitori non sono inclusi: entrano qui solo quando diventano prodotti tuoi.`
-                : ""}
-            </p>
+            {printAction}
+            </div>
+            {void excludedCatalogCount}
           </div>
 
           {visibleRows.length || catalogCandidates.length ? (
@@ -3379,7 +3381,7 @@ function CycleLight({ cycle, sessionActive }: { cycle: CycleStatus | undefined; 
     },
   }[color];
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-card px-3 py-2">
+    <div className="flex flex-wrap items-center gap-2 border-t border-border pt-1.5">
       <span className={`size-3 shrink-0 rounded-full ${config.dot}`} aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="text-xs font-bold tracking-wide">{config.label}</p>
