@@ -293,7 +293,7 @@ export function InventoryEvaluation({
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[10px] text-muted-foreground">Giacenza</span>
-                    <span className="font-semibold">{row.stock === null ? "—" : `${qty(row.stock)} ${row.unit ?? ""}`}</span>
+                    <span className="font-semibold">{row.stock === null ? "—" : `${qty(row.stock)} ${row.stockUnit ?? row.unit ?? ""}`}</span>
                   </span>
                 </div>
                 <label className="mt-auto flex min-w-0 items-center justify-between gap-2">
@@ -334,7 +334,7 @@ export function InventoryEvaluation({
                   <span className="sm:hidden">
                     {" "}
                     · contato {qty(row.counted)} {row.unit ?? ""} · giacenza{" "}
-                    {row.stock === null ? "—" : `${qty(row.stock)} ${row.unit ?? ""}`}
+                    {row.stock === null ? "—" : `${qty(row.stock)} ${row.stockUnit ?? row.unit ?? ""}`}
                   </span>
                 </span>
               </span>
@@ -344,7 +344,7 @@ export function InventoryEvaluation({
               <span className="hidden sm:block">
                 Giacenza{" "}
                 <span className="font-semibold">
-                  {row.stock === null ? "—" : `${qty(row.stock)} ${row.unit ?? ""}`}
+                  {row.stock === null ? "—" : `${qty(row.stock)} ${row.stockUnit ?? row.unit ?? ""}`}
                 </span>
               </span>
               <span className="hidden text-muted-foreground sm:block">Da acquistare</span>
