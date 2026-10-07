@@ -410,6 +410,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         const info = result.get(product.id);
         if (info) info.stockUnit = product.stock_unit_id ? unitCodes.get(product.stock_unit_id) ?? null : null;
       }
+      for (const locationId of locations) {
         const { data: stock } = await supabase.rpc("inventory_location_stock_list", {
           _company_id: companyId,
           _archive_id: list!.archive_id,
