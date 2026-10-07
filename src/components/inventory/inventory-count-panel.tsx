@@ -2429,8 +2429,8 @@ function PhysicalCount({
                 onClick={() => onWorkFilterChange(workFilter === "missing_unit" ? "all" : "missing_unit")}
                 className="mt-1.5 block w-full cursor-pointer rounded-sm border border-warning/50 bg-warning/10 px-2 py-1 text-left text-[10px] font-semibold text-warning-foreground transition-colors hover:bg-warning/20"
               >
-                {progress!.missing_unit} {progress!.missing_unit === 1 ? "prodotto senza" : "prodotti senza"} U.M. di magazzino: non
-                entra nella giacenza e blocca la chiusura.{" "}
+                {progress!.missing_unit} {progress!.missing_unit === 1 ? "prodotto senza" : "prodotti senza"} U.M.: la loro card resta bloccata,
+                ma l'inventario si può chiudere lo stesso.{" "}
                 <span className="underline underline-offset-2">
                   {workFilter === "missing_unit" ? "Togli il filtro per vedere tutti i prodotti." : "Tocca qui per vedere quali sono."}
                 </span>
@@ -3007,7 +3007,7 @@ function ProductCard({
               <select
                 className="h-5 rounded border border-border bg-background px-1 text-[10px] font-semibold leading-none"
                 aria-label="Unità di misura inventario"
-                value={chosenUnitId ?? allowedUnits[0].id}
+                value={chosenUnitId ?? ""}
                 onChange={(event) => unitChoice.choose(row.product_id, event.target.value)}
               >
                 {allowedUnits.map((option) => <option key={option.id} value={option.id}>{option.code}</option>)}
