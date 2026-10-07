@@ -1224,14 +1224,29 @@ export function InventoryCountPanel({
     onError: (error: Error) => toast.error(error.message),
   });
   const catalogFavoriteMutation = useMutation({
-    mutationFn: (candidate: CatalogCandidate) => toggleCatalogFavorite({ data: {
-      companyId,
-      sellerCompanyId: candidate.sellerCompanyId,
-      sellerProductId: candidate.sellerProductId,
-      favorite: !candidate.isFavorite,
-    } }),
+    mutationFn: async (candidate: CatalogCandidate) => {
+      const favorite = !candidate.isFavorite;
+      await toggleCatalogFavorite({ data: {
+        companyId,
+        sellerCompanyId: candidate.sellerCompanyId,
+        sellerProductId: candidate.sellerProductId,
+        favorite,
+      } });
+      // Con la stella la referenza B2B diventa prodotto proprio col fornitore collegato
+      // (stesso meccanismo del Catalogo, nessun doppione); togliere la stella non cancella nulla.
+      if (favorite) {
+        await adoptCatalog({ data: {
+          companyId,
+          sellerCompanyId: candidate.sellerCompanyId,
+          sellerProductId: candidate.sellerProductId,
+        } });
+      }
+    },
     onSuccess: async () => {
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["inventario-preferiti-prodotti"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-add-products", companyId] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-favorites", companyId] }),
         queryClient.invalidateQueries({ queryKey: ["inventario-catalogo-candidati", companyId] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti"] }),
         queryClient.invalidateQueries({ queryKey: ["catalogo-preferiti-tutti"] }),
