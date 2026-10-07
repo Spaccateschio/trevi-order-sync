@@ -1457,6 +1457,43 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             companyId={companyId}
             sessionActive={Boolean(sessionId)}
             sessionName={progress?.session_name ?? sessionQuery.data?.name ?? "Inventario generale"}
+            statusSlot={
+              <div className="mt-1.5 space-y-1.5">
+                <CycleLight cycle={cycleQuery.data} sessionActive={Boolean(sessionId)} />
+                {!sessionId && cycleColor === "rosso" && isAdmin ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {cycleQuery.data?.session_id && cycleQuery.data?.list_status !== "chiusa" ? (
+                      <>
+                        <Button type="button" size="sm" variant="outline" className="h-8 text-xs" disabled={reopenCount.isPending} onClick={() => reopenCount.mutate(false)}>
+                          <Pencil aria-hidden="true" /> Modifica conteggio
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" className="h-8 text-xs" disabled={reopenCount.isPending} onClick={() => setReopenResetOpen(true)}>
+                          <RotateCcw aria-hidden="true" /> Azzera quantità
+                        </Button>
+                      </>
+                    ) : null}
+                    <Button type="button" size="sm" className="h-8 text-xs" variant={unlockedAll ? "secondary" : "outline"} onClick={() => setUnlockedAll((v) => !v)}>
+                      {unlockedAll ? "Blocca quantità" : "Sblocca quantità"}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            }
+            printAction={
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 text-[11px]"
+                onClick={printStock}
+                disabled={!stockHistoryQuery.data || catalogPreview.length === 0}
+                title="Stampa le giacenze dell'ultimo inventario"
+              >
+                <Printer aria-hidden="true" />
+                <span className="hidden sm:inline">Stampa giacenze</span>
+                <span className="sm:hidden">Stampa</span>
+              </Button>
+            }
             progress={progress}
             locations={activeLocations.map((location) => ({
               id: location.id,
