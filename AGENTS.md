@@ -23,3 +23,5 @@
 - Conversione U.M. acquisto fornitore → U.M. di magazzino: solo `product_supplier_link_units.stock_conversion_factor` + verified_stock_unit_id/verified_package_version, letta solo da `effective_supplier_conversion`; il vecchio `conversion_factor` resta del sistema attuale: nessuna conversione superata viene usata in silenzio.
 - U.M. di magazzino, confezioni e conversioni si scrivono solo con set_product_stock_unit / manage_product_stock_package / set_supplier_unit_conversion (flag app.unit_config_rpc nei trigger): il browser non le scrive direttamente.
 - Inventario: U.M. sono solo etichette; chi conta sceglie tra product_inventory_units (scritte solo da manage_product_inventory_unit / set_product_stock_unit), stock_unit_id = principale; conteggi con fattore 1, nessuna conversione; giacenza NULL senza conteggio valido; prodotti senza U.M. hanno la card bloccata ma non bloccano la chiusura; allows_decimals non usato.
+
+- Inventory card edits use a per-row UI unlock state: successful saves relock, failed saves remain editable, and all quantity/unit commands share a guard; existing cycle authorization and server validation remain authoritative.

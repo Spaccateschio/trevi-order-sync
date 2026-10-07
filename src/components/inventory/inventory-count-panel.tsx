@@ -88,6 +88,7 @@ import {
 } from "@/lib/inventory-count.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
+import { inventoryCardLocked, afterInventoryCardSave, canEditInventoryCard } from "@/lib/inventory-card-lock";
 import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inventory/correct-count-dialog";
 import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget } from "@/components/inventory/physical-quick-edit";
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
@@ -171,6 +172,12 @@ const UnitChoiceContext = createContext<{
   chosen: Record<string, string>;
   choose: (productId: string, unitId: string) => void;
 }>({ allowed: new Map(), chosen: {}, choose: () => {} });
+
+const CardLockContext = createContext<{
+  unlocked: Set<string>;
+  toggle: (key: string) => void;
+  pending: boolean;
+}>({ unlocked: new Set(), toggle: () => {}, pending: false });
 
 /** Semaforo rosso senza inventario aperto: campi bloccati, solo «Correggi conteggio» sui conteggi del ciclo. */
 const CycleLockContext = createContext<{
@@ -272,6 +279,12 @@ export function InventoryCountPanel({
   const [supplierFilter, setSupplierFilter] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [unlockedCards, setUnlockedCards] = useState<Set<string>>(new Set());
+  const lockSavedCard = (key: string) => setUnlockedCards((current) => {
+    const next = new Set(current);
+    if (!afterInventoryCardSave(current.has(key), true)) next.delete(key);
+    return next;
+  });
   const [emptyRows, setEmptyRows] = useState<InventoryCountRow[] | null>(null);
   const [pending, setPending] = useState<{ row: InventoryCountRow; value: number } | null>(null);
   const [pendingReason, setPendingReason] = useState("");
@@ -963,7 +976,8 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
       });
       return input.locationId;
     },
-    onSuccess: async (locationId) => {
+    onSuccess: async (locationId, input) => {
+      lockSavedCard(`${input.productId}:${input.locationId}`);
       await queryClient.invalidateQueries({
         queryKey: ["inventory-general-session", companyId, archiveId],
       });
@@ -1049,6 +1063,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
         },
       }),
     onSuccess: async (_result, input) => {
+      lockSavedCard(rowKey(input.row));
       setDrafts((current) => {
         const next = { ...current };
         delete next[rowKey(input.row)];
@@ -1403,6 +1418,15 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             onContinue={() => setSelectingLocation(false)}
           />
         ) : (
+          <CardLockContext.Provider value={{
+            unlocked: unlockedCards,
+            pending: countMutation.isPending || firstCount.isPending,
+            toggle: (key) => setUnlockedCards((current) => {
+              const next = new Set(current);
+              if (next.has(key)) next.delete(key); else next.add(key);
+              return next;
+            }),
+          }}>
           <UnitChoiceContext.Provider value={unitChoice}>
           <CycleLockContext.Provider value={{
             locked: !sessionId && cycleColor === "rosso",
@@ -1617,6 +1641,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
           />
           </CycleLockContext.Provider>
           </UnitChoiceContext.Provider>
+          </CardLockContext.Provider>
         )}
       </TabsContent>
 
@@ -2777,7 +2802,17 @@ function ProductCard({
   const correction = usePhysicalCorrection(correctionTarget, Boolean(cycleLock.unlockedAll));
   const correcting = correction.editing;
   // Bloccata: scheda ocra, controlli disabilitati (matita esclusa). Sbloccata: aspetto normale.
-  const locked = cycleLocked && !correcting;
+  const cardLock = useContext(CardLockContext);
+  const locked = inventoryCardLocked(row.counted !== null, cardLock.unlocked.has(rowKey(row)), cycleLocked, correcting);
+  const editable = canEditInventoryCard(locked, correction.pending || cardLock.pending, row.stock_unit_missing);
+  const changeQuantity = (next: string) => {
+    if (!editable) return;
+    if (correcting) correction.setValue(next); else onChange(next);
+  };
+  const confirmQuantity = () => {
+    if (!editable) return;
+    if (correcting) void correction.confirm(); else onConfirm();
+  };
   const unitChoice = useContext(UnitChoiceContext);
   const allowedUnits = unitChoice.allowed.get(row.product_id) ?? [];
   // Default: U.M. dell'ultimo conteggio se ammessa, altrimenti la principale.
@@ -3003,12 +3038,12 @@ function ProductCard({
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-1">
             <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
-            {allowedUnits.length > 1 && !locked ? (
+            {allowedUnits.length > 1 && editable ? (
               <select
                 className="h-5 rounded border border-border bg-background px-1 text-[10px] font-semibold leading-none"
                 aria-label="Unità di misura inventario"
                 value={chosenUnitId ?? ""}
-                onChange={(event) => unitChoice.choose(row.product_id, event.target.value)}
+                onChange={(event) => { if (editable) unitChoice.choose(row.product_id, event.target.value); }}
               >
                 {allowedUnits.map((option) => <option key={option.id} value={option.id}>{option.code}</option>)}
               </select>
@@ -3036,32 +3071,31 @@ function ProductCard({
                     ? formatQuantity(history.physical, history.lastUnit ?? unit)
                     : value
               }
-              disabled={locked || correction.pending || unitMissing}
-              title={unitMissing ? "Nessuna U.M.: impostala nella scheda prodotto (Inventario)" : locked ? (correctionTarget ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
+              disabled={!editable}
+              title={unitMissing ? "Nessuna U.M.: impostala nella scheda prodotto (Inventario)" : locked ? (correctionTarget || !cycleLocked ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
               placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
-              onChange={(event) => (correcting ? correction.setValue(event.target.value) : onChange(event.target.value))}
+              onChange={(event) => changeQuantity(event.target.value)}
               onFocus={(event) => event.currentTarget.select()}
               onKeyDown={(event) => {
-                if (event.key === "Enter") {
+                if (event.key === "Enter" && editable) {
                   event.currentTarget.blur();
-                  if (correcting) correction.confirm();
-                  else onConfirm();
+                  confirmQuantity();
                 }
               }}
               aria-label={`Quantità fisica ${name}`}
             />
-            {correctionTarget ? (
+            {correctionTarget || (!cycleLocked && row.counted !== null) ? (
               <Button
                 type="button"
-                variant={correcting ? "secondary" : "outline"}
+                variant={!locked ? "secondary" : "outline"}
                 size="sm"
                 className="h-10 w-9 shrink-0 px-0"
-                aria-label={correcting ? `Blocca ${name}` : `Sblocca ${name}`}
-                title={correcting ? "Blocca" : "Sblocca"}
-                disabled={correction.pending}
-                onClick={correction.toggle}
+                aria-label={!locked ? `Blocca ${name}` : `Sblocca ${name}`}
+                title={!locked ? "Blocca" : "Sblocca"}
+                disabled={correction.pending || cardLock.pending || unitMissing}
+                onClick={() => { if (correctionTarget) correction.toggle(); else cardLock.toggle(rowKey(row)); }}
               >
-                {correcting ? <Lock className="size-4" /> : <Pencil className="size-4" />}
+                {!locked ? <Lock className="size-4" /> : <Pencil className="size-4" />}
               </Button>
             ) : null}
           </div>
@@ -3087,7 +3121,7 @@ function ProductCard({
             {difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, unit)}`}
           </p>
         </div>
-        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={correcting ? correction.confirm : onConfirm} disabled={locked || correction.pending || unitMissing}>
+        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={confirmQuantity} disabled={!editable}>
           <Check className="size-4" />
           <span className="hidden min-[360px]:inline">Conferma</span>
         </Button>
@@ -3110,12 +3144,8 @@ function ProductCard({
             className="h-8 justify-center px-0 text-xs font-bold leading-none"
             tabIndex={-1}
             aria-label={`Aggiungi ${increment} a ${name}`}
-            disabled={locked}
-            onClick={() =>
-              correcting
-                ? correction.setValue(addToQuantity(correction.value, increment))
-                : onChange(addToQuantity(value, increment))
-            }
+            disabled={!editable}
+            onClick={() => changeQuantity(addToQuantity(correcting ? correction.value : value, increment))}
           >
             +{increment}
           </Button>
@@ -3128,8 +3158,8 @@ function ProductCard({
           tabIndex={-1}
           aria-label={`Azzera quantità ${name}`}
           title="Azzera"
-          disabled={locked}
-          onClick={() => (correcting ? correction.setValue("") : onChange(""))}
+          disabled={!editable}
+          onClick={() => changeQuantity("")}
         >
           <Delete className="size-4" />
         </Button>
