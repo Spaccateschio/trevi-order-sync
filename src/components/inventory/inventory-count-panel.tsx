@@ -2776,7 +2776,15 @@ function ProductCard({
   const correcting = correction.editing;
   // Bloccata: scheda ocra, controlli disabilitati (matita esclusa). Sbloccata: aspetto normale.
   const locked = cycleLocked && !correcting;
-  const unit = rowUnit(row);
+  const unitChoice = useContext(UnitChoiceContext);
+  const allowedUnits = unitChoice.allowed.get(row.product_id) ?? [];
+  // Default: U.M. dell'ultimo conteggio se ammessa, altrimenti la principale.
+  const lastCountedUnitId = allowedUnits.find((option) => option.code === row.counted_unit_code?.trim())?.id;
+  const chosenUnitId = unitChoice.chosen[row.product_id]
+    ?? lastCountedUnitId
+    ?? allowedUnits.find((option) => option.code === rowUnit(row))?.id
+    ?? allowedUnits[0]?.id;
+  const unit = allowedUnits.find((option) => option.id === chosenUnitId)?.code ?? rowUnit(row);
   const unitMissing = row.stock_unit_missing;
   const name = rowName(row);
   // Giacenza "Da verificare": nessun numero finché non c'è un conteggio nella U.M. di magazzino.
@@ -2993,7 +3001,16 @@ function ProductCard({
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-1">
             <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
-            {unit ? (
+            {allowedUnits.length > 1 && !locked ? (
+              <select
+                className="h-5 rounded border border-border bg-background px-1 text-[10px] font-semibold leading-none"
+                aria-label="Unità di misura inventario"
+                value={chosenUnitId ?? allowedUnits[0].id}
+                onChange={(event) => unitChoice.choose(row.product_id, event.target.value)}
+              >
+                {allowedUnits.map((option) => <option key={option.id} value={option.id}>{option.code}</option>)}
+              </select>
+            ) : unit ? (
               <span className="text-[10px] font-semibold leading-none text-muted-foreground/90" aria-label="Unità di misura inventario">
                 {unit}
               </span>
