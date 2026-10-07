@@ -165,6 +165,13 @@ function rowUnit(row: InventoryCountRow) {
   return row.stock_unit_code?.trim() || "";
 }
 
+/** U.M. ammesse per prodotto e U.M. scelta da chi conta (solo etichetta, nessun calcolo). */
+const UnitChoiceContext = createContext<{
+  allowed: Map<string, { id: string; code: string }[]>;
+  chosen: Record<string, string>;
+  choose: (productId: string, unitId: string) => void;
+}>({ allowed: new Map(), chosen: {}, choose: () => {} });
+
 /** Semaforo rosso senza inventario aperto: campi bloccati, solo «Correggi conteggio» sui conteggi del ciclo. */
 const CycleLockContext = createContext<{
   locked: boolean;
@@ -194,6 +201,32 @@ export function InventoryCountPanel({
   const readProgress = useServerFn(getInventoryProgress);
   const readRows = useServerFn(getInventoryRows);
   const saveEntry = useServerFn(recordCountEntry);
+  // U.M. ammesse per prodotto (scheda prodotto → Inventario): chi conta sceglie solo tra queste.
+  const allowedUnitsQuery = useQuery({
+    queryKey: ["inventory-allowed-units", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_inventory_units")
+        .select("product_id, unit_id, units_of_measure(code)")
+        .eq("company_id", companyId)
+        .order("created_at");
+      if (error) throw new Error(error.message);
+      const map = new Map<string, { id: string; code: string }[]>();
+      for (const row of data ?? []) {
+        const code = (row.units_of_measure as { code: string } | null)?.code ?? "";
+        const list = map.get(row.product_id) ?? [];
+        list.push({ id: row.unit_id, code });
+        map.set(row.product_id, list);
+      }
+      return map;
+    },
+  });
+  const [chosenUnits, setChosenUnits] = useState<Record<string, string>>({});
+  const unitChoice = useMemo(() => ({
+    allowed: allowedUnitsQuery.data ?? new Map<string, { id: string; code: string }[]>(),
+    chosen: chosenUnits,
+    choose: (productId: string, unitId: string) => setChosenUnits((current) => ({ ...current, [productId]: unitId })),
+  }), [allowedUnitsQuery.data, chosenUnits]);
   const readHistory = useServerFn(getCountHistory);
   const manageProposal = useServerFn(managePurchaseProposal);
   const toggleFavorite = useServerFn(manageCompanyProductFavorite);
@@ -1007,6 +1040,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
           entryType: input.row.counted !== null ? "riconteggio" : "conteggio",
           countedQuantity: input.value,
           unitCode: input.unit || null,
+          unitId: unitChoice.chosen[input.row.product_id] ?? null,
           notes: input.notes,
           nonCompliant: null,
           nonCompliantQuantity: null,
@@ -1579,8 +1613,8 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             onHideCompletion={() => setShowCompletion(false)}
             closing={closeMutation.isPending}
           />
-          </UnitChoiceContext.Provider>
           </CycleLockContext.Provider>
+          </UnitChoiceContext.Provider>
         )}
       </TabsContent>
 
