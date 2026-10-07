@@ -1329,7 +1329,8 @@ export function InventoryCountPanel({
       }
     }
     if (saved) toast.success(`${saved} quantità confermate`);
-    noteQueue.current = { rows: needNote, goToList: mode === "enteredOnly", showConfirmed: mode === "soldOut" };
+    // In entrambi i casi si arriva alla scelta finale: chiudere (Lista o Conteggio) o tornare indietro.
+    noteQueue.current = { rows: needNote, goToList: false, showConfirmed: true };
     if (needNote.length) {
       toast.info(`${needNote.length} prodotti con differenza richiedono la nota`);
     }
@@ -2009,6 +2010,12 @@ export function InventoryCountPanel({
               <Button variant="outline" className="h-auto w-full whitespace-normal py-2 text-xs" disabled={countMutation.isPending} onClick={() => void runConfirmAll("soldOut")}>
                 Conferma gli articoli senza quantità come esauriti
               </Button>
+              <Button variant="outline" className="h-auto w-full whitespace-normal py-2 text-xs" disabled={countMutation.isPending} onClick={() => void runConfirmAll("enteredOnly")}>
+                Lasciali vuoti e chiudi comunque l'inventario
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => setEmptyRows(null)}>
+                Torna indietro
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -2017,32 +2024,41 @@ export function InventoryCountPanel({
       <Dialog open={confirmedOpen} onOpenChange={setConfirmedOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-base">Inventario confermato</DialogTitle>
-            <DialogDescription>Tutti gli articoli sono stati controllati.</DialogDescription>
+            <DialogTitle className="text-base">Chiudere l'inventario?</DialogTitle>
+            <DialogDescription>
+              Le quantità inserite diventano giacenza. I prodotti non contati restano senza quantità.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
-            <Button
-              className="h-auto w-full whitespace-normal py-2"
-              disabled={closeMutation.isPending}
-              onClick={async () => {
-                // Chiude con la funzione esistente: solo se riesce i conteggi diventano giacenza e si apre la Lista.
-                // Se l'inventario risulta già chiuso si va direttamente alla Lista, senza richiamare la chiusura.
-                if (sessionId) {
-                  try {
-                    await closeMutation.mutateAsync();
-                  } catch {
-                    return;
+            {([true, false] as const).map((goToList) => (
+              <Button
+                key={String(goToList)}
+                variant={goToList ? "default" : "outline"}
+                className="h-auto w-full whitespace-normal py-2"
+                disabled={closeMutation.isPending}
+                onClick={async () => {
+                  // Entrambe le scelte chiudono l'inventario; cambia solo dove si va dopo.
+                  if (sessionId) {
+                    try {
+                      await closeMutation.mutateAsync();
+                    } catch {
+                      return;
+                    }
                   }
-                }
-                setConfirmedOpen(false);
-                await queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] });
-                void navigate({ to: "/acquisti/lista-spesa" });
-              }}
-            >
-              {closeMutation.isPending ? "Chiusura in corso…" : "Termina inventario e vai alla Lista della Spesa"}
-            </Button>
-            <Button variant="outline" className="w-full" onClick={() => setConfirmedOpen(false)}>
-              Resta nel Conteggio
+                  setConfirmedOpen(false);
+                  await queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] });
+                  if (goToList) void navigate({ to: "/acquisti/lista-spesa" });
+                }}
+              >
+                {closeMutation.isPending
+                  ? "Chiusura in corso…"
+                  : goToList
+                    ? "Termina inventario e vai alla Lista della Spesa"
+                    : "Termina inventario e resta nel Conteggio"}
+              </Button>
+            ))}
+            <Button variant="ghost" className="w-full" disabled={closeMutation.isPending} onClick={() => setConfirmedOpen(false)}>
+              Torna indietro (non chiude nulla)
             </Button>
           </div>
         </DialogContent>
