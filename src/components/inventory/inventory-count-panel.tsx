@@ -2261,6 +2261,8 @@ function PhysicalCount({
 
   onHideCompletion,
   closing,
+  statusSlot,
+  printAction,
 }: {
   companyId: string;
   sessionActive: boolean;
@@ -2317,6 +2319,8 @@ function PhysicalCount({
   stockHistory: Map<string, StockHistory> | null;
   onHideCompletion: () => void;
   closing: boolean;
+  statusSlot?: ReactNode;
+  printAction?: ReactNode;
 }) {
   const total = progress?.total ?? 0;
   const generalCompleted = progress?.completed ?? 0;
@@ -2411,6 +2415,7 @@ function PhysicalCount({
             </div>
           ) : null}
         </div>
+        {statusSlot}
         {!sessionActive && lastClosed ? (
           <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1.5">
             <div className="min-w-0 text-xs leading-tight text-muted-foreground">
@@ -2464,18 +2469,24 @@ function PhysicalCount({
                 Tutti
               </Button>
               <span className="mx-0.5 w-px shrink-0 bg-border" />
-              {([
-                ["all", "Tutti gli stati"],
-                ["pending", "Da controllare"],
-                ["completed", "Confermati"],
-                ["differences", "Differenze"],
-                ["not_comparable", "U.M. diverse"],
-                ["recount", "Da ricontare"],
-              ] as const).map(([value, label]) => (
-                <Button key={value} size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={workFilter === value ? "default" : "outline"} onClick={() => onWorkFilterChange(value)}>
-                  {label}
-                </Button>
-              ))}
+              <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={workFilter === "all" ? "default" : "outline"} onClick={() => onWorkFilterChange("all")}>
+                Tutti gli stati
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={workFilter !== "all" ? "default" : "outline"}>
+                    {workFilter !== "all" ? `Altri stati: ${WORK_FILTER_LABELS[workFilter]}` : "Altri stati"}
+                    <ChevronDown className="size-3" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {(["pending", "completed", "differences", "not_comparable", "recount"] as const).map((value) => (
+                    <DropdownMenuCheckboxItem key={value} checked={workFilter === value} onCheckedChange={() => onWorkFilterChange(value)}>
+                      {WORK_FILTER_LABELS[value]}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         )}
