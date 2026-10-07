@@ -1412,40 +1412,6 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
         ) : null}
       </div>
 
-      <CycleLight cycle={cycleQuery.data} sessionActive={Boolean(sessionId)} />
-      <div className="flex justify-end gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={printStock}
-          disabled={!stockHistoryQuery.data || catalogPreview.length === 0}
-          title="Stampa le giacenze dell'ultimo inventario"
-        >
-          <Printer aria-hidden="true" />
-          <span className="hidden sm:inline">Stampa giacenze</span>
-          <span className="sm:hidden">Stampa</span>
-        </Button>
-        {!sessionId && cycleColor === "rosso" && isAdmin && cycleQuery.data?.session_id && cycleQuery.data?.list_status !== "chiusa" ? (
-          <>
-            <Button type="button" size="sm" variant="outline" disabled={reopenCount.isPending} onClick={() => reopenCount.mutate(false)}>
-              <Pencil aria-hidden="true" />
-              <span className="hidden sm:inline">Modifica conteggio</span>
-              <span className="sm:hidden">Modifica</span>
-            </Button>
-            <Button type="button" size="sm" variant="outline" disabled={reopenCount.isPending} onClick={() => setReopenResetOpen(true)}>
-              <RotateCcw aria-hidden="true" />
-              <span className="hidden sm:inline">Azzera quantità</span>
-              <span className="sm:hidden">Azzera</span>
-            </Button>
-          </>
-        ) : null}
-        {!sessionId && cycleColor === "rosso" && isAdmin ? (
-          <Button type="button" size="sm" variant={unlockedAll ? "secondary" : "outline"} onClick={() => setUnlockedAll((v) => !v)}>
-            {unlockedAll ? "Blocca quantità" : "Sblocca quantità"}
-          </Button>
-        ) : null}
-      </div>
       <CorrectCountDialog
         companyId={companyId}
         listId={cycleQuery.data?.list_id ?? null}
