@@ -1076,7 +1076,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </Popover>
             {/* Solo i filtri cliccati si vedono: un'etichetta ciascuno, la ✕ lo toglie. */}
             {FILTER_GROUPS.flatMap(([, group]) => group)
-              .filter(([flag]) => flags.has(flag))
+              .filter(([flag]) => flag !== "preferiti" && flags.has(flag))
               .map(([flag, label]) => (
                 <button
                   key={flag}
