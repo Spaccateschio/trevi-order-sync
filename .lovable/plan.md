@@ -1,82 +1,100 @@
-# Piano generale U.M. — passi aggiornati
+# Passo 2 — piano operativo: configurazione U.M. nella scheda prodotto
 
-1. Database: U.M. di magazzino sul prodotto, modo delle U.M. d'acquisto, campi aggiuntivi su conteggi e movimenti (FATTO).
-2. Scheda prodotto: scelta della U.M. di magazzino, confezioni dichiarate e conversioni per fornitore, più l'elenco «da completare».
-3. **Inventario legge e usa `products.stock_unit_id` come unica U.M. di riferimento** (nuovo passo, descritto sotto).
-4. Carico merce in U.M. di magazzino (fissa automatica, variabile da scrivere).
-5. Conteggio misto tramite confezioni dichiarate (estensione del passo 3).
-6. Lista della Spesa: equivalenti in U.M. di magazzino.
+Serve solo a configurare i dati. Inventario, calcolo giacenza, Carico merce, Lista della Spesa, Ordini e sincronizzazione Danea **non cambiano**. I nuovi dati vengono salvati ma letti solo dal Passo 3 in poi.
 
-Il passo 3 viene dopo il 2 perché per scegliere «pz» per Ananas serve prima la scheda prodotto. Si può anticipare se impostiamo le U.M. direttamente nel database.
+## Rischio da decidere prima di partire
+Nel tab «Inventario» della scheda prodotto c'è già un campo **«U.M. di riferimento»** delle impostazioni scorta (scorta minima, multiplo di riordino), che oggi alimenta anche il vecchio selettore dell'Inventario. Accanto alla nuova «U.M. di magazzino» creerebbe confusione. Proposta: nascondere quel campo e mostrare la scorta minima nella U.M. di magazzino. Il dato vecchio resta salvato, inutilizzato e segnato come deprecato. Lo faccio solo con il tuo consenso.
 
----
+## A. U.M. di magazzino (tab «Inventario», in cima)
+```text
+U.M. Danea: kg          (solo lettura, informativa)
+U.M. di magazzino: [ pz ▼ ]   Base dal: 07/10/2026
+```
+- Legge e salva `products.stock_unit_id`. La modifica è riservata all'amministratore: il controllo lo fa il database, non il browser.
+- Se la U.M. Danea è diversa, compare un'etichetta «diversa da Danea». È solo informativa.
+- Il cambio è bloccato se c'è un inventario in corso. Messaggio: «Chiudi o annulla l'inventario in corso prima di cambiare la U.M. di magazzino».
+- Conferma obbligatoria con il testo che hai indicato: «Stai cambiando la U.M. di magazzino. La giacenza attuale non verrà convertita e resterà "Da verificare" finché non verrà effettuato un nuovo conteggio. Continuare?» Il messaggio aggiunge che i vecchi conteggi non vengono convertiti e che servirà un nuovo conteggio fisico.
+- Al salvataggio: nuova `stock_base_at = ora`, registrazione nel registro attività (U.M. vecchia → nuova, utente, data).
+- Prima assegnazione su un prodotto senza U.M.: stessa conferma, perché nasce comunque una nuova base.
 
-# Passo 3 — piano operativo: l'Inventario usa la U.M. di magazzino
+## B. Confezioni (stesso tab, sotto)
+| Nome | U.M. confezione | Equivale a | Stato |
+|---|---|---|---|
+| Cassa 6 bt | cs | 6 bt | attiva |
+| Cassa 12 bt | cs | 12 bt | attiva |
+| Vaschetta 500 g | vasch | 0,5 kg | attiva |
 
-## Regole
-- La U.M. principale della card Inventario arriva **sempre** da `products.stock_unit_id`.
-- `danea_um` è solo informativa: valore iniziale e una piccola etichetta «Danea: kg» se diversa. Non decide mai nulla.
-- U.M. di acquisto, vendita e scorta non decidono più la U.M. principale e non compaiono più come scelta nel conteggio.
-- Il conteggio principale si salva nella U.M. di magazzino. Il conteggio salva anche l'U.M. usata, la quantità in U.M. di magazzino e il fattore 1. Lo snapshot non va ricalcolato.
-- La giacenza calcolata si esprime nella U.M. di magazzino.
-- Il vecchio selettore, che mescola U.M. di vendita, acquisto e scorta, viene eliminato.
-- Conteggi alternativi solo tramite confezioni dichiarate (`product_stock_packages`) con conversione fissa, per esempio «Cassa 6 bt» = 6 bt.
+- Pulsanti «+ Confezione», modifica, attiva/disattiva. Nessuna cancellazione: lo storico può riferirsi a quella confezione.
+- La quantità è sempre espressa nella U.M. di magazzino corrente, deve essere maggiore di 0 e rispettare i decimali della U.M. di magazzino.
+- Le confezioni sono indipendenti dal fornitore.
+- Se cambia la U.M. di magazzino, le confezioni attive vengono segnate «da rivedere» e non sono più utilizzabili finché non le confermi. Non vengono convertite.
 
-## Prodotti con `stock_unit_id` vuoto
-- La card mostra l'avviso «U.M. magazzino da impostare» e un collegamento alla scheda prodotto.
-- Nessun ripiego silenzioso su `danea_um`: la U.M. Danea compare solo come suggerimento («Danea: nr»).
-- Non si può confermare il conteggio. Il prodotto non entra nella giacenza calcolata, non genera rettifiche e non chiude il ciclo come coerente.
-- Il riepilogo aggiunge il contatore «U.M. da impostare»; il filtro relativo sta nel menu «Altri stati».
-- Oggi riguarda 2 prodotti (U.M. Danea «nr» non trovata nell'elenco U.M.).
+## C. Fornitori e conversioni (tab «Acquisto», per ogni U.M. d'acquisto)
+```text
+Fornitore A   U.M. acquisto: cassa
+  Modalità: (•) Fissa   Confezione: [Cassa 6 bt ▼]  → 1 cassa = 6 bt
+Fornitore B   U.M. acquisto: cassa
+  Modalità: (•) Variabile   Valore indicativo: ≈ 9 kg (non usato per la giacenza)
+```
+- Modalità:
+  - **Stessa**: disponibile solo se la U.M. d'acquisto coincide con la U.M. di magazzino.
+  - **Fissa**: confezione oppure fattore obbligatori. Scegliendo la confezione, il fattore viene copiato da quella.
+  - **Variabile**: valore indicativo facoltativo; la quantità reale si scrive al carico.
+  - **Da configurare**: modalità non ancora impostata.
+- I dati esistenti partono da «Da configurare». Nulla viene dedotto automaticamente: il vecchio fattore resta visibile come suggerimento da confermare.
+- Per i fornitori B2B si configura solo la propria conversione, non i dati del venditore.
 
-## Esempi
-| Prodotto | Danea | Magazzino | Card Inventario | Salvataggio |
-|---|---|---|---|---|
-| ANANAS COSTA RICA | kg | pz | Calcolata «3 pz», Fisica `[4] pz`, nota «Danea: kg» | 4 pz, quantità magazzino 4, fattore 1 |
-| AVOCADO HASS KG | kg | pz | Uguale: tutto in pz | in pz |
-| VINO | cassa | bt | Calcolata e Fisica in bt. Pulsante «+ Confezione» propone solo «Cassa 6 bt» se dichiarata | 2 casse + 3 bt = 15 bt; dettaglio confezioni salvato a parte |
+## D. «Configurazione U.M. da completare»
+Nuovo filtro nell'elenco Prodotti con una colonna «Motivo». Motivi possibili:
+1. U.M. di magazzino mancante.
+2. U.M. d'acquisto diversa dalla U.M. di magazzino senza modalità impostata.
+3. Modalità «stessa» con U.M. diverse.
+4. Conversione fissa senza fattore né confezione.
+5. Confezione collegata disattivata o «da rivedere».
+6. Confezione o fattore incoerenti con la U.M. di magazzino attuale (dopo un cambio).
+7. Fattore non intero su una U.M. di magazzino senza decimali.
 
-Se per il vino non ci sono confezioni dichiarate, si conta solo in bottiglie. Il sistema non sceglie mai da solo la cassa di un fornitore.
+Un prodotto può avere più motivi. Il contatore compare sopra l'elenco e il motivo anche nella scheda, in cima al tab «Inventario».
 
-## Come si calcola la giacenza
-- Partenza = ultimo conteggio confermato **nella U.M. di magazzino attuale** e **dopo `stock_base_at`**, se impostata.
-- Poi si sommano le rettifiche registrate dopo, nella stessa U.M.
-- Conteggi storici in un'altra U.M. (per esempio kg prima del passaggio a pz) non si sommano e non si convertono.
-- Dopo un cambio di U.M. (nuova `stock_base_at`), finché non c'è un conteggio valido nella nuova U.M. dopo quella data, la giacenza resta **«Da verificare»**. Non si parte mai da zero in modo implicito.
-- I movimenti registrati nel frattempo si conservano, ma non producono un numero di giacenza finché non esiste la nuova base. Dopo il nuovo conteggio contano solo i movimenti successivi a esso.
-- Nessuna conversione inventata: nessun fattore da U.M. di acquisto o vendita.
+## F. I 2 prodotti «nr»
+- Compaiono nel filtro con il motivo «U.M. di magazzino mancante — Danea: nr (non presente nell'elenco U.M.)».
+- Nella scheda c'è un campo vuoto con l'avviso. Puoi scegliere una U.M. esistente (es. «pz») oppure prima crearla nell'elenco U.M. aziendale.
+- Dopo l'assegnazione: `stock_base_at` impostata e prodotto fuori dal filtro. Nel Passo 3 la giacenza sarà «Da verificare» fino al primo conteggio.
 
-## Conteggi storici
-- Nessuna riga esistente viene modificata o convertita.
-- Lo storico mostra ogni conteggio con la U.M. registrata allora (per esempio «12 kg, 05/10»).
-- Situazione iniziale: per i prodotti con U.M. magazzino = U.M. Danea (122 su 124 oggi) i numeri non cambiano.
-- Regola definitiva: l'Inventario usa sempre `products.stock_unit_id`, anche quando in futuro non coincide più con Danea. `danea_um` non torna mai a essere un riferimento operativo.
+## H. Dettagli tecnici
 
-## Funzioni da modificare (database)
-- `inventory_session_rows`, `inventory_session_progress`, `inventory_location_stock`: U.M. da `stock_unit_id`, giacenza filtrata per U.M. e per `stock_base_at`, stato «U.M. da impostare».
-- `close_general_inventory`, `record_inventory_adjustment`: rifiutano i prodotti senza U.M. di magazzino o con un conteggio in U.M. diversa senza confezione. Salvano `stock_unit_id`, `stock_quantity`, `conversion_factor`, `count_breakdown`.
-- `product_count_units`: sostituita da un elenco delle sole confezioni dichiarate. La vecchia funzione resta per ora, inutilizzata e segnata come deprecata.
-- `inventory_requirements`: valuto solo la sua lettura della U.M. Ti segnalo se tocca il semaforo prima di modificarla.
-
-## Codice da modificare
-- `src/lib/inventory-count.functions.ts`: tipi e lettura `stock_unit_code`; nuova lettura delle confezioni.
-- `src/components/inventory/inventory-count-panel.tsx`:
-  - `rowUnit` usa la U.M. di magazzino;
-  - eliminazione del `<select>` misto;
-  - avviso «U.M. magazzino da impostare»;
-  - nota «Danea: …»;
-  - contatore e filtro nel riepilogo.
-- `src/components/inventory/inventory-session-counter.tsx` e `inventory-history-dialog.tsx`: U.M. di magazzino e U.M. storica registrata.
-- `src/lib/inventory.ts`: etichette U.M.
+**Componenti modificati**
+- `product-detail-sheet.tsx`: intestazione con U.M. Danea e U.M. di magazzino.
+- `product-stock-panel.tsx`: U.M. di magazzino, confezioni e, se approvato, il campo scorta nascosto.
+- `product-suppliers-manager.tsx`: modalità, confezione e valore indicativo per ogni U.M. d'acquisto.
+- `products-workspace.tsx` e `src/lib/product-grid.ts`: filtro e colonna «Motivo».
+- Nuovo `src/components/products/stock-packages-manager.tsx`.
+- Nuovo `src/lib/stock-unit.functions.ts`.
 - `AGENTS.md`, `roadmap.md`.
-- Nessuna modifica a Lista, Ordini, Carico e Fabbisogno, salvo quanto segnalato sopra per `inventory_requirements`.
 
-Il conteggio misto (passo 5) aggiunge in seguito, nella stessa card, il pulsante «+ Confezione». In questo passo il campo resta uno solo, in U.M. di magazzino.
+**Funzioni nel database (SECURITY DEFINER, `search_path=public`, autorizzazione da `auth.uid()`)**
+- `set_product_stock_unit(product, unit)`: verifica che l'utente sia amministratore, che non ci sia un inventario in corso (`inventory_sessions` in corso) e che la U.M. appartenga all'azienda. Salva `stock_unit_id` e `stock_base_at = now()`, segna le confezioni «da rivedere» e scrive nel registro attività. Non tocca conteggi, movimenti o rettifiche.
+- `manage_product_stock_package(...)`: crea, modifica e attiva/disattiva le confezioni. Mai cancellazione.
+- `set_supplier_unit_conversion(link_unit, mode, package, factor, indicative)`: salva modalità e conversione con tutte le validazioni.
+- `product_unit_config_issues(company)`: restituisce prodotto e motivi, per il filtro e per la scheda.
+- Servirà una piccola migrazione solo per il campo «da rivedere» sulle confezioni e per le nuove funzioni. Nessuna modifica a tabelle storiche.
 
-## Verifiche
-1. Prima e dopo: totali dei conteggi, rettifiche e giacenze per i 122 prodotti con U.M. uguale. Devono essere identici.
-2. Prova su un prodotto di test: imposto magazzino = pz su Ananas e Avocado (solo con il tuo consenso, oppure su un prodotto di prova). Controllo nel browser che la card mostri pz, che il salvataggio registri pz e che il conteggio vecchio in kg non venga sommato.
-3. Controllo nel database: per ogni riga dell'Inventario, la U.M. mostrata coincide con `stock_unit_id` (query di confronto: 0 differenze).
-4. I 2 prodotti senza U.M. mostrano l'avviso e non producono giacenza né rettifica.
-5. Ricerca nel codice: nessun uso di `danea_um` come U.M. di riferimento nei file dell'Inventario.
-6. Test automatici sulle regole: U.M. vuota = blocco; U.M. diversa non sommata; confezione fissa 2×6 + 3 = 15.
+**Validazioni (nel database)**
+- Modalità «stessa» solo con U.M. uguali.
+- Modalità «fissa» con fattore maggiore di 0 o confezione attiva della stessa azienda e dello stesso prodotto.
+- Modalità «variabile»: valore indicativo maggiore di 0 o vuoto; mai usato per la giacenza.
+- Decimali secondo `allows_decimals` della U.M. di magazzino.
+- Cambio U.M. di magazzino rifiutato se c'è un inventario in corso.
+- Il trigger del Passo 1 (solo amministratori) resta attivo.
+
+**Test**
+- Test automatici sulle regole:
+  - cambio rifiutato con inventario in corso;
+  - cambio che aggiorna `stock_base_at`;
+  - modalità «stessa» rifiutata con U.M. diverse;
+  - modalità «fissa» senza fattore rifiutata;
+  - confezione 2 × 6 = 12 bt;
+  - utente operatore rifiutato.
+- Controllo prima/dopo: conteggi, rettifiche, movimenti, righe ordine e carichi identici (stessi totali del Passo 1).
+- Prova nel browser: assegnare «pz» a un prodotto di prova, vedere l'avviso, creare «Cassa 6 bt», collegarla a un fornitore e controllare che l'Inventario non sia cambiato.
+- Ananas e Avocado vengono modificati solo con il tuo consenso esplicito.
