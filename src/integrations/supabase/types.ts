@@ -6089,6 +6089,8 @@ export type Database = {
           proposal_flagged_at: string
           proposal_status: string
           recount_requested_at: string
+          stock_unit_code: string
+          stock_unit_missing: boolean
           subcategory: string
           thumbnail_path: string
           units_comparable: boolean

@@ -19,6 +19,7 @@ export type InventoryProgress = {
   differences: number;
   unchanged: number;
   not_comparable?: number;
+  missing_unit?: number;
   pending: number;
   zones: { location_id: string; name: string; code: string | null; total: number; completed: number; differences: number }[];
   categories: { name: string; total: number; completed: number }[];
@@ -37,7 +38,8 @@ export type InventoryCountRow = {
   is_favorite: boolean;
   image_path: string | null;
   thumbnail_path: string | null;
-  calculated: number;
+  /** Giacenza calcolata nella U.M. di magazzino; null = non nota / da verificare. */
+  calculated: number | null;
   counted: number | null;
   difference: number | null;
   counted_at: string | null;
@@ -53,38 +55,10 @@ export type InventoryCountRow = {
   order_multiple: number | null;
   counted_unit_code: string | null;
   units_comparable: boolean | null;
+  /** U.M. di magazzino (products.stock_unit_id): unica U.M. operativa dell'Inventario. */
+  stock_unit_code: string | null;
+  stock_unit_missing: boolean;
 };
-
-/** U.M. gia configurate su un prodotto (base, vendita, acquisto fornitore, scorta), deduplicate. */
-export type ProductCountUnit = {
-  product_id: string;
-  unit_code: string;
-  unit_label: string | null;
-  is_base: boolean;
-  sources: string[] | null;
-  conversion_factor: number | null;
-  conversion_reference_um: string | null;
-};
-
-export const getProductCountUnits = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z
-      .object({
-        companyId: z.string().uuid(),
-        productIds: z.array(z.string().uuid()).max(600).default([]),
-      })
-      .parse(input),
-  )
-  .handler(async ({ data, context }): Promise<ProductCountUnit[]> => {
-    if (!data.productIds.length) return [];
-    const { data: rows, error } = await context.supabase.rpc("product_count_units", {
-      _company_id: data.companyId,
-      _product_ids: data.productIds,
-    });
-    if (error) throw new Error(error.message);
-    return (rows ?? []) as unknown as ProductCountUnit[];
-  });
 
 
 

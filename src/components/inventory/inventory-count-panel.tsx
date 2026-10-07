@@ -79,14 +79,12 @@ import {
   managePurchaseProposal,
   recordCountEntry,
   startGeneralInventory,
-  getProductCountUnits,
   manageCountDraft,
   reopenInventoryCount,
   type CatalogCandidate,
   type CountHistoryEntry,
   type InventoryCountRow,
   type InventoryProgress,
-  type ProductCountUnit,
 } from "@/lib/inventory-count.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
@@ -97,7 +95,7 @@ import { dateTimeShort, type SessionRow } from "@/lib/inventory";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 
 type ProductView = "favorites" | "all";
-type WorkFilter = "all" | "pending" | "completed" | "differences" | "not_comparable" | "recount";
+type WorkFilter = "all" | "pending" | "completed" | "differences" | "not_comparable" | "recount" | "missing_unit";
 const WORK_FILTER_LABELS: Record<WorkFilter, string> = {
   all: "Tutti gli stati",
   pending: "Da controllare",
@@ -105,6 +103,7 @@ const WORK_FILTER_LABELS: Record<WorkFilter, string> = {
   differences: "Differenze",
   not_comparable: "U.M. diverse",
   recount: "Da ricontare",
+  missing_unit: "U.M. da impostare",
 };
 type SupplierInfo = { name: string | null; cost: number | null };
 type FieldPreferences = ReturnType<typeof useInventoryFieldPreferences>;
@@ -161,22 +160,10 @@ function byName(
 }
 
 
+/** U.M. operativa dell'Inventario: sempre e solo la U.M. di magazzino (products.stock_unit_id). */
 function rowUnit(row: InventoryCountRow) {
-  return row.danea_um?.trim() || "";
+  return row.stock_unit_code?.trim() || "";
 }
-
-/** Confronto U.M. senza conversioni: vuoto = U.M. base (compatibilità storica). */
-function sameUnit(left: string | null | undefined, right: string | null | undefined) {
-  const a = left?.trim().toLowerCase() ?? "";
-  const b = right?.trim().toLowerCase() ?? "";
-  return !a || !b || a === b;
-}
-
-type CountUnitsContextValue = {
-  options: (row: InventoryCountRow) => ProductCountUnit[];
-  selected: (row: InventoryCountRow) => string;
-  setSelected: (row: InventoryCountRow, code: string) => void;
-};
 
 /** Semaforo rosso senza inventario aperto: campi bloccati, solo «Correggi conteggio» sui conteggi del ciclo. */
 const CycleLockContext = createContext<{
@@ -188,12 +175,6 @@ const CycleLockContext = createContext<{
   locationId?: string | null;
   unlockedAll?: boolean;
 }>({ locked: false, cycleSessionId: null, onCorrect: () => undefined });
-
-const CountUnitsContext = createContext<CountUnitsContextValue>({
-  options: () => [],
-  selected: (row) => rowUnit(row),
-  setSelected: () => undefined,
-});
 
 export function InventoryCountPanel({
   companyId,
@@ -258,9 +239,7 @@ export function InventoryCountPanel({
   const [supplierFilter, setSupplierFilter] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [unitDrafts, setUnitDrafts] = useState<Record<string, string>>({});
   const [emptyRows, setEmptyRows] = useState<InventoryCountRow[] | null>(null);
-  const readCountUnits = useServerFn(getProductCountUnits);
   const [pending, setPending] = useState<{ row: InventoryCountRow; value: number } | null>(null);
   const [pendingReason, setPendingReason] = useState("");
   const [showCompletion, setShowCompletion] = useState(true);
@@ -330,8 +309,6 @@ export function InventoryCountPanel({
   const draftFn = useServerFn(manageCountDraft);
   const draftsRef = useRef(drafts);
   draftsRef.current = drafts;
-  const unitDraftsRef = useRef(unitDrafts);
-  unitDraftsRef.current = unitDrafts;
   const draftTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [savedDraftKeys, setSavedDraftKeys] = useState<Set<string>>(new Set());
   const [clearDraftsOpen, setClearDraftsOpen] = useState(false);
@@ -361,14 +338,6 @@ export function InventoryCountPanel({
       }
       return next;
     });
-    setUnitDrafts((current) => {
-      const next = { ...current };
-      for (const d of list) {
-        const key = rowKey(d);
-        if (d.unit_code && !draftTimers.current[key]) next[key] = d.unit_code;
-      }
-      return next;
-    });
     setSavedDraftKeys(new Set(list.map((d) => rowKey(d))));
   }, [savedDraftsQuery.data]);
 
@@ -382,11 +351,10 @@ export function InventoryCountPanel({
       const [productId, locationId] = key.split(":");
       if (!productId || !locationId) continue;
       const value = (draftsRef.current[key] ?? "").trim();
-      const unitCode = unitDraftsRef.current[key] ?? null;
       void draftFn({
         data: value === ""
           ? { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null }
-          : { action: "set", sessionId, productId, locationId, quantity: value, unitCode },
+          : { action: "set", sessionId, productId, locationId, quantity: value, unitCode: null },
       }).catch(() => undefined);
     }
   };
@@ -418,7 +386,7 @@ export function InventoryCountPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, autoStartPending]);
 
-  function scheduleDraftSave(key: string, raw: string, unit?: string | null) {
+  function scheduleDraftSave(key: string, raw: string) {
     if (!sessionId) return;
     const [productId, locationId] = key.split(":");
     if (!productId || !locationId) return;
@@ -431,11 +399,10 @@ export function InventoryCountPanel({
     draftTimers.current[key] = setTimeout(() => {
       delete draftTimers.current[key];
       const value = raw.trim();
-      const unitCode = unit ?? unitDraftsRef.current[key] ?? null;
       void draftFn({
         data: value === ""
           ? { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null }
-          : { action: "set", sessionId, productId, locationId, quantity: value, unitCode },
+          : { action: "set", sessionId, productId, locationId, quantity: value, unitCode: null },
       })
         .then(() => {
           if (value !== "" && draftsRef.current[key]?.trim() === value) {
@@ -494,7 +461,6 @@ export function InventoryCountPanel({
     },
     onSuccess: async () => {
       setDrafts({});
-      setUnitDrafts({});
       setDraftFirst({});
       setSavedDraftKeys(new Set());
       setClearDraftsOpen(false);
@@ -512,7 +478,7 @@ export function InventoryCountPanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, code, description, category, subcategory, danea_um")
+        .select("id, code, description, category, subcategory, danea_um, stock_unit_id")
         .eq("company_id", companyId)
         .eq("is_managed", true)
         .order("code")
@@ -522,6 +488,18 @@ export function InventoryCountPanel({
     },
   });
   const catalogPreview = catalogPreviewQuery.data ?? [];
+  // Codice della U.M. di magazzino per prodotto: unica U.M. operativa dell'Inventario.
+  const stockUnitCodesQuery = useQuery({
+    queryKey: ["inventario-um-magazzino", companyId],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("units_of_measure").select("id, code");
+      if (error) throw new Error(error.message);
+      return new Map((data ?? []).map((unit) => [unit.id as string, unit.code as string]));
+    },
+  });
+  const stockUnitCodeOf = (product: { stock_unit_id: string | null }) =>
+    product.stock_unit_id ? (stockUnitCodesQuery.data?.get(product.stock_unit_id) ?? null) : null;
   const managedProductIds = useMemo(
     () => new Set(catalogPreview.map((product) => product.id)),
     [catalogPreview],
@@ -579,14 +557,16 @@ export function InventoryCountPanel({
       ]);
       if (stockResult.error) throw new Error(stockResult.error.message);
       if (countsResult.error) throw new Error(countsResult.error.message);
-      const units = new Map(catalogPreview.map((product) => [product.id, product.danea_um]));
+      const units = new Map(catalogPreview.map((product) => [product.id, stockUnitCodeOf(product)]));
+      const everCounted = new Set<string>();
       const last = new Map<string, { quantity: number; unit: string | null; at: string; id: string; sessionId: string; previous: number | null; note: string | null }>();
       for (const count of (countsResult.data ?? []) as { id: string; session_id: string; product_id: string; counted_quantity: number; previous_quantity: number | null; notes: string | null; unit_code: string | null; counted_at: string }[]) {
+        everCounted.add(count.product_id);
         if (last.has(count.product_id)) continue;
         const productUnit = (units.get(count.product_id) ?? "").trim().toLowerCase();
         const countUnit = (count.unit_code ?? "").trim().toLowerCase();
-        // Stesso criterio della giacenza: vale solo il conteggio nella U.M. del prodotto.
-        if (countUnit && productUnit && countUnit !== productUnit) continue;
+        // Stesso criterio della giacenza: vale solo il conteggio nella U.M. di magazzino.
+        if (!productUnit || !countUnit || countUnit !== productUnit) continue;
         last.set(count.product_id, { quantity: Number(count.counted_quantity), unit: count.unit_code, at: count.counted_at, id: count.id, sessionId: count.session_id, previous: count.previous_quantity === null ? null : Number(count.previous_quantity), note: count.notes });
       }
       // Correzioni rapide: rettifiche riferite all'ultimo conteggio, in ordine cronologico.
@@ -616,6 +596,8 @@ export function InventoryCountPanel({
         const lc = last.get(row.product_id);
         map.set(row.product_id, {
           hasCount: row.has_count,
+          // Conteggi esistono ma non nella U.M. di magazzino attuale: giacenza "Da verificare".
+          toVerify: !row.has_count && everCounted.has(row.product_id),
           stock: row.has_count ? Number(row.quantity ?? 0) : null,
           lastQuantity: row.has_count && lc ? lc.quantity : null,
           lastUnit: row.has_count && lc ? lc.unit : null,
@@ -656,7 +638,7 @@ export function InventoryCountPanel({
           code: product.code ?? "",
           description: product.description ?? "",
           qty: entry?.physical ?? null,
-          unit: product.danea_um ?? "",
+          unit: stockUnitCodeOf(product) ?? "",
           note: entry?.countNote ?? "",
         };
       });
@@ -827,6 +809,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
         if (workFilter === "pending") return row.counted === null;
         if (workFilter === "recount") return row.recount_requested_at !== null;
         if (workFilter === "completed") return row.counted !== null;
+        if (workFilter === "missing_unit") return row.stock_unit_missing;
         if (workFilter === "not_comparable") return row.counted !== null && row.units_comparable === false;
         // Differenze reali: solo differenze numeriche calcolabili (stessa U.M.) e diverse da zero.
         return row.counted !== null && row.units_comparable !== false && row.difference !== null && Number(row.difference) !== 0;
@@ -896,62 +879,6 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
     }
     return map;
   }, [priceSeriesQuery.data]);
-
-  // U.M. ammissibili per il conteggio: solo quelle gia configurate sul prodotto.
-  const countUnitProductIds = useMemo(
-    () => (sessionId ? visibleProductIds : previewProducts.map((product) => product.id)),
-    [sessionId, visibleProductIds, previewProducts],
-  );
-  const countUnitsQuery = useQuery({
-    queryKey: ["inventario-um-conteggio", companyId, countUnitProductIds],
-    enabled: countUnitProductIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-    queryFn: () => readCountUnits({ data: { companyId, productIds: countUnitProductIds } }),
-  });
-  const countUnitsByProduct = useMemo(() => {
-    const map = new Map<string, ProductCountUnit[]>();
-    for (const unit of countUnitsQuery.data ?? []) {
-      const list = map.get(unit.product_id) ?? [];
-      list.push(unit);
-      map.set(unit.product_id, list);
-    }
-    return map;
-  }, [countUnitsQuery.data]);
-  const countUnitsValue = useMemo<CountUnitsContextValue>(() => {
-    const options = (row: InventoryCountRow): ProductCountUnit[] => {
-      const list = [...(countUnitsByProduct.get(row.product_id) ?? [])];
-      const base = rowUnit(row);
-      if (base && !list.some((unit) => sameUnit(unit.unit_code, base))) {
-        list.unshift({ product_id: row.product_id, unit_code: base, unit_label: base, is_base: true, sources: ["base"], conversion_factor: null, conversion_reference_um: null });
-      }
-      const recorded = row.counted_unit_code?.trim();
-      if (recorded && !list.some((unit) => sameUnit(unit.unit_code, recorded))) {
-        list.push({ product_id: row.product_id, unit_code: recorded, unit_label: recorded, is_base: false, sources: ["conteggio"], conversion_factor: null, conversion_reference_um: null });
-      }
-      return list;
-    };
-    const selected = (row: InventoryCountRow) => {
-      const draft = unitDrafts[rowKey(row)];
-      if (draft) return draft;
-      const recorded = row.counted_unit_code?.trim();
-      if (row.counted !== null && recorded) {
-        return options(row).find((unit) => sameUnit(unit.unit_code, recorded))?.unit_code ?? recorded;
-      }
-      const base = rowUnit(row);
-      return options(row).find((unit) => sameUnit(unit.unit_code, base))?.unit_code ?? base;
-    };
-    return {
-      options,
-      selected,
-      setSelected: (row, code) => {
-        setUnitDrafts((current) => ({ ...current, [rowKey(row)]: code }));
-        const raw = draftsRef.current[rowKey(row)];
-        if (raw !== undefined && raw.trim() !== "") scheduleDraftSave(rowKey(row), raw, code);
-      },
-    };
-  }, [countUnitsByProduct, unitDrafts]);
-
-
 
   const refresh = async () => {
     await Promise.all([
@@ -1087,11 +1014,6 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
       }),
     onSuccess: async (_result, input) => {
       setDrafts((current) => {
-        const next = { ...current };
-        delete next[rowKey(input.row)];
-        return next;
-      });
-      setUnitDrafts((current) => {
         const next = { ...current };
         delete next[rowKey(input.row)];
         return next;
@@ -1256,9 +1178,9 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
       toast.error("Inserisci una quantità valida");
       return;
     }
-    const unit = countUnitsValue.selected(row);
-    // U.M. diversa dalla base: nessun confronto numerico con la giacenza calcolata.
-    if (sameUnit(unit, rowUnit(row)) && value !== Number(row.calculated)) {
+    const unit = rowUnit(row);
+    // Giacenza "Da verificare" (calcolata nulla): nessun confronto numerico possibile.
+    if (row.calculated !== null && value !== Number(row.calculated)) {
       setPending({ row, value });
       setPendingReason(row.note ?? "");
       return;
@@ -1271,7 +1193,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
     countMutation.mutate({
       row: pending.row,
       value: pending.value,
-      unit: countUnitsValue.selected(pending.row),
+      unit: rowUnit(pending.row),
       notes: pendingReason.trim(),
     });
     const head = noteQueue.current.rows[0];
@@ -1323,8 +1245,8 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
       const typed = typedValue(row);
       // Nessuna quantità scritta: già confermato → resta com'è; vuoto → gestito sotto solo se "Esaurito".
       if (typed === null) continue;
-      const unit = countUnitsValue.selected(row);
-      if (sameUnit(unit, rowUnit(row)) && typed !== Number(row.calculated)) {
+      const unit = rowUnit(row);
+      if (row.calculated !== null && typed !== Number(row.calculated)) {
         needNote.push(row);
         continue;
       }
@@ -1373,8 +1295,8 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
     for (const row of scope) {
       const typed = typedValue(row);
       if (typed === null) continue;
-      const unit = countUnitsValue.selected(row);
-      if (sameUnit(unit, rowUnit(row)) && typed !== Number(row.calculated)) {
+      const unit = rowUnit(row);
+      if (row.calculated !== null && typed !== Number(row.calculated)) {
         needNote.push(row);
         continue;
       }
@@ -1461,7 +1383,6 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
               });
             },
           }}>
-          <CountUnitsContext.Provider value={countUnitsValue}>
           <PhysicalCount
             companyId={companyId}
             sessionActive={Boolean(sessionId)}
@@ -1514,10 +1435,11 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
               product_id: product.id, location_id: draftLocation?.id ?? "", location_name: draftLocation?.name ?? "—",
               code: product.code, description: product.description, danea_um: product.danea_um,
               category: product.category, subcategory: product.subcategory, is_favorite: previewFavoriteQuery.data?.has(product.id) ?? false,
-              image_path: null, thumbnail_path: null, calculated: stockHistoryQuery.data?.get(product.id)?.stock ?? 0, counted: null, difference: null,
+              image_path: null, thumbnail_path: null, calculated: stockHistoryQuery.data?.get(product.id)?.stock ?? null, counted: null, difference: null,
               counted_at: null, counted_by: null, note: null, recount_requested_at: null, non_compliant: false,
               non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
               min_stock: null, order_multiple: null, counted_unit_code: null, units_comparable: null,
+              stock_unit_code: stockUnitCodeOf(product), stock_unit_missing: !product.stock_unit_id,
             }))}
             catalogCandidates={[]}
             excludedCatalogCount={visibleCatalogCandidates.length}
@@ -1592,7 +1514,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
                 toast.error("Scegli prima la zona");
                 return;
               }
-              firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: countUnitsValue.selected(row), value });
+              firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: rowUnit(row), value });
             }}
             onConfirmAll={() => void confirmInventory()}
             onClearDrafts={() => setClearDraftsOpen(true)}
@@ -1656,7 +1578,6 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             onHideCompletion={() => setShowCompletion(false)}
             closing={closeMutation.isPending}
           />
-          </CountUnitsContext.Provider>
           </CycleLockContext.Provider>
         )}
       </TabsContent>
@@ -1670,7 +1591,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
               key: `${row.product_id}|${row.location_id}`,
               code: row.code,
               description: row.description,
-              unit: row.danea_um?.trim() || "",
+              unit: rowUnit(row),
             }))}
             onBackToCount={() => {
               setWorkFilter("pending");
@@ -2464,6 +2385,12 @@ function PhysicalCount({
                 <strong className="mr-1 text-sm text-primary sm:text-base">{total - generalCompleted}</strong>mancanti
               </p>
             </div>
+            {(progress?.missing_unit ?? 0) > 0 ? (
+              <p className="mt-1.5 rounded-sm border border-warning/50 bg-warning/10 px-2 py-1 text-[10px] font-semibold text-warning-foreground">
+                {progress!.missing_unit} {progress!.missing_unit === 1 ? "prodotto senza" : "prodotti senza"} U.M. di magazzino: non
+                entra nella giacenza e blocca la chiusura. Filtro «U.M. da impostare».
+              </p>
+            ) : null}
           </>
         ) : null}
         {compactBar && (
@@ -2492,7 +2419,7 @@ function PhysicalCount({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-48">
-                  {(["pending", "completed", "differences", "not_comparable", "recount"] as const).map((value) => (
+                  {(["pending", "completed", "differences", "not_comparable", "recount", "missing_unit"] as const).map((value) => (
                     <DropdownMenuCheckboxItem key={value} checked={workFilter === value} onCheckedChange={() => onWorkFilterChange(value)}>
                       {WORK_FILTER_LABELS[value]}
                     </DropdownMenuCheckboxItem>
@@ -2540,7 +2467,7 @@ function PhysicalCount({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48">
-                {(["pending", "completed", "differences", "not_comparable", "recount"] as const).map((value) => (
+                {(["pending", "completed", "differences", "not_comparable", "recount", "missing_unit"] as const).map((value) => (
                   <DropdownMenuCheckboxItem key={value} checked={workFilter === value} onCheckedChange={() => onWorkFilterChange(value)}>
                     {WORK_FILTER_LABELS[value]}
                   </DropdownMenuCheckboxItem>
@@ -2596,6 +2523,7 @@ function PhysicalCount({
                 <DropdownMenuItem onClick={() => onWorkFilterChange("differences")}>Differenze</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onWorkFilterChange("not_comparable")}>U.M. diverse</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onWorkFilterChange("recount")}>Da ricontare</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onWorkFilterChange("missing_unit")}>U.M. da impostare</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
@@ -2726,6 +2654,8 @@ function PhysicalCount({
 /** Storico del prodotto quando non c'è un inventario aperto: giacenza reale e ultimo conteggio compatibile. */
 type StockHistory = {
   hasCount: boolean;
+  /** Conteggi esistenti ma non nella U.M. di magazzino attuale: nessuna giacenza numerica. */
+  toVerify: boolean;
   stock: number | null;
   lastQuantity: number | null;
   lastUnit: string | null;
@@ -2778,7 +2708,6 @@ function ProductCard({
   history?: StockHistory | null;
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
-  const unitsCtx = useContext(CountUnitsContext);
   const cycleLock = useContext(CycleLockContext);
   const cycleLocked = cycleLock.locked && Boolean(history);
   const canCorrect =
@@ -2805,43 +2734,16 @@ function ProductCard({
   // Bloccata: scheda ocra, controlli disabilitati (matita esclusa). Sbloccata: aspetto normale.
   const locked = cycleLocked && !correcting;
   const unit = rowUnit(row);
+  const unitMissing = row.stock_unit_missing;
   const name = rowName(row);
-  const calculated = Number(row.calculated);
+  // Giacenza "Da verificare": nessun numero finché non c'è un conteggio nella U.M. di magazzino.
+  const calculated = row.calculated === null ? null : Number(row.calculated);
   const counted = parseQuantity(value);
   const isConfirmed = row.counted !== null;
   const countedUnit = row.counted_unit_code?.trim() || unit;
-  const selectedUnit = unitsCtx.selected(row);
-  const unitOptions = unitsCtx.options(row);
-  // Nessuna operazione matematica fra U.M. diverse: la differenza esiste solo a parità di U.M.
-  const effectiveUnit = counted !== null ? selectedUnit : isConfirmed ? countedUnit : selectedUnit;
-  const comparable = sameUnit(effectiveUnit, unit);
-  const conversion = unitOptions.find((option) => sameUnit(option.unit_code, effectiveUnit));
-  const conversionHint =
-    conversion && !conversion.is_base && conversion.conversion_factor
-      ? `1 ${conversion.unit_code} ≈ ${formatQuantity(Number(conversion.conversion_factor), conversion.conversion_reference_um ?? unit)} ${conversion.conversion_reference_um ?? unit}`
-      : null;
-  // Resto per chi ordina: contato nella U.M. base e acquisto a colli → «3 casse piene + 3 bottiglie».
-  // Solo con conversione esatta e intera già dichiarata: mai inventare fattori.
-  const remainderNote = (() => {
-    if (counted === null || counted <= 0 || !sameUnit(effectiveUnit, unit)) return null;
-    const pack = unitOptions.find(
-      (option) =>
-        !option.is_base &&
-        option.conversion_factor &&
-        Number.isInteger(Number(option.conversion_factor)) &&
-        Number(option.conversion_factor) > 1 &&
-        sameUnit(option.conversion_reference_um ?? unit, unit),
-    );
-    if (!pack) return null;
-    const factor = Number(pack.conversion_factor);
-    const full = Math.floor(counted / factor);
-    const rest = counted - full * factor;
-    if (full === 0 || rest === 0) return null;
-    return `= ${full} ${pack.unit_code} + ${formatQuantity(rest, unit)} ${unit}`;
-  })();
   const confirmedDifference = isConfirmed && row.units_comparable !== false ? Number(row.difference ?? 0) : null;
   const hasDifference = isConfirmed && confirmedDifference !== null && confirmedDifference !== 0;
-  const difference = !comparable || (history && !history.hasCount)
+  const difference = calculated === null || (history && !history.hasCount)
     ? null
     : counted === null
       ? (isConfirmed ? confirmedDifference : null)
@@ -2860,8 +2762,11 @@ function ProductCard({
           ? "Zero verificato"
           : "Confermato";
   // Senza inventario aperto: lo stato riflette lo storico del prodotto, non la sessione.
-  const previewStatus =
-    history && !isConfirmed && !needsRecount ? (history.hasCount ? "Contato in precedenza" : "Mai contato") : null;
+  const previewStatus = unitMissing
+    ? "U.M. da impostare"
+    : history && !isConfirmed && !needsRecount
+      ? (history.hasCount ? "Contato in precedenza" : history.toVerify ? "Da verificare" : "Mai contato")
+      : null;
 
   return (
     <article
@@ -2889,6 +2794,9 @@ function ProductCard({
             {unit ? ` · ${unit}` : ""}
             {isVisible("zona") ? ` · ${row.location_name}` : ""}
           </p>
+          {row.danea_um?.trim() && row.danea_um.trim().toLowerCase() !== unit.toLowerCase() ? (
+            <p className="text-[10px] leading-tight text-muted-foreground/80">Danea: {row.danea_um.trim()} (solo informativa)</p>
+          ) : null}
           {isVisible("categoria") && row.category ? (
             <p className="truncate text-[11px] leading-tight text-muted-foreground">
               {row.category}
@@ -3035,31 +2943,16 @@ function ProductCard({
         <div>
           <p className="text-[9px] leading-none text-muted-foreground">Calcolata</p>
           <p className="mt-1 text-sm font-bold leading-none">
-            {/* Mai contato = giacenza non nota: mai mostrata come 0. */}
-            {history && !history.hasCount ? "—" : formatQuantity(calculated, unit)}
+            {/* Giacenza non nota o da verificare: mai mostrata come 0. */}
+            {calculated === null || (history && !history.hasCount) ? "—" : formatQuantity(calculated, unit)}
           </p>
         </div>
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-1">
             <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>
-            {unitOptions.length > 1 ? (
-              <select
-                className="h-4 max-w-[64px] rounded-sm border border-border bg-background px-0.5 text-[10px] font-semibold leading-none text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                value={selectedUnit}
-                onChange={(event) => unitsCtx.setSelected(row, event.target.value)}
-                disabled={cycleLocked}
-                aria-label={`Unità di misura conteggio ${name}`}
-                title={conversionHint ?? "Unità di misura del conteggio"}
-              >
-                {unitOptions.map((option) => (
-                  <option key={option.unit_code} value={option.unit_code}>
-                    {option.unit_code}
-                  </option>
-                ))}
-              </select>
-            ) : selectedUnit ? (
+            {unit ? (
               <span className="text-[10px] font-semibold leading-none text-muted-foreground/90" aria-label="Unità di misura inventario">
-                {selectedUnit}
+                {unit}
               </span>
             ) : null}
           </div>
@@ -3081,8 +2974,8 @@ function ProductCard({
                     ? formatQuantity(history.physical, history.lastUnit ?? unit)
                     : value
               }
-              disabled={locked || correction.pending}
-              title={locked ? (correctionTarget ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
+              disabled={locked || correction.pending || unitMissing}
+              title={unitMissing ? "Imposta prima la U.M. di magazzino nella scheda prodotto" : locked ? (correctionTarget ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
               placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
               onChange={(event) => (correcting ? correction.setValue(event.target.value) : onChange(event.target.value))}
               onFocus={(event) => event.currentTarget.select()}
@@ -3119,11 +3012,6 @@ function ProductCard({
                 onChange={(e) => correction.setReason(e.target.value)} />
             </div>
           ) : null}
-          {remainderNote ? (
-            <p className="mt-1 text-[10px] font-semibold leading-tight text-muted-foreground" title="Colli pieni e pezzi sfusi, per chi ordina">
-              {remainderNote}
-            </p>
-          ) : null}
         </div>
         <div className="text-right">
           <p className="text-[9px] leading-none text-muted-foreground">Differenza</p>
@@ -3133,19 +3021,23 @@ function ProductCard({
               difference !== null && difference < 0 && "text-destructive",
               difference !== null && difference > 0 && "text-success",
             )}
-            title={!comparable ? `U.M. non confrontabili${conversionHint ? ` · ${conversionHint} (indicativa)` : ""}` : undefined}
           >
             {difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, unit)}`}
           </p>
-          {!comparable ? (
-            <p className="mt-0.5 text-[8px] leading-none text-muted-foreground">U.M. non confrontabili</p>
-          ) : null}
         </div>
-        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={correcting ? correction.confirm : onConfirm} disabled={locked || correction.pending}>
+        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={correcting ? correction.confirm : onConfirm} disabled={locked || correction.pending || unitMissing}>
           <Check className="size-4" />
           <span className="hidden min-[360px]:inline">Conferma</span>
         </Button>
       </div>
+      {unitMissing ? (
+        <p className="mt-1.5 rounded-sm border border-warning/50 bg-warning/10 px-2 py-1.5 text-[10px] font-semibold leading-snug text-warning-foreground">
+          U.M. di magazzino da impostare: il prodotto resta fuori dalla giacenza e blocca la chiusura dell'inventario.{" "}
+          <Link to="/acquisti/prodotti" search={{ prodotto: row.product_id }} className="underline">
+            Apri la scheda prodotto
+          </Link>
+        </p>
+      ) : null}
       <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2">
         {[1, 3, 5, 10].map((increment) => (
           <Button
@@ -3243,7 +3135,7 @@ function CatalogProductCard({
         </div>
       </div>
       <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
-        <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">0</p></div>
+        <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">—</p></div>
         <div className="min-w-0">
           <div className="flex items-baseline justify-between gap-1">
             <p className="text-[9px] font-medium leading-none text-muted-foreground">Quantità fisica</p>

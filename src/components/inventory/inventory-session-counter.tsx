@@ -254,7 +254,7 @@ export function InventorySessionCounter({
                   <td className={difference && difference < 0 ? "text-destructive" : undefined}>
                     {difference === null ? "—" : qty(difference)}
                   </td>
-                  <td className="text-muted-foreground">{product.danea_um ?? "—"}</td>
+                  <td className="text-muted-foreground">{count?.unit_code?.trim() || product.danea_um || "—"}</td>
                   <td>
                     {count ? (
                       <span className="flex items-center gap-1 text-muted-foreground">
