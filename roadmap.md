@@ -108,4 +108,4 @@
 - [x] Pulsante «Chiama il fornitore» (telefono ordini nei dati aziendali), tel:/Copia, «Nuovo ordine»
 - [x] Annullamento fornitore dopo export Danea: promemoria + storico motivo
 - [x] Prove a schermo complete
-- [ ] U.M. di magazzino separata, confezioni con nome, conversioni fotografate (piano in attesa di approvazione)
+- [ ] U.M. di magazzino: piano generale approvato; passo 1 (database) in attesa di via
