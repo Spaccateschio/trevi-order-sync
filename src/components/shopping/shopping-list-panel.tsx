@@ -1144,6 +1144,20 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             ) : null}
           </div>
 
+          {!flags.has("preferiti") && (list || (previewMode && archivesQuery.data?.[0])) ? (
+            // Preferiti spento: un unico elenco con tutto il catalogo; i prodotti già in Lista sono evidenziati.
+            <AddProductsDialog
+              inline
+              companyId={companyId}
+              listId={list?.id ?? null}
+              resolveListId={ensureInventoryList}
+              archiveId={list?.archive_id ?? archivesQuery.data?.[0]?.id ?? ""}
+              existingProductIds={new Set(allRows.map((row) => row.product_id))}
+              open
+              onOpenChange={() => undefined}
+            />
+          ) : (
+          <>
           <div className="@container">
           <div
             className={
@@ -1215,6 +1229,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               {allRows.length || pendingEntries.length ? "Nessun prodotto con questi filtri." : "Nessun prodotto."}
             </p>
           ) : null}
+          </>
+          )}
 
           {/* Riepilogo finale: nessun pulsante fisso */}
           {list && allRows.length ? (
