@@ -27,6 +27,26 @@ Decisione nel Passo 2: il campo **resta visibile e modificabile**, separato dall
 - **Confezione dichiarata** = serve anche al conteggio misto.
 - Un fattore del fornitore non diventa mai automaticamente una confezione e non compare nell'Inventario.
 
+## Conversioni riferite a una U.M. di magazzino precedente
+Soluzione proposta: ogni conversione corrente dichiara per quale U.M. di magazzino è stata verificata.
+- Nuovo campo `verified_stock_unit_id` sulle U.M. d'acquisto per fornitore e sulle confezioni. Si compila al salvataggio con la U.M. di magazzino di quel momento.
+- Una conversione (fattore diretto, confezione collegata o valore indicativo) è **valida solo se** `verified_stock_unit_id = products.stock_unit_id` attuale.
+- Al cambio di U.M. di magazzino nulla viene cancellato o riscritto: la conversione diventa automaticamente «da rivedere» perché non corrisponde più. Il vecchio valore resta visibile come informazione («Era: 1 cassa = 6 bt, verificata per bt»).
+- Il database impedisce l'uso di una conversione non valida. Una funzione unica, `effective_supplier_conversion`, restituisce «nessuna conversione» quando la verifica non corrisponde. Carico, Lista e conteggio misto (passi successivi) dovranno leggere solo questa funzione, e un controllo sui nuovi documenti rifiuta conversioni non valide.
+- La riconferma si fa nella scheda («Conferma per pz»), con valore nuovo o uguale scelto esplicitamente.
+- Per le conversioni esistenti senza verifica il campo resta vuoto, quindi risultano «da configurare»: nessuna validità presunta.
+
+Regole confermate:
+- Fissa con confezione: il fattore è **sempre** la quantità della confezione; non si inserisce un fattore separato.
+- Se modifichi la quantità di una confezione, le conversioni collegate diventano «da riconfermare» (una data di versione della confezione più recente della verifica). Mai aggiornate in silenzio.
+- Una confezione «da rivedere» o disattivata non può essere scelta in nuove configurazioni né usata in nuovi documenti.
+- Un fattore diretto del fornitore non crea mai una confezione.
+- Storico: l'invalidazione riguarda solo la configurazione corrente. Ordini, carichi e movimenti conservano la loro fotografia e non vengono toccati.
+
+Nuovi motivi in «Configurazione U.M. da completare»:
+- conversione fornitore verificata per una U.M. di magazzino diversa da quella attuale;
+- conversione collegata a una confezione modificata dopo la verifica.
+
 ## A. U.M. di magazzino (tab «Inventario», in cima)
 ```text
 U.M. Danea: kg          (solo lettura, informativa)
@@ -120,4 +140,4 @@ Un prodotto può avere più motivi. Il contatore compare sopra l'elenco e il mot
 - Controllo prima/dopo: conteggi, rettifiche, movimenti, righe ordine e carichi identici (stessi totali del Passo 1).
 - Prova nel browser: assegnare «pz» a un prodotto di prova, vedere l'avviso, creare «Cassa 6 bt», collegarla a un fornitore e controllare che l'Inventario non sia cambiato.
 - Ananas e Avocado non vengono toccati prima del Passo 3.
-- Test: confezione «da rivedere» rifiutata; fattore fornitore senza confezione non crea confezioni.
+- Test: conversione con U.M. verificata diversa = non valida; modifica di una confezione = conversioni da riconfermare; confezione «da rivedere» rifiutata; fattore fornitore senza confezione non crea confezioni.
