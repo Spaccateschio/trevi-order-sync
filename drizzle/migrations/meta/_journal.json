@@ -120,6 +120,13 @@
       "when": 1791356734111,
       "tag": "0016_inventory_allowed_units",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791382945535,
+      "tag": "0017_add_product_to_open_inventory",
+      "breakpoints": true
     }
   ]
 }

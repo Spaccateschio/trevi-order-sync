@@ -5645,6 +5645,10 @@ export type Database = {
         }
         Returns: Json
       }
+      add_product_to_open_inventory: {
+        Args: { _company_id: string; _product_id: string }
+        Returns: Json
+      }
       add_purchase_delivery_extra_item: {
         Args: {
           _actor_label?: string
