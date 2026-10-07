@@ -1245,6 +1245,8 @@ export function InventoryCountPanel({
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["inventario-preferiti-prodotti"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory-rows"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory-progress"] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-add-products", companyId] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-extras-favorites", companyId] }),
         queryClient.invalidateQueries({ queryKey: ["inventario-catalogo-candidati", companyId] }),

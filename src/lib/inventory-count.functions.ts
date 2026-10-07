@@ -589,6 +589,13 @@ export const adoptCatalogProduct = createServerFn({ method: "POST" })
       if (favoriteWriteError) throw new Error(favoriteWriteError.message);
 
     }
+    // Inventario in corso: il prodotto entra «da contare» (nessuna quantità); idempotente,
+    // inventari chiusi o annullati mai toccati.
+    const { error: sessionError } = await context.supabase.rpc("add_product_to_open_inventory", {
+      _company_id: data.companyId,
+      _product_id: payload.product_id,
+    });
+    if (sessionError) throw new Error(sessionError.message);
     return { productId: payload.product_id };
   });
 
