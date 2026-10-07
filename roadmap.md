@@ -113,3 +113,6 @@
 - [ ] U.M. di magazzino passo 3: Inventario usa solo stock_unit_id — piano approvato, non implementare prima del passo 2
 - [ ] Passo futuro: migrare scorta minima/multiplo/Fabbisogno alla U.M. di magazzino (decidere il significato dei numeri)
 - [ ] U.M. di magazzino passi 2–5: scheda prodotto, carico merce, inventario, Lista (in attesa di via)
+
+## U.M. di magazzino — Passo 3 (completato)
+- [x] Inventario legge solo products.stock_unit_id (descrittore, nessuna logica matematica); danea_um solo informativa; vecchio selettore U.M. eliminato; conteggio salvato in U.M. magazzino con fattore 1; giacenza NULL ("—"/Da verificare) senza baseline valida, mai zero implicito; prodotti senza stock_unit_id visibili come "U.M. da impostare", non confermabili, bloccanti alla chiusura; storico mai convertito; allows_decimals non letto dall'Inventario
