@@ -85,6 +85,7 @@ export function AddProductsDialog({
   existingProductIds,
   open,
   onOpenChange,
+  inline = false,
 }: {
   companyId: string;
   /** null = anteprima inventario: la Lista si crea solo al salvataggio tramite resolveListId. */
@@ -94,6 +95,8 @@ export function AddProductsDialog({
   existingProductIds: Set<string>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Vista catalogo dentro la pagina (Preferiti spento): nessuna finestra, si vede tutto. */
+  inline?: boolean;
 }) {
   const queryClient = useQueryClient();
   const runAdd = useServerFn(addShoppingListItems);
@@ -234,7 +237,11 @@ export function AddProductsDialog({
         });
       }
     }
-    return [...own, ...catalog];
+    // Ordine stabile (descrizione, poi codice): mettere/togliere la stella non sposta nulla.
+    return [...own, ...catalog].sort(
+      (a, b) =>
+        (a.description ?? a.code).localeCompare(b.description ?? b.code, "it") || a.code.localeCompare(b.code, "it"),
+    );
   }, [productsQuery.data, linksQuery.data, cataloguesQuery.data]);
 
   const supplierOptions = useMemo(() => {
@@ -269,7 +276,7 @@ export function AddProductsDialog({
   });
   // Senza nessun preferito il filtro non avrebbe senso: si vede tutto.
   const hasFavorites = (favoritesQuery.data?.size ?? 0) > 0;
-  const applyFavorites = favoritesOnly && hasFavorites;
+  const applyFavorites = !inline && favoritesOnly && hasFavorites;
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -396,8 +403,10 @@ export function AddProductsDialog({
           (result.skipped ? ` · ${result.skipped} già in lista` : ""),
       );
       setSelected({});
-      setSearch("");
-      onOpenChange(false);
+      if (!inline) {
+        setSearch("");
+        onOpenChange(false);
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -418,9 +427,13 @@ export function AddProductsDialog({
 
   const loading = productsQuery.isLoading || linksQuery.isLoading || cataloguesQuery.isLoading;
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-3 sm:max-w-3xl">
+  const header = inline ? (
+    <p className="text-xs text-muted-foreground">
+      Tutti i prodotti: tuoi, dei fornitori collegati e dei cataloghi B2B. Quelli già nella Lista sono evidenziati
+      con «In lista»; per gli altri spunta, scrivi quantità e U.M. e premi Aggiungi.
+    </p>
+  ) : (
+    <>
         <DialogHeader>
           <DialogTitle>Aggiungi prodotti</DialogTitle>
           <DialogDescription>
@@ -429,7 +442,13 @@ export function AddProductsDialog({
             diventa preferito e lo ritroverai nei prossimi Inventari.
           </DialogDescription>
         </DialogHeader>
+    </>
+  );
 
+  const body = (
+    <>
+        {header}
+        {!inline ? (
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -452,13 +471,14 @@ export function AddProductsDialog({
               : "Tutti i prodotti: tuoi e dei fornitori B2B collegati."}
           </span>
         </div>
+        ) : null}
 
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               className="h-8 pl-8 text-sm"
-              autoFocus
+              autoFocus={!inline}
               value={search}
               placeholder="Codice o descrizione"
               aria-label="Cerca prodotto da aggiungere"
@@ -529,13 +549,19 @@ export function AddProductsDialog({
           </Select>
         </div>
 
-        <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto rounded-md border border-border">
+        <ul className={inline ? "divide-y divide-border rounded-md border border-border" : "min-h-0 flex-1 divide-y divide-border overflow-y-auto rounded-md border border-border"}>
           {visible.map((row) => {
             const inList = row.ownProductId ? existingProductIds.has(row.ownProductId) : false;
             const isSelected = row.key in selected;
             const draft = selected[row.key];
             return (
-              <li key={row.key} className={`flex items-center gap-2 px-2 py-1 ${inList ? "opacity-60" : ""}`}>
+              <li
+                key={row.key}
+                className={cn(
+                  "flex items-center gap-2 px-2 py-1",
+                  inList && (inline ? "border-l-4 border-l-primary bg-primary/10" : "opacity-60"),
+                )}
+              >
                 <Checkbox
                   checked={isSelected}
                   disabled={inList}
@@ -577,7 +603,7 @@ export function AddProductsDialog({
                   );
                 })()}
                 {inList ? (
-                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">Già in lista</Badge>
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">{inline ? "In lista" : "Già in lista"}</Badge>
                 ) : isSelected && draft ? (
                   <div className="flex shrink-0 items-center gap-1">
                     <Input
@@ -638,6 +664,18 @@ export function AddProductsDialog({
         {missingUnit.length ? (
           <p className="text-xs text-destructive">Scrivi l'U.M. per chi ha «Altra U.M.».</p>
         ) : null}
+        {inline ? (
+          selectedKeys.length ? (
+            <div className="sticky bottom-2 z-10 flex justify-end">
+              <Button
+                disabled={missingQuantity.length > 0 || missingUnit.length > 0 || addMutation.isPending}
+                onClick={() => addMutation.mutate()}
+              >
+                Aggiungi alla Lista ({selectedKeys.length})
+              </Button>
+            </div>
+          ) : null
+        ) : (
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annulla
@@ -649,7 +687,14 @@ export function AddProductsDialog({
             Aggiungi alla Lista ({selectedKeys.length})
           </Button>
         </DialogFooter>
-      </DialogContent>
+        )}
+    </>
+  );
+
+  if (inline) return <div className="flex flex-col gap-3">{body}</div>;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90vh] flex-col gap-3 sm:max-w-3xl">{body}</DialogContent>
     </Dialog>
   );
 }
