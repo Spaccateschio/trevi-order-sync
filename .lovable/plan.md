@@ -2,8 +2,30 @@
 
 Serve solo a configurare i dati. Inventario, calcolo giacenza, Carico merce, Lista della Spesa, Ordini e sincronizzazione Danea **non cambiano**. I nuovi dati vengono salvati ma letti solo dal Passo 3 in poi.
 
-## Rischio da decidere prima di partire
-Nel tab «Inventario» della scheda prodotto c'è già un campo **«U.M. di riferimento»** delle impostazioni scorta (scorta minima, multiplo di riordino), che oggi alimenta anche il vecchio selettore dell'Inventario. Accanto alla nuova «U.M. di magazzino» creerebbe confusione. Proposta: nascondere quel campo e mostrare la scorta minima nella U.M. di magazzino. Il dato vecchio resta salvato, inutilizzato e segnato come deprecato. Lo faccio solo con il tuo consenso.
+## Vecchia «U.M. di riferimento» della scorta: resta visibile e funzionante
+Verifica sul codice e sul database (nessuna modifica):
+1. **Chi la usa oggi:**
+   - `product_stock_overview` la mostra nella scheda;
+   - `product_count_units` la aggiunge come opzione del vecchio selettore dell'Inventario;
+   - `add_shopping_list_items` la usa come U.M. della riga quando aggiungi un prodotto alla Lista (se è vuota, usa la U.M. Danea).
+2. **Scorta minima:** il numero si salva nella stessa tabella, ma nessun calcolo legge la U.M. insieme a esso.
+3. **Multiplo di riordino:** come la scorta minima, la U.M. non viene letta.
+4. **`inventory_requirements` (Fabbisogno):** legge scorta minima e multiplo, ma **non** la U.M. di riferimento.
+5. **Lista della Spesa:** sì, tramite `add_shopping_list_items` (vedi punto 1).
+6. **Dati attuali:** nessun prodotto ha impostazioni di scorta salvate (0 righe). Oggi il campo non influenza nulla, ma può farlo appena qualcuno lo compila.
+
+Decisione nel Passo 2: il campo **resta visibile e modificabile**, separato dalla U.M. di magazzino, con la nota «Campo del sistema attuale — sarà sostituito dalla U.M. di magazzino nei prossimi passi». Nessun dato nascosto. Scorta e fabbisogno verranno migrati in un passo dedicato, con una scelta esplicita sul significato dei numeri: 10 kg non diventa 10 pz.
+
+## Periodo fra Passo 2 e Passo 3
+- Nella scheda, sotto la U.M. di magazzino, un avviso fisso: «La nuova U.M. di magazzino è configurata ma non è ancora utilizzata dall'Inventario. Diventerà operativa con il Passo 3.»
+- Le prove si fanno solo su un prodotto di test. Ananas, Avocado e gli altri prodotti reali non vengono modificati prima del Passo 3, salvo tua richiesta esplicita.
+
+## Confezioni «da rivedere» e fattori fornitore
+- Una confezione «da rivedere» o disattivata non è utilizzabile né dal Carico né dal futuro conteggio misto finché non la riconfermi. Il blocco è nel database.
+- Le conversioni fornitore collegate a quella confezione finiscono in «Configurazione U.M. da completare».
+- **Fattore del fornitore** (es. 1 cassa = 6 bt) = serve solo alla conversione dell'acquisto.
+- **Confezione dichiarata** = serve anche al conteggio misto.
+- Un fattore del fornitore non diventa mai automaticamente una confezione e non compare nell'Inventario.
 
 ## A. U.M. di magazzino (tab «Inventario», in cima)
 ```text
@@ -65,7 +87,7 @@ Un prodotto può avere più motivi. Il contatore compare sopra l'elenco e il mot
 
 **Componenti modificati**
 - `product-detail-sheet.tsx`: intestazione con U.M. Danea e U.M. di magazzino.
-- `product-stock-panel.tsx`: U.M. di magazzino, confezioni e, se approvato, il campo scorta nascosto.
+- `product-stock-panel.tsx`: U.M. di magazzino con avviso «non ancora operativa», confezioni e vecchio campo scorta mantenuto con nota.
 - `product-suppliers-manager.tsx`: modalità, confezione e valore indicativo per ogni U.M. d'acquisto.
 - `products-workspace.tsx` e `src/lib/product-grid.ts`: filtro e colonna «Motivo».
 - Nuovo `src/components/products/stock-packages-manager.tsx`.
@@ -97,4 +119,5 @@ Un prodotto può avere più motivi. Il contatore compare sopra l'elenco e il mot
   - utente operatore rifiutato.
 - Controllo prima/dopo: conteggi, rettifiche, movimenti, righe ordine e carichi identici (stessi totali del Passo 1).
 - Prova nel browser: assegnare «pz» a un prodotto di prova, vedere l'avviso, creare «Cassa 6 bt», collegarla a un fornitore e controllare che l'Inventario non sia cambiato.
-- Ananas e Avocado vengono modificati solo con il tuo consenso esplicito.
+- Ananas e Avocado non vengono toccati prima del Passo 3.
+- Test: confezione «da rivedere» rifiutata; fattore fornitore senza confezione non crea confezioni.
