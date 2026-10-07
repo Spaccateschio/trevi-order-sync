@@ -2598,12 +2598,9 @@ function PhysicalCount({
                 <DropdownMenuItem onClick={fieldPreferences.reset}>Ripristina predefinite</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <p className="text-[10px] text-muted-foreground">
-              Costo e unità di misura della giacenza sono in sola lettura: si gestiscono nella scheda prodotto.
-              {excludedCatalogCount
-                ? ` ${excludedCatalogCount} articoli dei cataloghi dei fornitori non sono inclusi: entrano qui solo quando diventano prodotti tuoi.`
-                : ""}
-            </p>
+            {printAction}
+            </div>
+            {void excludedCatalogCount}
           </div>
 
           {visibleRows.length || catalogCandidates.length ? (
