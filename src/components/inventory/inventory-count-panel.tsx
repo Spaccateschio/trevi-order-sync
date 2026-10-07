@@ -3381,7 +3381,7 @@ function CycleLight({ cycle, sessionActive }: { cycle: CycleStatus | undefined; 
     },
   }[color];
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-card px-3 py-2">
+    <div className="flex flex-wrap items-center gap-2 border-t border-border pt-1.5">
       <span className={`size-3 shrink-0 rounded-full ${config.dot}`} aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="text-xs font-bold tracking-wide">{config.label}</p>
