@@ -60,6 +60,20 @@ movimento
 
 Esempi: acquisto 3 casse → +18 bottiglie; vendita 1 cassa → −6; vendita 2 bottiglie → −2. Tutto converge nella stessa U.M. La giacenza diventerà la somma dei movimenti dall'ultimo adeguamento d'inventario, in linea con il calcolo di oggi. Non servirà rifare niente: le vendite useranno le U.M. di vendita già esistenti, con lo stesso schema fissa/variabile.
 
+## Chiarimenti (verificati su ordini, carichi e unità)
+
+**1. Conversione fotografata nei documenti.** Oggi l'ordine, la ripartizione nella Lista e il carico salvano già quantità, U.M. d'acquisto e fattore del momento. Mancano il modo (fissa/variabile/stessa) e la U.M. di magazzino del momento: si aggiungono a ripartizioni Lista, righe ordine, carichi, resi e movimenti. Un ordine di 3 casse × 6 resta 3 × 6 anche se tra sei mesi il fornitore passa a 12: niente viene mai riletto dalla configurazione.
+
+**2. Conteggio misto con più fornitori.** Il conteggio principale è sempre nella U.M. di magazzino (15 bottiglie). Nel conteggio misto non si sceglie «cassa» generica ma una **confezione con nome**, per esempio «Cassa 6 bt» o «Cassa 12 bt». Le confezioni del prodotto sono un elenco proprio, con quantità fissa in U.M. di magazzino. Le U.M. d'acquisto dei fornitori le richiamano. Nessuna confezione viene scelta da sola: se ce ne sono due con la stessa U.M. va indicata quella giusta, e si possono sommare (2 × Cassa 6 + 1 × Cassa 12 + 3 bottiglie). Le confezioni variabili non sono usabili nel conteggio.
+
+**3. Cambio della U.M. di magazzino = nuovo punto di partenza.** Il cambio registra una «nuova base» con data. Da quel momento il calcolo usa solo conteggi e movimenti successivi nella nuova U.M. I vecchi restano nello storico ma non vengono mai sommati. Finché non c'è un nuovo conteggio, la giacenza si mostra come «Da verificare», non come numero. Il calcolo attuale parte già dall'ultimo conteggio: si aggiunge solo il filtro sulla nuova base e lo stato «da verificare».
+
+**4. Variabile.** Al carico si vedono sempre separate la quantità ordinata (3 casse) e quella ricevuta (27,4 kg, da scrivere). Il valore indicativo (≈ 9 kg) serve solo per Lista, previsione e suggerimenti, e non crea mai un movimento.
+
+**5. Decimali decisi dall'unità.** Oggi le U.M. non hanno questa informazione. Si aggiunge «consente decimali sì/no» sull'U.M. configurata, compilato per le unità esistenti e modificabile dall'amministratore. Nessuna regola sui nomi «kg», «pz» o «bottiglia».
+
+**6. Futuro scarico per vendita.** Lo stesso schema vale per le U.M. di vendita già esistenti: la vendita fotografa U.M., fattore, modo e confezione (Cassa 6 → −6 bottiglie; 2 bottiglie → −2). Il movimento salva sia l'originale sia la quantità convertita.
+
 ## 8. Casi limite
 - Lo stesso prodotto con fornitori diversi (cassa da 6, cassa da 12, a pezzo): ogni fornitore ha la sua conversione, la U.M. di magazzino resta una sola.
 - Il fornitore cambia formato (la cassa diventa da 12): la nuova conversione vale solo dai nuovi ordini, quelli vecchi conservano la loro.
@@ -80,6 +94,9 @@ Esempi: acquisto 3 casse → +18 bottiglie; vendita 1 cassa → −6; vendita 2 
 - Nuova colonna nullable `products.stock_unit_id` (FK `units_of_measure`), compilata dalla U.M. corrispondente a `danea_um`. L'import Danea non la scrive: viene esclusa dall'aggiornamento in `danea-import.server.ts` e protetta da un trigger.
 - `product_supplier_link_units.conversion_mode` (`stessa`/`fissa`/`variabile`, nullable = non impostata) e `indicative_factor`. Un trigger richiede il fattore quando il modo è `fissa`.
 - `inventory_counts`: `stock_unit_id`, `stock_quantity`, `conversion_factor` e la composizione del conteggio misto in jsonb.
+- Nuova tabella `product_stock_packages` (prodotto, nome, unit_id, quantità in U.M. magazzino, modo, stato) con GRANT e RLS sull'azienda; `product_supplier_link_units.package_id` facoltativo.
+- Snapshot `conversion_mode`, `stock_unit_id`, `package_id` su `shopping_list_item_suppliers`, `purchase_order_items`, `goods_receipt_items`, movimenti e futuri documenti di vendita/reso.
+- `units_of_measure.allows_decimals` boolean con default; `products.stock_base_at` per la nuova base; la giacenza ignora i conteggi/movimenti anteriori e restituisce «da verificare» senza conteggio successivo.
 - `inventory_movements`: `original_quantity`, `original_unit_id`/`code`, `conversion_factor`, `conversion_mode`, `stock_unit_id`. La `quantity` attuale resta la quantità in U.M. di magazzino. Si aggiungono nuovi valori all'enum `inventory_movement_type` (reso cliente/fornitore, adeguamento inventario). `source_table`/`source_id` restano il riferimento al documento.
 - Il calcolo della giacenza passa da `danea_um` a `stock_unit_id`. La regola in AGENTS.md («giacenza solo nella U.M. del prodotto (danea_um)») verrà sostituita con la stessa regola riferita alla U.M. di magazzino.
 - Tutte le funzioni nuove: SECURITY DEFINER, search_path = public, autorizzazione tramite appartenenza all'azienda; nessuna colonna generata negli INSERT/UPDATE.
