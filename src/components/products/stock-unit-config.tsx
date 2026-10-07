@@ -329,9 +329,9 @@ export function SupplierConversionsSection({ productId, units, editable }: {
       if (Number.isNaN(factor) || Number.isNaN(indicative)) throw new Error("Numero non valido");
       const mode = value.mode === "nessuna" ? null : value.mode;
       const args: Record<string, unknown> = { _link_unit_id: value.row.id, _mode: mode };
-      if (mode === "fissa" && value.packageId !== "diretto") args._package_id = value.packageId;
-      if (mode === "fissa" && value.packageId === "diretto" && factor !== null) args._factor = factor;
-      if (mode === "variabile" && indicative !== null) args._indicative = indicative;
+      if (mode === "fissa" && value.packageId !== "diretto") args["_package_id"] = value.packageId;
+      if (mode === "fissa" && value.packageId === "diretto" && factor !== null) args["_factor"] = factor;
+      if (mode === "variabile" && indicative !== null) args["_indicative"] = indicative;
       const { error } = await supabase.rpc("set_supplier_unit_conversion", args as { _link_unit_id: string; _mode: string });
       if (error) throw new Error(error.message);
     },
