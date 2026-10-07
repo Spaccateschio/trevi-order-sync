@@ -1325,12 +1325,14 @@ export type Database = {
         Row: {
           company_id: string
           conversion_factor: number | null
+          conversion_mode: string | null
           created_at: string
           delivery_item_id: string | null
           expiry_date: string | null
           id: string
           notes: string | null
           order_item_id: string | null
+          package_id: string | null
           price_quantity: number | null
           price_unit_code: string | null
           price_unit_id: string | null
@@ -1339,6 +1341,7 @@ export type Database = {
           product_id: string
           receipt_id: string
           stock_quantity: number | null
+          stock_unit_id: string | null
           unit_code: string | null
           unit_cost: number | null
           unit_id: string | null
@@ -1348,12 +1351,14 @@ export type Database = {
         Insert: {
           company_id: string
           conversion_factor?: number | null
+          conversion_mode?: string | null
           created_at?: string
           delivery_item_id?: string | null
           expiry_date?: string | null
           id?: string
           notes?: string | null
           order_item_id?: string | null
+          package_id?: string | null
           price_quantity?: number | null
           price_unit_code?: string | null
           price_unit_id?: string | null
@@ -1362,6 +1367,7 @@ export type Database = {
           product_id: string
           receipt_id: string
           stock_quantity?: number | null
+          stock_unit_id?: string | null
           unit_code?: string | null
           unit_cost?: number | null
           unit_id?: string | null
@@ -1371,12 +1377,14 @@ export type Database = {
         Update: {
           company_id?: string
           conversion_factor?: number | null
+          conversion_mode?: string | null
           created_at?: string
           delivery_item_id?: string | null
           expiry_date?: string | null
           id?: string
           notes?: string | null
           order_item_id?: string | null
+          package_id?: string | null
           price_quantity?: number | null
           price_unit_code?: string | null
           price_unit_id?: string | null
@@ -1385,6 +1393,7 @@ export type Database = {
           product_id?: string
           receipt_id?: string
           stock_quantity?: number | null
+          stock_unit_id?: string | null
           unit_code?: string | null
           unit_cost?: number | null
           unit_id?: string | null
@@ -1414,6 +1423,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "goods_receipt_items_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "product_stock_packages"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "goods_receipt_items_price_unit_id_fkey"
             columns: ["price_unit_id"]
             isOneToOne: false
@@ -1432,6 +1448,13 @@ export type Database = {
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "goods_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_receipt_items_stock_unit_id_fkey"
+            columns: ["stock_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
           {
@@ -1772,6 +1795,8 @@ export type Database = {
       inventory_counts: {
         Row: {
           company_id: string
+          conversion_factor: number | null
+          count_breakdown: Json | null
           counted_at: string
           counted_by: string | null
           counted_quantity: number
@@ -1788,12 +1813,16 @@ export type Database = {
           recount_requested_at: string | null
           recount_requested_by: string | null
           session_id: string
+          stock_quantity: number | null
+          stock_unit_id: string | null
           unit_code: string | null
           unit_id: string | null
           updated_at: string
         }
         Insert: {
           company_id: string
+          conversion_factor?: number | null
+          count_breakdown?: Json | null
           counted_at?: string
           counted_by?: string | null
           counted_quantity: number
@@ -1810,12 +1839,16 @@ export type Database = {
           recount_requested_at?: string | null
           recount_requested_by?: string | null
           session_id: string
+          stock_quantity?: number | null
+          stock_unit_id?: string | null
           unit_code?: string | null
           unit_id?: string | null
           updated_at?: string
         }
         Update: {
           company_id?: string
+          conversion_factor?: number | null
+          count_breakdown?: Json | null
           counted_at?: string
           counted_by?: string | null
           counted_quantity?: number
@@ -1832,6 +1865,8 @@ export type Database = {
           recount_requested_at?: string | null
           recount_requested_by?: string | null
           session_id?: string
+          stock_quantity?: number | null
+          stock_unit_id?: string | null
           unit_code?: string | null
           unit_id?: string | null
           updated_at?: string
@@ -1863,6 +1898,13 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "inventory_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_stock_unit_id_fkey"
+            columns: ["stock_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
           {
@@ -1925,51 +1967,72 @@ export type Database = {
         Row: {
           archive_id: string | null
           company_id: string
+          conversion_factor: number | null
+          conversion_mode: string | null
           created_at: string
           created_by: string | null
           id: string
           location_id: string
           movement_type: Database["public"]["Enums"]["inventory_movement_type"]
           notes: string | null
+          original_quantity: number | null
+          original_unit_code: string | null
+          original_unit_id: string | null
+          package_id: string | null
           product_id: string
           quantity: number
           source_id: string | null
           source_table: string | null
           stock_lot_id: string | null
+          stock_unit_id: string | null
           unit_code: string | null
           unit_id: string | null
         }
         Insert: {
           archive_id?: string | null
           company_id: string
+          conversion_factor?: number | null
+          conversion_mode?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
           location_id: string
           movement_type: Database["public"]["Enums"]["inventory_movement_type"]
           notes?: string | null
+          original_quantity?: number | null
+          original_unit_code?: string | null
+          original_unit_id?: string | null
+          package_id?: string | null
           product_id: string
           quantity: number
           source_id?: string | null
           source_table?: string | null
           stock_lot_id?: string | null
+          stock_unit_id?: string | null
           unit_code?: string | null
           unit_id?: string | null
         }
         Update: {
           archive_id?: string | null
           company_id?: string
+          conversion_factor?: number | null
+          conversion_mode?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
           location_id?: string
           movement_type?: Database["public"]["Enums"]["inventory_movement_type"]
           notes?: string | null
+          original_quantity?: number | null
+          original_unit_code?: string | null
+          original_unit_id?: string | null
+          package_id?: string | null
           product_id?: string
           quantity?: number
           source_id?: string | null
           source_table?: string | null
           stock_lot_id?: string | null
+          stock_unit_id?: string | null
           unit_code?: string | null
           unit_id?: string | null
         }
@@ -1996,6 +2059,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inventory_movements_original_unit_id_fkey"
+            columns: ["original_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "product_stock_packages"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inventory_movements_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -2007,6 +2084,13 @@ export type Database = {
             columns: ["stock_lot_id"]
             isOneToOne: false
             referencedRelation: "stock_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_stock_unit_id_fkey"
+            columns: ["stock_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
           {
@@ -2646,6 +2730,67 @@ export type Database = {
           },
         ]
       }
+      product_stock_packages: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          product_id: string
+          status: Database["public"]["Enums"]["entity_status"]
+          stock_quantity: number
+          unit_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          product_id: string
+          status?: Database["public"]["Enums"]["entity_status"]
+          stock_quantity: number
+          unit_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          product_id?: string
+          status?: Database["public"]["Enums"]["entity_status"]
+          stock_quantity?: number
+          unit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_stock_packages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_stock_packages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_stock_packages_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_stock_settings: {
         Row: {
           company_id: string
@@ -2777,39 +2922,48 @@ export type Database = {
         Row: {
           company_id: string
           conversion_factor: number | null
+          conversion_mode: string | null
           conversion_type: Database["public"]["Enums"]["sale_conversion_type"]
           created_at: string
           created_by: string | null
           id: string
+          indicative_factor: number | null
           is_active: boolean
           is_default: boolean
           link_id: string
+          package_id: string | null
           unit_id: string
           updated_at: string
         }
         Insert: {
           company_id: string
           conversion_factor?: number | null
+          conversion_mode?: string | null
           conversion_type?: Database["public"]["Enums"]["sale_conversion_type"]
           created_at?: string
           created_by?: string | null
           id?: string
+          indicative_factor?: number | null
           is_active?: boolean
           is_default?: boolean
           link_id: string
+          package_id?: string | null
           unit_id: string
           updated_at?: string
         }
         Update: {
           company_id?: string
           conversion_factor?: number | null
+          conversion_mode?: string | null
           conversion_type?: Database["public"]["Enums"]["sale_conversion_type"]
           created_at?: string
           created_by?: string | null
           id?: string
+          indicative_factor?: number | null
           is_active?: boolean
           is_default?: boolean
           link_id?: string
+          package_id?: string | null
           unit_id?: string
           updated_at?: string
         }
@@ -2826,6 +2980,13 @@ export type Database = {
             columns: ["link_id"]
             isOneToOne: false
             referencedRelation: "product_supplier_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_supplier_link_units_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "product_stock_packages"
             referencedColumns: ["id"]
           },
           {
@@ -2990,6 +3151,8 @@ export type Database = {
           publish_status: Database["public"]["Enums"]["product_publish_status"]
           raw_payload: Json | null
           size_um: string | null
+          stock_base_at: string | null
+          stock_unit_id: string | null
           subcategory: string | null
           subcategory_levels: string[] | null
           supplier_code: string | null
@@ -3039,6 +3202,8 @@ export type Database = {
           publish_status?: Database["public"]["Enums"]["product_publish_status"]
           raw_payload?: Json | null
           size_um?: string | null
+          stock_base_at?: string | null
+          stock_unit_id?: string | null
           subcategory?: string | null
           subcategory_levels?: string[] | null
           supplier_code?: string | null
@@ -3088,6 +3253,8 @@ export type Database = {
           publish_status?: Database["public"]["Enums"]["product_publish_status"]
           raw_payload?: Json | null
           size_um?: string | null
+          stock_base_at?: string | null
+          stock_unit_id?: string | null
           subcategory?: string | null
           subcategory_levels?: string[] | null
           supplier_code?: string | null
@@ -3127,6 +3294,13 @@ export type Database = {
           {
             foreignKeyName: "products_price_unit_id_fkey"
             columns: ["price_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_stock_unit_id_fkey"
+            columns: ["stock_unit_id"]
             isOneToOne: false
             referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
@@ -3596,11 +3770,13 @@ export type Database = {
         Row: {
           company_id: string
           conversion_factor: number | null
+          conversion_mode: string | null
           created_at: string
           id: string
           notes: string | null
           order_id: string
           ordered_quantity: number | null
+          package_id: string | null
           previous_quantity: number | null
           price_unit_code: string | null
           price_unit_id: string | null
@@ -3612,6 +3788,7 @@ export type Database = {
           purchase_unit_code: string | null
           purchase_unit_id: string | null
           source_assignment_id: string | null
+          stock_unit_id: string | null
           supplier_product_code: string | null
           unit_code: string | null
           unit_cost: number | null
@@ -3621,11 +3798,13 @@ export type Database = {
         Insert: {
           company_id: string
           conversion_factor?: number | null
+          conversion_mode?: string | null
           created_at?: string
           id?: string
           notes?: string | null
           order_id: string
           ordered_quantity?: number | null
+          package_id?: string | null
           previous_quantity?: number | null
           price_unit_code?: string | null
           price_unit_id?: string | null
@@ -3637,6 +3816,7 @@ export type Database = {
           purchase_unit_code?: string | null
           purchase_unit_id?: string | null
           source_assignment_id?: string | null
+          stock_unit_id?: string | null
           supplier_product_code?: string | null
           unit_code?: string | null
           unit_cost?: number | null
@@ -3646,11 +3826,13 @@ export type Database = {
         Update: {
           company_id?: string
           conversion_factor?: number | null
+          conversion_mode?: string | null
           created_at?: string
           id?: string
           notes?: string | null
           order_id?: string
           ordered_quantity?: number | null
+          package_id?: string | null
           previous_quantity?: number | null
           price_unit_code?: string | null
           price_unit_id?: string | null
@@ -3662,6 +3844,7 @@ export type Database = {
           purchase_unit_code?: string | null
           purchase_unit_id?: string | null
           source_assignment_id?: string | null
+          stock_unit_id?: string | null
           supplier_product_code?: string | null
           unit_code?: string | null
           unit_cost?: number | null
@@ -3681,6 +3864,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "product_stock_packages"
             referencedColumns: ["id"]
           },
           {
@@ -3716,6 +3906,13 @@ export type Database = {
             columns: ["source_assignment_id"]
             isOneToOne: false
             referencedRelation: "shopping_list_item_suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_stock_unit_id_fkey"
+            columns: ["stock_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
           },
           {
@@ -4028,6 +4225,7 @@ export type Database = {
           assigned_quantity: number | null
           company_id: string
           conversion_factor: number | null
+          conversion_mode: string | null
           conversion_type:
             | Database["public"]["Enums"]["sale_conversion_type"]
             | null
@@ -4039,10 +4237,12 @@ export type Database = {
           min_warning_accepted_at: string | null
           min_warning_accepted_by: string | null
           notes: string | null
+          package_id: string | null
           product_supplier_link_id: string
           purchase_quantity: number | null
           purchase_unit_code: string | null
           purchase_unit_id: string | null
+          stock_unit_id: string | null
           supplier_record_id: string
           updated_at: string
         }
@@ -4050,6 +4250,7 @@ export type Database = {
           assigned_quantity?: number | null
           company_id: string
           conversion_factor?: number | null
+          conversion_mode?: string | null
           conversion_type?:
             | Database["public"]["Enums"]["sale_conversion_type"]
             | null
@@ -4061,10 +4262,12 @@ export type Database = {
           min_warning_accepted_at?: string | null
           min_warning_accepted_by?: string | null
           notes?: string | null
+          package_id?: string | null
           product_supplier_link_id: string
           purchase_quantity?: number | null
           purchase_unit_code?: string | null
           purchase_unit_id?: string | null
+          stock_unit_id?: string | null
           supplier_record_id: string
           updated_at?: string
         }
@@ -4072,6 +4275,7 @@ export type Database = {
           assigned_quantity?: number | null
           company_id?: string
           conversion_factor?: number | null
+          conversion_mode?: string | null
           conversion_type?:
             | Database["public"]["Enums"]["sale_conversion_type"]
             | null
@@ -4083,10 +4287,12 @@ export type Database = {
           min_warning_accepted_at?: string | null
           min_warning_accepted_by?: string | null
           notes?: string | null
+          package_id?: string | null
           product_supplier_link_id?: string
           purchase_quantity?: number | null
           purchase_unit_code?: string | null
           purchase_unit_id?: string | null
+          stock_unit_id?: string | null
           supplier_record_id?: string
           updated_at?: string
         }
@@ -4106,6 +4312,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "shopping_list_item_suppliers_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "product_stock_packages"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "shopping_list_item_suppliers_product_supplier_link_id_fkey"
             columns: ["product_supplier_link_id"]
             isOneToOne: false
@@ -4115,6 +4328,13 @@ export type Database = {
           {
             foreignKeyName: "shopping_list_item_suppliers_purchase_unit_id_fkey"
             columns: ["purchase_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_item_suppliers_stock_unit_id_fkey"
+            columns: ["stock_unit_id"]
             isOneToOne: false
             referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
@@ -5127,6 +5347,7 @@ export type Database = {
       }
       units_of_measure: {
         Row: {
+          allows_decimals: boolean
           code: string
           company_id: string
           created_at: string
@@ -5138,6 +5359,7 @@ export type Database = {
           usage: Database["public"]["Enums"]["unit_usage"]
         }
         Insert: {
+          allows_decimals?: boolean
           code: string
           company_id: string
           created_at?: string
@@ -5149,6 +5371,7 @@ export type Database = {
           usage?: Database["public"]["Enums"]["unit_usage"]
         }
         Update: {
+          allows_decimals?: boolean
           code?: string
           company_id?: string
           created_at?: string
@@ -6878,6 +7101,9 @@ export type Database = {
         | "reso"
         | "trasferimento"
         | "rettifica"
+        | "reso_cliente"
+        | "reso_fornitore"
+        | "adeguamento_inventario"
       inventory_session_scope: "generale" | "ubicazione"
       inventory_session_status: "in_corso" | "completata" | "annullata"
       invitation_status:
@@ -7113,6 +7339,9 @@ export const Constants = {
         "reso",
         "trasferimento",
         "rettifica",
+        "reso_cliente",
+        "reso_fornitore",
+        "adeguamento_inventario",
       ],
       inventory_session_scope: ["generale", "ubicazione"],
       inventory_session_status: ["in_corso", "completata", "annullata"],
