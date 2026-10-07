@@ -30,6 +30,8 @@ export type CountedRow = {
   category: string | null;
   counted: number;
   unit: string | null;
+  /** U.M. di magazzino del prodotto: la giacenza è sempre espressa in questa. */
+  stockUnit: string | null;
   stock: number | null;
 };
 

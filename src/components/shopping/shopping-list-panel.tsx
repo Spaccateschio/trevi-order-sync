@@ -541,7 +541,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 decidedUnitId: null,
                 decidedUnitCode: null,
               },
-              stock: { lastQuantity: row.counted, lastUnit: row.unit, lastAt: null, stock: row.stock },
+              stock: { lastQuantity: row.counted, lastUnit: row.unit, lastAt: null, stock: row.stock, stockUnit: row.stockUnit },
             }))
         : [],
     [showPending, allCounted, listProductIds, countedImages, pendingFavorites],
