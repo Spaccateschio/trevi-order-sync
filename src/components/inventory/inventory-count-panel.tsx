@@ -1040,7 +1040,9 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
           entryType: input.row.counted !== null ? "riconteggio" : "conteggio",
           countedQuantity: input.value,
           unitCode: input.unit || null,
-          unitId: unitChoice.chosen[input.row.product_id] ?? null,
+          unitId: unitChoice.chosen[input.row.product_id]
+            ?? unitChoice.allowed.get(input.row.product_id)?.find((option) => option.code === input.row.counted_unit_code?.trim())?.id
+            ?? null,
           notes: input.notes,
           nonCompliant: null,
           nonCompliantQuantity: null,
