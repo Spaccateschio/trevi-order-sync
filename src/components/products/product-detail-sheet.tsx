@@ -21,6 +21,7 @@ import { ProductImageManager } from "./product-image-manager";
 import { ProductSuppliersManager } from "./product-suppliers-manager";
 import { ProductProvenancePanel } from "./product-provenance-panel";
 import { ProductStockPanel } from "./product-stock-panel";
+import { StockUnitSection, SupplierConversionsSection } from "./stock-unit-config";
 
 function Field({ label, value }: { label: string; value: string }) {
   return <div><dt className="text-xs uppercase text-muted-foreground">{label}</dt><dd className="break-words text-sm">{value}</dd></div>;
@@ -261,6 +262,8 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
             <PurchaseUnitsOverview productId={product.id} />
           </section>
 
+          {companyId ? <SupplierConversionsSection productId={product.id} units={companyUnits} editable={isAdmin} /> : null}
+
           {companyId ? <ProductSuppliersManager companyId={companyId} productId={product.id} productArchiveId={product.archive_id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
 
           {isAdmin ? <section className="border-t border-border pt-2"><h3 className="text-sm font-semibold">Costo ricevuto da Danea</h3><dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-2"><Field label="Fornitore" value={cost?.supplier_name ?? product.supplier_name ?? "—"} /><Field label="Codice fornitore" value={cost?.supplier_code ?? product.supplier_code ?? "—"} /><Field label="Codice prodotto" value={cost?.supplier_product_code ?? product.supplier_product_code ?? "—"} /><Field label="Costo netto" value={euro(cost?.supplier_net_price)} /></dl></section> : null}
@@ -268,6 +271,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
 
         {/* Inventario: giacenza, zone, scorta minima, fabbisogno, conteggi e provenienze dei carichi. */}
         <TabsContent value="inventario" className="space-y-3">
+          {companyId ? <StockUnitSection companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
           {companyId ? <ProductStockPanel companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
           {companyId ? <ProductProvenancePanel productId={product.id} editable={isAdmin} /> : null}
         </TabsContent>

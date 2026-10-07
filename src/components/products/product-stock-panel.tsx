@@ -252,6 +252,7 @@ export function ProductStockPanel({
             </label>
             <label className="block text-sm">
               U.M. di riferimento
+              <span className="block text-xs text-muted-foreground">Campo del sistema attuale — sarà sostituito dalla U.M. di magazzino nei prossimi passi.</span>
               <Select
                 value={settings.unitId || "none"}
                 onValueChange={(value) =>

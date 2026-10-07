@@ -2737,11 +2737,13 @@ export type Database = {
           created_by: string | null
           id: string
           name: string
+          package_version: number
           product_id: string
           status: Database["public"]["Enums"]["entity_status"]
           stock_quantity: number
           unit_id: string
           updated_at: string
+          verified_stock_unit_id: string | null
         }
         Insert: {
           company_id: string
@@ -2749,11 +2751,13 @@ export type Database = {
           created_by?: string | null
           id?: string
           name: string
+          package_version?: number
           product_id: string
           status?: Database["public"]["Enums"]["entity_status"]
           stock_quantity: number
           unit_id: string
           updated_at?: string
+          verified_stock_unit_id?: string | null
         }
         Update: {
           company_id?: string
@@ -2761,11 +2765,13 @@ export type Database = {
           created_by?: string | null
           id?: string
           name?: string
+          package_version?: number
           product_id?: string
           status?: Database["public"]["Enums"]["entity_status"]
           stock_quantity?: number
           unit_id?: string
           updated_at?: string
+          verified_stock_unit_id?: string | null
         }
         Relationships: [
           {
@@ -2785,6 +2791,13 @@ export type Database = {
           {
             foreignKeyName: "product_stock_packages_unit_id_fkey"
             columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_stock_packages_verified_stock_unit_id_fkey"
+            columns: ["verified_stock_unit_id"]
             isOneToOne: false
             referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
@@ -2932,8 +2945,11 @@ export type Database = {
           is_default: boolean
           link_id: string
           package_id: string | null
+          stock_conversion_factor: number | null
           unit_id: string
           updated_at: string
+          verified_package_version: number | null
+          verified_stock_unit_id: string | null
         }
         Insert: {
           company_id: string
@@ -2948,8 +2964,11 @@ export type Database = {
           is_default?: boolean
           link_id: string
           package_id?: string | null
+          stock_conversion_factor?: number | null
           unit_id: string
           updated_at?: string
+          verified_package_version?: number | null
+          verified_stock_unit_id?: string | null
         }
         Update: {
           company_id?: string
@@ -2964,8 +2983,11 @@ export type Database = {
           is_default?: boolean
           link_id?: string
           package_id?: string | null
+          stock_conversion_factor?: number | null
           unit_id?: string
           updated_at?: string
+          verified_package_version?: number | null
+          verified_stock_unit_id?: string | null
         }
         Relationships: [
           {
@@ -2992,6 +3014,13 @@ export type Database = {
           {
             foreignKeyName: "product_supplier_link_units_unit_id_fkey"
             columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_supplier_link_units_verified_stock_unit_id_fkey"
+            columns: ["verified_stock_unit_id"]
             isOneToOne: false
             referencedRelation: "units_of_measure"
             referencedColumns: ["id"]
@@ -5879,6 +5908,18 @@ export type Database = {
         }
         Returns: string
       }
+      effective_supplier_conversion: {
+        Args: { _link_unit_id: string }
+        Returns: {
+          conversion_mode: string
+          indicative_factor: number
+          is_valid: boolean
+          package_id: string
+          reason: string
+          stock_conversion_factor: number
+          stock_unit_id: string
+        }[]
+      }
       ensure_default_inventory_location: {
         Args: { _actor_user_id?: string; _company_id: string }
         Returns: string
@@ -6256,6 +6297,17 @@ export type Database = {
         }
         Returns: string
       }
+      manage_product_stock_package: {
+        Args: {
+          _active?: boolean
+          _name: string
+          _package_id: string
+          _product_id: string
+          _stock_quantity: number
+          _unit_id: string
+        }
+        Returns: string
+      }
       manage_product_stock_settings: {
         Args: {
           _actor_user_id?: string
@@ -6556,6 +6608,14 @@ export type Database = {
           supplier_product_code: string
           supplier_record_id: string
           supplier_reference_label: string
+        }[]
+      }
+      product_unit_config_issues: {
+        Args: { _company_id: string; _product_ids?: string[] }
+        Returns: {
+          product_id: string
+          reason: string
+          reason_code: string
         }[]
       }
       propagate_seller_price_change: {
@@ -6907,6 +6967,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_product_stock_unit: {
+        Args: { _product_id: string; _unit_id: string }
+        Returns: Json
+      }
       set_product_supplier_delivery_schedule: {
         Args: {
           _inherit?: boolean
@@ -6971,6 +7035,16 @@ export type Database = {
           _weekdays?: number[]
         }
         Returns: string
+      }
+      set_supplier_unit_conversion: {
+        Args: {
+          _factor?: number
+          _indicative?: number
+          _link_unit_id: string
+          _mode: string
+          _package_id?: string
+        }
+        Returns: undefined
       }
       shares_company_with: { Args: { _user_id: string }; Returns: boolean }
       shares_relation_with: { Args: { _company_id: string }; Returns: boolean }

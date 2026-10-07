@@ -11,6 +11,7 @@ import { ProductGrid } from "@/components/products/product-grid";
 import { InternalProductDialog } from "@/components/products/internal-product-dialog";
 import { ProductMobileList } from "@/components/products/product-mobile-list";
 import { SalesUnitBatchDialog } from "@/components/products/sales-unit-batch-dialog";
+import { useUnitConfigIssues } from "@/components/products/stock-unit-config";
 import type { CompanyUnit, ProductSaleUnit } from "@/components/products/sales-unit-manager";
 import { Button } from "@/components/ui/button";
 import {
@@ -116,6 +117,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
   const [archiveFilter, setArchiveFilter] = useState("tutti");
   const [status, setStatus] = useState("pubblicato");
   const [imageFilter, setImageFilter] = useState("tutte");
+  const [unitConfigFilter, setUnitConfigFilter] = useState("tutte");
   const [page, setPage] = useState(0);
   const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<ProductRow | null>(null);
@@ -407,6 +409,12 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
     setStatus("tutti");
     setSelected(target);
   }, [allProducts, prodottoParam]);
+  const unitIssuesQuery = useUnitConfigIssues(companyId);
+  const unitIssuesByProduct = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const issue of unitIssuesQuery.data ?? []) map.set(issue.product_id, [...(map.get(issue.product_id) ?? []), issue.reason]);
+    return map;
+  }, [unitIssuesQuery.data]);
   const categories = useMemo(() => [...new Set(allProducts.flatMap((product) => product.category ? [product.category] : []))].sort((a, b) => a.localeCompare(b, "it")), [allProducts]);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -416,9 +424,10 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
       if (status !== "tutti" && product.publish_status !== status) return false;
       if (imageFilter === "con" && !product.product_images) return false;
       if (imageFilter === "senza" && product.product_images) return false;
+      if (unitConfigFilter === "da_completare" && !unitIssuesByProduct.has(product.id)) return false;
       return !term || product.code.toLowerCase().includes(term) || (product.description ?? "").toLowerCase().includes(term);
     });
-  }, [allProducts, archiveFilter, category, imageFilter, search, status]);
+  }, [allProducts, archiveFilter, category, imageFilter, search, status, unitConfigFilter, unitIssuesByProduct]);
   const sortedFiltered = useMemo(() => sortProducts(filtered, sorting, archiveNameById), [archiveNameById, filtered, sorting]);
   const pageCount = Math.max(1, Math.ceil(sortedFiltered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -481,6 +490,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
       {archives.length > 1 ? <Select value={archiveFilter} onValueChange={(value) => { setArchiveFilter(value); setPage(0); }}><SelectTrigger className={triggerClass("w-44")}><SelectValue placeholder="Archivio" /></SelectTrigger><SelectContent><SelectItem value="tutti">Tutti gli archivi</SelectItem>{archives.map((archive) => <SelectItem key={archive.id} value={archive.id}>{archive.name}</SelectItem>)}</SelectContent></Select> : null}
       <Select value={status} onValueChange={(value) => { setStatus(value); setPage(0); }}><SelectTrigger className={triggerClass("w-48")}><SelectValue placeholder="Stato" /></SelectTrigger><SelectContent><SelectItem value="pubblicato">Catalogo attuale</SelectItem><SelectItem value="non_pubblicato">Non più inviati</SelectItem><SelectItem value="tutti">Tutti gli stati</SelectItem></SelectContent></Select>
       <Select value={imageFilter} onValueChange={(value) => { setImageFilter(value); setPage(0); }}><SelectTrigger className={triggerClass("w-40")}><SelectValue placeholder="Immagine" /></SelectTrigger><SelectContent><SelectItem value="tutte">Tutte le immagini</SelectItem><SelectItem value="con">Con immagine</SelectItem><SelectItem value="senza">Senza immagine</SelectItem></SelectContent></Select>
+      <Select value={unitConfigFilter} onValueChange={(value) => { setUnitConfigFilter(value); setPage(0); }}><SelectTrigger className={triggerClass("w-56")} aria-label="Configurazione U.M."><SelectValue /></SelectTrigger><SelectContent><SelectItem value="tutte">Tutte le configurazioni U.M.</SelectItem><SelectItem value="da_completare">Configurazione U.M. da completare ({unitIssuesByProduct.size})</SelectItem></SelectContent></Select>
     </>;
   };
 
@@ -517,6 +527,9 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
         </div>
       </div>
 
+      {unitConfigFilter === "da_completare" ? <ul className="divide-y divide-border rounded-md border border-border text-sm" aria-label="Motivi configurazione U.M.">
+        {visible.map((product) => <li key={product.id}><button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted" onClick={() => setSelected(product)}><span className="font-medium">{product.description ?? product.code}</span><span className="block text-xs text-muted-foreground">{(unitIssuesByProduct.get(product.id) ?? []).join(" · ")}</span></button></li>)}
+      </ul> : null}
       <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} listName={listName} />
       <ProductMobileList products={visible} selectedIds={selectedIds} imageUrls={imageUrls} columns={mobileColumns} archives={archiveNameById} listName={listName} onSelect={(id, checked) => setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; })} onOpen={setSelected} />
 
