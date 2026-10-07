@@ -88,6 +88,7 @@ import {
 } from "@/lib/inventory-count.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
+import { buildInventoryPrintHtml, type InventoryPrintMode, type InventoryPrintRow } from "@/lib/inventory-print";
 import { inventoryCardLocked, afterInventoryCardSave, canEditInventoryCard } from "@/lib/inventory-card-lock";
 import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inventory/correct-count-dialog";
 import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget } from "@/components/inventory/physical-quick-edit";
@@ -668,9 +669,6 @@ export function InventoryCountPanel({
   });
 
   // Stampa: inventario in corso se aperto, altrimenti ultimo inventario chiuso. Solo lettura, mai 0 inventati.
-  const printReady = sessionId
-    ? Boolean(allRowsQuery.data && favoriteRowsQuery.data)
-    : Boolean(stockHistoryQuery.data && previewFavoriteQuery.data && catalogPreview.length > 0);
   const printInventory = (mode: InventoryPrintMode) => {
     const fmtDate = (iso: string) =>
       new Date(iso).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -1491,19 +1489,30 @@ export function InventoryCountPanel({
               </div>
             }
             printAction={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 text-[11px]"
-                onClick={printStock}
-                disabled={!stockHistoryQuery.data || catalogPreview.length === 0}
-                title="Stampa le giacenze dell'ultimo inventario"
-              >
-                <Printer aria-hidden="true" />
-                <span className="hidden sm:inline">Stampa giacenze</span>
-                <span className="sm:hidden">Stampa</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-[11px]"
+                    disabled={
+                      sessionId
+                        ? !allRowsQuery.data || !favoriteRowsQuery.data
+                        : !stockHistoryQuery.data || !previewFavoriteQuery.data || catalogPreview.length === 0
+                    }
+                    title={sessionId ? "Stampa l'inventario in corso" : "Stampa l'ultimo inventario chiuso"}
+                  >
+                    <Printer aria-hidden="true" />
+                    <span>Stampa</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => printInventory("rapida")}>Rapida — preferiti, articolo e quantità</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => printInventory("dettagliata")}>Dettagliata — preferiti, tutte le colonne</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => printInventory("completa")}>Completa — tutti i prodotti</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             }
             progress={progress}
             locations={activeLocations.map((location) => ({
