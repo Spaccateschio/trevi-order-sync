@@ -395,7 +395,21 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           stock: null,
         });
       }
-      for (const locationId of locations) {
+      // U.M. di magazzino del prodotto: la giacenza di inventory_location_stock_list è sempre espressa in questa.
+      const { data: prods } = await supabase.from("products").select("id, stock_unit_id").in("id", stockProductIds);
+      const unitIds = new Set<string>();
+      for (const product of (prods ?? []) as { id: string; stock_unit_id: string | null }[]) {
+        if (product.stock_unit_id) unitIds.add(product.stock_unit_id);
+      }
+      const unitCodes = new Map<string, string>();
+      if (unitIds.size > 0) {
+        const { data: units } = await supabase.from("units_of_measure").select("id, code").in("id", [...unitIds]);
+        for (const unit of (units ?? []) as { id: string; code: string }[]) unitCodes.set(unit.id, unit.code);
+      }
+      for (const product of (prods ?? []) as { id: string; stock_unit_id: string | null }[]) {
+        const info = result.get(product.id);
+        if (info) info.stockUnit = product.stock_unit_id ? unitCodes.get(product.stock_unit_id) ?? null : null;
+      }
         const { data: stock } = await supabase.rpc("inventory_location_stock_list", {
           _company_id: companyId,
           _archive_id: list!.archive_id,
