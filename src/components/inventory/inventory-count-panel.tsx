@@ -667,52 +667,72 @@ export function InventoryCountPanel({
     },
   });
 
-  // Stampa delle giacenze: foglio pulito con i prodotti conteggiati e quelli mai conteggiati (quantità vuota).
-  const printStock = () => {
-    const history = stockHistoryQuery.data;
-    if (!history || catalogPreview.length === 0) return;
-    const esc = (value: string) =>
-      value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    const fmtQty = (value: number) => value.toLocaleString("it-IT", { maximumFractionDigits: 3 });
+  // Stampa: inventario in corso se aperto, altrimenti ultimo inventario chiuso. Solo lettura, mai 0 inventati.
+  const printReady = sessionId
+    ? Boolean(allRowsQuery.data && favoriteRowsQuery.data)
+    : Boolean(stockHistoryQuery.data && previewFavoriteQuery.data && catalogPreview.length > 0);
+  const printInventory = (mode: InventoryPrintMode) => {
     const fmtDate = (iso: string) =>
       new Date(iso).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
-    const rows = [...catalogPreview]
-      .sort((a, b) => (a.code ?? "").localeCompare(b.code ?? "", "it"))
-      .map((product) => {
+    let printRows: InventoryPrintRow[];
+    let subtitle: string;
+    if (sessionId) {
+      const favs = new Set((favoriteRowsQuery.data ?? []).map((r) => r.product_id));
+      printRows = (allRowsQuery.data ?? [])
+        .filter((r) => !managedProductIds.size || managedProductIds.has(r.product_id))
+        .map((r) => {
+          const notes = [
+            r.stock_unit_missing ? "U.M. da impostare" : "",
+            r.recount_requested_at ? "Riconteggio richiesto" : "",
+            r.non_compliant ? `Non conforme${r.non_compliant_note ? `: ${r.non_compliant_note}` : ""}` : "",
+            r.note ?? "",
+          ].filter(Boolean);
+          return {
+            code: r.code ?? "",
+            name: r.description ?? r.code ?? "",
+            zone: r.location_name ?? "",
+            favorite: favs.has(r.product_id) || r.is_favorite,
+            stockUnit: r.stock_unit_missing ? null : r.stock_unit_code,
+            calculated: r.calculated === null ? null : Number(r.calculated),
+            counted: r.counted === null ? null : Number(r.counted),
+            countedUnit: r.counted_unit_code,
+            difference: r.counted !== null && r.units_comparable !== false && r.difference !== null ? Number(r.difference) : null,
+            note: notes.join(" · "),
+          };
+        });
+      subtitle = `Inventario in corso${sessionQuery.data?.started_at ? ` dal ${fmtDate(sessionQuery.data.started_at)}` : ""}`;
+    } else {
+      const history = stockHistoryQuery.data ?? new Map<string, StockHistory>();
+      const favs = previewFavoriteQuery.data ?? new Set<string>();
+      const zone = activeLocations.find((l) => l.id === historyLocationId)?.name ?? "";
+      printRows = catalogPreview.map((product) => {
         const entry = history.get(product.id);
+        const unit = stockUnitCodeOf(product);
+        const counted = entry?.physical ?? null;
+        const calculated = entry?.stock ?? null;
         return {
           code: product.code ?? "",
-          description: product.description ?? "",
-          qty: entry?.physical ?? null,
-          unit: stockUnitCodeOf(product) ?? "",
-          note: entry?.countNote ?? "",
+          name: product.description ?? product.code ?? "",
+          zone,
+          favorite: favs.has(product.id),
+          stockUnit: product.stock_unit_id ? unit : null,
+          calculated,
+          counted,
+          countedUnit: entry?.lastUnit ?? null,
+          difference: null,
+          note: [!product.stock_unit_id ? "U.M. da impostare" : "", entry?.countNote ?? ""].filter(Boolean).join(" · "),
         };
       });
-    const lastAt = [...history.values()].reduce<string | null>(
-      (acc, entry) => (entry.lastAt && (!acc || entry.lastAt > acc) ? entry.lastAt : acc),
-      null,
-    );
-    const body = rows
-      .map(
-        (row) =>
-          `<tr><td>${esc(row.code)}</td><td>${esc(row.description)}</td><td class="qty">${row.qty === null ? "" : fmtQty(row.qty)}</td><td>${esc(row.unit)}</td><td>${esc(row.note)}</td></tr>`,
-      )
-      .join("");
-    const html = `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Giacenze inventario</title>
-<style>
-body{font-family:system-ui,-apple-system,sans-serif;color:#111;margin:24px;}
-h1{font-size:18px;margin:0 0 4px;}
-p.meta{font-size:12px;color:#444;margin:0 0 16px;}
-table{width:100%;border-collapse:collapse;font-size:12px;}
-th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top;}
-th{background:#f0ead6;}
-td.qty{text-align:right;font-weight:600;min-width:70px;}
-@page{margin:15mm;}
-</style></head><body>
-<h1>Giacenze inventario</h1>
-<p class="meta">${lastAt ? `Ultimo inventario: ${fmtDate(lastAt)} · ` : ""}Stampato il ${fmtDate(new Date().toISOString())}</p>
-<table><thead><tr><th>Codice</th><th>Descrizione</th><th>Quantità fisica</th><th>U.M.</th><th>Note</th></tr></thead><tbody>${body}</tbody></table>
-</body></html>`;
+      const lastAt = [...history.values()].reduce<string | null>(
+        (acc, entry) => (entry.lastAt && (!acc || entry.lastAt > acc) ? entry.lastAt : acc),
+        null,
+      );
+      subtitle = lastAt ? `Ultimo inventario chiuso: ${fmtDate(lastAt)}` : "Nessun inventario chiuso";
+    }
+    const html = buildInventoryPrintHtml(printRows, mode, {
+      title: "Inventario",
+      subtitle: `${subtitle} · Stampato il ${fmtDate(new Date().toISOString())}`,
+    });
     const win = window.open("", "_blank");
     if (!win) return;
     win.document.write(html);
