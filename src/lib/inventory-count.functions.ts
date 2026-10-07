@@ -38,7 +38,8 @@ export type InventoryCountRow = {
   is_favorite: boolean;
   image_path: string | null;
   thumbnail_path: string | null;
-  calculated: number;
+  /** Giacenza calcolata nella U.M. di magazzino; null = non nota / da verificare. */
+  calculated: number | null;
   counted: number | null;
   difference: number | null;
   counted_at: string | null;
