@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { countedLabel, selectPrintRows, type InventoryPrintRow } from "./inventory-print";
 
 const row = (p: Partial<InventoryPrintRow>): InventoryPrintRow => ({
