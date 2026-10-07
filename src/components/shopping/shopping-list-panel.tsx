@@ -393,6 +393,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           lastUnit: count.unit_code,
           lastAt: count.counted_at,
           stock: null,
+          stockUnit: null,
         });
       }
       // U.M. di magazzino del prodotto: la giacenza di inventory_location_stock_list è sempre espressa in questa.
