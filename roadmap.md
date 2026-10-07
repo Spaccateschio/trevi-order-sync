@@ -108,4 +108,5 @@
 - [x] Pulsante «Chiama il fornitore» (telefono ordini nei dati aziendali), tel:/Copia, «Nuovo ordine»
 - [x] Annullamento fornitore dopo export Danea: promemoria + storico motivo
 - [x] Prove a schermo complete
-- [ ] U.M. di magazzino: piano generale approvato; passo 1 (database) in attesa di via
+- [x] U.M. di magazzino passo 1: fondamenta database (nessun cambiamento visibile)
+- [ ] U.M. di magazzino passi 2–5: scheda prodotto, carico merce, inventario, Lista (in attesa di via)
