@@ -24,6 +24,8 @@ export type StockInfo = {
   lastUnit: string | null;
   lastAt: string | null;
   stock: number | null;
+  /** U.M. di magazzino del prodotto: la giacenza è sempre espressa in questa, non in quella della riga. */
+  stockUnit: string | null;
 };
 
 const QUICK_STEPS = [1, 3, 5, 10] as const;
@@ -385,7 +387,7 @@ export function ShoppingListCard({
     const rowMeta = [
       show.category ? extra?.category ?? "—" : null,
       show.suggested ? `Suggerita ${suggested !== null && suggested !== undefined ? `${qty(suggested)} ${unit}` : "—"}` : null,
-      show.stock && stock?.stock !== null && stock?.stock !== undefined ? `Giacenza ${qty(stock.stock)} ${unit}` : null,
+      show.stock && stock?.stock !== null && stock?.stock !== undefined ? `Giacenza ${qty(stock.stock)} ${stock.stockUnit ?? unit}` : null,
       show.lastCount && stock?.lastQuantity !== null && stock?.lastQuantity !== undefined
         ? `Ult. conteggio ${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}`
         : null,
@@ -467,7 +469,7 @@ export function ShoppingListCard({
           {show.stock ? (
             <div className="min-w-0">
               <dt className="truncate text-muted-foreground">Giacenza</dt>
-              <dd className="truncate font-semibold">{stock?.stock !== null && stock?.stock !== undefined ? `${qty(stock.stock)} ${unit}` : "—"}</dd>
+              <dd className="truncate font-semibold">{stock?.stock !== null && stock?.stock !== undefined ? `${qty(stock.stock)} ${stock.stockUnit ?? unit}` : "—"}</dd>
             </div>
           ) : null}
           {show.suggested ? (

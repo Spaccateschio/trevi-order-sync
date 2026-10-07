@@ -30,6 +30,8 @@ export type CountedRow = {
   category: string | null;
   counted: number;
   unit: string | null;
+  /** U.M. di magazzino del prodotto: la giacenza è sempre espressa in questa. */
+  stockUnit: string | null;
   stock: number | null;
 };
 
@@ -44,7 +46,7 @@ export function useInventoryCountedRows(companyId: string, sessionId: string | n
     queryFn: async (): Promise<CountedRow[]> => {
       const { data, error } = await supabase
         .from("inventory_counts")
-        .select("product_id, location_id, counted_quantity, unit_code, counted_at, products(code, description, category)")
+        .select("product_id, location_id, counted_quantity, unit_code, counted_at, products(code, description, category, stock_unit_id)")
         .eq("company_id", companyId)
         .eq("session_id", sessionId!)
         .order("counted_at", { ascending: false });
@@ -54,15 +56,23 @@ export function useInventoryCountedRows(companyId: string, sessionId: string | n
         .select("archive_id")
         .eq("id", sessionId!)
         .maybeSingle();
-      // Ultimo conteggio per prodotto (in caso di riconteggio).
-      const latest = new Map<string, CountedRow>();
-      for (const row of (data ?? []) as unknown as {
+      const rowsRaw = (data ?? []) as unknown as {
         product_id: string;
         location_id: string;
         counted_quantity: number;
         unit_code: string | null;
-        products: { code: string; description: string | null; category: string | null } | null;
-      }[]) {
+        products: { code: string; description: string | null; category: string | null; stock_unit_id: string | null } | null;
+      }[];
+      // U.M. di magazzino del prodotto: la giacenza è sempre espressa in questa, mai in quella del conteggio.
+      const stockUnitIds = [...new Set(rowsRaw.map((row) => row.products?.stock_unit_id).filter((id): id is string => Boolean(id)))];
+      const unitCodes = new Map<string, string>();
+      if (stockUnitIds.length > 0) {
+        const { data: units } = await supabase.from("units_of_measure").select("id, code").in("id", stockUnitIds);
+        for (const unit of (units ?? []) as { id: string; code: string }[]) unitCodes.set(unit.id, unit.code);
+      }
+      // Ultimo conteggio per prodotto (in caso di riconteggio).
+      const latest = new Map<string, CountedRow>();
+      for (const row of rowsRaw) {
         if (latest.has(row.product_id)) continue;
         latest.set(row.product_id, {
           product_id: row.product_id,
@@ -72,6 +82,7 @@ export function useInventoryCountedRows(companyId: string, sessionId: string | n
           category: row.products?.category ?? null,
           counted: Number(row.counted_quantity),
           unit: row.unit_code,
+          stockUnit: row.products?.stock_unit_id ? unitCodes.get(row.products.stock_unit_id) ?? null : null,
           stock: null,
         });
       }
@@ -282,7 +293,7 @@ export function InventoryEvaluation({
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[10px] text-muted-foreground">Giacenza</span>
-                    <span className="font-semibold">{row.stock === null ? "—" : `${qty(row.stock)} ${row.unit ?? ""}`}</span>
+                    <span className="font-semibold">{row.stock === null ? "—" : `${qty(row.stock)} ${row.stockUnit ?? row.unit ?? ""}`}</span>
                   </span>
                 </div>
                 <label className="mt-auto flex min-w-0 items-center justify-between gap-2">
@@ -323,7 +334,7 @@ export function InventoryEvaluation({
                   <span className="sm:hidden">
                     {" "}
                     · contato {qty(row.counted)} {row.unit ?? ""} · giacenza{" "}
-                    {row.stock === null ? "—" : `${qty(row.stock)} ${row.unit ?? ""}`}
+                    {row.stock === null ? "—" : `${qty(row.stock)} ${row.stockUnit ?? row.unit ?? ""}`}
                   </span>
                 </span>
               </span>
@@ -333,7 +344,7 @@ export function InventoryEvaluation({
               <span className="hidden sm:block">
                 Giacenza{" "}
                 <span className="font-semibold">
-                  {row.stock === null ? "—" : `${qty(row.stock)} ${row.unit ?? ""}`}
+                  {row.stock === null ? "—" : `${qty(row.stock)} ${row.stockUnit ?? row.unit ?? ""}`}
                 </span>
               </span>
               <span className="hidden text-muted-foreground sm:block">Da acquistare</span>
