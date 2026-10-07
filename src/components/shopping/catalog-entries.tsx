@@ -252,6 +252,7 @@ export function useCatalogActions({
       if (entry.ownProductId) return runFavorite({ data: { companyId, productId: entry.ownProductId, favorite: value } });
       await runCatalogFavorite({ data: { companyId, sellerCompanyId: entry.sellerId!, sellerProductId: entry.sellerProductId!, favorite: true } });
       await runAdopt({ data: { companyId, sellerCompanyId: entry.sellerId!, sellerProductId: entry.sellerProductId! } });
+      return undefined;
     },
     onSuccess: async (_r, { value }) => {
       await refresh();
