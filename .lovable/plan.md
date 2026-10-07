@@ -133,7 +133,22 @@ Un prodotto può avere più motivi. Il contatore compare sopra l'elenco e il mot
 - `manage_product_stock_package(...)`: crea, modifica e attiva/disattiva le confezioni. Mai cancellazione.
 - `set_supplier_unit_conversion(link_unit, mode, package, factor, indicative)`: salva modalità e conversione con tutte le validazioni.
 - `product_unit_config_issues(company)`: restituisce prodotto e motivi, per il filtro e per la scheda.
-- Servirà una piccola migrazione solo per il campo «da rivedere» sulle confezioni e per le nuove funzioni. Nessuna modifica a tabelle storiche.
+**Migrazione del Passo 2 (solo aggiunte)**
+1. Campi già presenti dal Passo 1, usati ma non ricreati:
+   - `products.stock_unit_id`, `products.stock_base_at`;
+   - `product_stock_packages`: `name`, `unit_id`, `stock_quantity`, `status`;
+   - `product_supplier_link_units`: `conversion_mode`, `conversion_factor`, `indicative_factor`, `package_id`;
+   - `units_of_measure.allows_decimals`.
+2. Campi aggiunti davvero:
+   - `product_stock_packages.package_version integer NOT NULL DEFAULT 1`;
+   - `product_stock_packages.verified_stock_unit_id uuid` (vuoto);
+   - `product_supplier_link_units.verified_stock_unit_id uuid` (vuoto);
+   - `product_supplier_link_units.verified_package_version integer` (vuoto).
+
+   **Nessun campo `da_rivedere`**: lo stato si calcola sempre confrontando i dati.
+3. Trigger: `bump_package_version` (prima di ogni modifica su `product_stock_packages`) aumenta `package_version` di 1 se cambiano `stock_quantity`, `unit_id` o `verified_stock_unit_id`. Il nome e lo stato non cambiano la versione.
+4. Funzioni nuove (SECURITY DEFINER, `search_path=public`): `set_product_stock_unit`, `manage_product_stock_package`, `set_supplier_unit_conversion`, `product_unit_config_issues`, `effective_supplier_conversion`.
+5. Nessuna tabella storica viene toccata: conteggi, rettifiche, movimenti, righe Lista, righe ordine e righe carico restano invariati. Nessun dato esistente viene modificato. Oggi esistono 0 confezioni, quindi non serve alcuna inizializzazione.
 
 **Validazioni (nel database)**
 - Modalità «stessa» solo con U.M. uguali.
