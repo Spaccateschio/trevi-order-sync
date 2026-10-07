@@ -154,7 +154,7 @@ function MeasuredOrderText({ text }: { text: string }) {
       element.style.setProperty("--from", `${containerWidth}px`);
       element.style.setProperty("--to", `${-textWidth}px`);
       element.style.setProperty("--scroll-duration", `${(containerWidth + textWidth) / 60}s`);
-      setScrolling(textWidth > containerWidth);
+      setScrolling(containerWidth > 0 && textWidth > 0);
     };
     const observer = new ResizeObserver(measure);
     observer.observe(container);
