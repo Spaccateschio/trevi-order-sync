@@ -72,7 +72,7 @@
 - [ ] Analisi separata dei 113 avvisi di sicurezza preesistenti (dopo test del ciclo)
 
 - [x] Ripristino barra fissa ricerca/filtri (soglia = altezza reale riquadro sticky)
-- [ ] Ridurre spazio parte superiore Inventario (da rivedere insieme; «Sblocca quantità» resta dov'è)
+- [ ] Compattare la parte superiore Inventario: stato nel riepilogo generale, stampa accanto ai filtri, barra principale e menu stati, descrizioni duplicate rimosse (in attesa di approvazione; «Sblocca quantità» resta dov'è)
 
 - [ ] Lista della Spesa Step 1: card stile Inventario (in attesa decisione su quantità acquisto in U.M. fornitore)
 - [x] Step 2 modello dati Lista/Ordini/Consegne (quantità + U.M. d'acquisto + fornitore)
