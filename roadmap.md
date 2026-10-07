@@ -109,4 +109,6 @@
 - [x] Annullamento fornitore dopo export Danea: promemoria + storico motivo
 - [x] Prove a schermo complete
 - [x] U.M. di magazzino passo 1: fondamenta database (nessun cambiamento visibile)
+- [ ] U.M. di magazzino passo 2: scheda prodotto (scelta U.M. magazzino, confezioni, conversioni) — piano da presentare
+- [ ] U.M. di magazzino passo 3: Inventario usa solo stock_unit_id — piano approvato, non implementare prima del passo 2
 - [ ] U.M. di magazzino passi 2–5: scheda prodotto, carico merce, inventario, Lista (in attesa di via)

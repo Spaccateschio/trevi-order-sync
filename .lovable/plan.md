@@ -41,13 +41,16 @@ Se per il vino non ci sono confezioni dichiarate, si conta solo in bottiglie. Il
 ## Come si calcola la giacenza
 - Partenza = ultimo conteggio confermato **nella U.M. di magazzino attuale** e **dopo `stock_base_at`**, se impostata.
 - Poi si sommano le rettifiche registrate dopo, nella stessa U.M.
-- Conteggi storici in un'altra U.M. (per esempio kg prima del passaggio a pz) non si sommano e non si convertono. La giacenza è «da verificare» finché non c'è un nuovo conteggio.
+- Conteggi storici in un'altra U.M. (per esempio kg prima del passaggio a pz) non si sommano e non si convertono.
+- Dopo un cambio di U.M. (nuova `stock_base_at`), finché non c'è un conteggio valido nella nuova U.M. dopo quella data, la giacenza resta **«Da verificare»**. Non si parte mai da zero in modo implicito.
+- I movimenti registrati nel frattempo si conservano, ma non producono un numero di giacenza finché non esiste la nuova base. Dopo il nuovo conteggio contano solo i movimenti successivi a esso.
 - Nessuna conversione inventata: nessun fattore da U.M. di acquisto o vendita.
 
 ## Conteggi storici
 - Nessuna riga esistente viene modificata o convertita.
 - Lo storico mostra ogni conteggio con la U.M. registrata allora (per esempio «12 kg, 05/10»).
-- Per i prodotti in cui U.M. magazzino = U.M. Danea (122 su 124 oggi), il comportamento resta identico: stessi numeri, stessa U.M.
+- Situazione iniziale: per i prodotti con U.M. magazzino = U.M. Danea (122 su 124 oggi) i numeri non cambiano.
+- Regola definitiva: l'Inventario usa sempre `products.stock_unit_id`, anche quando in futuro non coincide più con Danea. `danea_um` non torna mai a essere un riferimento operativo.
 
 ## Funzioni da modificare (database)
 - `inventory_session_rows`, `inventory_session_progress`, `inventory_location_stock`: U.M. da `stock_unit_id`, giacenza filtrata per U.M. e per `stock_base_at`, stato «U.M. da impostare».
