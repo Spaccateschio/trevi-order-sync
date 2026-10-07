@@ -1367,6 +1367,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             onContinue={() => setSelectingLocation(false)}
           />
         ) : (
+          <UnitChoiceContext.Provider value={unitChoice}>
           <CycleLockContext.Provider value={{
             locked: !sessionId && cycleColor === "rosso",
             cycleSessionId: cycleQuery.data?.session_id ?? null,
@@ -1578,6 +1579,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
             onHideCompletion={() => setShowCompletion(false)}
             closing={closeMutation.isPending}
           />
+          </UnitChoiceContext.Provider>
           </CycleLockContext.Provider>
         )}
       </TabsContent>
