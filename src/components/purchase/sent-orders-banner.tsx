@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, Send, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -28,7 +28,7 @@ function readDismissed(): Set<string> {
  * Un solo banner sottile che scorre con l'ultimo ordine inviato dalla Lista della Spesa.
  * La freccia apre l'elenco degli altri ordini; la ✕ lo chiude (scelta salvata sul dispositivo).
  */
-export function SentOrdersBanner({ companyId }: { companyId: string }) {
+export function SentOrdersBanner({ companyId, measuredScroll = false }: { companyId: string; measuredScroll?: boolean }) {
   const [dismissed, setDismissed] = useState<Set<string>>(() => (typeof window === "undefined" ? new Set() : readDismissed()));
   const [open, setOpen] = useState(false);
 
@@ -82,7 +82,7 @@ export function SentOrdersBanner({ companyId }: { companyId: string }) {
     <div className="rounded-md border border-success/50 bg-success/10 text-foreground" role="status">
       <div className="flex items-center gap-1 px-2 py-1.5">
         <Send className="size-4 shrink-0 text-success" aria-hidden="true" />
-        <div className="relative min-w-0 flex-1 overflow-hidden">
+        {measuredScroll ? <MeasuredOrderText text={label(first)} /> : <div className="relative min-w-0 flex-1 overflow-hidden">
           <Link
             to="/acquisti/ordini"
             className="marquee inline-block whitespace-nowrap text-xs font-semibold hover:underline"
@@ -90,7 +90,7 @@ export function SentOrdersBanner({ companyId }: { companyId: string }) {
           >
             {label(first)}
           </Link>
-        </div>
+        </div>}
         {rest.length > 0 ? (
           <Collapsible open={open} onOpenChange={setOpen}>
             <CollapsibleTrigger asChild>
@@ -133,6 +133,60 @@ export function SentOrdersBanner({ companyId }: { companyId: string }) {
           </CollapsibleContent>
         </Collapsible>
       ) : null}
+    </div>
+  );
+}
+
+function MeasuredOrderText({ text }: { text: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLAnchorElement>(null);
+  const [scrolling, setScrolling] = useState(false);
+  const [touchPaused, setTouchPaused] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const element = textRef.current;
+    if (!container || !element) return;
+
+    const measure = () => {
+      const containerWidth = container.clientWidth;
+      const textWidth = element.scrollWidth;
+      element.style.setProperty("--from", `${containerWidth}px`);
+      element.style.setProperty("--to", `${-textWidth}px`);
+      element.style.setProperty("--scroll-duration", `${(containerWidth + textWidth) / 60}s`);
+      setScrolling(textWidth > containerWidth);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    observer.observe(element);
+    measure();
+    return () => observer.disconnect();
+  }, [text]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="sent-order-scroll relative min-w-0 flex-1 overflow-hidden"
+      data-scrolling={scrolling}
+      data-paused={touchPaused}
+      onPointerDown={(event) => {
+        if (event.pointerType === "touch" || event.pointerType === "pen") {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setTouchPaused(true);
+        }
+      }}
+      onPointerUp={() => setTouchPaused(false)}
+      onPointerCancel={() => setTouchPaused(false)}
+      onLostPointerCapture={() => setTouchPaused(false)}
+    >
+      <Link
+        ref={textRef}
+        to="/acquisti/ordini"
+        className="sent-order-scroll-text inline-block whitespace-nowrap text-xs font-semibold hover:underline"
+        title="Vai all'ordine"
+      >
+        {text}
+      </Link>
     </div>
   );
 }

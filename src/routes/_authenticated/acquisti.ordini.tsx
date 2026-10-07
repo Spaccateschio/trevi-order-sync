@@ -41,7 +41,7 @@ function OrdiniFornitore() {
       title="Ordini fornitore"
       description="L'ordine non è giacenza: il magazzino si muove solo quando confermi il carico merce."
     >
-      {company ? <SentOrdersBanner companyId={company.companyId} /> : null}
+      {company ? <SentOrdersBanner companyId={company.companyId} measuredScroll /> : null}
       {company ? <PurchaseOrdersPanel companyId={company.companyId} /> : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
     </AppShell>
