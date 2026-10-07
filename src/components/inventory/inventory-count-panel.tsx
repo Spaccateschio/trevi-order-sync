@@ -1235,7 +1235,7 @@ export function InventoryCountPanel({
       // Con la stella la referenza B2B diventa prodotto proprio col fornitore collegato
       // (stesso meccanismo del Catalogo, nessun doppione); togliere la stella non cancella nulla.
       if (favorite) {
-        await adoptCatalog({ data: {
+        await adoptProduct({ data: {
           companyId,
           sellerCompanyId: candidate.sellerCompanyId,
           sellerProductId: candidate.sellerProductId,
