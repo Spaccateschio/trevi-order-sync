@@ -85,6 +85,13 @@
       "when": 1791315039159,
       "tag": "0011_order_edit_previous_qty_fallback",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791349959201,
+      "tag": "0012_stock_unit_foundations",
+      "breakpoints": true
     }
   ]
 }
