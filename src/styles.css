@@ -246,7 +246,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sent-order-scroll .sent-order-scroll-text {
+  .sent-order-scroll[data-scrolling] .sent-order-scroll-text {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
