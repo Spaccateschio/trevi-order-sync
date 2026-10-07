@@ -1435,7 +1435,7 @@ td.qty{text-align:right;font-weight:600;min-width:70px;}
               product_id: product.id, location_id: draftLocation?.id ?? "", location_name: draftLocation?.name ?? "—",
               code: product.code, description: product.description, danea_um: product.danea_um,
               category: product.category, subcategory: product.subcategory, is_favorite: previewFavoriteQuery.data?.has(product.id) ?? false,
-              image_path: null, thumbnail_path: null, calculated: stockHistoryQuery.data?.get(product.id)?.stock ?? 0, counted: null, difference: null,
+              image_path: null, thumbnail_path: null, calculated: stockHistoryQuery.data?.get(product.id)?.stock ?? null, counted: null, difference: null,
               counted_at: null, counted_by: null, note: null, recount_requested_at: null, non_compliant: false,
               non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
               min_stock: null, order_multiple: null, counted_unit_code: null, units_comparable: null,
