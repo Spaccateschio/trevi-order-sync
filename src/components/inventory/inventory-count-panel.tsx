@@ -2386,10 +2386,17 @@ function PhysicalCount({
               </p>
             </div>
             {(progress?.missing_unit ?? 0) > 0 ? (
-              <p className="mt-1.5 rounded-sm border border-warning/50 bg-warning/10 px-2 py-1 text-[10px] font-semibold text-warning-foreground">
+              <button
+                type="button"
+                onClick={() => onWorkFilterChange(workFilter === "missing_unit" ? "all" : "missing_unit")}
+                className="mt-1.5 block w-full cursor-pointer rounded-sm border border-warning/50 bg-warning/10 px-2 py-1 text-left text-[10px] font-semibold text-warning-foreground transition-colors hover:bg-warning/20"
+              >
                 {progress!.missing_unit} {progress!.missing_unit === 1 ? "prodotto senza" : "prodotti senza"} U.M. di magazzino: non
-                entra nella giacenza e blocca la chiusura. Filtro «U.M. da impostare».
-              </p>
+                entra nella giacenza e blocca la chiusura.{" "}
+                <span className="underline underline-offset-2">
+                  {workFilter === "missing_unit" ? "Togli il filtro per vedere tutti i prodotti." : "Tocca qui per vedere quali sono."}
+                </span>
+              </button>
             ) : null}
           </>
         ) : null}
