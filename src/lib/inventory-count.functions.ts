@@ -638,6 +638,8 @@ export const recordCountEntry = createServerFn({ method: "POST" })
         ]),
         countedQuantity: z.number().min(0).nullable().default(null),
         unitCode: z.string().trim().max(24).nullable().default(null),
+        /** U.M. scelta da chi conta tra quelle ammesse; il database la verifica. */
+        unitId: z.string().uuid().nullable().default(null),
         notes: z.string().trim().max(500).nullable().default(null),
         nonCompliant: z.boolean().nullable().default(null),
         nonCompliantQuantity: z.number().min(0).nullable().default(null),
@@ -654,6 +656,7 @@ export const recordCountEntry = createServerFn({ method: "POST" })
       _actor_user_id: context.userId,
       ...(data.countedQuantity === null ? {} : { _counted_quantity: data.countedQuantity }),
       ...(data.unitCode === null ? {} : { _unit_code: data.unitCode }),
+      ...(data.unitId === null ? {} : { _unit_id: data.unitId }),
       ...(data.notes === null ? {} : { _notes: data.notes }),
       ...(data.nonCompliant === null ? {} : { _non_compliant: data.nonCompliant }),
       ...(data.nonCompliantQuantity === null ? {} : { _non_compliant_quantity: data.nonCompliantQuantity }),
