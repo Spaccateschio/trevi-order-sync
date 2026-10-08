@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ImageIcon, Loader2, Pencil, Trash2, Upload } from "lucide-react";
-import { useRef } from "react";
+import { Camera, ImageIcon, Loader2, Pencil, Trash2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
