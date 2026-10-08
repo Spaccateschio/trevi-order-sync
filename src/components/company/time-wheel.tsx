@@ -87,11 +87,11 @@ function StepperSegment({
         aria-label={`${ariaLabel}: diminuisci`}
         disabled={disabled}
         onClick={onDecrement}
-        className="h-12 w-10 rounded-none border-r border-border"
+        className="h-11 w-9 rounded-none border-r border-border"
       >
         <Minus className="h-4 w-4" />
       </Button>
-      <div className="flex h-12 w-14 items-center justify-center font-mono text-xl font-bold tabular-nums tracking-tighter text-foreground">
+      <div className="flex h-11 w-12 items-center justify-center font-mono text-lg font-bold tabular-nums tracking-tighter text-foreground">
         {label}
       </div>
       <Button
@@ -101,7 +101,7 @@ function StepperSegment({
         aria-label={`${ariaLabel}: aumenta`}
         disabled={disabled}
         onClick={onIncrement}
-        className="h-12 w-10 rounded-none border-l border-border"
+        className="h-11 w-9 rounded-none border-l border-border"
       >
         <Plus className="h-4 w-4" />
       </Button>
