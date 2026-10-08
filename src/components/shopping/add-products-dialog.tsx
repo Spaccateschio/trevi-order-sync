@@ -49,6 +49,8 @@ type OwnProduct = {
   subcategory: string | null;
   danea_um: string | null;
   created_from_product_id: string | null;
+  /** U.M. di vendita configurate sul prodotto proprio. */
+  product_sale_units?: { units_of_measure: { code: string } | null }[];
 };
 
 type Row = {
@@ -64,7 +66,9 @@ type Row = {
   baseUm: string | null;
   /** Nomi fornitore per il filtro (collegamenti propri o venditore B2B). */
   supplierNames: string[];
-  /** U.M. d'acquisto proponibili: codici già configurati. */
+  /** Per prodotto proprio: nome fornitore → U.M. d'acquisto configurate sul collegamento. */
+  supplierUnits: Record<string, string[]>;
+  /** U.M. d'acquisto proponibili: codici già configurati, senza duplicati. */
   unitCodes: string[];
   /** B2B: solo U.M. pubblicate dal venditore, niente «Altra U.M.». */
   isB2b: boolean;
@@ -128,7 +132,9 @@ export function AddProductsDialog({
     queryFn: async (): Promise<OwnProduct[]> => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, code, description, category, subcategory, danea_um, created_from_product_id")
+        .select(
+          "id, code, description, category, subcategory, danea_um, created_from_product_id, product_sale_units(units_of_measure(code))",
+        )
         .eq("company_id", companyId)
         .eq("archive_id", archiveId)
         .order("code");
@@ -185,18 +191,33 @@ export function AddProductsDialog({
   });
 
   const rows = useMemo<Row[]>(() => {
-    const linksByProduct = new Map<string, { names: Set<string>; units: Set<string> }>();
+    type LinkEntry = { names: Set<string>; units: Set<string>; pairs: { name: string; unit: string | null }[] };
+    const linksByProduct = new Map<string, LinkEntry>();
     for (const link of linksQuery.data ?? []) {
-      const entry = linksByProduct.get(link.product_id) ?? { names: new Set<string>(), units: new Set<string>() };
-      if (link.supplier_records?.legal_name) entry.names.add(link.supplier_records.legal_name);
-      if (link.units_of_measure?.code) entry.units.add(link.units_of_measure.code);
+      const name = link.supplier_records?.legal_name;
+      const unit = link.units_of_measure?.code ?? null;
+      const entry =
+        linksByProduct.get(link.product_id) ?? { names: new Set<string>(), units: new Set<string>(), pairs: [] };
+      if (name) {
+        entry.names.add(name);
+        entry.pairs.push({ name, unit });
+      }
+      if (unit) entry.units.add(unit);
       linksByProduct.set(link.product_id, entry);
     }
 
     const own: Row[] = (productsQuery.data ?? []).map((p) => {
       const links = linksByProduct.get(p.id);
+      const supplierUnits: Record<string, string[]> = {};
+      for (const pair of links?.pairs ?? []) {
+        const list = supplierUnits[pair.name] ?? (supplierUnits[pair.name] = []);
+        if (pair.unit && !list.includes(pair.unit)) list.push(pair.unit);
+      }
       const units = new Set<string>();
       if (p.danea_um) units.add(p.danea_um);
+      for (const code of p.product_sale_units ?? []) {
+        if (code.units_of_measure?.code) units.add(code.units_of_measure.code);
+      }
       for (const code of links?.units ?? []) units.add(code);
       return {
         key: `own:${p.id}`,
@@ -209,6 +230,7 @@ export function AddProductsDialog({
         subcategory: p.subcategory,
         baseUm: p.danea_um,
         supplierNames: [...(links?.names ?? [])],
+        supplierUnits,
         unitCodes: [...units],
         isB2b: false,
       };
@@ -235,6 +257,7 @@ export function AddProductsDialog({
           subcategory: p.subcategory,
           baseUm: p.danea_um,
           supplierNames: [cat.sellerName],
+          supplierUnits: {},
           unitCodes: p.product_sale_units
             .map((u) => u.units_of_measure?.code)
             .filter((code): code is string => Boolean(code)),
@@ -467,10 +490,23 @@ export function AddProductsDialog({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  /** U.M. preselezionata: quella d'acquisto del fornitore scelto nel filtro, altrimenti l'U.M. base.
+   * Per i prodotti B2B resta il comportamento attuale: nessuna preselezione, si usa l'U.M. del fornitore. */
+  const defaultUnit = (row: Row): string => {
+    if (row.isB2b) return "";
+    if (supplierFilter !== "tutti") {
+      const code = row.supplierUnits[supplierFilter]?.find((value) => value && row.unitCodes.includes(value));
+      if (code) return code;
+    }
+    return row.baseUm ?? "";
+  };
+
+  const rowsByKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
+
   /** Scelta dal menu suggerimenti: seleziona subito il prodotto e mostra quantità/U.M. nella lista. */
   const pickSuggestion = (row: Row) => {
     setSelected((current) =>
-      row.key in current ? current : { ...current, [row.key]: { qty: "", unit: "", manual: "" } },
+      row.key in current ? current : { ...current, [row.key]: { qty: "", unit: defaultUnit(row), manual: "" } },
     );
     // Il prodotto scelto deve vedersi subito con quantità e U.M.: il filtro Preferiti
     // potrebbe nasconderlo, quindi si spegne e la ricerca mostra solo lui.
@@ -484,7 +520,7 @@ export function AddProductsDialog({
   const toggle = (key: string, checked: boolean) =>
     setSelected((current) => {
       const next = { ...current };
-      if (checked) next[key] = next[key] ?? { qty: "", unit: "", manual: "" };
+      if (checked) next[key] = next[key] ?? { qty: "", unit: defaultUnit(rowsByKey.get(key)!), manual: "" };
       else delete next[key];
       return next;
     });
