@@ -1097,9 +1097,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             type="button"
             size="sm"
             variant="outline"
-            disabled={listMutation.isPending || !archivesQuery.data?.length}
+            disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
             title="Lista straordinaria, non collegata all'inventario"
-            onClick={() => listMutation.mutate("open")}
+            onClick={() => setNewListOpen(true)}
           >
             <Plus aria-hidden="true" />
             Nuova lista
