@@ -380,6 +380,63 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               : "Lista annullata",
       );
     },
+    onError: (error: Error) => toast.error(error.message,
+  });
+
+  /**
+   * Nuova Lista straordinaria con riempimento iniziale a scelta:
+   * «preferiti» / «tutti» aggiungono i prodotti con quantità vuota e origine «manuale»;
+   * «vuota» lascia la lista vuota come prima. La data proposta resta quella delle preferenze.
+   */
+  const runAddItems = useServerFn(addShoppingListItems);
+  const createListMutation = useMutation({
+    mutationFn: async (mode: "preferiti" | "tutti" | "vuota") => {
+      const archiveId = archivesQuery.data?.[0]?.id ?? null;
+      const opened = await runList({
+        data: { companyId, action: "open", listId: null, archiveId, name: null, notes: null },
+      });
+      await proposeListDate(opened.id);
+      if (mode !== "vuota") {
+        let productIds: string[] = [];
+        if (mode === "preferiti") {
+          productIds = await readFavorites({ data: { companyId } });
+        } else {
+          if (!archiveId) throw new Error("Nessun archivio attivo");
+          const { data, error } = await supabase
+            .from("products")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("archive_id", archiveId)
+            .order("code");
+          if (error) throw new Error(error.message);
+          productIds = ((data ?? []) as { id: string }[]).map((row) => row.id);
+        }
+        // La funzione accetta al massimo 500 righe per chiamata: suddivido in blocchi.
+        for (let i = 0; i < productIds.length; i += 500) {
+          await runAddItems({
+            data: {
+              companyId,
+              listId: opened.id,
+              items: productIds.slice(i, i + 500).map((product_id) => ({ product_id, origin: "manuale" as const })),
+              replaceExisting: false,
+            },
+          });
+        }
+      }
+      return { id: opened.id as string, mode };
+    },
+    onSuccess: async (result) => {
+      setNewListOpen(false);
+      await refresh();
+      setListId(result.id);
+      toast.success(
+        result.mode === "vuota"
+          ? "Lista aperta"
+          : result.mode === "preferiti"
+            ? "Lista aperta con i prodotti preferiti"
+            : "Lista aperta con tutti i prodotti",
+      );
+    },
     onError: (error: Error) => toast.error(error.message),
   });
 
