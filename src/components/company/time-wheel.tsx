@@ -28,7 +28,7 @@ export function TimeWheelPicker({
   }, [value]);
 
   const setHour = (h: number) => onChange(`${pad2(h)}:${pad2(minute)}`);
-  const setMinute = (m: number) => { console.log('setMinute', m, hour); onChange(`${pad2(hour)}:${pad2(m)}`); };
+  const setMinute = (m: number) => onChange(`${pad2(hour)}:${pad2(m)}`);
 
 
   return (
@@ -108,7 +108,6 @@ function WheelColumn({
   }, [value, onChange, disabled, count]);
 
   const onPointerDown = (e: React.PointerEvent) => {
-    console.log('WHEEL down', disabled);
     stripRef.current?.setPointerCapture(e.pointerId);
     dragRef.current = { y: e.clientY, moved: false };
   };
@@ -121,7 +120,7 @@ function WheelColumn({
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
-    console.log('WHEEL up', e.currentTarget.className.slice(0,30), dragRef.current?.moved);
+    const drag = dragRef.current;
     dragRef.current = null;
     setDelta(0);
     if (!drag || disabled) return;
@@ -135,10 +134,9 @@ function WheelColumn({
     const rect = e.currentTarget.getBoundingClientRect();
     if (!rect) return;
     const slot = Math.floor((e.clientY - rect.top) / ITEM_H);
-    console.log('WHEEL click', slot, value, e.clientY, rect.top);
     onChange(clamp(value + (slot - CENTER)));
-
   };
+
 
   const onKeyDownHandler = (e: React.KeyboardEvent) => {
     if (disabled) return;
