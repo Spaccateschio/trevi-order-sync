@@ -1061,7 +1061,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             <div className="relative min-w-40 flex-1">
               <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
-                className="h-8 pl-7 text-xs"
+                className={`h-8 pl-7 text-xs${search ? " border-primary bg-primary/10 font-medium text-primary" : ""}`}
                 value={search}
                 placeholder="Cerca prodotto"
                 aria-label="Cerca prodotto in lista"
@@ -1069,7 +1069,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               />
             </div>
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="h-8 w-36 text-xs" aria-label="Categoria">
+              <SelectTrigger className={`h-8 w-36 text-xs${category !== "all" ? " border-primary bg-primary font-medium text-primary-foreground" : ""}`} aria-label="Categoria">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1080,7 +1080,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               </SelectContent>
             </Select>
             <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-              <SelectTrigger className="h-8 w-36 text-xs" aria-label="Fornitore">
+              <SelectTrigger className={`h-8 w-36 text-xs${supplierFilter !== "all" ? " border-primary bg-primary font-medium text-primary-foreground" : ""}`} aria-label="Fornitore">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1094,7 +1094,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             <Button
               type="button"
               size="sm"
-              variant={flags.has("preferiti") ? "secondary" : "outline"}
+              variant={flags.has("preferiti") ? "default" : "outline"}
               className="h-8 px-2 text-xs"
               aria-pressed={flags.has("preferiti")}
               onClick={() => toggleFlag("preferiti", !flags.has("preferiti"))}
@@ -1103,7 +1103,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </Button>
             <Popover>
               <PopoverTrigger asChild>
-                <Button type="button" size="sm" variant={flags.size ? "secondary" : "outline"} className="h-8 px-2 text-xs">
+                <Button type="button" size="sm" variant={flags.size ? "default" : "outline"} className="h-8 px-2 text-xs">
                   <SlidersHorizontal aria-hidden="true" />
                   Filtra card{flags.size ? ` (${flags.size})` : ""}
                 </Button>
@@ -1133,16 +1133,16 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   key={flag}
                   type="button"
                   onClick={() => toggleFlag(flag, false)}
-                  className="inline-flex h-8 items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 text-xs font-medium text-foreground hover:bg-primary/20"
+                  className="inline-flex h-8 items-center gap-1 rounded-full border border-primary bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/85"
                   aria-label={`Togli il filtro ${label}`}
                 >
                   {label}
-                  <X className="size-3 text-muted-foreground" aria-hidden="true" />
+                  <X className="size-3 text-primary-foreground/70" aria-hidden="true" />
                 </button>
               ))}
             <Popover>
               <PopoverTrigger asChild>
-                <Button type="button" size="sm" variant={hiddenFields ? "secondary" : "outline"} className="h-8 px-2 text-xs">
+                <Button type="button" size="sm" variant={hiddenFields ? "default" : "outline"} className="h-8 px-2 text-xs">
                   <Eye aria-hidden="true" />
                   Visualizza dati{hiddenFields ? ` (${hiddenFields} nascosti)` : ""}
                 </Button>
