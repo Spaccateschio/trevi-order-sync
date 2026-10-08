@@ -198,6 +198,32 @@ export const assignShoppingListSupplier = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Quota «Acquisto diretto» esplicita della riga (solo Lista aperta). quantity null/0 = rimuove. */
+export const setShoppingListDirectQuota = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        companyId: z.string().uuid(),
+        itemId: z.string().uuid(),
+        quantity: z.number().min(0).nullable(),
+        unitId: z.string().uuid().nullable(),
+        unitCode: z.string().trim().max(20).nullable(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("set_shopping_list_direct_quota", {
+      _company_id: data.companyId,
+      _item_id: data.itemId,
+      _quantity: data.quantity ?? 0,
+      ...(data.unitId ? { _unit_id: data.unitId } : {}),
+      ...(data.unitCode ? { _unit_code: data.unitCode } : {}),
+    });
+    if (error) throw new Error(error.message);
+    return result as unknown as { item_id: string; status: string; remaining: number | null };
+  });
+
 export type ClosePreview = {
   list_id: string;
   status: string;
@@ -205,7 +231,9 @@ export type ClosePreview = {
   items_total: number;
   ordered_products: number;
   missing: { item_id: string; name: string; code: string | null }[];
-  direct: { item_id: string; name: string; code: string | null; quantity: number; unit_code: string | null; origin: "intero" | "residuo" }[];
+  unassigned: { item_id: string; name: string; code: string | null }[];
+  partial: { item_id: string; name: string; code: string | null; remaining: number | null }[];
+  direct: { item_id: string; name: string; code: string | null; quantity: number; unit_code: string | null; origin: "esplicito" }[];
   uncertain: { item_id: string; name: string; code: string | null; reason: string }[];
   orders: { supplier_record_id: string; name: string; lines: number }[];
   default_address: { id: string; text: string } | null;
