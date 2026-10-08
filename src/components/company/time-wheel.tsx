@@ -44,12 +44,13 @@ export function TimeWheelPicker({
       <span aria-hidden className="select-none pb-0.5 text-lg font-semibold text-foreground">:</span>
       <WheelColumn
         count={12}
-        value={minute}
+        value={minute / 5}
         onChange={setMinute}
         disabled={disabled}
         ariaLabel="Minuti"
         display={(i) => pad2(i * 5)}
       />
+
 
     </div>
   );
