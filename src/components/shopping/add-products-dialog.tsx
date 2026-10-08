@@ -376,8 +376,10 @@ export function AddProductsDialog({
       setSelected((current) => {
         const draft = current[row.key];
         if (!draft) return current;
-        const { [row.key]: _old, ...rest } = current;
-        return { ...rest, [newKey]: draft };
+        const next: Record<string, Draft> = { ...current };
+        delete next[row.key];
+        next[newKey] = draft;
+        return next;
       });
       return { favorite: true };
     },
