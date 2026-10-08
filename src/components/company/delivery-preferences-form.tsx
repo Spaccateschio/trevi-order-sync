@@ -70,8 +70,22 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
           <p className="text-xs text-muted-foreground">Gli indirizzi si gestiscono in «Dati generali».</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <TimeWheelField label="Orario predefinito — dalle" value={from} onChange={setFrom} />
-          <TimeWheelField label="alle" value={to} onChange={setTo} />
+          <TimeWheelField label="Orario predefinito — inizio consegna" value={from} onChange={setFrom} />
+          <div className="space-y-1">
+            <Label>Durata fascia</Label>
+            <div className="flex gap-2">
+              {([2, 3, 4] as const).map((h) => (
+                <Button key={h} type="button" size="sm" variant={windowHours === h ? "default" : "outline"} onClick={() => setWindowHours(h)}>
+                  {h} ore
+                </Button>
+              ))}
+            </div>
+            {from && (
+              <p className="text-xs text-muted-foreground">
+                Fascia consegnata al cliente: {from} – {addHours(from, windowHours)}
+              </p>
+            )}
+          </div>
         </div>
         <div className="space-y-1">
           <Label>Data predefinita</Label>
