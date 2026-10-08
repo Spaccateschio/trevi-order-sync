@@ -106,7 +106,7 @@ export function ShoppingListCard({
   /** Prodotto dell'inventario non ancora in Lista: stessa card, comandi della Lista non ancora attivi. */
   pending?: boolean;
   /** Decisione salvata in inventory_purchase_evaluation_items (fonte ufficiale del badge di valutazione). */
-  evaluation?: { status: EvaluationBadgeStatus; decided_quantity: number | null };
+  evaluation?: { status: EvaluationBadgeStatus; decided_quantity: number | null } | undefined;
   /** Quantità scritta su un prodotto «Da valutare» (serve solo ad abilitare Conferma). */
   pendingQuantity?: number | null;
   /** «Visualizza dati»: nasconde solo informazioni, non cambia dati né comandi salvati. */
