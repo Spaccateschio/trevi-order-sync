@@ -1547,6 +1547,47 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           }}
         />
       ) : null}
+      <Dialog open={newListOpen} onOpenChange={(open) => { if (!createListMutation.isPending) setNewListOpen(open); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Nuova Lista della Spesa</DialogTitle>
+            <DialogDescription>Come vuoi iniziare? La data «Per quando serve» viene proposta dalle preferenze.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto flex-col items-start gap-0.5 py-2 text-left"
+              disabled={createListMutation.isPending}
+              onClick={() => createListMutation.mutate("preferiti")}
+            >
+              <span className="font-semibold">Solo i preferiti</span>
+              <span className="text-xs font-normal text-muted-foreground">La lista nasce con tutti i prodotti preferiti, quantità da riempire.</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto flex-col items-start gap-0.5 py-2 text-left"
+              disabled={createListMutation.isPending}
+              onClick={() => createListMutation.mutate("tutti")}
+            >
+              <span className="font-semibold">Tutti i prodotti</span>
+              <span className="text-xs font-normal text-muted-foreground">L'intero catalogo della tua azienda, quantità da riempire.</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto flex-col items-start gap-0.5 py-2 text-left"
+              disabled={createListMutation.isPending}
+              onClick={() => createListMutation.mutate("vuota")}
+            >
+              <span className="font-semibold">Lista vuota</span>
+              <span className="text-xs font-normal text-muted-foreground">Aggiungo io i prodotti manualmente, come prima.</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ListHistoryDialog companyId={companyId} open={historyOpen} onOpenChange={setHistoryOpen} />
 
       {splitItem ? (
