@@ -18,7 +18,7 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
   const prefs = useDeliveryPreferences(companyId);
   const [addressId, setAddressId] = useState<string>(NONE);
   const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [windowHours, setWindowHours] = useState<2 | 3 | 4>(4);
   const [day, setDay] = useState<DeliveryDay>("oggi");
   const [saving, setSaving] = useState(false);
 
@@ -26,18 +26,17 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
     if (!prefs.data) return;
     setAddressId(prefs.data.addressId ?? NONE);
     setFrom(hhmm(prefs.data.timeFrom));
-    setTo(hhmm(prefs.data.timeTo));
+    setWindowHours(prefs.data.windowHours);
     setDay(prefs.data.day);
   }, [prefs.data]);
 
   const save = async () => {
-    if (from && to && from >= to) { toast.error("L'orario «dalle» deve precedere «alle»"); return; }
     setSaving(true);
     const { error } = await supabase.rpc("manage_company_delivery_preferences", {
       _company_id: companyId,
       _address_id: (addressId === NONE ? null : addressId) as string,
       _time_from: (from || null) as string,
-      _time_to: (to || null) as string,
+      _window_hours: windowHours,
       _day: day,
     });
     setSaving(false);
