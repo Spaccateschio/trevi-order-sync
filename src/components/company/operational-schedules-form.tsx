@@ -41,7 +41,7 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
     },
   });
   const [days, setDays] = useState<Days>(NO_DAYS);
-  const [time, setTime] = useState("");
+  const [time, setTime] = useState("09:00");
   const [enabled, setEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -94,10 +94,13 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
             </label>
           ))}
         </div>
-        <div className="w-28">
-          <Label htmlFor="op-time" className="text-xs">Ora promemoria</Label>
-          <TimeInput24 id="op-time" value={time} onChange={setTime} disabled={disabled} />
+        <div>
+          <Label className="text-xs">Ora promemoria</Label>
+          <div className="mt-1">
+            <TimeWheelPicker value={time} onChange={setTime} disabled={disabled} />
+          </div>
         </div>
+
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={enabled} onCheckedChange={setEnabled} disabled={disabled} />
           Attivo
