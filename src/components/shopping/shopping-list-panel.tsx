@@ -380,7 +380,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               : "Lista annullata",
       );
     },
-    onError: (error: Error) => toast.error(error.message,
+    onError: (error: Error) => toast.error(error.message),
   });
 
   /**
