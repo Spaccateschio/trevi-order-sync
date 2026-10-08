@@ -75,9 +75,10 @@ function WheelColumn({
   count: number;
   value: number;
   onChange: (v: number) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   ariaLabel: string;
-  display?: (i: number) => string;
+  display?: ((i: number) => string) | undefined;
+
 }) {
 
   const stripRef = useRef<HTMLDivElement>(null);
