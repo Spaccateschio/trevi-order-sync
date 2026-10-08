@@ -180,6 +180,10 @@ export function ProductImageManager({ productId, image, editable, top = false }:
         <p className="text-sm font-medium">{image ? imageQuery.isLoading ? "Caricamento immagine…" : "Immagine Trevi Fruit" : "Nessuna immagine"}</p>
         {editable ? <div className="mt-2 flex flex-wrap gap-2">
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => inputRef.current?.click()}>{image ? <Pencil /> : <Upload />}{image ? "Sostituisci" : "Carica immagine"}</Button>
+          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => {
+            if (isCoarsePointer()) cameraInputRef.current?.click();
+            else setWebcamOpen(true);
+          }}><Camera />Scatta foto</Button>
           {image ? <AlertDialog><Button type="button" variant="destructive" size="sm" disabled={busy} asChild><AlertDialogTrigger><span><Trash2 />Rimuovi</span></AlertDialogTrigger></Button><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Rimuovere l’immagine?</AlertDialogTitle><AlertDialogDescription>L’immagine Trevi Fruit verrà rimossa da questo prodotto. I riferimenti immagine Danea resteranno invariati.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => removeMutation.mutate()}>Rimuovi immagine</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog> : null}
         </div> : null}
       </div>
