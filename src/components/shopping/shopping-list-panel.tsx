@@ -399,7 +399,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       if (mode !== "vuota") {
         let productIds: string[] = [];
         if (mode === "preferiti") {
-          productIds = await readFavorites({ data: { companyId } });
+          const { data, error } = await supabase
+            .from("company_product_favorites")
+            .select("product_id")
+            .eq("company_id", companyId);
+          if (error) throw new Error(error.message);
+          productIds = ((data ?? []) as { product_id: string }[]).map((row) => row.product_id);
         } else {
           if (!archiveId) throw new Error("Nessun archivio attivo");
           const { data, error } = await supabase
