@@ -983,6 +983,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       }
     >
       {ITEM_STATUS_LABEL[row.status]}
+      {row.status === "parziale" && row.remaining !== null ? ` · ${qty(row.remaining)} da assegnare` : ""}
     </Badge>
   );
 
@@ -992,6 +993,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       className="shrink-0 px-1 py-0 text-[10px]"
     >
       {ITEM_STATUS_LABEL[row.status]}
+      {row.status === "parziale" && row.remaining !== null ? ` · ${qty(row.remaining)} da assegnare` : ""}
     </Badge>
   );
 
