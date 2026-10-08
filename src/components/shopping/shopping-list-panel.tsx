@@ -58,7 +58,9 @@ import {
   type OverviewRow,
   type ShoppingListRow,
 } from "@/lib/shopping-list";
-import { describeOperationalSchedule, type OperationalScheduleRow } from "@/lib/operational-schedule";
+import { describeOperationalSchedule, hasTodayOverride, type OperationalScheduleRow } from "@/lib/operational-schedule";
+import { TimeWheelPicker } from "@/components/company/time-wheel";
+import { hasRole, useIdentity } from "@/hooks/use-identity";
 import {
   confirmShoppingListProduct,
   manageShoppingList,
@@ -215,13 +217,34 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     queryFn: async (): Promise<OperationalScheduleRow | null> => {
       const { data, error } = await supabase
         .from("company_operational_schedules")
-        .select("schedule_type, enabled, reminder_time, monday, tuesday, wednesday, thursday, friday, saturday, sunday")
+        .select("schedule_type, enabled, reminder_time, override_date, override_time, monday, tuesday, wednesday, thursday, friday, saturday, sunday")
         .eq("company_id", companyId)
         .eq("schedule_type", "shopping_list")
         .maybeSingle();
       if (error) throw new Error(error.message);
       return (data ?? null) as OperationalScheduleRow | null;
     },
+  });
+
+  // Eccezione «solo oggi»: solo gli amministratori, la regola standard resta in Azienda → Preferenze.
+  const { data: identity } = useIdentity();
+  const isAdmin = hasRole(identity, "amministratore");
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideTime, setOverrideTime] = useState("09:30");
+  const overrideMutation = useMutation({
+    mutationFn: async (time: string | null) => {
+      const { error } = await supabase.rpc("set_shopping_list_schedule_override", {
+        _company_id: companyId,
+        _time: time as string,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: scheduleKey });
+      setOverrideOpen(false);
+      toast.success("Promemoria di oggi aggiornato");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Errore nel salvataggio"),
   });
 
   // Quale inventario ha originato ogni Lista (solo per le etichette del selettore).
@@ -995,11 +1018,52 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             {scheduleQuery.isLoading ? "…" : describeOperationalSchedule(scheduleQuery.data)}
           </span>
         </div>
-        <Button asChild size="sm" variant="link" className="h-auto p-0 text-xs">
-          <Link to="/amministrazione" search={{ sezione: "preferenze" }}>
-            Modifica in Azienda → Preferenze
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdmin && scheduleQuery.data ? (
+            <Popover open={overrideOpen} onOpenChange={setOverrideOpen}>
+              <PopoverTrigger asChild>
+                <Button type="button" size="sm" variant="link" className="h-auto p-0 text-xs">
+                  Cambia orario
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64 space-y-3">
+                <p className="text-xs font-medium">A che ora vuoi il promemoria?</p>
+                <TimeWheelPicker value={overrideTime} onChange={setOverrideTime} />
+                <div className="flex flex-col gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={overrideMutation.isPending}
+                    onClick={() => overrideMutation.mutate(overrideTime)}
+                  >
+                    Solo oggi
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/amministrazione" search={{ sezione: "preferenze" }}>
+                      Sempre (in Azienda → Preferenze)
+                    </Link>
+                  </Button>
+                  {hasTodayOverride(scheduleQuery.data) ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={overrideMutation.isPending}
+                      onClick={() => overrideMutation.mutate(null)}
+                    >
+                      Annulla l'eccezione di oggi
+                    </Button>
+                  ) : null}
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : null}
+          <Button asChild size="sm" variant="link" className="h-auto p-0 text-xs">
+            <Link to="/amministrazione" search={{ sezione: "preferenze" }}>
+              Modifica in Azienda → Preferenze
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {!list && !previewMode && !listsQuery.isLoading ? (() => {
