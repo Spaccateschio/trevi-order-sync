@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ImageOff, Search, Star } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +117,10 @@ export function AddProductsDialog({
   /** All'apertura solo i Preferiti; togliendo il filtro si vedono anche i cataloghi B2B. */
   const [favoritesOnly, setFavoritesOnly] = useState(true);
   const [selected, setSelected] = useState<Record<string, Draft>>({});
+  /** Ricerca rapida: menu suggerimenti sotto il campo Cerca. */
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const productsQuery = useQuery({
     queryKey: ["shopping-add-products", companyId, archiveId],
@@ -298,10 +302,48 @@ export function AddProductsDialog({
 
   const visible = filtered.slice(0, limit);
 
-  const imageIds = useMemo(
-    () => visible.map((row) => row.ownProductId).filter((id): id is string => Boolean(id)).slice(0, 50),
-    [visible],
-  );
+  /**
+   * Suggerimenti della ricerca rapida: da 2 caratteri, massimo 10.
+   * Il filtro Preferiti NON si applica (serve a trovare anche prodotti non preferiti);
+   * fornitore, categoria e sottocategoria sì. Ordine: corrispondenza esatta,
+   * nome che inizia con il testo, nome che lo contiene, codice corrispondente.
+   */
+  const suggestions = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (term.length < 2) return [];
+    const matches = rows.filter((row) => {
+      if (supplierFilter === "senza" && row.supplierNames.length > 0) return false;
+      if (supplierFilter !== "tutti" && supplierFilter !== "senza" && !row.supplierNames.includes(supplierFilter))
+        return false;
+      if (categoryFilter !== "tutte" && row.category !== categoryFilter) return false;
+      if (subcategoryFilter !== "tutte" && row.subcategory !== subcategoryFilter) return false;
+      const name = (row.description ?? "").toLowerCase();
+      const code = row.code.toLowerCase();
+      return name.includes(term) || code.includes(term);
+    });
+    const rank = (row: Row) => {
+      const name = (row.description ?? "").toLowerCase();
+      const code = row.code.toLowerCase();
+      if (name === term || code === term) return 0;
+      if (name.startsWith(term)) return 1;
+      if (name.includes(term)) return 2;
+      return 3;
+    };
+    return matches
+      .sort(
+        (a, b) =>
+          rank(a) - rank(b) ||
+          (a.description ?? a.code).localeCompare(b.description ?? b.code, "it") ||
+          a.code.localeCompare(b.code, "it"),
+      )
+      .slice(0, 10);
+  }, [rows, search, supplierFilter, categoryFilter, subcategoryFilter]);
+
+  const imageIds = useMemo(() => {
+    const ids = visible.map((row) => row.ownProductId).filter((id): id is string => Boolean(id));
+    for (const row of suggestions) if (row.ownProductId) ids.push(row.ownProductId);
+    return [...new Set(ids)].slice(0, 50);
+  }, [visible, suggestions]);
   const imagesQuery = useQuery({
     queryKey: ["shopping-add-images", imageIds],
     enabled: open && imageIds.length > 0,
@@ -412,6 +454,20 @@ export function AddProductsDialog({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  /** Scelta dal menu suggerimenti: seleziona subito il prodotto e mostra quantità/U.M. nella lista. */
+  const pickSuggestion = (row: Row) => {
+    setSelected((current) =>
+      row.key in current ? current : { ...current, [row.key]: { qty: "", unit: "", manual: "" } },
+    );
+    // Il prodotto scelto deve vedersi subito con quantità e U.M.: il filtro Preferiti
+    // potrebbe nasconderlo, quindi si spegne e la ricerca mostra solo lui.
+    setFavoritesOnly(false);
+    setSearch(row.code);
+    setSuggestOpen(false);
+    setActiveSuggestion(0);
+    searchInputRef.current?.focus();
+  };
+
   const toggle = (key: string, checked: boolean) =>
     setSelected((current) => {
       const next = { ...current };
@@ -478,16 +534,91 @@ export function AddProductsDialog({
           <div className="relative">
             <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
+              ref={searchInputRef}
               className="h-8 pl-8 text-sm"
               autoFocus={!inline}
               value={search}
               placeholder="Codice o descrizione"
               aria-label="Cerca prodotto da aggiungere"
+              aria-expanded={suggestOpen && suggestions.length > 0}
+              aria-controls="suggerimenti-rapidi"
+              role="combobox"
               onChange={(event) => {
                 setSearch(event.target.value);
                 setLimit(PAGE);
+                setSuggestOpen(true);
+                setActiveSuggestion(0);
+              }}
+              onFocus={() => setSuggestOpen(true)}
+              onBlur={() => {
+                // Ritardo per permettere il click sul suggerimento prima della chiusura.
+                window.setTimeout(() => setSuggestOpen(false), 150);
+              }}
+              onKeyDown={(event) => {
+                if (!suggestOpen || suggestions.length === 0) {
+                  if (event.key === "Escape") setSuggestOpen(false);
+                  return;
+                }
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  setActiveSuggestion((i) => (i + 1) % suggestions.length);
+                } else if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  setActiveSuggestion((i) => (i - 1 + suggestions.length) % suggestions.length);
+                } else if (event.key === "Enter") {
+                  event.preventDefault();
+                  const row = suggestions[activeSuggestion] ?? suggestions[0];
+                  if (row) pickSuggestion(row);
+                } else if (event.key === "Escape") {
+                  setSuggestOpen(false);
+                }
               }}
             />
+            {suggestOpen && suggestions.length > 0 ? (
+              <ul
+                id="suggerimenti-rapidi"
+                role="listbox"
+                aria-label="Suggerimenti prodotti"
+                className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-md border border-border bg-popover shadow-md"
+              >
+                {suggestions.map((row, index) => {
+                  const fav = row.ownProductId ? (favoritesQuery.data?.has(row.ownProductId) ?? false) : false;
+                  const inList = row.ownProductId ? existingProductIds.has(row.ownProductId) : false;
+                  return (
+                    <li key={row.key} role="option" aria-selected={index === activeSuggestion}>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex w-full items-center gap-2 px-2 py-1.5 text-left",
+                          index === activeSuggestion && "bg-accent",
+                        )}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => pickSuggestion(row)}
+                        onMouseEnter={() => setActiveSuggestion(index)}
+                      >
+                        <Thumb url={row.ownProductId ? (images.get(row.ownProductId) ?? null) : null} />
+                        <span className="min-w-0 flex-1 text-xs">
+                          <span className="block truncate font-medium">{row.description ?? row.code}</span>
+                          <span className="block truncate text-muted-foreground">
+                            <span className="font-mono">{row.code}</span>
+                            {row.baseUm ? ` · ${row.baseUm}` : ""}
+                            {" · "}
+                            {catalogSupplierLabel(row)}
+                          </span>
+                        </span>
+                        {inList ? (
+                          <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">In lista</Badge>
+                        ) : null}
+                        <Star
+                          className={cn("size-3.5 shrink-0", fav ? "fill-current text-primary" : "text-muted-foreground/40")}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
           </div>
           <Select
             value={supplierFilter}
