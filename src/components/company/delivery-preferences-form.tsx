@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,7 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
   const [windowHours, setWindowHours] = useState<2 | 3 | 4>(4);
   const [day, setDay] = useState<DeliveryDay>("oggi");
   const [saving, setSaving] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   useEffect(() => {
     if (!prefs.data) return;
@@ -28,6 +29,8 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
     setFrom(hhmm(prefs.data.timeFrom));
     setWindowHours(prefs.data.windowHours);
     setDay(prefs.data.day);
+    // Bloccata se esistono valori salvati; si sblocca con la matita.
+    setLocked(Boolean(prefs.data.addressId || prefs.data.timeFrom));
   }, [prefs.data]);
 
   const save = async () => {
