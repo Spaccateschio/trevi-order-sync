@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell, PlaceholderCard } from "@/components/app-shell";
 import { AddressManager } from "@/components/companies/address-manager";
 import { DeliveryPreferencesForm } from "@/components/company/delivery-preferences-form";
+import { OperationalSchedulesForm } from "@/components/company/operational-schedules-form";
 import { CompanyPhoneForm } from "@/components/company/company-phone-form";
 import { UnitCatalogue } from "@/components/company/unit-catalogue";
 import { InventoryLocationsManager } from "@/components/inventory/inventory-locations-manager";
@@ -152,6 +153,7 @@ function Amministrazione() {
 
           <TabsContent value="preferenze">
             <DeliveryPreferencesForm companyId={company.companyId} />
+            <OperationalSchedulesForm companyId={company.companyId} isAdmin={allowed} />
           </TabsContent>
         </Tabs>
       ) : (

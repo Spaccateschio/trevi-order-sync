@@ -503,6 +503,68 @@ export type Database = {
           },
         ]
       }
+      company_operational_schedules: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          friday: boolean
+          id: string
+          monday: boolean
+          reminder_time: string | null
+          saturday: boolean
+          schedule_type: string
+          sunday: boolean
+          thursday: boolean
+          tuesday: boolean
+          updated_at: string
+          wednesday: boolean
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          friday?: boolean
+          id?: string
+          monday?: boolean
+          reminder_time?: string | null
+          saturday?: boolean
+          schedule_type: string
+          sunday?: boolean
+          thursday?: boolean
+          tuesday?: boolean
+          updated_at?: string
+          wednesday?: boolean
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          friday?: boolean
+          id?: string
+          monday?: boolean
+          reminder_time?: string | null
+          saturday?: boolean
+          schedule_type?: string
+          sunday?: boolean
+          thursday?: boolean
+          tuesday?: boolean
+          updated_at?: string
+          wednesday?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_operational_schedules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_product_favorites: {
         Row: {
           company_id: string
@@ -6212,6 +6274,44 @@ export type Database = {
           _time_to: string
         }
         Returns: undefined
+      }
+      manage_company_operational_schedule: {
+        Args: {
+          _company_id: string
+          _enabled: boolean
+          _friday: boolean
+          _monday: boolean
+          _reminder_time: string
+          _saturday: boolean
+          _schedule_type: string
+          _sunday: boolean
+          _thursday: boolean
+          _tuesday: boolean
+          _wednesday: boolean
+        }
+        Returns: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          friday: boolean
+          id: string
+          monday: boolean
+          reminder_time: string | null
+          saturday: boolean
+          schedule_type: string
+          sunday: boolean
+          thursday: boolean
+          tuesday: boolean
+          updated_at: string
+          wednesday: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "company_operational_schedules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       manage_company_product_favorite: {
         Args: {

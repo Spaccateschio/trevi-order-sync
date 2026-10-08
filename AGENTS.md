@@ -25,3 +25,4 @@
 - Inventario: U.M. sono solo etichette; chi conta sceglie tra product_inventory_units (scritte solo da manage_product_inventory_unit / set_product_stock_unit), stock_unit_id = principale; conteggi con fattore 1, nessuna conversione; giacenza NULL senza conteggio valido; prodotti senza U.M. hanno la card bloccata ma non bloccano la chiusura; allows_decimals non usato.
 
 - Inventory card edits use a per-row UI unlock state: successful saves relock, failed saves remain editable, and all quantity/unit commands share a guard; existing cycle authorization and server validation remain authoritative.
+- Recurring company operational schedules (e.g. shopping-list reminder) live only in company_operational_schedules, one row per company+schedule_type, written only via manage_company_operational_schedule (admin check in DB): kept separate from company_settings delivery preferences.
