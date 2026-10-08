@@ -130,11 +130,13 @@ function WheelColumn({
       onChange(clamp(value - Math.round((e.clientY - drag.y) / ITEM_H)));
       return;
     }
-    // Tocco/click semplice: seleziona la riga toccata.
-    const rect = stripRef.current?.getBoundingClientRect();
+    // Tocco/click semplice: seleziona la riga toccata (slot calcolato sul contenitore,
+    // non sulla strip traslata).
+    const rect = e.currentTarget.getBoundingClientRect();
     if (!rect) return;
     const slot = Math.floor((e.clientY - rect.top) / ITEM_H);
     onChange(clamp(value + (slot - CENTER)));
+
   };
 
   const onKeyDownHandler = (e: React.KeyboardEvent) => {
