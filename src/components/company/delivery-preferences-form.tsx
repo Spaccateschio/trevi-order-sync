@@ -45,15 +45,26 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     await queryClient.invalidateQueries({ queryKey: ["delivery-preferences", companyId] });
+    setLocked(true);
     toast.success("Preferenze di consegna salvate");
   };
 
   return (
     <section className="rounded-lg border border-border bg-card p-5 shadow-sm">
-      <h2 className="font-display text-base font-semibold">Preferenze di consegna</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Valori proposti alla chiusura della Lista: puoi sempre cambiarli per la singola Lista o il singolo ordine.
-      </p>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="font-display text-base font-semibold">Preferenze di consegna</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Valori proposti alla chiusura della Lista: puoi sempre cambiarli per la singola Lista o il singolo ordine.
+          </p>
+        </div>
+        {locked && (
+          <Button type="button" size="sm" variant="outline" onClick={() => setLocked(false)}>
+            <Pencil className="mr-1 h-4 w-4" />
+            Modifica
+          </Button>
+        )}
+      </div>
       <div className="mt-4 grid gap-4 sm:max-w-xl">
         <div className="space-y-1">
           <Label>Destinazione predefinita</Label>
