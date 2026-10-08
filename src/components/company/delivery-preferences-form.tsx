@@ -68,28 +68,18 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
       <div className="mt-4 grid gap-4 sm:max-w-xl">
         <div className="space-y-1">
           <Label>Destinazione predefinita</Label>
-          <Select value={addressId} onValueChange={setAddressId}>
+          <Select value={addressId} onValueChange={setAddressId} disabled={locked}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>Nessuna</SelectItem>
-              {(prefs.data?.addresses ?? []).map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.text || "Indirizzo senza descrizione"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">Gli indirizzi si gestiscono in «Dati generali».</p>
-        </div>
+...
         <div className="grid gap-3 sm:grid-cols-2">
-          <TimeWheelField label="Orario predefinito — inizio consegna" value={from} onChange={setFrom} />
+          <TimeWheelField label="Orario predefinito — inizio consegna" value={from} onChange={setFrom} disabled={locked} />
           <div className="space-y-1">
             <Label>Durata fascia</Label>
             <div className="flex gap-2">
               {([2, 3, 4] as const).map((h) => (
-                <Button key={h} type="button" size="sm" variant={windowHours === h ? "default" : "outline"} onClick={() => setWindowHours(h)}>
+                <Button key={h} type="button" size="sm" variant={windowHours === h ? "default" : "outline"} disabled={locked} onClick={() => setWindowHours(h)}>
                   {h} ore
                 </Button>
               ))}
@@ -104,19 +94,21 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
         <div className="space-y-1">
           <Label>Data predefinita</Label>
           <div className="flex gap-2">
-            <Button type="button" size="sm" variant={day === "oggi" ? "default" : "outline"} onClick={() => setDay("oggi")}>
+            <Button type="button" size="sm" variant={day === "oggi" ? "default" : "outline"} disabled={locked} onClick={() => setDay("oggi")}>
               Oggi
             </Button>
-            <Button type="button" size="sm" variant={day === "domani" ? "default" : "outline"} onClick={() => setDay("domani")}>
+            <Button type="button" size="sm" variant={day === "domani" ? "default" : "outline"} disabled={locked} onClick={() => setDay("domani")}>
               Domani
             </Button>
           </div>
         </div>
-        <div>
-          <Button onClick={() => void save()} disabled={saving || !prefs.data}>
-            Salva preferenze
-          </Button>
-        </div>
+        {!locked && (
+          <div>
+            <Button onClick={() => void save()} disabled={saving || !prefs.data}>
+              Salva preferenze
+            </Button>
+          </div>
+        )}
       </div>
     </section>
   );
