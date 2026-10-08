@@ -94,3 +94,38 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
     </section>
   );
 }
+
+/**
+ * Orario opzionale con rotella: vuoto = nessun orario predefinito.
+ * La rotella compare solo quando l'orario è impostato; «Rimuovi» lo svuota.
+ */
+function TimeWheelField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label>{label}</Label>
+      {value ? (
+        <div className="flex items-start gap-2">
+          <TimeWheelPicker value={value} onChange={onChange} />
+          <Button type="button" size="sm" variant="outline" onClick={() => onChange("")}>
+            Rimuovi
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Nessun orario</span>
+          <Button type="button" size="sm" variant="outline" onClick={() => onChange("09:00")}>
+            Imposta
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
