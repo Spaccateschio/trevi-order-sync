@@ -286,6 +286,8 @@ export function AddProductsDialog({
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
+      // Una riga già scelta resta sempre visibile (stella, filtri o codice cambiato non la nascondono).
+      if (row.key in selected) return true;
       if (applyFavorites && !(row.ownProductId && favoritesQuery.data?.has(row.ownProductId))) return false;
       if (supplierFilter === "senza" && row.supplierNames.length > 0) return false;
       if (supplierFilter !== "tutti" && supplierFilter !== "senza" && !row.supplierNames.includes(supplierFilter))
@@ -298,7 +300,7 @@ export function AddProductsDialog({
         (row.description ?? "").toLowerCase().includes(term)
       );
     });
-  }, [rows, search, supplierFilter, categoryFilter, subcategoryFilter, applyFavorites, favoritesQuery.data]);
+  }, [rows, search, supplierFilter, categoryFilter, subcategoryFilter, applyFavorites, favoritesQuery.data, selected]);
 
   const visible = filtered.slice(0, limit);
 
@@ -367,7 +369,18 @@ export function AddProductsDialog({
       await runCatalogFavorite({
         data: { companyId, sellerCompanyId: row.sellerId!, sellerProductId, favorite: true },
       });
-      await runAdopt({ data: { companyId, sellerCompanyId: row.sellerId!, sellerProductId } });
+      const adopted = await runAdopt({ data: { companyId, sellerCompanyId: row.sellerId!, sellerProductId } });
+      // La referenza B2B diventa prodotto proprio: la riga cambia identità, quindi la scelta
+      // (quantità e U.M. già scritte) passa alla nuova riga invece di sparire.
+      const newKey = `own:${adopted.productId}`;
+      setSelected((current) => {
+        const draft = current[row.key];
+        if (!draft) return current;
+        const next: Record<string, Draft> = { ...current };
+        delete next[row.key];
+        next[newKey] = draft;
+        return next;
+      });
       return { favorite: true };
     },
     onSuccess: async (_result, input) => {
