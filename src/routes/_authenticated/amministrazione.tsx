@@ -21,8 +21,10 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/amministrazione")({
-  validateSearch: (search: Record<string, unknown>): { sezione?: "magazzino" } =>
-    search["sezione"] === "magazzino" ? { sezione: "magazzino" } : {},
+  validateSearch: (search: Record<string, unknown>): { sezione?: "magazzino" | "preferenze" } =>
+    search["sezione"] === "magazzino" || search["sezione"] === "preferenze"
+      ? { sezione: search["sezione"] as "magazzino" | "preferenze" }
+      : {},
   head: () => ({
     meta: [
       { title: "Azienda — Trevi Fruit" },
