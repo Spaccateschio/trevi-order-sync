@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ImageIcon, Loader2, Pencil, Trash2, Upload } from "lucide-react";
-import { useRef } from "react";
+import { Camera, ImageIcon, Loader2, Pencil, Trash2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -73,8 +73,62 @@ async function optimize(file: File) {
   }
 }
 
+function isCoarsePointer() {
+  return typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true;
+}
+
+function WebcamCapture({ onCapture, onClose }: { onCapture: (file: File) => void; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    navigator.mediaDevices?.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+      .then((stream) => {
+        if (cancelled) { stream.getTracks().forEach((track) => track.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      })
+      .catch(() => { if (!cancelled) setError("Fotocamera non disponibile o permesso negato. Usa «Carica immagine»."); });
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+  }, []);
+
+  const shoot = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      onCapture(new File([blob], "foto.jpg", { type: "image/jpeg" }));
+    }, "image/jpeg", 0.92);
+  };
+
+  return <div className="mt-2 border border-border bg-muted/30 p-2">
+    {error ? <p className="text-sm text-destructive">{error}</p> : <>
+      <video ref={videoRef} autoPlay playsInline muted className="max-h-64 w-full object-contain" />
+      <div className="mt-2 flex gap-2">
+        <Button type="button" size="sm" onClick={shoot}><Camera />Scatta</Button>
+        <Button type="button" variant="outline" size="sm" onClick={onClose}>Annulla</Button>
+      </div>
+    </>}
+    {error ? <div className="mt-2"><Button type="button" variant="outline" size="sm" onClick={onClose}>Chiudi</Button></div> : null}
+  </div>;
+}
+
 export function ProductImageManager({ productId, image, editable, top = false }: { productId: string; image: ImageMeta; editable: boolean; top?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [webcamOpen, setWebcamOpen] = useState(false);
   const queryClient = useQueryClient();
   const getUrls = useServerFn(getProductImageUrls);
   const save = useServerFn(saveProductImage);
@@ -115,15 +169,25 @@ export function ProductImageManager({ productId, image, editable, top = false }:
       event.currentTarget.value = "";
       if (file) saveMutation.mutate(file);
     }} />
+    <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(event) => {
+      const file = event.target.files?.[0];
+      event.currentTarget.value = "";
+      if (file) saveMutation.mutate(file);
+    }} />
     <div className="mt-2 flex min-h-20 items-center gap-3 border border-border bg-muted/30 p-2">
       {image && imageQuery.data?.url ? <img src={imageQuery.data.url} alt="Immagine del prodotto" className="h-24 w-24 shrink-0 object-contain" /> : <div className="grid h-20 w-20 shrink-0 place-items-center border border-dashed border-border text-muted-foreground"><ImageIcon className="h-6 w-6" /></div>}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{image ? imageQuery.isLoading ? "Caricamento immagine…" : "Immagine Trevi Fruit" : "Nessuna immagine"}</p>
         {editable ? <div className="mt-2 flex flex-wrap gap-2">
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => inputRef.current?.click()}>{image ? <Pencil /> : <Upload />}{image ? "Sostituisci" : "Carica immagine"}</Button>
+          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => {
+            if (isCoarsePointer()) cameraInputRef.current?.click();
+            else setWebcamOpen(true);
+          }}><Camera />Scatta foto</Button>
           {image ? <AlertDialog><Button type="button" variant="destructive" size="sm" disabled={busy} asChild><AlertDialogTrigger><span><Trash2 />Rimuovi</span></AlertDialogTrigger></Button><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Rimuovere l’immagine?</AlertDialogTitle><AlertDialogDescription>L’immagine Trevi Fruit verrà rimossa da questo prodotto. I riferimenti immagine Danea resteranno invariati.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => removeMutation.mutate()}>Rimuovi immagine</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog> : null}
         </div> : null}
       </div>
     </div>
+    {webcamOpen ? <WebcamCapture onCapture={(file) => { setWebcamOpen(false); saveMutation.mutate(file); }} onClose={() => setWebcamOpen(false)} /> : null}
   </section>;
 }
