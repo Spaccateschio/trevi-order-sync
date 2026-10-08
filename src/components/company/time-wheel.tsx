@@ -132,6 +132,7 @@ function WheelColumn({
     // Tocco/click semplice: seleziona la riga toccata (slot calcolato sul contenitore,
     // non sulla strip traslata).
     const rect = e.currentTarget.getBoundingClientRect();
+    console.log('CLICK-BRANCH', drag.moved, e.clientY, drag.y, rect.top);
     if (!rect) return;
     const slot = Math.floor((e.clientY - rect.top) / ITEM_H);
     onChange(clamp(value + (slot - CENTER)));
