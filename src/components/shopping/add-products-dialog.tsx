@@ -132,7 +132,9 @@ export function AddProductsDialog({
     queryFn: async (): Promise<OwnProduct[]> => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, code, description, category, subcategory, danea_um, created_from_product_id")
+        .select(
+          "id, code, description, category, subcategory, danea_um, created_from_product_id, product_sale_units(units_of_measure(code))",
+        )
         .eq("company_id", companyId)
         .eq("archive_id", archiveId)
         .order("code");
