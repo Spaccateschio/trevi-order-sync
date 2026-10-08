@@ -74,6 +74,7 @@ export const ITEM_STATUS_LABEL: Record<ItemStatus, string> = {
   da_assegnare: "Da assegnare",
   parziale: "Parziale",
   assegnata: "Assegnata",
+  da_verificare: "Da verificare",
   manuale: "Acquisto manuale",
 };
 

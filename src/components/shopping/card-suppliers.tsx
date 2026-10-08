@@ -1010,7 +1010,7 @@ function DirectQuota({ companyId, itemId, editable, unitCode }: { companyId: str
         onSubmit={(e) => {
           e.preventDefault();
           const n = parseQuantity(value);
-          if (n === null || n < 0) return toast.error("Quantità non valida");
+          if (n === null || n < 0) { toast.error("Quantità non valida"); return; }
           save.mutate(n === 0 ? null : n);
         }}
       >
