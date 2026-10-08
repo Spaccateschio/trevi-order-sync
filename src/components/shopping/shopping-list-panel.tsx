@@ -58,7 +58,9 @@ import {
   type OverviewRow,
   type ShoppingListRow,
 } from "@/lib/shopping-list";
-import { describeOperationalSchedule, type OperationalScheduleRow } from "@/lib/operational-schedule";
+import { describeOperationalSchedule, hasTodayOverride, type OperationalScheduleRow } from "@/lib/operational-schedule";
+import { TimeWheelPicker } from "@/components/company/time-wheel";
+import { hasRole, useIdentity } from "@/hooks/use-identity";
 import {
   confirmShoppingListProduct,
   manageShoppingList,
@@ -215,7 +217,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     queryFn: async (): Promise<OperationalScheduleRow | null> => {
       const { data, error } = await supabase
         .from("company_operational_schedules")
-        .select("schedule_type, enabled, reminder_time, monday, tuesday, wednesday, thursday, friday, saturday, sunday")
+        .select("schedule_type, enabled, reminder_time, override_date, override_time, monday, tuesday, wednesday, thursday, friday, saturday, sunday")
         .eq("company_id", companyId)
         .eq("schedule_type", "shopping_list")
         .maybeSingle();
