@@ -122,25 +122,27 @@ function TimeWheelField({
   label,
   value,
   onChange,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  disabled?: boolean | undefined;
 }) {
   return (
     <div className="space-y-1">
       <Label>{label}</Label>
       {value ? (
         <div className="flex flex-wrap items-center gap-2">
-          <TimeWheelPicker value={value} onChange={onChange} />
-          <Button type="button" size="sm" variant="outline" onClick={() => onChange("")}>
+          <TimeWheelPicker value={value} onChange={onChange} disabled={disabled} />
+          <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onChange("")}>
             Rimuovi
           </Button>
         </div>
       ) : (
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Nessun orario</span>
-          <Button type="button" size="sm" variant="outline" onClick={() => onChange("09:00")}>
+          <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onChange("09:00")}>
             Imposta
           </Button>
         </div>
