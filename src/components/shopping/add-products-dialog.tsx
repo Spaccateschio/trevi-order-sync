@@ -367,7 +367,15 @@ export function AddProductsDialog({
       await runCatalogFavorite({
         data: { companyId, sellerCompanyId: row.sellerId!, sellerProductId, favorite: true },
       });
-      await runAdopt({ data: { companyId, sellerCompanyId: row.sellerId!, sellerProductId } });
+      const adopted = await runAdopt({ data: { companyId, sellerCompanyId: row.sellerId!, sellerProductId } });
+      // La referenza B2B diventa prodotto proprio: la riga cambia identità, quindi la scelta
+      // (quantità e U.M. già scritte) passa alla nuova riga invece di sparire.
+      const newKey = `own:${adopted.productId}`;
+      setSelected((current) => {
+        if (!(row.key in current)) return current;
+        const { [row.key]: draft, ...rest } = current;
+        return { ...rest, [newKey]: draft };
+      });
       return { favorite: true };
     },
     onSuccess: async (_result, input) => {
