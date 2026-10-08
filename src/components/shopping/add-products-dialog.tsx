@@ -374,8 +374,9 @@ export function AddProductsDialog({
       // (quantità e U.M. già scritte) passa alla nuova riga invece di sparire.
       const newKey = `own:${adopted.productId}`;
       setSelected((current) => {
-        if (!(row.key in current)) return current;
-        const { [row.key]: draft, ...rest } = current;
+        const draft = current[row.key];
+        if (!draft) return current;
+        const { [row.key]: _old, ...rest } = current;
         return { ...rest, [newKey]: draft };
       });
       return { favorite: true };
