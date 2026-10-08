@@ -490,10 +490,23 @@ export function AddProductsDialog({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  /** U.M. preselezionata: quella d'acquisto del fornitore scelto nel filtro, altrimenti l'U.M. base.
+   * Per i prodotti B2B resta il comportamento attuale: nessuna preselezione, si usa l'U.M. del fornitore. */
+  const defaultUnit = (row: Row): string => {
+    if (row.isB2b) return "";
+    if (supplierFilter !== "tutti") {
+      const code = row.supplierUnits[supplierFilter]?.find((value) => value && row.unitCodes.includes(value));
+      if (code) return code;
+    }
+    return row.baseUm ?? "";
+  };
+
+  const rowsByKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
+
   /** Scelta dal menu suggerimenti: seleziona subito il prodotto e mostra quantità/U.M. nella lista. */
   const pickSuggestion = (row: Row) => {
     setSelected((current) =>
-      row.key in current ? current : { ...current, [row.key]: { qty: "", unit: "", manual: "" } },
+      row.key in current ? current : { ...current, [row.key]: { qty: "", unit: defaultUnit(row), manual: "" } },
     );
     // Il prodotto scelto deve vedersi subito con quantità e U.M.: il filtro Preferiti
     // potrebbe nasconderlo, quindi si spegne e la ricerca mostra solo lui.
@@ -507,7 +520,7 @@ export function AddProductsDialog({
   const toggle = (key: string, checked: boolean) =>
     setSelected((current) => {
       const next = { ...current };
-      if (checked) next[key] = next[key] ?? { qty: "", unit: "", manual: "" };
+      if (checked) next[key] = next[key] ?? { qty: "", unit: defaultUnit(rowsByKey.get(key)!), manual: "" };
       else delete next[key];
       return next;
     });
