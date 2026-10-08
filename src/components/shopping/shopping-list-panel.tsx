@@ -235,7 +235,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     mutationFn: async (time: string | null) => {
       const { error } = await supabase.rpc("set_shopping_list_schedule_override", {
         _company_id: companyId,
-        _time: time,
+        _time: time as string,
       });
       if (error) throw new Error(error.message);
     },
