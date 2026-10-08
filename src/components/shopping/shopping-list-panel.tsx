@@ -226,6 +226,27 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     },
   });
 
+  // Eccezione «solo oggi»: solo gli amministratori, la regola standard resta in Azienda → Preferenze.
+  const { data: identity } = useIdentity();
+  const isAdmin = hasRole(identity, "amministratore");
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideTime, setOverrideTime] = useState("09:30");
+  const overrideMutation = useMutation({
+    mutationFn: async (time: string | null) => {
+      const { error } = await supabase.rpc("set_shopping_list_schedule_override", {
+        _company_id: companyId,
+        _time: time,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: scheduleKey });
+      setOverrideOpen(false);
+      toast.success("Promemoria di oggi aggiornato");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Errore nel salvataggio"),
+  });
+
   // Quale inventario ha originato ogni Lista (solo per le etichette del selettore).
   const originsQuery = useQuery({
     queryKey: ["shopping-list-origins", companyId],
