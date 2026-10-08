@@ -459,7 +459,10 @@ export function AddProductsDialog({
     setSelected((current) =>
       row.key in current ? current : { ...current, [row.key]: { qty: "", unit: "", manual: "" } },
     );
-    setSearch("");
+    // Il prodotto scelto deve vedersi subito con quantità e U.M.: il filtro Preferiti
+    // potrebbe nasconderlo, quindi si spegne e la ricerca mostra solo lui.
+    setFavoritesOnly(false);
+    setSearch(row.code);
     setSuggestOpen(false);
     setActiveSuggestion(0);
     searchInputRef.current?.focus();
