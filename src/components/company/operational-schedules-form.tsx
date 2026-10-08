@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -44,6 +45,7 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
   const [time, setTime] = useState("09:00");
   const [enabled, setEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   useEffect(() => {
     const d = query.data;
@@ -51,6 +53,8 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
     setDays({ monday: d.monday, tuesday: d.tuesday, wednesday: d.wednesday, thursday: d.thursday, friday: d.friday, saturday: d.saturday, sunday: d.sunday });
     setTime(hhmm(d.reminder_time) || "09:00");
     setEnabled(d.enabled);
+    // Bloccato se esiste una regola salvata; si sblocca con la matita.
+    setLocked(true);
   }, [query.data]);
 
   const save = async () => {
@@ -69,17 +73,28 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     await queryClient.invalidateQueries({ queryKey: key });
+    setLocked(true);
     toast.success("Promemoria salvato");
   };
 
-  const disabled = !isAdmin || saving || query.isLoading;
+  const disabled = !isAdmin || saving || query.isLoading || locked;
 
   return (
     <section className="mt-4 rounded-lg border border-border bg-card p-5 shadow-sm">
-      <h2 className="font-display text-base font-semibold">Promemoria operativi</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Imposta i giorni e l'ora in cui vuoi ricevere un promemoria per iniziare la Lista della Spesa.
-      </p>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="font-display text-base font-semibold">Promemoria operativi</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Imposta i giorni e l'ora in cui vuoi ricevere un promemoria per iniziare la Lista della Spesa.
+          </p>
+        </div>
+        {isAdmin && locked ? (
+          <Button type="button" size="sm" variant="outline" onClick={() => setLocked(false)}>
+            <Pencil className="mr-1 h-4 w-4" />
+            Modifica
+          </Button>
+        ) : null}
+      </div>
       <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-3">
         <div className="w-full text-sm font-medium lg:w-auto">Preparazione Lista della Spesa</div>
         <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -105,7 +120,7 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
           <Switch checked={enabled} onCheckedChange={setEnabled} disabled={disabled} />
           Attivo
         </label>
-        {isAdmin ? (
+        {isAdmin && !locked ? (
           <Button onClick={() => void save()} disabled={disabled}>Salva promemoria</Button>
         ) : null}
       </div>
