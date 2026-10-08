@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.shopping_lists_one_open;
