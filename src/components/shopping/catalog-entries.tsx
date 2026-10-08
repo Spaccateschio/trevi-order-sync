@@ -12,6 +12,7 @@ import { activeCompany, isRelationOperational, useIdentity } from "@/hooks/use-i
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSellerCatalogue } from "@/lib/catalog";
 import { getCatalogImageUrls } from "@/lib/catalog.functions";
+import { catalogSupplierLabel } from "@/lib/card-labels";
 import { parseQuantity } from "@/lib/inventory";
 import {
   adoptCatalogProduct,

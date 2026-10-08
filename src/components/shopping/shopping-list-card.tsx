@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { evaluationBadge, type EvaluationBadgeStatus } from "@/lib/card-labels";
 import { dateTimeShort, qty } from "@/lib/inventory";
 import { ITEM_STATUS_LABEL, type OverviewRow } from "@/lib/shopping-list";
 import { cn } from "@/lib/utils";
