@@ -149,6 +149,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const proposeListDate = useProposeListDate(companyId);
   const [closeOpen, setCloseOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [newListOpen, setNewListOpen] = useState(false);
   const runQuantity = useServerFn(setShoppingListItemQuantity);
   const runRemove = useServerFn(removeShoppingListItem);
   const runLock = useServerFn(setShoppingListItemQuantityLock);
