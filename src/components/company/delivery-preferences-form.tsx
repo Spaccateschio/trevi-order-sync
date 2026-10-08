@@ -125,7 +125,7 @@ function TimeWheelField({
     <div className="space-y-1">
       <Label>{label}</Label>
       {value ? (
-        <div className="flex items-start gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <TimeWheelPicker value={value} onChange={onChange} />
           <Button type="button" size="sm" variant="outline" onClick={() => onChange("")}>
             Rimuovi
