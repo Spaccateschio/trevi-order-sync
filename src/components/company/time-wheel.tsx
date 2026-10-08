@@ -108,7 +108,7 @@ function WheelColumn({
   }, [value, onChange, disabled, count]);
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (disabled) return;
+    console.log('WHEEL down', disabled);
     stripRef.current?.setPointerCapture(e.pointerId);
     dragRef.current = { y: e.clientY, moved: false };
   };
@@ -121,7 +121,7 @@ function WheelColumn({
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
-    const drag = dragRef.current;
+    console.log('WHEEL up', e.currentTarget.className.slice(0,30), dragRef.current?.moved);
     dragRef.current = null;
     setDelta(0);
     if (!drag || disabled) return;
