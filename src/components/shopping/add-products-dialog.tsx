@@ -26,6 +26,7 @@ import {
 import { activeCompany, isRelationOperational, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSellerCatalogue } from "@/lib/catalog";
+import { catalogSupplierLabel } from "@/lib/card-labels";
 import { parseQuantity } from "@/lib/inventory";
 import {
   adoptCatalogProduct,
@@ -505,7 +506,7 @@ export function AddProductsDialog({
                   {name}
                 </SelectItem>
               ))}
-              <SelectItem value="senza">Senza fornitore</SelectItem>
+              <SelectItem value="senza">Nessun fornitore collegato</SelectItem>
             </SelectContent>
           </Select>
           <Select
@@ -578,8 +579,7 @@ export function AddProductsDialog({
                     {row.baseUm ? ` · ${row.baseUm}` : ""}
                   </p>
                   <p className="truncate text-muted-foreground">
-                    {row.supplierNames.length ? row.supplierNames.join(", ") : "Senza fornitore"}
-                    {row.isB2b ? " · catalogo B2B" : ""}
+                    {catalogSupplierLabel(row)}
                   </p>
                 </div>
                 {(() => {

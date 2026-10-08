@@ -124,7 +124,7 @@ const FILTER_GROUPS: [string, [FilterFlag, string][]][] = [
   ["Quantità", [["da_controllare", "Da controllare"], ["da_confermare", "Quantità da confermare"], ["confermati", "Quantità confermata"]]],
   [
     "Fornitore / assegnazione",
-    [["senza_fornitore", "Senza fornitore"], ["da_assegnare", "Da assegnare"], ["parziale", "Parzialmente assegnati"], ["assegnata", "Assegnati"]],
+    [["senza_fornitore", "Nessun fornitore assegnato / collegato"], ["da_assegnare", "Da assegnare"], ["parziale", "Parzialmente assegnati"], ["assegnata", "Assegnati"]],
   ],
   ["Ordine", [["da_ordinare", "Da ordinare"], ["in_ordine", "Già in ordine"]]],
 ];
@@ -1375,6 +1375,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   onOpenSuppliers={() => undefined}
                   onRemove={() => undefined}
                   pendingQuantity={parseQuantity(evalValues[row.product_id] ?? "")}
+                  evaluation={savedEvaluations.get(row.product_id)}
                   lockPending={confirmingIds.has(row.product_id)}
                   onToggleLock={() => void confirmPending(row)}
                 />
