@@ -49,6 +49,8 @@ type OwnProduct = {
   subcategory: string | null;
   danea_um: string | null;
   created_from_product_id: string | null;
+  /** U.M. di vendita configurate sul prodotto proprio. */
+  product_sale_units?: { units_of_measure: { code: string } | null }[];
 };
 
 type Row = {
@@ -64,7 +66,9 @@ type Row = {
   baseUm: string | null;
   /** Nomi fornitore per il filtro (collegamenti propri o venditore B2B). */
   supplierNames: string[];
-  /** U.M. d'acquisto proponibili: codici già configurati. */
+  /** Per prodotto proprio: nome fornitore → U.M. d'acquisto configurate sul collegamento. */
+  supplierUnits: Record<string, string[]>;
+  /** U.M. d'acquisto proponibili: codici già configurati, senza duplicati. */
   unitCodes: string[];
   /** B2B: solo U.M. pubblicate dal venditore, niente «Altra U.M.». */
   isB2b: boolean;
