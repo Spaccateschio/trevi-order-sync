@@ -286,6 +286,8 @@ export function AddProductsDialog({
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
+      // Una riga già scelta resta sempre visibile (stella, filtri o codice cambiato non la nascondono).
+      if (row.key in selected) return true;
       if (applyFavorites && !(row.ownProductId && favoritesQuery.data?.has(row.ownProductId))) return false;
       if (supplierFilter === "senza" && row.supplierNames.length > 0) return false;
       if (supplierFilter !== "tutti" && supplierFilter !== "senza" && !row.supplierNames.includes(supplierFilter))
@@ -298,7 +300,7 @@ export function AddProductsDialog({
         (row.description ?? "").toLowerCase().includes(term)
       );
     });
-  }, [rows, search, supplierFilter, categoryFilter, subcategoryFilter, applyFavorites, favoritesQuery.data]);
+  }, [rows, search, supplierFilter, categoryFilter, subcategoryFilter, applyFavorites, favoritesQuery.data, selected]);
 
   const visible = filtered.slice(0, limit);
 
