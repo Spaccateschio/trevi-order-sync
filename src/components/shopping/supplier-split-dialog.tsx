@@ -166,7 +166,24 @@ export function SupplierSplitDialog({
   // Solo le ripartizioni con equivalente entrano nel totale: «Non convertibile» non vale 0.
   const assignedTotal = assignments.reduce((sum, row) => sum + Number(row.assigned_quantity ?? 0), 0);
   const unconvertible = assignments.filter((row) => row.assigned_quantity === null).length;
-  const remaining = item.decided_quantity === null ? null : Number(item.decided_quantity) - assignedTotal;
+  // «Mancano» arriva solo dal database (shopping_list_item_state): fornitori + acquisto diretto.
+  const remaining = item.remaining === null || item.remaining === undefined ? null : Number(item.remaining);
+  const directQuery = useQuery({
+    queryKey: ["shopping-direct-quota", item.item_id],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shopping_list_items")
+        .select("manual_purchase_quantity, manual_purchase_unit_code")
+        .eq("id", item.item_id)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return data?.manual_purchase_quantity == null
+        ? null
+        : { quantity: Number(data.manual_purchase_quantity), unit: (data.manual_purchase_unit_code as string | null) ?? "" };
+    },
+  });
+  const direct = directQuery.data ?? null;
   const unit = item.unit_code ?? "";
 
   return (
@@ -205,6 +222,12 @@ export function SupplierSplitDialog({
             <p className="text-lg font-semibold leading-tight">{remaining === null ? "—" : `${qty(remaining)} ${unit}`}</p>
           </div>
         </div>
+
+        {direct ? (
+          <p className="text-sm">
+            Acquisto diretto (sola lettura): <strong>{qty(direct.quantity)} {direct.unit}</strong>
+          </p>
+        ) : null}
 
         {!suppliers.length ? (
           <p className="text-sm text-muted-foreground">Nessun fornitore attivo per questo prodotto: associane uno dalla scheda prodotto.</p>

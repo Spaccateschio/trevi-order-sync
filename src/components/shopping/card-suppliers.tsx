@@ -625,7 +625,14 @@ export function CardSuppliers({
   const supplierRow = (s: CardSupplier, assignment: RowSupplier | null) => {
     const editingLink = editing && editing.linkId === s.linkId ? editing : null;
     const editingAssignment = assignment && editingLink ? editingLink : null;
-    const draft = drafts[s.linkId] ?? { unit: "", manual: "", quantity: "", accepted: false };
+    // Default della sola ripartizione di questa Lista: U.M. della riga (nessuna scrittura sul collegamento).
+    const rowQuick = quickFor(s);
+    const draft = drafts[s.linkId] ?? {
+      unit: rowQuick ? (rowQuick.unitId ?? MANUAL) : "",
+      manual: rowQuick?.manual ?? "",
+      quantity: "",
+      accepted: false,
+    };
     const set = (patch: Partial<Draft>) => setDrafts((c) => ({ ...c, [s.linkId]: { ...draft, ...patch } }));
     const b2bBlocked = s.isB2B && !s.sourceLinked;
     const noUnits = s.isB2B && s.sourceLinked && !s.units.length;
@@ -914,6 +921,7 @@ export function CardSuppliers({
 
   return (
     <div className="space-y-1">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fornitori disponibili · ripartizione di questa Lista</p>
       <ul className="space-y-1">
         {suppliers
           .filter((s) => split || byLink.has(s.linkId) || editing?.linkId === s.linkId)
