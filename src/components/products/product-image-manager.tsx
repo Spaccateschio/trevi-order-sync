@@ -73,8 +73,62 @@ async function optimize(file: File) {
   }
 }
 
+function isCoarsePointer() {
+  return typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true;
+}
+
+function WebcamCapture({ onCapture, onClose }: { onCapture: (file: File) => void; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    navigator.mediaDevices?.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+      .then((stream) => {
+        if (cancelled) { stream.getTracks().forEach((track) => track.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      })
+      .catch(() => { if (!cancelled) setError("Fotocamera non disponibile o permesso negato. Usa «Carica immagine»."); });
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+  }, []);
+
+  const shoot = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      onCapture(new File([blob], "foto.jpg", { type: "image/jpeg" }));
+    }, "image/jpeg", 0.92);
+  };
+
+  return <div className="mt-2 border border-border bg-muted/30 p-2">
+    {error ? <p className="text-sm text-destructive">{error}</p> : <>
+      <video ref={videoRef} autoPlay playsInline muted className="max-h-64 w-full object-contain" />
+      <div className="mt-2 flex gap-2">
+        <Button type="button" size="sm" onClick={shoot}><Camera />Scatta</Button>
+        <Button type="button" variant="outline" size="sm" onClick={onClose}>Annulla</Button>
+      </div>
+    </>}
+    {error ? <div className="mt-2"><Button type="button" variant="outline" size="sm" onClick={onClose}>Chiudi</Button></div> : null}
+  </div>;
+}
+
 export function ProductImageManager({ productId, image, editable, top = false }: { productId: string; image: ImageMeta; editable: boolean; top?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [webcamOpen, setWebcamOpen] = useState(false);
   const queryClient = useQueryClient();
   const getUrls = useServerFn(getProductImageUrls);
   const save = useServerFn(saveProductImage);
