@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { TimeInput24 } from "@/components/purchase/delivery-fields";
+import { TimeWheelPicker } from "@/components/company/time-wheel";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -41,7 +41,7 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
     },
   });
   const [days, setDays] = useState<Days>(NO_DAYS);
-  const [time, setTime] = useState("");
+  const [time, setTime] = useState("09:00");
   const [enabled, setEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -49,7 +49,7 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
     const d = query.data;
     if (!d) return;
     setDays({ monday: d.monday, tuesday: d.tuesday, wednesday: d.wednesday, thursday: d.thursday, friday: d.friday, saturday: d.saturday, sunday: d.sunday });
-    setTime(hhmm(d.reminder_time));
+    setTime(hhmm(d.reminder_time) || "09:00");
     setEnabled(d.enabled);
   }, [query.data]);
 
@@ -94,10 +94,13 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
             </label>
           ))}
         </div>
-        <div className="w-28">
-          <Label htmlFor="op-time" className="text-xs">Ora promemoria</Label>
-          <TimeInput24 id="op-time" value={time} onChange={setTime} disabled={disabled} />
+        <div>
+          <Label className="text-xs">Ora promemoria</Label>
+          <div className="mt-1">
+            <TimeWheelPicker value={time} onChange={setTime} disabled={disabled} />
+          </div>
         </div>
+
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={enabled} onCheckedChange={setEnabled} disabled={disabled} />
           Attivo
