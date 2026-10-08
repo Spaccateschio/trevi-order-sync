@@ -190,6 +190,13 @@
       "when": 1791477244181,
       "tag": "0026_shopping_state_missing_unit",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791477353883,
+      "tag": "0027_shopping_state_same_unit_text",
+      "breakpoints": true
     }
   ]
 }
