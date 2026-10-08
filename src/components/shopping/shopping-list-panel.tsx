@@ -63,7 +63,9 @@ import {
 import { describeOperationalSchedule, hasTodayOverride, type OperationalScheduleRow } from "@/lib/operational-schedule";
 import { TimeWheelPicker } from "@/components/company/time-wheel";
 import { hasRole, useIdentity } from "@/hooks/use-identity";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+  addShoppingListItems,
   confirmShoppingListProduct,
   manageShoppingList,
   removeShoppingListItem,
