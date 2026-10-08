@@ -14,6 +14,8 @@ export type ShoppingListRow = {
   created_at: string;
   confirmed_at: string | null;
   closed_at: string | null;
+  /** Data per cui serve questa Lista (solo sua, non le preferenze aziendali). */
+  delivery_date?: string | null;
 };
 
 export type OverviewRow = {

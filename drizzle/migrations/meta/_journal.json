@@ -169,6 +169,13 @@
       "when": 1791442248868,
       "tag": "0023_drop_shopping_lists_one_open",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791445018184,
+      "tag": "0024_shopping_list_delivery_date",
+      "breakpoints": true
     }
   ]
 }

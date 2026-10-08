@@ -263,3 +263,23 @@ export const closeShoppingList = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return result as unknown as { list_id: string; number: string; already_closed: boolean; order_ids: string[] };
   });
+
+const dateSchema = z.object({
+  companyId: z.string().uuid(),
+  listId: z.string().uuid(),
+  deliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+});
+
+/** Data per cui serve la singola Lista: scrive solo shopping_lists.delivery_date, mai le preferenze aziendali. */
+export const setShoppingListDeliveryDate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => dateSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("set_shopping_list_delivery_date", {
+      _company_id: data.companyId,
+      _list_id: data.listId,
+      _delivery_date: data.deliveryDate as string,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
