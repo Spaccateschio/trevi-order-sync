@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
 import type { OverviewRow } from "@/lib/shopping-list";
-import { assignShoppingListSupplier } from "@/lib/shopping-list.functions";
+import { assignShoppingListSupplier, setShoppingListDirectQuota } from "@/lib/shopping-list.functions";
 
 /**
  * Sezione FORNITORI della card: solo presentazione + la stessa regola di salvataggio della finestra
@@ -903,7 +903,8 @@ export function CardSuppliers({
   if (!suppliers.length && !assignments.length)
     return (
       <div className="space-y-1">
-        <p className="text-xs">Fornitore: <span className="font-semibold">Acquisto diretto</span></p>
+        <p className="text-xs text-muted-foreground">Nessun fornitore collegato</p>
+        <DirectQuota companyId={companyId} itemId={row.item_id} editable={editable} unitCode={decidedCode || row.unit_code || ""} />
         {addButton}
         {removeDialog}
       </div>
@@ -941,15 +942,6 @@ export function CardSuppliers({
                 </Button>
               );
             })}
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-9 px-3 text-xs"
-              onClick={() => toast.info("Resta acquisto diretto (CAR, mercato, negozio): non genera ordini")}
-            >
-              Acquisto diretto
-            </Button>
           </div>
           {canWrite && !target ? <p className="text-[11px] text-muted-foreground">Conferma prima la quantità da acquistare.</p> : null}
         </div>
@@ -959,6 +951,7 @@ export function CardSuppliers({
           <Split className="size-3" aria-hidden="true" /> {split ? "Chiudi ripartizione" : "Dividi tra fornitori"}
         </Button>
       ) : null}
+      <DirectQuota companyId={companyId} itemId={row.item_id} editable={editable} unitCode={decidedCode || row.unit_code || ""} />
       {pending && suppliers.length ? (
         <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p>
       ) : null}
@@ -970,4 +963,92 @@ export function CardSuppliers({
 
 function stripUndefined<T extends Record<string, unknown>>(obj: T) {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as { [K in keyof T]: Exclude<T[K], undefined> } & { _company_id: string; _action: string };
+}
+
+/**
+ * Quota «Acquisto diretto» scelta esplicitamente per questa riga della Lista (una sola, modificabile
+ * o rimovibile finché la Lista è aperta). Non tocca i collegamenti fornitore. Lo stato della riga
+ * resta calcolato solo dal database.
+ */
+function DirectQuota({ companyId, itemId, editable, unitCode }: { companyId: string; itemId: string; editable: boolean; unitCode: string }) {
+  const queryClient = useQueryClient();
+  const run = useServerFn(setShoppingListDirectQuota);
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const quota = useQuery({
+    queryKey: ["shopping-direct-quota", itemId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shopping_list_items")
+        .select("manual_purchase_quantity, manual_purchase_unit_code")
+        .eq("id", itemId)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return data?.manual_purchase_quantity == null
+        ? null
+        : { quantity: Number(data.manual_purchase_quantity), unit: (data.manual_purchase_unit_code as string | null) ?? "" };
+    },
+  });
+  const save = useMutation({
+    mutationFn: (quantity: number | null) =>
+      run({ data: { companyId, itemId, quantity, unitId: null, unitCode: null } }),
+    onSuccess: async () => {
+      setEditing(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["shopping-direct-quota", itemId] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+      ]);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Salvataggio non riuscito"),
+  });
+  const current = quota.data ?? null;
+
+  if (editing)
+    return (
+      <form
+        className="flex flex-wrap items-center gap-1"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const n = parseQuantity(value);
+          if (n === null || n < 0) { toast.error("Quantità non valida"); return; }
+          save.mutate(n === 0 ? null : n);
+        }}
+      >
+        <span className="text-xs font-semibold">Acquisto diretto</span>
+        <Input autoFocus inputMode="decimal" className="h-8 w-20" value={value} onChange={(e) => setValue(e.target.value)} aria-label="Quantità acquisto diretto" />
+        <span className="text-xs">{current?.unit || unitCode}</span>
+        <Button type="submit" size="sm" className="h-8 px-2" disabled={save.isPending} aria-label="Salva quota diretta">
+          <Check className="size-3.5" aria-hidden="true" />
+        </Button>
+        <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditing(false)} aria-label="Annulla">
+          <X className="size-3.5" aria-hidden="true" />
+        </Button>
+      </form>
+    );
+
+  if (current)
+    return (
+      <div className="flex flex-wrap items-center gap-1 text-xs">
+        <span>Acquisto diretto:</span>
+        <span className="rounded bg-primary px-1.5 py-0.5 font-bold text-primary-foreground">
+          {qty(current.quantity)} {current.unit}
+        </span>
+        {editable ? (
+          <>
+            <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5" aria-label="Modifica quota diretta" onClick={() => { setValue(String(current.quantity)); setEditing(true); }}>
+              <Pencil className="size-3" aria-hidden="true" />
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5" aria-label="Rimuovi quota diretta" disabled={save.isPending} onClick={() => save.mutate(null)}>
+              <Trash2 className="size-3" aria-hidden="true" />
+            </Button>
+          </>
+        ) : null}
+      </div>
+    );
+
+  return editable ? (
+    <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5 text-[11px]" onClick={() => { setValue(""); setEditing(true); }}>
+      + Acquisto diretto (lo compro io)
+    </Button>
+  ) : null;
 }

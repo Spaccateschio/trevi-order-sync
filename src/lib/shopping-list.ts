@@ -1,7 +1,8 @@
 /** Tipi e calcoli condivisi della Lista della Spesa. Nessun arrotondamento automatico: solo proposte. */
 
 export type ShoppingListStatus = "aperta" | "confermata" | "chiusa" | "annullata";
-export type ItemStatus = "da_assegnare" | "parziale" | "assegnata" | "manuale";
+/** Calcolato solo dal database (shopping_list_item_state): il frontend non lo ricalcola. */
+export type ItemStatus = "da_assegnare" | "parziale" | "assegnata" | "da_verificare" | "manuale";
 
 export type ShoppingListRow = {
   id: string;
@@ -73,6 +74,7 @@ export const ITEM_STATUS_LABEL: Record<ItemStatus, string> = {
   da_assegnare: "Da assegnare",
   parziale: "Parziale",
   assegnata: "Assegnata",
+  da_verificare: "Da verificare",
   manuale: "Acquisto manuale",
 };
 

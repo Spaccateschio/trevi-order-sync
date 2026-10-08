@@ -176,6 +176,13 @@
       "when": 1791445018184,
       "tag": "0024_shopping_list_delivery_date",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791476915297,
+      "tag": "0025_explicit_direct_purchase_quota",
+      "breakpoints": true
     }
   ]
 }

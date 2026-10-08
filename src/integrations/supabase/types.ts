@@ -7268,6 +7268,16 @@ export type Database = {
         Args: { _company_id: string; _delivery_date: string; _list_id: string }
         Returns: string
       }
+      set_shopping_list_direct_quota: {
+        Args: {
+          _company_id: string
+          _item_id: string
+          _quantity: number
+          _unit_code?: string
+          _unit_id?: string
+        }
+        Returns: Json
+      }
       set_shopping_list_item_quantity: {
         Args: {
           _actor_user_id?: string
