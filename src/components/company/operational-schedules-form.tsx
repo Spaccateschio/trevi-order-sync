@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -44,6 +45,7 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
   const [time, setTime] = useState("09:00");
   const [enabled, setEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   useEffect(() => {
     const d = query.data;
@@ -51,6 +53,8 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
     setDays({ monday: d.monday, tuesday: d.tuesday, wednesday: d.wednesday, thursday: d.thursday, friday: d.friday, saturday: d.saturday, sunday: d.sunday });
     setTime(hhmm(d.reminder_time) || "09:00");
     setEnabled(d.enabled);
+    // Bloccato se esiste una regola salvata; si sblocca con la matita.
+    setLocked(true);
   }, [query.data]);
 
   const save = async () => {
