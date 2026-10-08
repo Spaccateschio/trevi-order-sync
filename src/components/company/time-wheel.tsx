@@ -19,9 +19,17 @@ export function TimeWheelPicker({
   const match = /^(\d{2}):(\d{2})$/.exec(value);
   const hour = match ? Number(match[1]) : 9;
   const minute = match ? Math.min(55, Math.round(Number(match[2]) / 5) * 5) : 0;
+  const norm = `${pad2(hour)}:${pad2(minute)}`;
+
+  // Allinea il valore al passo di 5 minuti (es. 09:37 salvato in precedenza → 09:35).
+  useEffect(() => {
+    if (value !== norm) onChange(norm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   const setHour = (h: number) => onChange(`${pad2(h)}:${pad2(minute)}`);
   const setMinute = (m: number) => onChange(`${pad2(hour)}:${pad2(m)}`);
+
 
   return (
     <div className="flex items-center gap-1" role="group" aria-label="Ora promemoria">
