@@ -257,6 +257,7 @@ export function AddProductsDialog({
           subcategory: p.subcategory,
           baseUm: p.danea_um,
           supplierNames: [cat.sellerName],
+          supplierUnits: {},
           unitCodes: p.product_sale_units
             .map((u) => u.units_of_measure?.code)
             .filter((code): code is string => Boolean(code)),
