@@ -31,7 +31,6 @@ export function TimeWheelPicker({
         onChange={setHour}
         disabled={disabled}
         ariaLabel="Ore"
-        onKeyDown={setHour}
       />
       <span aria-hidden className="select-none pb-0.5 text-lg font-semibold text-foreground">:</span>
       <WheelColumn
@@ -40,9 +39,9 @@ export function TimeWheelPicker({
         onChange={setMinute}
         disabled={disabled}
         ariaLabel="Minuti"
-        onKeyDown={setMinute}
         display={(i) => pad2(i * 5)}
       />
+
     </div>
   );
 }
@@ -63,7 +62,6 @@ function WheelColumn({
   onChange,
   disabled,
   ariaLabel,
-  onKeyDown,
   display,
 }: {
   count: number;
@@ -71,9 +69,9 @@ function WheelColumn({
   onChange: (v: number) => void;
   disabled?: boolean;
   ariaLabel: string;
-  onKeyDown: (v: number) => void;
   display?: (i: number) => string;
 }) {
+
   const stripRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ y: number; moved: boolean } | null>(null);
   const accRef = useRef(0);
@@ -136,9 +134,8 @@ function WheelColumn({
     else if (e.key === "ArrowDown") { e.preventDefault(); onChange(clamp(value + 1)); }
     else if (e.key === "Home") { e.preventDefault(); onChange(0); }
     else if (e.key === "End") { e.preventDefault(); onChange(count - 1); }
-    else return;
-    void onKeyDown;
   };
+
 
   const offset = (CENTER - value) * ITEM_H + delta;
 

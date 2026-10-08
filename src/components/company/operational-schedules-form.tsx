@@ -49,7 +49,7 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
     const d = query.data;
     if (!d) return;
     setDays({ monday: d.monday, tuesday: d.tuesday, wednesday: d.wednesday, thursday: d.thursday, friday: d.friday, saturday: d.saturday, sunday: d.sunday });
-    setTime(hhmm(d.reminder_time));
+    setTime(hhmm(d.reminder_time) || "09:00");
     setEnabled(d.enabled);
   }, [query.data]);
 
