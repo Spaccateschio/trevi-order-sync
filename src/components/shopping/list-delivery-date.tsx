@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { it } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -99,6 +100,7 @@ export function ListDeliveryDate({
               mode="single"
               {...(selected ? { selected, defaultMonth: selected } : {})}
               onSelect={(date) => date && mutation.mutate(toIso(date))}
+              locale={it}
               initialFocus
               className="pointer-events-auto p-3"
             />
