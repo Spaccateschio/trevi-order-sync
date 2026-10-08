@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ImageOff, Search, Star } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +117,10 @@ export function AddProductsDialog({
   /** All'apertura solo i Preferiti; togliendo il filtro si vedono anche i cataloghi B2B. */
   const [favoritesOnly, setFavoritesOnly] = useState(true);
   const [selected, setSelected] = useState<Record<string, Draft>>({});
+  /** Ricerca rapida: menu suggerimenti sotto il campo Cerca. */
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const productsQuery = useQuery({
     queryKey: ["shopping-add-products", companyId, archiveId],
