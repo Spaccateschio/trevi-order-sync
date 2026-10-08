@@ -613,6 +613,7 @@ export type Database = {
           default_delivery_time_from: string | null
           default_delivery_time_to: string | null
           default_price_list_number: number | null
+          delivery_window_hours: number | null
           display_name: string
           notes: string | null
           timezone: string
@@ -626,6 +627,7 @@ export type Database = {
           default_delivery_time_from?: string | null
           default_delivery_time_to?: string | null
           default_price_list_number?: number | null
+          delivery_window_hours?: number | null
           display_name: string
           notes?: string | null
           timezone?: string
@@ -639,6 +641,7 @@ export type Database = {
           default_delivery_time_from?: string | null
           default_delivery_time_to?: string | null
           default_price_list_number?: number | null
+          delivery_window_hours?: number | null
           display_name?: string
           notes?: string | null
           timezone?: string
@@ -6271,7 +6274,7 @@ export type Database = {
           _company_id: string
           _day: string
           _time_from: string
-          _time_to: string
+          _window_hours: number
         }
         Returns: undefined
       }

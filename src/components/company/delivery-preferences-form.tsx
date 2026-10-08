@@ -18,7 +18,7 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
   const prefs = useDeliveryPreferences(companyId);
   const [addressId, setAddressId] = useState<string>(NONE);
   const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [windowHours, setWindowHours] = useState<2 | 3 | 4>(4);
   const [day, setDay] = useState<DeliveryDay>("oggi");
   const [saving, setSaving] = useState(false);
 
@@ -26,18 +26,17 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
     if (!prefs.data) return;
     setAddressId(prefs.data.addressId ?? NONE);
     setFrom(hhmm(prefs.data.timeFrom));
-    setTo(hhmm(prefs.data.timeTo));
+    setWindowHours(prefs.data.windowHours);
     setDay(prefs.data.day);
   }, [prefs.data]);
 
   const save = async () => {
-    if (from && to && from >= to) { toast.error("L'orario «dalle» deve precedere «alle»"); return; }
     setSaving(true);
     const { error } = await supabase.rpc("manage_company_delivery_preferences", {
       _company_id: companyId,
       _address_id: (addressId === NONE ? null : addressId) as string,
       _time_from: (from || null) as string,
-      _time_to: (to || null) as string,
+      _window_hours: windowHours,
       _day: day,
     });
     setSaving(false);
@@ -71,8 +70,22 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
           <p className="text-xs text-muted-foreground">Gli indirizzi si gestiscono in «Dati generali».</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <TimeWheelField label="Orario predefinito — dalle" value={from} onChange={setFrom} />
-          <TimeWheelField label="alle" value={to} onChange={setTo} />
+          <TimeWheelField label="Orario predefinito — inizio consegna" value={from} onChange={setFrom} />
+          <div className="space-y-1">
+            <Label>Durata fascia</Label>
+            <div className="flex gap-2">
+              {([2, 3, 4] as const).map((h) => (
+                <Button key={h} type="button" size="sm" variant={windowHours === h ? "default" : "outline"} onClick={() => setWindowHours(h)}>
+                  {h} ore
+                </Button>
+              ))}
+            </div>
+            {from && (
+              <p className="text-xs text-muted-foreground">
+                Fascia consegnata al cliente: {from} – {addHours(from, windowHours)}
+              </p>
+            )}
+          </div>
         </div>
         <div className="space-y-1">
           <Label>Data predefinita</Label>
@@ -128,4 +141,11 @@ function TimeWheelField({
       )}
     </div>
   );
+}
+
+/** Inizio + durata in ore, con ritorno a mezzanotte (es. 22:00 + 4h → 02:00). */
+function addHours(hhmmValue: string, hours: number): string {
+  const [h = 0, m = 0] = hhmmValue.split(":").map(Number);
+  const end = (h + hours) % 24;
+  return `${String(end).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }

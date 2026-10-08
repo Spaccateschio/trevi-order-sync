@@ -13,6 +13,7 @@ export type DeliveryPreferences = {
   addressId: string | null;
   timeFrom: string | null;
   timeTo: string | null;
+  windowHours: 2 | 3 | 4;
   day: DeliveryDay;
   addresses: CompanyAddressOption[];
 };
@@ -80,7 +81,7 @@ export function useDeliveryPreferences(companyId: string | null | undefined) {
       const [settings, addresses] = await Promise.all([
         supabase
           .from("company_settings")
-          .select("timezone, default_delivery_address_id, default_delivery_time_from, default_delivery_time_to, default_delivery_day")
+          .select("timezone, default_delivery_address_id, default_delivery_time_from, default_delivery_time_to, default_delivery_day, delivery_window_hours")
           .eq("company_id", companyId!)
           .maybeSingle(),
         fetchAddresses("company_id", companyId!),
@@ -92,6 +93,7 @@ export function useDeliveryPreferences(companyId: string | null | undefined) {
         addressId: s?.default_delivery_address_id ?? null,
         timeFrom: s?.default_delivery_time_from ?? null,
         timeTo: s?.default_delivery_time_to ?? null,
+        windowHours: (s?.delivery_window_hours as 2 | 3 | 4) ?? 4,
         day: (s?.default_delivery_day as DeliveryDay) ?? "oggi",
         addresses: addresses.filter((a) => a.status === "attivo").map((a) => ({ id: a.id, text: addressText(a), functions: a.address_functions.map((f) => f.function) })),
       };
