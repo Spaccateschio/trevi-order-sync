@@ -2173,6 +2173,64 @@ export type Database = {
           },
         ]
       }
+      inventory_purchase_evaluation_items: {
+        Row: {
+          company_id: string
+          created_at: string
+          decided_quantity: number | null
+          id: string
+          product_id: string
+          session_id: string
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          decided_quantity?: number | null
+          id?: string
+          product_id: string
+          session_id: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          decided_quantity?: number | null
+          id?: string
+          product_id?: string
+          session_id?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_purchase_evaluation_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_purchase_evaluation_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_purchase_evaluation_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_session_products: {
         Row: {
           company_id: string
@@ -7082,6 +7140,31 @@ export type Database = {
         }
         Returns: string
       }
+      set_inventory_purchase_evaluation: {
+        Args: {
+          _product_id: string
+          _quantity?: number
+          _session_id: string
+          _status: string
+        }
+        Returns: {
+          company_id: string
+          created_at: string
+          decided_quantity: number | null
+          id: string
+          product_id: string
+          session_id: string
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "inventory_purchase_evaluation_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_preferred_product_supplier: {
         Args: {
           _company_id: string
@@ -7450,7 +7533,7 @@ export type Database = {
         | "revocato"
         | "rifiutato"
       sale_conversion_type: "esatta" | "indicativa"
-      shopping_list_item_origin: "manuale" | "fabbisogno"
+      shopping_list_item_origin: "manuale" | "fabbisogno" | "inventario"
       shopping_list_status: "aperta" | "confermata" | "chiusa" | "annullata"
       stock_lot_status: "disponibile" | "esaurito" | "bloccato"
       unit_usage: "acquisto" | "vendita" | "entrambi"
@@ -7700,7 +7783,7 @@ export const Constants = {
         "rifiutato",
       ],
       sale_conversion_type: ["esatta", "indicativa"],
-      shopping_list_item_origin: ["manuale", "fabbisogno"],
+      shopping_list_item_origin: ["manuale", "fabbisogno", "inventario"],
       shopping_list_status: ["aperta", "confermata", "chiusa", "annullata"],
       stock_lot_status: ["disponibile", "esaurito", "bloccato"],
       unit_usage: ["acquisto", "vendita", "entrambi"],

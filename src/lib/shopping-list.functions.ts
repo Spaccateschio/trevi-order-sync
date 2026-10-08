@@ -18,7 +18,7 @@ const itemInput = z.object({
   product_id: z.string().uuid(),
   suggested_quantity: z.number().nullable().optional(),
   decided_quantity: z.number().positive().nullable().optional(),
-  origin: z.enum(["manuale", "fabbisogno"]),
+  origin: z.enum(["manuale", "fabbisogno", "inventario"]),
   // U.M. della quantità decisa scelta all'aggiunta: entrambe assenti = U.M. del prodotto.
   decided_unit_id: z.string().uuid().nullable().optional(),
   decided_unit_code: z.string().trim().max(20).nullable().optional(),

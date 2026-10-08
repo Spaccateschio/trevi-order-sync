@@ -23,7 +23,8 @@ import { toast } from "sonner";
 
 import { AddProductsDialog, Thumb } from "./add-products-dialog";
 import { CatalogProductCard, useCatalogActions, useCatalogEntries, useCatalogImages, type CatalogEntry } from "./catalog-entries";
-import { CYCLE_QUERY_KEY, InventoryEvaluation, useInventoryCountedRows, type CountedRow } from "./inventory-to-evaluate";
+import { CYCLE_QUERY_KEY, EvaluationDecision, InventoryEvaluation, useEvaluationRows, useInventoryCountedRows, useSaveEvaluation, type CountedRow } from "./inventory-to-evaluate";
+import { statusFromQuantity, type EvaluationStatus } from "@/lib/inventory-evaluation";
 import { DISPLAY_FIELDS, useCardDisplay } from "./card-display";
 import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
@@ -518,6 +519,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     evaluating && cycle && !cycle.evaluated_at && (!list || list.id === linkedList?.id),
   );
   const { allCounted, images: countedImages } = useInventoryCountedRows(companyId, showPending ? (cycle?.session_id ?? null) : null);
+  const savedEvaluations = useEvaluationRows(showPending ? (cycle?.session_id ?? null) : null);
+  const saveEvaluation = useSaveEvaluation(cycle?.session_id ?? null);
   const listProductIds = useMemo(
     () => new Set(linkedList && list?.id === linkedList.id ? allRows.map((row) => row.product_id) : []),
     [allRows, linkedList, list?.id],
@@ -784,9 +787,30 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     />
   );
 
-  // «Da valutare»: la quantità resta scritta nella pagina finché non si preme «Aggiungi alla Lista».
+  // «Da valutare»: la quantità viene salvata nel database uscendo dal campo (decisione persistente).
+  const persistPending = (productId: string, raw: string) => {
+    const text = raw.trim();
+    const quantity = text ? parseQuantity(text) : null;
+    if (text && (quantity === null || quantity <= 0)) return;
+    const current = savedEvaluations.get(productId);
+    if (!text && current?.status === "non_acquistare") return;
+    const next = statusFromQuantity(quantity);
+    if ((current?.status ?? "da_valutare") === next.status && (current?.decided_quantity ?? null) === next.quantity) return;
+    saveEvaluation.mutate({ productId, ...next });
+  };
+  const decidePending = (productId: string, status: EvaluationStatus) => {
+    setEvalValues((current) => {
+      const next = { ...current };
+      delete next[productId];
+      return next;
+    });
+    saveEvaluation.mutate({ productId, status, quantity: null });
+  };
   const pendingInput = (row: OverviewRow) => (
+    <span className="flex min-w-0 flex-1 items-center gap-1">
+    {savedEvaluations.get(row.product_id)?.status === "non_acquistare" ? null : (
     <Input
+      onBlur={(event) => persistPending(row.product_id, event.target.value)}
       className="h-9 min-w-0 flex-1 text-right text-base font-bold"
       inputMode="decimal"
       placeholder="—"
@@ -795,12 +819,20 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       aria-label={`Da acquistare ${row.code}`}
       onChange={(event) => setEvalValues((current) => ({ ...current, [row.product_id]: event.target.value }))}
     />
+    )}
+    <EvaluationDecision
+      status={savedEvaluations.get(row.product_id)?.status}
+      disabled={!(editable || previewMode) || saveEvaluation.isPending}
+      onDecide={(status) => decidePending(row.product_id, status)}
+    />
+    </span>
   );
-  const pendingQuickAdd = (row: OverviewRow, step: number) =>
-    setEvalValues((current) => {
-      const base = parseQuantity(current[row.product_id] ?? "") ?? 0;
-      return { ...current, [row.product_id]: String(Math.round((base + step) * 1000) / 1000) };
-    });
+  const pendingQuickAdd = (row: OverviewRow, step: number) => {
+    const base = parseQuantity(evalValues[row.product_id] ?? "") ?? 0;
+    const value = String(Math.round((base + step) * 1000) / 1000);
+    setEvalValues((current) => ({ ...current, [row.product_id]: value }));
+    persistPending(row.product_id, value);
+  };
 
   // Tasti rapidi: cambiano solo la quantità totale da acquistare, mai le ripartizioni. Nessuna conversione.
   const quickAdd = (row: OverviewRow, step: number) => {

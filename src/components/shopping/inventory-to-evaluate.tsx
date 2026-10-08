@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Thumb } from "./add-products-dialog";
@@ -21,6 +21,8 @@ import { manageInventoryEvaluation, type CycleStatus } from "@/lib/inventory-cyc
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { type ShoppingListRow } from "@/lib/shopping-list";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
+import { setInventoryPurchaseEvaluation } from "@/lib/inventory-evaluation.functions";
+import { evaluationCounts, statusFromQuantity, type EvaluationRow, type EvaluationStatus } from "@/lib/inventory-evaluation";
 
 export type CountedRow = {
   product_id: string;
@@ -119,6 +121,42 @@ export function useInventoryCountedRows(companyId: string, sessionId: string | n
   return { allCounted, images, isLoading: countsQuery.isLoading };
 }
 
+export const EVALUATION_QUERY_KEY = "inventory-purchase-evaluation";
+
+/** Decisioni di acquisto salvate nel database per la sessione: sopravvivono a ricarica e cambio pagina. */
+export function useEvaluationRows(sessionId: string | null) {
+  const query = useQuery({
+    queryKey: [EVALUATION_QUERY_KEY, sessionId],
+    enabled: Boolean(sessionId),
+    queryFn: async (): Promise<Map<string, EvaluationRow>> => {
+      const { data, error } = await supabase
+        .from("inventory_purchase_evaluation_items")
+        .select("product_id, status, decided_quantity")
+        .eq("session_id", sessionId!);
+      if (error) throw new Error(error.message);
+      return new Map(
+        ((data ?? []) as EvaluationRow[]).map((row) => [
+          row.product_id,
+          { ...row, decided_quantity: row.decided_quantity === null ? null : Number(row.decided_quantity) },
+        ]),
+      );
+    },
+  });
+  return query.data ?? new Map<string, EvaluationRow>();
+}
+
+/** Salva una decisione (quantità digitata, Non acquistare, Ripristina) e aggiorna i contatori. */
+export function useSaveEvaluation(sessionId: string | null) {
+  const queryClient = useQueryClient();
+  const runSet = useServerFn(setInventoryPurchaseEvaluation);
+  return useMutation({
+    mutationFn: (input: { productId: string; status: EvaluationStatus; quantity: number | null }) =>
+      runSet({ data: { sessionId: sessionId!, ...input } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [EVALUATION_QUERY_KEY, sessionId] }),
+    onError: (error: Error) => toast.error(error.message),
+  });
+}
+
 
 /**
  * Ponte Inventario → Lista della Spesa.
@@ -171,6 +209,25 @@ export function InventoryEvaluation({
 
   const { allCounted, images } = useInventoryCountedRows(companyId, sessionId);
   const toEvaluate = allCounted.filter((row) => !existingProductIds.has(row.product_id));
+  const saved = useEvaluationRows(sessionId);
+  const saveEvaluation = useSaveEvaluation(sessionId);
+  // Rientrando nella pagina le quantità salvate tornano nei campi.
+  useEffect(() => {
+    if (!saved.size) return;
+    setValues((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const row of saved.values()) {
+        if (row.status === "da_acquistare" && row.decided_quantity && next[row.product_id] === undefined) {
+          next[row.product_id] = String(row.decided_quantity);
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved]);
+  const counts = evaluationCounts(toEvaluate.map((row) => row.product_id), saved);
 
   const addMutation = useMutation({
     mutationFn: async (items: { product_id: string; quantity: number }[]) => {
@@ -184,7 +241,7 @@ export function InventoryEvaluation({
           items: items.map((item) => ({
             product_id: item.product_id,
             decided_quantity: item.quantity,
-            origin: "manuale" as const,
+            origin: "inventario" as const,
           })),
         },
       });
@@ -211,10 +268,32 @@ export function InventoryEvaluation({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Uscita dal campo: vuoto = da_valutare, quantità > 0 = da_acquistare (non tocca una decisione non_acquistare vuota).
+  const persist = (productId: string) => {
+    const raw = (values[productId] ?? "").trim();
+    const quantity = raw ? parseQuantity(raw) : null;
+    if (raw && (quantity === null || quantity <= 0)) return;
+    const current = saved.get(productId);
+    const next = statusFromQuantity(quantity);
+    if (!raw && current?.status === "non_acquistare") return;
+    if ((current?.status ?? "da_valutare") === next.status && (current?.decided_quantity ?? null) === next.quantity) return;
+    saveEvaluation.mutate({ productId, ...next });
+  };
+  const decide = (productId: string, status: EvaluationStatus) => {
+    setValues((current) => {
+      const next = { ...current };
+      delete next[productId];
+      return next;
+    });
+    saveEvaluation.mutate({ productId, status, quantity: null });
+  };
+
   const inventoryLabel = `Inventario del ${cycle.finished_at ? dateTimeShort(cycle.finished_at) : "—"}`;
+  // Contatore dal database: solo righe salvate da_acquistare con quantità > 0 e non ancora in Lista.
   const typed = toEvaluate
-    .map((row) => ({ product_id: row.product_id, quantity: parseQuantity(values[row.product_id] ?? "") }))
-    .filter((row): row is { product_id: string; quantity: number } => row.quantity !== null && row.quantity > 0);
+    .map((row) => saved.get(row.product_id))
+    .filter((row): row is EvaluationRow => row?.status === "da_acquistare" && Number(row.decided_quantity) > 0)
+    .map((row) => ({ product_id: row.product_id, quantity: Number(row.decided_quantity) }));
   const invalid = toEvaluate.filter((row) => {
     const raw = (values[row.product_id] ?? "").trim();
     if (!raw) return false;
@@ -240,7 +319,7 @@ export function InventoryEvaluation({
   }
 
   const editable = !linkedList || linkedList.status === "aperta";
-  const leftEmpty = toEvaluate.filter((row) => !(values[row.product_id] ?? "").trim()).length;
+  const leftEmpty = counts.daValutare;
 
   return (
     <div className="space-y-2 rounded-md border border-primary/50 bg-primary/5 p-2">
@@ -249,7 +328,8 @@ export function InventoryEvaluation({
           Da {inventoryLabel.replace("Inventario", "inventario")}
           {linkedList ? "" : " — non ancora preso in carico"} ·{" "}
           <span className="font-normal text-muted-foreground">
-            ({toEvaluate.length} da valutare su {allCounted.length} contati)
+            ({allCounted.length} contati · {counts.daValutare} da valutare · {counts.daAcquistare} da acquistare ·{" "}
+            {counts.nonAcquistare} non acquistare)
           </span>
         </p>
         <div className="flex flex-wrap gap-2">
@@ -307,7 +387,9 @@ export function InventoryEvaluation({
                       disabled={!editable}
                       value={values[row.product_id] ?? ""}
                       onChange={(event) => setValues((current) => ({ ...current, [row.product_id]: event.target.value }))}
+                      onBlur={() => persist(row.product_id)}
                     />
+                    <EvaluationDecision status={saved.get(row.product_id)?.status} disabled={!editable || saveEvaluation.isPending} onDecide={(status) => decide(row.product_id, status)} />
                     <span className="text-muted-foreground">{row.unit ?? ""}</span>
                   </span>
                 </label>
@@ -356,7 +438,9 @@ export function InventoryEvaluation({
                 disabled={!editable}
                 value={values[row.product_id] ?? ""}
                 onChange={(event) => setValues((current) => ({ ...current, [row.product_id]: event.target.value }))}
+                onBlur={() => persist(row.product_id)}
               />
+              <EvaluationDecision status={saved.get(row.product_id)?.status} disabled={!editable || saveEvaluation.isPending} onDecide={(status) => decide(row.product_id, status)} />
             </div>
           ))}
         </div>
@@ -393,3 +477,27 @@ export function InventoryEvaluation({
   );
 }
 
+
+/** «Non acquistare» / «Ripristina»: decisione esplicita, separata dalla quantità digitata. */
+export function EvaluationDecision({
+  status,
+  disabled,
+  onDecide,
+}: {
+  status: EvaluationStatus | undefined;
+  disabled: boolean;
+  onDecide: (status: EvaluationStatus) => void;
+}) {
+  return status === "non_acquistare" ? (
+    <span className="flex items-center gap-1">
+      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">Non acquistare</span>
+      <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={disabled} onClick={() => onDecide("da_valutare")}>
+        Ripristina
+      </Button>
+    </span>
+  ) : (
+    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled={disabled} onClick={() => onDecide("non_acquistare")}>
+      Non acquistare
+    </Button>
+  );
+}
