@@ -127,6 +127,13 @@
       "when": 1791382945535,
       "tag": "0017_add_product_to_open_inventory",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791437480551,
+      "tag": "0018_company_operational_schedules",
+      "breakpoints": true
     }
   ]
 }
