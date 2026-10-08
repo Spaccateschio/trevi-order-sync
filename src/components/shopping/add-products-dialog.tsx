@@ -302,10 +302,48 @@ export function AddProductsDialog({
 
   const visible = filtered.slice(0, limit);
 
-  const imageIds = useMemo(
-    () => visible.map((row) => row.ownProductId).filter((id): id is string => Boolean(id)).slice(0, 50),
-    [visible],
-  );
+  /**
+   * Suggerimenti della ricerca rapida: da 2 caratteri, massimo 10.
+   * Il filtro Preferiti NON si applica (serve a trovare anche prodotti non preferiti);
+   * fornitore, categoria e sottocategoria sì. Ordine: corrispondenza esatta,
+   * nome che inizia con il testo, nome che lo contiene, codice corrispondente.
+   */
+  const suggestions = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (term.length < 2) return [];
+    const matches = rows.filter((row) => {
+      if (supplierFilter === "senza" && row.supplierNames.length > 0) return false;
+      if (supplierFilter !== "tutti" && supplierFilter !== "senza" && !row.supplierNames.includes(supplierFilter))
+        return false;
+      if (categoryFilter !== "tutte" && row.category !== categoryFilter) return false;
+      if (subcategoryFilter !== "tutte" && row.subcategory !== subcategoryFilter) return false;
+      const name = (row.description ?? "").toLowerCase();
+      const code = row.code.toLowerCase();
+      return name.includes(term) || code.includes(term);
+    });
+    const rank = (row: Row) => {
+      const name = (row.description ?? "").toLowerCase();
+      const code = row.code.toLowerCase();
+      if (name === term || code === term) return 0;
+      if (name.startsWith(term)) return 1;
+      if (name.includes(term)) return 2;
+      return 3;
+    };
+    return matches
+      .sort(
+        (a, b) =>
+          rank(a) - rank(b) ||
+          (a.description ?? a.code).localeCompare(b.description ?? b.code, "it") ||
+          a.code.localeCompare(b.code, "it"),
+      )
+      .slice(0, 10);
+  }, [rows, search, supplierFilter, categoryFilter, subcategoryFilter]);
+
+  const imageIds = useMemo(() => {
+    const ids = visible.map((row) => row.ownProductId).filter((id): id is string => Boolean(id));
+    for (const row of suggestions) if (row.ownProductId) ids.push(row.ownProductId);
+    return [...new Set(ids)].slice(0, 50);
+  }, [visible, suggestions]);
   const imagesQuery = useQuery({
     queryKey: ["shopping-add-images", imageIds],
     enabled: open && imageIds.length > 0,
