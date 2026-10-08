@@ -95,7 +95,27 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
           </Button>
         ) : null}
       </div>
-...
+      <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-3">
+        <div className="w-full text-sm font-medium lg:w-auto">Preparazione Lista della Spesa</div>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          {DAYS.map(([k, label]) => (
+            <label key={k} className="flex items-center gap-1.5 text-sm">
+              <Checkbox
+                checked={days[k]}
+                disabled={disabled}
+                onCheckedChange={(v) => setDays((p) => ({ ...p, [k]: v === true }))}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        <div>
+          <Label className="text-xs">Ora promemoria</Label>
+          <div className="mt-1">
+            <TimeWheelPicker value={time} onChange={setTime} disabled={disabled} />
+          </div>
+        </div>
+
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={enabled} onCheckedChange={setEnabled} disabled={disabled} />
           Attivo
