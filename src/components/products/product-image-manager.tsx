@@ -188,5 +188,6 @@ export function ProductImageManager({ productId, image, editable, top = false }:
         </div> : null}
       </div>
     </div>
+    {webcamOpen ? <WebcamCapture onCapture={(file) => { setWebcamOpen(false); saveMutation.mutate(file); }} onClose={() => setWebcamOpen(false)} /> : null}
   </section>;
 }
