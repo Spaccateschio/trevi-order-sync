@@ -160,7 +160,7 @@ export function CloseListDialog({
             <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Preparazione riepilogo…
           </p>
         ) : (
-          <div className="space-y-5 text-sm">
+          <div className="space-y-4 text-sm">
             <div className="rounded-md border border-border bg-muted/40 p-3">
               <p className="text-base font-bold">{preview.items_total} prodotti nella Lista</p>
               <p>
