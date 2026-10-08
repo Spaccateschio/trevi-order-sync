@@ -16,6 +16,7 @@ export function TimeWheelPicker({
   onChange: (v: string) => void;
   disabled?: boolean;
 }) {
+  console.log('PICKER RENDER', value);
   const match = /^(\d{2}):(\d{2})$/.exec(value);
   const hour = match ? Number(match[1]) : 9;
   const minute = match ? Math.min(55, Math.round(Number(match[2]) / 5) * 5) : 0;
@@ -28,7 +29,7 @@ export function TimeWheelPicker({
   }, [value]);
 
   const setHour = (h: number) => onChange(`${pad2(h)}:${pad2(minute)}`);
-  const setMinute = (m: number) => onChange(`${pad2(hour)}:${pad2(m)}`);
+  const setMinute = (m: number) => { console.log('SETMINUTE', m); onChange(`${pad2(hour)}:${pad2(m)}`); };
 
 
   return (
