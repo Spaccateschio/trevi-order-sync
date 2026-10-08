@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import {
+  AlarmClock,
   AlertTriangle,
   ArrowDownAZ,
   MoreVertical,
@@ -57,6 +58,7 @@ import {
   type OverviewRow,
   type ShoppingListRow,
 } from "@/lib/shopping-list";
+import { describeOperationalSchedule, type OperationalScheduleRow } from "@/lib/operational-schedule";
 import {
   confirmShoppingListProduct,
   manageShoppingList,
@@ -205,6 +207,22 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     queryFn: () => readCycle({ data: { companyId } }),
   });
   const cycle = cycleQuery.data;
+
+  // Regola aziendale del promemoria: letta e basta, si modifica solo in Azienda → Preferenze.
+  const scheduleKey = ["operational-schedule", companyId, "shopping_list"];
+  const scheduleQuery = useQuery({
+    queryKey: scheduleKey,
+    queryFn: async (): Promise<OperationalScheduleRow | null> => {
+      const { data, error } = await supabase
+        .from("company_operational_schedules")
+        .select("schedule_type, enabled, reminder_time, monday, tuesday, wednesday, thursday, friday, saturday, sunday")
+        .eq("company_id", companyId)
+        .eq("schedule_type", "shopping_list")
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data ?? null) as OperationalScheduleRow | null;
+    },
+  });
 
   // Quale inventario ha originato ogni Lista (solo per le etichette del selettore).
   const originsQuery = useQuery({
@@ -967,6 +985,21 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             Nuova lista
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <AlarmClock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="font-semibold">Preparazione Lista della Spesa</span>
+          <span className="text-muted-foreground">
+            {scheduleQuery.isLoading ? "…" : describeOperationalSchedule(scheduleQuery.data)}
+          </span>
+        </div>
+        <Button asChild size="sm" variant="link" className="h-auto p-0 text-xs">
+          <Link to="/amministrazione" search={{ sezione: "preferenze" }}>
+            Modifica in Azienda → Preferenze
+          </Link>
+        </Button>
       </div>
 
       {!list && !previewMode && !listsQuery.isLoading ? (() => {
