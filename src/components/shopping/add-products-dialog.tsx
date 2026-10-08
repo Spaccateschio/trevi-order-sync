@@ -454,6 +454,17 @@ export function AddProductsDialog({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  /** Scelta dal menu suggerimenti: seleziona subito il prodotto e mostra quantità/U.M. nella lista. */
+  const pickSuggestion = (row: Row) => {
+    setSelected((current) =>
+      row.key in current ? current : { ...current, [row.key]: { qty: "", unit: "", manual: "" } },
+    );
+    setSearch("");
+    setSuggestOpen(false);
+    setActiveSuggestion(0);
+    searchInputRef.current?.focus();
+  };
+
   const toggle = (key: string, checked: boolean) =>
     setSelected((current) => {
       const next = { ...current };
