@@ -169,6 +169,11 @@ export function ProductImageManager({ productId, image, editable, top = false }:
       event.currentTarget.value = "";
       if (file) saveMutation.mutate(file);
     }} />
+    <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(event) => {
+      const file = event.target.files?.[0];
+      event.currentTarget.value = "";
+      if (file) saveMutation.mutate(file);
+    }} />
     <div className="mt-2 flex min-h-20 items-center gap-3 border border-border bg-muted/30 p-2">
       {image && imageQuery.data?.url ? <img src={imageQuery.data.url} alt="Immagine del prodotto" className="h-24 w-24 shrink-0 object-contain" /> : <div className="grid h-20 w-20 shrink-0 place-items-center border border-dashed border-border text-muted-foreground"><ImageIcon className="h-6 w-6" /></div>}
       <div className="min-w-0 flex-1">
