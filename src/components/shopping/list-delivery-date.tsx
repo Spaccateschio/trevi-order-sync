@@ -97,8 +97,7 @@ export function ListDeliveryDate({
             </div>
             <Calendar
               mode="single"
-              selected={selected}
-              defaultMonth={selected}
+              {...(selected ? { selected, defaultMonth: selected } : {})}
               onSelect={(date) => date && mutation.mutate(toIso(date))}
               initialFocus
               className="pointer-events-auto p-3"
