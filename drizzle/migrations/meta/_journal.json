@@ -134,6 +134,13 @@
       "when": 1791437480551,
       "tag": "0018_company_operational_schedules",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791438680320,
+      "tag": "0019_delivery_window_hours",
+      "breakpoints": true
     }
   ]
 }
