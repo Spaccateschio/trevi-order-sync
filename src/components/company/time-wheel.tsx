@@ -15,7 +15,7 @@ export function TimeWheelPicker({
 }: {
   value: string;
   onChange: (v: string) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 }) {
   const match = /^(\d{2}):(\d{2})$/.exec(value);
   const hour = match ? Number(match[1]) : 9;
