@@ -199,8 +199,8 @@ export function CloseListDialog({
               </section>
             ) : null}
 
-            <section className="space-y-2">
-              <h3 className="font-semibold uppercase tracking-wide text-muted-foreground">Consegna generale</h3>
+            <section className="space-y-1.5 text-muted-foreground">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Consegna generale</h3>
               <DeliveryDatePicker id="cl-date" value={date} today={today} onChange={setDate} />
               <div className="grid grid-cols-2 gap-2 sm:w-80">
                 <div>
@@ -227,8 +227,8 @@ export function CloseListDialog({
               </div>
             </section>
 
-            <section className="space-y-2">
-              <h3 className="font-semibold uppercase tracking-wide text-muted-foreground">Ordini fornitori</h3>
+            <section className="space-y-1.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ordini fornitori</h3>
               {preview.orders.length ? (
                 preview.orders.map((o) => {
                   const ov = overrides[o.supplier_record_id];
@@ -263,17 +263,23 @@ export function CloseListDialog({
             </section>
 
             <section className="space-y-2">
-              <h3 className="font-semibold uppercase tracking-wide text-muted-foreground">Acquisti diretti</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Acquisti diretti</h3>
               {preview.direct.length ? (
                 <ul className="space-y-1.5">
                   {preview.direct.map((d) => (
-                    <li key={d.item_id} className="flex flex-wrap items-center gap-2">
-                      <span className="min-w-0 flex-1">
-                        ☐ <strong>{d.name}</strong> — {qty(d.quantity)} {d.unit_code ?? ""}
-                        {d.origin === "residuo" ? <span className="text-xs text-muted-foreground"> (residuo)</span> : null}
+                    <li
+                      key={d.item_id}
+                      className="flex flex-wrap items-center gap-2 rounded-md border border-accent/60 bg-accent/15 px-3 py-2"
+                    >
+                      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                        <span className="text-base font-bold text-foreground">{d.name}</span>
+                        <span className="rounded-md bg-primary px-2 py-0.5 text-sm font-bold text-primary-foreground">
+                          {qty(d.quantity)} {d.unit_code ?? ""}
+                        </span>
+                        {d.origin === "residuo" ? <span className="text-xs text-muted-foreground">(residuo)</span> : null}
                       </span>
                       <Input
-                        className="h-8 w-full sm:w-52"
+                        className="h-8 w-full bg-background font-medium sm:w-52"
                         placeholder="Nota (es. al CAR)"
                         value={directNotes[d.item_id] ?? ""}
                         onChange={(e) => setDirectNotes((cur) => ({ ...cur, [d.item_id]: e.target.value }))}
@@ -290,7 +296,7 @@ export function CloseListDialog({
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           {preview && !blocked ? (
-            <p className="rounded-md bg-primary/10 px-3 py-2 text-center font-semibold">
+            <p className="rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-center text-sm font-medium text-muted-foreground">
               {orderedCount} prodotti verranno ordinati · {directCount} acquisti diretti
               {preview.uncertain.length ? ` · ${preview.uncertain.length} da verificare` : ""}
             </p>
