@@ -142,3 +142,10 @@ function TimeWheelField({
     </div>
   );
 }
+
+/** Inizio + durata in ore, con ritorno a mezzanotte (es. 22:00 + 4h → 02:00). */
+function addHours(hhmmValue: string, hours: number): string {
+  const [h = 0, m = 0] = hhmmValue.split(":").map(Number);
+  const end = (h + hours) % 24;
+  return `${String(end).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
