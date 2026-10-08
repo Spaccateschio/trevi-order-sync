@@ -54,6 +54,7 @@ export function TimeWheelPicker({
   );
 }
 
+console.log('WHEEL MODULE LOADED');
 const ITEM_H = 36; // px per riga
 const SLOTS = 5; // righe visibili (2 sopra, selezione, 2 sotto)
 const CENTER = (SLOTS - 1) / 2;
@@ -120,7 +121,9 @@ function WheelColumn({
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
+    console.log('UP-ENTRY', disabled);
     const drag = dragRef.current;
+    console.log('UP-DRAG', !!drag, drag && drag.moved);
     dragRef.current = null;
     setDelta(0);
     if (!drag || disabled) return;
