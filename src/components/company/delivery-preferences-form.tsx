@@ -70,15 +70,9 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
           </Select>
           <p className="text-xs text-muted-foreground">Gli indirizzi si gestiscono in «Dati generali».</p>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label htmlFor="dp-from">Orario predefinito — dalle</Label>
-            <TimeInput24 id="dp-from" value={from} onChange={(v) => setFrom(v)} />
-          </div>
-          <div>
-            <Label htmlFor="dp-to">alle</Label>
-            <TimeInput24 id="dp-to" value={to} onChange={(v) => setTo(v)} />
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TimeWheelField label="Orario predefinito — dalle" value={from} onChange={setFrom} />
+          <TimeWheelField label="alle" value={to} onChange={setTo} />
         </div>
         <div className="space-y-1">
           <Label>Data predefinita</Label>
