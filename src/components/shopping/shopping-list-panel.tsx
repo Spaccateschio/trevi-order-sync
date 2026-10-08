@@ -30,6 +30,7 @@ import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { CloseListDialog } from "./close-list-dialog";
 import { ListHistoryDialog } from "./list-history-dialog";
+import { ListDeliveryDate, useProposeListDate } from "./list-delivery-date";
 import { getCompanyHasFavorites, getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
 import { useShoppingListExtras, type RowExtras } from "./use-shopping-list-extras";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -143,6 +144,7 @@ const EMPTY_SET = new Set<string>();
 export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
   const runList = useServerFn(manageShoppingList);
+  const proposeListDate = useProposeListDate(companyId);
   const [closeOpen, setCloseOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const runQuantity = useServerFn(setShoppingListItemQuantity);
@@ -196,7 +198,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     queryFn: async (): Promise<ShoppingListRow[]> => {
       const { data, error } = await supabase
         .from("shopping_lists")
-        .select("id, name, number, status, archive_id, notes, created_at, confirmed_at, closed_at")
+        .select("id, name, number, status, archive_id, notes, created_at, confirmed_at, closed_at, delivery_date")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
@@ -333,6 +335,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               notes: null,
             },
           });
+          await proposeListDate(opened.id);
           await runEvaluation({ data: { companyId, sessionId, action: "take", listId: opened.id } });
           await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["shopping-list-origins", companyId] })]);
           setListId(opened.id);
@@ -361,6 +364,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         },
       }),
     onSuccess: async (result, action) => {
+      if (action === "open") await proposeListDate(result.id);
       await refresh();
       if (action === "open") setListId(result.id);
       toast.success(
@@ -982,6 +986,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </SelectContent>
           </Select>
           {list ? <Badge variant={editable ? "default" : "secondary"}>{LIST_STATUS_LABEL[list.status]}</Badge> : null}
+          {list ? <ListDeliveryDate companyId={companyId} list={list} editable={editable} /> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {editable ? (
