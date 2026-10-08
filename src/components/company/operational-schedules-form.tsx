@@ -73,43 +73,34 @@ export function OperationalSchedulesForm({ companyId, isAdmin }: { companyId: st
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     await queryClient.invalidateQueries({ queryKey: key });
+    setLocked(true);
     toast.success("Promemoria salvato");
   };
 
-  const disabled = !isAdmin || saving || query.isLoading;
+  const disabled = !isAdmin || saving || query.isLoading || locked;
 
   return (
     <section className="mt-4 rounded-lg border border-border bg-card p-5 shadow-sm">
-      <h2 className="font-display text-base font-semibold">Promemoria operativi</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Imposta i giorni e l'ora in cui vuoi ricevere un promemoria per iniziare la Lista della Spesa.
-      </p>
-      <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-3">
-        <div className="w-full text-sm font-medium lg:w-auto">Preparazione Lista della Spesa</div>
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
-          {DAYS.map(([k, label]) => (
-            <label key={k} className="flex items-center gap-1.5 text-sm">
-              <Checkbox
-                checked={days[k]}
-                disabled={disabled}
-                onCheckedChange={(v) => setDays((p) => ({ ...p, [k]: v === true }))}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
+      <div className="flex items-start justify-between gap-2">
         <div>
-          <Label className="text-xs">Ora promemoria</Label>
-          <div className="mt-1">
-            <TimeWheelPicker value={time} onChange={setTime} disabled={disabled} />
-          </div>
+          <h2 className="font-display text-base font-semibold">Promemoria operativi</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Imposta i giorni e l'ora in cui vuoi ricevere un promemoria per iniziare la Lista della Spesa.
+          </p>
         </div>
-
+        {isAdmin && locked ? (
+          <Button type="button" size="sm" variant="outline" onClick={() => setLocked(false)}>
+            <Pencil className="mr-1 h-4 w-4" />
+            Modifica
+          </Button>
+        ) : null}
+      </div>
+...
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={enabled} onCheckedChange={setEnabled} disabled={disabled} />
           Attivo
         </label>
-        {isAdmin ? (
+        {isAdmin && !locked ? (
           <Button onClick={() => void save()} disabled={disabled}>Salva promemoria</Button>
         ) : null}
       </div>
