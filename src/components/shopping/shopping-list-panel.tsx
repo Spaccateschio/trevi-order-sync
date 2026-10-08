@@ -1018,11 +1018,52 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             {scheduleQuery.isLoading ? "…" : describeOperationalSchedule(scheduleQuery.data)}
           </span>
         </div>
-        <Button asChild size="sm" variant="link" className="h-auto p-0 text-xs">
-          <Link to="/amministrazione" search={{ sezione: "preferenze" }}>
-            Modifica in Azienda → Preferenze
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdmin && scheduleQuery.data ? (
+            <Popover open={overrideOpen} onOpenChange={setOverrideOpen}>
+              <PopoverTrigger asChild>
+                <Button type="button" size="sm" variant="link" className="h-auto p-0 text-xs">
+                  Cambia orario
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64 space-y-3">
+                <p className="text-xs font-medium">A che ora vuoi il promemoria?</p>
+                <TimeWheelPicker value={overrideTime} onChange={setOverrideTime} />
+                <div className="flex flex-col gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={overrideMutation.isPending}
+                    onClick={() => overrideMutation.mutate(overrideTime)}
+                  >
+                    Solo oggi
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/amministrazione" search={{ sezione: "preferenze" }}>
+                      Sempre (in Azienda → Preferenze)
+                    </Link>
+                  </Button>
+                  {hasTodayOverride(scheduleQuery.data) ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={overrideMutation.isPending}
+                      onClick={() => overrideMutation.mutate(null)}
+                    >
+                      Annulla l'eccezione di oggi
+                    </Button>
+                  ) : null}
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : null}
+          <Button asChild size="sm" variant="link" className="h-auto p-0 text-xs">
+            <Link to="/amministrazione" search={{ sezione: "preferenze" }}>
+              Modifica in Azienda → Preferenze
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {!list && !previewMode && !listsQuery.isLoading ? (() => {
