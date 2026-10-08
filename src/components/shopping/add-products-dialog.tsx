@@ -191,18 +191,33 @@ export function AddProductsDialog({
   });
 
   const rows = useMemo<Row[]>(() => {
-    const linksByProduct = new Map<string, { names: Set<string>; units: Set<string> }>();
+    type LinkEntry = { names: Set<string>; units: Set<string>; pairs: { name: string; unit: string | null }[] };
+    const linksByProduct = new Map<string, LinkEntry>();
     for (const link of linksQuery.data ?? []) {
-      const entry = linksByProduct.get(link.product_id) ?? { names: new Set<string>(), units: new Set<string>() };
-      if (link.supplier_records?.legal_name) entry.names.add(link.supplier_records.legal_name);
-      if (link.units_of_measure?.code) entry.units.add(link.units_of_measure.code);
+      const name = link.supplier_records?.legal_name;
+      const unit = link.units_of_measure?.code ?? null;
+      const entry =
+        linksByProduct.get(link.product_id) ?? { names: new Set<string>(), units: new Set<string>(), pairs: [] };
+      if (name) {
+        entry.names.add(name);
+        entry.pairs.push({ name, unit });
+      }
+      if (unit) entry.units.add(unit);
       linksByProduct.set(link.product_id, entry);
     }
 
     const own: Row[] = (productsQuery.data ?? []).map((p) => {
       const links = linksByProduct.get(p.id);
+      const supplierUnits: Record<string, string[]> = {};
+      for (const pair of links?.pairs ?? []) {
+        const list = supplierUnits[pair.name] ?? (supplierUnits[pair.name] = []);
+        if (pair.unit && !list.includes(pair.unit)) list.push(pair.unit);
+      }
       const units = new Set<string>();
       if (p.danea_um) units.add(p.danea_um);
+      for (const code of p.product_sale_units ?? []) {
+        if (code.units_of_measure?.code) units.add(code.units_of_measure.code);
+      }
       for (const code of links?.units ?? []) units.add(code);
       return {
         key: `own:${p.id}`,
@@ -215,6 +230,7 @@ export function AddProductsDialog({
         subcategory: p.subcategory,
         baseUm: p.danea_um,
         supplierNames: [...(links?.names ?? [])],
+        supplierUnits,
         unitCodes: [...units],
         isB2b: false,
       };
