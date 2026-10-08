@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { hhmm, useDeliveryPreferences, type DeliveryDay } from "@/lib/delivery-preferences";
-import { TimeInput24 } from "@/components/purchase/delivery-fields";
+import { TimeWheelPicker } from "@/components/company/time-wheel";
 
 const NONE = "__nessuna__";
 
@@ -70,15 +70,9 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
           </Select>
           <p className="text-xs text-muted-foreground">Gli indirizzi si gestiscono in «Dati generali».</p>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label htmlFor="dp-from">Orario predefinito — dalle</Label>
-            <TimeInput24 id="dp-from" value={from} onChange={(v) => setFrom(v)} />
-          </div>
-          <div>
-            <Label htmlFor="dp-to">alle</Label>
-            <TimeInput24 id="dp-to" value={to} onChange={(v) => setTo(v)} />
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TimeWheelField label="Orario predefinito — dalle" value={from} onChange={setFrom} />
+          <TimeWheelField label="alle" value={to} onChange={setTo} />
         </div>
         <div className="space-y-1">
           <Label>Data predefinita</Label>
@@ -98,5 +92,40 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Orario opzionale con rotella: vuoto = nessun orario predefinito.
+ * La rotella compare solo quando l'orario è impostato; «Rimuovi» lo svuota.
+ */
+function TimeWheelField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label>{label}</Label>
+      {value ? (
+        <div className="flex items-start gap-2">
+          <TimeWheelPicker value={value} onChange={onChange} />
+          <Button type="button" size="sm" variant="outline" onClick={() => onChange("")}>
+            Rimuovi
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Nessun orario</span>
+          <Button type="button" size="sm" variant="outline" onClick={() => onChange("09:00")}>
+            Imposta
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
