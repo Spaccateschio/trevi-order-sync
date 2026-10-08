@@ -6106,6 +6106,10 @@ export type Database = {
         Args: { _actor_user_id?: string; _company_id: string }
         Returns: string
       }
+      ensure_default_product_sale_unit: {
+        Args: { _actor_user_id?: string; _product_id: string }
+        Returns: string
+      }
       ensure_internal_archive: {
         Args: { _actor_user_id?: string; _company_id: string }
         Returns: string
