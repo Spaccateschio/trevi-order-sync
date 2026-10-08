@@ -72,7 +72,17 @@ export function DeliveryPreferencesForm({ companyId }: { companyId: string }) {
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
-...
+            <SelectContent>
+              <SelectItem value={NONE}>Nessuna</SelectItem>
+              {(prefs.data?.addresses ?? []).map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.text || "Indirizzo senza descrizione"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">Gli indirizzi si gestiscono in «Dati generali».</p>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <TimeWheelField label="Orario predefinito — inizio consegna" value={from} onChange={setFrom} disabled={locked} />
           <div className="space-y-1">
