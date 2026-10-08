@@ -21,6 +21,8 @@ import { manageInventoryEvaluation, type CycleStatus } from "@/lib/inventory-cyc
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { type ShoppingListRow } from "@/lib/shopping-list";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
+import { setInventoryPurchaseEvaluation } from "@/lib/inventory-evaluation.functions";
+import { evaluationCounts, statusFromQuantity, type EvaluationRow, type EvaluationStatus } from "@/lib/inventory-evaluation";
 
 export type CountedRow = {
   product_id: string;
@@ -117,6 +119,42 @@ export function useInventoryCountedRows(companyId: string, sessionId: string | n
   });
   const images = new Map((imagesQuery.data ?? []).map((image) => [image.productId, image.url]));
   return { allCounted, images, isLoading: countsQuery.isLoading };
+}
+
+export const EVALUATION_QUERY_KEY = "inventory-purchase-evaluation";
+
+/** Decisioni di acquisto salvate nel database per la sessione: sopravvivono a ricarica e cambio pagina. */
+export function useEvaluationRows(sessionId: string | null) {
+  const query = useQuery({
+    queryKey: [EVALUATION_QUERY_KEY, sessionId],
+    enabled: Boolean(sessionId),
+    queryFn: async (): Promise<Map<string, EvaluationRow>> => {
+      const { data, error } = await supabase
+        .from("inventory_purchase_evaluation_items")
+        .select("product_id, status, decided_quantity")
+        .eq("session_id", sessionId!);
+      if (error) throw new Error(error.message);
+      return new Map(
+        ((data ?? []) as EvaluationRow[]).map((row) => [
+          row.product_id,
+          { ...row, decided_quantity: row.decided_quantity === null ? null : Number(row.decided_quantity) },
+        ]),
+      );
+    },
+  });
+  return query.data ?? new Map<string, EvaluationRow>();
+}
+
+/** Salva una decisione (quantità digitata, Non acquistare, Ripristina) e aggiorna i contatori. */
+export function useSaveEvaluation(sessionId: string | null) {
+  const queryClient = useQueryClient();
+  const runSet = useServerFn(setInventoryPurchaseEvaluation);
+  return useMutation({
+    mutationFn: (input: { productId: string; status: EvaluationStatus; quantity: number | null }) =>
+      runSet({ data: { sessionId: sessionId!, ...input } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [EVALUATION_QUERY_KEY, sessionId] }),
+    onError: (error: Error) => toast.error(error.message),
+  });
 }
 
 
