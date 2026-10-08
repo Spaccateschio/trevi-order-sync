@@ -59,7 +59,7 @@ function StepperSegment({
   ariaLabel: string;
   onDecrement: () => void;
   onIncrement: () => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 }) {
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (disabled) return;
