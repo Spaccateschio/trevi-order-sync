@@ -531,16 +531,91 @@ export function AddProductsDialog({
           <div className="relative">
             <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
+              ref={searchInputRef}
               className="h-8 pl-8 text-sm"
               autoFocus={!inline}
               value={search}
               placeholder="Codice o descrizione"
               aria-label="Cerca prodotto da aggiungere"
+              aria-expanded={suggestOpen && suggestions.length > 0}
+              aria-controls="suggerimenti-rapidi"
+              role="combobox"
               onChange={(event) => {
                 setSearch(event.target.value);
                 setLimit(PAGE);
+                setSuggestOpen(true);
+                setActiveSuggestion(0);
+              }}
+              onFocus={() => setSuggestOpen(true)}
+              onBlur={() => {
+                // Ritardo per permettere il click sul suggerimento prima della chiusura.
+                window.setTimeout(() => setSuggestOpen(false), 150);
+              }}
+              onKeyDown={(event) => {
+                if (!suggestOpen || suggestions.length === 0) {
+                  if (event.key === "Escape") setSuggestOpen(false);
+                  return;
+                }
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  setActiveSuggestion((i) => (i + 1) % suggestions.length);
+                } else if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  setActiveSuggestion((i) => (i - 1 + suggestions.length) % suggestions.length);
+                } else if (event.key === "Enter") {
+                  event.preventDefault();
+                  const row = suggestions[activeSuggestion] ?? suggestions[0];
+                  if (row) pickSuggestion(row);
+                } else if (event.key === "Escape") {
+                  setSuggestOpen(false);
+                }
               }}
             />
+            {suggestOpen && suggestions.length > 0 ? (
+              <ul
+                id="suggerimenti-rapidi"
+                role="listbox"
+                aria-label="Suggerimenti prodotti"
+                className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-md border border-border bg-popover shadow-md"
+              >
+                {suggestions.map((row, index) => {
+                  const fav = row.ownProductId ? (favoritesQuery.data?.has(row.ownProductId) ?? false) : false;
+                  const inList = row.ownProductId ? existingProductIds.has(row.ownProductId) : false;
+                  return (
+                    <li key={row.key} role="option" aria-selected={index === activeSuggestion}>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex w-full items-center gap-2 px-2 py-1.5 text-left",
+                          index === activeSuggestion && "bg-accent",
+                        )}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => pickSuggestion(row)}
+                        onMouseEnter={() => setActiveSuggestion(index)}
+                      >
+                        <Thumb url={row.ownProductId ? (images.get(row.ownProductId) ?? null) : null} />
+                        <span className="min-w-0 flex-1 text-xs">
+                          <span className="block truncate font-medium">{row.description ?? row.code}</span>
+                          <span className="block truncate text-muted-foreground">
+                            <span className="font-mono">{row.code}</span>
+                            {row.baseUm ? ` · ${row.baseUm}` : ""}
+                            {" · "}
+                            {catalogSupplierLabel(row)}
+                          </span>
+                        </span>
+                        {inList ? (
+                          <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">In lista</Badge>
+                        ) : null}
+                        <Star
+                          className={cn("size-3.5 shrink-0", fav ? "fill-current text-primary" : "text-muted-foreground/40")}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
           </div>
           <Select
             value={supplierFilter}
