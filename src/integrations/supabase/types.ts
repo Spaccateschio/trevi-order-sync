@@ -7264,6 +7264,10 @@ export type Database = {
         Args: { _enabled: boolean; _relation_id: string }
         Returns: undefined
       }
+      set_shopping_list_delivery_date: {
+        Args: { _company_id: string; _delivery_date: string; _list_id: string }
+        Returns: string
+      }
       set_shopping_list_item_quantity: {
         Args: {
           _actor_user_id?: string
