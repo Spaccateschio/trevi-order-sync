@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
-import type { OverviewRow } from "@/lib/shopping-list";
+import { ITEM_STATUS_LABEL, type OverviewRow } from "@/lib/shopping-list";
 import { assignShoppingListSupplier, setShoppingListDirectQuota } from "@/lib/shopping-list.functions";
 
 /**
@@ -303,6 +303,7 @@ export function CardSuppliers({
   const [removing, setRemoving] = useState<CardSupplier | null>(null);
   // Vista operativa semplice: ripartizione e dettagli (prezzo, B2B, U.M.) solo su richiesta.
   const [split, setSplit] = useState(false);
+  const [openLink, setOpenLink] = useState<string | null>(null);
   const [details, setDetails] = useState(false);
   const autoRef = useRef(false);
   const companyUnits = useCompanyUnits(companyId);
@@ -718,7 +719,15 @@ export function CardSuppliers({
 
         {editingLink ? editForm(s, assignment) : null}
 
-        {split && !assignment && !editingLink && canWrite && !b2bBlocked && !noUnits ? (
+        {!assignment && noUnits ? (
+          <p className="text-[11px] font-medium text-muted-foreground">U.M. non pubblicata dal fornitore</p>
+        ) : null}
+        {!assignment && !editingLink && canWrite && !b2bBlocked && !noUnits && !split && openLink !== s.linkId ? (
+          <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled={!target} title={target ? undefined : "Conferma prima la quantità da acquistare"} onClick={() => setOpenLink(s.linkId)}>
+            + Assegna quantità
+          </Button>
+        ) : null}
+        {(split || openLink === s.linkId) && !assignment && !editingLink && canWrite && !b2bBlocked && !noUnits ? (
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-1">
               <Input
@@ -907,63 +916,37 @@ export function CardSuppliers({
     </AlertDialog>
   );
 
-  if (!suppliers.length && !assignments.length)
-    return (
-      <div className="space-y-1">
-        <p className="text-xs text-muted-foreground">Nessun fornitore collegato</p>
-        <DirectQuota companyId={companyId} itemId={row.item_id} editable={editable} unitCode={decidedCode || row.unit_code || ""} />
-        {addButton}
-        {removeDialog}
-      </div>
-    );
-
   const orphans = assignments.filter((a) => !byLink.has(a.linkId));
+  const available = suppliers.filter((s) => !byLink.has(s.linkId) && editing?.linkId !== s.linkId);
+  const assigned = suppliers.filter((s) => byLink.has(s.linkId) || editing?.linkId === s.linkId);
+  const directUnit = decidedCode || row.unit_code || "";
 
   return (
-    <div className="space-y-1">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fornitori disponibili · ripartizione di questa Lista</p>
-      <ul className="space-y-1">
-        {suppliers
-          .filter((s) => split || byLink.has(s.linkId) || editing?.linkId === s.linkId)
-          .map((s) => supplierRow(s, byLink.get(s.linkId) ?? null))}
-        {orphans.map(orphanRow)}
-      </ul>
-      {!split && !assignments.length && !pending && suppliers.length ? (
-        <div className="space-y-1">
-          <p className="text-xs font-semibold">Da chi lo compri?</p>
-          <div className="flex flex-wrap gap-1">
-            {suppliers.map((s) => {
-              const q = quickFor(s);
-              return (
-                <Button
-                  key={s.linkId}
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-9 gap-1 px-3 text-xs"
-                  disabled={!canWrite || busy}
-                  title={q && target ? `${s.name} → ${qty(target)} ${decidedCode}` : "Scegli quantità e U.M. del fornitore"}
-                  onClick={() => (q && target ? assignAll(s, q) : setSplit(true))}
-                >
-                  {s.isPreferred ? <Star className="size-3 fill-primary text-primary" aria-hidden="true" /> : null}
-                  {s.name}
-                </Button>
-              );
-            })}
-          </div>
-          {canWrite && !target ? <p className="text-[11px] text-muted-foreground">Conferma prima la quantità da acquistare.</p> : null}
-        </div>
-      ) : null}
-      {canWrite && suppliers.length ? (
-        <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-1.5 text-[11px]" onClick={() => setSplit((v) => !v)}>
-          <Split className="size-3" aria-hidden="true" /> {split ? "Chiudi ripartizione" : "Dividi tra fornitori"}
-        </Button>
-      ) : null}
-      <DirectQuota companyId={companyId} itemId={row.item_id} editable={editable} unitCode={decidedCode || row.unit_code || ""} />
-      {pending && suppliers.length ? (
-        <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p>
-      ) : null}
-      {addButton}
+    <div className="space-y-2">
+      <section className="space-y-1">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fornitori disponibili</p>
+        {available.length ? (
+          <ul className="space-y-1">{available.map((s) => supplierRow(s, null))}</ul>
+        ) : (
+          <p className="text-xs text-muted-foreground">{suppliers.length ? "Tutti già nella ripartizione" : "Nessun fornitore collegato"}</p>
+        )}
+        {addButton}
+      </section>
+      <section className="space-y-1">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ripartizione di questa Lista</p>
+        {assigned.length || orphans.length ? (
+          <ul className="space-y-1">
+            {assigned.map((s) => supplierRow(s, byLink.get(s.linkId) ?? null))}
+            {orphans.map(orphanRow)}
+          </ul>
+        ) : null}
+        <DirectQuota companyId={companyId} itemId={row.item_id} editable={editable} unitCode={directUnit} />
+        {pending ? <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p> : null}
+      </section>
+      <p className="text-xs">
+        Stato: <span className="font-semibold">{ITEM_STATUS_LABEL[row.status]}</span>
+        {row.status === "parziale" && row.remaining !== null ? ` · ${qty(row.remaining)} ${directUnit} da assegnare` : ""}
+      </p>
       {removeDialog}
     </div>
   );
