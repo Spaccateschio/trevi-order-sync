@@ -273,7 +273,8 @@ export const manageCatalogProductFavorite = createServerFn({ method: "POST" })
             product_id: data.sellerProductId,
             created_by: context.userId,
           },
-          { onConflict: "buyer_company_id,product_id" },
+          // Già preferito = nessuna modifica (non esiste una policy di aggiornamento).
+          { onConflict: "buyer_company_id,product_id", ignoreDuplicates: true },
         )
       : context.supabase.from("buyer_product_favorites").delete()
           .eq("buyer_company_id", data.companyId)
