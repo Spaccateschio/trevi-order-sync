@@ -63,7 +63,9 @@ import {
 import { describeOperationalSchedule, hasTodayOverride, type OperationalScheduleRow } from "@/lib/operational-schedule";
 import { TimeWheelPicker } from "@/components/company/time-wheel";
 import { hasRole, useIdentity } from "@/hooks/use-identity";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+  addShoppingListItems,
   confirmShoppingListProduct,
   manageShoppingList,
   removeShoppingListItem,
@@ -147,6 +149,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const proposeListDate = useProposeListDate(companyId);
   const [closeOpen, setCloseOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [newListOpen, setNewListOpen] = useState(false);
   const runQuantity = useServerFn(setShoppingListItemQuantity);
   const runRemove = useServerFn(removeShoppingListItem);
   const runLock = useServerFn(setShoppingListItemQuantityLock);
@@ -375,6 +378,68 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             : action === "close"
               ? "Lista chiusa"
               : "Lista annullata",
+      );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  /**
+   * Nuova Lista straordinaria con riempimento iniziale a scelta:
+   * «preferiti» / «tutti» aggiungono i prodotti con quantità vuota e origine «manuale»;
+   * «vuota» lascia la lista vuota come prima. La data proposta resta quella delle preferenze.
+   */
+  const runAddItems = useServerFn(addShoppingListItems);
+  const createListMutation = useMutation({
+    mutationFn: async (mode: "preferiti" | "tutti" | "vuota") => {
+      const archiveId = archivesQuery.data?.[0]?.id ?? null;
+      const opened = await runList({
+        data: { companyId, action: "open", listId: null, archiveId, name: null, notes: null },
+      });
+      await proposeListDate(opened.id);
+      if (mode !== "vuota") {
+        let productIds: string[] = [];
+        if (mode === "preferiti") {
+          const { data, error } = await supabase
+            .from("company_product_favorites")
+            .select("product_id")
+            .eq("company_id", companyId);
+          if (error) throw new Error(error.message);
+          productIds = ((data ?? []) as { product_id: string }[]).map((row) => row.product_id);
+        } else {
+          if (!archiveId) throw new Error("Nessun archivio attivo");
+          const { data, error } = await supabase
+            .from("products")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("archive_id", archiveId)
+            .order("code");
+          if (error) throw new Error(error.message);
+          productIds = ((data ?? []) as { id: string }[]).map((row) => row.id);
+        }
+        // La funzione accetta al massimo 500 righe per chiamata: suddivido in blocchi.
+        for (let i = 0; i < productIds.length; i += 500) {
+          await runAddItems({
+            data: {
+              companyId,
+              listId: opened.id,
+              items: productIds.slice(i, i + 500).map((product_id) => ({ product_id, origin: "manuale" as const })),
+              replaceExisting: false,
+            },
+          });
+        }
+      }
+      return { id: opened.id as string, mode };
+    },
+    onSuccess: async (result) => {
+      setNewListOpen(false);
+      await refresh();
+      setListId(result.id);
+      toast.success(
+        result.mode === "vuota"
+          ? "Lista aperta"
+          : result.mode === "preferiti"
+            ? "Lista aperta con i prodotti preferiti"
+            : "Lista aperta con tutti i prodotti",
       );
     },
     onError: (error: Error) => toast.error(error.message),
@@ -1037,9 +1102,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             type="button"
             size="sm"
             variant="outline"
-            disabled={listMutation.isPending || !archivesQuery.data?.length}
+            disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
             title="Lista straordinaria, non collegata all'inventario"
-            onClick={() => listMutation.mutate("open")}
+            onClick={() => setNewListOpen(true)}
           >
             <Plus aria-hidden="true" />
             Nuova lista
@@ -1487,6 +1552,47 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           }}
         />
       ) : null}
+      <Dialog open={newListOpen} onOpenChange={(open) => { if (!createListMutation.isPending) setNewListOpen(open); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Nuova Lista della Spesa</DialogTitle>
+            <DialogDescription>Come vuoi iniziare? La data «Per quando serve» viene proposta dalle preferenze.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto flex-col items-start gap-0.5 py-2 text-left"
+              disabled={createListMutation.isPending}
+              onClick={() => createListMutation.mutate("preferiti")}
+            >
+              <span className="font-semibold">Solo i preferiti</span>
+              <span className="text-xs font-normal text-muted-foreground">La lista nasce con tutti i prodotti preferiti, quantità da riempire.</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto flex-col items-start gap-0.5 py-2 text-left"
+              disabled={createListMutation.isPending}
+              onClick={() => createListMutation.mutate("tutti")}
+            >
+              <span className="font-semibold">Tutti i prodotti</span>
+              <span className="text-xs font-normal text-muted-foreground">L'intero catalogo della tua azienda, quantità da riempire.</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto flex-col items-start gap-0.5 py-2 text-left"
+              disabled={createListMutation.isPending}
+              onClick={() => createListMutation.mutate("vuota")}
+            >
+              <span className="font-semibold">Lista vuota</span>
+              <span className="text-xs font-normal text-muted-foreground">Aggiungo io i prodotti manualmente, come prima.</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ListHistoryDialog companyId={companyId} open={historyOpen} onOpenChange={setHistoryOpen} />
 
       {splitItem ? (
