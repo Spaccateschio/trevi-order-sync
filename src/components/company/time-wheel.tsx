@@ -16,7 +16,6 @@ export function TimeWheelPicker({
   onChange: (v: string) => void;
   disabled?: boolean;
 }) {
-  console.log('PICKER RENDER', value);
   const match = /^(\d{2}):(\d{2})$/.exec(value);
   const hour = match ? Number(match[1]) : 9;
   const minute = match ? Math.min(55, Math.round(Number(match[2]) / 5) * 5) : 0;
@@ -28,8 +27,10 @@ export function TimeWheelPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
+  // La colonna ore passa il valore 0-23; quella minuti passa l'indice 0-11 (passi di 5).
   const setHour = (h: number) => onChange(`${pad2(h)}:${pad2(minute)}`);
-  const setMinute = (m: number) => { console.log('SETMINUTE', m); onChange(`${pad2(hour)}:${pad2(m)}`); };
+  const setMinute = (i: number) => onChange(`${pad2(hour)}:${pad2(i * 5)}`);
+
 
 
   return (
