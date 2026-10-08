@@ -921,6 +921,7 @@ export function CardSuppliers({
 
   return (
     <div className="space-y-1">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fornitori disponibili · ripartizione di questa Lista</p>
       <ul className="space-y-1">
         {suppliers
           .filter((s) => split || byLink.has(s.linkId) || editing?.linkId === s.linkId)
