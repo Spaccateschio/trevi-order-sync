@@ -79,7 +79,9 @@ export function CloseListDialog({
     }
   }, [prefs.data, preview, today]);
 
-  const blocked = Boolean(preview?.missing.length);
+  const blocked = Boolean(
+    preview && (preview.missing.length || preview.unassigned.length || preview.partial.length || preview.uncertain.length),
+  );
   const setOv = (id: string, patch: Partial<Override>) =>
     setOverrides((cur) => ({ ...cur, [id]: { date: "", from: "", to: "", address: "", notes: "", ...cur[id], ...patch } }));
 
@@ -173,31 +175,34 @@ export function CloseListDialog({
                 <p className="flex items-center gap-1 font-semibold text-destructive">
                   <AlertTriangle className="size-4" aria-hidden="true" /> Lista non completa
                 </p>
-                <p className="mt-1">Manca la quantità da acquistare per {preview.missing.length} prodotti:</p>
-                <ul className="mt-1 space-y-0.5">
-                  {preview.missing.map((m) => (
-                    <li key={m.item_id}>
-                      <button type="button" className="text-left font-medium underline" onClick={() => onGoToItem(m.item_id)}>
-                        {m.name}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                {(
+                  [
+                    ["Manca la quantità da acquistare", preview.missing],
+                    ["Da assegnare (scegli fornitore o acquisto diretto)", preview.unassigned],
+                    ["Parziali", preview.partial],
+                    ["Da verificare", preview.uncertain],
+                  ] as const
+                ).map(([title, rows]) =>
+                  rows.length ? (
+                    <div key={title} className="mt-1">
+                      <p className="text-xs font-semibold">{title}</p>
+                      <ul className="space-y-0.5">
+                        {rows.map((m) => (
+                          <li key={m.item_id}>
+                            <button type="button" className="text-left font-medium underline" onClick={() => onGoToItem(m.item_id)}>
+                              {m.name}
+                            </button>
+                            {"remaining" in m && m.remaining !== null ? <span className="text-xs"> — {qty(m.remaining)} da assegnare</span> : null}
+                            {"reason" in m ? <span className="text-xs"> — {m.reason}</span> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null,
+                )}
               </section>
             ) : null}
 
-            {preview.uncertain.length ? (
-              <section className="rounded-md border border-accent bg-accent/20 p-3">
-                <p className="font-semibold">Da verificare</p>
-                <ul className="mt-1 space-y-0.5 text-xs">
-                  {preview.uncertain.map((u) => (
-                    <li key={u.item_id}>
-                      <strong>{u.name}</strong> — {u.reason}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
 
             <section className="space-y-1.5 text-muted-foreground">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Consegna generale</h3>
@@ -263,7 +268,7 @@ export function CloseListDialog({
             </section>
 
             <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Acquisti diretti</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Acquisti diretti scelti</h3>
               {preview.direct.length ? (
                 <ul className="space-y-1.5">
                   {preview.direct.map((d) => (
@@ -276,7 +281,6 @@ export function CloseListDialog({
                         <span className="rounded-md bg-primary px-2 py-0.5 text-sm font-bold text-primary-foreground">
                           {qty(d.quantity)} {d.unit_code ?? ""}
                         </span>
-                        {d.origin === "residuo" ? <span className="text-xs text-muted-foreground">(residuo)</span> : null}
                       </span>
                       <Input
                         className="h-8 w-full bg-background font-medium sm:w-52"
