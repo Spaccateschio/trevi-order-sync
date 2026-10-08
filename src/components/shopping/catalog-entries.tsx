@@ -324,7 +324,7 @@ export function CatalogProductCard({
   const unitCode = unit === MANUAL ? manual.trim().toUpperCase() || null : unit || null;
   const ready = canAdd && Boolean(quantity && quantity > 0) && (unit !== MANUAL || Boolean(unitCode));
   const name = entry.description ?? entry.code;
-  const supplier = entry.supplierNames.length ? entry.supplierNames.join(", ") : "Senza fornitore";
+  const supplier = catalogSupplierLabel(entry);
 
   const star = (
     <Button

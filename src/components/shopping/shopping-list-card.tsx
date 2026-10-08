@@ -99,10 +99,13 @@ export function ShoppingListCard({
   onClearQuantity,
   pending = false,
   pendingQuantity,
+  evaluation,
   show = ALL_VISIBLE,
 }: {
   /** Prodotto dell'inventario non ancora in Lista: stessa card, comandi della Lista non ancora attivi. */
   pending?: boolean;
+  /** Decisione salvata in inventory_purchase_evaluation_items (fonte ufficiale del badge di valutazione). */
+  evaluation?: { status: EvaluationBadgeStatus; decided_quantity: number | null };
   /** Quantità scritta su un prodotto «Da valutare» (serve solo ad abilitare Conferma). */
   pendingQuantity?: number | null;
   /** «Visualizza dati»: nasconde solo informazioni, non cambia dati né comandi salvati. */
@@ -169,7 +172,18 @@ export function ShoppingListCard({
 
   const statusBadge = !show.status && !show.assignStatus ? null : pending ? (
     show.status ? (
-      <span className="rounded-sm bg-primary/20 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-foreground">Da valutare</span>
+      <span
+        className={cn(
+          "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
+          evaluation?.status === "da_acquistare"
+            ? "bg-success/15 text-success"
+            : evaluation?.status === "non_acquistare"
+              ? "bg-muted text-muted-foreground"
+              : "bg-primary/20 text-foreground",
+        )}
+      >
+        {evaluationBadge(evaluation, unit)}
+      </span>
     ) : null
   ) : (
     <span className="flex items-center gap-1">
