@@ -512,6 +512,8 @@ export type Database = {
           friday: boolean
           id: string
           monday: boolean
+          override_date: string | null
+          override_time: string | null
           reminder_time: string | null
           saturday: boolean
           schedule_type: string
@@ -529,6 +531,8 @@ export type Database = {
           friday?: boolean
           id?: string
           monday?: boolean
+          override_date?: string | null
+          override_time?: string | null
           reminder_time?: string | null
           saturday?: boolean
           schedule_type: string
@@ -546,6 +550,8 @@ export type Database = {
           friday?: boolean
           id?: string
           monday?: boolean
+          override_date?: string | null
+          override_time?: string | null
           reminder_time?: string | null
           saturday?: boolean
           schedule_type?: string
@@ -6300,6 +6306,8 @@ export type Database = {
           friday: boolean
           id: string
           monday: boolean
+          override_date: string | null
+          override_time: string | null
           reminder_time: string | null
           saturday: boolean
           schedule_type: string
@@ -7189,6 +7197,34 @@ export type Database = {
       set_shopping_list_item_quantity_lock: {
         Args: { _item_id: string; _locked: boolean }
         Returns: string
+      }
+      set_shopping_list_schedule_override: {
+        Args: { _company_id: string; _time: string }
+        Returns: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          friday: boolean
+          id: string
+          monday: boolean
+          override_date: string | null
+          override_time: string | null
+          reminder_time: string | null
+          saturday: boolean
+          schedule_type: string
+          sunday: boolean
+          thursday: boolean
+          tuesday: boolean
+          updated_at: string
+          wednesday: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "company_operational_schedules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_supplier_delivery_schedule: {
         Args: {
