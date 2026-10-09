@@ -1,4 +1,4 @@
-import { Check, Lock, MoreVertical, Package, Plus, Star, Trash2, TriangleAlert, Truck, X } from "lucide-react";
+import { Check, Copy, Lock, MoreVertical, Package, Plus, Star, Trash2, TriangleAlert, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
@@ -102,7 +102,10 @@ export function ShoppingListCard({
   pendingQuantity,
   evaluation,
   show = ALL_VISIBLE,
+  onCopyToOwnProducts,
 }: {
+  /** «Copia nei miei prodotti»: passato solo per card B2B e amministratori. */
+  onCopyToOwnProducts?: (() => void) | undefined;
   /** Prodotto dell'inventario non ancora in Lista: stessa card, comandi della Lista non ancora attivi. */
   pending?: boolean;
   /** Decisione salvata in inventory_purchase_evaluation_items (fonte ufficiale del badge di valutazione). */
@@ -234,6 +237,12 @@ export function ShoppingListCard({
             <DropdownMenuItem onClick={onOpenSuppliers}>
               <Plus aria-hidden="true" />
               Aggiungi fornitore
+            </DropdownMenuItem>
+          ) : null}
+          {onCopyToOwnProducts ? (
+            <DropdownMenuItem onClick={onCopyToOwnProducts}>
+              <Copy aria-hidden="true" />
+              Copia nei miei prodotti
             </DropdownMenuItem>
           ) : null}
           {editable ? (
