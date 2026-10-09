@@ -1,130 +1,39 @@
-# Fase 1: collegamento B2B nelle offerte e correzione di «Copia nei miei prodotti»
+# Completamento interfaccia Catalogo (prima della Fase 2)
 
-Questo è solo il piano: la migrazione non è stata applicata. I nomi e i tipi delle colonne sono stati verificati nel database (tutti gli identificativi sono `uuid`).
+## Cosa cambia per l'utente
+1. Riquadro «Collegamento da completare»: resta, e ogni articolo diventa un link che apre la sua scheda.
+2. Etichetta «Collegamento da completare» su ogni card/riga del Catalogo, accanto alla stella. È visibile con qualsiasi filtro: la condizione dipende solo da stella + collegamento attivo, non dai filtri.
+3. Nuova sezione «Articoli non più in catalogo» (sotto l'elenco): mostra i preferiti che il fornitore non pubblica più (oggi 1803 PATATE VIOLA EST FR e 1812 BASILICO IT CONF.100 GR), con la stella ancora attiva e l'indicazione «Non acquistabile finché non torna pubblicato». Non ci sono pulsanti per aggiungere ai prodotti, alla Lista o agli ordini. Togliere la stella resta possibile.
 
-## Esito dei 9 controlli
+## Rischio da decidere prima (richiede il database)
+Oggi il cliente **non può leggere** gli articoli non pubblicati: la regola di accesso ai prodotti del fornitore ammette solo `publish_status = 'pubblicato'` e `b2b_visible`. Per mostrare codice e descrizione dei 2 articoli serve una nuova funzione DB di **sola lettura**:
+- `buyer_unpublished_favorites(_buyer_company_id)`: SECURITY DEFINER, search_path = public; verifica `is_company_member` dell'utente autenticato; restituisce solo id, codice, descrizione e fornitore degli articoli che hanno la **nostra stella** e che non sono più pubblicati/visibili; GRANT solo ad authenticated.
+- Non espone prezzi, immagini né altri articoli non pubblicati.
 
-| # | Controllo | Esito | Soluzione |
-|---|---|---|---|
-| 1 | Una sola riga per lista e prodotto | **Esiste già**: l'indice `shopping_list_items_unique (list_id, product_id)` | Nessun vincolo nuovo. L'unica funzione che inserisce righe nella Lista è `add_shopping_list_items`, anche quando la chiama `confirm_shopping_list_product`. Prima di inserire controlla se il prodotto è già presente, e in quel caso aggiorna o salta la riga: nessuna procedura si interrompe |
-| 2 | Un articolo B2B deve appartenere al fornitore del collegamento | Oggi 0 casi errati | Un **controllo automatico nel database** (punto 8) che vale per ogni inserimento e modifica, da qualunque funzione |
-| 3 | Collegamenti disattivati | 3 collegamenti disattivati | Il vincolo vale solo per i collegamenti attivi. `add_catalog_product_to_own_products` oggi trova il collegamento disattivato ma **non lo riattiva**: lo correggo perché lo riattivi. Il «Togli fornitore» resta com'è |
-| 4 | Prodotto e collegamento insieme | — | Una sola funzione nuova, in una sola transazione (punto 9) |
-| 5 | «Crea comunque una nuova copia» | — | Il prodotto ha l'origine compilata, ma è **senza collegamento B2B** se l'articolo è già collegato altrove, con il messaggio richiesto |
-| 6 | Nuova spunta sulle quote fornitore (`is_selected`) | 1 quota nelle Liste aperte | Valore iniziale «no», poi compilato a «sì» **solo nelle Liste aperte**, solo sulle quote che hanno una quantità. Il campo non è letto da nessuna funzione fino alla fase 5. Le Liste chiuse non vengono toccate e lì il campo non va mai letto |
-| 7 | Nomi e tipi delle colonne | Verificati | Uso i campi esistenti `product_supplier_links`, `products.created_from_product_id` e `created_from_company_id`, `supplier_customer_relations.supplier_record_id` |
+L'alternativa senza database è mostrare «2 preferiti non più in catalogo» senza nome né codice. La sconsiglio perché non serve all'operatore.
 
-**Dati trovati che riguardano la compilazione dei campi nuovi**
-- Il prodotto 00-001 PATATE NOVELLE ha due collegamenti attivi: Trevi (codice 1043) e Breda Caffè, che è un fornitore esterno.
-- Solo il collegamento di Trevi riceve l'articolo B2B. Breda resta esterno.
-- Nessun vincolo viene violato.
+Il blocco agli acquisti dipende già dal database: F e la Lista leggono solo articoli pubblicati, quindi l'interfaccia non deve aggiungere nessuna regola nuova.
 
-## Modifiche al database (da approvare)
+## File da modificare
+| File | Modifica |
+|---|---|
+| `src/components/catalog/catalog-list.tsx` | nuova prop facoltativa `linkPending?: Set<string>`; etichetta accanto alla stella nella vista tabella e nella vista card (righe ~147 e ~214). Nessun altro cambiamento: senza la prop l'aspetto resta quello di oggi |
+| `src/routes/_authenticated/acquisti.catalogo.index.tsx` | link alla scheda nel riquadro; passa `linkPending` a CatalogList; nuova sezione «Articoli non più in catalogo» (lettura con la funzione sopra), con la stella che si può solo togliere |
+| migrazione 0032 (solo se approvi) | `buyer_unpublished_favorites`, sola lettura |
 
-```sql
--- A. Collegamento: azienda fornitrice e articolo B2B (aggiunte, nessuna colonna tolta)
-ALTER TABLE public.product_supplier_links
-  ADD COLUMN IF NOT EXISTS supplier_company_id uuid REFERENCES public.companies(id),
-  ADD COLUMN IF NOT EXISTS b2b_item_id uuid REFERENCES public.products(id);
+Senza modifiche: scheda articolo (etichetta già presente), `$sellerId.index.tsx`, `catalog-favorites.ts`, Lista, Inventario, Ordini, F/E.
 
--- Compilazione dai dati attuali: azienda dal rapporto B2B del fornitore;
--- articolo solo se la copia nasce proprio da quel venditore (Breda resta esterno)
-UPDATE public.product_supplier_links k
-SET supplier_company_id = r.seller_company_id,
-    b2b_item_id = CASE WHEN p.created_from_company_id = r.seller_company_id
-                       THEN p.created_from_product_id END
-FROM public.supplier_customer_relations r, public.products p
-WHERE r.supplier_record_id = k.supplier_record_id
-  AND r.buyer_company_id = k.company_id
-  AND p.id = k.product_id;
+## Controlli contro le regressioni
+- Typecheck pulito e build OK.
+- Come 3 EMME, su computer (1280) e telefono (390):
+  - riquadro con 3 link, ognuno apre la scheda giusta;
+  - etichetta sulle card dei 3 articoli e su nessun'altra, con i filtri «Solo preferiti», per categoria, per fornitore e con la ricerca;
+  - sezione con i 2 articoli, stella attiva, nessun pulsante di aggiunta.
+- Le 13 card preferite già collegate non mostrano l'etichetta.
+- Nessuna scrittura durante le prove: le richieste di modifica vengono bloccate nello script del browser e la stella non viene cliccata. Conteggi prima/dopo: 18 stelle, 21 collegamenti, prodotti invariati.
+- Funzione DB: come 3 EMME restituisce esattamente 2 righe; come trevi srl (per 3 EMME) viene rifiutata; per un utente non membro, 0 righe o errore.
+- Pagine Ordini, Ordini clienti e Prodotti del fornitore: si aprono senza errori.
 
--- B. Controllo automatico: vale per ogni funzione, presente e futura
-CREATE OR REPLACE FUNCTION public.guard_supplier_link_b2b_item()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  IF NEW.b2b_item_id IS NOT NULL OR NEW.supplier_company_id IS NOT NULL THEN
-    IF NEW.supplier_company_id IS NULL THEN
-      RAISE EXCEPTION 'Collegamento B2B senza azienda fornitrice';
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM public.supplier_customer_relations r
-                   WHERE r.supplier_record_id = NEW.supplier_record_id
-                     AND r.buyer_company_id = NEW.company_id
-                     AND r.seller_company_id = NEW.supplier_company_id) THEN
-      RAISE EXCEPTION 'La scheda fornitore non corrisponde all''azienda fornitrice B2B';
-    END IF;
-    IF NEW.b2b_item_id IS NOT NULL AND NOT EXISTS (
-         SELECT 1 FROM public.products s
-         WHERE s.id = NEW.b2b_item_id AND s.company_id = NEW.supplier_company_id) THEN
-      RAISE EXCEPTION 'L''articolo B2B non appartiene a questo fornitore';
-    END IF;
-  END IF;
-  RETURN NEW;
-END $$;
-CREATE TRIGGER product_supplier_links_b2b_guard
-  BEFORE INSERT OR UPDATE OF b2b_item_id, supplier_company_id, supplier_record_id, company_id
-  ON public.product_supplier_links
-  FOR EACH ROW EXECUTE FUNCTION public.guard_supplier_link_b2b_item();
-
--- C. Un articolo B2B collegato a un solo nostro prodotto attivo
-CREATE UNIQUE INDEX IF NOT EXISTS product_supplier_links_one_active_b2b_item
-  ON public.product_supplier_links (company_id, b2b_item_id)
-  WHERE b2b_item_id IS NOT NULL AND is_active;
-
--- D. Spunta sulle quote fornitore: valore iniziale «no», «sì» solo nelle Liste aperte con quantità
-ALTER TABLE public.shopping_list_item_suppliers
-  ADD COLUMN IF NOT EXISTS is_selected boolean NOT NULL DEFAULT false;
-UPDATE public.shopping_list_item_suppliers s SET is_selected = true
-FROM public.shopping_list_items i JOIN public.shopping_lists l ON l.id = i.list_id
-WHERE i.id = s.item_id AND l.status IN ('aperta','confermata')
-  AND (COALESCE(s.purchase_quantity,0) > 0 OR COALESCE(s.assigned_quantity,0) > 0);
-COMMENT ON COLUMN public.shopping_list_item_suppliers.is_selected IS
-  'Spunta «compro da qui»: letta solo nelle Liste aperte (fase 5); non significativa nelle Liste chiuse';
-```
-
-**E. Nuova funzione `copy_b2b_item_to_own_product`**, in una sola transazione:
-- **Controlli:**
-  - solo amministratori (`is_company_admin`);
-  - rapporto operativo con il venditore (`relation_is_operational`);
-  - l'articolo deve appartenere al venditore.
-- **Creazione del prodotto:** stesse regole di `manage_internal_product` (codice proposto o scritto, codice doppio rifiutato, descrizione obbligatoria, U.M. solo della nostra azienda). In più compila `created_from_product_id` e `created_from_company_id`.
-- **Se l'articolo non è collegato a un altro prodotto attivo:** crea nella stessa transazione il collegamento B2B (scheda fornitore presa dal rapporto, `supplier_company_id`, `b2b_item_id`, codice articolo del fornitore). Senza U.M. d'acquisto e senza prezzo.
-- **Se l'articolo è già collegato altrove:** crea solo il prodotto e restituisce codice e descrizione del prodotto già collegato.
-- Se un passaggio fallisce, non viene salvato niente.
-- Ogni creazione viene registrata nello storico delle operazioni.
-- Eseguibile solo dagli utenti autenticati (`authenticated`).
-
-**F. `add_catalog_product_to_own_products`:**
-- riattiva il collegamento trovato quando è disattivato;
-- compila `supplier_company_id` e `b2b_item_id`;
-- se l'articolo è già collegato a un altro prodotto, dà un messaggio chiaro invece di un errore tecnico.
-
-## Modifiche all'app
-
-- `src/lib/shopping-list.functions.ts` oppure un nuovo file `src/lib/b2b-copy.functions.ts`: la funzione del server che chiama la nuova funzione con l'utente collegato.
-- `src/components/shopping/copy-to-own-products.tsx`:
-  - usa la nuova funzione invece della finestra generica;
-  - le note non riportano più l'origine;
-  - dopo il salvataggio mostra «Copia creata e collegata a [fornitore]» oppure «Copia creata senza collegamento al fornitore: l'articolo è già collegato a [codice · descrizione]».
-- `src/components/products/internal-product-dialog.tsx`: un aggancio facoltativo per salvare con un'altra funzione. La creazione normale non cambia.
-- `src/components/shopping/AGENTS.md`: una regola sull'articolo B2B nel collegamento.
-
-## Cosa non viene toccato
-
-Liste chiuse, ordini, carichi merce, acquisti diretti, quantità, prezzi, stati, Inventario, Fabbisogno, semaforo, Danea. La quantità delle quote resta obbligatoria: si potrà lasciare vuota solo nella fase 5.
-
-## Prove dopo l'approvazione
-
-1. Copia di un articolo libero: prodotto e collegamento creati insieme.
-2. Copia di un articolo già collegato: avviso, poi «Crea comunque»: prodotto senza collegamento e messaggio.
-3. Collegamento con un articolo di un'altra azienda: rifiutato dal controllo automatico.
-4. Collegamento disattivato: viene riattivato e non duplicato.
-5. Utente non amministratore: operazione rifiutata.
-6. Quota della Lista aperta con spunta a «sì», Liste chiuse invariate.
-7. Le patate 00-001: Trevi diventa B2B, Breda resta esterno.
-
-## Fasi successive (ordine da te indicato)
-
-2. Collegamento B2B ai nostri prodotti.
-3. Fornitori esterni.
-4. U.M. e conversioni.
-5. Nuova gestione della Lista.
+## Verifica in sola lettura già eseguita: finestra ordine
+- In Ordini (3 EMME) ci sono 2 pulsanti «Modifica»: uno è disattivato, l'altro (ORD-2026-00003) apre la finestra «Chiedi modifica», perché il fornitore ha già visto l'ordine. Si è aperta senza errori e l'ho chiusa con «Chiudi», senza scrivere né salvare nulla.
+- Non c'è oggi un ordine in stato modificabile direttamente, quindi la finestra «Modifica ORD-…» con righe, consegna e note **non è verificabile** senza creare o cambiare un ordine.
