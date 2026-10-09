@@ -43,6 +43,7 @@ export function CatalogList({
   onToggleFavorite,
   onSelectUnit,
   showSeller = false,
+  linkPending,
 }: {
   products: CatalogProduct[];
   imageUrls: Map<string, string>;
@@ -51,6 +52,8 @@ export function CatalogList({
   onToggleFavorite: (product: CatalogProduct) => void;
   onSelectUnit: (product: CatalogProduct, productSaleUnitId: string) => void;
   showSeller?: boolean;
+  /** Articoli preferiti senza collegamento attivo a un nostro prodotto: mostrano l'etichetta accanto alla stella. */
+  linkPending?: Set<string>;
 }) {
   if (!products.length) {
     return (
@@ -144,6 +147,11 @@ export function CatalogList({
                       series={priceSeries?.get(product.id) ?? null}
                       label={`Andamento prezzo di ${product.description ?? product.code}`}
                     />
+                    {linkPending?.has(product.id) ? (
+                      <span className="whitespace-nowrap rounded-md border border-border bg-muted px-1.5 py-0.5 text-[11px] font-medium">
+                        Collegamento da completare
+                      </span>
+                    ) : null}
                     <FavoriteButton
                       active={favorites.has(product.id)}
                       onToggle={() => onToggleFavorite(product)}
@@ -216,7 +224,7 @@ export function CatalogList({
                 onToggle={() => onToggleFavorite(product)}
               />
             </div>
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className="text-xs uppercase text-muted-foreground">U.M.</span>
               <UnitPicker
                 units={product.units}
@@ -225,6 +233,11 @@ export function CatalogList({
                 onChange={(unitId) => onSelectUnit(product, unitId)}
                 className="w-32"
               />
+              {linkPending?.has(product.id) ? (
+                <span className="ml-auto rounded-md border border-border bg-muted px-1.5 py-0.5 text-[11px] font-medium">
+                  Collegamento da completare
+                </span>
+              ) : null}
             </div>
           </li>
         ))}
