@@ -52,11 +52,14 @@ function useDecidedUnitOptions(itemId: string, enabled: boolean, manualCodes: st
     },
   });
   const byUnit = new Map<string, { code: string; factors: (number | null)[] }>();
+  // Codici U.M. offerti dai fornitori ATTIVI (stessa fonte e stessa normalizzazione di unlink_supplier_preview).
+  const offeredCodes = new Set<string>();
   for (const link of Object.values(query.data ?? {})) {
     for (const u of link.units ?? []) {
       const entry = byUnit.get(u.unit_id) ?? { code: u.code, factors: [] };
       entry.factors.push(u.conversion_factor === null || u.conversion_factor === undefined ? null : Number(u.conversion_factor));
       byUnit.set(u.unit_id, entry);
+      offeredCodes.add(normUnit(u.code));
     }
   }
   const options: UnitOption[] = [];
@@ -73,8 +76,11 @@ function useDecidedUnitOptions(itemId: string, enabled: boolean, manualCodes: st
     seen.add(code);
     options.push({ key: `m:${code}`, unitId: null, code, factor: null });
   }
-  return options;
+  return { options, offeredCodes, loaded: query.isSuccess };
 }
+
+/** Stessa normalizzazione del database: maiuscole, spazi compressi. */
+const normUnit = (code: string | null | undefined) => (code ?? "").replace(/\s+/g, " ").trim().toUpperCase();
 
 /**
  * Card / Riga della Lista della Spesa: stessi dati e stessi comandi, cambia solo la disposizione.
