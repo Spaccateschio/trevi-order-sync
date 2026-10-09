@@ -1,5 +1,5 @@
 - U.M. ripartizione: B2B solo U.M. pubblicate dal venditore, non B2B U.M. referenza o testo manuale (purchase_unit_id NULL); controllo in assign_shopping_list_supplier: il browser non lo aggira.
 - «+ Aggiungi fornitore» usa manage_product_supplier_link; nessun abbinamento automatico B2B: un solo dato per Prodotto e Fornitore.
-- «Togli fornitore» usa solo unlink_product_supplier (una transazione): niente stati a metà, storico intatto.
+- «Togli da questa Lista» = solo assign_shopping_list_supplier('remove') (mai su Lista confermata); «Scollega dal prodotto» = solo unlink_product_supplier / unlink_b2b_catalog_item dopo unlink_supplier_preview: disattiva il collegamento, bloccato da ripartizioni in Liste aperte/confermate, mai tocca righe, quantità o U.M. (nessun azzeramento).
 - Chiusura: solo close_shopping_list (atomica, idempotente, finale «chiusa», numero LS alla chiusura) e shopping_list_close_preview, entrambe su _shopping_list_close_plan; send_status ordini separato: anteprima e chiusura non divergono, Lista chiusa immutabile.
 - Acquisto diretto solo da quota esplicita shopping_list_items.manual_purchase_* (set_shopping_list_direct_quota); stato riga solo da shopping_list_item_state; righe da assegnare/parziali/da verificare bloccano la chiusura: mai acquisti diretti dedotti.
