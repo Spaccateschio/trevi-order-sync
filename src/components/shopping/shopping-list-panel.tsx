@@ -484,6 +484,35 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   // Ultimo conteggio e giacenza per le card: sola lettura, stessa fonte dell'Inventario.
   const stockProductIds = useMemo(() => [...new Set(allRows.map((row) => row.product_id))].sort(), [allRows]);
+
+  // «Copia nei miei prodotti»: solo amministratori e solo card nate da un articolo B2B (created_from_product_id).
+  const b2bOriginQuery = useQuery({
+    queryKey: ["shopping-b2b-origin", companyId, stockProductIds],
+    enabled: isAdmin && stockProductIds.length > 0,
+    queryFn: async () => {
+      const map = new Map<string, B2BOrigin>();
+      for (let i = 0; i < stockProductIds.length; i += 300) {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id, created_from_product_id, created_from_company_id")
+          .in("id", stockProductIds.slice(i, i + 300))
+          .not("created_from_product_id", "is", null);
+        if (error) throw new Error(error.message);
+        for (const p of data ?? []) {
+          if (p.created_from_product_id && p.created_from_company_id) {
+            map.set(p.id, { sellerProductId: p.created_from_product_id, sellerCompanyId: p.created_from_company_id });
+          }
+        }
+      }
+      return map;
+    },
+  });
+  const [copyOrigin, setCopyOrigin] = useState<B2BOrigin | null>(null);
+  const closeCopy = useCallback(() => setCopyOrigin(null), []);
+  const copyHandler = (productId: string) => {
+    const origin = isAdmin ? b2bOriginQuery.data?.get(productId) : undefined;
+    return origin ? () => setCopyOrigin(origin) : undefined;
+  };
   const stockQuery = useQuery({
     queryKey: ["shopping-card-stock", companyId, list?.archive_id, stockProductIds],
     enabled: Boolean(list?.archive_id) && stockProductIds.length > 0,
@@ -1596,6 +1625,15 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       </Dialog>
 
       <ListHistoryDialog companyId={companyId} open={historyOpen} onOpenChange={setHistoryOpen} />
+
+      {copyOrigin ? (
+        <CopyToOwnProductsFlow
+          companyId={companyId}
+          userId={identity?.userId ?? null}
+          origin={copyOrigin}
+          onClose={closeCopy}
+        />
+      ) : null}
 
       {splitItem ? (
         <SupplierSplitDialog
