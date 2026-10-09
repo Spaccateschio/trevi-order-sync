@@ -232,6 +232,13 @@
       "when": 1791532779673,
       "tag": "0032_catalog_unpublished_favorites",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791557992777,
+      "tag": "0033_fase2_scollegamento_fornitore_0033",
+      "breakpoints": true
     }
   ]
 }
