@@ -138,15 +138,18 @@ export function ShoppingListCard({
   onUnitChange?: (unitId: string | null, unitCode: string | null) => void;
   /** Svuota la quantità «Da acquistare» (obiettivo non indicato, mai 0). */
   onClearQuantity?: () => void;
+  /** Lista confermata: le ripartizioni sono bloccate (solo informazione mostrata nella card). */
+  listConfirmed?: boolean;
 }) {
   const name = row.description ?? row.code;
   const unit = row.unit_code ?? "";
   const suppliers = extra?.suppliers ?? [];
-  const unitOptions = useDecidedUnitOptions(
+  const decided = useDecidedUnitOptions(
     row.item_id,
-    !pending && Boolean(onUnitChange),
+    !pending && (Boolean(onUnitChange) || editable),
     suppliers.filter((s) => !s.purchaseUnitId && s.purchaseUnitCode).map((s) => s.purchaseUnitCode as string),
-  ).filter((o) => o.code.trim().toLowerCase() !== unit.trim().toLowerCase());
+  );
+  const unitOptions = decided.options.filter((o) => o.code.trim().toLowerCase() !== unit.trim().toLowerCase());
   const decidedKey = extra?.decidedUnitId
     ? extra.decidedUnitId
     : extra?.decidedUnitCode
@@ -156,6 +159,18 @@ export function ShoppingListCard({
   const otherUnit = decidedKey !== PRODUCT_UNIT;
   const decidedCode = otherUnit ? (decidedOption?.code ?? extra?.decidedUnitCode ?? "") : unit;
   const unitLabel = decidedCode.trim().toLowerCase();
+  // Badge solo informativo «U.M. non più offerta»: stessa regola di unlink_supplier_preview (Liste aperte),
+  // U.M. di magazzino e U.M. della riga sempre valide. Non cambia quantità, U.M., stato o chiusura.
+  const decidedNorm = normUnit(decidedCode);
+  const unitNotOffered =
+    editable &&
+    !pending &&
+    otherUnit &&
+    decided.loaded &&
+    decidedNorm !== "" &&
+    decidedNorm !== normUnit(unit) &&
+    decidedNorm !== normUnit(stock?.stockUnit) &&
+    !decided.offeredCodes.has(decidedNorm);
   const suggested = row.current_suggested ?? row.suggested_quantity;
   const isFavorite = Boolean(extra?.isFavorite);
   const isRow = layout === "row";
