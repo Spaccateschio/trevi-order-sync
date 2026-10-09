@@ -5732,6 +5732,10 @@ export type Database = {
         }
         Returns: string
       }
+      _link_active_list_usage: {
+        Args: { _company_id: string; _link_id: string }
+        Returns: Json
+      }
       _shopping_list_close_plan: {
         Args: { _list_id: string }
         Returns: {
@@ -5745,6 +5749,14 @@ export type Database = {
           unit_code: string
           unit_id: string
         }[]
+      }
+      _unit_offered_by_other_links: {
+        Args: {
+          _company_id: string
+          _excluded_link_id: string
+          _item_id: string
+        }
+        Returns: boolean
       }
       accept_customer_invitation: {
         Args: { _buyer_company_id: string; _token: string }
@@ -7504,9 +7516,17 @@ export type Database = {
         Args: { _company_id: string }
         Returns: Json
       }
+      unlink_b2b_catalog_item: {
+        Args: { _company_id: string; _link_id: string }
+        Returns: Json
+      }
       unlink_product_supplier: {
         Args: { _company_id: string; _item_id?: string; _link_id: string }
         Returns: string
+      }
+      unlink_supplier_preview: {
+        Args: { _company_id: string; _link_id: string }
+        Returns: Json
       }
     }
     Enums: {

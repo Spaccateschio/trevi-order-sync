@@ -52,11 +52,14 @@ function useDecidedUnitOptions(itemId: string, enabled: boolean, manualCodes: st
     },
   });
   const byUnit = new Map<string, { code: string; factors: (number | null)[] }>();
+  // Codici U.M. offerti dai fornitori ATTIVI (stessa fonte e stessa normalizzazione di unlink_supplier_preview).
+  const offeredCodes = new Set<string>();
   for (const link of Object.values(query.data ?? {})) {
     for (const u of link.units ?? []) {
       const entry = byUnit.get(u.unit_id) ?? { code: u.code, factors: [] };
       entry.factors.push(u.conversion_factor === null || u.conversion_factor === undefined ? null : Number(u.conversion_factor));
       byUnit.set(u.unit_id, entry);
+      offeredCodes.add(normUnit(u.code));
     }
   }
   const options: UnitOption[] = [];
@@ -73,8 +76,11 @@ function useDecidedUnitOptions(itemId: string, enabled: boolean, manualCodes: st
     seen.add(code);
     options.push({ key: `m:${code}`, unitId: null, code, factor: null });
   }
-  return options;
+  return { options, offeredCodes, loaded: query.isSuccess };
 }
+
+/** Stessa normalizzazione del database: maiuscole, spazi compressi. */
+const normUnit = (code: string | null | undefined) => (code ?? "").replace(/\s+/g, " ").trim().toUpperCase();
 
 /**
  * Card / Riga della Lista della Spesa: stessi dati e stessi comandi, cambia solo la disposizione.
@@ -103,6 +109,7 @@ export function ShoppingListCard({
   evaluation,
   show = ALL_VISIBLE,
   onCopyToOwnProducts,
+  listConfirmed = false,
 }: {
   /** «Copia nei miei prodotti»: passato solo per card B2B e amministratori. */
   onCopyToOwnProducts?: (() => void) | undefined;
@@ -132,15 +139,18 @@ export function ShoppingListCard({
   onUnitChange?: (unitId: string | null, unitCode: string | null) => void;
   /** Svuota la quantità «Da acquistare» (obiettivo non indicato, mai 0). */
   onClearQuantity?: () => void;
+  /** Lista confermata: le ripartizioni sono bloccate (solo informazione mostrata nella card). */
+  listConfirmed?: boolean;
 }) {
   const name = row.description ?? row.code;
   const unit = row.unit_code ?? "";
   const suppliers = extra?.suppliers ?? [];
-  const unitOptions = useDecidedUnitOptions(
+  const decided = useDecidedUnitOptions(
     row.item_id,
-    !pending && Boolean(onUnitChange),
+    !pending && (Boolean(onUnitChange) || editable),
     suppliers.filter((s) => !s.purchaseUnitId && s.purchaseUnitCode).map((s) => s.purchaseUnitCode as string),
-  ).filter((o) => o.code.trim().toLowerCase() !== unit.trim().toLowerCase());
+  );
+  const unitOptions = decided.options.filter((o) => o.code.trim().toLowerCase() !== unit.trim().toLowerCase());
   const decidedKey = extra?.decidedUnitId
     ? extra.decidedUnitId
     : extra?.decidedUnitCode
@@ -150,6 +160,18 @@ export function ShoppingListCard({
   const otherUnit = decidedKey !== PRODUCT_UNIT;
   const decidedCode = otherUnit ? (decidedOption?.code ?? extra?.decidedUnitCode ?? "") : unit;
   const unitLabel = decidedCode.trim().toLowerCase();
+  // Badge solo informativo «U.M. non più offerta»: stessa regola di unlink_supplier_preview (Liste aperte),
+  // U.M. di magazzino e U.M. della riga sempre valide. Non cambia quantità, U.M., stato o chiusura.
+  const decidedNorm = normUnit(decidedCode);
+  const unitNotOffered =
+    editable &&
+    !pending &&
+    otherUnit &&
+    decided.loaded &&
+    decidedNorm !== "" &&
+    decidedNorm !== normUnit(unit) &&
+    decidedNorm !== normUnit(stock?.stockUnit) &&
+    !decided.offeredCodes.has(decidedNorm);
   const suggested = row.current_suggested ?? row.suggested_quantity;
   const isFavorite = Boolean(extra?.isFavorite);
   const isRow = layout === "row";
@@ -323,6 +345,14 @@ export function ShoppingListCard({
         <span className="shrink-0 text-xs font-semibold text-muted-foreground">{decidedCode || "—"}</span>
       )}
       {lockButton}
+      {unitNotOffered ? (
+        <span
+          className="shrink-0 whitespace-nowrap rounded-md border border-warning/60 bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning-foreground"
+          title="Nessun fornitore attivo offre più questa U.M.: verificala o cambiala a mano"
+        >
+          U.M. non più offerta
+        </span>
+      ) : null}
     </div>
   );
   const equivalentNote =
@@ -397,6 +427,7 @@ export function ShoppingListCard({
       decidedUnitId={otherUnit ? (extra?.decidedUnitId ?? null) : null}
       decidedCode={decidedCode}
       lockedAt={extra?.lockedAt ?? null}
+      listConfirmed={listConfirmed}
     />
   );
 

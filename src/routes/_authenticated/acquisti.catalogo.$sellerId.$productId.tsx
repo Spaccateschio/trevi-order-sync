@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ImageOff, PackagePlus, ShoppingCart } from "lucide-react";
+import { ImageOff, Link2, MoreVertical, PackagePlus, ShoppingCart, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -11,6 +11,8 @@ import { FavoriteButton } from "@/components/catalog/favorite-button";
 import { UnitPicker } from "@/components/catalog/unit-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { UnlinkSupplierDialog } from "@/components/shopping/unlink-supplier-dialog";
 import { activeCompany, hasRole, isRelationOperational, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -63,6 +65,7 @@ function CatalogProductPage() {
   const signImages = useServerFn(getCatalogImageUrls);
   const isAdmin = hasRole(identity, "amministratore");
   const [addOpen, setAddOpen] = useState(false);
+  const [unlinkId, setUnlinkId] = useState<string | null>(null);
 
   const relation = (identity?.relations ?? []).find(
     (r) => r.buyerCompanyId === buyerId && r.sellerCompanyId === sellerId,
@@ -149,13 +152,15 @@ function CatalogProductPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_supplier_links")
-        .select("id")
+        .select("id, products!product_supplier_links_product_id_fkey(code, description)")
         .eq("company_id", buyerId!)
         .eq("b2b_item_id", productId)
         .eq("is_active", true)
         .maybeSingle();
       if (error) throw new Error(error.message);
-      return Boolean(data);
+      if (!data) return null;
+      const own = (data as unknown as { products: { code: string; description: string | null } | null }).products;
+      return { linkId: data.id as string, code: own?.code ?? "", description: own?.description ?? null };
     },
   });
 
@@ -303,7 +308,28 @@ function CatalogProductPage() {
                 label={favoriteQuery.data ? "Nei preferiti" : "Preferito"}
                 onToggle={() => toggleFavorite.mutate()}
               />
-              {favoriteQuery.data && linkQuery.data === false ? (
+              {linkQuery.data ? (
+                <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium">
+                  <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  Collegato a {linkQuery.data.code}
+                  {linkQuery.data.description ? ` · ${linkQuery.data.description}` : ""}
+                  {isAdmin && buyerId ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" size="sm" variant="ghost" className="h-6 w-6 px-0" aria-label="Azioni collegamento">
+                          <MoreVertical className="h-3.5 w-3.5" aria-hidden="true" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem className="text-destructive" onSelect={() => setUnlinkId(linkQuery.data?.linkId ?? null)}>
+                          <X aria-hidden="true" /> Scollega dal prodotto
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : null}
+                </span>
+              ) : null}
+              {favoriteQuery.data && linkQuery.data === null ? (
                 <span className="rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium">
                   Collegamento da completare
                 </span>
@@ -329,6 +355,18 @@ function CatalogProductPage() {
                 sellerProduct={{ id: productId, code: product.code, description: product.description }}
                 userId={identity?.userId ?? null}
               />
+              {buyerId ? (
+                <UnlinkSupplierDialog
+                  companyId={buyerId}
+                  linkId={unlinkId}
+                  supplierName={relation?.sellerCompanyName ?? "Il fornitore"}
+                  mode="b2b"
+                  onClose={() => setUnlinkId(null)}
+                  onDone={async () => {
+                    await queryClient.invalidateQueries({ queryKey: ["catalogo-preferito", buyerId] });
+                  }}
+                />
+              ) : null}
             </div>
           </div>
         </div>
