@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { linkPriceSeriesToProduct, seedPriceSeriesForFavorite } from "@/lib/pricing";
 
 export type FavoriteToggleResult =
-  | { action: "added"; createdProduct: boolean; createdLink: boolean; warning?: string }
+  | { action: "added"; createdProduct: boolean; createdLink: boolean; warning?: string; linkPending?: boolean }
   | { action: "removed" };
 
 
@@ -80,10 +80,26 @@ export async function toggleCatalogFavorite(
   }
 
   const result = (data ?? {}) as {
+    status?: string;
+    message?: string;
     created_product?: boolean;
     created_link?: boolean;
     product_id?: string;
   };
+
+  // Collegamento non deciso in automatico: la stella resta salvata, nessun collegamento.
+  if (result.status === "choose_candidate" || result.status === "link_identity_uncertain") {
+    return {
+      action: "added",
+      createdProduct: false,
+      createdLink: false,
+      linkPending: true,
+      warning:
+        result.status === "choose_candidate"
+          ? "Esistono più copie: scegli quale usare dal Catalogo"
+          : (result.message ?? "Collegamento esistente senza codice articolo: verifica il collegamento prima di procedere"),
+    };
+  }
 
   // Adozione: il prodotto si collega alla serie già esistente,
   // le osservazioni storiche non vengono riscritte.
@@ -110,6 +126,9 @@ export async function toggleCatalogFavorite(
 export function favoriteToggleMessage(result: FavoriteToggleResult): string {
   if (result.action === "removed") {
     return "Rimosso dai preferiti: il prodotto resta fra i tuoi prodotti";
+  }
+  if (result.linkPending) {
+    return `Aggiunto ai preferiti · Collegamento da completare: ${result.warning ?? ""}`.trim();
   }
   if (result.warning) {
     return `Aggiunto ai preferiti, ma non fra i tuoi prodotti: ${result.warning}`;

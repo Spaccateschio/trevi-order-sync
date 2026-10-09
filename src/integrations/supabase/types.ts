@@ -5980,6 +5980,24 @@ export type Database = {
         }
         Returns: Json
       }
+      copy_b2b_item_to_own_product: {
+        Args: {
+          _barcode?: string
+          _buyer_company_id: string
+          _category?: string
+          _code?: string
+          _description: string
+          _force_new?: boolean
+          _notes?: string
+          _price_unit_id?: string
+          _producer_name?: string
+          _seller_company_id: string
+          _seller_product_id: string
+          _stock_unit_id?: string
+          _subcategory?: string
+        }
+        Returns: Json
+      }
       create_customer_invitation: {
         Args: {
           _customer_record_id: string
