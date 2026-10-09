@@ -34,6 +34,8 @@ type CardSupplier = {
   name: string;
   isB2B: boolean;
   sourceLinked: boolean;
+  /** Dal database: false = articolo B2B non acquistabile («Non in catalogo del fornitore»). */
+  purchasable: boolean;
   allowManual: boolean;
   minQuantity: number | null;
   units: Unit[];
@@ -58,7 +60,16 @@ type LinkUnitsRead = {
   is_b2b: boolean;
   source_linked: boolean;
   allow_manual: boolean;
+  purchasable: boolean;
   units: { unit_id: string; code: string; conversion_factor: number | null; conversion_type: string | null }[];
+};
+type OptionRead = {
+  link_id: string;
+  is_b2b: boolean;
+  source_product_id: string | null;
+  purchasable: boolean;
+  seller_company_id: string | null;
+  price_unit_code: string | null;
 };
 
 const MANUAL = "__manuale__";
@@ -76,43 +87,15 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
     },
   });
 
-  const relations = useQuery({
-    queryKey: ["shopping-card-relations", companyId],
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("supplier_customer_relations")
-        .select("supplier_record_id, seller_company_id")
-        .eq("buyer_company_id", companyId)
-        .eq("status", "attivo")
-        .not("supplier_record_id", "is", null);
-      if (error) throw new Error(error.message);
-      return new Map((data ?? []).map((r) => [r.supplier_record_id as string, r.seller_company_id as string]));
-    },
-  });
 
-  // Prodotto originale del venditore (collegamento B2B): mai dedotto da nome o codice.
-  const source = useQuery({
-    queryKey: ["shopping-card-source", productId],
-    staleTime: 5 * 60_000,
+  // Articolo B2B del collegamento e acquistabilità: solo dal database (shopping_link_b2b_source), anche per le card «Da valutare».
+  const options = useQuery({
+    queryKey: ["shopping-card-b2b-options", companyId, productId],
+    staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("created_from_product_id, created_from_company_id")
-        .eq("id", productId)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("product_supplier_b2b_options", { _company_id: companyId, _product_id: productId });
       if (error) throw new Error(error.message);
-      const sourceId = (data?.created_from_product_id as string | null) ?? null;
-      let priceUnitCode: string | null = null;
-      if (sourceId) {
-        const { data: src } = await supabase.from("products").select("price_unit_id").eq("id", sourceId).maybeSingle();
-        const unitId = (src?.price_unit_id as string | null) ?? null;
-        if (unitId) {
-          const { data: um } = await supabase.from("units_of_measure").select("code").eq("id", unitId).maybeSingle();
-          priceUnitCode = (um?.code as string | null) ?? null;
-        }
-      }
-      return { sourceId, sellerId: (data?.created_from_company_id as string | null) ?? null, priceUnitCode };
+      return Object.fromEntries(((data ?? []) as unknown as OptionRead[]).map((r) => [r.link_id, r]));
     },
   });
 
@@ -127,39 +110,56 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
     },
   });
 
-  // «Da valutare»: U.M. pubblicate dal venditore, solo lettura (il salvataggio avviene dopo Conferma).
-  const sellerId = source.data?.sellerId ?? null;
-  const sourceId = source.data?.sourceId ?? null;
+  const b2bSources = Object.values(options.data ?? {}).filter((o) => o.is_b2b && o.purchasable && o.source_product_id && o.seller_company_id);
+  const sourceIds = [...new Set(b2bSources.map((o) => o.source_product_id!))].sort();
+
+  // «Da valutare»: U.M. pubblicate sull'articolo indicato dal database, solo lettura (il salvataggio avviene dopo Conferma).
   const publishedUnits = useQuery({
-    queryKey: ["shopping-card-published-units", sourceId],
-    enabled: pending && Boolean(sourceId),
+    queryKey: ["shopping-card-published-units", sourceIds],
+    enabled: pending && sourceIds.length > 0,
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_sale_units")
-        .select("unit_id, is_default, units_of_measure(code)")
-        .eq("product_id", sourceId!)
+        .select("product_id, unit_id, is_default, units_of_measure(code)")
+        .in("product_id", sourceIds)
         .eq("is_active", true)
         .eq("is_customer_visible", true);
       if (error) throw new Error(error.message);
-      return (data ?? []).map((u) => ({
-        unitId: u.unit_id as string,
-        code: ((u.units_of_measure as { code: string } | null)?.code ?? "") as string,
-        conversionFactor: null,
-        conversionType: null,
-      }));
+      const map = new Map<string, Unit[]>();
+      for (const u of data ?? []) {
+        const list = map.get(u.product_id as string) ?? [];
+        list.push({
+          unitId: u.unit_id as string,
+          code: ((u.units_of_measure as { code: string } | null)?.code ?? "") as string,
+          conversionFactor: null,
+          conversionType: null,
+        });
+        map.set(u.product_id as string, list);
+      }
+      return map;
     },
   });
 
   const price = useQuery({
-    queryKey: ["shopping-card-b2b-price", sellerId, sourceId],
-    enabled: Boolean(sellerId && sourceId),
+    queryKey: ["shopping-card-b2b-price", b2bSources.map((o) => `${o.seller_company_id}:${o.source_product_id}`).sort()],
+    enabled: b2bSources.length > 0,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("buyer_catalog_prices", { _seller_company_id: sellerId!, _product_ids: [sourceId!] });
-      if (error) throw new Error(error.message);
-      const hit = (data ?? [])[0];
-      return hit ? { net: hit.net_price === null ? null : Number(hit.net_price), gross: hit.gross_price === null ? null : Number(hit.gross_price) } : null;
+      const map = new Map<string, { net: number | null; gross: number | null }>();
+      const bySeller = new Map<string, string[]>();
+      for (const o of b2bSources) bySeller.set(o.seller_company_id!, [...(bySeller.get(o.seller_company_id!) ?? []), o.source_product_id!]);
+      for (const [seller, ids] of bySeller) {
+        const { data, error } = await supabase.rpc("buyer_catalog_prices", { _seller_company_id: seller, _product_ids: ids });
+        if (error) throw new Error(error.message);
+        for (const hit of data ?? []) {
+          map.set(hit.product_id as string, {
+            net: hit.net_price === null ? null : Number(hit.net_price),
+            gross: hit.gross_price === null ? null : Number(hit.gross_price),
+          });
+        }
+      }
+      return map;
     },
   });
 
@@ -179,7 +179,7 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
     ...new Set(
       [
         ...Object.values(linkUnits.data ?? {}).flatMap((l) => l.units.map((u) => u.unit_id)),
-        ...(publishedUnits.data ?? []).map((u) => u.unitId),
+        ...[...(publishedUnits.data?.values() ?? [])].flat().map((u) => u.unitId),
         ...(overview.data ?? []).flatMap((s) => (s.purchase_units ?? []).map((u) => u.unit_id)),
       ].filter(Boolean),
     ),
@@ -196,31 +196,35 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
   });
 
   const suppliers: CardSupplier[] = (overview.data ?? []).map((s) => {
-    const seller = relations.data?.get(s.supplier_record_id) ?? null;
+    const opt = options.data?.[s.link_id];
     const dbUnits = linkUnits.data?.[s.link_id];
-    const isB2B = dbUnits ? dbUnits.is_b2b : Boolean(seller);
-    const sourceLinked = dbUnits ? dbUnits.source_linked : Boolean(seller && sourceId && sellerId === seller);
+    const isB2B = dbUnits ? dbUnits.is_b2b : Boolean(opt?.is_b2b);
+    const sourceLinked = dbUnits ? dbUnits.source_linked : Boolean(opt?.source_product_id);
+    const purchasable = dbUnits ? dbUnits.purchasable !== false : opt?.purchasable !== false;
+    const srcId = opt?.source_product_id ?? null;
     const units: Unit[] = dbUnits
       ? dbUnits.units.map((u) => ({ unitId: u.unit_id, code: u.code, conversionFactor: u.conversion_factor, conversionType: u.conversion_type }))
       : isB2B
-        ? sourceLinked
-          ? (publishedUnits.data ?? [])
+        ? sourceLinked && purchasable && srcId
+          ? (publishedUnits.data?.get(srcId) ?? [])
           : []
         : (s.purchase_units ?? [])
             .filter((u) => u.is_active)
             .map((u) => ({ unitId: u.unit_id, code: u.code, conversionFactor: u.conversion_factor, conversionType: u.conversion_type }));
+    const b2bPrice = srcId ? price.data?.get(srcId) ?? null : null;
     return {
       linkId: s.link_id,
       supplierRecordId: s.supplier_record_id,
       name: s.supplier_name,
       isB2B,
       sourceLinked,
+      purchasable,
       allowManual: dbUnits ? dbUnits.allow_manual : !isB2B,
       minQuantity: s.min_quantity === null ? null : Number(s.min_quantity),
       units,
       price:
-        isB2B && sourceLinked && price.data
-          ? { ...price.data, unitCode: source.data?.priceUnitCode ?? null }
+        isB2B && sourceLinked && purchasable && b2bPrice
+          ? { ...b2bPrice, unitCode: opt?.price_unit_code ?? null }
           : !isB2B && s.manual_cost !== null
             ? {
                 net: Number(s.manual_cost),
@@ -488,7 +492,7 @@ export function CardSuppliers({
             .map((u) => ({ id: u.id, text: label({ unitId: u.id, code: u.code }) })),
         ];
     const b2bSingle = s.isB2B && options.length === 1;
-    const canQuantity = !pending && !(s.isB2B && (!s.sourceLinked || !s.units.length));
+    const canQuantity = !pending && !(s.isB2B && (!s.sourceLinked || !s.purchasable || !s.units.length));
     return (
       <div className="space-y-1.5 rounded-sm border border-primary/40 bg-muted/40 p-1.5">
         {s.isB2B ? (
@@ -583,7 +587,7 @@ export function CardSuppliers({
   // U.M. per l'assegnazione con un tocco: la stessa di «Da acquistare», solo se il fornitore la offre
   // (B2B: tra le pubblicate; non B2B: U.M. del collegamento o testo manuale). Nessuna conversione.
   const quickFor = (s: CardSupplier): { unitId: string | null; manual: string | null } | null => {
-    if (s.isB2B && !s.sourceLinked) return null;
+    if (s.isB2B && (!s.sourceLinked || !s.purchasable)) return null;
     if (decidedUnitId) {
       const hit = s.units.find((u) => u.unitId === decidedUnitId);
       return hit ? { unitId: hit.unitId, manual: null } : null;
@@ -626,8 +630,10 @@ export function CardSuppliers({
       accepted: false,
     };
     const set = (patch: Partial<Draft>) => setDrafts((c) => ({ ...c, [s.linkId]: { ...draft, ...patch } }));
-    const b2bBlocked = s.isB2B && !s.sourceLinked;
-    const noUnits = s.isB2B && s.sourceLinked && !s.units.length;
+    // Acquistabilità decisa solo dal database; il salvataggio è comunque rifiutato da assign_shopping_list_supplier.
+    const notPurchasable = s.isB2B && !s.purchasable;
+    const b2bBlocked = s.isB2B && (!s.sourceLinked || notPurchasable);
+    const noUnits = s.isB2B && s.sourceLinked && !notPurchasable && !s.units.length;
     const single = s.units.length === 1 && !s.allowManual;
     const unitValue = single ? s.units[0]!.unitId : draft.unit;
     const isManual = unitValue === MANUAL;
@@ -685,7 +691,8 @@ export function CardSuppliers({
         {show.price && details && s.price ? <PriceLine price={s.price} /> : null}
         {b2bBlocked ? (
           <p className="flex items-center gap-1 text-[11px] font-medium text-destructive">
-            <AlertTriangle className="size-3" aria-hidden="true" /> Prodotto del fornitore non collegato: U.M. non disponibili
+            <AlertTriangle className="size-3" aria-hidden="true" />{" "}
+            {notPurchasable ? "Non in catalogo del fornitore" : "Prodotto del fornitore non collegato: U.M. non disponibili"}
           </p>
         ) : noUnits || !details ? null : show.purchaseUnit && (s.units.length || s.allowManual) ? (
           <p className="text-[11px] leading-tight text-muted-foreground">
@@ -712,6 +719,11 @@ export function CardSuppliers({
 
         {!assignment && noUnits ? (
           <p className="text-[11px] font-medium text-muted-foreground">U.M. non pubblicata dal fornitore</p>
+        ) : null}
+        {!assignment && !editingLink && notPurchasable ? (
+          <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled title="Non in catalogo del fornitore">
+            + Assegna quantità
+          </Button>
         ) : null}
         {!assignment && !editingLink && canWrite && !b2bBlocked && !noUnits && !split && openLink !== s.linkId ? (
           <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled={!target} title={target ? undefined : "Conferma prima la quantità da acquistare"} onClick={() => setOpenLink(s.linkId)}>

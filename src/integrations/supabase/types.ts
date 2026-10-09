@@ -5908,6 +5908,14 @@ export type Database = {
           province: string
         }[]
       }
+      b2b_item_purchasable: {
+        Args: {
+          _buyer_company_id: string
+          _product_id: string
+          _seller_company_id: string
+        }
+        Returns: boolean
+      }
       buyer_catalog_prices: {
         Args: { _product_ids: string[]; _seller_company_id: string }
         Returns: {
@@ -6881,6 +6889,18 @@ export type Database = {
         }[]
       }
       product_stock_overview: { Args: { _product_id: string }; Returns: Json }
+      product_supplier_b2b_options: {
+        Args: { _company_id: string; _product_id: string }
+        Returns: {
+          is_b2b: boolean
+          link_id: string
+          price_unit_code: string
+          purchasable: boolean
+          seller_company_id: string
+          source_product_id: string
+          supplier_record_id: string
+        }[]
+      }
       product_supplier_overview: {
         Args: { _product_id: string }
         Returns: {
@@ -7433,7 +7453,11 @@ export type Database = {
           allow_manual: boolean
           is_b2b: boolean
           link_id: string
+          price_unit_code: string
+          purchasable: boolean
+          seller_company_id: string
           source_linked: boolean
+          source_product_id: string
           units: Json
         }[]
       }
@@ -7441,6 +7465,8 @@ export type Database = {
         Args: { _company_id: string; _link_id: string }
         Returns: {
           is_b2b: boolean
+          purchasable: boolean
+          seller_company_id: string
           source_product_id: string
         }[]
       }
