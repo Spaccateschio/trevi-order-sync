@@ -109,6 +109,7 @@ export function ShoppingListCard({
   evaluation,
   show = ALL_VISIBLE,
   onCopyToOwnProducts,
+  listConfirmed = false,
 }: {
   /** «Copia nei miei prodotti»: passato solo per card B2B e amministratori. */
   onCopyToOwnProducts?: (() => void) | undefined;
@@ -344,6 +345,14 @@ export function ShoppingListCard({
         <span className="shrink-0 text-xs font-semibold text-muted-foreground">{decidedCode || "—"}</span>
       )}
       {lockButton}
+      {unitNotOffered ? (
+        <span
+          className="shrink-0 whitespace-nowrap rounded-md border border-warning/60 bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning-foreground"
+          title="Nessun fornitore attivo offre più questa U.M.: verificala o cambiala a mano"
+        >
+          U.M. non più offerta
+        </span>
+      ) : null}
     </div>
   );
   const equivalentNote =
@@ -418,6 +427,7 @@ export function ShoppingListCard({
       decidedUnitId={otherUnit ? (extra?.decidedUnitId ?? null) : null}
       decidedCode={decidedCode}
       lockedAt={extra?.lockedAt ?? null}
+      listConfirmed={listConfirmed}
     />
   );
 
