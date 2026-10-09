@@ -48,6 +48,7 @@ type LinkUnits = {
   link_id: string;
   is_b2b: boolean;
   source_linked: boolean;
+  purchasable: boolean;
   allow_manual: boolean;
   units: UnitOption[];
 };
@@ -246,7 +247,8 @@ export function SupplierSplitDialog({
             const equivalent = chosen?.conversion_factor && packs ? packs * Number(chosen.conversion_factor) : null;
             const belowMin =
               supplier.min_quantity !== null && equivalent !== null && equivalent < Number(supplier.min_quantity);
-            const b2bBlocked = Boolean(info?.is_b2b && !info.source_linked);
+            // Acquistabilità decisa solo dal database (shopping_item_supplier_units.purchasable).
+            const b2bBlocked = Boolean(info?.is_b2b && (!info.source_linked || info.purchasable === false));
             const canSave =
               editable &&
               !mutation.isPending &&
@@ -321,7 +323,7 @@ export function SupplierSplitDialog({
                 {b2bBlocked ? (
                   <p className="flex items-center gap-1 text-xs font-medium text-destructive">
                     <AlertTriangle className="size-3.5" aria-hidden="true" />
-                    Prodotto del fornitore non collegato: U.M. non disponibili
+                    {info?.purchasable === false ? "Non in catalogo del fornitore" : "Prodotto del fornitore non collegato: U.M. non disponibili"}
                   </p>
                 ) : editable ? (
                   <div className="space-y-2">

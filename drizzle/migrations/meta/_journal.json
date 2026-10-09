@@ -253,6 +253,13 @@
       "when": 1791562569803,
       "tag": "0035_ordini_prezzo_b2b_chiusura_lista_0035",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1791565119912,
+      "tag": "0036_b2b_acquistabilita_unica_0036",
+      "breakpoints": true
     }
   ]
 }
