@@ -30,3 +30,5 @@
 - Codici interni 00-xxx: generazione sotto pg_advisory_xact_lock per azienda ('internal_product_code:'||company_id) in tutte le funzioni che creano prodotti interni; il vincolo products_archive_code_unique resta la protezione definitiva.
 
 - Regole B2B Catalogo/preferiti/collegamenti: vedi src/components/catalog/AGENTS.md.
+- Per prodotti a peso variabile il totale economico non nasce dall'ordine. Il valore reale viene determinato al carico sulla quantità/peso effettivamente ricevuto.
+- Prezzo riga d'ordine B2B: solo applicable_b2b_price (netto, listino assegnato, articolo pubblicato) sull'articolo del collegamento usato, letto prima di ogni scrittura in close_shopping_list / create_purchase_orders_from_list; nessun fallback: senza prezzo «Prezzo su richiesta».

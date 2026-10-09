@@ -152,6 +152,8 @@ export type OrderItemRow = {
   price_unit_code: string | null;
   supplier_product_code: string | null;
   products: { code: string; description: string | null } | null;
+  /** Fornitore B2B quando il collegamento ha l'azienda venditrice. */
+  product_supplier_links?: { supplier_company_id: string | null } | null;
 };
 
 export type DeliveryRow = {
@@ -260,6 +262,25 @@ export function outcomeTone(outcome: ComparisonOutcome) {
   if (outcome === "corretta") return "text-emerald-700 dark:text-emerald-400";
   if (outcome === "inferiore" || outcome === "non_consegnata") return "text-destructive";
   return "text-amber-700 dark:text-amber-400";
+}
+
+/**
+ * Prezzo nella riga d'ordine: solo indicativo di listino, mai un totale.
+ * Per prodotti a peso variabile il valore reale nasce al carico sul peso ricevuto.
+ */
+export function orderPriceNote(input: {
+  unitCost: number | null;
+  priceUnitCode: string | null;
+  purchaseUnitCode: string | null;
+  isB2b: boolean;
+}) {
+  const priceUnit = (input.priceUnitCode ?? "").trim();
+  const purchaseUnit = (input.purchaseUnitCode ?? "").trim();
+  if (input.unitCost === null || input.unitCost === undefined) {
+    return input.isB2b ? { price: "Prezzo su richiesta", weigh: false } : null;
+  }
+  const weigh = priceUnit.toLowerCase() === "kg" && purchaseUnit.toLowerCase() !== "kg";
+  return { price: `Prezzo indicativo di listino: ${priceLabel(input.unitCost, priceUnit || null)}`, weigh };
 }
 
 /** "€ 2,00 / kg" oppure "€ 2,00 · U.M. prezzo non indicata". */

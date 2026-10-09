@@ -25,7 +25,7 @@ import {
   DELIVERY_STATUS_LABEL,
   ORDER_STATUS_LABEL,
   SEND_STATUS_LABEL,
-  priceLabel,
+  orderPriceNote,
   type DeliveryRow,
   type OrderItemRow,
   type OrderOverviewRow,
@@ -75,7 +75,7 @@ export function PurchaseOrderDetail({
       const { data, error } = await supabase
         .from("purchase_order_items")
         .select(
-          "id, product_id, ordered_quantity, unit_code, purchase_quantity, purchase_unit_code, unit_cost, price_unit_code, supplier_product_code, products(code, description)",
+          "id, product_id, ordered_quantity, unit_code, purchase_quantity, purchase_unit_code, unit_cost, price_unit_code, supplier_product_code, products(code, description), product_supplier_links(supplier_company_id)",
         )
         .eq("order_id", order.order_id)
         .order("created_at");
@@ -295,9 +295,20 @@ export function PurchaseOrderDetail({
                 </p>
               )}
               {/* Prezzo fotografato sull'ordine, con la sua U.M. (indipendente dalla U.M. d'ordine). */}
-              {item.unit_cost !== null ? (
-                <p className="text-xs text-muted-foreground">Prezzo: {priceLabel(item.unit_cost, item.price_unit_code)}</p>
-              ) : null}
+              {(() => {
+                const note = orderPriceNote({
+                  unitCost: item.unit_cost,
+                  priceUnitCode: item.price_unit_code,
+                  purchaseUnitCode: item.purchase_unit_code ?? item.unit_code,
+                  isB2b: Boolean(item.product_supplier_links?.supplier_company_id),
+                });
+                return note ? (
+                  <p className="text-xs text-muted-foreground">
+                    {note.price}
+                    {note.weigh ? <span className="ml-1 font-medium text-foreground">· Da pesare al carico</span> : null}
+                  </p>
+                ) : null;
+              })()}
             </div>
           </div>
         ))}

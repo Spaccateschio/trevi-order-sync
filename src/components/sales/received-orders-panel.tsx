@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Textarea } from "@/components/ui/textarea";
 
 import { supabase } from "@/integrations/supabase/client";
+import { orderPriceNote } from "@/lib/purchase";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -62,7 +63,6 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
 const fmtDateTime = new Intl.DateTimeFormat("it-IT", { dateStyle: "short", timeStyle: "short" });
 const fmtDate = new Intl.DateTimeFormat("it-IT", { dateStyle: "medium" });
 const fmtQty = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 2 });
-const fmtPrice = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" });
 
 export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
   const [open, setOpen] = useState<string | null>(null);
@@ -333,11 +333,20 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
                                 {it.previous_quantity === 0 ? "Nuovo prodotto" : `prima ${fmtQty.format(it.previous_quantity)}, ora ${fmtQty.format(it.purchase_quantity ?? 0)}`}
                               </p>
                             ) : null}
-                            {it.unit_cost != null ? (
-                              <p className="text-xs text-muted-foreground">
-                                {fmtPrice.format(it.unit_cost)}{it.price_unit_code ? ` / ${it.price_unit_code}` : ""}
-                              </p>
-                            ) : null}
+                            {(() => {
+                              const note = orderPriceNote({
+                                unitCost: it.unit_cost,
+                                priceUnitCode: it.price_unit_code,
+                                purchaseUnitCode: it.purchase_unit_code ?? it.unit_code,
+                                isB2b: true,
+                              });
+                              return note ? (
+                                <p className="text-xs text-muted-foreground">
+                                  {note.price}
+                                  {note.weigh ? <span className="block font-medium text-foreground">Da pesare al carico</span> : null}
+                                </p>
+                              ) : null;
+                            })()}
                           </div>
                         </li>
                       ))}
