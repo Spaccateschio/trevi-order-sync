@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { CatalogList, type CatalogProduct } from "@/components/catalog/catalog-list";
+import { FavoriteButton } from "@/components/catalog/favorite-button";
 import { fetchPriceSeriesForCatalog } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import {
