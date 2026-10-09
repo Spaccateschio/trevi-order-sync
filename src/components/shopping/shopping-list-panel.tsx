@@ -1498,6 +1498,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   favoriteMutation.mutate({ productId: row.product_id, favorite: !extras.get(row.item_id)?.isFavorite })
                 }
                 onOpenSuppliers={() => setSplitItem(row)}
+                onCopyToOwnProducts={copyHandler(row.product_id)}
                 onRemove={() => removeMutation.mutate(row.item_id)}
                 onToggleLock={() => void toggleLock(row)}
                 lockPending={lockMutation.isPending || quantityMutation.isPending}
