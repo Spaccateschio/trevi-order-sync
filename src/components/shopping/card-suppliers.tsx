@@ -1,9 +1,9 @@
 import { ALL_VISIBLE, type DisplayPrefs } from "./card-display";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Check, Info, MoreVertical, Pencil, Split, Star, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, Info, Lock, MoreVertical, Pencil, Split, Star, Trash2, X } from "lucide-react";
 import { AddSupplierInline, refreshProductSuppliers, useCompanyUnits } from "./add-supplier-inline";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { UnlinkSupplierDialog } from "./unlink-supplier-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -280,6 +280,7 @@ export function CardSuppliers({
   decidedUnitId = null,
   decidedCode = "",
   lockedAt = null,
+  listConfirmed = false,
 }: {
   companyId: string;
   row: OverviewRow;
@@ -293,6 +294,8 @@ export function CardSuppliers({
   decidedUnitId?: string | null;
   decidedCode?: string;
   lockedAt?: string | null;
+  /** Lista confermata: «Togli da questa Lista» nascosto, al suo posto la nota sul blocco. */
+  listConfirmed?: boolean;
 }) {
   const queryClient = useQueryClient();
   const runAssign = useServerFn(assignShoppingListSupplier);
@@ -354,34 +357,22 @@ export function CardSuppliers({
   const canWrite = editable && !pending;
 
   // Collegamento Prodotto ↔ Fornitore (non la ripartizione della Lista): stesse RPC della scheda Prodotto.
+  // «Scollega dal prodotto» non passa da qui: usa UnlinkSupplierDialog (solo collegamento, mai ripartizioni).
   const linkMutation = useMutation({
-    mutationFn: async (input: { kind: "preferred" | "unlink"; s: CardSupplier }) => {
-      if (input.kind === "preferred") {
-        const { error } = await supabase.rpc("set_preferred_product_supplier", {
-          _company_id: companyId,
-          _product_id: row.product_id,
-          _supplier_record_id: input.s.supplierRecordId,
-        });
-        if (error) throw new Error(error.message);
-        return;
-      }
-      // Togli: una sola operazione nel database (ripartizione + collegamento + preferito), o tutto o niente.
-      const { error } = await supabase.rpc("unlink_product_supplier", {
+    mutationFn: async (input: { kind: "preferred"; s: CardSupplier }) => {
+      const { error } = await supabase.rpc("set_preferred_product_supplier", {
         _company_id: companyId,
-        _link_id: input.s.linkId,
-        ...(pending ? {} : { _item_id: row.item_id }),
+        _product_id: row.product_id,
+        _supplier_record_id: input.s.supplierRecordId,
       });
       if (error) throw new Error(error.message);
     },
     onSuccess: async (_d, input) => {
-      setRemoving(null);
       await Promise.all([
         refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id),
-        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
-        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
       ]);
-      toast.success(input.kind === "preferred" ? `${input.s.name} è il fornitore preferito` : `${input.s.name} tolto dal prodotto`);
+      toast.success(`${input.s.name} è il fornitore preferito`);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -894,27 +885,6 @@ export function CardSuppliers({
     />
   ) : null;
 
-  const removeDialog = (
-    <AlertDialog open={removing !== null} onOpenChange={(o) => { if (!o && !linkMutation.isPending) setRemoving(null); }}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Togliere {removing?.name} da questo prodotto?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Il fornitore verrà rimosso dall'acquisto corrente e scollegato dal prodotto. Non comparirà più automaticamente nelle prossime Liste. Lo storico rimarrà invariato.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={linkMutation.isPending}>Annulla</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={linkMutation.isPending}
-            onClick={(ev) => { ev.preventDefault(); if (removing) linkMutation.mutate({ kind: "unlink", s: removing }); }}
-          >
-            Togli fornitore
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
 
   const orphans = assignments.filter((a) => !byLink.has(a.linkId));
   const available = suppliers.filter((s) => !byLink.has(s.linkId) && editing?.linkId !== s.linkId);
@@ -940,6 +910,11 @@ export function CardSuppliers({
             {orphans.map(orphanRow)}
           </ul>
         ) : null}
+        {listConfirmed && (assigned.length || orphans.length) ? (
+          <p className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+            <Lock className="size-3" aria-hidden="true" /> Lista confermata: ripartizioni bloccate
+          </p>
+        ) : null}
         <DirectQuota companyId={companyId} itemId={row.item_id} editable={editable} unitCode={directUnit} />
         {pending ? <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p> : null}
       </section>
@@ -947,7 +922,22 @@ export function CardSuppliers({
         Stato: <span className="font-semibold">{ITEM_STATUS_LABEL[row.status]}</span>
         {row.status === "parziale" && row.remaining !== null ? ` · ${qty(row.remaining)} ${directUnit} da assegnare` : ""}
       </p>
-      {removeDialog}
+      <UnlinkSupplierDialog
+        companyId={companyId}
+        linkId={removing?.linkId ?? null}
+        supplierName={removing?.name ?? ""}
+        mode="product"
+        onClose={() => setRemoving(null)}
+        onDone={async () => {
+          await Promise.all([
+            refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id),
+            queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
+            queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+            queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+            queryClient.invalidateQueries({ queryKey: ["shopping-item-supplier-units"] }),
+          ]);
+        }}
+      />
     </div>
   );
 }
