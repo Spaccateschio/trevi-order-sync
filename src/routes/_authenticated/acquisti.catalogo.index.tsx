@@ -131,6 +131,22 @@ function CatalogoIndex() {
     },
   });
 
+  // Articoli B2B già collegati a un nostro prodotto (solo lettura dei collegamenti attivi).
+  const linkedItemsQuery = useQuery({
+    queryKey: ["catalogo-preferiti-tutti", buyerId, "collegati"],
+    enabled: Boolean(buyerId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_supplier_links")
+        .select("b2b_item_id")
+        .eq("company_id", buyerId!)
+        .eq("is_active", true)
+        .not("b2b_item_id", "is", null);
+      if (error) throw new Error(error.message);
+      return new Set((data ?? []).map((row) => row.b2b_item_id as string));
+    },
+  });
+
   const unitsQuery = useQuery({
     queryKey: ["catalogo-um-preferite", buyerId, "tutti"],
     enabled: Boolean(buyerId),
@@ -388,6 +404,27 @@ function CatalogoIndex() {
             </Button>
           </div>
 
+          {(() => {
+            const linked = linkedItemsQuery.data;
+            if (!linked) return null;
+            const pending = rows.filter((p) => favorites.has(p.id) && !linked.has(p.id));
+            if (!pending.length) return null;
+            return (
+              <section className="mb-3 rounded-xl border border-border bg-muted/40 p-3 text-sm">
+                <p className="font-medium">Collegamento da completare</p>
+                <p className="text-xs text-muted-foreground">
+                  Preferiti non ancora collegati a un tuo prodotto: usa «Aggiungi ai miei prodotti» nella scheda dell'articolo.
+                </p>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {pending.map((p) => (
+                    <li key={p.id} className="rounded-md border border-border bg-card px-2 py-1 text-xs">
+                      <span className="font-mono">{p.code}</span> · {p.description ?? p.code}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })()}
           {cataloguesQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">Caricamento dei cataloghi…</p>
           ) : (

@@ -218,6 +218,13 @@
       "when": 1791526012903,
       "tag": "0030_b2b_item_on_supplier_links_phase1",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791530461844,
+      "tag": "0031_fase1_copy_b2b_and_add_catalog_v5",
+      "breakpoints": true
     }
   ]
 }

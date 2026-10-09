@@ -60,16 +60,32 @@ export function AddToOwnProductsDialog({
     },
   });
 
+  const [candidates, setCandidates] = useState<Array<{ id: string; code: string; description: string | null }> | null>(null);
+  const [uncertain, setUncertain] = useState<{
+    message: string;
+    links: Array<{ link_id: string; product_code: string; product_description: string | null; supplier_reference_label: string | null; supplier_product_code: string | null; is_active: boolean }>;
+  } | null>(null);
+
+  type AddResult = {
+    status?: string;
+    message?: string;
+    created_product?: boolean;
+    created_link?: boolean;
+    candidates?: Array<{ id: string; code: string; description: string | null }>;
+    uncertain_links?: Array<{ link_id: string; product_code: string; product_description: string | null; supplier_reference_label: string | null; supplier_product_code: string | null; is_active: boolean }>;
+  };
+
   const add = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (chosenProductId?: string) => {
       if (!buyerCompanyId) throw new Error("Azienda non disponibile");
-      if (mode === "esistente" && !ownProductId) throw new Error("Scegli un tuo prodotto");
+      if (!chosenProductId && mode === "esistente" && !ownProductId) throw new Error("Scegli un tuo prodotto");
       const args: Record<string, string> = {
         _buyer_company_id: buyerCompanyId,
         _seller_company_id: sellerCompanyId,
         _seller_product_id: sellerProduct.id,
       };
-      if (mode === "esistente" && ownProductId) args["_own_product_id"] = ownProductId;
+      const target = chosenProductId ?? (mode === "esistente" ? ownProductId : null);
+      if (target) args["_own_product_id"] = target;
       if (supplierCode.trim()) args["_supplier_product_code"] = supplierCode.trim();
       if (userId) args["_actor_user_id"] = userId;
       const { data, error } = await supabase.rpc(
@@ -81,18 +97,34 @@ export function AddToOwnProductsDialog({
         },
       );
       if (error) throw new Error(error.message);
-      return data as { created_product?: boolean; created_link?: boolean };
+      return (data ?? {}) as AddResult;
     },
     onSuccess: (result) => {
+      if (result.status === "choose_candidate") {
+        setUncertain(null);
+        setCandidates(result.candidates ?? []);
+        return;
+      }
+      if (result.status === "link_identity_uncertain") {
+        // Nessuna nuova chiamata automatica: l'utente deve verificare il collegamento.
+        setCandidates(null);
+        setUncertain({
+          message: result.message ?? "Collegamento esistente senza codice articolo: verifica il collegamento prima di procedere",
+          links: result.uncertain_links ?? [],
+        });
+        return;
+      }
       toast.success(
-        result?.created_product
+        result.created_product
           ? "Prodotto creato fra i tuoi prodotti, con il fornitore collegato"
-          : result?.created_link
+          : result.created_link
             ? "Referenza del fornitore collegata al tuo prodotto"
             : "Collegamento già presente: nessun duplicato creato",
       );
       void queryClient.invalidateQueries({ queryKey: ["prodotti", buyerCompanyId] });
       void queryClient.invalidateQueries({ queryKey: ["miei-prodotti-ricerca", buyerCompanyId] });
+      setCandidates(null);
+      setUncertain(null);
       onOpenChange(false);
     },
     onError: (error: Error) => toast.error(error.message),
@@ -180,13 +212,51 @@ export function AddToOwnProductsDialog({
               Puoi lasciarlo vuoto e inserirlo in seguito.
             </p>
           </div>
+
+          {candidates ? (
+            <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
+              <p className="text-xs font-medium">Esistono più copie di questo articolo: scegli quale usare.</p>
+              <ul className="space-y-1">
+                {candidates.map((c) => (
+                  <li key={c.id}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-auto w-full justify-start py-2 text-left"
+                      disabled={add.isPending}
+                      onClick={() => add.mutate(c.id)}
+                    >
+                      <span className="font-mono text-xs text-muted-foreground">{c.code}</span>
+                      <span className="ml-2">{c.description ?? c.code}</span>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {uncertain ? (
+            <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs">
+              <p className="font-medium">{uncertain.message}</p>
+              <ul className="space-y-1">
+                {uncertain.links.map((l) => (
+                  <li key={l.link_id}>
+                    <span className="font-mono">{l.product_code}</span> · {l.product_description ?? l.product_code}
+                    {l.supplier_reference_label ? ` · rif. ${l.supplier_reference_label}` : ""}
+                    {l.supplier_product_code ? ` · cod. ${l.supplier_product_code}` : ""}
+                    {" · "}{l.is_active ? "attivo" : "disattivato"}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annulla
           </Button>
-          <Button disabled={add.isPending} onClick={() => add.mutate()}>
+          <Button disabled={add.isPending} onClick={() => add.mutate(undefined)}>
             Aggiungi
           </Button>
         </DialogFooter>

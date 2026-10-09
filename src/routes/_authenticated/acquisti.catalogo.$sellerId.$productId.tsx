@@ -142,6 +142,23 @@ function CatalogProductPage() {
     },
   });
 
+  // Solo lettura: esiste un collegamento attivo di un nostro prodotto a questo articolo?
+  const linkQuery = useQuery({
+    queryKey: ["catalogo-preferito", buyerId, productId, "collegato"],
+    enabled: operational && Boolean(buyerId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_supplier_links")
+        .select("id")
+        .eq("company_id", buyerId!)
+        .eq("b2b_item_id", productId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return Boolean(data);
+    },
+  });
+
   const toggleFavorite = useMutation({
     mutationFn: async () => {
       if (!buyerId) throw new Error("Azienda non disponibile");
@@ -286,6 +303,11 @@ function CatalogProductPage() {
                 label={favoriteQuery.data ? "Nei preferiti" : "Preferito"}
                 onToggle={() => toggleFavorite.mutate()}
               />
+              {favoriteQuery.data && linkQuery.data === false ? (
+                <span className="rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium">
+                  Collegamento da completare
+                </span>
+              ) : null}
               {isAdmin ? (
                 <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
                   <PackagePlus className="h-4 w-4" aria-hidden="true" />

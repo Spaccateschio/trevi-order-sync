@@ -568,7 +568,11 @@ export const adoptCatalogProduct = createServerFn({ method: "POST" })
       _actor_user_id: context.userId,
     });
     if (error) throw new Error(error.message);
-    const payload = (result ?? {}) as { product_id?: string };
+    const payload = (result ?? {}) as { product_id?: string; status?: string; message?: string };
+    if (payload.status === "choose_candidate") throw new Error("Esistono più copie: scegli quale usare dal Catalogo");
+    if (payload.status === "link_identity_uncertain") {
+      throw new Error(payload.message ?? "Collegamento esistente senza codice articolo: verifica il collegamento prima di procedere");
+    }
     if (!payload.product_id) throw new Error("Prodotto non creato");
     const { data: catalogFavorite, error: favoriteReadError } = await context.supabase
       .from("buyer_product_favorites")

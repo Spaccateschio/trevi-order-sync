@@ -274,7 +274,12 @@ export function useCatalogActions({
           _seller_product_id: entry.sellerProductId!,
         });
         if (error) throw new Error(error.message);
-        productId = (data as { product_id?: string } | null)?.product_id ?? null;
+        const res = (data ?? {}) as { product_id?: string; status?: string; message?: string };
+        if (res.status === "choose_candidate") throw new Error("Esistono più copie: scegli quale usare dal Catalogo");
+        if (res.status === "link_identity_uncertain") {
+          throw new Error(res.message ?? "Collegamento esistente senza codice articolo: verifica il collegamento prima di procedere");
+        }
+        productId = res.product_id ?? null;
         if (!productId) throw new Error(`Prodotto non creato per ${entry.code}`);
       }
       return runAdd({
