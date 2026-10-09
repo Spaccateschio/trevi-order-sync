@@ -1492,6 +1492,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 extra={extra}
                 stock={stock}
                 editable={Boolean(editable)}
+                listConfirmed={list?.status === "confermata"}
                 quantityInput={quantityInput(row, "h-9 min-w-0 flex-1 text-right text-base font-bold")}
                 favoritePending={favoriteMutation.isPending}
                 onToggleFavorite={() =>
