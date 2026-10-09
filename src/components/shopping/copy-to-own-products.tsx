@@ -63,7 +63,7 @@ export function CopyToOwnProductsFlow({
         seller: seller.data,
         sellerName: sellerCompany.data?.legal_name ?? null,
         copies: copies.data ?? [],
-        unitCodes: new Set((units.data ?? []).map((u) => u.code.trim().toUpperCase())),
+        unitCodes: new Map((units.data ?? []).map((u) => [u.code.trim().toUpperCase(), u.code] as const)),
       };
     },
   });
@@ -83,9 +83,7 @@ export function CopyToOwnProductsFlow({
     const s = data.seller;
     const um = s.danea_um?.trim() ?? "";
     // Solo U.M. della nostra azienda, scelte per codice: mai identificativi del fornitore.
-    const ourUm = um && data.unitCodes.has(um.toUpperCase())
-      ? [...data.unitCodes].find((c) => c === um.toUpperCase()) ?? null
-      : null;
+    const ourUm = um ? (data.unitCodes.get(um.toUpperCase()) ?? null) : null;
     const notes = [
       "Copiato da articolo B2B",
       data.sellerName ? `Fornitore: ${data.sellerName}` : null,
@@ -97,7 +95,7 @@ export function CopyToOwnProductsFlow({
       subcategory: s.subcategory,
       barcode: s.barcode,
       producer_name: s.producer_name,
-      danea_um: ourUm ? um : null,
+      danea_um: ourUm,
       notes,
     };
   }
