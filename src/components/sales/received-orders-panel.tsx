@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Textarea } from "@/components/ui/textarea";
 
 import { supabase } from "@/integrations/supabase/client";
+import { orderPriceNote } from "@/lib/purchase";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -62,7 +63,6 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
 const fmtDateTime = new Intl.DateTimeFormat("it-IT", { dateStyle: "short", timeStyle: "short" });
 const fmtDate = new Intl.DateTimeFormat("it-IT", { dateStyle: "medium" });
 const fmtQty = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 2 });
-const fmtPrice = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" });
 
 export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
   const [open, setOpen] = useState<string | null>(null);

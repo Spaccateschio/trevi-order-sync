@@ -25,7 +25,7 @@ import {
   DELIVERY_STATUS_LABEL,
   ORDER_STATUS_LABEL,
   SEND_STATUS_LABEL,
-  priceLabel,
+  orderPriceNote,
   type DeliveryRow,
   type OrderItemRow,
   type OrderOverviewRow,

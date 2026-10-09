@@ -152,6 +152,8 @@ export type OrderItemRow = {
   price_unit_code: string | null;
   supplier_product_code: string | null;
   products: { code: string; description: string | null } | null;
+  /** Fornitore B2B quando il collegamento ha l'azienda venditrice. */
+  product_supplier_links?: { supplier_company_id: string | null } | null;
 };
 
 export type DeliveryRow = {
