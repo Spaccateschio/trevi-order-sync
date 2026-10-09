@@ -3207,6 +3207,7 @@ export type Database = {
       }
       product_supplier_links: {
         Row: {
+          b2b_item_id: string | null
           company_id: string
           conversion_factor: number | null
           conversion_reference_um: string | null
@@ -3227,12 +3228,14 @@ export type Database = {
           product_id: string
           purchase_unit_id: string | null
           sourcing_priority: number | null
+          supplier_company_id: string | null
           supplier_product_code: string | null
           supplier_record_id: string
           supplier_reference_label: string | null
           updated_at: string
         }
         Insert: {
+          b2b_item_id?: string | null
           company_id: string
           conversion_factor?: number | null
           conversion_reference_um?: string | null
@@ -3253,12 +3256,14 @@ export type Database = {
           product_id: string
           purchase_unit_id?: string | null
           sourcing_priority?: number | null
+          supplier_company_id?: string | null
           supplier_product_code?: string | null
           supplier_record_id: string
           supplier_reference_label?: string | null
           updated_at?: string
         }
         Update: {
+          b2b_item_id?: string | null
           company_id?: string
           conversion_factor?: number | null
           conversion_reference_um?: string | null
@@ -3279,12 +3284,20 @@ export type Database = {
           product_id?: string
           purchase_unit_id?: string | null
           sourcing_priority?: number | null
+          supplier_company_id?: string | null
           supplier_product_code?: string | null
           supplier_record_id?: string
           supplier_reference_label?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_supplier_links_b2b_item_id_fkey"
+            columns: ["b2b_item_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_supplier_links_company_id_fkey"
             columns: ["company_id"]
@@ -3311,6 +3324,13 @@ export type Database = {
             columns: ["purchase_unit_id"]
             isOneToOne: false
             referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_supplier_links_supplier_company_id_fkey"
+            columns: ["supplier_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -4439,6 +4459,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_selected: boolean
           item_id: string
           min_warning_accepted: boolean
           min_warning_accepted_at: string | null
@@ -4464,6 +4485,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_selected?: boolean
           item_id: string
           min_warning_accepted?: boolean
           min_warning_accepted_at?: string | null
@@ -4489,6 +4511,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_selected?: boolean
           item_id?: string
           min_warning_accepted?: boolean
           min_warning_accepted_at?: string | null

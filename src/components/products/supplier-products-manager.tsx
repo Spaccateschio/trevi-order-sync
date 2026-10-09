@@ -112,7 +112,7 @@ export function SupplierProductsManager({
       const { data, error } = await supabase
         .from("product_supplier_links")
         .select(
-          "id, product_id, supplier_product_code, purchase_unit_id, price_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, sourcing_priority, supplier_reference_label, is_active, notes, origin, products(code, description, archive_id, danea_um), units_of_measure!product_supplier_links_purchase_unit_id_fkey(code), product_supplier_link_units(id, is_default, units_of_measure(code))",
+          "id, product_id, supplier_product_code, purchase_unit_id, price_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, sourcing_priority, supplier_reference_label, is_active, notes, origin, products!product_supplier_links_product_id_fkey(code, description, archive_id, danea_um), units_of_measure!product_supplier_links_purchase_unit_id_fkey(code), product_supplier_link_units(id, is_default, units_of_measure(code))",
         )
         .eq("supplier_record_id", supplierRecordId);
       if (error) throw new Error(error.message);

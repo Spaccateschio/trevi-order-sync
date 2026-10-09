@@ -92,7 +92,7 @@ function EditForm({ order, onClose, onSaved }: { order: OrderOverviewRow; onClos
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_supplier_links")
-        .select("id, product_id, purchase_unit_id, products(description, code, danea_um), units_of_measure!product_supplier_links_purchase_unit_id_fkey(code)")
+        .select("id, product_id, purchase_unit_id, products!product_supplier_links_product_id_fkey(description, code, danea_um), units_of_measure!product_supplier_links_purchase_unit_id_fkey(code)")
         .eq("supplier_record_id", order.supplier_record_id)
         .eq("is_active", true);
       if (error) throw new Error(error.message);

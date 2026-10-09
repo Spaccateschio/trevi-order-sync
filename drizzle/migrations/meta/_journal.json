@@ -211,6 +211,13 @@
       "when": 1791480562616,
       "tag": "0029_auto_sale_unit_on_b2b_publish",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791526012903,
+      "tag": "0030_b2b_item_on_supplier_links_phase1",
+      "breakpoints": true
     }
   ]
 }
