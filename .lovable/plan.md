@@ -1,52 +1,57 @@
-# Acquisto diretto esplicito nella Lista della Spesa (Opzione A)
+# «Copia nei miei prodotti» dalla card B2B della Lista della Spesa
 
-Principio: **assenza di assegnazione ≠ acquisto diretto**. L'acquisto diretto nasce solo dalla quota scelta dall'utente in `shopping_list_items.manual_purchase_*`. `purchase_mode` resta com'è, senza nuovo significato.
+## Situazione attuale (analisi, nessuna modifica fatta)
 
-## Regola di completezza della riga (unica, usata da stato, anteprima e chiusura)
+**Due modi esistenti per creare un nostro prodotto**
 
-Quantità da acquistare Q (con l'U.M. della riga). Quote = somma delle quote fornitore (`shopping_list_item_suppliers`) + quota diretta (`manual_purchase_quantity`).
-
-| Caso | Stato | Chiusura |
+| Procedura | Chi la usa | Cosa fa |
 |---|---|---|
-| Q vuota o ≤ 0 | Quantità mancante | bloccata |
-| nessuna quota fornitore e nessuna quota diretta | Da assegnare | bloccata |
-| U.M. di una quota (fornitore o diretta) non confrontabile con quella della riga, o quota fornitore senza quantità | Da verificare | bloccata |
-| quote < Q | Parziale — N da assegnare | bloccata |
-| quote = Q | Assegnata | ok |
-| quote > Q | Da verificare (supera la quantità) | bloccata |
+| `manage_internal_product` (create) | Finestra «Nuovo prodotto» (`internal-product-dialog.tsx`) nella pagina Prodotti | Crea un prodotto interno (codice proposto 00-xxx e modificabile, descrizione obbligatoria, categoria, sottocategoria, U.M., U.M. del prezzo, barcode, produttore, note). Nessun legame con il fornitore. Solo amministratori. |
+| `add_catalog_product_to_own_products` | «Aggiungi ai miei prodotti» nel Catalogo B2B e la stella | Se esiste già una copia di quell'articolo B2B (`created_from_product_id`), la riusa. Altrimenti la crea già compilata, **senza schermata di controllo**, e aggiunge il collegamento al fornitore. |
 
-Confrontabile = stessa U.M. (stesso id, oppure stesso codice scritto a mano), come oggi. Nessuna conversione nuova.
+**Punto importante.** Nella Lista della Spesa la card B2B usa **già oggi** un nostro prodotto: quando un articolo B2B entra in Lista (con la stella o con «Aggiungi alla Lista»), il sistema crea una copia nel nostro catalogo, collegata al fornitore. Per esempio il POMODORI CILIEGINO IT di 3 EMME (00-018) è la copia del 0218 di Trevi. L'articolo del venditore non viene mai modificato.
 
-## Modifiche
+## Cosa proponiamo
 
-| Funzione / file | Contenitore letto | Contenitore scritto | Comportamento attuale | Comportamento nuovo |
-|---|---|---|---|---|
-| **Nuova** `set_shopping_list_direct_quota(_company_id, _item_id, _quantity, _unit_id, _unit_code)` (DB) | shopping_lists, shopping_list_items, shopping_list_item_suppliers | shopping_list_items.manual_purchase_quantity / _unit_id / _unit_code, audit_events | non esiste: nessuno scrive questi campi | solo lista aperta, membro dell'azienda della lista; quantità > 0 oppure vuota (= rimuove la quota); rifiuta se quote fornitore + diretta superano Q (quando confrontabili); scrive audit |
-| `shopping_list_item_state` (DB) | shopping_list_items, shopping_list_item_suppliers | — | `manuale` se purchase_mode; altrimenti da_assegnare/parziale/assegnata solo sulle quote fornitore | aggiunge la quota diretta al conteggio; nuovo stato `da_verificare`; `purchase_mode` non decide più nulla; restituisce anche la quota diretta |
-| `_shopping_list_close_plan` (DB) | shopping_list_items, shopping_list_item_suppliers | — | nessuna quota → `direct_whole`; resto → `direct_residual`; dubbi → `uncertain` | tipi: `missing`, `unassigned`, `partial`, `uncertain`, `ordered`. Una riga può avere quota diretta **e** quote fornitore: la quota diretta esce come voce `direct` separata, mai calcolata per differenza |
-| `shopping_list_close_preview` (DB) | _shopping_list_close_plan, shopping_list_item_suppliers | — | elenchi missing / direct (dedotti) / uncertain / orders | elenchi: missing, **unassigned**, **partial** (con quantità mancante), uncertain, **direct** (solo quote esplicite), orders |
-| `close_shopping_list` (DB) | _shopping_list_close_plan | shopping_lists, shopping_list_direct_purchases, purchase_orders, purchase_order_items, audit_events | chiude anche con righe non assegnate (le trasforma in diretti) e uncertain (`da_verificare`) | blocca se ci sono missing / unassigned / partial / uncertain; copia in shopping_list_direct_purchases **solo** manual_purchase_* con origin `esplicito`; ordini dalle quote fornitore come oggi |
-| `manage_shopping_list` / `inventory_purchase_cycle_status` / `create_purchase_orders_from_list` (DB) | — | — | leggono purchase_mode | verifico che restino coerenti; nessun cambio se non serve (te lo indico prima) |
-| `src/lib/shopping-list.functions.ts` | — | — | — | nuova `setShoppingListDirectQuota` (POST, utente autenticato, RPC con context.supabase); tipo ClosePreview aggiornato |
-| `src/lib/shopping-list.ts` | — | — | ItemStatus senza da_verificare | aggiunge `da_verificare` e la quota diretta nei tipi/etichette |
-| `src/components/shopping/card-suppliers.tsx` | stato riga | via setShoppingListDirectQuota | «Acquisto diretto» mostra solo un messaggio | apre un campo «Acquisto diretto: quantità + U.M.» (U.M. proposta = quella della riga), salva, rimuovi |
-| `src/components/shopping/supplier-split-dialog.tsx` | quote | — | «rimanente» = Q − quote fornitore | rimanente = Q − quote fornitore − quota diretta; mostra la riga «Acquisto diretto» |
-| `src/components/shopping/shopping-list-panel.tsx` (solo badge stato riga e contatori) | stato riga | — | 3 stati + manuale | aggiunge Da verificare; Parziale mostra «N da assegnare» |
-| `src/components/shopping/close-list-dialog.tsx` | anteprima | — | sezioni Consegna, Ordini, Acquisti diretti (dedotti), Da verificare | sezioni: Ordini fornitori, Acquisti diretti scelti, **Da assegnare**, **Parziali**, Da verificare (con link alla riga); «Conferma e genera» disattivato se una delle ultime tre non è vuota |
-| `src/components/shopping/AGENTS.md` | — | — | — | una regola: acquisto diretto solo da quota esplicita manual_purchase_*, mai dedotto |
-| test `src/lib/shopping-list-state.test.ts` (nuovo) | — | — | — | regole: 8 = 3+2+3 assegnata; 3+2 su 8 parziale 3; nessuna quota da assegnare; U.M. diverse da verificare |
+1. Nel menu ⋮ della card (`shopping-list-card.tsx`) compare «Copia nei miei prodotti», solo se la card arriva da un articolo B2B.
+2. Si apre la finestra «Nuovo prodotto» già esistente, precompilata. L'utente controlla, modifica e conferma.
+3. Al salvataggio si crea un **nuovo prodotto indipendente**, con un nuovo identificativo e un nuovo codice 00-xxx, usando la procedura `manage_internal_product` che già esiste.
+4. Non vengono modificati né l'articolo B2B del venditore, né la card in Lista, né il collegamento al fornitore.
+5. Nessun prezzo viene copiato: il prezzo di vendita resta vuoto.
 
-Non tocco: product_supplier_links, Inventario, giacenza, Carico merce, Ordini già creati, storico liste chiuse (le loro righe `intero/residuo/da_verificare` restano come sono).
+## Campi copiabili
 
-## Migrazione database (una sola)
+| Campo | Da dove | Note |
+|---|---|---|
+| Descrizione | articolo B2B | modificabile |
+| Categoria / Sottocategoria | articolo B2B | modificabile |
+| U.M. base | `danea_um` del venditore | si sceglie tra le **nostre** U.M.; se non esiste da noi, il campo resta da scegliere |
+| Barcode, Produttore | articolo B2B | modificabili |
+| Codice | **non** si copia il codice del fornitore: si propone il nostro 00-xxx | il codice del fornitore va nelle note, se si vuole |
+| U.M. del prezzo | non si copia (le U.M. del venditore appartengono a un'altra azienda) | da scegliere |
+| Prezzo di acquisto / di vendita | **non si copiano** | come richiesto |
+| Immagine | non si copia in questa fase | si può aggiungere poi con «Scatta foto» |
 
-1. Vincolo `direct_purchases_origin_check`: oggi accetta solo `intero`, `residuo`, `da_verificare` → **va esteso** aggiungendo `esplicito` (i valori vecchi restano validi per lo storico). Il vincolo sulla quantità già richiede > 0 per tutto tranne `da_verificare`: va bene così.
-2. Vincolo esistente `manual_qty_check` (quantità > 0 o vuota): già adatto, nessuna modifica.
-3. Nuova funzione `set_shopping_list_direct_quota`: SECURITY DEFINER, search_path=public, controllo azienda/lista aperta via auth.uid(), REVOKE a PUBLIC/anon, GRANT a authenticated.
-4. `CREATE OR REPLACE` di `shopping_list_item_state`, `_shopping_list_close_plan`, `shopping_list_close_preview`, `close_shopping_list` con le nuove regole (stesse firme dove possibile).
-5. Commento sulla colonna `purchase_mode`: «non usato per dedurre acquisti diretti».
+## Rischi di duplicazione
 
-Nessuna nuova tabella, nessuna colonna eliminata o rinominata, nessun dato modificato.
+1. **Doppia copia.** La card B2B è già legata a una nostra copia, quindi «Copia nei miei prodotti» ne creerebbe una seconda dello stesso articolo. Proposta: prima di aprire la finestra, avvisare «Esiste già un tuo prodotto collegato a questo articolo: 00-018 POMODORI CILIEGINO IT» e lasciar scegliere «Apri quello esistente» oppure «Crea comunque una copia nuova».
+2. **Copie ripetute.** Premendo due volte si creano due prodotti. Proposta: il pulsante si disattiva durante il salvataggio. Il codice 00-xxx è già controllato contro i doppioni.
+3. **Descrizioni uguali.** Il nuovo prodotto avrà la stessa descrizione della copia B2B. La ricerca della Lista e i preferiti li mostreranno come due voci distinte, che è il comportamento voluto (nessuna unificazione automatica). Consiglio di cambiare la descrizione o il codice per riconoscerli.
+4. **Senza collegamento al fornitore.** La nuova copia nasce senza fornitore. Se poi lo si collega al fornitore, si hanno due nostri prodotti sullo stesso articolo B2B.
+5. **Permessi.** La procedura è riservata agli amministratori: per gli operatori la voce del menu sarà nascosta o disattivata.
 
-## Effetto sulle liste aperte di oggi
-Le righe senza fornitore (es. POMODORI CILIEGINO IT) diventano **Da assegnare** e bloccano la chiusura finché scegli un fornitore o una quota diretta.
+## Dettagli tecnici
+
+- File da modificare:
+  - `src/components/shopping/shopping-list-card.tsx`: aggiungere la voce nel menu ⋮;
+  - `src/components/shopping/shopping-list-panel.tsx`: aprire la finestra con i dati precompilati;
+  - `src/components/products/internal-product-dialog.tsx`: modalità «precompilata» per la creazione (il valore `product` senza `id` è già supportato) e avviso sui doppioni.
+- Lettura dei dati: articolo del venditore tramite `created_from_product_id` della nostra copia, oppure le informazioni già presenti nella card. Ricerca di copie esistenti tramite `created_from_product_id`.
+- Database: **nessuna migrazione**. Si usano `manage_internal_product` (create) e le letture già esistenti. Facoltativo: annotare nello storico «copiato da articolo B2B X». Richiederebbe un parametro in più nella procedura, quindi una migrazione, e lo valutiamo a parte.
+- Non vengono toccati Inventario, Fabbisogno, Ordini, Consegne, Carico merce e il semaforo.
+
+## Da decidere
+
+1. Nel caso del rischio 1, quale scelta proponiamo per prima?
+2. Vuoi il codice del fornitore nelle note del nuovo prodotto?
+3. Il nuovo prodotto va aggiunto subito ai Preferiti, oppure no?
