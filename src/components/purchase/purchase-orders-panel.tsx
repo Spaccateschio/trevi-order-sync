@@ -90,7 +90,9 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
         queryClient.invalidateQueries({ queryKey: ["confirmed-shopping-lists", companyId] }),
       ]);
       toast.success(
-        result.orderIds.length === 1
+        result.orderIds.length === 0
+          ? "Lista chiusa: registrati solo acquisti diretti"
+          : result.orderIds.length === 1
           ? "Ordine creato in bozza"
           : `${result.orderIds.length} ordini creati in bozza`,
       );
