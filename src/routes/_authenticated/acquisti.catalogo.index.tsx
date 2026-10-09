@@ -9,6 +9,15 @@ import { AppShell } from "@/components/app-shell";
 import { CatalogList, type CatalogProduct } from "@/components/catalog/catalog-list";
 import { fetchPriceSeriesForCatalog } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -20,6 +29,7 @@ import {
 import {
   activeCompany,
   companyBuys,
+  hasRole,
   isRelationOperational,
   useIdentity,
 } from "@/hooks/use-identity";
@@ -78,6 +88,7 @@ function CatalogoIndex() {
   const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [onlyWithPrice, setOnlyWithPrice] = useState(false);
 
+  const isAdmin = hasRole(identity, "amministratore");
   const relations = (identity?.relations ?? []).filter((r) => r.buyerCompanyId === buyerId);
   const operational = relations.filter(isRelationOperational);
   const suspended = relations.filter(
@@ -223,6 +234,18 @@ function CatalogoIndex() {
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  // Preferiti senza collegamento attivo: calcolati su tutto il catalogo, quindi indipendenti dai filtri.
+  const pendingProducts = useMemo(() => {
+    const linked = linkedItemsQuery.data;
+    const favs = favoritesQuery.data;
+    if (!linked || !favs) return [];
+    return (cataloguesQuery.data ?? [])
+      .flatMap((entry) => entry.products.map((product) => ({ ...product, sellerId: entry.sellerId })))
+      .filter((product) => favs.has(product.id) && !linked.has(product.id))
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [cataloguesQuery.data, favoritesQuery.data, linkedItemsQuery.data]);
+  const pendingIds = useMemo(() => new Set(pendingProducts.map((p) => p.id)), [pendingProducts]);
 
   const categories = useMemo(
     () =>
@@ -404,27 +427,27 @@ function CatalogoIndex() {
             </Button>
           </div>
 
-          {(() => {
-            const linked = linkedItemsQuery.data;
-            if (!linked) return null;
-            const pending = rows.filter((p) => favorites.has(p.id) && !linked.has(p.id));
-            if (!pending.length) return null;
-            return (
-              <section className="mb-3 rounded-xl border border-border bg-muted/40 p-3 text-sm">
-                <p className="font-medium">Collegamento da completare</p>
-                <p className="text-xs text-muted-foreground">
-                  Preferiti non ancora collegati a un tuo prodotto: usa «Aggiungi ai miei prodotti» nella scheda dell'articolo.
-                </p>
-                <ul className="mt-2 flex flex-wrap gap-2">
-                  {pending.map((p) => (
-                    <li key={p.id} className="rounded-md border border-border bg-card px-2 py-1 text-xs">
+          {pendingProducts.length ? (
+            <section className="mb-3 rounded-xl border border-border bg-muted/40 p-3 text-sm">
+              <p className="font-medium">Collegamento da completare</p>
+              <p className="text-xs text-muted-foreground">
+                Preferiti non ancora collegati a un tuo prodotto: apri l'articolo e usa «Aggiungi ai miei prodotti».
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {pendingProducts.map((p) => (
+                  <li key={p.id}>
+                    <Link
+                      to="/acquisti/catalogo/$sellerId/$productId"
+                      params={{ sellerId: p.sellerId, productId: p.id }}
+                      className="inline-block rounded-md border border-border bg-card px-2 py-1 text-xs underline-offset-2 hover:bg-muted hover:underline"
+                    >
                       <span className="font-mono">{p.code}</span> · {p.description ?? p.code}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })()}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
           {cataloguesQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">Caricamento dei cataloghi…</p>
           ) : (
@@ -434,6 +457,7 @@ function CatalogoIndex() {
               favorites={favorites}
               priceSeries={seriesQuery.data}
               showSeller
+              linkPending={pendingIds}
               onToggleFavorite={(product) => toggleFavorite.mutate(product)}
               onSelectUnit={(product, unitId) =>
                 chooseUnit.mutate({ product, productSaleUnitId: unitId })
@@ -456,6 +480,190 @@ function CatalogoIndex() {
           </ul>
         </section>
       ) : null}
+
+      {buyerId ? <UnavailableFavorites buyerId={buyerId} isAdmin={isAdmin} /> : null}
     </AppShell>
+  );
+}
+
+type UnavailableRow = {
+  row_kind: string;
+  motivo: string;
+  seller_company_id: string;
+  seller_name: string;
+  favorite_id: string | null;
+  product_id: string | null;
+  code: string | null;
+  description: string | null;
+  also_paused: boolean | null;
+  favorites_count: number | null;
+};
+
+const MOTIVO_MESSAGE: Record<string, string> = {
+  non_pubblicato: "Il fornitore non pubblica più questo articolo: non è acquistabile finché non torna in catalogo.",
+  fornitore_in_pausa: "Rapporto con il fornitore in pausa: l'articolo tornerà acquistabile quando il rapporto sarà riattivato.",
+  rapporto_cessato: "Il rapporto con questo fornitore è terminato: gli articoli non sono acquistabili.",
+  rapporto_non_attivo: "Rapporto con il fornitore non attivo: gli articoli non sono acquistabili.",
+};
+
+/**
+ * Preferiti non acquistabili (buyer_unpublished_favorites): articoli non più pubblicati o con fornitore in pausa,
+ * più un riepilogo per i fornitori non più collegati. Nessuna azione di acquisto; la stella si può solo togliere.
+ */
+function UnavailableFavorites({ buyerId, isAdmin }: { buyerId: string; isAdmin: boolean }) {
+  const queryClient = useQueryClient();
+  const [confirm, setConfirm] = useState<{ sellerId: string; sellerName: string; count: number } | null>(null);
+
+  const query = useQuery({
+    queryKey: ["catalogo-preferiti-tutti", buyerId, "non-disponibili"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("buyer_unpublished_favorites", { _buyer_company_id: buyerId });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as UnavailableRow[];
+    },
+  });
+
+  const refresh = () => invalidateAfterFavoriteChange(queryClient, buyerId);
+
+  const removeOne = useMutation({
+    mutationFn: async (row: UnavailableRow) => {
+      const { error } = await supabase
+        .from("buyer_product_favorites")
+        .delete()
+        .eq("buyer_company_id", buyerId)
+        .eq("product_id", row.product_id!);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      toast.success("Rimosso dai preferiti");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const removeSeller = useMutation({
+    mutationFn: async (input: { sellerId: string; sellerName: string; count: number }) => {
+      const { data, error } = await supabase.rpc("remove_seller_favorites", {
+        _buyer_company_id: buyerId,
+        _seller_company_id: input.sellerId,
+        _expected_count: input.count,
+      });
+      if (error) throw new Error(error.message);
+      return { ...input, result: data as { status: string; current_count: number; deleted: number } };
+    },
+    onSuccess: ({ result, sellerId, sellerName }) => {
+      if (result.status === "count_changed") {
+        if (result.current_count === 0) {
+          toast.info("Preferiti già rimossi");
+          setConfirm(null);
+          refresh();
+        } else {
+          toast.info("Il numero di preferiti è cambiato: conferma di nuovo");
+          setConfirm({ sellerId, sellerName, count: result.current_count });
+        }
+        return;
+      }
+      toast.success(`${result.deleted} preferiti rimossi`);
+      setConfirm(null);
+      refresh();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+      setConfirm(null);
+    },
+  });
+
+  const rows = query.data ?? [];
+  const articles = rows.filter((r) => r.row_kind === "articolo");
+  const sellers = rows.filter((r) => r.row_kind === "fornitore");
+  if (!articles.length && !sellers.length) return null;
+
+  return (
+    <>
+      {articles.length ? (
+        <section className="mt-4 rounded-xl border border-border bg-card p-4">
+          <h2 className="text-sm font-semibold">Articoli non più in catalogo</h2>
+          <p className="text-xs text-muted-foreground">Restano fra i preferiti ma non si possono acquistare.</p>
+          <ul className="mt-3 space-y-2">
+            {articles.map((row) => (
+              <li
+                key={row.favorite_id}
+                className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">
+                    <span className="font-mono text-xs text-muted-foreground">{row.code}</span>{" "}
+                    {row.description ?? row.code}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{row.seller_name}</p>
+                  <p className="mt-1 text-xs">{MOTIVO_MESSAGE[row.motivo]}</p>
+                  {row.also_paused ? (
+                    <p className="text-xs text-muted-foreground">Anche il rapporto con il fornitore è in pausa.</p>
+                  ) : null}
+                </div>
+                <FavoriteButton active onToggle={() => removeOne.mutate(row)} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {sellers.length ? (
+        <section className="mt-4 rounded-xl border border-border bg-card p-4">
+          <h2 className="text-sm font-semibold">Fornitori non più collegati</h2>
+          <ul className="mt-3 space-y-2">
+            {sellers.map((row) => (
+              <li
+                key={`${row.seller_company_id}-${row.motivo}`}
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">
+                    {row.seller_name} · {row.favorites_count} preferit{row.favorites_count === 1 ? "o" : "i"}
+                  </p>
+                  <p className="text-xs">{MOTIVO_MESSAGE[row.motivo]}</p>
+                </div>
+                {isAdmin ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setConfirm({
+                        sellerId: row.seller_company_id,
+                        sellerName: row.seller_name,
+                        count: row.favorites_count ?? 0,
+                      })
+                    }
+                  >
+                    Rimuovi tutti i preferiti di questo fornitore
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <AlertDialog open={Boolean(confirm)} onOpenChange={(open) => (!open ? setConfirm(null) : undefined)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rimuovere i preferiti?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Verranno rimossi {confirm?.count} preferiti di {confirm?.sellerName}. Prodotti, collegamenti, ordini e
+              prezzi non vengono toccati.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <Button
+              disabled={removeSeller.isPending}
+              onClick={() => confirm && removeSeller.mutate(confirm)}
+            >
+              Rimuovi {confirm?.count} preferiti
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
