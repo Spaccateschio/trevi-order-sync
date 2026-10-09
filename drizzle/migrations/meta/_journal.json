@@ -225,6 +225,13 @@
       "when": 1791530461844,
       "tag": "0031_fase1_copy_b2b_and_add_catalog_v5",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791532779673,
+      "tag": "0032_catalog_unpublished_favorites",
+      "breakpoints": true
     }
   ]
 }

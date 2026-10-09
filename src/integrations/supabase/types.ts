@@ -5905,6 +5905,21 @@ export type Database = {
           product_id: string
         }[]
       }
+      buyer_unpublished_favorites: {
+        Args: { _buyer_company_id: string }
+        Returns: {
+          also_paused: boolean
+          code: string
+          description: string
+          favorite_id: string
+          favorites_count: number
+          motivo: string
+          product_id: string
+          row_kind: string
+          seller_company_id: string
+          seller_name: string
+        }[]
+      }
       can_declare_on_order: { Args: { _order_id: string }; Returns: boolean }
       can_read_company_address: {
         Args: { _company_id: string; _visible: boolean }
@@ -7063,6 +7078,14 @@ export type Database = {
           old_image_path: string
           old_thumbnail_path: string
         }[]
+      }
+      remove_seller_favorites: {
+        Args: {
+          _buyer_company_id: string
+          _expected_count: number
+          _seller_company_id: string
+        }
+        Returns: Json
       }
       remove_shopping_list_item: {
         Args: { _actor_user_id?: string; _company_id: string; _item_id: string }
