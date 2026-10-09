@@ -85,7 +85,7 @@ export function UnlinkSupplierDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{blocked.length ? `Non puoi scollegare ${supplierName}` : `Scollegare ${supplierName} dal prodotto?`}</AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2 text-left text-sm">
               {preview.isLoading ? <p>Controllo delle Liste in corso…</p> : null}
               {preview.error ? <p className="text-destructive">{(preview.error as Error).message}</p> : null}
               {data && blocked.length ? (
