@@ -239,6 +239,13 @@
       "when": 1791557992777,
       "tag": "0033_fase2_scollegamento_fornitore_0033",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791558169253,
+      "tag": "0034_fase2_um_magazzino_prodotto_0033b",
+      "breakpoints": true
     }
   ]
 }
