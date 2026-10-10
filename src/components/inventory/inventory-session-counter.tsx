@@ -19,6 +19,8 @@ import { dateTimeShort, parseQuantity, qty, type CountRow, type LocationRow, typ
 import { recordInventoryCount } from "@/lib/inventory.functions";
 
 type ProductRow = { id: string; code: string; description: string | null; danea_um: string | null };
+type CardCountRow = CountRow & { product_supplier_link_id: string | null };
+type CardRow = ProductRow & { key: string; count: CardCountRow | null };
 
 /**
  * Schermata di conteggio: tabella compatta su computer e tablet, schede su telefono.
@@ -33,7 +35,7 @@ export function InventorySessionCounter({
   companyId: string;
   session: SessionRow;
   locations: LocationRow[];
-  onCorrectCount?: (count: CountRow, product: ProductRow) => void;
+  onCorrectCount?: (count: CardCountRow, product: ProductRow) => void;
 }) {
   const queryClient = useQueryClient();
   const run = useServerFn(recordInventoryCount);
@@ -92,23 +94,51 @@ export function InventorySessionCounter({
     queryFn: async (): Promise<CountRow[]> => {
       const { data, error } = await supabase
         .from("inventory_counts")
-        .select("id, product_id, location_id, counted_quantity, previous_quantity, difference, unit_code, counted_at, notes")
+        .select("id, product_id, location_id, product_supplier_link_id, counted_quantity, previous_quantity, difference, unit_code, counted_at, notes" as "id, product_id, location_id, counted_quantity, previous_quantity, difference, unit_code, counted_at, notes")
         .eq("session_id", session.id);
       if (error) throw new Error(error.message);
-      return (data ?? []) as CountRow[];
+      return (data ?? []) as unknown as CardCountRow[];
     },
   });
 
+  // Nomi dei fornitori delle card (Modello 2).
+  const supplierNamesQuery = useQuery({
+    queryKey: ["inventory-card-suppliers", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_supplier_links")
+        .select("id, supplier_records(legal_name)")
+        .eq("company_id", companyId);
+      if (error) throw new Error(error.message);
+      const map = new Map<string, string>();
+      for (const link of (data ?? []) as { id: string; supplier_records: { legal_name: string | null } | null }[]) {
+        map.set(link.id, link.supplier_records?.legal_name ?? "Fornitore");
+      }
+      return map;
+    },
+  });
+
+  // Una riga per card contata (prodotto + collegamento) nell'ubicazione.
   const countsByProduct = useMemo(() => {
-    const map = new Map<string, CountRow>();
+    const map = new Map<string, CardCountRow[]>();
     for (const row of countsQuery.data ?? []) {
-      if (row.location_id === locationId) map.set(row.product_id, row);
+      if (row.location_id !== locationId) continue;
+      const list = map.get(row.product_id) ?? [];
+      list.push(row);
+      map.set(row.product_id, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => Number(a.product_supplier_link_id === null) - Number(b.product_supplier_link_id === null));
     }
     return map;
   }, [countsQuery.data, locationId]);
+  const cardName = (count: CardCountRow | null) =>
+    !count ? null : count.product_supplier_link_id
+      ? (supplierNamesQuery.data?.get(count.product_supplier_link_id) ?? "Fornitore")
+      : "Senza fornitore";
 
   const mutation = useMutation({
-    mutationFn: async (input: { productId: string; quantity: number; unitCode: string | null }) =>
+    mutationFn: async (input: { productId: string; quantity: number; unitCode: string | null; linkId: string | null | undefined }) =>
       run({
         data: {
           companyId,
@@ -119,6 +149,8 @@ export function InventorySessionCounter({
           unitId: null,
           unitCode: input.unitCode,
           notes: null,
+          // Card già contata: esplicita. Mai contata: il database accetta solo se il prodotto ha una sola card.
+          linkId: input.linkId,
         },
       }),
     onSuccess: async () => {
@@ -130,7 +162,7 @@ export function InventorySessionCounter({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const rows = useMemo(() => {
+  const productRows = useMemo(() => {
     const term = search.trim().toLowerCase();
     const list = productsQuery.data ?? [];
     if (!term) return list;
@@ -139,24 +171,39 @@ export function InventorySessionCounter({
         row.code.toLowerCase().includes(term) || (row.description ?? "").toLowerCase().includes(term),
     );
   }, [productsQuery.data, search]);
+  // Righe = card: un prodotto con più card contate ha una riga per fornitore.
+  const rows = useMemo(
+    () => productRows.flatMap((product): CardRow[] => {
+      const counts = countsByProduct.get(product.id);
+      return counts?.length
+        ? counts.map((count) => ({ ...product, key: `${product.id}:${count.product_supplier_link_id ?? "-"}`, count }))
+        : [{ ...product, key: `${product.id}:?`, count: null }];
+    }),
+    [productRows, countsByProduct],
+  );
 
-  const saveRow = (product: ProductRow) => {
-    const raw = drafts[product.id];
+  const saveRow = (product: CardRow) => {
+    const raw = drafts[product.key];
     if (raw === undefined) return;
     const value = parseQuantity(raw);
     if (value === null || value < 0) {
       toast.error("Quantità non valida");
       return;
     }
-    mutation.mutate({ productId: product.id, quantity: value, unitCode: product.danea_um });
+    mutation.mutate({
+      productId: product.id,
+      quantity: value,
+      unitCode: product.danea_um,
+      linkId: product.count ? product.count.product_supplier_link_id : undefined,
+    });
     setDrafts((current) => {
       const next = { ...current };
-      delete next[product.id];
+      delete next[product.key];
       return next;
     });
   };
 
-  const countedInSession = countsByProduct.size;
+  const countedInSession = rows.filter((row) => row.count).length;
 
   return (
     <div className="space-y-3">
@@ -213,19 +260,22 @@ export function InventorySessionCounter({
           <tbody>
             {rows.map((product) => {
               const stock = stockQuery.data?.get(product.id);
-              const count = countsByProduct.get(product.id);
-              const draft = drafts[product.id];
+              const count = product.count;
+              const draft = drafts[product.key];
               const value = draft ?? (count ? String(count.counted_quantity) : "");
               const parsed = parseQuantity(value);
               const previous = count ? count.previous_quantity : (stock?.quantity ?? 0);
               const difference = parsed === null ? null : parsed - previous;
               return (
                 <tr
-                  key={product.id}
+                  key={product.key}
                   className="[&>td]:border-t [&>td]:border-border [&>td]:border-r [&>td]:border-border [&>td]:px-2 [&>td]:py-1 [&>td:last-child]:border-r-0"
                 >
                   <td className="sticky left-0 z-10 bg-card font-mono">{product.code}</td>
-                  <td className="sticky left-24 z-10 whitespace-normal break-words bg-card font-medium shadow-[2px_0_0_0_var(--color-border)]">{product.description ?? "—"}</td>
+                  <td className="sticky left-24 z-10 whitespace-normal break-words bg-card font-medium shadow-[2px_0_0_0_var(--color-border)]">
+                    {product.description ?? "—"}
+                    {cardName(count) ? <span className="block text-[11px] font-normal text-muted-foreground">Card: {cardName(count)}</span> : null}
+                  </td>
                   <td className="text-muted-foreground">
                     {stock?.hasCount || count ? qty(previous) : "mai contato"}
                   </td>
@@ -238,7 +288,7 @@ export function InventorySessionCounter({
                         value={value}
                         aria-label={`Quantità contata ${product.code}`}
                         onChange={(event) =>
-                          setDrafts((current) => ({ ...current, [product.id]: event.target.value }))
+                          setDrafts((current) => ({ ...current, [product.key]: event.target.value }))
                         }
                         onBlur={() => saveRow(product)}
                         onKeyDown={(event) => {
@@ -296,15 +346,16 @@ export function InventorySessionCounter({
       <ul className="space-y-2 md:hidden">
         {rows.map((product) => {
           const stock = stockQuery.data?.get(product.id);
-          const count = countsByProduct.get(product.id);
-          const draft = drafts[product.id];
+          const count = product.count;
+          const draft = drafts[product.key];
           const value = draft ?? (count ? String(count.counted_quantity) : "");
           return (
-            <li key={product.id} className="rounded-md border border-border p-3">
+            <li key={product.key} className="rounded-md border border-border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{product.description ?? product.code}</p>
                   <p className="font-mono text-xs text-muted-foreground">{product.code}</p>
+                  {cardName(count) ? <p className="text-xs text-muted-foreground">Card: {cardName(count)}</p> : null}
                 </div>
                 {count ? <Badge variant="secondary">Contato</Badge> : null}
               </div>
@@ -321,12 +372,12 @@ export function InventorySessionCounter({
                     disabled={!locationId}
                     value={value}
                     aria-label={`Quantità contata ${product.code}`}
-                    onChange={(event) => setDrafts((current) => ({ ...current, [product.id]: event.target.value }))}
+                    onChange={(event) => setDrafts((current) => ({ ...current, [product.key]: event.target.value }))}
                   />
                   <Button
                     type="button"
                     className="h-11"
-                    disabled={mutation.isPending || drafts[product.id] === undefined}
+                    disabled={mutation.isPending || drafts[product.key] === undefined}
                     onClick={() => saveRow(product)}
                   >
                     Salva

@@ -49,8 +49,8 @@ const countSchema = z.object({
   unitId: z.string().uuid().nullable(),
   unitCode: z.string().trim().max(20).nullable(),
   notes: z.string().trim().max(500).nullable(),
-  /** Card esplicita (null = «Senza fornitore»). */
-  linkId: z.string().uuid().nullable(),
+  /** Card esplicita (null = «Senza fornitore»); assente = il database accetta solo se il prodotto ha una sola card. */
+  linkId: z.string().uuid().nullable().optional(),
 });
 
 const adjustmentSchema = z.object({
