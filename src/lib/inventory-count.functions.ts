@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { INVENTORY_SCREEN_VERSION } from "@/lib/inventory-cards";
 
 /**
  * Inventario generale: apertura/chiusura e letture passano dal server.
@@ -58,7 +59,50 @@ export type InventoryCountRow = {
   /** U.M. di magazzino (products.stock_unit_id): unica U.M. operativa dell'Inventario. */
   stock_unit_code: string | null;
   stock_unit_missing: boolean;
+  /** Card (Modello 2): collegamento fornitore della card; null = «Senza fornitore». */
+  product_supplier_link_id: string | null;
+  supplier_record_id: string | null;
+  supplier_name: string | null;
+  link_active: boolean | null;
+  card_favorite: boolean;
+  card_label: string | null;
 };
+
+
+/** Card esplicita: sempre inviata, null = «Senza fornitore». */
+const cardLink = z.string().uuid().nullable();
+
+/** Il database ignora le chiamate senza card esplicita solo se il prodotto ha una sola card. */
+function cardArgs(linkId: string | null | undefined) {
+  return linkId === undefined ? {} : { _link_id: linkId, _card_explicit: true };
+}
+
+export const getInventoryScreenVersion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    // Le schermate per card richiedono le colonne della 0037: se mancano il database non è ancora aggiornato.
+    const { error } = await context.supabase
+      .from("inventory_count_drafts")
+      .select("product_supplier_link_id" as never)
+      .limit(1);
+    return { version: INVENTORY_SCREEN_VERSION, databaseReady: !error };
+  });
+
+export const manageCardFavorite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ companyId: z.string().uuid(), linkId: z.string().uuid(), favorite: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    // Permesso deciso dal database (is_company_admin).
+    const { error } = await (context.supabase.rpc as any)("manage_card_favorite", {
+      _company_id: data.companyId,
+      _link_id: data.linkId,
+      _favorite: data.favorite,
+    });
+    if (error) throw new Error(error.message);
+    return { favorite: data.favorite };
+  });
 
 
 
@@ -435,7 +479,8 @@ export const getInventoryRows = createServerFn({ method: "POST" })
       ...row,
       is_favorite: favoriteOwnProductIds.has(row.product_id),
     }));
-    return data.favoritesOnly ? mappedRows.filter((row) => row.is_favorite) : mappedRows;
+    // Preferiti: stella del prodotto oppure stella della card.
+    return data.favoritesOnly ? mappedRows.filter((row) => row.is_favorite || row.card_favorite) : mappedRows;
   });
 
 export type CatalogCandidate = {
@@ -630,6 +675,8 @@ export type CountHistoryEntry = {
   note: string | null;
   created_by: string | null;
   created_at: string;
+  product_supplier_link_id: string | null;
+  supplier_name: string | null;
 };
 
 export const recordCountEntry = createServerFn({ method: "POST" })
@@ -655,11 +702,13 @@ export const recordCountEntry = createServerFn({ method: "POST" })
         notes: z.string().trim().max(500).nullable().default(null),
         nonCompliant: z.boolean().nullable().default(null),
         nonCompliantQuantity: z.number().min(0).nullable().default(null),
+        /** Card: obbligatoria nelle card dell'inventario aperto; assente solo per il primo conteggio senza sessione (il database accetta solo se il prodotto ha una sola card). */
+        linkId: cardLink.optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: id, error } = await context.supabase.rpc("record_inventory_count_entry", {
+    const { data: id, error } = await (context.supabase.rpc as any)("record_inventory_count_entry", {
       _company_id: data.companyId,
       _session_id: data.sessionId,
       _product_id: data.productId,
@@ -672,6 +721,7 @@ export const recordCountEntry = createServerFn({ method: "POST" })
       ...(data.notes === null ? {} : { _notes: data.notes }),
       ...(data.nonCompliant === null ? {} : { _non_compliant: data.nonCompliant }),
       ...(data.nonCompliantQuantity === null ? {} : { _non_compliant_quantity: data.nonCompliantQuantity }),
+      ...cardArgs(data.linkId),
     });
     if (error) throw new Error(error.message);
     return { id: id as string };
@@ -763,17 +813,20 @@ export const manageCountDraft = createServerFn({ method: "POST" })
         locationId: z.string().uuid().nullable().default(null),
         quantity: z.string().trim().max(30).nullable().default(null),
         unitCode: z.string().trim().max(24).nullable().default(null),
+        /** Card della bozza: obbligatoria per set/clear_one. */
+        linkId: cardLink,
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: n, error } = await context.supabase.rpc("manage_inventory_count_draft", {
+    const { data: n, error } = await (context.supabase.rpc as any)("manage_inventory_count_draft", {
       _action: data.action,
       _session_id: data.sessionId,
       ...(data.productId ? { _product_id: data.productId } : {}),
       ...(data.locationId ? { _location_id: data.locationId } : {}),
       ...(data.quantity !== null ? { _quantity: data.quantity } : {}),
       ...(data.unitCode ? { _unit_code: data.unitCode } : {}),
+      ...(data.action === "clear_all" ? {} : cardArgs(data.linkId)),
     });
     if (error) throw new Error(error.message);
     return { affected: (n as number) ?? 0 };

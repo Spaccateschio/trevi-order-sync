@@ -10,6 +10,8 @@ export type PhysicalEdit = { at: string; by: string; from: number; to: number; r
 
 export type PhysicalQuickEditTarget = {
   companyId: string;
+  /** Card della correzione (null = «Senza fornitore»). */
+  linkId?: string | null;
   listId: string | null;
   productId: string;
   locationId: string;
@@ -74,6 +76,7 @@ export function usePhysicalCorrection(target: PhysicalQuickEditTarget | null, un
           reason: needsReason ? reason.trim() : AUTO_REASON,
           notes: `Quantità fisica da ${fmtPhysical(target.physical)} a ${fmtPhysical(parsed)} ${target.unit}`,
           referenceCountId: target.countId,
+          linkId: target.linkId,
         },
       });
       if (!target.listId) return false;

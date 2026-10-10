@@ -25,6 +25,7 @@
 - Inventario: U.M. sono solo etichette; chi conta sceglie tra product_inventory_units (scritte solo da manage_product_inventory_unit / set_product_stock_unit), stock_unit_id = principale; conteggi con fattore 1, nessuna conversione; giacenza NULL senza conteggio valido; prodotti senza U.M. hanno la card bloccata ma non bloccano la chiusura; allows_decimals non usato.
 
 - Inventory card edits use a per-row UI unlock state: successful saves relock, failed saves remain editable, and all quantity/unit commands share a guard; existing cycle authorization and server validation remain authoritative.
+- Inventario Modello 2: card = prodotto + ubicazione + product_supplier_link_id (NULL = «Senza fornitore»), chiave unica solo da src/lib/inventory-cards.ts; ogni salvataggio invia la card con _card_explicit, mai ricostruita: nessun conteggio sulla card sbagliata.
 - Recurring company operational schedules (e.g. shopping-list reminder) live only in company_operational_schedules, one row per company+schedule_type, written only via manage_company_operational_schedule (admin check in DB): kept separate from company_settings delivery preferences.
 - Funzioni DB che scrivono: un RETURN senza modifiche è ammesso solo prima della prima scrittura; dopo, ci si ferma solo con RAISE EXCEPTION: nessuno stato a metà.
 - Codici interni 00-xxx: generazione sotto pg_advisory_xact_lock per azienda ('internal_product_code:'||company_id) in tutte le funzioni che creano prodotti interni; il vincolo products_archive_code_unique resta la protezione definitiva.

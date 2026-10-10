@@ -244,7 +244,7 @@ export function ProductSuppliersManager({
   });
 
   const statusMutation = useMutation({
-    mutationFn: async (input: { linkId: string; action: "activate" | "deactivate" | "delete_link" }) => {
+    mutationFn: async (input: { linkId: string; action: "activate" | "deactivate" }) => {
       const { error } = await supabase.rpc("manage_product_supplier_link", {
         _company_id: companyId,
         _action: input.action,

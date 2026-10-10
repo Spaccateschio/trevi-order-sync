@@ -6,6 +6,8 @@ export type InventoryPrintRow = {
   code: string;
   name: string;
   zone: string;
+  /** Card (Modello 2): nome del fornitore o «Senza fornitore»; null = riga del prodotto senza card. */
+  card?: string | null;
   favorite: boolean;
   /** U.M. di magazzino; null = da impostare. */
   stockUnit: string | null;
@@ -20,7 +22,15 @@ export type InventoryPrintRow = {
 export function selectPrintRows(rows: InventoryPrintRow[], mode: InventoryPrintMode): InventoryPrintRow[] {
   return rows
     .filter((row) => mode === "completa" || row.favorite)
-    .sort((a, b) => a.name.localeCompare(b.name, "it") || a.code.localeCompare(b.code, "it") || a.zone.localeCompare(b.zone, "it"));
+    .sort((a, b) => a.name.localeCompare(b.name, "it") || a.code.localeCompare(b.code, "it") || a.zone.localeCompare(b.zone, "it")
+      || cardOrder(a.card) - cardOrder(b.card) || (a.card ?? "").localeCompare(b.card ?? "", "it"));
+}
+
+const NO_SUPPLIER = "Senza fornitore";
+const cardOrder = (card: string | null | undefined) => (card === NO_SUPPLIER ? 1 : 0);
+
+export function printName(row: InventoryPrintRow): string {
+  return row.card ? `${row.name} — ${row.card}` : row.name;
 }
 
 const esc = (value: string) =>
@@ -45,13 +55,13 @@ export function buildInventoryPrintHtml(
   let table: string;
   if (mode === "rapida") {
     table = `<table class="quick"><thead><tr><th>Articolo</th><th>Quantità</th></tr></thead><tbody>${selected
-      .map((r) => `<tr><td>${esc(r.name)}</td><td class="qty">${esc(countedLabel(r))}</td></tr>`)
+      .map((r) => `<tr><td>${esc(printName(r))}</td><td class="qty">${esc(countedLabel(r))}</td></tr>`)
       .join("")}</tbody></table>`;
   } else {
-    table = `<table><thead><tr><th>Codice</th><th>Articolo</th><th>Zona</th><th>U.M. mag.</th><th>Calcolata</th><th>Quantità fisica</th><th>Differenza</th><th>Note/stato</th></tr></thead><tbody>${selected
+    table = `<table><thead><tr><th>Codice</th><th>Articolo</th><th>Card / fornitore</th><th>Zona</th><th>U.M. mag.</th><th>Calcolata</th><th>Quantità fisica</th><th>Differenza</th><th>Note/stato</th></tr></thead><tbody>${selected
       .map(
         (r) =>
-          `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${esc(r.zone)}</td><td>${r.stockUnit ? esc(r.stockUnit) : "<em>U.M. da impostare</em>"}</td><td class="qty">${r.calculated === null ? "—" : fmt(r.calculated)}</td><td class="qty">${esc(countedLabel(r))}</td><td class="qty">${fmtDiff(r.difference)}</td><td>${esc(r.note)}</td></tr>`,
+          `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${esc(r.card ?? "")}</td><td>${esc(r.zone)}</td><td>${r.stockUnit ? esc(r.stockUnit) : "<em>U.M. da impostare</em>"}</td><td class="qty">${r.calculated === null ? "—" : fmt(r.calculated)}</td><td class="qty">${esc(countedLabel(r))}</td><td class="qty">${fmtDiff(r.difference)}</td><td>${esc(r.note)}</td></tr>`,
       )
       .join("")}</tbody></table>`;
   }

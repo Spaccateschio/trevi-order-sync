@@ -19,6 +19,8 @@ import { recordInventoryAdjustment } from "@/lib/inventory.functions";
 
 export type CountCorrectionTarget = {
   productId: string;
+  /** Card della correzione (null = «Senza fornitore»); il database verifica che coincida con il conteggio. */
+  linkId?: string | null;
   locationId: string;
   countId: string;
   code: string;
@@ -70,6 +72,7 @@ export function CorrectCountDialog({
           reason: reason.trim(),
           notes: `Correzione del conteggio del ${target.countedAt ? new Date(target.countedAt).toLocaleDateString("it-IT") : "—"}: da ${target.countedQuantity} a ${corrected} ${target.unit}`,
           referenceCountId: target.countId,
+          linkId: target.linkId,
         },
       });
       if (!listId) return false;

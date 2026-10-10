@@ -71,6 +71,8 @@ import {
   getCountHistory,
   getInventoryProgress,
   getInventoryRows,
+  getInventoryScreenVersion,
+  manageCardFavorite,
   getFavoriteProductIds,
   getCompanyHasFavorites,
   getSupplierCatalogCandidates,
@@ -94,6 +96,7 @@ import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inv
 import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget } from "@/components/inventory/physical-quick-edit";
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
 import { dateTimeShort, type SessionRow } from "@/lib/inventory";
+import { INVENTORY_SCREEN_VERSION, cardKey, cardTitle, compareCards, groupKey, parseCardKey, productCardTotal, rowCardKey } from "@/lib/inventory-cards";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 
 type ProductView = "favorites" | "all";
@@ -141,8 +144,27 @@ function formatQuantity(value: number, unit: string) {
   }).format(value);
 }
 
-function rowKey(row: { product_id: string; location_id: string }) {
-  return `${row.product_id}:${row.location_id}`;
+/** Chiave della card (prodotto + ubicazione + collegamento): unica in tutte le schermate. */
+function rowKey(row: { product_id: string; location_id: string; product_supplier_link_id?: string | null }) {
+  return rowCardKey(row);
+}
+
+/** Intestazione del gruppo di card dello stesso prodotto: totale solo con U.M. compatibili. */
+function CardGroupHeader({ name, zone, cards }: { name: string; zone: string; cards: InventoryCountRow[] }) {
+  const result = productCardTotal(cards);
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-md border border-border bg-muted/50 px-2 py-1.5">
+      <p className="font-display text-sm font-bold uppercase leading-tight">{name}</p>
+      <p className="text-[11px] text-muted-foreground">{zone} · {cards.length} card</p>
+      <p className="ml-auto text-[11px] font-semibold">
+        {result.total !== null
+          ? `Totale prodotto: ${formatQuantity(result.total, result.unit)} ${result.unit}${result.counted < cards.length ? ` (${result.counted} di ${cards.length} card contate)` : ""}`
+          : result.reason === "um_diverse"
+            ? "Totale non calcolabile: U.M. diverse tra le card"
+            : "Totale: nessuna card contata"}
+      </p>
+    </div>
+  );
 }
 
 function rowName(row: InventoryCountRow) {
@@ -178,7 +200,14 @@ const CardLockContext = createContext<{
   unlocked: Set<string>;
   toggle: (key: string) => void;
   pending: boolean;
-}>({ unlocked: new Set(), toggle: () => {}, pending: false });
+  /** false = schermata non allineata al server: nessun salvataggio finché non si ricarica. */
+  canSave: boolean;
+  isAdmin: boolean;
+  toggleCardFavorite: (row: InventoryCountRow) => void;
+  cardFavoritePending: boolean;
+  /** Numero di card per prodotto+ubicazione nell'elenco visibile. */
+  groupSize: Map<string, number>;
+}>({ unlocked: new Set(), toggle: () => {}, pending: false, canSave: true, isAdmin: false, toggleCardFavorite: () => {}, cardFavoritePending: false, groupSize: new Map() });
 
 /** Semaforo rosso senza inventario aperto: campi bloccati, solo «Correggi conteggio» sui conteggi del ciclo. */
 const CycleLockContext = createContext<{
@@ -367,7 +396,7 @@ export function InventoryCountPanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_count_drafts")
-        .select("product_id, location_id, quantity, unit_code")
+        .select("product_id, location_id, product_supplier_link_id, quantity, unit_code" as "product_id, location_id, quantity, unit_code")
         .eq("session_id", sessionId!);
       if (error) throw new Error(error.message);
       return data ?? [];
@@ -380,12 +409,12 @@ export function InventoryCountPanel({
     setDrafts((current) => {
       const next = { ...current };
       for (const d of list) {
-        const key = rowKey(d);
+        const key = rowKey(d as typeof d & { product_supplier_link_id: string | null });
         if (!draftTimers.current[key]) next[key] = d.quantity;
       }
       return next;
     });
-    setSavedDraftKeys(new Set(list.map((d) => rowKey(d))));
+    setSavedDraftKeys(new Set(list.map((d) => rowKey(d as typeof d & { product_supplier_link_id: string | null }))));
   }, [savedDraftsQuery.data]);
 
   // Salva subito le bozze in sospeso quando si esce dalla pagina o la finestra va in background.
@@ -395,13 +424,14 @@ export function InventoryCountPanel({
     for (const key of Object.keys(draftTimers.current)) {
       clearTimeout(draftTimers.current[key]);
       delete draftTimers.current[key];
-      const [productId, locationId] = key.split(":");
-      if (!productId || !locationId) continue;
+      const card = parseCardKey(key);
+      if (!card) continue;
+      const { productId, locationId, linkId } = card;
       const value = (draftsRef.current[key] ?? "").trim();
       void draftFn({
         data: value === ""
-          ? { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null }
-          : { action: "set", sessionId, productId, locationId, quantity: value, unitCode: null },
+          ? { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null }
+          : { action: "set", sessionId, productId, locationId, linkId, quantity: value, unitCode: null },
       }).catch(() => undefined);
     }
   };
@@ -435,8 +465,9 @@ export function InventoryCountPanel({
 
   function scheduleDraftSave(key: string, raw: string) {
     if (!sessionId) return;
-    const [productId, locationId] = key.split(":");
-    if (!productId || !locationId) return;
+    const card = parseCardKey(key);
+    if (!card) return;
+    const { productId, locationId, linkId } = card;
     if (draftTimers.current[key]) clearTimeout(draftTimers.current[key]);
     setSavedDraftKeys((current) => {
       const next = new Set(current);
@@ -448,8 +479,8 @@ export function InventoryCountPanel({
       const value = raw.trim();
       void draftFn({
         data: value === ""
-          ? { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null }
-          : { action: "set", sessionId, productId, locationId, quantity: value, unitCode: null },
+          ? { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null }
+          : { action: "set", sessionId, productId, locationId, linkId, quantity: value, unitCode: null },
       })
         .then(() => {
           if (value !== "" && draftsRef.current[key]?.trim() === value) {
@@ -462,8 +493,9 @@ export function InventoryCountPanel({
 
   function clearDraftOnServer(key: string) {
     if (!sessionId) return;
-    const [productId, locationId] = key.split(":");
-    if (!productId || !locationId) return;
+    const card = parseCardKey(key);
+    if (!card) return;
+    const { productId, locationId, linkId } = card;
     if (draftTimers.current[key]) {
       clearTimeout(draftTimers.current[key]);
       delete draftTimers.current[key];
@@ -473,7 +505,7 @@ export function InventoryCountPanel({
       next.delete(key);
       return next;
     });
-    void draftFn({ data: { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null } })
+    void draftFn({ data: { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null } })
       .catch(() => undefined);
   }
 
@@ -503,7 +535,7 @@ export function InventoryCountPanel({
       Object.values(draftTimers.current).forEach(clearTimeout);
       draftTimers.current = {};
       if (sessionId) {
-        await draftFn({ data: { action: "clear_all", sessionId, productId: null, locationId: null, quantity: null, unitCode: null } });
+        await draftFn({ data: { action: "clear_all", sessionId, productId: null, locationId: null, linkId: null, quantity: null, unitCode: null } });
       }
     },
     onSuccess: async () => {
@@ -689,7 +721,8 @@ export function InventoryCountPanel({
             code: r.code ?? "",
             name: r.description ?? r.code ?? "",
             zone: r.location_name ?? "",
-            favorite: favs.has(r.product_id) || r.is_favorite,
+            card: r.product_supplier_link_id ? (r.supplier_name ?? "Fornitore") : "Senza fornitore",
+            favorite: favs.has(r.product_id) || r.is_favorite || Boolean(r.card_favorite),
             stockUnit: r.stock_unit_missing ? null : r.stock_unit_code,
             calculated: r.calculated === null ? null : Number(r.calculated),
             counted: r.counted === null ? null : Number(r.counted),
@@ -878,8 +911,16 @@ export function InventoryCountPanel({
         // Differenze reali: solo differenze numeriche calcolabili (stessa U.M.) e diverse da zero.
         return row.counted !== null && row.units_comparable !== false && row.difference !== null && Number(row.difference) !== 0;
       })
-      .sort((left, right) => byName(left.description, left.code, right.description, right.code));
+      // Card dello stesso prodotto vicine: stella, fornitori attivi A→Z, scollegati, «Senza fornitore».
+      .sort((left, right) => byName(left.description, left.code, right.description, right.code)
+        || left.location_name.localeCompare(right.location_name, "it")
+        || compareCards(left, right));
   }, [managedProductIds, rowsQuery.data, workFilter]);
+  const cardGroupSize = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of rowsQuery.data ?? []) map.set(groupKey(row), (map.get(groupKey(row)) ?? 0) + 1);
+    return map;
+  }, [rowsQuery.data]);
 
 
   // Lista completa dei prodotti visibili: il controllo prezzo e le info fornitore
@@ -995,7 +1036,7 @@ export function InventoryCountPanel({
       return input.locationId;
     },
     onSuccess: async (locationId, input) => {
-      lockSavedCard(`${input.productId}:${input.locationId}`);
+      lockSavedCard(cardKey(input.productId, input.locationId, null));
       await queryClient.invalidateQueries({
         queryKey: ["inventory-general-session", companyId, archiveId],
       });
@@ -1069,6 +1110,7 @@ export function InventoryCountPanel({
           sessionId: sessionId!,
           productId: input.row.product_id,
           locationId: input.row.location_id,
+          linkId: input.row.product_supplier_link_id,
           entryType: input.row.counted !== null ? "riconteggio" : "conteggio",
           countedQuantity: input.value,
           unitCode: input.unit || null,
@@ -1102,6 +1144,7 @@ export function InventoryCountPanel({
           sessionId: sessionId!,
           productId: row.product_id,
           locationId: row.location_id,
+          linkId: row.product_supplier_link_id,
           entryType: "richiesta_riconteggio",
           countedQuantity: null,
           unitCode: rowUnit(row) || null,
@@ -1131,6 +1174,7 @@ export function InventoryCountPanel({
           sessionId: sessionId!,
           productId: input.row.product_id,
           locationId: input.row.location_id,
+          linkId: input.row.product_supplier_link_id,
           entryType: input.nonCompliant ? "segnalazione" : "revoca_segnalazione",
           countedQuantity: null,
           unitCode: rowUnit(input.row) || null,
@@ -1207,6 +1251,31 @@ export function InventoryCountPanel({
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  // Stella della card: il database consente solo agli amministratori.
+  const cardFavoriteFn = useServerFn(manageCardFavorite);
+  const cardFavoriteMutation = useMutation({
+    mutationFn: (row: InventoryCountRow) => {
+      if (!row.product_supplier_link_id) throw new Error("La card «Senza fornitore» non ha stella propria");
+      return cardFavoriteFn({ data: { companyId, linkId: row.product_supplier_link_id, favorite: !row.card_favorite } });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["inventory-rows"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  // Controllo di versione: schermata e server devono coincidere prima di salvare.
+  const versionFn = useServerFn(getInventoryScreenVersion);
+  const versionQuery = useQuery({
+    queryKey: ["inventory-screen-version"],
+    queryFn: () => versionFn(),
+    refetchOnWindowFocus: true,
+    refetchInterval: 5 * 60 * 1000,
+  });
+  const screenOutdated = Boolean(
+    versionQuery.data && (versionQuery.data.version !== INVENTORY_SCREEN_VERSION || !versionQuery.data.databaseReady),
+  );
 
   const favoriteMutation = useMutation({
     mutationFn: (input: { productId: string; favorite: boolean }) =>
@@ -1457,6 +1526,11 @@ export function InventoryCountPanel({
           <CardLockContext.Provider value={{
             unlocked: unlockedCards,
             pending: countMutation.isPending || firstCount.isPending,
+            canSave: !screenOutdated,
+            isAdmin,
+            toggleCardFavorite: (row) => cardFavoriteMutation.mutate(row),
+            cardFavoritePending: cardFavoriteMutation.isPending,
+            groupSize: cardGroupSize,
             toggle: (key) => setUnlockedCards((current) => {
               const next = new Set(current);
               if (next.has(key)) next.delete(key); else next.add(key);
@@ -1474,7 +1548,7 @@ export function InventoryCountPanel({
             onCorrect: (row, history) => {
               if (!historyLocationId || !history.lastCountId || history.lastQuantity === null) return;
               setCorrection({
-                productId: row.product_id, locationId: historyLocationId, countId: history.lastCountId,
+                productId: row.product_id, linkId: row.product_supplier_link_id, locationId: historyLocationId, countId: history.lastCountId,
                 code: row.code ?? "", name: rowName(row), unit: history.lastUnit ?? rowUnit(row) ?? "",
                 countedQuantity: history.lastQuantity, countedAt: history.lastAt,
               });
@@ -1548,6 +1622,9 @@ export function InventoryCountPanel({
               non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
               min_stock: null, order_multiple: null, counted_unit_code: null, units_comparable: null,
               stock_unit_code: stockUnitCodeOf(product), stock_unit_missing: !product.stock_unit_id,
+              // Senza inventario aperto le card non esistono ancora: riga del prodotto.
+              product_supplier_link_id: null, supplier_record_id: null, supplier_name: null,
+              link_active: null, card_favorite: false, card_label: null,
             }))}
             catalogCandidates={[]}
             excludedCatalogCount={visibleCatalogCandidates.length}
@@ -2100,6 +2177,7 @@ export function InventoryCountPanel({
               onCorrectCount={(count, product) => {
                 setCorrection({
                   productId: product.id,
+                  linkId: count.product_supplier_link_id,
                   locationId: count.location_id,
                   countId: count.id,
                   code: product.code,
@@ -2180,6 +2258,10 @@ export function InventoryCountPanel({
                       <p className="font-semibold">
                         {new Date(entry.created_at).toLocaleString("it-IT")} · {ENTRY_LABELS[entry.entry_type]}
                         {entry.location_name ? ` · ${entry.location_name}` : ""}
+                      </p>
+                      <p className="text-[11px] font-semibold text-foreground">
+                        Card: {entry.product_supplier_link_id ? (entry.supplier_name ?? "Fornitore") : "Senza fornitore"}
+                        {historyRow && (historyRow.product_supplier_link_id ?? null) === (entry.product_supplier_link_id ?? null) ? " (questa card)" : ""}
                       </p>
                       <p className="text-muted-foreground">
                         {entry.counted_quantity === null
@@ -2400,16 +2482,16 @@ function PhysicalCount({
   const categories = progress?.categories?.length
     ? progress.categories
     : [...new Set([
-        ...rows.map((row) => row.category ?? NO_CATEGORY),
-        ...catalogCandidates.map((item) => item.category ?? NO_CATEGORY),
+        ...rows.map((row) => row.category?.trim() || NO_CATEGORY),
+        ...catalogCandidates.map((item) => item.category?.trim() || NO_CATEGORY),
       ])].sort().map((name) => ({ name, completed: 0, total: 0 }));
   const subcategories = progress?.subcategories?.length
     ? progress.subcategories.filter((item) => !category || item.category === category)
     : [...new Set([
-        ...rows.filter((row) => !category || (row.category ?? NO_CATEGORY) === category)
-          .map((row) => row.subcategory ?? NO_SUBCATEGORY),
-        ...catalogCandidates.filter((item) => !category || (item.category ?? NO_CATEGORY) === category)
-          .map((item) => item.subcategory ?? NO_SUBCATEGORY),
+        ...rows.filter((row) => !category || (row.category?.trim() || NO_CATEGORY) === category)
+          .map((row) => row.subcategory?.trim() || NO_SUBCATEGORY),
+        ...catalogCandidates.filter((item) => !category || (item.category?.trim() || NO_CATEGORY) === category)
+          .map((item) => item.subcategory?.trim() || NO_SUBCATEGORY),
       ])].sort().map((name) => ({ name, category: category ?? "", completed: 0, total: 0 }));
   const visibleRows = supplierFilter
     ? rows.filter((row) => supplierInfo.get(row.product_id)?.name === supplierFilter)
@@ -2417,6 +2499,7 @@ function PhysicalCount({
 
   // Barra compatta (ricerca + filtri) mostrata solo quando la ricerca originale esce dallo schermo.
   const cycleLock = useContext(CycleLockContext);
+  const cardLockState = useContext(CardLockContext);
   const topFiltersRef = useRef<HTMLDivElement>(null);
   const [compactBar, setCompactBar] = useState(false);
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
@@ -2686,11 +2769,31 @@ function PhysicalCount({
             {void excludedCatalogCount}
           </div>
 
+          {cardLockState.canSave ? null : (
+            <div role="alert" className="m-2 flex flex-wrap items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
+              Aggiorna la pagina: l'Inventario è stato aggiornato. I salvataggi sono sospesi fino al ricaricamento.
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => window.location.reload()}>Ricarica</Button>
+            </div>
+          )}
           {visibleRows.length || catalogCandidates.length ? (
             <div className="grid auto-rows-fr items-stretch gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
               {[
+                // Intestazione del prodotto quando ha più card: nome e totale (solo U.M. compatibili).
+                ...[...new Map(visibleRows.map((row) => [groupKey(row), row])).values()]
+                  .filter((row) => visibleRows.filter((other) => groupKey(other) === groupKey(row)).length > 1)
+                  .map((row) => {
+                    const cards = visibleRows.filter((other) => groupKey(other) === groupKey(row));
+                    return {
+                      key: `gruppo-${groupKey(row)}`,
+                      description: row.description,
+                      code: row.code,
+                      header: true,
+                      node: <CardGroupHeader name={rowName(row)} zone={row.location_name} cards={cards} />,
+                    };
+                  }),
                 ...visibleRows.map((row) => ({
                   key: rowKey(row),
+                  header: false,
                   description: row.description,
                   code: row.code,
                   node: (
@@ -2718,6 +2821,7 @@ function PhysicalCount({
                 })),
                 ...catalogCandidates.map((candidate) => ({
                   key: `catalogo-${candidate.sellerProductId}`,
+                  header: false,
                   description: candidate.description,
                   code: candidate.code,
                   node: (
@@ -2733,9 +2837,10 @@ function PhysicalCount({
                   ),
                 })),
               ]
-                .sort((left, right) => byName(left.description, left.code, right.description, right.code))
+                .sort((left, right) => byName(left.description, left.code, right.description, right.code)
+                  || Number(right.header) - Number(left.header))
                 .map((item) => (
-                  <div key={item.key} className="flex h-full min-w-0 flex-col">
+                  <div key={item.key} className={cn("flex h-full min-w-0 flex-col", item.header && "col-span-full")}>
                     {item.node}
                   </div>
                 ))}
@@ -2850,6 +2955,7 @@ function ProductCard({
           companyId: cycleLock.companyId,
           listId: cycleLock.listId ?? null,
           productId: row.product_id,
+          linkId: row.product_supplier_link_id,
           locationId: cycleLock.locationId,
           countId: history.lastCountId,
           unit: history.lastUnit ?? rowUnit(row) ?? "",
@@ -2866,7 +2972,9 @@ function ProductCard({
   // Bloccata: scheda ocra, controlli disabilitati (matita esclusa). Sbloccata: aspetto normale.
   const cardLock = useContext(CardLockContext);
   const locked = inventoryCardLocked(row.counted !== null, cardLock.unlocked.has(rowKey(row)), cycleLocked, correcting);
-  const editable = canEditInventoryCard(locked, correction.pending || cardLock.pending, row.stock_unit_missing);
+  const editable = cardLock.canSave
+    && canEditInventoryCard(locked, correction.pending || cardLock.pending, row.stock_unit_missing);
+  const showCard = actionsEnabled && (cardLock.groupSize.get(groupKey(row)) ?? 0) > 0;
   const changeQuantity = (next: string) => {
     if (!editable) return;
     if (correcting) correction.setValue(next); else onChange(next);
@@ -2921,7 +3029,7 @@ function ProductCard({
   return (
     <article
       className={cn(
-        "flex h-full flex-col rounded-md border-2 bg-card p-2",
+        "@container flex h-full flex-col rounded-md border-2 bg-card p-2",
         !isConfirmed && "border-border",
         isConfirmed && !hasDifference && "border-success/50 bg-success/5",
         hasDifference && "border-destructive/50 bg-destructive/5",
@@ -2939,6 +3047,26 @@ function ProductCard({
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
+          {showCard ? (
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
+              <span className="truncate text-[11px] font-semibold leading-tight text-foreground">{cardTitle(row)}</span>
+              {row.product_supplier_link_id ? (
+                <button
+                  type="button"
+                  className={cn("inline-flex size-5 items-center justify-center rounded-sm disabled:opacity-60", row.card_favorite ? "text-primary" : "text-muted-foreground")}
+                  disabled={!cardLock.isAdmin || cardLock.cardFavoritePending}
+                  onClick={() => cardLock.toggleCardFavorite(row)}
+                  aria-label={row.card_favorite ? `Togli la stella alla card ${cardTitle(row)}` : `Metti la stella alla card ${cardTitle(row)}`}
+                  title={cardLock.isAdmin ? (row.card_favorite ? "Card preferita" : "Card non preferita") : "Stella della card: modificabile solo dagli amministratori"}
+                >
+                  <Star className={cn("size-3", row.card_favorite && "fill-current")} />
+                </button>
+              ) : null}
+              {row.card_label && row.card_label !== "Senza fornitore" ? (
+                <span className="rounded-sm bg-muted px-1 py-0.5 text-[9px] font-bold uppercase leading-none text-muted-foreground">{row.card_label}</span>
+              ) : null}
+            </div>
+          ) : null}
           <p className="text-[11px] leading-tight text-muted-foreground">
             Cod. {row.code}
             {unit ? ` · ${unit}` : ""}
@@ -3089,7 +3217,8 @@ function ProductCard({
         </div>
       ) : null}
 
-      <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
+      {/* Card stretta (< 340 px): «Conferma» va a capo a tutta larghezza invece di comprimersi o perdere il testo. */}
+      <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-1.5 @[340px]:grid-cols-[auto_minmax(110px,1fr)_auto_auto]">
         <div>
           <p className="text-[9px] leading-none text-muted-foreground">Calcolata</p>
           <p className="mt-1 text-sm font-bold leading-none">
@@ -3183,9 +3312,9 @@ function ProductCard({
             {difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, unit)}`}
           </p>
         </div>
-        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={confirmQuantity} disabled={!editable}>
+        <Button className="col-span-full h-10 w-full px-2 text-[11px] @[340px]:col-span-1 @[340px]:w-auto sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={confirmQuantity} disabled={!editable}>
           <Check className="size-4" />
-          <span className="hidden min-[360px]:inline">Conferma</span>
+          <span>Conferma</span>
         </Button>
       </div>
       {unitMissing ? (
@@ -3259,7 +3388,7 @@ function CatalogProductCard({
   const name = candidate.description?.trim() || candidate.code;
   const unit = candidate.danea_um?.trim() ?? "";
   return (
-    <article className="flex h-full flex-col rounded-md border-2 border-border bg-card p-2">
+    <article className="@container flex h-full flex-col rounded-md border-2 border-border bg-card p-2">
       <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2">
         {imageUrl ? (
           <img src={imageUrl} alt="" loading="lazy" className="size-12 rounded-sm border border-border object-cover" />
@@ -3288,7 +3417,8 @@ function CatalogProductCard({
           </span>
         </div>
       </div>
-      <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
+      {/* Card stretta (< 340 px): «Conferma» va a capo a tutta larghezza invece di comprimersi o perdere il testo. */}
+      <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-1.5 @[340px]:grid-cols-[auto_minmax(110px,1fr)_auto_auto]">
         <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">—</p></div>
         <div className="min-w-0">
           <div className="flex items-baseline justify-between gap-1">
@@ -3301,8 +3431,8 @@ function CatalogProductCard({
             aria-label={`Quantità fisica ${name}`} />
         </div>
         <div className="text-right"><p className="text-[9px] leading-none text-muted-foreground">Differenza</p><p className="mt-1 text-sm font-bold leading-none">—</p></div>
-        <Button className="h-10 px-2 text-[11px] sm:px-3" onClick={onConfirm} disabled={disabled}>
-          <Check className="size-4" /><span className="hidden min-[360px]:inline">Conferma</span>
+        <Button className="col-span-full h-10 w-full px-2 text-[11px] @[340px]:col-span-1 @[340px]:w-auto sm:px-3" onClick={onConfirm} disabled={disabled}>
+          <Check className="size-4" /><span>Conferma</span>
         </Button>
       </div>
       <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2">
