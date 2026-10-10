@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Inventario — barra fissa di conferma
-- [ ] Spostare l'unico comando «Conferma inventario» in basso alla finestra, sopra la navigazione mobile; conservare bozza, comportamento e permessi; verificare 1280/390 px e ultime card. Solo anteprima, nessuna pubblicazione o modifica dati.
+- [x] Spostare l'unico comando «Conferma inventario» in basso alla finestra, sopra la navigazione mobile; conservare bozza, comportamento e permessi. Verificati 1280/390 px, scorrimento, ultime card e finestra Storico sopra la barra; build automatica OK. Typecheck separato non disponibile nei segnali automatici. Solo anteprima, nessuna pubblicazione o modifica dati.
 
 ## Fatto
 - [x] Prodotto ↔ Fornitori: `product_supplier_links`, coda riconciliazione Danea, funzioni protette, sezione Fornitori nella scheda prodotto (nessuna regola automatica di priorità tra costo Danea e costo manuale)
