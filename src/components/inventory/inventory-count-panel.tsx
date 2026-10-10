@@ -90,7 +90,10 @@ import {
 } from "@/lib/inventory-count.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
-import { buildInventoryPrintHtml, type InventoryPrintMode, type InventoryPrintRow } from "@/lib/inventory-print";
+import {
+  buildInventoryPrintHtml, findSearchElsewhere, isFavoriteCard, selectInventoryCards, summarizeCards,
+  type CardFilterKey, type InventoryCardFilters, type InventoryPrintMode, type InventoryPrintRow, type SearchElsewhere,
+} from "@/lib/inventory-print";
 import { inventoryCardLocked, afterInventoryCardSave, canEditInventoryCard } from "@/lib/inventory-card-lock";
 import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inventory/correct-count-dialog";
 import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget } from "@/components/inventory/physical-quick-edit";
@@ -123,6 +126,13 @@ const ENTRY_LABELS: Record<string, string> = {
 
 
 const NO_CATEGORY = "Senza categoria";
+/** Fornitore della card (Modello 2): quello del suo collegamento, «Senza fornitore» se assente. */
+const cardSupplierName = (row: InventoryCountRow) =>
+  row.product_supplier_link_id ? (row.supplier_name ?? "Fornitore") : "Senza fornitore";
+const WORK_LABELS: Record<WorkFilter, string> = {
+  all: "Tutti gli stati", pending: "Da controllare", completed: "Completati", differences: "Differenze",
+  not_comparable: "Non confrontabili", recount: "Riconteggio", missing_unit: "U.M. da impostare",
+};
 const NO_SUBCATEGORY = "Senza sottocategoria";
 
 function parseQuantity(value: string) {
@@ -701,6 +711,15 @@ export function InventoryCountPanel({
   });
 
   // Stampa: inventario in corso se aperto, altrimenti ultimo inventario chiuso. Solo lettura, mai 0 inventati.
+  const describeFilters = () => [
+    effectiveProductView === "favorites" ? "Preferiti" : "Tutti",
+    WORK_LABELS[workFilter],
+    selectedLocationId ? `Zona: ${activeLocations.find((l) => l.id === selectedLocationId)?.name ?? ""}` : "Tutte le zone",
+    category ? `Categoria: ${category}` : "",
+    subcategory ? `Sottocategoria: ${subcategory}` : "",
+    supplierFilter ? `Fornitore: ${supplierFilter}` : "",
+    search.trim() ? `Ricerca: «${search.trim()}»` : "",
+  ].filter(Boolean).join(" · ");
   const printInventory = (mode: InventoryPrintMode) => {
     const fmtDate = (iso: string) =>
       new Date(iso).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -735,7 +754,7 @@ export function InventoryCountPanel({
       const history = stockHistoryQuery.data ?? new Map<string, StockHistory>();
       const favs = previewFavoriteQuery.data ?? new Set<string>();
       const zone = activeLocations.find((l) => l.id === historyLocationId)?.name ?? "";
-      printRows = catalogPreview.map((product) => {
+      printRows = (mode === "completa" ? catalogPreview : previewProducts).map((product) => {
         const entry = history.get(product.id);
         const unit = stockUnitCodeOf(product);
         const counted = entry?.physical ?? null;
@@ -759,7 +778,7 @@ export function InventoryCountPanel({
       );
       subtitle = lastAt ? `Ultimo inventario chiuso: ${fmtDate(lastAt)}` : "Nessun inventario chiuso";
     }
-    const html = buildInventoryPrintHtml(printRows, sessionId ? mode : mode, {
+    const html = buildInventoryPrintHtml(printRows, mode, {
       scope: sessionId ? (mode === "completa" ? "tutte le card della sessione (filtri ignorati)" : describeFilters()) : undefined,
       title: "Inventario",
       subtitle: `${subtitle} · Stampato il ${fmtDate(new Date().toISOString())}`,
