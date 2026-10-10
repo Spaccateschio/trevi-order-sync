@@ -707,9 +707,8 @@ export function InventoryCountPanel({
     let printRows: InventoryPrintRow[];
     let subtitle: string;
     if (sessionId) {
-      const favs = new Set((favoriteRowsQuery.data ?? []).map((r) => r.product_id));
-      printRows = (allRowsQuery.data ?? [])
-        .filter((r) => !managedProductIds.size || managedProductIds.has(r.product_id))
+      // Vista attuale = le stesse card dell'elenco; completa = tutte le card della sessione.
+      printRows = (mode === "completa" ? sessionCards : rows)
         .map((r) => {
           const notes = [
             r.stock_unit_missing ? "U.M. da impostare" : "",
@@ -722,7 +721,7 @@ export function InventoryCountPanel({
             name: r.description ?? r.code ?? "",
             zone: r.location_name ?? "",
             card: r.product_supplier_link_id ? (r.supplier_name ?? "Fornitore") : "Senza fornitore",
-            favorite: favs.has(r.product_id) || r.is_favorite || Boolean(r.card_favorite),
+            favorite: isFavoriteCard(r),
             stockUnit: r.stock_unit_missing ? null : r.stock_unit_code,
             calculated: r.calculated === null ? null : Number(r.calculated),
             counted: r.counted === null ? null : Number(r.counted),
@@ -760,7 +759,8 @@ export function InventoryCountPanel({
       );
       subtitle = lastAt ? `Ultimo inventario chiuso: ${fmtDate(lastAt)}` : "Nessun inventario chiuso";
     }
-    const html = buildInventoryPrintHtml(printRows, mode, {
+    const html = buildInventoryPrintHtml(printRows, sessionId ? mode : mode, {
+      scope: sessionId ? (mode === "completa" ? "tutte le card della sessione (filtri ignorati)" : describeFilters()) : undefined,
       title: "Inventario",
       subtitle: `${subtitle} · Stampato il ${fmtDate(new Date().toISOString())}`,
     });
@@ -845,31 +845,6 @@ export function InventoryCountPanel({
   });
   const progress: InventoryProgress | undefined = progressQuery.data;
 
-  const searching = search.trim().length > 0;
-  const rowsQuery = useQuery({
-    queryKey: [
-      "inventory-rows",
-      sessionId,
-      searching ? null : selectedLocationId,
-      searching ? null : category,
-      searching ? null : subcategory,
-      searching ? search.trim() : null,
-      effectiveProductView,
-    ],
-    enabled: Boolean(sessionId),
-    queryFn: () =>
-      readRows({
-        data: {
-          sessionId: sessionId!,
-          locationId: searching ? null : selectedLocationId,
-          category: searching ? null : category,
-          subcategory: searching ? null : subcategory,
-          search: searching ? search.trim() : null,
-          favoritesOnly: effectiveProductView === "favorites",
-        },
-      }),
-  });
-
   // Tutta la sessione, senza filtri: serve al controllo dei mancanti prima della Lista della Spesa.
   const allRowsQuery = useQuery({
     queryKey: ["inventory-rows", sessionId, "all-session"],
@@ -896,31 +871,47 @@ export function InventoryCountPanel({
     [allRowsQuery.data, managedProductIds],
   );
 
-  const rows = useMemo(() => {
-    const all = rowsQuery.data ?? [];
-    return all
-      .filter((row) => {
-        // Stessa popolazione del Fabbisogno: solo prodotti gestiti dall'azienda.
-        if (managedProductIds.size && !managedProductIds.has(row.product_id)) return false;
-        if (workFilter === "all") return true;
-        if (workFilter === "pending") return row.counted === null;
-        if (workFilter === "recount") return row.recount_requested_at !== null;
-        if (workFilter === "completed") return row.counted !== null;
-        if (workFilter === "missing_unit") return row.stock_unit_missing;
-        if (workFilter === "not_comparable") return row.counted !== null && row.units_comparable === false;
-        // Differenze reali: solo differenze numeriche calcolabili (stessa U.M.) e diverse da zero.
-        return row.counted !== null && row.units_comparable !== false && row.difference !== null && Number(row.difference) !== 0;
-      })
+  // Card della sessione (solo prodotti gestiti): un'unica regola di selezione, condivisa da
+  // elenco, riepilogo filtrato e «Stampa vista attuale» (selectInventoryCards).
+  const sessionCards = useMemo(
+    () => (allRowsQuery.data ?? []).filter((row) => !managedProductIds.size || managedProductIds.has(row.product_id)),
+    [allRowsQuery.data, managedProductIds],
+  );
+  const cardFilters = useMemo<InventoryCardFilters>(() => ({
+    view: effectiveProductView,
+    work: workFilter,
+    search,
+    locationId: selectedLocationId,
+    category,
+    subcategory,
+    supplier: supplierFilter,
+  }), [category, effectiveProductView, search, selectedLocationId, subcategory, supplierFilter, workFilter]);
+  const rows = useMemo(
+    () => selectInventoryCards(sessionCards, cardFilters, cardSupplierName)
       // Card dello stesso prodotto vicine: stella, fornitori attivi A→Z, scollegati, «Senza fornitore».
       .sort((left, right) => byName(left.description, left.code, right.description, right.code)
         || left.location_name.localeCompare(right.location_name, "it")
-        || compareCards(left, right));
-  }, [managedProductIds, rowsQuery.data, workFilter]);
+        || compareCards(left, right)),
+    [cardFilters, sessionCards],
+  );
+  const searchElsewhere = useMemo(
+    () => (rows.length ? null : findSearchElsewhere(sessionCards, cardFilters, cardSupplierName)),
+    [cardFilters, rows.length, sessionCards],
+  );
+  const supplierOptions = useMemo(
+    () => [...new Set([
+      ...sessionCards.map(cardSupplierName),
+      ...catalogCandidates.map((item) => item.sellerCompanyName),
+    ])].sort((a, b) => a.localeCompare(b, "it")),
+    [catalogCandidates, sessionCards],
+  );
+  const filtersActive = effectiveProductView === "favorites" || workFilter !== "all" || Boolean(search.trim())
+    || Boolean(selectedLocationId) || Boolean(category) || Boolean(subcategory) || Boolean(supplierFilter);
   const cardGroupSize = useMemo(() => {
     const map = new Map<string, number>();
-    for (const row of rowsQuery.data ?? []) map.set(groupKey(row), (map.get(groupKey(row)) ?? 0) + 1);
+    for (const row of sessionCards) map.set(groupKey(row), (map.get(groupKey(row)) ?? 0) + 1);
     return map;
-  }, [rowsQuery.data]);
+  }, [sessionCards]);
 
 
   // Lista completa dei prodotti visibili: il controllo prezzo e le info fornitore
@@ -1630,7 +1621,7 @@ export function InventoryCountPanel({
             excludedCatalogCount={visibleCatalogCandidates.length}
             catalogImages={catalogImages}
             catalogDrafts={catalogDrafts}
-            loading={sessionId ? rowsQuery.isLoading : catalogPreviewQuery.isLoading}
+            loading={sessionId ? allRowsQuery.isLoading : catalogPreviewQuery.isLoading}
             imageUrls={sessionId ? imageUrls : previewImages}
             drafts={sessionId ? drafts : draftFirst}
             productView={effectiveProductView}
