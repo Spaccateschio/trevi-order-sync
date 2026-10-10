@@ -86,3 +86,124 @@ tr{break-inside:avoid;}
 ${table}
 </body></html>`;
 }
+
+// ── Selezione unica delle card (elenco, riepilogo filtrato, stampa della vista attuale) ──
+
+export type InventoryWorkFilter = "all" | "pending" | "completed" | "differences" | "not_comparable" | "recount" | "missing_unit";
+
+export type InventoryCardFilters = {
+  view: "favorites" | "all";
+  work: InventoryWorkFilter;
+  search: string;
+  locationId: string | null;
+  category: string | null;
+  subcategory: string | null;
+  supplier: string | null;
+};
+
+export type FilterableCard = {
+  product_id: string;
+  location_id: string;
+  location_name: string;
+  code: string;
+  description: string | null;
+  category: string | null;
+  subcategory: string | null;
+  is_favorite: boolean;
+  card_favorite: boolean;
+  counted: number | null;
+  difference: number | null;
+  recount_requested_at: string | null;
+  stock_unit_missing: boolean;
+  units_comparable: boolean | null;
+};
+
+export const NO_CATEGORY_LABEL = "Senza categoria";
+export const NO_SUBCATEGORY_LABEL = "Senza sottocategoria";
+
+export type CardFilterKey = "view" | "work" | "search" | "location" | "category" | "subcategory" | "supplier";
+
+/** Preferiti (Tappa B): stella del prodotto oppure stella della singola card. */
+export const isFavoriteCard = (row: FilterableCard) => row.is_favorite || row.card_favorite;
+
+export const hasDifference = (row: FilterableCard) =>
+  row.counted !== null && row.units_comparable !== false && row.difference !== null && Number(row.difference) !== 0;
+
+function matchesWork(row: FilterableCard, work: InventoryWorkFilter): boolean {
+  if (work === "all") return true;
+  if (work === "pending") return row.counted === null;
+  if (work === "recount") return row.recount_requested_at !== null;
+  if (work === "completed") return row.counted !== null;
+  if (work === "missing_unit") return row.stock_unit_missing;
+  if (work === "not_comparable") return row.counted !== null && row.units_comparable === false;
+  return hasDifference(row);
+}
+
+/** Filtri che escludono la card (vuoto = card visibile). Stessa ricerca del database: codice o descrizione. */
+export function failedFilters<T extends FilterableCard>(
+  row: T,
+  filters: InventoryCardFilters,
+  supplierOf?: (row: T) => string | null | undefined,
+): CardFilterKey[] {
+  const failed: CardFilterKey[] = [];
+  const term = filters.search.trim().toLocaleLowerCase("it");
+  if (filters.view === "favorites" && !isFavoriteCard(row)) failed.push("view");
+  if (!matchesWork(row, filters.work)) failed.push("work");
+  if (term && !(row.code ?? "").toLocaleLowerCase("it").includes(term)
+    && !(row.description ?? "").toLocaleLowerCase("it").includes(term)) failed.push("search");
+  if (filters.locationId && row.location_id !== filters.locationId) failed.push("location");
+  if (filters.category && (row.category?.trim() || NO_CATEGORY_LABEL) !== filters.category) failed.push("category");
+  if (filters.subcategory && (row.subcategory?.trim() || NO_SUBCATEGORY_LABEL) !== filters.subcategory) failed.push("subcategory");
+  if (filters.supplier && (supplierOf?.(row) ?? null) !== filters.supplier) failed.push("supplier");
+  return failed;
+}
+
+export function selectInventoryCards<T extends FilterableCard>(
+  rows: T[],
+  filters: InventoryCardFilters,
+  supplierOf?: (row: T) => string | null | undefined,
+): T[] {
+  return rows.filter((row) => failedFilters(row, filters, supplierOf).length === 0);
+}
+
+export type CardSummary = { cards: number; products: number; confirmed: number; pending: number; differences: number };
+
+/** Riepilogo delle card date: card e prodotti distinti sono contati separatamente. */
+export function summarizeCards(rows: FilterableCard[]): CardSummary {
+  return {
+    cards: rows.length,
+    products: new Set(rows.map((row) => row.product_id)).size,
+    confirmed: rows.filter((row) => row.counted !== null).length,
+    pending: rows.filter((row) => row.counted === null).length,
+    differences: rows.filter(hasDifference).length,
+  };
+}
+
+export type SearchElsewhere = { reasons: CardFilterKey[]; locations: { id: string; name: string }[] };
+
+/**
+ * Ricerca senza risultati nei filtri attuali: cerca le stesse card della sessione (già limitate
+ * all'azienda e ai permessi dell'utente) escluse da altri filtri e indica quali filtri togliere.
+ * null = nessuna corrispondenza nella sessione.
+ */
+export function findSearchElsewhere<T extends FilterableCard>(
+  rows: T[],
+  filters: InventoryCardFilters,
+  supplierOf?: (row: T) => string | null | undefined,
+): SearchElsewhere | null {
+  if (!filters.search.trim()) return null;
+  const matches = rows
+    .map((row) => ({ row, failed: failedFilters(row, filters, supplierOf) }))
+    .filter((entry) => !entry.failed.includes("search"));
+  if (!matches.length) return null;
+  // La correzione più piccola: le card che richiedono meno filtri da togliere.
+  const min = Math.min(...matches.map((entry) => entry.failed.length));
+  const best = matches.filter((entry) => entry.failed.length === min);
+  const reasons = [...new Set(best.flatMap((entry) => entry.failed))];
+  const locations = new Map<string, string>();
+  for (const { row } of best) locations.set(row.location_id, row.location_name);
+  return {
+    reasons,
+    locations: [...locations].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, "it")),
+  };
+}
