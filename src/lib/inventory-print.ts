@@ -1,5 +1,5 @@
-// Stampa inventario: rapida (preferiti, articolo + quantità), dettagliata (preferiti, tabella),
-// completa (tutti i prodotti, tabella). Solo lettura: i dati mancanti restano vuoti, mai 0.
+// Stampa inventario: rapida e dettagliata = vista attuale (le card già selezionate dai filtri della
+// schermata, nessun filtro proprio); completa = tutte le card della sessione. Solo lettura: dati mancanti vuoti, mai 0.
 export type InventoryPrintMode = "rapida" | "dettagliata" | "completa";
 
 export type InventoryPrintRow = {
@@ -20,8 +20,8 @@ export type InventoryPrintRow = {
 };
 
 export function selectPrintRows(rows: InventoryPrintRow[], mode: InventoryPrintMode): InventoryPrintRow[] {
-  return rows
-    .filter((row) => mode === "completa" || row.favorite)
+  void mode;
+  return [...rows]
     .sort((a, b) => a.name.localeCompare(b.name, "it") || a.code.localeCompare(b.code, "it") || a.zone.localeCompare(b.zone, "it")
       || cardOrder(a.card) - cardOrder(b.card) || (a.card ?? "").localeCompare(b.card ?? "", "it"));
 }
@@ -48,14 +48,15 @@ export function countedLabel(row: InventoryPrintRow): string {
 export function buildInventoryPrintHtml(
   rows: InventoryPrintRow[],
   mode: InventoryPrintMode,
-  meta: { title: string; subtitle: string },
+  meta: { title: string; subtitle: string; scope?: string },
 ): string {
   const selected = selectPrintRows(rows, mode);
-  const label = mode === "rapida" ? "Rapida" : mode === "dettagliata" ? "Dettagliata" : "Completa";
+  const label = mode === "rapida" ? "Vista attuale — Rapida" : mode === "dettagliata" ? "Vista attuale — Dettagliata" : "Tutto l'inventario";
+  const products = new Set(selected.map((r) => r.code)).size;
   let table: string;
   if (mode === "rapida") {
-    table = `<table class="quick"><thead><tr><th>Articolo</th><th>Quantità</th></tr></thead><tbody>${selected
-      .map((r) => `<tr><td>${esc(printName(r))}</td><td class="qty">${esc(countedLabel(r))}</td></tr>`)
+    table = `<table class="quick"><thead><tr><th>Articolo — card / fornitore</th><th>Zona</th><th>Quantità e U.M.</th></tr></thead><tbody>${selected
+      .map((r) => `<tr><td>${esc(printName(r))}</td><td>${esc(r.zone)}</td><td class="qty">${esc(countedLabel(r))}</td></tr>`)
       .join("")}</tbody></table>`;
   } else {
     table = `<table><thead><tr><th>Codice</th><th>Articolo</th><th>Card / fornitore</th><th>Zona</th><th>U.M. mag.</th><th>Calcolata</th><th>Quantità fisica</th><th>Differenza</th><th>Note/stato</th></tr></thead><tbody>${selected
@@ -82,7 +83,8 @@ tr{break-inside:avoid;}
 @page{margin:10mm;}
 </style></head><body>
 <h1>${esc(meta.title)} — Stampa ${label}</h1>
-<p class="meta">${esc(meta.subtitle)} · ${selected.length} prodotti</p>
+<p class="meta">${esc(meta.subtitle)} · ${selected.length} card · ${products} prodotti</p>
+${meta.scope ? `<p class="meta">Perimetro: ${esc(meta.scope)}</p>` : ""}
 ${table}
 </body></html>`;
 }
