@@ -150,6 +150,24 @@ function rowKey(row: { product_id: string; location_id: string; product_supplier
   return rowCardKey(row);
 }
 
+/** Intestazione del gruppo di card dello stesso prodotto: totale solo con U.M. compatibili. */
+function CardGroupHeader({ name, zone, cards }: { name: string; zone: string; cards: InventoryCountRow[] }) {
+  const result = productCardTotal(cards);
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-md border border-border bg-muted/50 px-2 py-1.5">
+      <p className="font-display text-sm font-bold uppercase leading-tight">{name}</p>
+      <p className="text-[11px] text-muted-foreground">{zone} · {cards.length} card</p>
+      <p className="ml-auto text-[11px] font-semibold">
+        {result.total !== null
+          ? `Totale prodotto: ${formatQuantity(result.total, result.unit)} ${result.unit}${result.counted < cards.length ? ` (${result.counted} di ${cards.length} card contate)` : ""}`
+          : result.reason === "um_diverse"
+            ? "Totale non calcolabile: U.M. diverse tra le card"
+            : "Totale: nessuna card contata"}
+      </p>
+    </div>
+  );
+}
+
 function rowName(row: InventoryCountRow) {
   return row.description?.trim() || row.code;
 }
@@ -2477,6 +2495,7 @@ function PhysicalCount({
 
   // Barra compatta (ricerca + filtri) mostrata solo quando la ricerca originale esce dallo schermo.
   const cycleLock = useContext(CycleLockContext);
+  const cardLockState = useContext(CardLockContext);
   const topFiltersRef = useRef<HTMLDivElement>(null);
   const [compactBar, setCompactBar] = useState(false);
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
@@ -2746,11 +2765,31 @@ function PhysicalCount({
             {void excludedCatalogCount}
           </div>
 
+          {cardLockState.canSave ? null : (
+            <div role="alert" className="m-2 flex flex-wrap items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
+              Aggiorna la pagina: l'Inventario è stato aggiornato. I salvataggi sono sospesi fino al ricaricamento.
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => window.location.reload()}>Ricarica</Button>
+            </div>
+          )}
           {visibleRows.length || catalogCandidates.length ? (
             <div className="grid auto-rows-fr items-stretch gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
               {[
+                // Intestazione del prodotto quando ha più card: nome e totale (solo U.M. compatibili).
+                ...[...new Map(visibleRows.map((row) => [groupKey(row), row])).values()]
+                  .filter((row) => visibleRows.filter((other) => groupKey(other) === groupKey(row)).length > 1)
+                  .map((row) => {
+                    const cards = visibleRows.filter((other) => groupKey(other) === groupKey(row));
+                    return {
+                      key: `gruppo-${groupKey(row)}`,
+                      description: row.description,
+                      code: row.code,
+                      header: true,
+                      node: <CardGroupHeader name={rowName(row)} zone={row.location_name} cards={cards} />,
+                    };
+                  }),
                 ...visibleRows.map((row) => ({
                   key: rowKey(row),
+                  header: false,
                   description: row.description,
                   code: row.code,
                   node: (
@@ -2778,6 +2817,7 @@ function PhysicalCount({
                 })),
                 ...catalogCandidates.map((candidate) => ({
                   key: `catalogo-${candidate.sellerProductId}`,
+                  header: false,
                   description: candidate.description,
                   code: candidate.code,
                   node: (
@@ -2793,9 +2833,10 @@ function PhysicalCount({
                   ),
                 })),
               ]
-                .sort((left, right) => byName(left.description, left.code, right.description, right.code))
+                .sort((left, right) => byName(left.description, left.code, right.description, right.code)
+                  || Number(right.header) - Number(left.header))
                 .map((item) => (
-                  <div key={item.key} className="flex h-full min-w-0 flex-col">
+                  <div key={item.key} className={cn("flex h-full min-w-0 flex-col", item.header && "col-span-full")}>
                     {item.node}
                   </div>
                 ))}
@@ -2927,7 +2968,9 @@ function ProductCard({
   // Bloccata: scheda ocra, controlli disabilitati (matita esclusa). Sbloccata: aspetto normale.
   const cardLock = useContext(CardLockContext);
   const locked = inventoryCardLocked(row.counted !== null, cardLock.unlocked.has(rowKey(row)), cycleLocked, correcting);
-  const editable = canEditInventoryCard(locked, correction.pending || cardLock.pending, row.stock_unit_missing);
+  const editable = cardLock.canSave
+    && canEditInventoryCard(locked, correction.pending || cardLock.pending, row.stock_unit_missing);
+  const showCard = actionsEnabled && (cardLock.groupSize.get(groupKey(row)) ?? 0) > 0;
   const changeQuantity = (next: string) => {
     if (!editable) return;
     if (correcting) correction.setValue(next); else onChange(next);
@@ -3000,6 +3043,26 @@ function ProductCard({
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
+          {showCard ? (
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
+              <span className="truncate text-[11px] font-semibold leading-tight text-foreground">{cardTitle(row)}</span>
+              {row.product_supplier_link_id ? (
+                <button
+                  type="button"
+                  className={cn("inline-flex size-5 items-center justify-center rounded-sm disabled:opacity-60", row.card_favorite ? "text-primary" : "text-muted-foreground")}
+                  disabled={!cardLock.isAdmin || cardLock.cardFavoritePending}
+                  onClick={() => cardLock.toggleCardFavorite(row)}
+                  aria-label={row.card_favorite ? `Togli la stella alla card ${cardTitle(row)}` : `Metti la stella alla card ${cardTitle(row)}`}
+                  title={cardLock.isAdmin ? (row.card_favorite ? "Card preferita" : "Card non preferita") : "Stella della card: modificabile solo dagli amministratori"}
+                >
+                  <Star className={cn("size-3", row.card_favorite && "fill-current")} />
+                </button>
+              ) : null}
+              {row.card_label && row.card_label !== "Senza fornitore" ? (
+                <span className="rounded-sm bg-muted px-1 py-0.5 text-[9px] font-bold uppercase leading-none text-muted-foreground">{row.card_label}</span>
+              ) : null}
+            </div>
+          ) : null}
           <p className="text-[11px] leading-tight text-muted-foreground">
             Cod. {row.code}
             {unit ? ` · ${unit}` : ""}
