@@ -6383,6 +6383,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      initial_stock_unit_options: {
+        Args: { _link_id: string; _product_id: string }
+        Returns: Json
+      }
       inventory_card_stock: {
         Args: { _link_id: string; _location_id: string; _product_id: string }
         Returns: {
@@ -7419,6 +7423,10 @@ export type Database = {
           _verified_quantity?: number
         }
         Returns: string
+      }
+      set_initial_stock_unit: {
+        Args: { _product_id: string; _unit_id: string }
+        Returns: Json
       }
       set_inventory_purchase_evaluation: {
         Args: {
