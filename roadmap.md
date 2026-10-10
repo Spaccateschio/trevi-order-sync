@@ -3,6 +3,7 @@
 ## Inventario — barra fissa di conferma
 - [x] Spostare l'unico comando «Conferma inventario» in basso alla finestra, sopra la navigazione mobile; conservare bozza, comportamento e permessi. Verificati 1280/390 px, scorrimento, ultime card e finestra Storico sopra la barra; build automatica OK. Typecheck separato non disponibile nei segnali automatici. Solo anteprima, nessuna pubblicazione o modifica dati.
 - [x] Aspetto della barra: banda blu notte (token sidebar) con scritta chiara centrata a tutta larghezza, «Bozza salvata» sopra in piccolo; verificato 1280/390 px, barra fissa dopo lo scorrimento e ultima card libera; build automatica OK, non pubblicata.
+- [x] Stessa barra fissa per la Lista della Spesa: «Conferma lista» con il riepilogo dei prodotti sopra, comando in fondo all'elenco sostituito dalla barra, pulsante in alto lasciato com'è; verificati 1280/390 px con scorrimento fino in fondo e nessuna sovrapposizione alla navigazione; build OK, non pubblicata.
 
 ## Fatto
 - [x] Prodotto ↔ Fornitori: `product_supplier_links`, coda riconciliazione Danea, funzioni protette, sezione Fornitori nella scheda prodotto (nessuna regola automatica di priorità tra costo Danea e costo manuale)
