@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from "node:test";
+import { strict as assert } from "node:assert";
 
 import { cardKey, compareCards, parseCardKey, productCardTotal } from "./inventory-cards";
 
@@ -6,9 +7,9 @@ const base = { product_id: "p", location_id: "l" };
 
 describe("card inventario", () => {
   it("la card «Senza fornitore» ha una chiave diversa da ogni collegamento", () => {
-    expect(cardKey("p", "l", null)).not.toBe(cardKey("p", "l", "a"));
-    expect(parseCardKey(cardKey("p", "l", null))).toEqual({ productId: "p", locationId: "l", linkId: null });
-    expect(parseCardKey(cardKey("p", "l", "a"))?.linkId).toBe("a");
+    assert.notEqual(cardKey("p", "l", null), cardKey("p", "l", "a"));
+    assert.deepEqual(parseCardKey(cardKey("p", "l", null)), { productId: "p", locationId: "l", linkId: null });
+    assert.equal(parseCardKey(cardKey("p", "l", "a"))?.linkId, "a");
   });
 
   it("ordine: stella, attivi A→Z, scollegati, senza fornitore", () => {
@@ -19,22 +20,22 @@ describe("card inventario", () => {
       { ...base, product_supplier_link_id: "a", supplier_name: "Alfa", link_active: true },
       { ...base, product_supplier_link_id: "s", supplier_name: "Zorro", link_active: true, card_favorite: true },
     ];
-    expect([...rows].sort(compareCards).map((r) => r.product_supplier_link_id)).toEqual(["s", "a", "b", "x", null]);
+    assert.deepEqual([...rows].sort(compareCards).map((r) => r.product_supplier_link_id), ["s", "a", "b", "x", null]);
   });
 
   it("totale solo con U.M. uguali, mai convertito", () => {
-    expect(productCardTotal([
+    assert.equal(productCardTotal([
       { ...base, counted: 9, counted_unit_code: "kg" },
       { ...base, counted: 15, counted_unit_code: "KG" },
-    ])).toMatchObject({ total: 24 });
-    expect(productCardTotal([
+    ]).total, 24);
+    assert.deepEqual(productCardTotal([
       { ...base, counted: 9, counted_unit_code: "kg" },
       { ...base, counted: 2, counted_unit_code: "cas" },
-    ])).toEqual({ total: null, reason: "um_diverse" });
-    expect(productCardTotal([{ ...base, counted: null }])).toEqual({ total: null, reason: "nessun_conteggio" });
+    ]), { total: null, reason: "um_diverse" });
+    assert.deepEqual(productCardTotal([{ ...base, counted: null }]), { total: null, reason: "nessun_conteggio" });
   });
 
   it("lo zero contato entra nel totale", () => {
-    expect(productCardTotal([{ ...base, counted: 0, stock_unit_code: "kg" }])).toMatchObject({ total: 0 });
+    assert.equal(productCardTotal([{ ...base, counted: 0, stock_unit_code: "kg" }]).total, 0);
   });
 });

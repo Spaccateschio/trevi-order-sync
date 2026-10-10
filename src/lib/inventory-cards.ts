@@ -63,6 +63,7 @@ export function productCardTotal(cards: InventoryCardLike[]): { total: number; u
   if (!counted.length) return { total: null, reason: "nessun_conteggio" };
   const units = new Set(counted.map((card) => (card.counted_unit_code?.trim() || card.stock_unit_code?.trim() || "").toLowerCase()));
   if (units.size !== 1 || units.has("")) return { total: null, reason: "um_diverse" };
-  const unit = counted[0].counted_unit_code?.trim() || counted[0].stock_unit_code?.trim() || "";
+  const first = counted[0]!;
+  const unit = first.counted_unit_code?.trim() || first.stock_unit_code?.trim() || "";
   return { total: counted.reduce((sum, card) => sum + Number(card.counted), 0), unit, counted: counted.length };
 }

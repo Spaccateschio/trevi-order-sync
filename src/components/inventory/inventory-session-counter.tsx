@@ -91,7 +91,7 @@ export function InventorySessionCounter({
 
   const countsQuery = useQuery({
     queryKey: ["inventory-counts", session.id],
-    queryFn: async (): Promise<CountRow[]> => {
+    queryFn: async (): Promise<CardCountRow[]> => {
       const { data, error } = await supabase
         .from("inventory_counts")
         .select("id, product_id, location_id, product_supplier_link_id, counted_quantity, previous_quantity, difference, unit_code, counted_at, notes" as "id, product_id, location_id, counted_quantity, previous_quantity, difference, unit_code, counted_at, notes")
