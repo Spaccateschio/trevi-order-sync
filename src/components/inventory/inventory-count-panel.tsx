@@ -2478,16 +2478,16 @@ function PhysicalCount({
   const categories = progress?.categories?.length
     ? progress.categories
     : [...new Set([
-        ...rows.map((row) => row.category ?? NO_CATEGORY),
-        ...catalogCandidates.map((item) => item.category ?? NO_CATEGORY),
+        ...rows.map((row) => row.category?.trim() || NO_CATEGORY),
+        ...catalogCandidates.map((item) => item.category?.trim() || NO_CATEGORY),
       ])].sort().map((name) => ({ name, completed: 0, total: 0 }));
   const subcategories = progress?.subcategories?.length
     ? progress.subcategories.filter((item) => !category || item.category === category)
     : [...new Set([
-        ...rows.filter((row) => !category || (row.category ?? NO_CATEGORY) === category)
-          .map((row) => row.subcategory ?? NO_SUBCATEGORY),
-        ...catalogCandidates.filter((item) => !category || (item.category ?? NO_CATEGORY) === category)
-          .map((item) => item.subcategory ?? NO_SUBCATEGORY),
+        ...rows.filter((row) => !category || (row.category?.trim() || NO_CATEGORY) === category)
+          .map((row) => row.subcategory?.trim() || NO_SUBCATEGORY),
+        ...catalogCandidates.filter((item) => !category || (item.category?.trim() || NO_CATEGORY) === category)
+          .map((item) => item.subcategory?.trim() || NO_SUBCATEGORY),
       ])].sort().map((name) => ({ name, category: category ?? "", completed: 0, total: 0 }));
   const visibleRows = supplierFilter
     ? rows.filter((row) => supplierInfo.get(row.product_id)?.name === supplierFilter)
@@ -3025,7 +3025,7 @@ function ProductCard({
   return (
     <article
       className={cn(
-        "flex h-full flex-col rounded-md border-2 bg-card p-2",
+        "@container flex h-full flex-col rounded-md border-2 bg-card p-2",
         !isConfirmed && "border-border",
         isConfirmed && !hasDifference && "border-success/50 bg-success/5",
         hasDifference && "border-destructive/50 bg-destructive/5",
@@ -3213,7 +3213,8 @@ function ProductCard({
         </div>
       ) : null}
 
-      <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
+      {/* Card stretta (< 340 px): «Conferma» va a capo a tutta larghezza invece di comprimersi o perdere il testo. */}
+      <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-1.5 @[340px]:grid-cols-[auto_minmax(110px,1fr)_auto_auto]">
         <div>
           <p className="text-[9px] leading-none text-muted-foreground">Calcolata</p>
           <p className="mt-1 text-sm font-bold leading-none">
@@ -3307,9 +3308,9 @@ function ProductCard({
             {difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, unit)}`}
           </p>
         </div>
-        <Button className="h-10 px-2 text-[11px] sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={confirmQuantity} disabled={!editable}>
+        <Button className="col-span-full h-10 w-full px-2 text-[11px] @[340px]:col-span-1 @[340px]:w-auto sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={confirmQuantity} disabled={!editable}>
           <Check className="size-4" />
-          <span className="hidden min-[360px]:inline">Conferma</span>
+          <span>Conferma</span>
         </Button>
       </div>
       {unitMissing ? (
@@ -3412,7 +3413,8 @@ function CatalogProductCard({
           </span>
         </div>
       </div>
-      <div className="mt-2 grid grid-cols-[auto_minmax(110px,1fr)_auto_auto] items-start gap-1.5">
+      {/* Card stretta (< 340 px): «Conferma» va a capo a tutta larghezza invece di comprimersi o perdere il testo. */}
+      <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-1.5 @[340px]:grid-cols-[auto_minmax(110px,1fr)_auto_auto]">
         <div><p className="text-[9px] leading-none text-muted-foreground">Calcolata</p><p className="mt-1 text-sm font-bold leading-none">—</p></div>
         <div className="min-w-0">
           <div className="flex items-baseline justify-between gap-1">
@@ -3425,8 +3427,8 @@ function CatalogProductCard({
             aria-label={`Quantità fisica ${name}`} />
         </div>
         <div className="text-right"><p className="text-[9px] leading-none text-muted-foreground">Differenza</p><p className="mt-1 text-sm font-bold leading-none">—</p></div>
-        <Button className="h-10 px-2 text-[11px] sm:px-3" onClick={onConfirm} disabled={disabled}>
-          <Check className="size-4" /><span className="hidden min-[360px]:inline">Conferma</span>
+        <Button className="col-span-full h-10 w-full px-2 text-[11px] @[340px]:col-span-1 @[340px]:w-auto sm:px-3" onClick={onConfirm} disabled={disabled}>
+          <Check className="size-4" /><span>Conferma</span>
         </Button>
       </div>
       <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2">
