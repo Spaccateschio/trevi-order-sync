@@ -1666,7 +1666,7 @@ export function InventoryCountPanel({
               if (found.reasons.includes("category")) { setCategory(null); setSubcategory(null); }
               if (found.reasons.includes("subcategory")) setSubcategory(null);
               if (found.reasons.includes("supplier")) setSupplierFilter(null);
-              if (found.reasons.includes("location")) setSelectedLocationId(found.locations.length === 1 ? found.locations[0].id : null);
+              if (found.reasons.includes("location")) setSelectedLocationId(found.locations.length === 1 ? (found.locations[0]?.id ?? null) : null);
             }}
             search={search}
             isAdmin={isAdmin}

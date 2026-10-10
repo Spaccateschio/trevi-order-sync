@@ -48,7 +48,7 @@ export function countedLabel(row: InventoryPrintRow): string {
 export function buildInventoryPrintHtml(
   rows: InventoryPrintRow[],
   mode: InventoryPrintMode,
-  meta: { title: string; subtitle: string; scope?: string },
+  meta: { title: string; subtitle: string; scope?: string | undefined },
 ): string {
   const selected = selectPrintRows(rows, mode);
   const label = mode === "rapida" ? "Vista attuale — Rapida" : mode === "dettagliata" ? "Vista attuale — Dettagliata" : "Tutto l'inventario";
