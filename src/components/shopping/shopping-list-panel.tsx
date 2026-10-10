@@ -1543,11 +1543,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   </span>
                 ) : null}
               </span>
-              {editable ? (
-                <Button type="button" size="sm" className="h-8" disabled={listMutation.isPending} onClick={() => setCloseOpen(true)}>
-                  Conferma lista
-                </Button>
-              ) : list.status === "confermata" ? (
+              {list.status === "confermata" ? (
                 <Button asChild size="sm" variant="outline" className="h-8">
                   <Link to="/acquisti/ordini">Vai agli Ordini per creare le bozze</Link>
                 </Button>
@@ -1556,6 +1552,27 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           ) : null}
         </>
       )}
+
+      {/* Barra fissa: il comando resta sempre raggiungibile senza scorrere l'elenco */}
+      {list && editable && allRows.length ? (
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
+          <span className="min-w-0 text-center text-[11px] text-sidebar-foreground/70">
+            {summary.total} {summary.total === 1 ? "prodotto" : "prodotti"} · {summary.assigned}{" "}
+            {summary.assigned === 1 ? "assegnato" : "assegnati"}
+            {summary.partial ? ` · ${summary.partial} ${summary.partial === 1 ? "parziale" : "parziali"}` : ""}
+            {summary.open ? ` · ${summary.open} da assegnare` : ""}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="w-full max-w-md shrink-0 justify-center bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground"
+            disabled={listMutation.isPending}
+            onClick={() => setCloseOpen(true)}
+          >
+            <CheckCheck /> Conferma lista
+          </Button>
+        </div>
+      ) : null}
 
       {addOpen && (list || (previewMode && archivesQuery.data?.[0])) ? (
         <AddProductsDialog
