@@ -64,6 +64,7 @@ import {
   type InventoryFieldId,
 } from "@/components/inventory/use-inventory-fields";
 import { supabase } from "@/integrations/supabase/client";
+import { InitialStockUnitPicker } from "@/components/inventory/initial-stock-unit-picker";
 import { getCatalogImageUrls } from "@/lib/catalog.functions";
 import {
   adoptCatalogProduct,
@@ -3378,12 +3379,12 @@ function ProductCard({
         </Button>
       </div>
       {unitMissing ? (
-        <p className="mt-1.5 rounded-sm border border-warning/50 bg-warning/10 px-2 py-1.5 text-[10px] font-semibold leading-snug text-warning-foreground">
-          U.M. di magazzino da impostare: il prodotto resta fuori dalla giacenza e blocca la chiusura dell'inventario.{" "}
-          <Link to="/acquisti/prodotti" search={{ prodotto: row.product_id }} className="underline">
-            Apri la scheda prodotto
-          </Link>
-        </p>
+        <div className="mt-1.5 rounded-sm border border-warning/50 bg-warning/10 px-2 py-1.5">
+          <p className="text-[10px] font-semibold leading-snug text-warning-foreground">
+            U.M. di magazzino da impostare: scegli l'U.M. con cui conti la merce e conferma.
+          </p>
+          <InitialStockUnitPicker productId={row.product_id} linkId={row.product_supplier_link_id ?? null} />
+        </div>
       ) : null}
       <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2">
         {[1, 3, 5, 10].map((increment) => (

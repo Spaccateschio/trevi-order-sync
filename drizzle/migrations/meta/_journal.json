@@ -281,6 +281,13 @@
       "when": 1791650253289,
       "tag": "0039_fix_address_functions_update_check",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1791650616835,
+      "tag": "0040_initial_stock_unit_from_card",
+      "breakpoints": true
     }
   ]
 }
