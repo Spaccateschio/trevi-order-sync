@@ -893,8 +893,16 @@ export function InventoryCountPanel({
         // Differenze reali: solo differenze numeriche calcolabili (stessa U.M.) e diverse da zero.
         return row.counted !== null && row.units_comparable !== false && row.difference !== null && Number(row.difference) !== 0;
       })
-      .sort((left, right) => byName(left.description, left.code, right.description, right.code));
+      // Card dello stesso prodotto vicine: stella, fornitori attivi A→Z, scollegati, «Senza fornitore».
+      .sort((left, right) => byName(left.description, left.code, right.description, right.code)
+        || left.location_name.localeCompare(right.location_name, "it")
+        || compareCards(left, right));
   }, [managedProductIds, rowsQuery.data, workFilter]);
+  const cardGroupSize = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of rowsQuery.data ?? []) map.set(groupKey(row), (map.get(groupKey(row)) ?? 0) + 1);
+    return map;
+  }, [rowsQuery.data]);
 
 
   // Lista completa dei prodotti visibili: il controllo prezzo e le info fornitore
