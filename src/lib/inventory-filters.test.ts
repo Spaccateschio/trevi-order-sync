@@ -48,7 +48,7 @@ describe("filtri inventario — regola unica delle card", () => {
     assert.deepEqual(found, { reasons: ["location"], locations: [{ id: "Z2", name: "Magazzino 2" }] });
   });
   it("4. escluso da Preferiti: il motivo è il filtro, non la zona", () => {
-    const found = findSearchElsewhere(session, { ...all, view: "favorites", search: "aglio" , supplier: "Beta (scollegato)" }, supplierOf);
+    const found = findSearchElsewhere(session.filter((r) => r.id !== "aglio-alfa"), { ...all, view: "favorites", search: "aglio", locationId: "Z1" }, supplierOf);
     assert.deepEqual(found?.reasons, ["view"]);
   });
   it("4. nessuna corrispondenza: nessuna zona inventata", () => {
