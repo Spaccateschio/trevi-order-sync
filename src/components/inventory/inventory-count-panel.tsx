@@ -94,6 +94,7 @@ import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inv
 import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget } from "@/components/inventory/physical-quick-edit";
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
 import { dateTimeShort, type SessionRow } from "@/lib/inventory";
+import { cardKey, cardTitle, compareCards, groupKey, parseCardKey, productCardTotal, rowCardKey } from "@/lib/inventory-cards";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 
 type ProductView = "favorites" | "all";
@@ -141,8 +142,9 @@ function formatQuantity(value: number, unit: string) {
   }).format(value);
 }
 
-function rowKey(row: { product_id: string; location_id: string }) {
-  return `${row.product_id}:${row.location_id}`;
+/** Chiave della card (prodotto + ubicazione + collegamento): unica in tutte le schermate. */
+function rowKey(row: { product_id: string; location_id: string; product_supplier_link_id?: string | null }) {
+  return rowCardKey(row);
 }
 
 function rowName(row: InventoryCountRow) {
@@ -367,7 +369,7 @@ export function InventoryCountPanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_count_drafts")
-        .select("product_id, location_id, quantity, unit_code")
+        .select("product_id, location_id, product_supplier_link_id, quantity, unit_code" as "product_id, location_id, quantity, unit_code")
         .eq("session_id", sessionId!);
       if (error) throw new Error(error.message);
       return data ?? [];
@@ -380,12 +382,12 @@ export function InventoryCountPanel({
     setDrafts((current) => {
       const next = { ...current };
       for (const d of list) {
-        const key = rowKey(d);
+        const key = rowKey(d as typeof d & { product_supplier_link_id: string | null });
         if (!draftTimers.current[key]) next[key] = d.quantity;
       }
       return next;
     });
-    setSavedDraftKeys(new Set(list.map((d) => rowKey(d))));
+    setSavedDraftKeys(new Set(list.map((d) => rowKey(d as typeof d & { product_supplier_link_id: string | null }))));
   }, [savedDraftsQuery.data]);
 
   // Salva subito le bozze in sospeso quando si esce dalla pagina o la finestra va in background.
@@ -395,13 +397,14 @@ export function InventoryCountPanel({
     for (const key of Object.keys(draftTimers.current)) {
       clearTimeout(draftTimers.current[key]);
       delete draftTimers.current[key];
-      const [productId, locationId] = key.split(":");
-      if (!productId || !locationId) continue;
+      const card = parseCardKey(key);
+      if (!card) continue;
+      const { productId, locationId, linkId } = card;
       const value = (draftsRef.current[key] ?? "").trim();
       void draftFn({
         data: value === ""
-          ? { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null }
-          : { action: "set", sessionId, productId, locationId, quantity: value, unitCode: null },
+          ? { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null }
+          : { action: "set", sessionId, productId, locationId, linkId, quantity: value, unitCode: null },
       }).catch(() => undefined);
     }
   };
@@ -435,8 +438,9 @@ export function InventoryCountPanel({
 
   function scheduleDraftSave(key: string, raw: string) {
     if (!sessionId) return;
-    const [productId, locationId] = key.split(":");
-    if (!productId || !locationId) return;
+    const card = parseCardKey(key);
+    if (!card) return;
+    const { productId, locationId, linkId } = card;
     if (draftTimers.current[key]) clearTimeout(draftTimers.current[key]);
     setSavedDraftKeys((current) => {
       const next = new Set(current);
@@ -448,8 +452,8 @@ export function InventoryCountPanel({
       const value = raw.trim();
       void draftFn({
         data: value === ""
-          ? { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null }
-          : { action: "set", sessionId, productId, locationId, quantity: value, unitCode: null },
+          ? { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null }
+          : { action: "set", sessionId, productId, locationId, linkId, quantity: value, unitCode: null },
       })
         .then(() => {
           if (value !== "" && draftsRef.current[key]?.trim() === value) {
@@ -462,8 +466,9 @@ export function InventoryCountPanel({
 
   function clearDraftOnServer(key: string) {
     if (!sessionId) return;
-    const [productId, locationId] = key.split(":");
-    if (!productId || !locationId) return;
+    const card = parseCardKey(key);
+    if (!card) return;
+    const { productId, locationId, linkId } = card;
     if (draftTimers.current[key]) {
       clearTimeout(draftTimers.current[key]);
       delete draftTimers.current[key];
@@ -473,7 +478,7 @@ export function InventoryCountPanel({
       next.delete(key);
       return next;
     });
-    void draftFn({ data: { action: "clear_one", sessionId, productId, locationId, quantity: null, unitCode: null } })
+    void draftFn({ data: { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null } })
       .catch(() => undefined);
   }
 
@@ -503,7 +508,7 @@ export function InventoryCountPanel({
       Object.values(draftTimers.current).forEach(clearTimeout);
       draftTimers.current = {};
       if (sessionId) {
-        await draftFn({ data: { action: "clear_all", sessionId, productId: null, locationId: null, quantity: null, unitCode: null } });
+        await draftFn({ data: { action: "clear_all", sessionId, productId: null, locationId: null, linkId: null, quantity: null, unitCode: null } });
       }
     },
     onSuccess: async () => {
@@ -995,7 +1000,7 @@ export function InventoryCountPanel({
       return input.locationId;
     },
     onSuccess: async (locationId, input) => {
-      lockSavedCard(`${input.productId}:${input.locationId}`);
+      lockSavedCard(cardKey(input.productId, input.locationId, null));
       await queryClient.invalidateQueries({
         queryKey: ["inventory-general-session", companyId, archiveId],
       });
@@ -1069,6 +1074,7 @@ export function InventoryCountPanel({
           sessionId: sessionId!,
           productId: input.row.product_id,
           locationId: input.row.location_id,
+          linkId: input.row.product_supplier_link_id,
           entryType: input.row.counted !== null ? "riconteggio" : "conteggio",
           countedQuantity: input.value,
           unitCode: input.unit || null,
@@ -1102,6 +1108,7 @@ export function InventoryCountPanel({
           sessionId: sessionId!,
           productId: row.product_id,
           locationId: row.location_id,
+          linkId: row.product_supplier_link_id,
           entryType: "richiesta_riconteggio",
           countedQuantity: null,
           unitCode: rowUnit(row) || null,
@@ -1131,6 +1138,7 @@ export function InventoryCountPanel({
           sessionId: sessionId!,
           productId: input.row.product_id,
           locationId: input.row.location_id,
+          linkId: input.row.product_supplier_link_id,
           entryType: input.nonCompliant ? "segnalazione" : "revoca_segnalazione",
           countedQuantity: null,
           unitCode: rowUnit(input.row) || null,

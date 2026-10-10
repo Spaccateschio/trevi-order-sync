@@ -49,6 +49,8 @@ const countSchema = z.object({
   unitId: z.string().uuid().nullable(),
   unitCode: z.string().trim().max(20).nullable(),
   notes: z.string().trim().max(500).nullable(),
+  /** Card esplicita (null = «Senza fornitore»). */
+  linkId: z.string().uuid().nullable(),
 });
 
 const adjustmentSchema = z.object({
@@ -59,7 +61,13 @@ const adjustmentSchema = z.object({
   reason: z.string().trim().min(3).max(200),
   notes: z.string().trim().max(500).nullable(),
   referenceCountId: z.string().uuid().nullable().optional(),
+  /** Card esplicita; assente = il database la ricava dal conteggio di riferimento o rifiuta se ambigua. */
+  linkId: z.string().uuid().nullable().optional(),
 });
+
+function cardArgs(linkId: string | null | undefined) {
+  return linkId === undefined ? {} : { _link_id: linkId, _card_explicit: true };
+}
 
 /** L'inventario non richiede Danea: se manca un archivio si usa quello interno dei prodotti propri. */
 export const ensureInventoryArchive = createServerFn({ method: "POST" })
@@ -162,7 +170,7 @@ export const recordInventoryCount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => countSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { data: id, error } = await context.supabase.rpc("record_inventory_count", {
+    const { data: id, error } = await (context.supabase.rpc as any)("record_inventory_count", {
       _company_id: data.companyId,
       _session_id: data.sessionId,
       _product_id: data.productId,
@@ -172,6 +180,7 @@ export const recordInventoryCount = createServerFn({ method: "POST" })
       ...(data.unitId === null ? {} : { _unit_id: data.unitId }),
       ...(data.unitCode === null ? {} : { _unit_code: data.unitCode }),
       ...(data.notes === null ? {} : { _notes: data.notes }),
+      ...cardArgs(data.linkId),
     });
     if (error) throw new Error(error.message);
     return { id: id as string };
@@ -181,7 +190,7 @@ export const recordInventoryAdjustment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => adjustmentSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { data: id, error } = await context.supabase.rpc("record_inventory_adjustment", {
+    const { data: id, error } = await (context.supabase.rpc as any)("record_inventory_adjustment", {
       _company_id: data.companyId,
       _product_id: data.productId,
       _location_id: data.locationId,
@@ -190,6 +199,7 @@ export const recordInventoryAdjustment = createServerFn({ method: "POST" })
       _actor_user_id: context.userId,
       ...(data.notes === null ? {} : { _notes: data.notes }),
       ...(data.referenceCountId ? { _reference_count_id: data.referenceCountId } : {}),
+      ...cardArgs(data.linkId),
     });
     if (error) throw new Error(error.message);
     return { id: id as string };
