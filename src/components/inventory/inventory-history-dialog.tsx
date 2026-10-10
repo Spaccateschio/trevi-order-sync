@@ -36,7 +36,7 @@ async function printSession(session: HistorySession) {
   if (!win) return;
   const { data, error } = await supabase
     .from("inventory_counts")
-    .select("counted_quantity, unit_code, products(code, description, danea_um), inventory_locations(name)")
+    .select("counted_quantity, unit_code, product_supplier_link_id, products(code, description, danea_um), inventory_locations(name)" as "counted_quantity, unit_code, products(code, description, danea_um), inventory_locations(name)")
     .eq("session_id", session.id);
   if (error) {
     win.close();
@@ -47,20 +47,37 @@ async function printSession(session: HistorySession) {
     unit_code: string | null;
     products: { code: string; description: string | null; danea_um: string | null } | null;
     inventory_locations: { name: string } | null;
+    product_supplier_link_id: string | null;
   };
-  const rows = ((data ?? []) as unknown as Row[]).sort((a, b) =>
-    (a.products?.description ?? "").localeCompare(b.products?.description ?? "", "it"),
+  const raw = (data ?? []) as unknown as Row[];
+  // Nome del fornitore di ogni card (null = «Senza fornitore»).
+  const linkIds = [...new Set(raw.map((r) => r.product_supplier_link_id).filter((id): id is string => Boolean(id)))];
+  const supplierByLink = new Map<string, string>();
+  if (linkIds.length) {
+    const { data: links } = await supabase
+      .from("product_supplier_links")
+      .select("id, supplier_records(legal_name)")
+      .in("id", linkIds);
+    for (const link of (links ?? []) as { id: string; supplier_records: { legal_name: string | null } | null }[]) {
+      supplierByLink.set(link.id, link.supplier_records?.legal_name ?? "Fornitore");
+    }
+  }
+  const cardOf = (r: Row) => (r.product_supplier_link_id ? (supplierByLink.get(r.product_supplier_link_id) ?? "Fornitore") : "Senza fornitore");
+  const rows = raw.sort((a, b) =>
+    (a.products?.description ?? "").localeCompare(b.products?.description ?? "", "it")
+    || Number(a.product_supplier_link_id === null) - Number(b.product_supplier_link_id === null)
+    || cardOf(a).localeCompare(cardOf(b), "it"),
   );
   const when = dateTimeShort(session.finished_at ?? session.started_at);
   win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Inventario ${escapeHtml(when)}</title>
 <style>body{font-family:system-ui,sans-serif;padding:16px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:4px 6px;text-align:left;font-size:12px}td.n{text-align:right}</style>
 </head><body><h1 style="font-size:18px">Inventario del ${escapeHtml(when)}</h1>
 <p style="font-size:12px">${escapeHtml(session.author ? `Fatto da ${session.author} · ` : "")}${session.counted} prodotti contati</p>
-<table><thead><tr><th>Prodotto</th><th>Zona</th><th class="n">Quantità</th><th>U.M.</th></tr></thead><tbody>
+<table><thead><tr><th>Prodotto</th><th>Card / fornitore</th><th>Zona</th><th class="n">Quantità</th><th>U.M.</th></tr></thead><tbody>
 ${rows
   .map(
     (r) =>
-      `<tr><td>${escapeHtml(r.products?.description ?? r.products?.code ?? "")}</td><td>${escapeHtml(r.inventory_locations?.name ?? "")}</td><td class="n">${escapeHtml(qty(Number(r.counted_quantity)))}</td><td>${escapeHtml(r.unit_code?.trim() || r.products?.danea_um?.trim() || "")}</td></tr>`,
+      `<tr><td>${escapeHtml(r.products?.description ?? r.products?.code ?? "")}</td><td>${escapeHtml(cardOf(r))}</td><td>${escapeHtml(r.inventory_locations?.name ?? "")}</td><td class="n">${escapeHtml(qty(Number(r.counted_quantity)))}</td><td>${escapeHtml(r.unit_code?.trim() || r.products?.danea_um?.trim() || "")}</td></tr>`,
   )
   .join("")}
 </tbody></table><script>window.onload=()=>window.print()</script></body></html>`);
