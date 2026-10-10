@@ -1482,7 +1482,7 @@ export function InventoryCountPanel({
             onCorrect: (row, history) => {
               if (!historyLocationId || !history.lastCountId || history.lastQuantity === null) return;
               setCorrection({
-                productId: row.product_id, locationId: historyLocationId, countId: history.lastCountId,
+                productId: row.product_id, linkId: row.product_supplier_link_id, locationId: historyLocationId, countId: history.lastCountId,
                 code: row.code ?? "", name: rowName(row), unit: history.lastUnit ?? rowUnit(row) ?? "",
                 countedQuantity: history.lastQuantity, countedAt: history.lastAt,
               });
@@ -2108,6 +2108,7 @@ export function InventoryCountPanel({
               onCorrectCount={(count, product) => {
                 setCorrection({
                   productId: product.id,
+                  linkId: count.product_supplier_link_id,
                   locationId: count.location_id,
                   countId: count.id,
                   code: product.code,
@@ -2858,6 +2859,7 @@ function ProductCard({
           companyId: cycleLock.companyId,
           listId: cycleLock.listId ?? null,
           productId: row.product_id,
+          linkId: row.product_supplier_link_id,
           locationId: cycleLock.locationId,
           countId: history.lastCountId,
           unit: history.lastUnit ?? rowUnit(row) ?? "",
