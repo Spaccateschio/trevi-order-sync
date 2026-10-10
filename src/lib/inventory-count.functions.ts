@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { INVENTORY_SCREEN_VERSION } from "@/lib/inventory-cards";
 
 /**
  * Inventario generale: apertura/chiusura e letture passano dal server.
@@ -67,11 +68,6 @@ export type InventoryCountRow = {
   card_label: string | null;
 };
 
-/**
- * Versione delle schermate Inventario per card. Il server restituisce la propria:
- * se diversa da quella caricata nel browser, la schermata va ricaricata prima di salvare.
- */
-export const INVENTORY_SCREEN_VERSION = "modello2-card-1";
 
 /** Card esplicita: sempre inviata, null = «Senza fornitore». */
 const cardLink = z.string().uuid().nullable();

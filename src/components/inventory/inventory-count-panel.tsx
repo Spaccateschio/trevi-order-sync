@@ -73,7 +73,6 @@ import {
   getInventoryRows,
   getInventoryScreenVersion,
   manageCardFavorite,
-  INVENTORY_SCREEN_VERSION,
   getFavoriteProductIds,
   getCompanyHasFavorites,
   getSupplierCatalogCandidates,
@@ -97,7 +96,7 @@ import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inv
 import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget } from "@/components/inventory/physical-quick-edit";
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
 import { dateTimeShort, type SessionRow } from "@/lib/inventory";
-import { cardKey, cardTitle, compareCards, groupKey, parseCardKey, productCardTotal, rowCardKey } from "@/lib/inventory-cards";
+import { INVENTORY_SCREEN_VERSION, cardKey, cardTitle, compareCards, groupKey, parseCardKey, productCardTotal, rowCardKey } from "@/lib/inventory-cards";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 
 type ProductView = "favorites" | "all";

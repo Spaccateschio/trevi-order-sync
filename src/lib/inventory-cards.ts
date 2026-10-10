@@ -13,6 +13,12 @@ export type InventoryCardLike = {
   stock_unit_code?: string | null;
 };
 
+/**
+ * Versione delle schermate Inventario per card. Il server restituisce la propria:
+ * se diversa da quella caricata nel browser, la schermata va ricaricata prima di salvare.
+ */
+export const INVENTORY_SCREEN_VERSION = "modello2-card-1";
+
 const NO_LINK = "-";
 
 /** Chiave unica della card, usata da tutte le schermate. null ≠ qualsiasi collegamento. */
