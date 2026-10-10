@@ -114,6 +114,15 @@ const WORK_FILTER_LABELS: Record<WorkFilter, string> = {
   missing_unit: "U.M. da impostare",
 };
 type SupplierInfo = { name: string | null; cost: number | null };
+const FILTER_REASON_LABELS: Record<CardFilterKey, string> = {
+  view: "non è tra i Preferiti", work: "ha un altro stato", search: "", location: "",
+  category: "è in un'altra categoria", subcategory: "è in un'altra sottocategoria", supplier: "ha un altro fornitore",
+};
+function elsewhereText(found: SearchElsewhere): string {
+  const parts = found.reasons.filter((reason) => reason !== "location" && reason !== "search").map((reason) => FILTER_REASON_LABELS[reason]);
+  const where = found.reasons.includes("location") ? ` Trovato in: ${found.locations.map((l) => l.name).join(", ")}.` : "";
+  return `Nessun risultato nei filtri attuali.${where}${parts.length ? ` Il prodotto ${parts.join(", ")}.` : ""}`;
+}
 type FieldPreferences = ReturnType<typeof useInventoryFieldPreferences>;
 
 const ENTRY_LABELS: Record<string, string> = {
@@ -129,10 +138,7 @@ const NO_CATEGORY = "Senza categoria";
 /** Fornitore della card (Modello 2): quello del suo collegamento, «Senza fornitore» se assente. */
 const cardSupplierName = (row: InventoryCountRow) =>
   row.product_supplier_link_id ? (row.supplier_name ?? "Fornitore") : "Senza fornitore";
-const WORK_LABELS: Record<WorkFilter, string> = {
-  all: "Tutti gli stati", pending: "Da controllare", completed: "Completati", differences: "Differenze",
-  not_comparable: "Non confrontabili", recount: "Riconteggio", missing_unit: "U.M. da impostare",
-};
+
 const NO_SUBCATEGORY = "Senza sottocategoria";
 
 function parseQuantity(value: string) {
@@ -713,7 +719,7 @@ export function InventoryCountPanel({
   // Stampa: inventario in corso se aperto, altrimenti ultimo inventario chiuso. Solo lettura, mai 0 inventati.
   const describeFilters = () => [
     effectiveProductView === "favorites" ? "Preferiti" : "Tutti",
-    WORK_LABELS[workFilter],
+    WORK_FILTER_LABELS[workFilter],
     selectedLocationId ? `Zona: ${activeLocations.find((l) => l.id === selectedLocationId)?.name ?? ""}` : "Tutte le zone",
     category ? `Categoria: ${category}` : "",
     subcategory ? `Sottocategoria: ${subcategory}` : "",
@@ -1610,9 +1616,11 @@ export function InventoryCountPanel({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => printInventory("rapida")}>Rapida — preferiti, articolo e quantità</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => printInventory("dettagliata")}>Dettagliata — preferiti, tutte le colonne</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => printInventory("completa")}>Completa — tutti i prodotti</DropdownMenuItem>
+                  <DropdownMenuLabel className="text-xs">Stampa vista attuale (filtri attivi)</DropdownMenuLabel>
+                  <DropdownMenuItem onSelect={() => printInventory("rapida")}>Rapida — articolo, card e quantità</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => printInventory("dettagliata")}>Dettagliata — tutte le colonne</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => printInventory("completa")}>Stampa tutto l'inventario</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             }
@@ -1648,6 +1656,18 @@ export function InventoryCountPanel({
             category={category}
             subcategory={subcategory}
             supplierFilter={supplierFilter}
+            supplierOptions={supplierOptions}
+            filtersActive={Boolean(sessionId) && filtersActive}
+            searchElsewhere={sessionId ? searchElsewhere : null}
+            onShowElsewhere={(found) => {
+              // Cambia solo i filtri che escludono il risultato: sessione, conteggi e giacenze restano intatti.
+              if (found.reasons.includes("view")) setProductView("all");
+              if (found.reasons.includes("work")) setWorkFilter("all");
+              if (found.reasons.includes("category")) { setCategory(null); setSubcategory(null); }
+              if (found.reasons.includes("subcategory")) setSubcategory(null);
+              if (found.reasons.includes("supplier")) setSupplierFilter(null);
+              if (found.reasons.includes("location")) setSelectedLocationId(found.locations.length === 1 ? found.locations[0].id : null);
+            }}
             search={search}
             isAdmin={isAdmin}
             showCompletion={showCompletion}
@@ -2374,6 +2394,10 @@ function PhysicalCount({
   category,
   subcategory,
   supplierFilter,
+  supplierOptions,
+  filtersActive,
+  searchElsewhere,
+  onShowElsewhere,
   search,
   isAdmin,
   showCompletion,
@@ -2433,6 +2457,10 @@ function PhysicalCount({
   category: string | null;
   subcategory: string | null;
   supplierFilter: string | null;
+  supplierOptions: string[];
+  filtersActive: boolean;
+  searchElsewhere: SearchElsewhere | null;
+  onShowElsewhere: (found: SearchElsewhere) => void;
   search: string;
   isAdmin: boolean;
   showCompletion: boolean;
@@ -2503,9 +2531,9 @@ function PhysicalCount({
         ...catalogCandidates.filter((item) => !category || (item.category?.trim() || NO_CATEGORY) === category)
           .map((item) => item.subcategory?.trim() || NO_SUBCATEGORY),
       ])].sort().map((name) => ({ name, category: category ?? "", completed: 0, total: 0 }));
-  const visibleRows = supplierFilter
-    ? rows.filter((row) => supplierInfo.get(row.product_id)?.name === supplierFilter)
-    : rows;
+  // Il filtro fornitore è già applicato dalla regola unica delle card (selectInventoryCards).
+  const visibleRows = rows;
+  const filteredSummary = summarizeCards(visibleRows);
 
   // Barra compatta (ricerca + filtri) mostrata solo quando la ricerca originale esce dallo schermo.
   const cycleLock = useContext(CycleLockContext);
@@ -2664,7 +2692,18 @@ function PhysicalCount({
 
       <div className="overflow-hidden rounded-md border border-border bg-card">
         <div className="overflow-hidden rounded-md border border-border bg-card">
-          {scope !== "Tutto l'inventario" ? (
+          {sessionActive ? (
+            <div className="border-b border-border px-2 py-1 text-xs text-muted-foreground">
+              <p aria-live="polite">
+                <strong className="text-foreground">{filtersActive ? "Vista filtrata" : "Vista completa"}</strong>
+                {" · "}{filteredSummary.cards} card · {filteredSummary.products} prodotti · {filteredSummary.confirmed} confermate
+                {" · "}{filteredSummary.pending} da controllare · {filteredSummary.differences} differenze
+              </p>
+              {filtersActive ? (
+                <p className="mt-0.5">«Conferma inventario» controlla comunque tutte le card previste dalla sessione, anche quelle non visualizzate.</p>
+              ) : null}
+            </div>
+          ) : scope !== "Tutto l'inventario" ? (
             <p className="border-b border-border px-2 py-1 text-xs text-muted-foreground">
               <strong className="text-foreground">{scope}</strong> · {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? visibleRows.length} completati
             </p>
@@ -2718,10 +2757,7 @@ function PhysicalCount({
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs">Fornitore</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => onSupplierChange(null)}>Tutti i fornitori</DropdownMenuItem>
-                {[...new Set([
-                  ...catalogCandidates.map((item) => item.sellerCompanyName),
-                  ...[...supplierInfo.values()].flatMap((item) => item.name ? [item.name] : []),
-                ])].sort().map((name) => (
+                {supplierOptions.map((name) => (
                   <DropdownMenuItem key={name} onClick={() => onSupplierChange(name)}>{name}</DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
@@ -2861,8 +2897,17 @@ function PhysicalCount({
           {!visibleRows.length && !catalogCandidates.length ? (
             <div className="p-8 text-center">
               <PackageSearch className="mx-auto size-8 text-muted-foreground" />
-              <p className="mt-2 text-sm font-medium">{loading ? "Caricamento…" : "Nessun prodotto in questa vista"}</p>
-              <p className="text-xs text-muted-foreground">Cambia filtro o selezione per continuare.</p>
+              <p className="mt-2 text-sm font-medium">
+                {loading ? "Caricamento…" : search.trim() && !searchElsewhere && sessionActive ? "Nessun prodotto trovato" : "Nessun prodotto in questa vista"}
+              </p>
+              {!loading && searchElsewhere ? (
+                <div className="mt-1 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <span>{elsewhereText(searchElsewhere)}</span>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onShowElsewhere(searchElsewhere)}>Mostra</Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Cambia filtro o selezione per continuare.</p>
+              )}
             </div>
           ) : null}
 
