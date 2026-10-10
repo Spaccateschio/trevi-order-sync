@@ -5,6 +5,10 @@
 - [x] Aspetto della barra: banda blu notte (token sidebar) con scritta chiara centrata a tutta larghezza, «Bozza salvata» sopra in piccolo; verificato 1280/390 px, barra fissa dopo lo scorrimento e ultima card libera; build automatica OK, non pubblicata.
 - [x] Stessa barra fissa per la Lista della Spesa: «Conferma lista» con il riepilogo dei prodotti sopra, comando in fondo all'elenco sostituito dalla barra, pulsante in alto lasciato com'è; verificati 1280/390 px con scorrimento fino in fondo e nessuna sovrapposizione alla navigazione; build OK, non pubblicata.
 
+## Inventario — filtri, contatori e stampa
+- [x] Parte 1: regola unica delle card (Preferiti = stella prodotto o card; stato, ricerca, zona, categoria, sottocategoria, fornitore combinati); riepilogo filtrato card/prodotti; «Trovato in» per ricerche escluse; Stampa vista attuale Rapida/Dettagliata + Stampa tutto l'inventario; avviso conferma con filtri. Solo anteprima.
+- [ ] Parte 2: U.M. nella card Inventario — solo analisi consegnata, in attesa di decisioni.
+
 ## Fatto
 - [x] Prodotto ↔ Fornitori: `product_supplier_links`, coda riconciliazione Danea, funzioni protette, sezione Fornitori nella scheda prodotto (nessuna regola automatica di priorità tra costo Danea e costo manuale)
 - [x] Vista inversa Fornitore → Prodotti forniti: tab nel dettaglio fornitore, ricerca/filtri, modifica condizioni, attiva/disattiva, preferito, associazione multipla, apertura scheda prodotto (unica fonte `product_supplier_links`, scritture solo via RPC esistenti)

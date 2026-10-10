@@ -9,9 +9,9 @@ const row = (p: Partial<InventoryPrintRow>): InventoryPrintRow => ({
 
 describe("stampa inventario", () => {
   const rows = [row({ name: "Zucca" }), row({ name: "Aglio", counted: 5 }), row({ name: "Banana", favorite: false })];
-  it("rapida e dettagliata: solo preferiti in ordine alfabetico", () => {
-    assert.deepEqual(selectPrintRows(rows, "rapida").map((r) => r.name), ["Aglio", "Zucca"]);
-    assert.deepEqual(selectPrintRows(rows, "dettagliata").map((r) => r.name), ["Aglio", "Zucca"]);
+  it("rapida e dettagliata: stampano le card ricevute (già filtrate), senza preferiti automatici", () => {
+    assert.deepEqual(selectPrintRows(rows, "rapida").map((r) => r.name), ["Aglio", "Banana", "Zucca"]);
+    assert.deepEqual(selectPrintRows(rows, "dettagliata").map((r) => r.name), ["Aglio", "Banana", "Zucca"]);
   });
   it("completa: anche i non preferiti", () => {
     assert.deepEqual(selectPrintRows(rows, "completa").map((r) => r.name), ["Aglio", "Banana", "Zucca"]);
