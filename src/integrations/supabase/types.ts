@@ -5851,9 +5851,28 @@ export type Database = {
         }
         Returns: string
       }
+      _inventory_card_stock: {
+        Args: { _link_id: string; _location_id: string; _product_id: string }
+        Returns: {
+          counted_at: string
+          counted_by: string
+          has_count: boolean
+          quantity: number
+        }[]
+      }
       _link_active_list_usage: {
         Args: { _company_id: string; _link_id: string }
         Returns: Json
+      }
+      _resolve_session_card: {
+        Args: {
+          _explicit: boolean
+          _link_id: string
+          _location_id: string
+          _product_id: string
+          _session_id: string
+        }
+        Returns: string
       }
       _shopping_list_close_plan: {
         Args: { _list_id: string }
@@ -6364,6 +6383,28 @@ export type Database = {
         }
         Returns: boolean
       }
+      inventory_card_stock: {
+        Args: { _link_id: string; _location_id: string; _product_id: string }
+        Returns: {
+          counted_at: string
+          counted_by: string
+          has_count: boolean
+          quantity: number
+        }[]
+      }
+      inventory_cards_for: {
+        Args: {
+          _company_id: string
+          _location_id: string
+          _manual?: boolean
+          _product_id: string
+        }
+        Returns: {
+          label: string
+          product_supplier_link_id: string
+          rule: string
+        }[]
+      }
       inventory_count_history: {
         Args: {
           _company_id: string
@@ -6383,7 +6424,9 @@ export type Database = {
           non_compliant_quantity: number
           note: string
           previous_quantity: number
+          product_supplier_link_id: string
           session_id: string
+          supplier_name: string
           unit_code: string
         }[]
       }
@@ -6447,6 +6490,8 @@ export type Database = {
         }
         Returns: {
           calculated: number
+          card_favorite: boolean
+          card_label: string
           category: string
           code: string
           counted: number
@@ -6458,6 +6503,7 @@ export type Database = {
           difference: number
           image_path: string
           is_favorite: boolean
+          link_active: boolean
           location_id: string
           location_name: string
           min_stock: number
@@ -6467,12 +6513,15 @@ export type Database = {
           note: string
           order_multiple: number
           product_id: string
+          product_supplier_link_id: string
           proposal_flagged_at: string
           proposal_status: string
           recount_requested_at: string
           stock_unit_code: string
           stock_unit_missing: boolean
           subcategory: string
+          supplier_name: string
+          supplier_record_id: string
           thumbnail_path: string
           units_comparable: boolean
         }[]
@@ -6680,6 +6729,8 @@ export type Database = {
       manage_inventory_count_draft: {
         Args: {
           _action: string
+          _card_explicit?: boolean
+          _link_id?: string
           _location_id?: string
           _product_id?: string
           _quantity?: string
@@ -7128,7 +7179,9 @@ export type Database = {
       record_inventory_adjustment: {
         Args: {
           _actor_user_id?: string
+          _card_explicit?: boolean
           _company_id: string
+          _link_id?: string
           _location_id: string
           _notes?: string
           _product_id: string
@@ -7141,8 +7194,10 @@ export type Database = {
       record_inventory_count: {
         Args: {
           _actor_user_id?: string
+          _card_explicit?: boolean
           _company_id: string
           _counted_quantity: number
+          _link_id?: string
           _location_id: string
           _notes?: string
           _product_id: string
@@ -7155,9 +7210,11 @@ export type Database = {
       record_inventory_count_entry: {
         Args: {
           _actor_user_id?: string
+          _card_explicit?: boolean
           _company_id: string
           _counted_quantity?: number
           _entry_type?: string
+          _link_id?: string
           _location_id: string
           _non_compliant?: boolean
           _non_compliant_quantity?: number

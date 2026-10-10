@@ -267,6 +267,13 @@
       "when": 1791645660903,
       "tag": "0037_0037_modello2_struttura_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1791645974530,
+      "tag": "0038_0038_modello2_funzioni_v2",
+      "breakpoints": true
     }
   ]
 }
