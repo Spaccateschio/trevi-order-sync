@@ -2856,13 +2856,18 @@ function PhysicalCount({
             </div>
           ) : null}
 
-          <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid gap-2 border-t border-border bg-card px-3 py-2 sm:flex sm:items-center sm:justify-end sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
+          <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
             {savedDraftCount ? (
-              <span className="min-w-0 text-[11px] text-muted-foreground sm:mr-auto">
+              <span className="min-w-0 text-center text-[11px] text-sidebar-foreground/70">
                 Bozza salvata · {savedDraftCount} {savedDraftCount === 1 ? "quantità non confermata" : "quantità non confermate"}
               </span>
             ) : null}
-            <Button size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={onConfirmAll}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-full max-w-md shrink-0 justify-center bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground"
+              onClick={onConfirmAll}
+            >
               <CheckCheck /> Conferma inventario
             </Button>
           </div>
