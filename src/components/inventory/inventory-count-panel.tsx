@@ -1556,6 +1556,9 @@ export function InventoryCountPanel({
               non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
               min_stock: null, order_multiple: null, counted_unit_code: null, units_comparable: null,
               stock_unit_code: stockUnitCodeOf(product), stock_unit_missing: !product.stock_unit_id,
+              // Senza inventario aperto le card non esistono ancora: riga del prodotto.
+              product_supplier_link_id: null, supplier_record_id: null, supplier_name: null,
+              link_active: null, card_favorite: false, card_label: null,
             }))}
             catalogCandidates={[]}
             excludedCatalogCount={visibleCatalogCandidates.length}
