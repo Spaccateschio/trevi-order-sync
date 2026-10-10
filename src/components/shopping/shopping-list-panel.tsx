@@ -5,6 +5,7 @@ import {
   AlarmClock,
   AlertTriangle,
   ArrowDownAZ,
+  CheckCheck,
   MoreVertical,
   Plus,
   LayoutGrid,
@@ -1059,7 +1060,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24 lg:pb-16">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <Select value={list?.id ?? ""} onValueChange={setListId}>
