@@ -610,6 +610,55 @@ export type Database = {
           },
         ]
       }
+      company_product_supplier_favorites: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          product_id: string
+          product_supplier_link_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id: string
+          product_supplier_link_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id?: string
+          product_supplier_link_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_product_supplier_favorites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_product_supplier_favorites_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cpsf_link_fkey"
+            columns: ["product_supplier_link_id", "company_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id", "company_id", "product_id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           company_id: string
@@ -1646,6 +1695,7 @@ export type Database = {
           location_id: string
           notes: string | null
           product_id: string
+          product_supplier_link_id: string | null
           quantity: number
           reason: string
           reference_count_id: string | null
@@ -1658,6 +1708,7 @@ export type Database = {
           location_id: string
           notes?: string | null
           product_id: string
+          product_supplier_link_id?: string | null
           quantity: number
           reason: string
           reference_count_id?: string | null
@@ -1670,6 +1721,7 @@ export type Database = {
           location_id?: string
           notes?: string | null
           product_id?: string
+          product_supplier_link_id?: string | null
           quantity?: number
           reason?: string
           reference_count_id?: string | null
@@ -1681,6 +1733,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_adjustments_link_fkey"
+            columns: ["product_supplier_link_id", "company_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id", "company_id", "product_id"]
           },
           {
             foreignKeyName: "inventory_adjustments_location_id_fkey"
@@ -1712,6 +1771,7 @@ export type Database = {
           id: string
           location_id: string
           product_id: string
+          product_supplier_link_id: string | null
           quantity: string
           session_id: string
           unit_code: string | null
@@ -1724,6 +1784,7 @@ export type Database = {
           id?: string
           location_id: string
           product_id: string
+          product_supplier_link_id?: string | null
           quantity: string
           session_id: string
           unit_code?: string | null
@@ -1736,6 +1797,7 @@ export type Database = {
           id?: string
           location_id?: string
           product_id?: string
+          product_supplier_link_id?: string | null
           quantity?: string
           session_id?: string
           unit_code?: string | null
@@ -1749,6 +1811,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_drafts_link_fkey"
+            columns: ["product_supplier_link_id", "company_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id", "company_id", "product_id"]
           },
           {
             foreignKeyName: "inventory_count_drafts_location_id_fkey"
@@ -1787,6 +1856,7 @@ export type Database = {
           note: string | null
           previous_quantity: number | null
           product_id: string
+          product_supplier_link_id: string | null
           session_id: string
           unit_code: string | null
           unit_id: string | null
@@ -1804,6 +1874,7 @@ export type Database = {
           note?: string | null
           previous_quantity?: number | null
           product_id: string
+          product_supplier_link_id?: string | null
           session_id: string
           unit_code?: string | null
           unit_id?: string | null
@@ -1821,6 +1892,7 @@ export type Database = {
           note?: string | null
           previous_quantity?: number | null
           product_id?: string
+          product_supplier_link_id?: string | null
           session_id?: string
           unit_code?: string | null
           unit_id?: string | null
@@ -1832,6 +1904,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_entries_link_fkey"
+            columns: ["product_supplier_link_id", "company_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id", "company_id", "product_id"]
           },
           {
             foreignKeyName: "inventory_count_entries_location_id_fkey"
@@ -1881,6 +1960,7 @@ export type Database = {
           notes: string | null
           previous_quantity: number
           product_id: string
+          product_supplier_link_id: string | null
           recount_requested_at: string | null
           recount_requested_by: string | null
           session_id: string
@@ -1907,6 +1987,7 @@ export type Database = {
           notes?: string | null
           previous_quantity?: number
           product_id: string
+          product_supplier_link_id?: string | null
           recount_requested_at?: string | null
           recount_requested_by?: string | null
           session_id: string
@@ -1933,6 +2014,7 @@ export type Database = {
           notes?: string | null
           previous_quantity?: number
           product_id?: string
+          product_supplier_link_id?: string | null
           recount_requested_at?: string | null
           recount_requested_by?: string | null
           session_id?: string
@@ -1949,6 +2031,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_link_fkey"
+            columns: ["product_supplier_link_id", "company_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id", "company_id", "product_id"]
           },
           {
             foreignKeyName: "inventory_counts_location_id_fkey"
@@ -2051,6 +2140,7 @@ export type Database = {
           original_unit_id: string | null
           package_id: string | null
           product_id: string
+          product_supplier_link_id: string | null
           quantity: number
           source_id: string | null
           source_table: string | null
@@ -2075,6 +2165,7 @@ export type Database = {
           original_unit_id?: string | null
           package_id?: string | null
           product_id: string
+          product_supplier_link_id?: string | null
           quantity: number
           source_id?: string | null
           source_table?: string | null
@@ -2099,6 +2190,7 @@ export type Database = {
           original_unit_id?: string | null
           package_id?: string | null
           product_id?: string
+          product_supplier_link_id?: string | null
           quantity?: number
           source_id?: string | null
           source_table?: string | null
@@ -2121,6 +2213,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_link_fkey"
+            columns: ["product_supplier_link_id", "company_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id", "company_id", "product_id"]
           },
           {
             foreignKeyName: "inventory_movements_location_id_fkey"
@@ -2238,6 +2337,7 @@ export type Database = {
           id: string
           location_id: string
           product_id: string
+          product_supplier_link_id: string | null
           session_id: string
         }
         Insert: {
@@ -2246,6 +2346,7 @@ export type Database = {
           id?: string
           location_id: string
           product_id: string
+          product_supplier_link_id?: string | null
           session_id: string
         }
         Update: {
@@ -2254,6 +2355,7 @@ export type Database = {
           id?: string
           location_id?: string
           product_id?: string
+          product_supplier_link_id?: string | null
           session_id?: string
         }
         Relationships: [
@@ -2263,6 +2365,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_session_products_link_fkey"
+            columns: ["product_supplier_link_id", "company_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id", "company_id", "product_id"]
           },
           {
             foreignKeyName: "inventory_session_products_location_id_fkey"
@@ -4930,6 +5039,7 @@ export type Database = {
           producer_lot_code: string | null
           producer_name: string | null
           product_id: string
+          product_supplier_link_id: string | null
           status: Database["public"]["Enums"]["stock_lot_status"]
           supplier_record_id: string | null
           unit_code: string | null
@@ -4952,6 +5062,7 @@ export type Database = {
           producer_lot_code?: string | null
           producer_name?: string | null
           product_id: string
+          product_supplier_link_id?: string | null
           status?: Database["public"]["Enums"]["stock_lot_status"]
           supplier_record_id?: string | null
           unit_code?: string | null
@@ -4974,6 +5085,7 @@ export type Database = {
           producer_lot_code?: string | null
           producer_name?: string | null
           product_id?: string
+          product_supplier_link_id?: string | null
           status?: Database["public"]["Enums"]["stock_lot_status"]
           supplier_record_id?: string | null
           unit_code?: string | null
@@ -5002,6 +5114,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "goods_receipt_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_lots_link_fkey"
+            columns: ["product_supplier_link_id", "company_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "product_supplier_links"
+            referencedColumns: ["id", "company_id", "product_id"]
           },
           {
             foreignKeyName: "stock_lots_location_id_fkey"
@@ -5732,9 +5851,28 @@ export type Database = {
         }
         Returns: string
       }
+      _inventory_card_stock: {
+        Args: { _link_id: string; _location_id: string; _product_id: string }
+        Returns: {
+          counted_at: string
+          counted_by: string
+          has_count: boolean
+          quantity: number
+        }[]
+      }
       _link_active_list_usage: {
         Args: { _company_id: string; _link_id: string }
         Returns: Json
+      }
+      _resolve_session_card: {
+        Args: {
+          _explicit: boolean
+          _link_id: string
+          _location_id: string
+          _product_id: string
+          _session_id: string
+        }
+        Returns: string
       }
       _shopping_list_close_plan: {
         Args: { _list_id: string }
@@ -6245,6 +6383,28 @@ export type Database = {
         }
         Returns: boolean
       }
+      inventory_card_stock: {
+        Args: { _link_id: string; _location_id: string; _product_id: string }
+        Returns: {
+          counted_at: string
+          counted_by: string
+          has_count: boolean
+          quantity: number
+        }[]
+      }
+      inventory_cards_for: {
+        Args: {
+          _company_id: string
+          _location_id: string
+          _manual?: boolean
+          _product_id: string
+        }
+        Returns: {
+          label: string
+          product_supplier_link_id: string
+          rule: string
+        }[]
+      }
       inventory_count_history: {
         Args: {
           _company_id: string
@@ -6264,7 +6424,9 @@ export type Database = {
           non_compliant_quantity: number
           note: string
           previous_quantity: number
+          product_supplier_link_id: string
           session_id: string
+          supplier_name: string
           unit_code: string
         }[]
       }
@@ -6328,6 +6490,8 @@ export type Database = {
         }
         Returns: {
           calculated: number
+          card_favorite: boolean
+          card_label: string
           category: string
           code: string
           counted: number
@@ -6339,6 +6503,7 @@ export type Database = {
           difference: number
           image_path: string
           is_favorite: boolean
+          link_active: boolean
           location_id: string
           location_name: string
           min_stock: number
@@ -6348,12 +6513,15 @@ export type Database = {
           note: string
           order_multiple: number
           product_id: string
+          product_supplier_link_id: string
           proposal_flagged_at: string
           proposal_status: string
           recount_requested_at: string
           stock_unit_code: string
           stock_unit_missing: boolean
           subcategory: string
+          supplier_name: string
+          supplier_record_id: string
           thumbnail_path: string
           units_comparable: boolean
         }[]
@@ -6411,6 +6579,10 @@ export type Database = {
       link_supplier_record_to_relation: {
         Args: { _relation_id: string; _supplier_record_id: string }
         Returns: string
+      }
+      manage_card_favorite: {
+        Args: { _company_id: string; _favorite: boolean; _link_id: string }
+        Returns: boolean
       }
       manage_company_delivery_preferences: {
         Args: {
@@ -6557,6 +6729,8 @@ export type Database = {
       manage_inventory_count_draft: {
         Args: {
           _action: string
+          _card_explicit?: boolean
+          _link_id?: string
           _location_id?: string
           _product_id?: string
           _quantity?: string
@@ -7005,7 +7179,9 @@ export type Database = {
       record_inventory_adjustment: {
         Args: {
           _actor_user_id?: string
+          _card_explicit?: boolean
           _company_id: string
+          _link_id?: string
           _location_id: string
           _notes?: string
           _product_id: string
@@ -7018,8 +7194,10 @@ export type Database = {
       record_inventory_count: {
         Args: {
           _actor_user_id?: string
+          _card_explicit?: boolean
           _company_id: string
           _counted_quantity: number
+          _link_id?: string
           _location_id: string
           _notes?: string
           _product_id: string
@@ -7032,9 +7210,11 @@ export type Database = {
       record_inventory_count_entry: {
         Args: {
           _actor_user_id?: string
+          _card_explicit?: boolean
           _company_id: string
           _counted_quantity?: number
           _entry_type?: string
+          _link_id?: string
           _location_id: string
           _non_compliant?: boolean
           _non_compliant_quantity?: number
