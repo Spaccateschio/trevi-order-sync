@@ -2260,6 +2260,10 @@ export function InventoryCountPanel({
                         {new Date(entry.created_at).toLocaleString("it-IT")} · {ENTRY_LABELS[entry.entry_type]}
                         {entry.location_name ? ` · ${entry.location_name}` : ""}
                       </p>
+                      <p className="text-[11px] font-semibold text-foreground">
+                        Card: {entry.product_supplier_link_id ? (entry.supplier_name ?? "Fornitore") : "Senza fornitore"}
+                        {historyRow && (historyRow.product_supplier_link_id ?? null) === (entry.product_supplier_link_id ?? null) ? " (questa card)" : ""}
+                      </p>
                       <p className="text-muted-foreground">
                         {entry.counted_quantity === null
                           ? "Quantità non modificata"
