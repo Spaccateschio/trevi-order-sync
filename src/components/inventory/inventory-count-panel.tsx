@@ -71,6 +71,9 @@ import {
   getCountHistory,
   getInventoryProgress,
   getInventoryRows,
+  getInventoryScreenVersion,
+  manageCardFavorite,
+  INVENTORY_SCREEN_VERSION,
   getFavoriteProductIds,
   getCompanyHasFavorites,
   getSupplierCatalogCandidates,
@@ -180,7 +183,14 @@ const CardLockContext = createContext<{
   unlocked: Set<string>;
   toggle: (key: string) => void;
   pending: boolean;
-}>({ unlocked: new Set(), toggle: () => {}, pending: false });
+  /** false = schermata non allineata al server: nessun salvataggio finché non si ricarica. */
+  canSave: boolean;
+  isAdmin: boolean;
+  toggleCardFavorite: (row: InventoryCountRow) => void;
+  cardFavoritePending: boolean;
+  /** Numero di card per prodotto+ubicazione nell'elenco visibile. */
+  groupSize: Map<string, number>;
+}>({ unlocked: new Set(), toggle: () => {}, pending: false, canSave: true, isAdmin: false, toggleCardFavorite: () => {}, cardFavoritePending: false, groupSize: new Map() });
 
 /** Semaforo rosso senza inventario aperto: campi bloccati, solo «Correggi conteggio» sui conteggi del ciclo. */
 const CycleLockContext = createContext<{
@@ -1216,6 +1226,31 @@ export function InventoryCountPanel({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Stella della card: il database consente solo agli amministratori.
+  const cardFavoriteFn = useServerFn(manageCardFavorite);
+  const cardFavoriteMutation = useMutation({
+    mutationFn: (row: InventoryCountRow) => {
+      if (!row.product_supplier_link_id) throw new Error("La card «Senza fornitore» non ha stella propria");
+      return cardFavoriteFn({ data: { companyId, linkId: row.product_supplier_link_id, favorite: !row.card_favorite } });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["inventory-rows"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  // Controllo di versione: schermata e server devono coincidere prima di salvare.
+  const versionFn = useServerFn(getInventoryScreenVersion);
+  const versionQuery = useQuery({
+    queryKey: ["inventory-screen-version"],
+    queryFn: () => versionFn(),
+    refetchOnWindowFocus: true,
+    refetchInterval: 5 * 60 * 1000,
+  });
+  const screenOutdated = Boolean(
+    versionQuery.data && (versionQuery.data.version !== INVENTORY_SCREEN_VERSION || !versionQuery.data.databaseReady),
+  );
+
   const favoriteMutation = useMutation({
     mutationFn: (input: { productId: string; favorite: boolean }) =>
       toggleFavorite({ data: { companyId, productId: input.productId, favorite: input.favorite } }),
@@ -1465,6 +1500,11 @@ export function InventoryCountPanel({
           <CardLockContext.Provider value={{
             unlocked: unlockedCards,
             pending: countMutation.isPending || firstCount.isPending,
+            canSave: !screenOutdated,
+            isAdmin,
+            toggleCardFavorite: (row) => cardFavoriteMutation.mutate(row),
+            cardFavoritePending: cardFavoriteMutation.isPending,
+            groupSize: cardGroupSize,
             toggle: (key) => setUnlockedCards((current) => {
               const next = new Set(current);
               if (next.has(key)) next.delete(key); else next.add(key);
