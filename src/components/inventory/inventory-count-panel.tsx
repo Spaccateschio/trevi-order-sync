@@ -2529,7 +2529,7 @@ function PhysicalCount({
   }, []);
 
   return (
-    <section className="space-y-2">
+    <section className="space-y-2 pb-24 lg:pb-16">
       <div
         ref={stickyHeaderRef}
         className={cn(
@@ -2856,13 +2856,13 @@ function PhysicalCount({
             </div>
           ) : null}
 
-          <div className="grid gap-2 border-t border-border p-2 sm:flex sm:items-center sm:justify-end">
+          <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid gap-2 border-t border-border bg-card px-3 py-2 sm:flex sm:items-center sm:justify-end sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
             {savedDraftCount ? (
-              <span className="text-[11px] text-muted-foreground sm:mr-auto">
+              <span className="min-w-0 text-[11px] text-muted-foreground sm:mr-auto">
                 Bozza salvata · {savedDraftCount} {savedDraftCount === 1 ? "quantità non confermata" : "quantità non confermate"}
               </span>
             ) : null}
-            <Button size="sm" variant="outline" onClick={onConfirmAll}>
+            <Button size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={onConfirmAll}>
               <CheckCheck /> Conferma inventario
             </Button>
           </div>
