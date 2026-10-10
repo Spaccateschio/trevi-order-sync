@@ -260,6 +260,13 @@
       "when": 1791565119912,
       "tag": "0036_b2b_acquistabilita_unica_0036",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1791645660903,
+      "tag": "0037_0037_modello2_struttura_v2",
+      "breakpoints": true
     }
   ]
 }
