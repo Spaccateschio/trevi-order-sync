@@ -1540,7 +1540,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 {pendingEntries.length ? ` · ${pendingEntries.length} da valutare` : ""}
                 {summary.open ? (
                   <span className="block text-muted-foreground">
-                    I prodotti senza fornitore diventeranno acquisti diretti.
+                    Ogni prodotto deve avere un fornitore o una quota di acquisto diretto prima della conferma.
                   </span>
                 ) : null}
               </span>
