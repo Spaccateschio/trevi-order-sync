@@ -5,7 +5,18 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { SendOrderDialog, type SendChannel } from "@/components/purchase/send-order-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { draftCloseAction, draftStateFromSaved, isDraftDirty, type DraftEditState } from "@/lib/draft-editor";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -470,8 +481,6 @@ type DraftItem = {
   product_supplier_links: { supplier_company_id: string | null } | null;
 };
 
-// Modifiche non salvate delle bozze: restano finché la pagina è aperta, anche chiudendo la finestra.
-const unsavedDrafts = new Map<string, { delivery: Delivery; qty: Record<string, string> }>();
 
 function DraftOrderEditor({
   companyId,
@@ -526,34 +535,14 @@ function DraftOrderEditor({
     },
   });
 
-  const [state, setState] = useState<{ delivery: Delivery; qty: Record<string, string> } | null>(() => unsavedDrafts.get(orderId) ?? null);
+  const [state, setState] = useState<DraftEditState | null>(null);
   useEffect(() => {
     if (state || !order.data) return;
-    const o = order.data.order;
-    setState({
-      delivery: {
-        date: o.delivery_date ?? "",
-        from: o.delivery_time_from?.slice(0, 5) ?? "",
-        to: o.delivery_time_to?.slice(0, 5) ?? "",
-        address: o.delivery_address_text ?? "",
-        notes: o.supplier_notes ?? "",
-      },
-      qty: Object.fromEntries(order.data.items.map((i) => [i.id, String(i.purchase_quantity)])),
-    });
+    setState(draftStateFromSaved(order.data.order, order.data.items));
   }, [order.data, state]);
-  useEffect(() => {
-    if (state) unsavedDrafts.set(orderId, state);
-  }, [orderId, state]);
 
   const isB2b = Boolean(order.data?.order.relation_id);
-  const dirty = (() => {
-    if (!state || !order.data) return false;
-    const o = order.data.order;
-    const d = state.delivery;
-    if (d.date !== (o.delivery_date ?? "") || d.from !== (o.delivery_time_from?.slice(0, 5) ?? "") || d.to !== (o.delivery_time_to?.slice(0, 5) ?? "")
-      || d.address !== (o.delivery_address_text ?? "") || d.notes !== (o.supplier_notes ?? "")) return true;
-    return order.data.items.some((i) => state.qty[i.id] !== String(i.purchase_quantity));
-  })();
+  const dirty = isDraftDirty(state, order.data?.order ?? null, order.data?.items ?? []);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -568,7 +557,7 @@ function DraftOrderEditor({
       await runUpdate({ data: { orderId, lines, delivery: toDeliveryPayload(state.delivery) } });
     },
     onSuccess: async () => {
-      unsavedDrafts.delete(orderId);
+      
       setState(null);
       await order.refetch();
       await onChanged(false);
@@ -584,7 +573,7 @@ function DraftOrderEditor({
     },
     onSuccess: async (res) => {
       changeKey.current = null;
-      unsavedDrafts.delete(orderId);
+      
       toast.success("Fornitore cambiato: nuova bozza creata");
       await onChanged(false, res.order_id);
     },
@@ -600,7 +589,7 @@ function DraftOrderEditor({
     },
     onSuccess: async (closed) => {
       setSendOpen(false);
-      unsavedDrafts.delete(orderId);
+      
       toast.success("Ordine inviato");
       await onChanged(Boolean(closed), null);
       if (!closed) onClose();
@@ -608,21 +597,33 @@ function DraftOrderEditor({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const [confirmClose, setConfirmClose] = useState(false);
+  const o = order.data?.order;
+  const editable = o?.status === "bozza";
   const close = () => {
-    // Le modifiche non salvate restano conservate (unsavedDrafts) e si ritrovano riaprendo la bozza.
+    if (draftCloseAction(dirty, editable) === "ask") { setConfirmClose(true); return; }
     onClose();
   };
 
-  const o = order.data?.order;
-  const editable = o?.status === "bozza";
-
   return (
     <Dialog open onOpenChange={(next) => { if (!next) close(); }}>
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Modifiche non salvate</AlertDialogTitle>
+            <AlertDialogDescription>Se chiudi ora, le modifiche a quantità e consegna andranno perse.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmClose(false); onClose(); }}>Chiudi senza salvare</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Bozza {o?.number ?? ""} · {o?.supplier_records?.legal_name ?? "Fornitore"}</DialogTitle>
           <DialogDescription>
-            {editable ? "Modifica quantità, consegna e note, poi invia. Le modifiche non salvate restano se chiudi la finestra." : "Questo ordine non è più una bozza."}
+            {editable ? "Modifica quantità, consegna e note, poi invia." : "Questo ordine non è più una bozza."}
           </DialogDescription>
         </DialogHeader>
         {!o || !state ? (
