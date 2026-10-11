@@ -289,11 +289,19 @@ export function InventoryEvaluation({
   };
 
   const inventoryLabel = `Inventario del ${cycle.finished_at ? dateTimeShort(cycle.finished_at) : "—"}`;
-  // Contatore dal database: solo righe salvate da_acquistare con quantità > 0 e non ancora in Lista.
-  const typed = toEvaluate
-    .map((row) => saved.get(row.product_id))
-    .filter((row): row is EvaluationRow => row?.status === "da_acquistare" && Number(row.decided_quantity) > 0)
-    .map((row) => ({ product_id: row.product_id, quantity: Number(row.decided_quantity) }));
+  // Quantità appena scritta nel campo (non ancora salvata uscendo dal campo) prevale sulla riga salvata:
+  // così «Aggiungi alla Lista» include subito anche l'ultima quantità. Altrimenti: righe salvate da_acquistare > 0.
+  const typed = toEvaluate.flatMap((row) => {
+    const raw = (values[row.product_id] ?? "").trim();
+    if (raw) {
+      const value = parseQuantity(raw);
+      return value !== null && value > 0 ? [{ product_id: row.product_id, quantity: value }] : [];
+    }
+    const savedRow = saved.get(row.product_id);
+    return savedRow?.status === "da_acquistare" && Number(savedRow.decided_quantity) > 0
+      ? [{ product_id: row.product_id, quantity: Number(savedRow.decided_quantity) }]
+      : [];
+  });
   const invalid = toEvaluate.filter((row) => {
     const raw = (values[row.product_id] ?? "").trim();
     if (!raw) return false;
