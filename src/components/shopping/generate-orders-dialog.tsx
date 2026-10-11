@@ -557,7 +557,7 @@ function DraftOrderEditor({
       await runUpdate({ data: { orderId, lines, delivery: toDeliveryPayload(state.delivery) } });
     },
     onSuccess: async () => {
-      unsavedDrafts.delete(orderId);
+      
       setState(null);
       await order.refetch();
       await onChanged(false);
@@ -573,7 +573,7 @@ function DraftOrderEditor({
     },
     onSuccess: async (res) => {
       changeKey.current = null;
-      unsavedDrafts.delete(orderId);
+      
       toast.success("Fornitore cambiato: nuova bozza creata");
       await onChanged(false, res.order_id);
     },
@@ -589,7 +589,7 @@ function DraftOrderEditor({
     },
     onSuccess: async (closed) => {
       setSendOpen(false);
-      unsavedDrafts.delete(orderId);
+      
       toast.success("Ordine inviato");
       await onChanged(Boolean(closed), null);
       if (!closed) onClose();
@@ -623,7 +623,7 @@ function DraftOrderEditor({
         <DialogHeader>
           <DialogTitle>Bozza {o?.number ?? ""} · {o?.supplier_records?.legal_name ?? "Fornitore"}</DialogTitle>
           <DialogDescription>
-            {editable ? "Modifica quantità, consegna e note, poi invia. Le modifiche non salvate restano se chiudi la finestra." : "Questo ordine non è più una bozza."}
+            {editable ? "Modifica quantità, consegna e note, poi invia." : "Questo ordine non è più una bozza."}
           </DialogDescription>
         </DialogHeader>
         {!o || !state ? (
