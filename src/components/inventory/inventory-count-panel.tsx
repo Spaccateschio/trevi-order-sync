@@ -102,6 +102,7 @@ import { InventorySessionCounter } from "@/components/inventory/inventory-sessio
 import { dateTimeShort, type SessionRow } from "@/lib/inventory";
 import { INVENTORY_SCREEN_VERSION, cardKey, cardTitle, compareCards, groupKey, parseCardKey, productCardTotal, rowCardKey } from "@/lib/inventory-cards";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
+import { InventoryProductDialog } from "@/components/inventory/inventory-product-dialog";
 
 type ProductView = "favorites" | "all";
 type WorkFilter = "all" | "pending" | "completed" | "differences" | "not_comparable" | "recount" | "missing_unit";
@@ -346,6 +347,9 @@ export function InventoryCountPanel({
   const [proposalRow, setProposalRow] = useState<InventoryCountRow | null>(null);
   const [proposalNote, setProposalNote] = useState("");
   const [historyRow, setHistoryRow] = useState<InventoryCountRow | null>(null);
+  // Scheda prodotto in finestra: l'Inventario resta montato sotto (filtri, bozze, scorrimento intatti).
+  const [productDialogRow, setProductDialogRow] = useState<InventoryCountRow | null>(null);
+  const productReturnScroll = useRef(0);
   const fieldPreferences = useInventoryFieldPreferences("inventario-conteggio");
 
 
@@ -1794,6 +1798,7 @@ export function InventoryCountPanel({
               setProposalNote("");
             }}
             onHistory={(row) => setHistoryRow(row)}
+            onOpenProduct={(row) => { productReturnScroll.current = window.scrollY; setProductDialogRow(row); }}
             onCloseInventory={() => closeMutation.mutate()}
             // Ciclo concluso (verde/arancione): le card sono pronte per un nuovo conteggio,
             // senza le quantità dell'inventario precedente. Il passato resta nello storico.
@@ -2240,6 +2245,7 @@ export function InventoryCountPanel({
         </DialogContent>
       </Dialog>
 
+      <InventoryProductDialog productId={productDialogRow?.product_id ?? null} supplierLinkId={productDialogRow?.product_supplier_link_id ?? null} supplierName={productDialogRow ? (productDialogRow.supplier_name ?? null) : null} returnScrollY={productReturnScroll.current} onClose={() => setProductDialogRow(null)} />
       <InventoryHistoryDialog
         companyId={companyId}
         archiveId={archiveId}
@@ -2445,6 +2451,7 @@ function PhysicalCount({
   onRevokeNonCompliance,
   onProposal,
   onHistory,
+  onOpenProduct,
   onCloseInventory,
   lastClosed,
   onViewLastClosed,
@@ -2508,6 +2515,7 @@ function PhysicalCount({
   onRevokeNonCompliance: (row: InventoryCountRow) => void;
   onProposal: (row: InventoryCountRow) => void;
   onHistory: (row: InventoryCountRow) => void;
+  onOpenProduct: (row: InventoryCountRow) => void;
   onCloseInventory: () => void;
   lastClosed: { name: string; counted: number; total: number; finishedAt: string | null; author: string | null } | null;
   onViewLastClosed: () => void;
@@ -2879,6 +2887,7 @@ function PhysicalCount({
                       onRevokeNonCompliance={() => onRevokeNonCompliance(row)}
                       onProposal={() => onProposal(row)}
                       onHistory={() => onHistory(row)}
+                      onOpenProduct={() => onOpenProduct(row)}
                       history={stockHistory ? (stockHistory.get(row.product_id) ?? null) : null}
                     />
                   ),
@@ -3001,6 +3010,7 @@ function ProductCard({
   onRevokeNonCompliance,
   onProposal,
   onHistory,
+  onOpenProduct,
   history,
 }: {
   companyId: string;
@@ -3020,6 +3030,7 @@ function ProductCard({
   onRevokeNonCompliance: () => void;
   onProposal: () => void;
   onHistory: () => void;
+  onOpenProduct: () => void;
   history?: StockHistory | null;
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
@@ -3253,10 +3264,8 @@ function ProductCard({
               <DropdownMenuItem onClick={onHistory} disabled={!actionsEnabled}>
                 <History className="size-3.5" /> Storico dei controlli
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/acquisti/prodotti" search={{ prodotto: row.product_id }}>
-                  <ExternalLink className="size-3.5" /> Apri prodotto → Acquisto
-                </Link>
+              <DropdownMenuItem onClick={onOpenProduct}>
+                <ExternalLink className="size-3.5" /> Apri prodotto → Acquisto
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
 import { Columns3, Download, Eye, EyeOff, FileUp, MoreHorizontal, PackagePlus, Printer, Ruler, RotateCcw, Search, SlidersHorizontal, SquareCheckBig } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -96,8 +96,13 @@ function sortProducts(products: ProductRow[], sorting: SortingState, archives: M
  * Cambiano solo la vista salvata delle colonne (gridKey), le colonne iniziali e il tab
  * su cui si apre la scheda. I prodotti, le query e la scheda sono gli stessi.
  */
-export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialVisibleColumns }: {
+export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialVisibleColumns, sheetOnly, onSheetClose, sheetBeforeClose, sheetBanner }: {
   gridKey: string;
+  /** Solo la scheda prodotto (es. finestra dall'Inventario): stessi dati, controlli e permessi della pagina. */
+  sheetOnly?: boolean;
+  onSheetClose?: () => void;
+  sheetBeforeClose?: () => boolean;
+  sheetBanner?: ReactNode;
   prodottoParam?: string | undefined;
   initialTab: ProductsWorkspaceTab;
   initialVisibleColumns?: string[];
@@ -481,6 +486,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
 
   // FASE 1: i prodotti propri esistono anche senza profilo di vendita (prodotti manuali e
   // referenze aggiunte dai cataloghi fornitore), quindi la pagina è aperta anche a chi compra.
+  if (sheetOnly) return <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => { if (sheetBeforeClose && !sheetBeforeClose()) return; setSelected(null); onSheetClose?.(); }} initialTab={initialTab} wide banner={sheetBanner} />;
   if (!identityLoading && !companySells(identity) && !companyBuys(identity)) return <AppShell title="Prodotti" description="Area non disponibile."><p className="text-sm text-muted-foreground">Nessun profilo di acquisto o vendita attivo per la tua azienda.</p></AppShell>;
 
   const filterSelects = (stacked: boolean) => {
