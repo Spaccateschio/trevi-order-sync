@@ -307,7 +307,7 @@ export function ProductDetailSheet({
   initialTab?: ProductDetailTab;
   /** Finestra ampia su computer e a tutto schermo su smartphone (usata dall'Inventario). */
   wide?: boolean;
-  banner?: React.ReactNode;
+  banner?: ReactNode;
 }) {
   return (
     <Sheet open={Boolean(product)} onOpenChange={(open) => !open && onClose()}>

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
 import { Columns3, Download, Eye, EyeOff, FileUp, MoreHorizontal, PackagePlus, Printer, Ruler, RotateCcw, Search, SlidersHorizontal, SquareCheckBig } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -102,7 +102,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
   sheetOnly?: boolean;
   onSheetClose?: () => void;
   sheetBeforeClose?: () => boolean;
-  sheetBanner?: React.ReactNode;
+  sheetBanner?: ReactNode;
   prodottoParam?: string | undefined;
   initialTab: ProductsWorkspaceTab;
   initialVisibleColumns?: string[];
