@@ -10,7 +10,8 @@ import { ProductsWorkspace } from "@/components/products/products-workspace";
  * Scheda prodotto completa in finestra sopra l'Inventario: riusa ProductsWorkspace in modalità
  * sheetOnly (stessi dati, salvataggi e permessi della pagina Prodotti). L'Inventario resta montato.
  */
-export function InventoryProductDialog({ productId, supplierLinkId, supplierName, onClose }: {
+export function InventoryProductDialog({ productId, supplierLinkId, supplierName, returnScrollY, onClose }: {
+  returnScrollY: number;
   productId: string | null;
   supplierLinkId: string | null;
   supplierName: string | null;
@@ -18,13 +19,11 @@ export function InventoryProductDialog({ productId, supplierLinkId, supplierName
 }) {
   const queryClient = useQueryClient();
   const dirtyRef = useRef(false);
-  const scrollRef = useRef(0);
 
   // Modifiche non salvate: un campo della finestra modificato dopo l'ultimo salvataggio riuscito.
   useEffect(() => {
     if (!productId) return;
     dirtyRef.current = false;
-    scrollRef.current = window.scrollY;
     const onInput = (event: Event) => {
       const target = event.target as HTMLElement | null;
       if (target?.closest("[data-inventory-product-sheet]")?.contains(target) || target?.closest('[role="dialog"]')) dirtyRef.current = true;
@@ -48,7 +47,7 @@ export function InventoryProductDialog({ productId, supplierLinkId, supplierName
     });
     onClose();
     // Riporta l'Inventario allo stesso punto (la chiusura della finestra rimette il focus sul menu).
-    const y = scrollRef.current;
+    const y = returnScrollY;
     for (const delay of [0, 120, 400, 900]) window.setTimeout(() => window.scrollTo({ top: y }), delay);
   };
 

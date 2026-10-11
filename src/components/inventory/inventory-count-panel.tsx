@@ -349,6 +349,7 @@ export function InventoryCountPanel({
   const [historyRow, setHistoryRow] = useState<InventoryCountRow | null>(null);
   // Scheda prodotto in finestra: l'Inventario resta montato sotto (filtri, bozze, scorrimento intatti).
   const [productDialogRow, setProductDialogRow] = useState<InventoryCountRow | null>(null);
+  const productReturnScroll = useRef(0);
   const fieldPreferences = useInventoryFieldPreferences("inventario-conteggio");
 
 
@@ -1797,7 +1798,7 @@ export function InventoryCountPanel({
               setProposalNote("");
             }}
             onHistory={(row) => setHistoryRow(row)}
-            onOpenProduct={(row) => setProductDialogRow(row)}
+            onOpenProduct={(row) => { productReturnScroll.current = window.scrollY; setProductDialogRow(row); }}
             onCloseInventory={() => closeMutation.mutate()}
             // Ciclo concluso (verde/arancione): le card sono pronte per un nuovo conteggio,
             // senza le quantità dell'inventario precedente. Il passato resta nello storico.
@@ -2244,7 +2245,7 @@ export function InventoryCountPanel({
         </DialogContent>
       </Dialog>
 
-      <InventoryProductDialog productId={productDialogRow?.product_id ?? null} supplierLinkId={productDialogRow?.product_supplier_link_id ?? null} supplierName={productDialogRow ? (productDialogRow.supplier_name ?? null) : null} onClose={() => setProductDialogRow(null)} />
+      <InventoryProductDialog productId={productDialogRow?.product_id ?? null} supplierLinkId={productDialogRow?.product_supplier_link_id ?? null} supplierName={productDialogRow ? (productDialogRow.supplier_name ?? null) : null} returnScrollY={productReturnScroll.current} onClose={() => setProductDialogRow(null)} />
       <InventoryHistoryDialog
         companyId={companyId}
         archiveId={archiveId}
