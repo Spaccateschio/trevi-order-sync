@@ -288,6 +288,27 @@
       "when": 1791650616835,
       "tag": "0040_initial_stock_unit_from_card",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791734053034,
+      "tag": "0041_fase1_genera_ordini_m1_colonne",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1791734259319,
+      "tag": "0042_fase1_genera_ordini_m2_funzioni",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791734415488,
+      "tag": "0043_fase1_m2_fix_cambio_fornitore",
+      "breakpoints": true
     }
   ]
 }
