@@ -8,6 +8,7 @@ import { DeliveryComparisonPanel } from "./delivery-comparison-panel";
 import { DeliveryDeclarationPanel } from "./delivery-declaration-panel";
 import { GoodsReceiptPanel } from "./goods-receipt-panel";
 import { OrderDeliverySection } from "./order-delivery-section";
+import { SendOrderDialog, type SendChannel } from "./send-order-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,6 +67,7 @@ export function PurchaseOrderDetail({
   const runRevoke = useServerFn(revokeOrderShareLink);
 
   const [openDeliveryId, setOpenDeliveryId] = useState<string | null>(null);
+  const [sendOpen, setSendOpen] = useState(false);
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
@@ -139,6 +141,7 @@ export function PurchaseOrderDetail({
     mutationFn: (payload: {
       action: "send" | "set_destination" | "cancel" | "close";
       destinationLocationId?: string;
+      sendChannel?: SendChannel | null;
     }) =>
       runOrder({
         data: {
@@ -146,9 +149,11 @@ export function PurchaseOrderDetail({
           action: payload.action,
           destinationLocationId: payload.destinationLocationId ?? null,
           notes: null,
+          sendChannel: payload.sendChannel ?? null,
         },
       }),
     onSuccess: async () => {
+      setSendOpen(false);
       await refresh();
       toast.success("Ordine aggiornato");
     },
@@ -316,9 +321,20 @@ export function PurchaseOrderDetail({
 
       <div className="flex flex-wrap gap-2">
         {draft ? (
-          <Button onClick={() => action.mutate({ action: "send" })} disabled={action.isPending}>
-            <Send className="mr-1 h-4 w-4" /> Invia l'ordine al fornitore
-          </Button>
+          <>
+            <Button onClick={() => setSendOpen(true)} disabled={action.isPending}>
+              <Send className="mr-1 h-4 w-4" /> Invia l'ordine al fornitore
+            </Button>
+            <SendOrderDialog
+              open={sendOpen}
+              onOpenChange={setSendOpen}
+              isB2b={(itemsQuery.data ?? []).some((item) => Boolean(item.product_supplier_links?.supplier_company_id))}
+              supplierName={order.supplier_name}
+              orderNumber={order.number}
+              pending={action.isPending}
+              onConfirm={(channel) => action.mutate({ action: "send", sendChannel: channel })}
+            />
+          </>
         ) : null}
         {order.status === "inviato" || order.status === "parzialmente_consegnato" ? (
           <>

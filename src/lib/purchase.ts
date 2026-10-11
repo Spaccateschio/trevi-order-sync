@@ -268,6 +268,9 @@ export function outcomeTone(outcome: ComparisonOutcome) {
  * Prezzo nella riga d'ordine: solo indicativo di listino, mai un totale.
  * Per prodotti a peso variabile il valore reale nasce al carico sul peso ricevuto.
  */
+/** Dicitura unica quando manca il prezzo di vendita B2B (prezzo NULL, mai zero). */
+export const MISSING_SELLING_PRICE = "Prezzo di vendita non inserito";
+
 export function orderPriceNote(input: {
   unitCost: number | null;
   priceUnitCode: string | null;
@@ -277,7 +280,7 @@ export function orderPriceNote(input: {
   const priceUnit = (input.priceUnitCode ?? "").trim();
   const purchaseUnit = (input.purchaseUnitCode ?? "").trim();
   if (input.unitCost === null || input.unitCost === undefined) {
-    return input.isB2b ? { price: "Prezzo su richiesta", weigh: false } : null;
+    return input.isB2b ? { price: MISSING_SELLING_PRICE, weigh: false } : null;
   }
   const weigh = priceUnit.toLowerCase() === "kg" && purchaseUnit.toLowerCase() !== "kg";
   return { price: `Prezzo indicativo di listino: ${priceLabel(input.unitCost, priceUnit || null)}`, weigh };

@@ -6912,6 +6912,7 @@ export type Database = {
           _destination_location_id?: string
           _notes?: string
           _order_id: string
+          _send_channel?: string
         }
         Returns: string
       }
@@ -7734,6 +7735,10 @@ export type Database = {
         }[]
       }
       shopping_list_close_preview: { Args: { _list_id: string }; Returns: Json }
+      shopping_list_generation_preview: {
+        Args: { _list_id: string }
+        Returns: Json
+      }
       shopping_list_item_state: {
         Args: { _item_id: string }
         Returns: {
