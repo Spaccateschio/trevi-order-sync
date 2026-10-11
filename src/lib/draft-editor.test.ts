@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+const expect = (v: unknown) => ({ toBe: (x: unknown) => assert.equal(v, x) });
 import { draftCloseAction, draftStateFromSaved, isDraftDirty, type DraftEditState } from "./draft-editor";
 
 const saved: { delivery_date: string | null; delivery_time_from: string | null; delivery_time_to: string | null; delivery_address_text: string | null; supplier_notes: string | null } = { delivery_date: "2026-10-12", delivery_time_from: "08:00:00", delivery_time_to: "10:00:00", delivery_address_text: "Via Roma 1", supplier_notes: null };
