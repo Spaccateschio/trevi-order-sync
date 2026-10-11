@@ -309,6 +309,13 @@
       "when": 1791734415488,
       "tag": "0043_fase1_m2_fix_cambio_fornitore",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791743580953,
+      "tag": "0044_fase1_m3_invio_semaforo_anteprima",
+      "breakpoints": true
     }
   ]
 }

@@ -43,11 +43,14 @@ export const managePurchaseOrder = createServerFn({ method: "POST" })
         action: z.enum(["send", "set_destination", "notes", "cancel", "close"]),
         destinationLocationId: uuid.nullable(),
         notes: z.string().trim().max(1000).nullable(),
+        // Canale d'invio: obbligatorio per i fornitori non B2B (controllo nel database).
+        sendChannel: z.enum(["whatsapp", "email", "sms", "telefono", "di_persona", "altro"]).nullable().optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.rpc("manage_purchase_order", {
+      ...(data.sendChannel ? { _send_channel: data.sendChannel } : {}),
       _order_id: data.orderId,
       _action: data.action,
       _actor_user_id: context.userId,

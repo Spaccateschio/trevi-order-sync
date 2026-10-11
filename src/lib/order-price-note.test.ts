@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { orderPriceNote } from "./purchase";
 
-test("B2B senza prezzo = Prezzo su richiesta", () => {
-  assert.equal(orderPriceNote({ unitCost: null, priceUnitCode: "pz", purchaseUnitCode: "pz", isB2b: true })?.price, "Prezzo su richiesta");
+test("B2B senza prezzo = Prezzo di vendita non inserito", () => {
+  assert.equal(orderPriceNote({ unitCost: null, priceUnitCode: "pz", purchaseUnitCode: "pz", isB2b: true })?.price, "Prezzo di vendita non inserito");
 });
 
 test("prezzo al kg ordinato in cassa = Da pesare al carico", () => {

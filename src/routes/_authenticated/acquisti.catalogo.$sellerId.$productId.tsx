@@ -245,7 +245,7 @@ function CatalogProductPage() {
             <div className="rounded-xl border border-border bg-card p-4">
               <p className="text-xs uppercase text-muted-foreground">Prezzo</p>
               {price === null ? (
-                <p className="text-sm">Prezzo confermato dal fornitore in fase d'ordine.</p>
+                <p className="text-sm">Prezzo di vendita non inserito</p>
               ) : (
                 <p className="text-2xl font-semibold tabular-nums">
                   {euro(price)}

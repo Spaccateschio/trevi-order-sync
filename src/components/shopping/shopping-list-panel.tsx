@@ -31,6 +31,7 @@ import { DISPLAY_FIELDS, useCardDisplay } from "./card-display";
 import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { CloseListDialog } from "./close-list-dialog";
+import { GenerateOrdersDialog } from "./generate-orders-dialog";
 import { ListHistoryDialog } from "./list-history-dialog";
 import { ListDeliveryDate, useProposeListDate } from "./list-delivery-date";
 import { getCompanyHasFavorites, getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
@@ -150,6 +151,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runList = useServerFn(manageShoppingList);
   const proposeListDate = useProposeListDate(companyId);
   const [closeOpen, setCloseOpen] = useState(false);
+  // «Genera ordini» sostituisce «Conferma lista»; resta montato per conservare le modifiche non salvate.
+  const [genOpen, setGenOpen] = useState<null | "genera" | "bozze">(null);
+  const [genMounted, setGenMounted] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [newListOpen, setNewListOpen] = useState(false);
   const runQuantity = useServerFn(setShoppingListItemQuantity);
@@ -1098,8 +1102,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               >
                 Annulla lista
               </Button>
-              <Button type="button" size="sm" disabled={listMutation.isPending} onClick={() => setCloseOpen(true)}>
-                Conferma lista
+              <Button type="button" size="sm" variant="outline" disabled={listMutation.isPending} onClick={() => { setGenMounted(list?.id ?? null); setGenOpen("bozze"); }}>
+                Bozze
+              </Button>
+              <Button type="button" size="sm" disabled={listMutation.isPending} onClick={() => { setGenMounted(list?.id ?? null); setGenOpen("genera"); }}>
+                Genera ordini
               </Button>
             </>
           ) : null}
@@ -1568,9 +1575,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             variant="ghost"
             className="w-full max-w-md shrink-0 justify-center bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground"
             disabled={listMutation.isPending}
-            onClick={() => setCloseOpen(true)}
+            onClick={() => { setGenMounted(list?.id ?? null); setGenOpen("genera"); }}
           >
-            <CheckCheck /> Conferma lista
+            <CheckCheck /> Genera ordini
           </Button>
         </div>
       ) : null}
@@ -1587,6 +1594,24 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         />
       ) : null}
 
+      {list && editable && genMounted === list.id ? (
+        <GenerateOrdersDialog
+          companyId={companyId}
+          listId={list.id}
+          open={genOpen !== null}
+          mode={genOpen ?? "genera"}
+          onOpenChange={(next) => { if (!next) setGenOpen(null); }}
+          onGoToItem={(itemId) => {
+            setGenOpen(null);
+            window.setTimeout(() => document.getElementById(`item-${itemId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
+          }}
+          onListClosed={() => {
+            setGenOpen(null);
+            setGenMounted(null);
+            setListId(null);
+          }}
+        />
+      ) : null}
       {closeOpen && list && editable ? (
         <CloseListDialog
           companyId={companyId}
