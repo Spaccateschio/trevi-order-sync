@@ -4338,12 +4338,14 @@ export type Database = {
           delivery_time_to: string | null
           destination_address_id: string | null
           destination_location_id: string
+          generation_key: string | null
           id: string
           notes: string | null
           number: string
           relation_id: string | null
           seen_by_supplier_at: string | null
           seen_by_supplier_by: string | null
+          send_channel: string | null
           send_status: string
           sent_at: string | null
           shopping_list_id: string | null
@@ -4369,12 +4371,14 @@ export type Database = {
           delivery_time_to?: string | null
           destination_address_id?: string | null
           destination_location_id: string
+          generation_key?: string | null
           id?: string
           notes?: string | null
           number: string
           relation_id?: string | null
           seen_by_supplier_at?: string | null
           seen_by_supplier_by?: string | null
+          send_channel?: string | null
           send_status?: string
           sent_at?: string | null
           shopping_list_id?: string | null
@@ -4400,12 +4404,14 @@ export type Database = {
           delivery_time_to?: string | null
           destination_address_id?: string | null
           destination_location_id?: string
+          generation_key?: string | null
           id?: string
           notes?: string | null
           number?: string
           relation_id?: string | null
           seen_by_supplier_at?: string | null
           seen_by_supplier_by?: string | null
+          send_channel?: string | null
           send_status?: string
           sent_at?: string | null
           shopping_list_id?: string | null
@@ -4565,6 +4571,10 @@ export type Database = {
           conversion_type:
             | Database["public"]["Enums"]["sale_conversion_type"]
             | null
+          coverage_confirmed_at: string | null
+          coverage_confirmed_by: string | null
+          coverage_quantity: number | null
+          coverage_unit_code: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -4591,6 +4601,10 @@ export type Database = {
           conversion_type?:
             | Database["public"]["Enums"]["sale_conversion_type"]
             | null
+          coverage_confirmed_at?: string | null
+          coverage_confirmed_by?: string | null
+          coverage_quantity?: number | null
+          coverage_unit_code?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -4617,6 +4631,10 @@ export type Database = {
           conversion_type?:
             | Database["public"]["Enums"]["sale_conversion_type"]
             | null
+          coverage_confirmed_at?: string | null
+          coverage_confirmed_by?: string | null
+          coverage_quantity?: number | null
+          coverage_unit_code?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -4698,6 +4716,10 @@ export type Database = {
           decided_quantity: number | null
           decided_unit_code: string | null
           decided_unit_id: string | null
+          direct_purchase_id: string | null
+          excluded_at: string | null
+          excluded_by: string | null
+          exclusion_reason: string | null
           id: string
           inventory_changed_at: string | null
           inventory_previous_quantity: number | null
@@ -4733,6 +4755,10 @@ export type Database = {
           decided_quantity?: number | null
           decided_unit_code?: string | null
           decided_unit_id?: string | null
+          direct_purchase_id?: string | null
+          excluded_at?: string | null
+          excluded_by?: string | null
+          exclusion_reason?: string | null
           id?: string
           inventory_changed_at?: string | null
           inventory_previous_quantity?: number | null
@@ -4768,6 +4794,10 @@ export type Database = {
           decided_quantity?: number | null
           decided_unit_code?: string | null
           decided_unit_id?: string | null
+          direct_purchase_id?: string | null
+          excluded_at?: string | null
+          excluded_by?: string | null
+          exclusion_reason?: string | null
           id?: string
           inventory_changed_at?: string | null
           inventory_previous_quantity?: number | null
@@ -5817,6 +5847,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _assignment_residual: {
+        Args: { _assignment_id: string; _exclude_line_id?: string }
+        Returns: number
+      }
       _delivery_open_core: {
         Args: {
           _actor_user_id: string
@@ -5887,6 +5921,10 @@ export type Database = {
           unit_code: string
           unit_id: string
         }[]
+      }
+      _shopping_list_try_complete: {
+        Args: { _actor: string; _list_id: string }
+        Returns: boolean
       }
       _unit_offered_by_other_links: {
         Args: {
@@ -6099,6 +6137,16 @@ export type Database = {
         Args: { _invitation_id: string }
         Returns: undefined
       }
+      change_draft_supplier: {
+        Args: {
+          _generation_key: string
+          _manual_unit_code?: string
+          _new_supplier_record_id: string
+          _order_id: string
+          _purchase_unit_id?: string
+        }
+        Returns: Json
+      }
       close_general_inventory: {
         Args: {
           _actor_user_id?: string
@@ -6137,6 +6185,10 @@ export type Database = {
           rounded: boolean
           suggested: number
         }[]
+      }
+      confirm_assignment_coverage: {
+        Args: { _assignment_id: string; _confirm?: boolean }
+        Returns: Json
       }
       confirm_goods_receipt: {
         Args: { _actor_user_id?: string; _receipt_id: string }
@@ -6354,6 +6406,16 @@ export type Database = {
         Returns: string
       }
       generate_invite_code: { Args: never; Returns: string }
+      generate_supplier_order: {
+        Args: {
+          _assignment_ids?: string[]
+          _delivery?: Json
+          _generation_key: string
+          _list_id: string
+          _supplier_record_id: string
+        }
+        Returns: Json
+      }
       goods_receipt_history: {
         Args: { _product_id: string }
         Returns: {
@@ -6877,6 +6939,15 @@ export type Database = {
         }
         Returns: string
       }
+      manage_shopping_list_exclusion: {
+        Args: {
+          _action: string
+          _item_ids: string[]
+          _list_id: string
+          _reason?: string
+        }
+        Returns: Json
+      }
       manage_supplier_destination: {
         Args: {
           _action: string
@@ -7279,6 +7350,10 @@ export type Database = {
           _vat_number?: string
         }
         Returns: string
+      }
+      register_direct_purchase: {
+        Args: { _item_id: string; _notes?: string }
+        Returns: Json
       }
       relation_is_operational: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
@@ -7740,6 +7815,10 @@ export type Database = {
       }
       unlink_supplier_preview: {
         Args: { _company_id: string; _link_id: string }
+        Returns: Json
+      }
+      update_draft_order: {
+        Args: { _delivery?: Json; _lines?: Json; _order_id: string }
         Returns: Json
       }
     }
