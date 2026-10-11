@@ -24,7 +24,7 @@ function AcquistiProdottiPage() {
     <ProductsWorkspace
       gridKey="acquisti.prodotti"
       prodottoParam={prodotto}
-      initialTab="acquisto"
+      initialTab="prodotto"
       initialVisibleColumns={["description", "code", "danea_um", "supplier_name", "supplier_product_code", "purchase_cost", "supplier_price", "danea_cost", "category"]}
     />
   );
