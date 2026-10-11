@@ -291,6 +291,8 @@ export function ProductDetailSheet({
   companyUnits,
   saleUnits,
   initialTab = "prodotto",
+  wide = false,
+  banner,
 }: {
   product: ProductRow | null;
   archiveName: string;
@@ -303,10 +305,14 @@ export function ProductDetailSheet({
   saleUnits: ProductSaleUnit[];
   /** Tab iniziale: Vendite → Prodotti apre "vendita", Acquisti → Prodotti apre "acquisto". */
   initialTab?: ProductDetailTab;
+  /** Finestra ampia su computer e a tutto schermo su smartphone (usata dall'Inventario). */
+  wide?: boolean;
+  banner?: React.ReactNode;
 }) {
   return (
     <Sheet open={Boolean(product)} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full max-w-none overflow-y-auto p-4 sm:w-[560px] sm:max-w-[560px] sm:p-6">
+      <SheetContent side="right" className={wide ? "h-dvh w-full max-w-none overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 md:w-[min(960px,92vw)] md:max-w-[min(960px,92vw)]" : "w-full max-w-none overflow-y-auto p-4 sm:w-[560px] sm:max-w-[560px] sm:p-6"}>
+        {banner}
         {product ? <ProductDetailContent key={product.id} product={product} archiveName={archiveName} listName={listName} isAdmin={isAdmin} cost={cost} companyId={companyId} companyUnits={companyUnits} saleUnits={saleUnits} initialTab={initialTab} /> : null}
       </SheetContent>
     </Sheet>
