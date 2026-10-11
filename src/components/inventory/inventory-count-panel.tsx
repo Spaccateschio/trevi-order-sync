@@ -911,6 +911,32 @@ export function InventoryCountPanel({
         || compareCards(left, right)),
     [cardFilters, sessionCards],
   );
+  // Quantità scritte prima dell'apertura: chiave «prodotto:ubicazione:-» → card reale della sessione.
+  // Una sola card (o una sola con stella) = trasferita; più card senza scelta univoca = avviso, nessuna assegnazione arbitraria.
+  useEffect(() => {
+    if (!sessionId || !autoStartPending || !allRowsQuery.data) return;
+    setAutoStartPending(false);
+    const pending = Object.entries(draftFirst);
+    if (!pending.length) return;
+    const moved: Record<string, string> = {};
+    const unassigned: string[] = [];
+    for (const [key, value] of pending) {
+      const parsed = parseCardKey(key);
+      if (!parsed) continue;
+      const cards = allRowsQuery.data.filter((row) => row.product_id === parsed.productId && row.location_id === parsed.locationId);
+      const starred = cards.filter((row) => row.card_favorite);
+      const target = cards.length === 1 ? cards[0] : starred.length === 1 ? starred[0] : null;
+      if (target) moved[rowKey(target)] = value;
+      else unassigned.push(cards[0]?.code ?? parsed.productId);
+    }
+    setDrafts((current) => ({ ...current, ...moved }));
+    setDraftFirst({});
+    for (const [key, value] of Object.entries(moved)) scheduleDraftSave(key, value);
+    if (unassigned.length) {
+      toast.warning(`Quantità da riscrivere sulla card del fornitore giusto: ${unassigned.join(", ")}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, autoStartPending, allRowsQuery.data]);
   const searchElsewhere = useMemo(
     () => (rows.length ? null : findSearchElsewhere(sessionCards, cardFilters, cardSupplierName)),
     [cardFilters, rows.length, sessionCards],
