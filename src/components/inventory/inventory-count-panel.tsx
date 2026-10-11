@@ -3265,7 +3265,7 @@ function ProductCard({
                 <History className="size-3.5" /> Storico dei controlli
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onOpenProduct}>
-                <ExternalLink className="size-3.5" /> Apri prodotto → Acquisto
+                <ExternalLink className="size-3.5" /> Apri prodotto → Inventario
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

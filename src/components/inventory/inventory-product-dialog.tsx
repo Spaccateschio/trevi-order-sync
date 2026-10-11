@@ -74,7 +74,7 @@ export function InventoryProductDialog({ productId, supplierLinkId, supplierName
       key={productId}
       gridKey="acquisti.prodotti"
       prodottoParam={productId}
-      initialTab="acquisto"
+      initialTab="inventario"
       sheetOnly
       sheetBanner={banner}
       sheetBeforeClose={confirmClose}
