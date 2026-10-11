@@ -469,16 +469,7 @@ export function InventoryCountPanel({
   // Prima quantità scritta senza inventario aperto: apre l'inventario e porta le quantità in bozza.
   const autoStartRef = useRef(false);
   const [autoStartPending, setAutoStartPending] = useState(false);
-  useEffect(() => {
-    if (!sessionId || !autoStartPending) return;
-    setAutoStartPending(false);
-    const pending = Object.entries(draftFirst);
-    if (!pending.length) return;
-    setDrafts((current) => ({ ...current, ...draftFirst }));
-    setDraftFirst({});
-    for (const [key, value] of pending) scheduleDraftSave(key, value);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, autoStartPending]);
+  // Il trasferimento in bozza avviene più sotto, quando le card della sessione sono caricate.
 
   function scheduleDraftSave(key: string, raw: string) {
     if (!sessionId) return;
