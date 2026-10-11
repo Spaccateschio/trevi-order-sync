@@ -4,7 +4,7 @@ import { AlertTriangle, ChevronDown, FileText, Loader2, Send, ShoppingBag, Truck
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { SendOrderDialog } from "@/components/purchase/send-order-dialog";
+import { SendOrderDialog, type SendChannel } from "@/components/purchase/send-order-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -204,7 +204,7 @@ export function GenerateOrdersDialog({
             const lines = reduced
               .map((l) => ({
                 line_id: rows?.find((r) => r.source_assignment_id === l.assignment_id)?.id ?? "",
-                purchase_quantity: Number(d.lines[l.assignment_id].quantity.replace(",", ".")),
+                purchase_quantity: Number((d.lines[l.assignment_id]?.quantity ?? "").replace(",", ".")),
               }))
               .filter((l) => l.line_id);
             if (lines.length) await runUpdate({ data: { orderId: res.order_id, lines, delivery: null } });
@@ -293,7 +293,7 @@ export function GenerateOrdersDialog({
                 ))}
               </ul>
               <DialogFooter className="gap-2">
-                <Button variant="outline" onClick={() => { onOpenChange(false); onGoToItem(data.issues[0].item_id); }}>Sistema le quantità</Button>
+                <Button variant="outline" onClick={() => { onOpenChange(false); onGoToItem(data.issues[0]?.item_id ?? ""); }}>Sistema le quantità</Button>
                 <Button onClick={() => setStep("fornitori")}>Procedi comunque</Button>
               </DialogFooter>
             </div>
@@ -345,7 +345,7 @@ export function GenerateOrdersDialog({
                                     className="mt-1"
                                     checked={ln?.included ?? false}
                                     disabled={!d.selected}
-                                    onCheckedChange={(v) => setDraft(s.supplier_record_id, (x) => ({ ...x, lines: { ...x.lines, [l.assignment_id]: { ...x.lines[l.assignment_id], included: v === true } } }))}
+                                    onCheckedChange={(v) => setDraft(s.supplier_record_id, (x) => ({ ...x, lines: { ...x.lines, [l.assignment_id]: { quantity: x.lines[l.assignment_id]?.quantity ?? "", included: v === true } } }))}
                                   />
                                   <div className="min-w-0">
                                     <p className="truncate font-medium">{l.code ? `${l.code} · ` : ""}{l.name}</p>
@@ -363,7 +363,7 @@ export function GenerateOrdersDialog({
                                       className="h-8 text-right"
                                       value={ln?.quantity ?? ""}
                                       disabled={!d.selected || !ln?.included}
-                                      onChange={(e) => setDraft(s.supplier_record_id, (x) => ({ ...x, lines: { ...x.lines, [l.assignment_id]: { ...x.lines[l.assignment_id], quantity: e.target.value } } }))}
+                                      onChange={(e) => setDraft(s.supplier_record_id, (x) => ({ ...x, lines: { ...x.lines, [l.assignment_id]: { included: x.lines[l.assignment_id]?.included ?? true, quantity: e.target.value } } }))}
                                     />
                                     <span className="w-10 text-xs text-muted-foreground">{l.unit_code ?? ""}</span>
                                   </div>
@@ -561,7 +561,7 @@ function DraftOrderEditor({
       const lines = order.data.items
         .filter((i) => state.qty[i.id] !== String(i.purchase_quantity))
         .map((i) => {
-          const raw = state.qty[i.id].trim().replace(",", ".");
+          const raw = (state.qty[i.id] ?? "").trim().replace(",", ".");
           return { line_id: i.id, purchase_quantity: raw === "" ? 0 : Number(raw) };
         });
       if (lines.some((l) => !Number.isFinite(l.purchase_quantity) || l.purchase_quantity < 0)) throw new Error("Quantità non valida");
@@ -592,7 +592,7 @@ function DraftOrderEditor({
   });
 
   const send = useMutation({
-    mutationFn: async (channel: Parameters<typeof runOrder>[0]["data"]["sendChannel"]) => {
+    mutationFn: async (channel: SendChannel | null) => {
       await runOrder({ data: { orderId, action: "send", destinationLocationId: null, notes: null, sendChannel: channel ?? null } });
       if (!order.data?.order.shopping_list_id) return false;
       const { data } = await supabase.from("shopping_lists").select("status").eq("id", order.data.order.shopping_list_id).single();
