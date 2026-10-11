@@ -1,3 +1,4 @@
+import { resolveDraftTarget } from "@/lib/inventory-draft-transfer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CYCLE_QUERY_KEY } from "@/components/shopping/inventory-to-evaluate";
 import { getInventoryCycleStatus, type CycleStatus } from "@/lib/inventory-cycle.functions";
@@ -927,11 +928,9 @@ export function InventoryCountPanel({
     for (const [key, value] of pending) {
       const parsed = parseCardKey(key);
       if (!parsed) continue;
-      const cards = allRowsQuery.data.filter((row) => row.product_id === parsed.productId && row.location_id === parsed.locationId);
-      const starred = cards.filter((row) => row.card_favorite);
-      const target = cards.length === 1 ? cards[0] : starred.length === 1 ? starred[0] : null;
+      const target = resolveDraftTarget(allRowsQuery.data, parsed.productId, parsed.locationId);
       if (target) moved[rowKey(target)] = value;
-      else unassigned.push(cards[0]?.code ?? parsed.productId);
+      else unassigned.push(allRowsQuery.data.find((row) => row.product_id === parsed.productId)?.code ?? parsed.productId);
     }
     setDrafts((current) => ({ ...current, ...moved }));
     setDraftFirst({});
