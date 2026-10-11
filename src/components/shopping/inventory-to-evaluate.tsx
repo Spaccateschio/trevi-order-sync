@@ -21,6 +21,7 @@ import { manageInventoryEvaluation, type CycleStatus } from "@/lib/inventory-cyc
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { type ShoppingListRow } from "@/lib/shopping-list";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
+import { typedPurchaseQuantities } from "@/lib/inventory-draft-transfer";
 import { setInventoryPurchaseEvaluation } from "@/lib/inventory-evaluation.functions";
 import { evaluationCounts, statusFromQuantity, type EvaluationRow, type EvaluationStatus } from "@/lib/inventory-evaluation";
 
@@ -291,17 +292,7 @@ export function InventoryEvaluation({
   const inventoryLabel = `Inventario del ${cycle.finished_at ? dateTimeShort(cycle.finished_at) : "—"}`;
   // Quantità appena scritta nel campo (non ancora salvata uscendo dal campo) prevale sulla riga salvata:
   // così «Aggiungi alla Lista» include subito anche l'ultima quantità. Altrimenti: righe salvate da_acquistare > 0.
-  const typed = toEvaluate.flatMap((row) => {
-    const raw = (values[row.product_id] ?? "").trim();
-    if (raw) {
-      const value = parseQuantity(raw);
-      return value !== null && value > 0 ? [{ product_id: row.product_id, quantity: value }] : [];
-    }
-    const savedRow = saved.get(row.product_id);
-    return savedRow?.status === "da_acquistare" && Number(savedRow.decided_quantity) > 0
-      ? [{ product_id: row.product_id, quantity: Number(savedRow.decided_quantity) }]
-      : [];
-  });
+  const typed = typedPurchaseQuantities(toEvaluate.map((row) => row.product_id), values, saved);
   const invalid = toEvaluate.filter((row) => {
     const raw = (values[row.product_id] ?? "").trim();
     if (!raw) return false;
