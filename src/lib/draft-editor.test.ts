@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { draftCloseAction, draftStateFromSaved, isDraftDirty, type DraftEditState } from "./draft-editor";
 
-const saved = { delivery_date: "2026-10-12", delivery_time_from: "08:00:00", delivery_time_to: "10:00:00", delivery_address_text: "Via Roma 1", supplier_notes: null };
+const saved: { delivery_date: string | null; delivery_time_from: string | null; delivery_time_to: string | null; delivery_address_text: string | null; supplier_notes: string | null } = { delivery_date: "2026-10-12", delivery_time_from: "08:00:00", delivery_time_to: "10:00:00", delivery_address_text: "Via Roma 1", supplier_notes: null };
 const items = [{ id: "a", purchase_quantity: 20 }, { id: "b", purchase_quantity: 3 }];
 
 // Simula la finestra: apertura, modifica, chiusura (Annulla/Conferma), salvataggio.
@@ -55,7 +55,7 @@ describe("finestra Bozza", () => {
     e.requestClose();
     e.cancelClose();
     expect(e.open).toBe(true);
-    expect(e.state.qty.a).toBe("15");
+    expect(e.state.qty["a"]).toBe("15");
   });
 
   it("Conferma: si chiude senza salvare e la riapertura mostra solo i dati salvati", () => {
@@ -65,9 +65,9 @@ describe("finestra Bozza", () => {
     e.requestClose();
     e.confirmClose();
     expect(e.open).toBe(false);
-    expect(db.items[0].purchase_quantity).toBe(20);
+    expect(db.items[0]?.purchase_quantity).toBe(20);
     const r = openEditor(db);
-    expect(r.state.qty.a).toBe("20");
+    expect(r.state.qty["a"]).toBe("20");
     expect(r.state.delivery.date).toBe("2026-10-12");
   });
 
@@ -80,7 +80,7 @@ describe("finestra Bozza", () => {
     e.requestClose();
     expect(e.open).toBe(false);
     const r = openEditor(db);
-    expect(r.state.qty.a).toBe("15");
+    expect(r.state.qty["a"]).toBe("15");
     expect(r.state.delivery.date).toBe("2026-10-20");
   });
 });
