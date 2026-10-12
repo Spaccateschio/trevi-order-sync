@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { listCounters, memoryStillValid, visualPick } from "@/lib/supplier-selection";
 
 const s = (linkId: string, o: Partial<{ isB2B: boolean; sourceLinked: boolean; purchasable: boolean; isPreferred: boolean }> = {}) => ({
@@ -6,20 +7,20 @@ const s = (linkId: string, o: Partial<{ isB2B: boolean; sourceLinked: boolean; p
 });
 
 describe("spunta visiva prima della quantità", () => {
-  it("fornitore preferito ★ spuntato", () => expect(visualPick([s("a"), s("b", { isPreferred: true })], [])).toBe("b"));
-  it("fornitore unico spuntato", () => expect(visualPick([s("a")], [])).toBe("a"));
-  it("più fornitori senza stella: nessuna spunta", () => expect(visualPick([s("a"), s("b")], [])).toBeNull());
-  it("più stelle: nessuna spunta", () => expect(visualPick([s("a", { isPreferred: true }), s("b", { isPreferred: true })], [])).toBeNull());
-  it("deselezione volontaria prevale sulla stella", () => expect(visualPick([s("a", { isPreferred: true }), s("b")], ["a"])).toBeNull());
-  it("deselezione volontaria prevale sul fornitore unico", () => expect(visualPick([s("a")], ["a"])).toBeNull());
-  it("B2B non acquistabile mai spuntato", () => expect(visualPick([s("a", { isB2B: true, purchasable: false })], [])).toBeNull());
+  it("fornitore preferito ★ spuntato", () => assert.equal(visualPick([s("a"), s("b", { isPreferred: true })], []), "b"));
+  it("fornitore unico spuntato", () => assert.equal(visualPick([s("a")], []), "a"));
+  it("più fornitori senza stella: nessuna spunta", () => assert.equal(visualPick([s("a"), s("b")], []), null));
+  it("più stelle: nessuna spunta", () => assert.equal(visualPick([s("a", { isPreferred: true }), s("b", { isPreferred: true })], []), null));
+  it("deselezione volontaria prevale sulla stella", () => assert.equal(visualPick([s("a", { isPreferred: true }), s("b")], ["a"]), null));
+  it("deselezione volontaria prevale sul fornitore unico", () => assert.equal(visualPick([s("a")], ["a"]), null));
+  it("B2B non acquistabile mai spuntato", () => assert.equal(visualPick([s("a", { isB2B: true, purchasable: false })], []), null));
 });
 
 describe("memoria e stella", () => {
   it("stella cambiata dopo la Lista chiusa: la memoria non vale", () =>
-    expect(memoryStillValid("2026-10-01T10:00:00Z", "2026-10-05T10:00:00Z")).toBe(false));
-  it("stella cambiata prima: la memoria vale", () => expect(memoryStillValid("2026-10-05T10:00:00Z", "2026-10-01T10:00:00Z")).toBe(true));
-  it("nessuna stella manuale: la memoria vale", () => expect(memoryStillValid("2026-10-05T10:00:00Z", null)).toBe(true));
+    assert.equal(memoryStillValid("2026-10-01T10:00:00Z", "2026-10-05T10:00:00Z"), false));
+  it("stella cambiata prima: la memoria vale", () => assert.equal(memoryStillValid("2026-10-05T10:00:00Z", "2026-10-01T10:00:00Z"), true));
+  it("nessuna stella manuale: la memoria vale", () => assert.equal(memoryStillValid("2026-10-05T10:00:00Z", null), true));
 });
 
 describe("contatori", () => {
@@ -31,18 +32,18 @@ describe("contatori", () => {
   ];
   const c = listCounters({ catalogTotal: 120, favoriteIds: ["p1", "p2", "p9"], rows });
   it("Con quantità + Da inserire = In Lista (esclusi fuori)", () => {
-    expect(c.inList).toBe(3);
-    expect(c.withQuantity).toBe(2);
-    expect(c.toFill).toBe(1);
-    expect(c.excluded).toBe(1);
+    assert.equal(c.inList, 3);
+    assert.equal(c.withQuantity, 2);
+    assert.equal(c.toFill, 1);
+    assert.equal(c.excluded, 1);
   });
   it("preferiti totali distinti dai preferiti in Lista", () => {
-    expect(c.favorites).toBe(3);
-    expect(c.favInList).toBe(2);
+    assert.equal(c.favorites, 3);
+    assert.equal(c.favInList, 2);
   });
   it("preferiti compilati e mancanti; un preferito non in Lista non è mancante", () => {
-    expect(c.favFilled).toBe(1);
-    expect(c.favMissing).toBe(1);
+    assert.equal(c.favFilled, 1);
+    assert.equal(c.favMissing, 1);
   });
-  it("Prodotti = totale catalogo indipendente dal filtro", () => expect(c.products).toBe(120));
+  it("Prodotti = totale catalogo indipendente dal filtro", () => assert.equal(c.products, 120));
 });
