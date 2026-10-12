@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { SendOrderDialog, type SendChannel } from "@/components/purchase/send-order-dialog";
+import { OrderLineEdit } from "@/components/shopping/order-line-edit";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -358,8 +359,9 @@ export function GenerateOrdersDialog({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Conferma o annullamento (persistente, tracciato nel DB; revocabile finché la quota non è in un ordine).
   const coverage = useMutation({
-    mutationFn: (assignmentId: string) => runCoverage({ data: { assignmentId, confirm: true } }),
+    mutationFn: (p: { assignmentId: string; confirm: boolean }) => runCoverage({ data: p }),
     onSuccess: refresh,
     onError: (error: Error) => toast.error(error.message),
   });
@@ -471,7 +473,7 @@ export function GenerateOrdersDialog({
                             {s.lines.map((l: GenerationLine) => {
                               const ln = d.lines[l.assignment_id];
                               return (
-                                <div key={l.assignment_id} className="grid grid-cols-[auto_1fr] gap-2 rounded border border-border/60 p-2 text-sm sm:grid-cols-[auto_1fr_8rem]">
+                                <div key={l.assignment_id} className="grid grid-cols-[auto_1fr] gap-2 rounded border border-border/60 p-2 text-sm sm:grid-cols-[auto_1fr_8rem_auto]">
                                   <Checkbox
                                     className="mt-1"
                                     checked={ln?.included ?? false}
@@ -483,8 +485,15 @@ export function GenerateOrdersDialog({
                                     <p className="text-xs text-muted-foreground">{linePrice(l)}{l.notes ? ` · ${l.notes}` : ""}</p>
                                     {l.needs_coverage ? (
                                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                                        <span>Manca la conversione U.M.: conferma che vuoi acquistare {qty(l.quantity)} {l.unit_code ?? ""}.</span>
-                                        <Button size="sm" variant="outline" disabled={coverage.isPending} onClick={() => coverage.mutate(l.assignment_id)}>Confermo la quantità</Button>
+                                        <span>Da confermare — manca la conversione U.M.: conferma che vuoi acquistare {qty(l.quantity)} {l.unit_code ?? ""}.</span>
+                                        <Button size="sm" variant="outline" disabled={coverage.isPending} onClick={() => coverage.mutate({ assignmentId: l.assignment_id, confirm: true })}>Confermo la quantità</Button>
+                                      </div>
+                                    ) : l.coverage_confirmed ? (
+                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                                        <span>Quantità confermata: {qty(l.quantity)} {l.unit_code ?? ""}.</span>
+                                        {!l.in_order ? (
+                                          <Button size="sm" variant="ghost" disabled={coverage.isPending} onClick={() => coverage.mutate({ assignmentId: l.assignment_id, confirm: false })}>Annulla conferma</Button>
+                                        ) : null}
                                       </div>
                                     ) : null}
                                   </div>
@@ -498,6 +507,21 @@ export function GenerateOrdersDialog({
                                     />
                                     <span className="w-10 text-xs text-muted-foreground">{l.unit_code ?? ""}</span>
                                   </div>
+                                  <OrderLineEdit
+                                    companyId={companyId}
+                                    line={l}
+                                    splitAcrossSuppliers={data.suppliers.flatMap((x) => x.lines).filter((y) => y.item_id === l.item_id).length > 1}
+                                    onGoToItem={() => { onOpenChange(false); onGoToItem(l.item_id); }}
+                                    onSaved={async (q) => {
+                                      setDraft(s.supplier_record_id, (x) => ({ ...x, lines: { ...x.lines, [l.assignment_id]: { included: x.lines[l.assignment_id]?.included ?? true, quantity: String(q) } } }));
+                                      await Promise.all([
+                                        refresh(),
+                                        queryClient.invalidateQueries({ queryKey: ["generation-facts", listId] }),
+                                        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments"] }),
+                                        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+                                      ]);
+                                    }}
+                                  />
                                 </div>
                               );
                             })}
