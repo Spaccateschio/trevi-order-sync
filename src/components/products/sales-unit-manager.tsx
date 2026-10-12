@@ -99,6 +99,10 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
   const available = units.filter((unit) => unit.status === "attivo" && (unit.usage ?? "entrambi") !== "acquisto" && !assignments.some((row) => row.unit_id === unit.id));
 
   const busy = mutation.isPending || saveMutation.isPending;
+  // Prodotti Danea: la predefinita è sempre danea_um (vincolo anche nel database).
+  const daneaCode = daneaUm?.trim().toLowerCase() || null;
+  const daneaLocked = Boolean(daneaCode);
+  const selectedIsDanea = Boolean(daneaCode && selected?.units_of_measure?.code?.toLowerCase() === daneaCode);
 
   // Sola lettura: le U.M. con cui il prodotto si acquista arrivano dalle referenze fornitore.
 
