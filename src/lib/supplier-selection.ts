@@ -301,3 +301,46 @@ export function createItemGuard() {
 export function quotaSaveError(supplierName: string, message: string): string {
   return `Quantità confermata, ma la quota per ${supplierName} non è stata salvata: ${friendlyAssignError(message)} Assegnala dalla card.`;
 }
+
+/**
+ * Spunta SOLO visiva prima della quantità: il fornitore che verrà usato (★ valida unica, altrimenti unico valido).
+ * Nessuna scrittura: non conta come quota, copertura o ordine. Fornitori tolti non vengono mai proposti.
+ */
+export function visualPick(
+  suppliers: Pick<PickSupplier, "linkId" | "isB2B" | "sourceLinked" | "purchasable" | "isPreferred">[],
+  deselected: Iterable<string>,
+): string | null {
+  const off = new Set(deselected);
+  const valid = suppliers.filter((s) => !off.has(s.linkId) && !(s.isB2B && (!s.sourceLinked || !s.purchasable)));
+  const preferred = valid.filter((s) => s.isPreferred);
+  if (preferred.length === 1) return preferred[0]!.linkId;
+  if (preferred.length > 1) return null;
+  return valid.length === 1 && suppliers.filter((s) => !off.has(s.linkId)).length === 1 ? valid[0]!.linkId : null;
+}
+
+/** La memoria dell'ultima Lista chiusa vale solo se la stella NON è stata cambiata a mano dopo quella Lista. */
+export function memoryStillValid(memoryClosedAt: string, manualStarAt: string | null): boolean {
+  if (!manualStarAt) return true;
+  return new Date(manualStarAt).getTime() <= new Date(memoryClosedAt).getTime();
+}
+
+export type CounterRow = { productId: string; quantity: number | null; excluded: boolean };
+
+/** Contatori della barra: sempre sull'intera Lista e sui preferiti dell'azienda, mai sui filtri. */
+export function listCounters(args: { catalogTotal: number; favoriteIds: Iterable<string>; rows: CounterRow[] }) {
+  const fav = new Set(args.favoriteIds);
+  const rows = args.rows.filter((r) => !r.excluded);
+  const filled = (r: CounterRow) => r.quantity !== null && r.quantity > 0;
+  const favRows = rows.filter((r) => fav.has(r.productId));
+  return {
+    products: args.catalogTotal,
+    favorites: fav.size,
+    inList: rows.length,
+    withQuantity: rows.filter(filled).length,
+    toFill: rows.filter((r) => !filled(r)).length,
+    excluded: args.rows.length - rows.length,
+    favInList: favRows.length,
+    favFilled: favRows.filter(filled).length,
+    favMissing: favRows.filter((r) => !filled(r)).length,
+  };
+}
