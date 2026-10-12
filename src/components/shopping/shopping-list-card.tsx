@@ -398,8 +398,6 @@ export function ShoppingListCard({
     <p className="flex items-center gap-1 text-[10px] font-semibold text-foreground">
       <Lock className="size-3" aria-hidden="true" /> Confermata {dateTimeShort(extra.lockedAt)}
     </p>
-        <Lock className="size-3" aria-hidden="true" /> Confermata {dateTimeShort(extra.lockedAt)}
-    </p>
   ) : null;
   const memoryLine = memoryNote ? (
     <p className="text-[10px] italic leading-tight text-muted-foreground">{memoryNote}</p>
@@ -490,6 +488,7 @@ export function ShoppingListCard({
             {show.toBuy ? equivalentNote : null}
             {show.quick ? quickButtons("h-8") : null}
             {show.lockDate ? lockNote : null}
+            {memoryLine}
             {recheckNote}
           </div>
           <div className={cn("min-w-0 space-y-0.5 @min-[860px]:order-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
@@ -563,6 +562,7 @@ export function ShoppingListCard({
           ) : null}
           {show.quick ? quickButtons("h-8 @max-[260px]:h-7 @max-[260px]:text-[11px]") : null}
           {show.lockDate ? lockNote : null}
+            {memoryLine}
           {recheckNote}
         </div>
       ) : null}
