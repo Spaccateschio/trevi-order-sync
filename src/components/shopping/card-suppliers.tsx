@@ -17,6 +17,7 @@ import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
 import { type OverviewRow } from "@/lib/shopping-list";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
+import { defaultUnitOf } from "@/lib/supplier-selection";
 import { factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
 import { Checkbox } from "@/components/ui/checkbox";
 import { assignShoppingListSupplier, setShoppingListDirectQuota } from "@/lib/shopping-list.functions";
@@ -30,7 +31,7 @@ import { assignShoppingListSupplier, setShoppingListDirectQuota } from "@/lib/sh
  * oppure con il modulo Qtà/U.M./Salva se non ha ancora una ripartizione in questa Lista.
  */
 
-type Unit = { unitId: string; code: string; conversionFactor: number | null; conversionType: string | null };
+type Unit = { unitId: string; code: string; conversionFactor: number | null; conversionType: string | null; isDefault?: boolean };
 type CardSupplier = {
   linkId: string;
   supplierRecordId: string;
@@ -64,7 +65,7 @@ type LinkUnitsRead = {
   source_linked: boolean;
   allow_manual: boolean;
   purchasable: boolean;
-  units: { unit_id: string; code: string; conversion_factor: number | null; conversion_type: string | null }[];
+  units: { unit_id: string; code: string; conversion_factor: number | null; conversion_type: string | null; is_default?: boolean }[];
 };
 type OptionRead = {
   link_id: string;
@@ -137,6 +138,7 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
           code: ((u.units_of_measure as { code: string } | null)?.code ?? "") as string,
           conversionFactor: null,
           conversionType: null,
+          isDefault: Boolean(u.is_default),
         });
         map.set(u.product_id as string, list);
       }
@@ -206,7 +208,7 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
     const purchasable = dbUnits ? dbUnits.purchasable !== false : opt?.purchasable !== false;
     const srcId = opt?.source_product_id ?? null;
     const units: Unit[] = dbUnits
-      ? dbUnits.units.map((u) => ({ unitId: u.unit_id, code: u.code, conversionFactor: u.conversion_factor, conversionType: u.conversion_type }))
+      ? dbUnits.units.map((u) => ({ unitId: u.unit_id, code: u.code, conversionFactor: u.conversion_factor, conversionType: u.conversion_type, isDefault: Boolean(u.is_default) }))
       : isB2B
         ? sourceLinked && purchasable && srcId
           ? (publishedUnits.data?.get(srcId) ?? [])
@@ -677,7 +679,8 @@ export function CardSuppliers({
     // Default della sola ripartizione di questa Lista: U.M. della riga (nessuna scrittura sul collegamento).
     const rowQuick = quickFor(s);
     const draft = drafts[s.linkId] ?? {
-      unit: rowQuick ? (rowQuick.unitId ?? MANUAL) : "",
+      // U.M. proposta: quella di «Da acquistare» se il fornitore la offre, altrimenti l'unica o la predefinita del fornitore.
+      unit: rowQuick ? (rowQuick.unitId ?? MANUAL) : (defaultUnitOf(s.units) ?? ""),
       manual: rowQuick?.manual ?? "",
       quantity: "",
       accepted: false,
