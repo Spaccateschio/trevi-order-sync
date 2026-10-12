@@ -31,6 +31,8 @@ export type RowExtras = {
   imageUrl: string | null;
   isFavorite: boolean;
   suppliers: RowSupplier[];
+  /** Fornitori tolti volontariamente in questa Lista (salvati nel database). */
+  deselectedLinks: string[];
   orderState: OrderState;
   /** Quantità confermata (bloccata): data/ora, null = sbloccata. */
   lockedAt: string | null;
@@ -210,6 +212,7 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
         imageUrl: imagesQuery.data?.get(row.product_id) ?? null,
         isFavorite: favoritesQuery.data?.has(row.product_id) ?? false,
         suppliers,
+        deselectedLinks: deselectedByItem.get(row.item_id) ?? [],
         orderState,
         lockedAt: locksQuery.data?.get(row.item_id)?.lockedAt ?? null,
         inventoryChangedAt: locksQuery.data?.get(row.item_id)?.inventoryChangedAt ?? null,
