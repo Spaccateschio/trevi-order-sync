@@ -977,7 +977,7 @@ export function CardSuppliers({
   return (
     <div className="space-y-2">
       <section className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fornitori · spunta = acquisto in questa Lista</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Spunta = acquisto in questa Lista</p>
         {suppliers.length || orphans.length ? (
           <ul className="space-y-1">
             {assigned.map((s) => supplierRow(s, byLink.get(s.linkId) ?? null))}
