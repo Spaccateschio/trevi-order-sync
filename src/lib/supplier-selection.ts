@@ -282,3 +282,22 @@ export function planQuotaUpdate(args: {
   if (a.purchaseQuantity !== null && Math.abs(a.purchaseQuantity - target.quantity) < 1e-9) return { kind: "invariato" };
   return { kind: "set", linkId: a.linkId, assignmentId: a.id, target };
 }
+
+/** Una sola richiesta automatica alla volta per riga: doppio clic o chiamate ripetute restituiscono `busy`. */
+export function createItemGuard() {
+  const running = new Set<string>();
+  return async function once<T>(key: string, busy: T, fn: () => Promise<T>): Promise<T> {
+    if (running.has(key)) return busy;
+    running.add(key);
+    try {
+      return await fn();
+    } finally {
+      running.delete(key);
+    }
+  };
+}
+
+/** Messaggio quando la quantità è confermata ma la quota non è stata salvata: mai «Assegnato» finto. */
+export function quotaSaveError(supplierName: string, message: string): string {
+  return `Quantità confermata, ma la quota per ${supplierName} non è stata salvata: ${friendlyAssignError(message)} Assegnala dalla card.`;
+}

@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
   autoPickSupplier,
+  createItemGuard,
+  quotaSaveError,
   planQuotaUpdate,
   quotaFor,
   type PickSupplier,
@@ -55,7 +57,7 @@ type UnitsRead = {
 export type AutoAssignOptions = { preferLinkId?: string | null; updateExisting?: boolean };
 
 /** Richieste in corso per riga: doppio clic o chiamate ripetute non producono una seconda scrittura. */
-const inFlight = new Set<string>();
+const once = createItemGuard();
 
 /** Conversioni valide solo da effective_supplier_conversion (mai il vecchio conversion_factor). */
 async function readConversions(linkIds: string[]): Promise<Record<string, ValidConversion[]>> {
@@ -84,13 +86,7 @@ export async function autoAssignItem(
   itemId: string,
   options: AutoAssignOptions = {},
 ): Promise<AutoAssignResult> {
-  if (inFlight.has(itemId)) return { kind: "gia_ripartito" };
-  inFlight.add(itemId);
-  try {
-    return await run(assign, companyId, itemId, options);
-  } finally {
-    inFlight.delete(itemId);
-  }
+  return once<AutoAssignResult>(itemId, { kind: "gia_ripartito" }, () => run(assign, companyId, itemId, options));
 }
 
 async function run(assign: AssignFn, companyId: string, itemId: string, options: AutoAssignOptions): Promise<AutoAssignResult> {
@@ -203,7 +199,7 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
       },
     });
   } catch (e) {
-    return { kind: "saltato", reason: `Quantità confermata, ma la quota per ${chosen.name} non è stata salvata: ${(e as Error).message}. Assegnala dalla card.` };
+    return { kind: "saltato", reason: quotaSaveError(chosen.name, (e as Error).message) };
   }
   return plan.kind === "set" ? { kind: "aggiornato", supplierName: chosen.name } : { kind: "assegnato", supplierName: chosen.name };
 }
