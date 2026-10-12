@@ -1,7 +1,10 @@
 import { Check, Copy, Lock, MoreVertical, Package, Plus, Star, Trash2, TriangleAlert, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { readCardBundle } from "@/lib/shopping-card-reads";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { supplierUnitProposal, unitsSoldText, type ProposalLink } from "@/lib/supplier-unit-proposal";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 
 import { ALL_VISIBLE, type DisplayPrefs } from "./card-display";
 import { CardSuppliers } from "./card-suppliers";
@@ -82,7 +85,7 @@ function useDecidedUnitOptions(companyId: string, itemId: string, enabled: boole
     seen.add(code);
     options.push({ key: `m:${code}`, unitId: null, code, factor: null });
   }
-  return { options, offeredCodes, loaded: query.isSuccess };
+  return { options, offeredCodes, loaded: query.isSuccess, links: Object.values(query.data ?? {}) as unknown as ProposalLink[] };
 }
 
 /** Stessa normalizzazione del database: maiuscole, spazi compressi. */
@@ -113,6 +116,8 @@ export function ShoppingListCard({
   memoryNote = null,
   memory = null,
   onUnitChange,
+  onProposeUnit,
+  onFixUnit,
   onClearQuantity,
   pending = false,
   pendingQuantity,
@@ -153,6 +158,10 @@ export function ShoppingListCard({
   memory?: SupplierMemory | null;
   /** Cambio U.M. di «Da acquistare»: (null, null) = U.M. del prodotto. */
   onUnitChange?: (unitId: string | null, unitCode: string | null) => void;
+  /** U.M. del fornitore proposta per la prima quantità (nessuna scrittura finché non si inserisce la quantità). */
+  onProposeUnit?: (unit: { unitId: string; code: string } | null) => void;
+  /** Correzione esplicita di U.M. (e quantità) già salvate: solo dopo conferma, mai conversione automatica. */
+  onFixUnit?: (unitId: string, unitCode: string, quantity: number) => void;
   /** Svuota la quantità «Da acquistare» (obiettivo non indicato, mai 0). */
   onClearQuantity?: () => void;
   /** Lista confermata: le ripartizioni sono bloccate (solo informazione mostrata nella card). */
@@ -189,6 +198,40 @@ export function ShoppingListCard({
     decidedNorm !== normUnit(unit) &&
     decidedNorm !== normUnit(stock?.stockUnit) &&
     !decided.offeredCodes.has(decidedNorm);
+  // U.M. del fornitore usato/preselezionato: stessa fonte del database, nessuna conversione inventata.
+  const supplierInfo = useQuery({
+    queryKey: ["shopping-card-unit-suppliers", companyId, row.item_id],
+    staleTime: 60_000,
+    enabled: !pending && editable,
+    queryFn: async () => {
+      const bundle = await readCardBundle(`${companyId}:${row.item_id}`);
+      const rows = (bundle?.overview ?? []) as { link_id: string; supplier_name: string | null; is_preferred: boolean | null; is_active: boolean | null }[];
+      return new Map(rows.filter((r) => r.is_active).map((r) => [r.link_id, { name: r.supplier_name ?? "Il fornitore", preferred: Boolean(r.is_preferred) }]));
+    },
+  });
+  const proposal = decided.loaded && supplierInfo.isSuccess
+    ? supplierUnitProposal({
+        links: decided.links.filter((l) => supplierInfo.data.has(l.link_id)),
+        preferredLinkIds: new Set([...supplierInfo.data].filter(([, v]) => v.preferred).map(([k]) => k)),
+        deselectedLinkIds: extra?.deselectedLinks ?? [],
+        assignedLinkIds: suppliers.map((s) => s.linkId),
+        currentCode: decidedCode,
+        productUnitCode: unit,
+      })
+    : null;
+  const [proposalDeclined, setProposalDeclined] = useState(false);
+  const savedQuantity = row.decided_quantity === null ? null : Number(row.decided_quantity);
+  // Prima quantità: la card parte nell'U.M. predefinita del fornitore se quella attuale non è sua.
+  const proposeUnit = Boolean(proposal && !proposal.compatible && !otherUnit && savedQuantity === null && !proposalDeclined);
+  const proposedKey = proposeUnit ? proposal!.defaultUnit.unit_id : null;
+  useEffect(() => {
+    onProposeUnit?.(proposeUnit && proposal ? { unitId: proposal.defaultUnit.unit_id, code: proposal.defaultUnit.code } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposeUnit, proposal?.defaultUnit.unit_id]);
+  // Quantità già salvata in U.M. che il fornitore non vende: si segnala e si corregge solo con conferma.
+  const unitMismatch = Boolean(proposal && !proposal.compatible && savedQuantity !== null && savedQuantity > 0 && onFixUnit);
+  const supplierName = proposal ? (supplierInfo.data?.get(proposal.linkId)?.name ?? "Il fornitore") : "";
+  const [fix, setFix] = useState<{ unitId: string; code: string; value: string } | null>(null);
   const suggested = row.current_suggested ?? row.suggested_quantity;
   const isFavorite = Boolean(extra?.isFavorite);
   const isRow = layout === "row";
@@ -317,6 +360,42 @@ export function ShoppingListCard({
     </Button>
   ) : null;
 
+  const fixValue = fix ? Number(fix.value.replace(",", ".")) : NaN;
+  const unitFixBlock = unitMismatch && proposal ? (
+    <div className="space-y-1 rounded-md border border-warning/60 bg-warning/15 p-2 text-xs" role="alert">
+      <p className="font-semibold text-warning-foreground">{unitsSoldText(supplierName, proposal.units)}. Seleziona l&apos;U.M. corretta.</p>
+      <div className="flex flex-wrap gap-1">
+        {proposal.units.map((u) => (
+          <Button key={u.unit_id} type="button" size="sm" variant="outline" className="h-7 px-2 text-xs"
+            disabled={lockPending} onClick={() => setFix({ unitId: u.unit_id, code: u.code, value: String(savedQuantity ?? "") })}>
+            Usa {u.code}
+          </Button>
+        ))}
+      </div>
+      <AlertDialog open={fix !== null} onOpenChange={(o) => { if (!o) setFix(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Correggi l&apos;U.M. di {name}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai cambiando {qty(savedQuantity ?? 0)} {decidedCode} in {fix && Number.isFinite(fixValue) ? qty(fixValue) : "—"} {fix?.code}. Non è una conversione automatica: confermi che vuoi acquistare {fix && Number.isFinite(fixValue) ? qty(fixValue) : "—"} {fix?.code}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input inputMode="decimal" aria-label={`Quantità in ${fix?.code ?? ""}`} value={fix?.value ?? ""}
+            onChange={(e) => setFix((f) => (f ? { ...f, value: e.target.value } : f))} />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction disabled={!fix || !Number.isFinite(fixValue) || fixValue <= 0}
+              onClick={() => { if (fix && fixValue > 0) onFixUnit?.(fix.unitId, fix.code, fixValue); setFix(null); }}>
+              Conferma
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  ) : proposeUnit && proposal ? (
+    <p className="text-[11px] text-muted-foreground">U.M. di {supplierName}: {proposal.units.map((u) => u.code).join(" / ")}</p>
+  ) : null;
+
   const quantityBlock = (
     <div className="flex min-w-0 items-center gap-1.5">
       {editable ? quantityInput : <span className="text-sm font-semibold">{target === null ? "—" : qty(target)}</span>}
@@ -336,9 +415,11 @@ export function ShoppingListCard({
       ) : null}
       {editable && !pending && onUnitChange ? (
         <Select
-          value={decidedKey}
+          value={proposedKey ?? decidedKey}
           disabled={editLocked || lockPending}
           onValueChange={(key) => {
+            if (key === proposedKey) return;
+            setProposalDeclined(true);
             if (key === PRODUCT_UNIT) return onUnitChange(null, null);
             const option = unitOptions.find((o) => o.key === key);
             if (option) onUnitChange(option.unitId, option.code);
@@ -364,7 +445,7 @@ export function ShoppingListCard({
       )}
       {lockButton}
       {saving ? <span className="shrink-0 text-[10px] font-semibold text-muted-foreground" role="status">Salvataggio in corso…</span> : null}
-      {unitNotOffered ? (
+      {unitNotOffered && !unitMismatch ? (
         <span
           className="shrink-0 whitespace-nowrap rounded-md border border-warning/60 bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning-foreground"
           title="Nessun fornitore attivo offre più questa U.M.: verificala o cambiala a mano"
@@ -494,7 +575,7 @@ export function ShoppingListCard({
             {actions}
           </div>
           <div className={cn("grid min-w-0 gap-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
-            {show.toBuy ? quantityBlock : null}
+            {show.toBuy ? <>{quantityBlock}{unitFixBlock}</> : null}
             {show.toBuy ? equivalentNote : null}
             {show.quick ? quickButtons("h-8") : null}
             {show.lockDate ? lockNote : null}
@@ -567,6 +648,7 @@ export function ShoppingListCard({
             <>
               <p className="text-[10px] font-semibold uppercase text-muted-foreground">Da acquistare</p>
               {quantityBlock}
+              {unitFixBlock}
               {equivalentNote}
             </>
           ) : null}

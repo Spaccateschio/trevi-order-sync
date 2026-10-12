@@ -1030,6 +1030,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   type Commit = { quantity: number | null; unitId?: string | null; unitCode?: string | null };
   const workerRef = useRef<(itemId: string, c: Commit) => Promise<void>>(async () => undefined);
+  // U.M. del fornitore proposta dalla card per la prima quantità (usata solo se la riga non ha ancora quantità né U.M.).
+  const proposedUnits = useRef(new Map<string, { unitId: string; code: string }>());
   workerRef.current = async (itemId, c) => {
     setSavingIds((cur) => new Set(cur).add(itemId));
     try {
@@ -1041,8 +1043,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       if (error || !item) throw new Error(error?.message ?? "Riga non trovata");
       const prev = item.decided_quantity === null ? null : Number(item.decided_quantity);
       const locked = Boolean(item.quantity_locked_at);
-      const unitId = c.unitId !== undefined ? c.unitId : ((item.decided_unit_id as string | null) ?? null);
-      const unitCode = c.unitCode !== undefined ? c.unitCode : ((item.decided_unit_code as string | null) ?? null);
+      const proposed =
+        c.unitId === undefined && prev === null && !item.decided_unit_id && !item.decided_unit_code && c.quantity !== null
+          ? proposedUnits.current.get(itemId)
+          : undefined;
+      const unitId = proposed ? proposed.unitId : c.unitId !== undefined ? c.unitId : ((item.decided_unit_id as string | null) ?? null);
+      const unitCode = proposed ? proposed.code : c.unitCode !== undefined ? c.unitCode : ((item.decided_unit_code as string | null) ?? null);
       const unitChanged = unitId !== item.decided_unit_id || unitCode !== item.decided_unit_code;
       const changed = prev !== c.quantity || unitChanged;
       if (!changed && (c.quantity === null || locked)) {
@@ -1702,6 +1708,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onClearQuantity={() => {
                   setEdits((current) => ({ ...current, [row.item_id]: "" }));
                   void commitQuantity(row.item_id, { quantity: null });
+                }}
+                onProposeUnit={(unit) => {
+                  if (unit) proposedUnits.current.set(row.item_id, unit);
+                  else proposedUnits.current.delete(row.item_id);
+                }}
+                onFixUnit={(unitId, unitCode, quantity) => {
+                  setEdits((current) => ({ ...current, [row.item_id]: String(quantity) }));
+                  void commitQuantity(row.item_id, { quantity, unitId, unitCode });
                 }}
                 onUnitChange={(unitId, unitCode) => {
                   const raw = edits[row.item_id];
