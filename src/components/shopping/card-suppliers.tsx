@@ -315,7 +315,12 @@ export function CardSuppliers({
   const [split, setSplit] = useState(false);
   const [openLink, setOpenLink] = useState<string | null>(null);
   const [details, setDetails] = useState(false);
-  const autoRef = useRef(false);
+  const directQuotaQuery = useQuery({
+    queryKey: ["shopping-direct-quota", row.item_id],
+    enabled: !pending,
+    queryFn: () => readDirectQuota(row.item_id),
+  });
+  const directQuota = directQuotaQuery.data ?? null;
   const companyUnits = useCompanyUnits(companyId);
   const setEditingNull = () => {
     setEditing(null);
@@ -1035,25 +1040,29 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T) {
  * o rimovibile finché la Lista è aperta). Non tocca i collegamenti fornitore. Lo stato della riga
  * resta calcolato solo dal database.
  */
-function DirectQuota({ companyId, itemId, editable, unitCode }: { companyId: string; itemId: string; editable: boolean; unitCode: string }) {
+async function readDirectQuota(itemId: string) {
+  const { data, error } = await supabase
+    .from("shopping_list_items")
+    .select("manual_purchase_quantity, manual_purchase_unit_code")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.manual_purchase_quantity == null
+    ? null
+    : { quantity: Number(data.manual_purchase_quantity), unit: (data.manual_purchase_unit_code as string | null) ?? "" };
+}
+
+/**
+ * «Acquisto diretto (compro io)» come casella: vale solo per questa Lista, non è mai «completato»
+ * finché non viene registrato esplicitamente in «Genera ordini». Spunta = quota proposta
+ * (tutta la quantità se non ci sono altre quote, altrimenti il residuo); senza proposta si scrive a mano.
+ */
+function DirectQuota({ companyId, itemId, editable, unitCode, proposal }: { companyId: string; itemId: string; editable: boolean; unitCode: string; proposal: number | null }) {
   const queryClient = useQueryClient();
   const run = useServerFn(setShoppingListDirectQuota);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
-  const quota = useQuery({
-    queryKey: ["shopping-direct-quota", itemId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("shopping_list_items")
-        .select("manual_purchase_quantity, manual_purchase_unit_code")
-        .eq("id", itemId)
-        .maybeSingle();
-      if (error) throw new Error(error.message);
-      return data?.manual_purchase_quantity == null
-        ? null
-        : { quantity: Number(data.manual_purchase_quantity), unit: (data.manual_purchase_unit_code as string | null) ?? "" };
-    },
-  });
+  const quota = useQuery({ queryKey: ["shopping-direct-quota", itemId], queryFn: () => readDirectQuota(itemId) });
   const save = useMutation({
     mutationFn: (quantity: number | null) =>
       run({ data: { companyId, itemId, quantity, unitId: null, unitCode: null } }),
@@ -1067,53 +1076,61 @@ function DirectQuota({ companyId, itemId, editable, unitCode }: { companyId: str
     onError: (e) => toast.error(e instanceof Error ? e.message : "Salvataggio non riuscito"),
   });
   const current = quota.data ?? null;
+  const checked = Boolean(current) || editing;
 
-  if (editing)
-    return (
-      <form
-        className="flex flex-wrap items-center gap-1"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const n = parseQuantity(value);
-          if (n === null || n < 0) { toast.error("Quantità non valida"); return; }
-          save.mutate(n === 0 ? null : n);
-        }}
-      >
-        <span className="text-xs font-semibold">Acquisto diretto</span>
-        <Input autoFocus inputMode="decimal" className="h-8 w-20" value={value} onChange={(e) => setValue(e.target.value)} aria-label="Quantità acquisto diretto" />
-        <span className="text-xs">{current?.unit || unitCode}</span>
-        <Button type="submit" size="sm" className="h-8 px-2" disabled={save.isPending} aria-label="Salva quota diretta">
-          <Check className="size-3.5" aria-hidden="true" />
-        </Button>
-        <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditing(false)} aria-label="Annulla">
-          <X className="size-3.5" aria-hidden="true" />
-        </Button>
-      </form>
-    );
-
-  if (current)
-    return (
+  return (
+    <div className="space-y-1 rounded-sm border border-dashed border-border px-1.5 py-1">
       <div className="flex flex-wrap items-center gap-1 text-xs">
-        <span>Acquisto diretto:</span>
-        <span className="rounded bg-primary px-1.5 py-0.5 font-bold text-primary-foreground">
-          {qty(current.quantity)} {current.unit}
-        </span>
-        {editable ? (
+        <Checkbox
+          checked={checked}
+          disabled={!editable || save.isPending}
+          aria-label={checked ? "Togli acquisto diretto" : "Scegli acquisto diretto"}
+          onCheckedChange={(v) => {
+            if (v !== true) {
+              setEditing(false);
+              if (current) save.mutate(null);
+              return;
+            }
+            if (proposal && proposal > 0) save.mutate(proposal);
+            else { setValue(""); setEditing(true); }
+          }}
+        />
+        <span className="font-semibold">Acquisto diretto (compro io)</span>
+        {current && !editing ? (
           <>
-            <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5" aria-label="Modifica quota diretta" onClick={() => { setValue(String(current.quantity)); setEditing(true); }}>
-              <Pencil className="size-3" aria-hidden="true" />
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5" aria-label="Rimuovi quota diretta" disabled={save.isPending} onClick={() => save.mutate(null)}>
-              <Trash2 className="size-3" aria-hidden="true" />
-            </Button>
+            <button
+              type="button"
+              className="rounded bg-primary px-1.5 py-0.5 font-bold text-primary-foreground disabled:opacity-70"
+              disabled={!editable}
+              aria-label="Modifica quota diretta"
+              onClick={() => { setValue(String(current.quantity)); setEditing(true); }}
+            >
+              {qty(current.quantity)} {current.unit}
+            </button>
+            <span className="text-[11px] text-muted-foreground">da registrare in «Genera ordini»</span>
           </>
         ) : null}
       </div>
-    );
-
-  return editable ? (
-    <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5 text-[11px]" onClick={() => { setValue(""); setEditing(true); }}>
-      + Acquisto diretto (lo compro io)
-    </Button>
-  ) : null;
+      {editing ? (
+        <form
+          className="flex flex-wrap items-center gap-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const n = parseQuantity(value);
+            if (n === null || n < 0) { toast.error("Quantità non valida"); return; }
+            save.mutate(n === 0 ? null : n);
+          }}
+        >
+          <Input autoFocus inputMode="decimal" className="h-8 w-20" value={value} onChange={(e) => setValue(e.target.value)} aria-label="Quantità acquisto diretto" />
+          <span className="text-xs">{current?.unit || unitCode}</span>
+          <Button type="submit" size="sm" className="h-8 px-2" disabled={save.isPending} aria-label="Salva quota diretta">
+            <Check className="size-3.5" aria-hidden="true" />
+          </Button>
+          <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditing(false)} aria-label="Annulla">
+            <X className="size-3.5" aria-hidden="true" />
+          </Button>
+        </form>
+      ) : null}
+    </div>
+  );
 }
