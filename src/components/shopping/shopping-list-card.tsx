@@ -360,6 +360,42 @@ export function ShoppingListCard({
     </Button>
   ) : null;
 
+  const fixValue = fix ? Number(fix.value.replace(",", ".")) : NaN;
+  const unitFixBlock = unitMismatch && proposal ? (
+    <div className="space-y-1 rounded-md border border-warning/60 bg-warning/15 p-2 text-xs" role="alert">
+      <p className="font-semibold text-warning-foreground">{unitsSoldText(supplierName, proposal.units)}. Seleziona l&apos;U.M. corretta.</p>
+      <div className="flex flex-wrap gap-1">
+        {proposal.units.map((u) => (
+          <Button key={u.unit_id} type="button" size="sm" variant="outline" className="h-7 px-2 text-xs"
+            disabled={lockPending} onClick={() => setFix({ unitId: u.unit_id, code: u.code, value: String(savedQuantity ?? "") })}>
+            Usa {u.code}
+          </Button>
+        ))}
+      </div>
+      <AlertDialog open={fix !== null} onOpenChange={(o) => { if (!o) setFix(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Correggi l&apos;U.M. di {name}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai cambiando {qty(savedQuantity ?? 0)} {decidedCode} in {fix && Number.isFinite(fixValue) ? qty(fixValue) : "—"} {fix?.code}. Non è una conversione automatica: confermi che vuoi acquistare {fix && Number.isFinite(fixValue) ? qty(fixValue) : "—"} {fix?.code}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input inputMode="decimal" aria-label={`Quantità in ${fix?.code ?? ""}`} value={fix?.value ?? ""}
+            onChange={(e) => setFix((f) => (f ? { ...f, value: e.target.value } : f))} />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction disabled={!fix || !Number.isFinite(fixValue) || fixValue <= 0}
+              onClick={() => { if (fix && fixValue > 0) onFixUnit?.(fix.unitId, fix.code, fixValue); setFix(null); }}>
+              Conferma
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  ) : proposeUnit && proposal ? (
+    <p className="text-[11px] text-muted-foreground">U.M. di {supplierName}: {proposal.units.map((u) => u.code).join(" / ")}</p>
+  ) : null;
+
   const quantityBlock = (
     <div className="flex min-w-0 items-center gap-1.5">
       {editable ? quantityInput : <span className="text-sm font-semibold">{target === null ? "—" : qty(target)}</span>}
@@ -539,7 +575,7 @@ export function ShoppingListCard({
             {actions}
           </div>
           <div className={cn("grid min-w-0 gap-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
-            {show.toBuy ? quantityBlock : null}
+            {show.toBuy ? <>{quantityBlock}{unitFixBlock}</> : null}
             {show.toBuy ? equivalentNote : null}
             {show.quick ? quickButtons("h-8") : null}
             {show.lockDate ? lockNote : null}
@@ -612,6 +648,7 @@ export function ShoppingListCard({
             <>
               <p className="text-[10px] font-semibold uppercase text-muted-foreground">Da acquistare</p>
               {quantityBlock}
+              {unitFixBlock}
               {equivalentNote}
             </>
           ) : null}
