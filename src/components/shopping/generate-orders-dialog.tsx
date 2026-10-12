@@ -473,7 +473,7 @@ export function GenerateOrdersDialog({
                             {s.lines.map((l: GenerationLine) => {
                               const ln = d.lines[l.assignment_id];
                               return (
-                                <div key={l.assignment_id} className="grid grid-cols-[auto_1fr] gap-2 rounded border border-border/60 p-2 text-sm sm:grid-cols-[auto_1fr_8rem]">
+                                <div key={l.assignment_id} className="grid grid-cols-[auto_1fr] gap-2 rounded border border-border/60 p-2 text-sm sm:grid-cols-[auto_1fr_8rem_auto]">
                                   <Checkbox
                                     className="mt-1"
                                     checked={ln?.included ?? false}
