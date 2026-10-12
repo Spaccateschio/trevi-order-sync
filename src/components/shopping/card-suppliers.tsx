@@ -17,6 +17,7 @@ import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
 import { type OverviewRow } from "@/lib/shopping-list";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
+import { clearDeselected, markDeselected } from "@/lib/supplier-memory";
 import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
 import { Checkbox } from "@/components/ui/checkbox";
 import { assignShoppingListSupplier, setShoppingListDirectQuota } from "@/lib/shopping-list.functions";
@@ -626,11 +627,19 @@ export function CardSuppliers({
         runAssign({ data: { companyId, itemId: row.item_id, action, linkId, assignedQuantity: null, purchaseQuantity: packs, minWarningAccepted: true, notes: null, purchaseUnitId: unitId, assignmentId, manualUnitCode: manual } });
       if (!on) {
         if (assignment) await call(s.linkId, null, null, null, assignment.id, "remove");
+        // Deselezione volontaria: la memoria e la proposta automatica non lo ripristinano (finché la pagina resta aperta).
+        markDeselected(row.item_id, s.linkId);
         return "removed" as const;
       }
+      clearDeselected(row.item_id, s.linkId);
       const q = quickFor(s);
-      if (!target || !q) return "manual" as const;
       const others = assignments.filter((a) => a.linkId !== s.linkId);
+      if (target && !q && !others.length && !directQuota) {
+        // U.M. diversa: quota automatica solo con conversione valida (confezioni intere), altrimenti «Da verificare».
+        const res = await autoAssignItem(runAssign, companyId, row.item_id, { onlyLinkId: s.linkId, updateExisting: false });
+        return res.kind === "assegnato" ? ("full" as const) : ("manual" as const);
+      }
+      if (!target || !q) return "manual" as const;
       if (!others.length && !directQuota) {
         await call(s.linkId, target, q.unitId, q.manual, null);
         return "full" as const;

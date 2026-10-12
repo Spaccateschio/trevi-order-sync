@@ -74,9 +74,11 @@ import {
   manageShoppingList,
   removeShoppingListItem,
   setShoppingListItemQuantity,
+  setShoppingListDirectQuota,
   setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
-import { autoAssignItem } from "@/lib/shopping-auto-assign";
+import { autoAssignItem, readMemories } from "@/lib/shopping-auto-assign";
+import { createLatestQueue, matchesMemory } from "@/lib/supplier-memory";
 import { factsFromRow, rowLabel, summarizeRows } from "@/lib/supplier-selection";
 
 /** Prodotto contato non ancora in Lista, mostrato con la stessa card: nessun dato della Lista inventato. */
@@ -491,6 +493,23 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   const allRows = overviewQuery.data ?? [];
 
+  // Memoria «Come l'ultima volta»: ultima Lista chiusa della stessa azienda, sola lettura (mai quantità).
+  const memoryProductIds = useMemo(() => [...new Set(allRows.map((r) => r.product_id))].sort(), [allRows]);
+  const memoryQuery = useQuery({
+    queryKey: ["shopping-supplier-memory", companyId, memoryProductIds],
+    enabled: memoryProductIds.length > 0,
+    queryFn: () => readMemories(companyId, memoryProductIds),
+    staleTime: 60_000,
+  });
+  const memoryNoteFor = (row: OverviewRow): string | null => {
+    const memory = memoryQuery.data?.get(row.product_id) ?? null;
+    if (!memory) return null;
+    const sups = extras.get(row.item_id)?.suppliers ?? [];
+    const current = sups.map((x) => ({ linkId: x.linkId as string | null, quantity: x.purchaseQuantity, unitKey: x.purchaseUnitId ?? (x.purchaseUnitCode ?? "").toUpperCase() }));
+    if (!current.length) return row.decided_quantity === null ? "Come l'ultima volta: fornitori proposti quando inserisci la quantità" : null;
+    return matchesMemory(memory, current) ? "Come l'ultima volta" : null;
+  };
+
   // Ultimo conteggio e giacenza per le card: sola lettura, stessa fonte dell'Inventario.
   const stockProductIds = useMemo(() => [...new Set(allRows.map((row) => row.product_id))].sort(), [allRows]);
 
@@ -877,27 +896,29 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     if (state === "in_parte") return <Badge variant="secondary" className="px-1 py-0 text-[10px]">In parte in ordine</Badge>;
     return null;
   };
+  // Conferma automatica: uscendo dal campo, con Invio o con i tasti rapidi la quantità si salva e si conferma.
+  const commitRaw = (row: OverviewRow, raw: string | undefined) => {
+    if (raw === undefined) return;
+    if (raw.trim() === "") return commitQuantity(row.item_id, { quantity: null });
+    const value = parseQuantity(raw);
+    if (value === null || value < 0) {
+      toast.error("Quantità non valida");
+      return;
+    }
+    return commitQuantity(row.item_id, { quantity: value > 0 ? value : null });
+  };
   const quantityInput = (row: OverviewRow, className: string) => (
     <Input
       className={className}
       inputMode="decimal"
-      disabled={!editable || Boolean(extras.get(row.item_id)?.lockedAt)}
+      disabled={!editable}
       value={edits[row.item_id] ?? (row.decided_quantity === null ? "" : String(row.decided_quantity))}
       aria-label={`Quantità decisa ${row.code}`}
       onChange={(event) => setEdits((current) => ({ ...current, [row.item_id]: event.target.value }))}
-      onBlur={() => {
-        const raw = edits[row.item_id];
-        if (raw === undefined) return;
-        // Campo svuotato: obiettivo non indicato (mai 0).
-        if (raw.trim() === "") {
-          if (row.decided_quantity !== null) quantityMutation.mutate({ itemId: row.item_id, quantity: null });
-          return;
-        }
-        const value = parseQuantity(raw);
-        if (value && value !== Number(row.decided_quantity)) {
-          quantityMutation.mutate({ itemId: row.item_id, quantity: value });
-        }
+      onKeyDown={(event) => {
+        if (event.key === "Enter") (event.target as HTMLInputElement).blur();
       }}
+      onBlur={() => void commitRaw(row, edits[row.item_id])}
     />
   );
 
@@ -954,7 +975,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     const base = raw !== undefined ? (parseQuantity(raw) ?? 0) : Number(row.decided_quantity ?? 0);
     const next = Math.round((base + step) * 1000) / 1000;
     setEdits((current) => ({ ...current, [row.item_id]: String(next) }));
-    quantityMutation.mutate({ itemId: row.item_id, quantity: next });
+    void commitQuantity(row.item_id, { quantity: next > 0 ? next : null });
   };
 
   const lockMutation = useMutation({
@@ -968,8 +989,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   });
   // Proposta automatica solo nel momento della conferma e solo su righe senza quote (mai sopra scelte manuali).
   const runAssignAuto = useServerFn(assignShoppingListSupplier);
-  const proposeSupplier = async (itemId: string) => {
-    const res = await autoAssignItem(runAssignAuto, companyId, itemId);
+  const runDirect = useServerFn(setShoppingListDirectQuota);
+  const proposeSupplier = async (itemId: string, previousQuantity?: number | null) => {
+    const res = await autoAssignItem(runAssignAuto, companyId, itemId, { previousQuantity: previousQuantity ?? null, direct: runDirect });
     if (res.kind === "assegnato" || res.kind === "aggiornato") {
       toast.success(res.kind === "assegnato" ? `Assegnato a ${res.supplierName}` : `Quota di ${res.supplierName} aggiornata`);
       await Promise.all([
@@ -980,8 +1002,69 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     } else if (res.kind === "saltato") {
       toast.error(res.reason);
       await queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] });
-    } else if (res.kind === "verifica") toast.info(res.reason);
+    } else if (res.kind === "verifica" || res.kind === "da_scegliere") toast.info(res.reason);
+    if (res.kind === "assegnato" || res.kind === "aggiornato")
+      await queryClient.invalidateQueries({ queryKey: ["shopping-extras-direct"] });
   };
+
+  // Una sola scrittura alla volta per riga, vince sempre l'ultimo valore inserito.
+  // Riusa le funzioni esistenti: sblocco (se serve) → quantità → conferma → proposta fornitore.
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  type Commit = { quantity: number | null; unitId?: string | null; unitCode?: string | null };
+  const workerRef = useRef<(itemId: string, c: Commit) => Promise<void>>(async () => undefined);
+  workerRef.current = async (itemId, c) => {
+    setSavingIds((cur) => new Set(cur).add(itemId));
+    try {
+      const { data: item, error } = await supabase
+        .from("shopping_list_items")
+        .select("decided_quantity, quantity_locked_at, decided_unit_id, decided_unit_code, manual_purchase_quantity")
+        .eq("id", itemId)
+        .maybeSingle();
+      if (error || !item) throw new Error(error?.message ?? "Riga non trovata");
+      const prev = item.decided_quantity === null ? null : Number(item.decided_quantity);
+      const locked = Boolean(item.quantity_locked_at);
+      const unitId = c.unitId !== undefined ? c.unitId : ((item.decided_unit_id as string | null) ?? null);
+      const unitCode = c.unitCode !== undefined ? c.unitCode : ((item.decided_unit_code as string | null) ?? null);
+      const unitChanged = unitId !== item.decided_unit_id || unitCode !== item.decided_unit_code;
+      const changed = prev !== c.quantity || unitChanged;
+      const write = async (quantity: number | null) =>
+        runQuantity({ data: { companyId, itemId, decidedQuantity: quantity, reason: "Modifica manuale dell'operatore", notes: null, decidedUnitId: unitId, decidedUnitCode: unitCode } });
+      if (changed && locked) await runLock({ data: { itemId, locked: false } });
+      if (c.quantity === null) {
+        if (changed) await write(null);
+        const hasQuotas = (extras.get(itemId)?.suppliers.length ?? 0) > 0 || item.manual_purchase_quantity !== null;
+        if (hasQuotas && prev !== null) toast.warning("Quantità tolta: le quote già salvate restano. Sistemale dalla card.");
+      } else {
+        if (changed) await write(c.quantity);
+        if (changed || !locked) await runLock({ data: { itemId, locked: true } });
+        // Se nel frattempo è arrivato un valore più recente, la proposta si fa solo su quello.
+        if (commitQueue.isLatest(itemId)) await proposeSupplier(itemId, changed ? prev : null);
+      }
+      setEdits((current) => {
+        const raw = current[itemId];
+        if (raw === undefined || !commitQueue.isLatest(itemId)) return current;
+        const parsed = raw.trim() === "" ? null : parseQuantity(raw);
+        if ((parsed && parsed > 0 ? parsed : null) !== c.quantity) return current;
+        const next = { ...current };
+        delete next[itemId];
+        return next;
+      });
+    } catch (e) {
+      // Il valore scritto resta nel campo: si può riprovare uscendo di nuovo dal campo.
+      toast.error(`Quantità non salvata: ${(e as Error).message}`);
+      throw e;
+    } finally {
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["shopping-extras-locks"] }), refresh()]);
+      if (commitQueue.isLatest(itemId))
+        setSavingIds((cur) => {
+          const next = new Set(cur);
+          next.delete(itemId);
+          return next;
+        });
+    }
+  };
+  const commitQueue = useMemo(() => createLatestQueue<Commit>((itemId, c) => workerRef.current(itemId, c)), []);
+  const commitQuantity = (itemId: string, c: Commit) => commitQueue.push(itemId, c);
   // Conferma: salva prima un'eventuale quantità ancora in scrittura, poi blocca.
   const toggleLock = async (row: OverviewRow) => {
     const locked = Boolean(extras.get(row.item_id)?.lockedAt);
@@ -1538,15 +1621,18 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onCopyToOwnProducts={copyHandler(row.product_id)}
                 onRemove={() => removeMutation.mutate(row.item_id)}
                 onToggleLock={() => void toggleLock(row)}
-                lockPending={lockMutation.isPending || quantityMutation.isPending}
+                autoConfirm
+                saving={savingIds.has(row.item_id)}
+                memoryNote={memoryNoteFor(row)}
+                lockPending={savingIds.has(row.item_id)}
                 onClearQuantity={() => {
                   setEdits((current) => ({ ...current, [row.item_id]: "" }));
-                  if (row.decided_quantity !== null) quantityMutation.mutate({ itemId: row.item_id, quantity: null });
+                  void commitQuantity(row.item_id, { quantity: null });
                 }}
                 onUnitChange={(unitId, unitCode) => {
                   const raw = edits[row.item_id];
                   const value = raw !== undefined ? parseQuantity(raw) : row.decided_quantity === null ? null : Number(row.decided_quantity);
-                  quantityMutation.mutate({ itemId: row.item_id, quantity: value ?? null, unitId, unitCode });
+                  void commitQuantity(row.item_id, { quantity: value && value > 0 ? value : null, unitId, unitCode });
                 }}
               />
               );
