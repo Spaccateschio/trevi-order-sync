@@ -358,6 +358,13 @@
       "when": 1791821303474,
       "tag": "0050_danea_um_default_sale_unit",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1791822939910,
+      "tag": "0051_danea_sale_unit_default_lock",
+      "breakpoints": true
     }
   ]
 }

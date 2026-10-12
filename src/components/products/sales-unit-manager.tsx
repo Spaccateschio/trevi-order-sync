@@ -99,6 +99,10 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
   const available = units.filter((unit) => unit.status === "attivo" && (unit.usage ?? "entrambi") !== "acquisto" && !assignments.some((row) => row.unit_id === unit.id));
 
   const busy = mutation.isPending || saveMutation.isPending;
+  // Prodotti Danea: la predefinita è sempre danea_um (vincolo anche nel database).
+  const daneaCode = daneaUm?.trim().toLowerCase() || null;
+  const daneaLocked = Boolean(daneaCode);
+  const selectedIsDanea = Boolean(daneaCode && selected?.units_of_measure?.code?.toLowerCase() === daneaCode);
 
   // Sola lettura: le U.M. con cui il prodotto si acquista arrivano dalle referenze fornitore.
 
@@ -169,9 +173,11 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
     {selected ? <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
       <div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{selected.units_of_measure?.code ?? "—"} — {selected.units_of_measure?.description ?? ""}</strong>{selected.needs_review ? <Badge variant="destructive"><AlertTriangle />U.M. Danea cambiata: verifica la stima</Badge> : null}</div>
       <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
-        <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy} checked={draft.active} onCheckedChange={(active) => setDraft((current) => ({ ...current, active, isDefault: active ? current.isDefault : false }))} />Attiva</label>
-        <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy} checked={draft.visible} onCheckedChange={(visible) => setDraft((current) => ({ ...current, visible, isDefault: visible ? current.isDefault : false }))} />Visibile cliente</label>
-        <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy || selected.is_default} checked={draft.isDefault} onCheckedChange={(isDefault) => setDraft((current) => ({ ...current, isDefault, active: isDefault ? true : current.active, visible: isDefault ? true : current.visible }))} />Predefinita</label>
+        <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy || selectedIsDanea} checked={draft.active} onCheckedChange={(active) => setDraft((current) => ({ ...current, active, isDefault: active ? current.isDefault : false }))} />Attiva</label>
+        <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy || selectedIsDanea} checked={draft.visible} onCheckedChange={(visible) => setDraft((current) => ({ ...current, visible, isDefault: visible ? current.isDefault : false }))} />Visibile cliente</label>
+        {daneaLocked
+          ? <p className="flex min-h-9 items-center text-sm text-muted-foreground">{selectedIsDanea ? "Predefinita da Danea" : `Predefinita da Danea: ${daneaUm}`}</p>
+          : <label className="flex min-h-9 items-center justify-between gap-3 sm:justify-start"><Switch disabled={!editable || busy || selected.is_default} checked={draft.isDefault} onCheckedChange={(isDefault) => setDraft((current) => ({ ...current, isDefault, active: isDefault ? true : current.active, visible: isDefault ? true : current.visible }))} />Predefinita</label>}
       </div>
       <div className="mt-4 grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2"><span className="text-sm">1 {selected.units_of_measure?.code ?? "U.M."} {draft.conversionType === "esatta" ? "=" : "≈"}</span><Input aria-label={`Conversione ${selected.units_of_measure?.code ?? "U.M."}`} inputMode="decimal" disabled={!editable || busy} value={draft.factor} onChange={(event) => setDraft((current) => ({ ...current, factor: event.target.value }))} placeholder="Nessuna"/><span className="truncate text-sm">{daneaUm ?? "U.M. Danea"}</span></div>
       <div className="mt-3">
@@ -183,7 +189,7 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
       </div>
 
       {editable ? <div className="mt-4 flex flex-wrap justify-end gap-2">
-        <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => requestRemoval(selected)}><Trash2 aria-hidden="true" />Rimuovi U.M.</Button>
+        {selectedIsDanea ? null : <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => requestRemoval(selected)}><Trash2 aria-hidden="true" />Rimuovi U.M.</Button>}
         <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate()}>Salva</Button>
       </div> : null}
     </div> : null}
