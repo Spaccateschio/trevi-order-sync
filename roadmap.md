@@ -164,3 +164,10 @@
 - [x] Quantità già salvate incompatibili: avviso e correzione con conferma esplicita
 - [x] «Genera ordini»: «U.M. di acquisto da correggere — X vende in …»
 - [ ] Pubblicazione: in attesa del via dell'utente
+
+## 12/10 — Matita e annullo conferma in «Genera ordini» (solo anteprima)
+- [x] Lettura 0049 (sola lettura): stato conferma e dati della quota nell'anteprima
+- [x] Matita: quantità + U.M. del fornitore, salvataggio atomico esistente, avviso cambio U.M. senza conversione
+- [x] «Annulla conferma» persistente con la funzione esistente
+- [x] Spiegazione avviso Basilico a mazzi in cs
+- [ ] Pubblicazione: in attesa del via dell'utente
