@@ -77,7 +77,20 @@ export type AutoAssignOptions = {
   previousQuantity?: number | null;
   /** Scrittura della quota «Acquisto diretto» (memoria): senza, la memoria con acquisto diretto si limita a proporre. */
   direct?: DirectFn;
+  /**
+   * Solo calcolo: le quote vengono raccolte qui invece di essere scritte (le scrive poi
+   * commit_shopping_list_item_quantity nella stessa transazione della quantità).
+   */
+  collect?: PlannedWrite[];
+  /** Quantità/U.M. ancora da salvare (con `collect`): il calcolo usa questi valori. */
+  quantity?: number;
+  unitId?: string | null;
+  unitCode?: string | null;
 };
+
+export type PlannedWrite =
+  | { kind: "fornitore"; linkId: string; assignmentId: string | null; purchaseQuantity: number; purchaseUnitId: string | null; manualUnitCode: string | null }
+  | { kind: "diretto"; quantity: number; unitId: string | null; unitCode: string | null };
 
 /**
  * Memoria per prodotto: ultima Lista CHIUSA della stessa azienda (RLS + filtro company_id) con quote reali.
@@ -103,6 +116,7 @@ export async function readMemories(companyId: string, productIds: string[]): Pro
         .from("shopping_list_item_suppliers")
         .select("item_id, product_supplier_link_id, purchase_unit_id, purchase_unit_code, purchase_quantity, assigned_quantity")
         .eq("company_id", companyId)
+        .is("deselected_at", null)
         .in("item_id", itemIds.slice(j, j + 200));
       supRows.push(...((data ?? []) as typeof supRows));
     }
@@ -181,16 +195,19 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
     .eq("id", itemId)
     .maybeSingle();
   if (error || !item) return { kind: "saltato", reason: error?.message ?? "Riga non trovata" };
-  const quantity = item.decided_quantity === null ? null : Number(item.decided_quantity);
+  const planning = Boolean(options.collect);
+  const quantity = planning && options.quantity !== undefined ? options.quantity : item.decided_quantity === null ? null : Number(item.decided_quantity);
   if (!quantity || quantity <= 0) return { kind: "saltato", reason: "Quantità mancante" };
-  if (!item.quantity_locked_at) return { kind: "saltato", reason: "Quantità non confermata" };
+  if (!planning && !item.quantity_locked_at) return { kind: "saltato", reason: "Quantità non confermata" };
+  if (planning && options.unitId !== undefined) item.decided_unit_id = options.unitId;
+  if (planning && options.unitCode !== undefined) item.decided_unit_code = options.unitCode;
   if (item.excluded_at) return { kind: "saltato", reason: "Prodotto escluso" };
   const directQuota = item.manual_purchase_quantity === null ? null : Number(item.manual_purchase_quantity);
 
   const [assignments, overview, units, stars, product] = await Promise.all([
     supabase
       .from("shopping_list_item_suppliers")
-      .select("id, product_supplier_link_id, purchase_unit_id, purchase_unit_code, purchase_quantity")
+      .select("id, product_supplier_link_id, purchase_unit_id, purchase_unit_code, purchase_quantity, deselected_at")
       .eq("item_id", itemId),
     supabase.rpc("product_supplier_overview", { _product_id: item.product_id }),
     supabase.rpc("shopping_item_supplier_units", { _item_id: itemId }),
@@ -199,7 +216,10 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   ]);
   const failure = assignments.error ?? overview.error ?? units.error ?? stars.error;
   if (failure) return { kind: "saltato", reason: failure.message };
-  const rows = assignments.data ?? [];
+  // Quote tolte volontariamente (salvate nel database): non contano e non vengono mai riproposte.
+  const allRows = assignments.data ?? [];
+  const rows = allRows.filter((r) => !r.deselected_at);
+  const dbDeselected = allRows.filter((r) => r.deselected_at).map((r) => r.product_supplier_link_id as string);
   if (rows.length && !updateExisting) return { kind: "gia_ripartito" };
   if (!rows.length && directQuota !== null) return { kind: "gia_ripartito" };
 
@@ -243,11 +263,19 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
     inOrder: inOrder.has(r.id as string),
   }));
 
-  const deselected = deselectedFor(itemId);
+  const deselected = new Set([...deselectedFor(itemId), ...dbDeselected]);
   const memory = options.onlyLinkId || options.preferLinkId ? null : ((await readMemories(companyId, [item.product_id as string])).get(item.product_id as string) ?? null);
   const memCtx = { suppliers, deselected, decidedUnitId, decidedCode, quantity, stockUnitId, conversions };
   const writeAll = async (writes: ({ kind: "fornitore"; linkId: string; assignmentId: string | null; target: { unitId: string | null; manual: string | null; quantity: number } } | { kind: "diretto"; quantity: number; unitId: string | null; unitCode: string | null })[]) => {
     for (const w of writes) {
+      if (options.collect) {
+        options.collect.push(
+          w.kind === "diretto"
+            ? w
+            : { kind: "fornitore", linkId: w.linkId, assignmentId: w.assignmentId, purchaseQuantity: w.target.quantity, purchaseUnitId: w.target.unitId, manualUnitCode: w.target.manual },
+        );
+        continue;
+      }
       if (w.kind === "diretto") {
         if (!options.direct) throw new Error("Acquisto diretto da inserire a mano");
         await options.direct({ data: { companyId, itemId, quantity: w.quantity, unitId: w.unitId, unitCode: w.unitCode } });
