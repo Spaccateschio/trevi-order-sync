@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { evaluationBadge, type EvaluationBadgeStatus } from "@/lib/card-labels";
 import { dateTimeShort, qty } from "@/lib/inventory";
-import { ITEM_STATUS_LABEL, type OverviewRow } from "@/lib/shopping-list";
+import { type OverviewRow } from "@/lib/shopping-list";
+import { factsFromRow, rowLabel } from "@/lib/supplier-selection";
 import { cn } from "@/lib/utils";
 
 export type StockInfo = {
@@ -220,10 +221,10 @@ export function ShoppingListCard({
         <span
           className={cn(
             "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
-            row.status === "assegnata" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
+            row.status === "assegnata" && locked ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
           )}
         >
-          {ITEM_STATUS_LABEL[row.status]}
+          {rowLabel(factsFromRow(row, locked))}
         </span>
       ) : null}
     </span>

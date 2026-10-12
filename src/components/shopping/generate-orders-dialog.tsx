@@ -39,16 +39,14 @@ import {
   type GenerationPreview,
 } from "@/lib/order-generation.functions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
+import { assignShoppingListSupplier, setShoppingListItemQuantityLock } from "@/lib/shopping-list.functions";
+import { autoAssignItem } from "@/lib/shopping-auto-assign";
+import { issueReason, type RowFacts } from "@/lib/supplier-selection";
 import { MISSING_SELLING_PRICE, priceLabel } from "@/lib/purchase";
 
 type Delivery = { date: string; from: string; to: string; address: string; notes: string };
 type SupplierDraft = { selected: boolean; delivery: Delivery; lines: Record<string, { included: boolean; quantity: string }> };
 
-const ISSUE_LABEL: Record<string, string> = {
-  da_assegnare: "senza fornitore",
-  parziale: "quantità non tutta assegnata",
-  da_verificare: "da verificare",
-};
 
 function linePrice(line: { unit_cost: number | null; price_unit_code: string | null; is_b2b: boolean }) {
   if (line.unit_cost === null || line.unit_cost === undefined) return line.is_b2b ? MISSING_SELLING_PRICE : "Prezzo non indicato";
@@ -126,6 +124,85 @@ export function GenerateOrdersDialog({
     queryKey: ["generation-preview", listId],
     enabled: open,
     queryFn: () => readPreview({ data: { listId } }),
+  });
+
+  // Fatti delle righe della Lista (solo prodotti presenti nella Lista: «Da valutare» non c'entra).
+  const facts = useQuery({
+    queryKey: ["generation-facts", listId],
+    enabled: open,
+    queryFn: async () => {
+      const { data: items, error } = await supabase
+        .from("shopping_list_items")
+        .select("id, product_id, decided_quantity, quantity_locked_at, excluded_at")
+        .eq("list_id", listId);
+      if (error) throw new Error(error.message);
+      const productIds = [...new Set((items ?? []).map((i) => i.product_id as string))];
+      const { data: links, error: linkError } = productIds.length
+        ? await supabase.from("product_supplier_links").select("product_id").in("product_id", productIds).eq("is_active", true)
+        : { data: [], error: null };
+      if (linkError) throw new Error(linkError.message);
+      const count = new Map<string, number>();
+      for (const l of links ?? []) count.set(l.product_id as string, (count.get(l.product_id as string) ?? 0) + 1);
+      return (items ?? []).map((i) => ({
+        id: i.id as string,
+        quantity: i.decided_quantity === null ? null : Number(i.decided_quantity),
+        locked: Boolean(i.quantity_locked_at),
+        excluded: Boolean(i.excluded_at),
+        links: count.get(i.product_id as string) ?? 0,
+      }));
+    },
+  });
+  const factsById = new Map((facts.data ?? []).map((f) => [f.id, f]));
+  const reasonFor = (i: { item_id: string; status: string }) => {
+    const f = factsById.get(i.item_id);
+    const row: RowFacts = {
+      quantity: f?.quantity ?? null,
+      locked: f?.locked ?? false,
+      status: i.status as RowFacts["status"],
+      linkedSuppliers: f?.links ?? 0,
+      quotes: i.status === "da_assegnare" ? 0 : 1,
+    };
+    return issueReason(row);
+  };
+  const unconfirmed = (facts.data ?? []).filter((f) => !f.excluded && !f.locked && (f.quantity ?? 0) > 0);
+
+  // «Conferma tutte e assegna i fornitori»: stesse regole del «Conferma» della card, riga per riga
+  // (una riga che fallisce non ferma le altre; ogni scrittura è atomica nel database). Mai ordini, mai diretti completati.
+  const runLock = useServerFn(setShoppingListItemQuantityLock);
+  const runAssignAuto = useServerFn(assignShoppingListSupplier);
+  const [bulkReport, setBulkReport] = useState<null | { confirmed: number; assigned: string[]; toChoose: string[]; skipped: string[] }>(null);
+  const bulk = useMutation({
+    mutationFn: async () => {
+      const report = { confirmed: 0, assigned: [] as string[], toChoose: [] as string[], skipped: [] as string[] };
+      const names = new Map((preview.data?.issues ?? []).map((i) => [i.item_id, `${i.code ? `${i.code} · ` : ""}${i.name}`]));
+      for (const f of unconfirmed) {
+        const name = names.get(f.id) ?? "Prodotto";
+        try {
+          await runLock({ data: { itemId: f.id, locked: true } });
+          report.confirmed += 1;
+        } catch (e) {
+          report.skipped.push(`${name}: ${(e as Error).message}`);
+          continue;
+        }
+        const res = await autoAssignItem(runAssignAuto, companyId, f.id);
+        if (res.kind === "assegnato") report.assigned.push(`${name} → ${res.supplierName}`);
+        else if (res.kind === "da_scegliere") report.toChoose.push(`${name} (${res.reason})`);
+        else if (res.kind === "senza_fornitore") report.toChoose.push(`${name} (senza fornitore)`);
+        else if (res.kind === "saltato") report.skipped.push(`${name}: ${res.reason}`);
+      }
+      return report;
+    },
+    onSuccess: async (report) => {
+      setBulkReport(report);
+      await Promise.all([
+        refresh(),
+        queryClient.invalidateQueries({ queryKey: ["generation-facts", listId] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-locks"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments"] }),
+      ]);
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const [step, setStep] = useState<"avviso" | "fornitori">("avviso");
@@ -291,6 +368,25 @@ export function GenerateOrdersDialog({
             <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Caricamento…</p>
           ) : step === "avviso" && data.issues.length ? (
             <div className="space-y-3">
+              {unconfirmed.length ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/10 p-3 text-sm">
+                  <p className="font-medium">
+                    {unconfirmed.length} {unconfirmed.length === 1 ? "quantità inserita ma non confermata" : "quantità inserite ma non confermate"}
+                  </p>
+                  <Button size="sm" disabled={bulk.isPending} onClick={() => bulk.mutate()}>
+                    {bulk.isPending ? <Loader2 className="size-4 animate-spin" /> : null} Conferma tutte e assegna i fornitori
+                  </Button>
+                </div>
+              ) : null}
+              {bulkReport ? (
+                <div className="space-y-1 rounded-md border border-border p-3 text-xs">
+                  <p className="font-semibold">
+                    {bulkReport.confirmed} confermate · {bulkReport.assigned.length} assegnate in automatico · {bulkReport.toChoose.length} con fornitore da scegliere · {bulkReport.skipped.length} saltate
+                  </p>
+                  {bulkReport.toChoose.length ? <p className="text-muted-foreground">Fornitore da scegliere: {bulkReport.toChoose.join("; ")}</p> : null}
+                  {bulkReport.skipped.length ? <p className="text-destructive">Saltate: {bulkReport.skipped.join("; ")}</p> : null}
+                </div>
+              ) : null}
               <div className="flex gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                 <p>Alcuni prodotti hanno quantità da sistemare. Puoi sistemarle ora oppure procedere con i prodotti pronti: quelli da sistemare restano nella Lista.</p>
@@ -298,7 +394,7 @@ export function GenerateOrdersDialog({
               <ul className="space-y-1 text-sm">
                 {data.issues.map((i) => (
                   <li key={i.item_id} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1">
-                    <span className="min-w-0 truncate">{i.code ? `${i.code} · ` : ""}{i.name} <span className="text-muted-foreground">— {ISSUE_LABEL[i.status] ?? i.status}</span></span>
+                    <span className="min-w-0 truncate">{i.code ? `${i.code} · ` : ""}{i.name} <span className="text-muted-foreground">— {reasonFor(i)}</span></span>
                     <Button size="sm" variant="ghost" onClick={() => { onOpenChange(false); onGoToItem(i.item_id); }}>Vai</Button>
                   </li>
                 ))}
@@ -411,7 +507,7 @@ export function GenerateOrdersDialog({
                   <h3 className="text-sm font-semibold">Prodotti non pronti</h3>
                   {data.issues.map((i) => (
                     <div key={i.item_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span>{i.code ? `${i.code} · ` : ""}{i.name} <span className="text-muted-foreground">— {ISSUE_LABEL[i.status] ?? i.status}</span></span>
+                      <span>{i.code ? `${i.code} · ` : ""}{i.name} <span className="text-muted-foreground">— {reasonFor(i)}</span></span>
                       <Button size="sm" variant="ghost" disabled={exclusion.isPending} onClick={() => exclusion.mutate({ itemId: i.item_id, action: "exclude" })}>Non acquistare in questo ciclo</Button>
                     </div>
                   ))}

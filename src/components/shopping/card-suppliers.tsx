@@ -5,7 +5,7 @@ import { AlertTriangle, Check, Info, Lock, MoreVertical, Pencil, Split, Star, Tr
 import { AddSupplierInline, refreshProductSuppliers, useCompanyUnits } from "./add-supplier-inline";
 import { UnlinkSupplierDialog } from "./unlink-supplier-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import type { RowSupplier } from "./use-shopping-list-extras";
@@ -15,7 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
-import { ITEM_STATUS_LABEL, type OverviewRow } from "@/lib/shopping-list";
+import { type OverviewRow } from "@/lib/shopping-list";
+import { autoAssignItem } from "@/lib/shopping-auto-assign";
+import { factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
+import { Checkbox } from "@/components/ui/checkbox";
 import { assignShoppingListSupplier, setShoppingListDirectQuota } from "@/lib/shopping-list.functions";
 
 /**
@@ -312,7 +315,12 @@ export function CardSuppliers({
   const [split, setSplit] = useState(false);
   const [openLink, setOpenLink] = useState<string | null>(null);
   const [details, setDetails] = useState(false);
-  const autoRef = useRef(false);
+  const directQuotaQuery = useQuery({
+    queryKey: ["shopping-direct-quota", row.item_id],
+    enabled: !pending,
+    queryFn: () => readDirectQuota(row.item_id),
+  });
+  const directQuota = directQuotaQuery.data ?? null;
   const companyUnits = useCompanyUnits(companyId);
   const setEditingNull = () => {
     setEditing(null);
@@ -355,7 +363,7 @@ export function CardSuppliers({
       ]);
       toast.success(input.action === "remove" ? "Ripartizione tolta" : "Ripartizione salvata");
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => toast.error(friendlyAssignError(error.message)),
   });
 
   const canWrite = editable && !pending;
@@ -377,6 +385,16 @@ export function CardSuppliers({
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
       ]);
       toast.success(`${input.s.name} è il fornitore preferito`);
+      // Riga confermata e senza quote: proposta al nuovo preferito (salvo conflitto con la stella dell'Inventario).
+      if (!pending && target && !assignments.length && !directQuota) {
+        const res = await autoAssignItem(runAssign, companyId, row.item_id);
+        if (res.kind === "assegnato") toast.success(`Assegnato a ${res.supplierName}`);
+        else if (res.kind === "da_scegliere") toast.info(res.reason);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+          queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+        ]);
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -598,20 +616,55 @@ export function CardSuppliers({
     if (hit) return { unitId: hit.unitId, manual: null };
     return s.allowManual ? { unitId: null, manual: code } : null;
   };
-  const assignAll = (s: CardSupplier, q: { unitId: string | null; manual: string | null }) =>
-    mutation.mutate({ action: "set", linkId: s.linkId, packs: target, accepted: true, unitId: q.unitId, manualUnitCode: q.manual, assignmentId: null });
-
-  // Un solo fornitore: appena confermata la quantità, gli viene assegnata tutta (una volta sola).
-  // Solo per conferme appena fatte: le card confermate in passato non cambiano da sole.
-  const only = suppliers.length === 1 ? suppliers[0]! : null;
-  const onlyQuick = only ? quickFor(only) : null;
-  const fresh = lockedAt ? Date.now() - new Date(lockedAt).getTime() < 2 * 60_000 : false;
-  useEffect(() => {
-    if (autoRef.current || !canWrite || !fresh || !only || !onlyQuick || !target || target <= 0 || assignments.length || mutation.isPending) return;
-    autoRef.current = true;
-    assignAll(only, onlyQuick);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canWrite, fresh, only?.linkId, onlyQuick?.unitId, onlyQuick?.manual, target, assignments.length]);
+  // Spunta: sceglie/toglie il fornitore SOLO in questa Lista (il collegamento al prodotto resta).
+  // Più spunte con la stessa U.M.: parti uguali (prima si riducono le altre, poi si aggiunge: mai oltre il totale).
+  // U.M. diverse o senza conversione: nessuna divisione automatica, quantità a mano.
+  const selectMutation = useMutation({
+    mutationFn: async ({ s, on, assignment }: { s: CardSupplier; on: boolean; assignment: RowSupplier | null }) => {
+      const call = (linkId: string, packs: number | null, unitId: string | null, manual: string | null, assignmentId: string | null, action: "set" | "remove" = "set") =>
+        runAssign({ data: { companyId, itemId: row.item_id, action, linkId, assignedQuantity: null, purchaseQuantity: packs, minWarningAccepted: true, notes: null, purchaseUnitId: unitId, assignmentId, manualUnitCode: manual } });
+      if (!on) {
+        if (assignment) await call(s.linkId, null, null, null, assignment.id, "remove");
+        return "removed" as const;
+      }
+      const q = quickFor(s);
+      if (!target || !q) return "manual" as const;
+      const others = assignments.filter((a) => a.linkId !== s.linkId);
+      if (!others.length && !directQuota) {
+        await call(s.linkId, target, q.unitId, q.manual, null);
+        return "full" as const;
+      }
+      const comparable = !directQuota && others.every((a) => {
+        const sup = suppliers.find((x) => x.linkId === a.linkId);
+        const oq = sup ? quickFor(sup) : null;
+        return oq !== null && a.purchaseQuantity !== null && (oq.unitId ? a.purchaseUnitId === oq.unitId : !a.purchaseUnitId && (a.purchaseUnitCode ?? "").toUpperCase() === oq.manual);
+      });
+      if (!comparable) return "manual" as const;
+      const parts = splitEvenly(target, others.length + 1, isWholeNumber(target));
+      for (const [i, a] of others.entries()) {
+        if (a.purchaseQuantity !== parts[i]) await call(a.linkId, parts[i]!, a.purchaseUnitId, a.purchaseUnitId ? null : a.purchaseUnitCode, a.id);
+      }
+      await call(s.linkId, parts[others.length]!, q.unitId, q.manual, null);
+      return "split" as const;
+    },
+    onSuccess: async (result, { s }) => {
+      if (result === "manual") {
+        setOpenLink(s.linkId);
+        toast.info("U.M. diverse o quantità non confermata: inserisci la quantità a mano");
+        return;
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+      ]);
+      toast.success(result === "removed" ? `${s.name} tolto da questa Lista` : result === "split" ? "Quantità divisa in parti uguali" : `Tutta la quantità a ${s.name}`);
+    },
+    onError: async (error: Error) => {
+      toast.error(friendlyAssignError(error.message));
+      await queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] });
+    },
+  });
 
   if (loading) return <p className="text-xs text-muted-foreground">Caricamento fornitori…</p>;
 
@@ -648,7 +701,25 @@ export function CardSuppliers({
     return (
       <li key={s.linkId} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
         <div className="flex min-w-0 items-center gap-1 text-xs">
-          {s.isPreferred ? <Star className="size-3 shrink-0 fill-primary text-primary" aria-label="Fornitore preferito" /> : null}
+          {!pending ? (
+            <Checkbox
+              checked={Boolean(assignment)}
+              disabled={!canWrite || busy || selectMutation.isPending || (!assignment && (b2bBlocked || noUnits))}
+              aria-label={assignment ? `Togli ${s.name} da questa Lista` : `Scegli ${s.name} per questa Lista`}
+              title={!assignment && !target ? "Conferma prima la quantità da acquistare" : undefined}
+              onCheckedChange={(v) => selectMutation.mutate({ s, on: v === true, assignment })}
+            />
+          ) : null}
+          <button
+            type="button"
+            className="shrink-0 disabled:opacity-60"
+            disabled={!editable || s.isPreferred || linkMutation.isPending}
+            aria-label={s.isPreferred ? `${s.name}: fornitore preferito` : `Imposta ${s.name} come fornitore preferito`}
+            title={s.isPreferred ? "Fornitore preferito (vale anche per le prossime Liste)" : "Imposta come preferito (permanente, solo amministratori)"}
+            onClick={() => linkMutation.mutate({ kind: "preferred", s })}
+          >
+            <Star className={s.isPreferred ? "size-3.5 fill-primary text-primary" : "size-3.5 text-muted-foreground"} aria-hidden="true" />
+          </button>
           <span className="min-w-0 flex-1 truncate font-semibold">{s.name}</span>
           {show.b2b && details && s.isB2B ? <B2BBadge /> : null}
           {editable ? (
@@ -725,7 +796,7 @@ export function CardSuppliers({
             + Assegna quantità
           </Button>
         ) : null}
-        {!assignment && !editingLink && canWrite && !b2bBlocked && !noUnits && !split && openLink !== s.linkId ? (
+        {false && !assignment && !editingLink && canWrite && !b2bBlocked && !noUnits && !split && openLink !== s.linkId ? (
           <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled={!target} title={target ? undefined : "Conferma prima la quantità da acquistare"} onClick={() => setOpenLink(s.linkId)}>
             + Assegna quantità
           </Button>
@@ -906,32 +977,38 @@ export function CardSuppliers({
   return (
     <div className="space-y-2">
       <section className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fornitori disponibili</p>
-        {available.length ? (
-          <ul className="space-y-1">{available.map((s) => supplierRow(s, null))}</ul>
-        ) : (
-          <p className="text-xs text-muted-foreground">{suppliers.length ? "Tutti già nella ripartizione" : "Nessun fornitore collegato"}</p>
-        )}
-        {addButton}
-      </section>
-      <section className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ripartizione di questa Lista</p>
-        {assigned.length || orphans.length ? (
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Spunta = acquisto in questa Lista</p>
+        {suppliers.length || orphans.length ? (
           <ul className="space-y-1">
             {assigned.map((s) => supplierRow(s, byLink.get(s.linkId) ?? null))}
+            {available.map((s) => supplierRow(s, null))}
             {orphans.map(orphanRow)}
           </ul>
-        ) : null}
+        ) : (
+          <p className="text-xs text-muted-foreground">Senza fornitore</p>
+        )}
+        {addButton}
         {listConfirmed && (assigned.length || orphans.length) ? (
           <p className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
             <Lock className="size-3" aria-hidden="true" /> Lista confermata: ripartizioni bloccate
           </p>
         ) : null}
-        <DirectQuota companyId={companyId} itemId={row.item_id} editable={editable} unitCode={directUnit} />
+        <DirectQuota
+          companyId={companyId}
+          itemId={row.item_id}
+          editable={editable && !pending}
+          unitCode={directUnit}
+          proposal={!target ? null : assignments.length ? (row.remaining !== null && row.remaining > 0 ? row.remaining : null) : target}
+        />
         {pending ? <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p> : null}
       </section>
       <p className="text-xs">
-        Stato: <span className="font-semibold">{ITEM_STATUS_LABEL[row.status]}</span>
+        Stato: <span className="font-semibold">{rowLabel(factsFromRow(row, Boolean(lockedAt)))}</span>
+        {row.status === "da_verificare" ? (
+          <span className="block text-[11px] text-muted-foreground">
+            Le quote usano U.M. diverse da quella da acquistare ({directUnit}) e senza conversione non si sommano: correggi le quote o conferma la copertura in «Genera ordini».
+          </span>
+        ) : null}
         {row.status === "parziale" && row.remaining !== null ? ` · ${qty(row.remaining)} ${directUnit} da assegnare` : ""}
       </p>
       <UnlinkSupplierDialog
@@ -963,25 +1040,29 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T) {
  * o rimovibile finché la Lista è aperta). Non tocca i collegamenti fornitore. Lo stato della riga
  * resta calcolato solo dal database.
  */
-function DirectQuota({ companyId, itemId, editable, unitCode }: { companyId: string; itemId: string; editable: boolean; unitCode: string }) {
+async function readDirectQuota(itemId: string) {
+  const { data, error } = await supabase
+    .from("shopping_list_items")
+    .select("manual_purchase_quantity, manual_purchase_unit_code")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.manual_purchase_quantity == null
+    ? null
+    : { quantity: Number(data.manual_purchase_quantity), unit: (data.manual_purchase_unit_code as string | null) ?? "" };
+}
+
+/**
+ * «Acquisto diretto (compro io)» come casella: vale solo per questa Lista, non è mai «completato»
+ * finché non viene registrato esplicitamente in «Genera ordini». Spunta = quota proposta
+ * (tutta la quantità se non ci sono altre quote, altrimenti il residuo); senza proposta si scrive a mano.
+ */
+function DirectQuota({ companyId, itemId, editable, unitCode, proposal }: { companyId: string; itemId: string; editable: boolean; unitCode: string; proposal: number | null }) {
   const queryClient = useQueryClient();
   const run = useServerFn(setShoppingListDirectQuota);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
-  const quota = useQuery({
-    queryKey: ["shopping-direct-quota", itemId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("shopping_list_items")
-        .select("manual_purchase_quantity, manual_purchase_unit_code")
-        .eq("id", itemId)
-        .maybeSingle();
-      if (error) throw new Error(error.message);
-      return data?.manual_purchase_quantity == null
-        ? null
-        : { quantity: Number(data.manual_purchase_quantity), unit: (data.manual_purchase_unit_code as string | null) ?? "" };
-    },
-  });
+  const quota = useQuery({ queryKey: ["shopping-direct-quota", itemId], queryFn: () => readDirectQuota(itemId) });
   const save = useMutation({
     mutationFn: (quantity: number | null) =>
       run({ data: { companyId, itemId, quantity, unitId: null, unitCode: null } }),
@@ -995,53 +1076,61 @@ function DirectQuota({ companyId, itemId, editable, unitCode }: { companyId: str
     onError: (e) => toast.error(e instanceof Error ? e.message : "Salvataggio non riuscito"),
   });
   const current = quota.data ?? null;
+  const checked = Boolean(current) || editing;
 
-  if (editing)
-    return (
-      <form
-        className="flex flex-wrap items-center gap-1"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const n = parseQuantity(value);
-          if (n === null || n < 0) { toast.error("Quantità non valida"); return; }
-          save.mutate(n === 0 ? null : n);
-        }}
-      >
-        <span className="text-xs font-semibold">Acquisto diretto</span>
-        <Input autoFocus inputMode="decimal" className="h-8 w-20" value={value} onChange={(e) => setValue(e.target.value)} aria-label="Quantità acquisto diretto" />
-        <span className="text-xs">{current?.unit || unitCode}</span>
-        <Button type="submit" size="sm" className="h-8 px-2" disabled={save.isPending} aria-label="Salva quota diretta">
-          <Check className="size-3.5" aria-hidden="true" />
-        </Button>
-        <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditing(false)} aria-label="Annulla">
-          <X className="size-3.5" aria-hidden="true" />
-        </Button>
-      </form>
-    );
-
-  if (current)
-    return (
+  return (
+    <div className="space-y-1 rounded-sm border border-dashed border-border px-1.5 py-1">
       <div className="flex flex-wrap items-center gap-1 text-xs">
-        <span>Acquisto diretto:</span>
-        <span className="rounded bg-primary px-1.5 py-0.5 font-bold text-primary-foreground">
-          {qty(current.quantity)} {current.unit}
-        </span>
-        {editable ? (
+        <Checkbox
+          checked={checked}
+          disabled={!editable || save.isPending}
+          aria-label={checked ? "Togli acquisto diretto" : "Scegli acquisto diretto"}
+          onCheckedChange={(v) => {
+            if (v !== true) {
+              setEditing(false);
+              if (current) save.mutate(null);
+              return;
+            }
+            if (proposal && proposal > 0) save.mutate(proposal);
+            else { setValue(""); setEditing(true); }
+          }}
+        />
+        <span className="font-semibold">Acquisto diretto (compro io)</span>
+        {current && !editing ? (
           <>
-            <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5" aria-label="Modifica quota diretta" onClick={() => { setValue(String(current.quantity)); setEditing(true); }}>
-              <Pencil className="size-3" aria-hidden="true" />
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5" aria-label="Rimuovi quota diretta" disabled={save.isPending} onClick={() => save.mutate(null)}>
-              <Trash2 className="size-3" aria-hidden="true" />
-            </Button>
+            <button
+              type="button"
+              className="rounded bg-primary px-1.5 py-0.5 font-bold text-primary-foreground disabled:opacity-70"
+              disabled={!editable}
+              aria-label="Modifica quota diretta"
+              onClick={() => { setValue(String(current.quantity)); setEditing(true); }}
+            >
+              {qty(current.quantity)} {current.unit}
+            </button>
+            <span className="text-[11px] text-muted-foreground">da registrare in «Genera ordini»</span>
           </>
         ) : null}
       </div>
-    );
-
-  return editable ? (
-    <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5 text-[11px]" onClick={() => { setValue(""); setEditing(true); }}>
-      + Acquisto diretto (lo compro io)
-    </Button>
-  ) : null;
+      {editing ? (
+        <form
+          className="flex flex-wrap items-center gap-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const n = parseQuantity(value);
+            if (n === null || n < 0) { toast.error("Quantità non valida"); return; }
+            save.mutate(n === 0 ? null : n);
+          }}
+        >
+          <Input autoFocus inputMode="decimal" className="h-8 w-20" value={value} onChange={(e) => setValue(e.target.value)} aria-label="Quantità acquisto diretto" />
+          <span className="text-xs">{current?.unit || unitCode}</span>
+          <Button type="submit" size="sm" className="h-8 px-2" disabled={save.isPending} aria-label="Salva quota diretta">
+            <Check className="size-3.5" aria-hidden="true" />
+          </Button>
+          <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditing(false)} aria-label="Annulla">
+            <X className="size-3.5" aria-hidden="true" />
+          </Button>
+        </form>
+      ) : null}
+    </div>
+  );
 }
