@@ -45,6 +45,10 @@ export type CatalogEntry = {
   supplierRecordIds: string[];
   supplierNames: string[];
   unitCodes: string[];
+  /** U.M. proposta: la predefinita del venditore B2B (o l'unica), altrimenti la prima. */
+  defaultUnit: string | null;
+  /** Solo U.M. pubblicate dal venditore: niente «Altra U.M.». */
+  unitsLocked: boolean;
   isB2b: boolean;
 };
 
@@ -82,12 +86,14 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_supplier_links")
-        .select("product_id, supplier_record_id, purchase_unit_id, supplier_records(legal_name), units_of_measure!purchase_unit_id(code)")
+        .select("product_id, supplier_record_id, purchase_unit_id, b2b_item_id, is_active, supplier_records(legal_name), units_of_measure!purchase_unit_id(code)")
         .eq("company_id", companyId);
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as {
         product_id: string;
         supplier_record_id: string | null;
+        b2b_item_id: string | null;
+        is_active: boolean;
         supplier_records: { legal_name: string } | null;
         units_of_measure: { code: string } | null;
       }[];
@@ -115,6 +121,18 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
   });
 
   const entries = useMemo<CatalogEntry[]>(() => {
+    // U.M. pubblicate dai venditori B2B (stessa lettura del Catalogo): id articolo venditore → codici + predefinita.
+    const published = new Map<string, { codes: string[]; def: string }>();
+    for (const cat of cataloguesQuery.data ?? []) {
+      for (const p of cat.products) {
+        const units = p.product_sale_units
+          .map((u) => ({ code: u.units_of_measure?.code ?? "", isDefault: Boolean(u.is_default) }))
+          .filter((u) => u.code);
+        published.set(p.id, { codes: [...new Set(units.map((u) => u.code))], def: defaultUnitCode(units) });
+      }
+    }
+    const b2bOf = new Map<string, string>();
+    for (const link of linksQuery.data ?? []) if (link.is_active && link.b2b_item_id) b2bOf.set(link.product_id, link.b2b_item_id);
     const byProduct = new Map<string, { ids: Set<string>; names: Set<string>; units: Set<string> }>();
     for (const link of linksQuery.data ?? []) {
       const e = byProduct.get(link.product_id) ?? { ids: new Set<string>(), names: new Set<string>(), units: new Set<string>() };
@@ -128,6 +146,9 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
       const units = new Set<string>();
       if (p.danea_um) units.add(p.danea_um);
       for (const c of l?.units ?? []) units.add(c);
+      // Prodotto proprio collegato a un articolo B2B: valgono solo le U.M. pubblicate dal venditore.
+      const pub = b2bOf.has(p.id) ? published.get(b2bOf.get(p.id)!) : undefined;
+      const codes = pub && pub.codes.length ? pub.codes : [...units];
       return {
         key: `own:${p.id}`,
         ownProductId: p.id,
@@ -140,7 +161,9 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
         baseUm: p.danea_um,
         supplierRecordIds: [...(l?.ids ?? [])],
         supplierNames: [...(l?.names ?? [])],
-        unitCodes: [...units],
+        unitCodes: codes,
+        defaultUnit: pub && pub.codes.length ? pub.def || null : null,
+        unitsLocked: Boolean(pub && pub.codes.length),
         isB2b: false,
       };
     });
@@ -161,7 +184,9 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
           baseUm: p.danea_um,
           supplierRecordIds: cat.recordId ? [cat.recordId] : [],
           supplierNames: [cat.sellerName],
-          unitCodes: p.product_sale_units.map((u) => u.units_of_measure?.code).filter((c): c is string => Boolean(c)),
+          unitCodes: published.get(p.id)?.codes ?? [],
+          defaultUnit: published.get(p.id)?.def || null,
+          unitsLocked: true,
           isB2b: true,
         });
       }
@@ -324,7 +349,7 @@ export function CatalogProductCard({
   onAdd: (quantity: number, unitCode: string | null) => void;
 }) {
   const [qty, setQty] = useState("");
-  const [unit, setUnit] = useState(entry.unitCodes[0] ?? "");
+  const [unit, setUnit] = useState(entry.defaultUnit ?? entry.unitCodes[0] ?? "");
   const [manual, setManual] = useState("");
   const quantity = parseQuantity(qty);
   const unitCode = unit === MANUAL ? manual.trim().toUpperCase() || null : unit || null;
@@ -364,7 +389,7 @@ export function CatalogProductCard({
           {entry.unitCodes.map((c) => (
             <SelectItem key={c} value={c}>{c}</SelectItem>
           ))}
-          {!entry.isB2b ? <SelectItem value={MANUAL}>Altra U.M.</SelectItem> : null}
+          {!entry.isB2b && !entry.unitsLocked ? <SelectItem value={MANUAL}>Altra U.M.</SelectItem> : null}
         </SelectContent>
       </Select>
       {unit === MANUAL ? (
