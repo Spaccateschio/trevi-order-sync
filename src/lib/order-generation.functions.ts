@@ -29,6 +29,15 @@ export type GenerationLine = {
   notes: string | null;
   is_b2b: boolean;
   needs_coverage: boolean;
+  /** Quantità senza conversione già confermata: revocabile finché la quota non è in un ordine. */
+  coverage_confirmed?: boolean;
+  link_id?: string;
+  purchase_unit_id?: string | null;
+  saved_quantity?: number;
+  item_quantity?: number | null;
+  assign_count?: number;
+  assign_at?: string | null;
+  in_order?: boolean;
 };
 export type GenerationSupplier = { supplier_record_id: string; name: string; is_b2b: boolean; lines: GenerationLine[] };
 export type GenerationPreview = {
