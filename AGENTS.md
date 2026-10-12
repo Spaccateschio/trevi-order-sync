@@ -35,4 +35,3 @@
 - Regole B2B Catalogo/preferiti/collegamenti: vedi src/components/catalog/AGENTS.md.
 - Per prodotti a peso variabile il totale economico non nasce dall'ordine. Il valore reale viene determinato al carico sulla quantità/peso effettivamente ricevuto.
 - Prezzo riga d'ordine B2B: solo applicable_b2b_price (netto, listino assegnato, articolo pubblicato) sull'articolo del collegamento usato, letto prima di ogni scrittura in close_shopping_list / create_purchase_orders_from_list; nessun fallback: senza prezzo «Prezzo su richiesta».
-- Lista della Spesa: le card in Lista leggono fornitori, acquistabilità e U.M. da `shopping_list_cards_bundle` (una chiamata per tutte le righe, riusa le funzioni per card): stessi dati, nessuna N+1.
