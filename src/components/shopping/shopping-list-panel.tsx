@@ -810,15 +810,22 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const catalogHidden = Math.max(0, catalogFiltered.length - catalogLimit);
   const catalogImages = useCatalogImages(merged.filter((i) => i.kind === "catalog").map((i) => i.value as CatalogEntry));
 
-  const summary = useMemo(
-    () => ({
-      total: allRows.length,
-      assigned: allRows.filter((row) => row.status === "assegnata").length,
-      partial: allRows.filter((row) => row.status === "parziale").length,
-      open: allRows.filter((row) => row.status === "da_assegnare").length,
-    }),
-    [allRows],
-  );
+  // Riepilogo sull'intera Lista (mai sui filtri): ogni prodotto in un solo stato; esclusi a parte.
+  const excludedQuery = useQuery({
+    queryKey: ["shopping-list-excluded", list?.id ?? null],
+    enabled: Boolean(list?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase.from("shopping_list_items").select("id").eq("list_id", list!.id).not("excluded_at", "is", null);
+      if (error) throw new Error(error.message);
+      return new Set((data ?? []).map((r) => r.id as string));
+    },
+  });
+  const summary = useMemo(() => {
+    const s = summarizeRows(
+      allRows.map((row) => factsFromRow(row, Boolean(extras.get(row.item_id)?.lockedAt), excludedQuery.data?.has(row.item_id) ?? false)),
+    );
+    return { ...s, open: s.toFix, visible: entries.length };
+  }, [allRows, extras, excludedQuery.data, entries.length]);
   // La Lista si conferma solo con ogni prodotto ripartito: prima si spiega, poi il database verifica comunque.
   const confirmBlocked = summary.open > 0;
   const confirmBlockedTitle = confirmBlocked
@@ -952,9 +959,23 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     onSuccess: async (_r, input) => {
       await queryClient.invalidateQueries({ queryKey: ["shopping-extras-locks"] });
       toast.success(input.locked ? "Quantità confermata" : "Quantità sbloccata");
+      if (input.locked) await proposeSupplier(input.itemId);
     },
     onError: (error: Error) => toast.error(error.message),
   });
+  // Proposta automatica solo nel momento della conferma e solo su righe senza quote (mai sopra scelte manuali).
+  const runAssignAuto = useServerFn(assignShoppingListSupplier);
+  const proposeSupplier = async (itemId: string) => {
+    const res = await autoAssignItem(runAssignAuto, companyId, itemId);
+    if (res.kind === "assegnato") {
+      toast.success(`Assegnato a ${res.supplierName}`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", itemId] }),
+      ]);
+    } else if (res.kind === "saltato") toast.error(res.reason);
+  };
   // Conferma: salva prima un'eventuale quantità ancora in scrittura, poi blocca.
   const toggleLock = async (row: OverviewRow) => {
     const locked = Boolean(extras.get(row.item_id)?.lockedAt);
@@ -997,6 +1018,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         return next;
       });
       if (!linkedList) setListId(result.list_id);
+      if (result.item_id) void proposeSupplier(result.item_id);
       await Promise.all([
         refresh(),
         queryClient.invalidateQueries({ queryKey: ["shopping-extras-locks"] }),
@@ -1017,7 +1039,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         row.status === "assegnata" ? "default" : row.status === "parziale" ? "secondary" : "outline"
       }
     >
-      {ITEM_STATUS_LABEL[row.status]}
+      {rowLabel(factsFromRow(row, Boolean(extras.get(row.item_id)?.lockedAt)))}
       {row.status === "parziale" && row.remaining !== null ? ` · ${qty(row.remaining)} da assegnare` : ""}
     </Badge>
   );
@@ -1027,7 +1049,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       variant={row.status === "assegnata" ? "default" : row.status === "parziale" ? "secondary" : "outline"}
       className="shrink-0 px-1 py-0 text-[10px]"
     >
-      {ITEM_STATUS_LABEL[row.status]}
+      {rowLabel(factsFromRow(row, Boolean(extras.get(row.item_id)?.lockedAt)))}
       {row.status === "parziale" && row.remaining !== null ? ` · ${qty(row.remaining)} da assegnare` : ""}
     </Badge>
   );
@@ -1543,8 +1565,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
               <span>
                 <strong>{summary.total}</strong> prodotti · <strong>{summary.assigned}</strong> assegnati ·{" "}
-                <strong>{summary.partial}</strong> parziali · <strong>{summary.open}</strong> da assegnare
+                <strong>{summary.partial}</strong> parziali · <strong>{summary.toFix}</strong> da sistemare
+                {summary.excluded ? ` · ${summary.excluded} esclusi` : ""}
                 {pendingEntries.length ? ` · ${pendingEntries.length} da valutare` : ""}
+                {summary.visible !== summary.total + summary.excluded ? (
+                  <span className="block text-muted-foreground">Visibili {summary.visible} su {summary.total + summary.excluded} (filtri attivi: i conteggi valgono per tutta la Lista)</span>
+                ) : null}
                 {summary.open ? (
                   <span className="block text-muted-foreground">
                     Ogni prodotto deve avere un fornitore o una quota di acquisto diretto prima della conferma.
@@ -1568,7 +1594,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             {summary.total} {summary.total === 1 ? "prodotto" : "prodotti"} · {summary.assigned}{" "}
             {summary.assigned === 1 ? "assegnato" : "assegnati"}
             {summary.partial ? ` · ${summary.partial} ${summary.partial === 1 ? "parziale" : "parziali"}` : ""}
-            {summary.open ? ` · ${summary.open} da assegnare` : ""}
+            {summary.toFix ? ` · ${summary.toFix} da sistemare` : ""}
+            {summary.excluded ? ` · ${summary.excluded} esclusi` : ""}
           </span>
           <Button
             size="sm"

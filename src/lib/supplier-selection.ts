@@ -161,3 +161,19 @@ export function friendlyAssignError(message: string): string {
   }
   return message;
 }
+
+/** Fatti della riga dalla panoramica del database + blocco della quantità. */
+export function factsFromRow(
+  row: { decided_quantity: number | null; status: RowFacts["status"]; suppliers_available: number },
+  locked: boolean,
+  excluded = false,
+): RowFacts {
+  return {
+    quantity: row.decided_quantity === null ? null : Number(row.decided_quantity),
+    locked,
+    status: row.status,
+    linkedSuppliers: Number(row.suppliers_available ?? 0),
+    quotes: row.status === "da_assegnare" ? 0 : 1,
+    excluded,
+  };
+}
