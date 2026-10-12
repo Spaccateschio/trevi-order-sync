@@ -17,8 +17,7 @@ import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
 import { type OverviewRow } from "@/lib/shopping-list";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
-import { defaultUnitOf } from "@/lib/supplier-selection";
-import { factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
+import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
 import { Checkbox } from "@/components/ui/checkbox";
 import { assignShoppingListSupplier, setShoppingListDirectQuota } from "@/lib/shopping-list.functions";
 
