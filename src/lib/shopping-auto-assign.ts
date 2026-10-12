@@ -347,6 +347,10 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
     }
   }
   const chosen = suppliers.find((s) => s.linkId === linkId)!;
+  if (options.collect) {
+    options.collect.push({ kind: "fornitore", linkId, assignmentId, purchaseQuantity: target.quantity, purchaseUnitId: target.unitId, manualUnitCode: target.manual });
+    return plan.kind === "set" ? { kind: "aggiornato", supplierName: chosen.name } : { kind: "assegnato", supplierName: chosen.name };
+  }
   try {
     await assign({
       data: {
