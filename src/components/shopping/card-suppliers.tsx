@@ -18,7 +18,7 @@ import { euro } from "@/lib/product-grid";
 import { type OverviewRow } from "@/lib/shopping-list";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
 import { clearDeselected, deselectedFor, markDeselected } from "@/lib/supplier-memory";
-import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
+import { defaultUnitOf, visualPick, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
 import { Checkbox } from "@/components/ui/checkbox";
 import { assignShoppingListSupplier, setShoppingListDirectQuota, setShoppingListSupplierSelection } from "@/lib/shopping-list.functions";
 
