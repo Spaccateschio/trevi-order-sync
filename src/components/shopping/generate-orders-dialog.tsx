@@ -41,6 +41,8 @@ import {
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import { assignShoppingListSupplier, setShoppingListItemQuantityLock } from "@/lib/shopping-list.functions";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
+import { readCardBundle } from "@/lib/shopping-card-reads";
+import { supplierUnitProposal, unitsSoldText, type ProposalLink } from "@/lib/supplier-unit-proposal";
 import { issueReason, type RowFacts } from "@/lib/supplier-selection";
 import { MISSING_SELLING_PRICE, priceLabel } from "@/lib/purchase";
 
@@ -133,7 +135,7 @@ export function GenerateOrdersDialog({
     queryFn: async () => {
       const { data: items, error } = await supabase
         .from("shopping_list_items")
-        .select("id, product_id, decided_quantity, quantity_locked_at, excluded_at")
+        .select("id, product_id, decided_quantity, quantity_locked_at, excluded_at, unit_code, decided_unit_code")
         .eq("list_id", listId);
       if (error) throw new Error(error.message);
       const productIds = [...new Set((items ?? []).map((i) => i.product_id as string))];
@@ -141,6 +143,26 @@ export function GenerateOrdersDialog({
         ? await supabase.from("product_supplier_links").select("product_id").in("product_id", productIds).eq("is_active", true)
         : { data: [], error: null };
       if (linkError) throw new Error(linkError.message);
+      // U.M. di acquisto incompatibile col fornitore già identificato: stessa regola della card, sola lettura.
+      const unitIssues = new Map<string, string>();
+      const { data: deselected } = await supabase.from("shopping_list_item_suppliers")
+        .select("item_id, product_supplier_link_id, deselected_at").in("item_id", (items ?? []).map((i) => i.id as string));
+      await Promise.all((items ?? []).filter((i) => i.decided_quantity !== null && !i.excluded_at).map(async (i) => {
+        const bundle = await readCardBundle(`${companyId}:${i.id}`);
+        if (!bundle) return;
+        const over = (bundle.overview as { link_id: string; supplier_name: string | null; is_preferred: boolean | null; is_active: boolean | null }[]).filter((o) => o.is_active);
+        const active = new Set(over.map((o) => o.link_id));
+        const mine = (deselected ?? []).filter((d) => d.item_id === i.id);
+        const p = supplierUnitProposal({
+          links: (bundle.supplier_units as ProposalLink[]).filter((l) => active.has(l.link_id)),
+          preferredLinkIds: new Set(over.filter((o) => o.is_preferred).map((o) => o.link_id)),
+          deselectedLinkIds: mine.filter((d) => d.deselected_at).map((d) => d.product_supplier_link_id as string),
+          assignedLinkIds: mine.filter((d) => !d.deselected_at).map((d) => d.product_supplier_link_id as string),
+          currentCode: (i.decided_unit_code as string | null) ?? (i.unit_code as string | null) ?? "",
+          productUnitCode: (i.unit_code as string | null) ?? "",
+        });
+        if (p && !p.compatible) unitIssues.set(i.id as string, `U.M. di acquisto da correggere — ${unitsSoldText(over.find((o) => o.link_id === p.linkId)?.supplier_name ?? "Il fornitore", p.units)}.`);
+      }));
       const count = new Map<string, number>();
       for (const l of links ?? []) count.set(l.product_id as string, (count.get(l.product_id as string) ?? 0) + 1);
       return (items ?? []).map((i) => ({
@@ -149,12 +171,14 @@ export function GenerateOrdersDialog({
         locked: Boolean(i.quantity_locked_at),
         excluded: Boolean(i.excluded_at),
         links: count.get(i.product_id as string) ?? 0,
+        unitIssue: unitIssues.get(i.id as string) ?? null,
       }));
     },
   });
   const factsById = new Map((facts.data ?? []).map((f) => [f.id, f]));
   const reasonFor = (i: { item_id: string; status: string }) => {
     const f = factsById.get(i.item_id);
+    if (f?.unitIssue && i.status === "da_assegnare" && f.locked) return f.unitIssue;
     const row: RowFacts = {
       quantity: f?.quantity ?? null,
       locked: f?.locked ?? false,
