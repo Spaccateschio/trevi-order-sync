@@ -20,7 +20,7 @@ import { autoAssignItem } from "@/lib/shopping-auto-assign";
 import { clearDeselected, markDeselected } from "@/lib/supplier-memory";
 import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
 import { Checkbox } from "@/components/ui/checkbox";
-import { assignShoppingListSupplier, setShoppingListDirectQuota } from "@/lib/shopping-list.functions";
+import { assignShoppingListSupplier, setShoppingListDirectQuota, setShoppingListSupplierSelection } from "@/lib/shopping-list.functions";
 
 /**
  * Sezione FORNITORI della card: solo presentazione + la stessa regola di salvataggio della finestra
@@ -308,6 +308,7 @@ export function CardSuppliers({
 }) {
   const queryClient = useQueryClient();
   const runAssign = useServerFn(assignShoppingListSupplier);
+  const runSelection = useServerFn(setShoppingListSupplierSelection);
   const { suppliers, loading, label } = useCardSuppliers(companyId, row, pending);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [orphanEditing, setOrphanEditing] = useState<{ id: string; quantity: string } | null>(null);
@@ -626,11 +627,13 @@ export function CardSuppliers({
       const call = (linkId: string, packs: number | null, unitId: string | null, manual: string | null, assignmentId: string | null, action: "set" | "remove" = "set") =>
         runAssign({ data: { companyId, itemId: row.item_id, action, linkId, assignedQuantity: null, purchaseQuantity: packs, minWarningAccepted: true, notes: null, purchaseUnitId: unitId, assignmentId, manualUnitCode: manual } });
       if (!on) {
-        if (assignment) await call(s.linkId, null, null, null, assignment.id, "remove");
-        // Deselezione volontaria: la memoria e la proposta automatica non lo ripristinano (finché la pagina resta aperta).
+        // Deselezione volontaria salvata nel database: resta anche dopo aggiornamento, riapertura e riconferma.
+        if (assignment) await runSelection({ data: { itemId: row.item_id, linkId: s.linkId, selected: false } });
         markDeselected(row.item_id, s.linkId);
         return "removed" as const;
       }
+      // Riselezione: la vecchia quota tolta viene eliminata (mai ripristinata), poi si ricalcola con le regole attuali.
+      await runSelection({ data: { itemId: row.item_id, linkId: s.linkId, selected: true } });
       clearDeselected(row.item_id, s.linkId);
       const q = quickFor(s);
       const others = assignments.filter((a) => a.linkId !== s.linkId);

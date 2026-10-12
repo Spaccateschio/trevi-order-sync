@@ -4577,6 +4577,8 @@ export type Database = {
           coverage_unit_code: string | null
           created_at: string
           created_by: string | null
+          deselected_at: string | null
+          deselected_by: string | null
           id: string
           is_selected: boolean
           item_id: string
@@ -4607,6 +4609,8 @@ export type Database = {
           coverage_unit_code?: string | null
           created_at?: string
           created_by?: string | null
+          deselected_at?: string | null
+          deselected_by?: string | null
           id?: string
           is_selected?: boolean
           item_id: string
@@ -4637,6 +4641,8 @@ export type Database = {
           coverage_unit_code?: string | null
           created_at?: string
           created_by?: string | null
+          deselected_at?: string | null
+          deselected_by?: string | null
           id?: string
           is_selected?: boolean
           item_id?: string
@@ -6166,6 +6172,21 @@ export type Database = {
         }
         Returns: Json
       }
+      commit_shopping_list_item_quantity: {
+        Args: {
+          _company_id: string
+          _direct?: Json
+          _expected_assign_at: string
+          _expected_assign_count: number
+          _expected_quantity: number
+          _item_id: string
+          _quantity: number
+          _quotas?: Json
+          _unit_code: string
+          _unit_id: string
+        }
+        Returns: Json
+      }
       company_buys: { Args: { _company_id: string }; Returns: boolean }
       company_exists_for_vat: {
         Args: { _vat_number: string }
@@ -7686,6 +7707,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_shopping_list_supplier_selection: {
+        Args: { _item_id: string; _link_id: string; _selected: boolean }
+        Returns: Json
       }
       set_supplier_delivery_schedule: {
         Args: {

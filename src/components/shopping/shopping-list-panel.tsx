@@ -74,12 +74,13 @@ import {
   manageShoppingList,
   removeShoppingListItem,
   setShoppingListItemQuantity,
+  commitShoppingListItemQuantity,
   setShoppingListDirectQuota,
   setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
-import { autoAssignItem, readMemories } from "@/lib/shopping-auto-assign";
+import { autoAssignItem, readMemories, type PlannedWrite } from "@/lib/shopping-auto-assign";
 import { createLatestQueue, matchesMemory } from "@/lib/supplier-memory";
-import { factsFromRow, rowLabel, summarizeRows } from "@/lib/supplier-selection";
+import { factsFromRow, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
 
 /** Prodotto contato non ancora in Lista, mostrato con la stessa card: nessun dato della Lista inventato. */
 function pendingOverviewRow(row: CountedRow): OverviewRow {
@@ -705,7 +706,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 category: row.category,
                 imageUrl: countedImages.get(row.product_id) ?? null,
                 isFavorite: pendingFavorites.has(row.product_id),
-                suppliers: [],
+                suppliers: [], deselectedLinks: [],
                 orderState: null as unknown as RowExtras["orderState"],
                 lockedAt: null,
                 inventoryChangedAt: null,
@@ -990,6 +991,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   // Proposta automatica solo nel momento della conferma e solo su righe senza quote (mai sopra scelte manuali).
   const runAssignAuto = useServerFn(assignShoppingListSupplier);
   const runDirect = useServerFn(setShoppingListDirectQuota);
+  const runCommit = useServerFn(commitShoppingListItemQuantity);
   const proposeSupplier = async (itemId: string, previousQuantity?: number | null) => {
     const res = await autoAssignItem(runAssignAuto, companyId, itemId, { previousQuantity: previousQuantity ?? null, direct: runDirect });
     if (res.kind === "assegnato" || res.kind === "aggiornato") {
@@ -1027,18 +1029,56 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       const unitCode = c.unitCode !== undefined ? c.unitCode : ((item.decided_unit_code as string | null) ?? null);
       const unitChanged = unitId !== item.decided_unit_id || unitCode !== item.decided_unit_code;
       const changed = prev !== c.quantity || unitChanged;
-      const write = async (quantity: number | null) =>
-        runQuantity({ data: { companyId, itemId, decidedQuantity: quantity, reason: "Modifica manuale dell'operatore", notes: null, decidedUnitId: unitId, decidedUnitCode: unitCode } });
-      if (changed && locked) await runLock({ data: { itemId, locked: false } });
-      if (c.quantity === null) {
-        if (changed) await write(null);
-        const hasQuotas = (extras.get(itemId)?.suppliers.length ?? 0) > 0 || item.manual_purchase_quantity !== null;
-        if (hasQuotas && prev !== null) toast.warning("Quantità tolta: le quote già salvate restano. Sistemale dalla card.");
+      if (!changed && (c.quantity === null || locked)) {
+        // Nessuna modifica (doppio evento di uscita): nessuna scrittura.
       } else {
-        if (changed) await write(c.quantity);
-        if (changed || !locked) await runLock({ data: { itemId, locked: true } });
-        // Se nel frattempo è arrivato un valore più recente, la proposta si fa solo su quello.
-        if (commitQueue.isLatest(itemId)) await proposeSupplier(itemId, changed ? prev : null);
+        // Versione delle quote letta ora: il database rifiuta se cambiano prima del salvataggio.
+        const { data: quotaRows, error: quotaErr } = await supabase
+          .from("shopping_list_item_suppliers")
+          .select("updated_at")
+          .eq("item_id", itemId);
+        if (quotaErr) throw new Error(quotaErr.message);
+        const expectedAssignCount = quotaRows?.length ?? 0;
+        const expectedAssignAt = (quotaRows ?? []).map((r) => r.updated_at as string).sort().at(-1) ?? null;
+        // Quote automatiche calcolate con le regole di sempre (memoria, unico idoneo/★, conversioni), non ancora scritte.
+        const planned: PlannedWrite[] = [];
+        let plannedResult: Awaited<ReturnType<typeof autoAssignItem>> | null = null;
+        if (c.quantity !== null && commitQueue.isLatest(itemId)) {
+          plannedResult = await autoAssignItem(runAssignAuto, companyId, itemId, {
+            collect: planned, quantity: c.quantity, unitId, unitCode, previousQuantity: changed ? prev : null, direct: runDirect,
+          });
+        }
+        const send = (withQuotas: boolean) =>
+          runCommit({
+            data: {
+              companyId, itemId, quantity: c.quantity, unitId, unitCode,
+              expectedQuantity: prev, expectedAssignCount, expectedAssignAt,
+              quotas: withQuotas
+                ? planned.flatMap((w) => (w.kind === "fornitore" ? [{ link_id: w.linkId, assignment_id: w.assignmentId, purchase_quantity: w.purchaseQuantity, purchase_unit_id: w.purchaseUnitId, manual_unit_code: w.manualUnitCode }] : []))
+                : [],
+              direct: withQuotas ? (planned.flatMap((w) => (w.kind === "diretto" ? [{ quantity: w.quantity, unit_id: w.unitId, unit_code: w.unitCode }] : []))[0] ?? null) : null,
+            },
+          });
+        try {
+          await send(true);
+          if (planned.length && plannedResult && (plannedResult.kind === "assegnato" || plannedResult.kind === "aggiornato"))
+            toast.success(plannedResult.kind === "assegnato" ? `Assegnato a ${plannedResult.supplierName}` : `Quota di ${plannedResult.supplierName} aggiornata`);
+          else if (plannedResult && (plannedResult.kind === "verifica" || plannedResult.kind === "da_scegliere")) toast.info(plannedResult.reason);
+        } catch (e) {
+          if (!planned.length) throw e;
+          // La quota proposta non è valida: tutto annullato dal database; si salva la sola quantità (sempre in un'unica operazione).
+          await send(false);
+          toast.error(quotaSaveError("la ripartizione", (e as Error).message));
+        }
+        if (c.quantity === null) {
+          const hasQuotas = (extras.get(itemId)?.suppliers.length ?? 0) > 0 || item.manual_purchase_quantity !== null;
+          if (hasQuotas && prev !== null) toast.warning("Quantità tolta: le quote già salvate restano. Sistemale dalla card.");
+        }
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+          queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+          queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", itemId] }),
+        ]);
       }
       setEdits((current) => {
         const raw = current[itemId];
