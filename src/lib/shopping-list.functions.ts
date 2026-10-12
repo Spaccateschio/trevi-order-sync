@@ -133,6 +133,69 @@ export const setShoppingListItemQuantityLock = createServerFn({ method: "POST" }
     return { ok: true };
   });
 
+/** Spunta fornitore SOLO per questa Lista: togliere la conserva come «tolta» (mai in ordini), rimettere la riattiva. */
+export const setShoppingListSupplierSelection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ itemId: z.string().uuid(), linkId: z.string().uuid(), selected: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("set_shopping_list_supplier_selection", {
+      _item_id: data.itemId,
+      _link_id: data.linkId,
+      _selected: data.selected,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+const commitQuota = z.object({
+  link_id: z.string().uuid(),
+  assignment_id: z.string().uuid().nullable(),
+  purchase_quantity: z.number().positive(),
+  purchase_unit_id: z.string().uuid().nullable(),
+  manual_unit_code: z.string().trim().max(20).nullable(),
+});
+
+/**
+ * Quantità + conferma + quote automatiche in UNA transazione (commit_shopping_list_item_quantity).
+ * Le quote proposte vengono ricontrollate dal database; se qualcosa è cambiato nel frattempo, nulla viene salvato.
+ */
+export const commitShoppingListItemQuantity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        companyId: z.string().uuid(),
+        itemId: z.string().uuid(),
+        quantity: z.number().positive().nullable(),
+        unitId: z.string().uuid().nullable(),
+        unitCode: z.string().trim().max(20).nullable(),
+        expectedQuantity: z.number().nullable(),
+        expectedAssignCount: z.number().int().min(0),
+        expectedAssignAt: z.string().nullable(),
+        quotas: z.array(commitQuota).max(50),
+        direct: z.object({ quantity: z.number().positive(), unit_id: z.string().uuid().nullable(), unit_code: z.string().trim().max(20).nullable() }).nullable(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("commit_shopping_list_item_quantity", {
+      _company_id: data.companyId,
+      _item_id: data.itemId,
+      _quantity: data.quantity as number,
+      _unit_id: data.unitId as string,
+      _unit_code: data.unitCode as string,
+      _expected_quantity: data.expectedQuantity as number,
+      _expected_assign_count: data.expectedAssignCount,
+      _expected_assign_at: data.expectedAssignAt as string,
+      _quotas: data.quotas,
+      ...(data.direct ? { _direct: data.direct } : {}),
+    });
+    if (error) throw new Error(error.message);
+    return result as unknown as { item_id: string; status?: string; assigned?: number; remaining?: number };
+  });
+
 /** Conferma atomica di un prodotto «Da valutare»: Lista (se serve) + inserimento + quantità + blocco in una sola transazione. */
 export const confirmShoppingListProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -316,7 +316,7 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
     // Memoria (solo senza scelta esplicita dal Catalogo B2B e senza spunta manuale).
     if (memory) {
       const mp = planFromMemory(memory, memCtx);
-      if (mp.kind === "scrivi" && (options.direct || mp.writes.every((w) => w.kind === "fornitore"))) {
+      if (mp.kind === "scrivi" && (options.direct || options.collect || mp.writes.every((w) => w.kind === "fornitore"))) {
         try {
           await writeAll(mp.writes.map((w) => (w.kind === "fornitore" ? { ...w, assignmentId: null } : w)));
         } catch (e) {

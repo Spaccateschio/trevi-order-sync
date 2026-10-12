@@ -116,7 +116,7 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
       const { data, error } = await supabase
         .from("shopping_list_item_suppliers")
         .select(
-          "id, purchase_unit_id, item_id, product_supplier_link_id, supplier_record_id, assigned_quantity, purchase_quantity, purchase_unit_code, notes, supplier_records(legal_name)",
+          "id, purchase_unit_id, item_id, product_supplier_link_id, supplier_record_id, assigned_quantity, purchase_quantity, purchase_unit_code, notes, deselected_at, supplier_records(legal_name)",
         )
         .in("item_id", itemIds);
       if (error) throw new Error(error.message);
@@ -177,7 +177,13 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
     const b2b = b2bQuery.data ?? new Set<string>();
     const ordered = orderedQuery.data ?? new Set<string>();
     const byItem = new Map<string, RowSupplier[]>();
+    const deselectedByItem = new Map<string, string[]>();
     for (const assignment of assignmentsQuery.data ?? []) {
+      // Quota tolta volontariamente: non è una quota attiva, si ricorda solo il fornitore tolto.
+      if ((assignment as unknown as { deselected_at: string | null }).deselected_at) {
+        deselectedByItem.set(assignment.item_id, [...(deselectedByItem.get(assignment.item_id) ?? []), assignment.product_supplier_link_id]);
+        continue;
+      }
       const list = byItem.get(assignment.item_id) ?? [];
       list.push({
         id: assignment.id,
