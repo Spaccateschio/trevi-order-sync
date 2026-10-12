@@ -103,6 +103,9 @@ export function ShoppingListCard({
   onRemove,
   onToggleLock,
   lockPending = false,
+  autoConfirm = false,
+  saving = false,
+  memoryNote = null,
   onUnitChange,
   onClearQuantity,
   pending = false,
@@ -136,6 +139,11 @@ export function ShoppingListCard({
   onRemove: () => void;
   onToggleLock: () => void;
   lockPending?: boolean;
+  /** Conferma automatica (uscita dal campo, Invio, tasti rapidi): niente pulsante «Conferma». */
+  autoConfirm?: boolean;
+  saving?: boolean;
+  /** «Come l'ultima volta» quando fornitori/quote vengono dalla memoria. */
+  memoryNote?: string | null;
   /** Cambio U.M. di «Da acquistare»: (null, null) = U.M. del prodotto. */
   onUnitChange?: (unitId: string | null, unitCode: string | null) => void;
   /** Svuota la quantità «Da acquistare» (obiettivo non indicato, mai 0). */
@@ -284,7 +292,8 @@ export function ShoppingListCard({
   );
 
   const confirmTarget = pending ? (pendingQuantity ?? null) : target;
-  const lockButton = editable ? (
+  const editLocked = locked && !autoConfirm;
+  const lockButton = editable && !(autoConfirm && !pending) ? (
     <Button
       type="button"
       size="sm"
@@ -311,7 +320,7 @@ export function ShoppingListCard({
           className="h-9 w-7 shrink-0 px-0 text-muted-foreground"
           aria-label={`Cancella la quantità da acquistare di ${name}`}
           title="Cancella la quantità"
-          disabled={locked || lockPending}
+          disabled={editLocked || lockPending}
           onClick={onClearQuantity}
         >
           <X className="size-3.5" aria-hidden="true" />
@@ -320,7 +329,7 @@ export function ShoppingListCard({
       {editable && !pending && onUnitChange ? (
         <Select
           value={decidedKey}
-          disabled={locked || lockPending}
+          disabled={editLocked || lockPending}
           onValueChange={(key) => {
             if (key === PRODUCT_UNIT) return onUnitChange(null, null);
             const option = unitOptions.find((o) => o.key === key);
@@ -346,6 +355,7 @@ export function ShoppingListCard({
         <span className="shrink-0 text-xs font-semibold text-muted-foreground">{decidedCode || "—"}</span>
       )}
       {lockButton}
+      {saving ? <span className="shrink-0 text-[10px] font-semibold text-muted-foreground" role="status">Salvataggio in corso…</span> : null}
       {unitNotOffered ? (
         <span
           className="shrink-0 whitespace-nowrap rounded-md border border-warning/60 bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning-foreground"
@@ -374,7 +384,7 @@ export function ShoppingListCard({
             size="sm"
             className={cn("min-w-0 gap-0.5 overflow-hidden px-0 text-xs font-bold", cls)}
             aria-label={`Aggiungi ${step} ${unitLabel} alla quantità da acquistare di ${name}`}
-            disabled={locked}
+            disabled={editLocked}
             onClick={() => onQuickAdd(step)}
           >
             +{step}
