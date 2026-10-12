@@ -442,6 +442,7 @@ export function ShoppingListCard({
       decidedCode={decidedCode}
       lockedAt={extra?.lockedAt ?? null}
       listConfirmed={listConfirmed}
+      deselectedLinks={extra?.deselectedLinks ?? []}
     />
   );
 

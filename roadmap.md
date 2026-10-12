@@ -139,3 +139,11 @@
 
 ## Rinviato
 - [ ] Controllo delle confezioni intere nel database — oggi il vincolo è verificato solo dal frontend (il DB controlla U.M. e conversioni): una chiamata diretta alla funzione DB potrebbe proporre 2,5 casse. Quando esisterà un'impostazione «Confezione intera obbligatoria» per prodotto o fornitore, valutare il controllo nel DB. Non blocca la pubblicazione attuale.
+
+## 12/10 — Lista della Spesa semplice (anteprima, NON pubblicare)
+- [x] ★ automatica fornitore unico (trigger + allineamento dopo verifica numeri)
+- [x] Spunta visiva senza quantità; deselezione prima della quantità salvata
+- [x] Priorità deselezione > manuale > B2B > memoria (se non contrasta ★) > ★ > unico
+- [x] Contatori sempre visibili + contatori Preferiti
+- [x] U.M. B2B pubblicate nelle card «Non in lista»
+- [x] 42 prove + test/typecheck/build + schermate; resoconto

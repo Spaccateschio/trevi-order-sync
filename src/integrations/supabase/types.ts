@@ -3333,6 +3333,8 @@ export type Database = {
           min_quantity: number | null
           notes: string | null
           origin: Database["public"]["Enums"]["product_supplier_origin"]
+          preferred_set_at: string | null
+          preferred_set_by: string | null
           price_unit_id: string | null
           product_id: string
           purchase_unit_id: string | null
@@ -3361,6 +3363,8 @@ export type Database = {
           min_quantity?: number | null
           notes?: string | null
           origin?: Database["public"]["Enums"]["product_supplier_origin"]
+          preferred_set_at?: string | null
+          preferred_set_by?: string | null
           price_unit_id?: string | null
           product_id: string
           purchase_unit_id?: string | null
@@ -3389,6 +3393,8 @@ export type Database = {
           min_quantity?: number | null
           notes?: string | null
           origin?: Database["public"]["Enums"]["product_supplier_origin"]
+          preferred_set_at?: string | null
+          preferred_set_by?: string | null
           price_unit_id?: string | null
           product_id?: string
           purchase_unit_id?: string | null
@@ -5890,6 +5896,10 @@ export type Database = {
           _notes: string
         }
         Returns: string
+      }
+      _ensure_sole_supplier_preferred: {
+        Args: { _product_id: string }
+        Returns: boolean
       }
       _inventory_card_stock: {
         Args: { _link_id: string; _location_id: string; _product_id: string }

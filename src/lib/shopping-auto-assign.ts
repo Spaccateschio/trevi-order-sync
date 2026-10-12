@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
   autoPickSupplier,
+  memoryStillValid,
   createItemGuard,
   quotaSaveError,
   planQuotaUpdate,
@@ -264,7 +265,19 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   }));
 
   const deselected = new Set([...deselectedFor(itemId), ...dbDeselected]);
-  const memory = options.onlyLinkId || options.preferLinkId ? null : ((await readMemories(companyId, [item.product_id as string])).get(item.product_id as string) ?? null);
+  let memory = options.onlyLinkId || options.preferLinkId ? null : ((await readMemories(companyId, [item.product_id as string])).get(item.product_id as string) ?? null);
+  if (memory) {
+    // Stella cambiata a mano DOPO l'ultima Lista chiusa: vale la nuova preferenza, non la memoria.
+    const { data: manual } = await supabase
+      .from("product_supplier_links")
+      .select("preferred_set_at")
+      .eq("product_id", item.product_id)
+      .not("preferred_set_by", "is", null)
+      .order("preferred_set_at", { ascending: false })
+      .limit(1);
+    const at = (manual?.[0]?.preferred_set_at as string | null | undefined) ?? null;
+    if (!memoryStillValid(memory.closedAt, at)) memory = null;
+  }
   const memCtx = { suppliers, deselected, decidedUnitId, decidedCode, quantity, stockUnitId, conversions };
   const writeAll = async (writes: ({ kind: "fornitore"; linkId: string; assignmentId: string | null; target: { unitId: string | null; manual: string | null; quantity: number } } | { kind: "diretto"; quantity: number; unitId: string | null; unitCode: string | null })[]) => {
     for (const w of writes) {

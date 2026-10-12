@@ -80,7 +80,7 @@ import {
 } from "@/lib/shopping-list.functions";
 import { autoAssignItem, readMemories, type PlannedWrite } from "@/lib/shopping-auto-assign";
 import { createLatestQueue, matchesMemory } from "@/lib/supplier-memory";
-import { factsFromRow, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
+import { factsFromRow, listCounters, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
 
 /** Prodotto contato non ancora in Lista, mostrato con la stessa card: nessun dato della Lista inventato. */
 function pendingOverviewRow(row: CountedRow): OverviewRow {
@@ -786,7 +786,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   // ★ Preferiti spento: stessa vista, alimentata anche dai prodotti propri e dai cataloghi B2B (sola lettura).
   const catalogArchiveId = list?.archive_id ?? archivesQuery.data?.[0]?.id ?? "";
   const showCatalog = !flags.has("preferiti") && Boolean(list || (previewMode && catalogArchiveId));
-  const catalog = useCatalogEntries({ companyId, archiveId: catalogArchiveId, enabled: showCatalog });
+  // Caricato anche con ★ Preferiti attivo: serve al contatore «Prodotti» (le card restano nascoste).
+  const catalog = useCatalogEntries({ companyId, archiveId: catalogArchiveId, enabled: Boolean(list || (previewMode && catalogArchiveId)) });
   const catalogActions = useCatalogActions({ companyId, listId: list?.id ?? null, resolveListId: ensureInventoryList });
   const [catalogLimit, setCatalogLimit] = useState(60);
   const catalogFiltered = useMemo<CatalogEntry[]>(() => {
@@ -849,6 +850,28 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     );
     return { ...s, open: s.toFix, visible: entries.length };
   }, [allRows, extras, excludedQuery.data, entries.length]);
+  // Preferiti dell'azienda (tutti, indipendenti dal filtro): stessa chiave invalidata quando cambia una stella prodotto.
+  const allFavoritesQuery = useQuery({
+    queryKey: ["shopping-extras-favorites", companyId, "all-counter"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("company_product_favorites").select("product_id").eq("company_id", companyId);
+      if (error) throw new Error(error.message);
+      return (data ?? []).map((r) => r.product_id as string);
+    },
+  });
+  const counters = useMemo(() => {
+    const productIds = new Set<string>(allRows.map((r) => r.product_id));
+    for (const e of catalog.entries) productIds.add(e.ownProductId ?? `cat:${e.key}`);
+    return listCounters({
+      catalogTotal: productIds.size,
+      favoriteIds: allFavoritesQuery.data ?? [],
+      rows: allRows.map((r) => ({
+        productId: r.product_id,
+        quantity: r.decided_quantity === null ? null : Number(r.decided_quantity),
+        excluded: excludedQuery.data?.has(r.item_id) ?? false,
+      })),
+    });
+  }, [allRows, catalog.entries, allFavoritesQuery.data, excludedQuery.data]);
   // La Lista si conferma solo con ogni prodotto ripartito: prima si spiega, poi il database verifica comunque.
   const confirmBlocked = summary.open > 0;
   const confirmBlockedTitle = confirmBlocked
@@ -1584,6 +1607,20 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               </Button>
             ) : null}
           </div>
+
+          {list ? (
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-xs" aria-label="Contatori della Lista">
+              <span>
+                Prodotti <strong>{counters.products}</strong> · Preferiti <strong>{counters.favorites}</strong> · In Lista <strong>{counters.inList}</strong> ·
+                Con quantità <strong>{counters.withQuantity}</strong> · Da inserire <strong className={counters.toFill ? "text-warning-foreground" : undefined}>{counters.toFill}</strong>
+                {counters.excluded ? ` · ${counters.excluded} esclusi` : ""}
+              </span>
+              <span className="text-muted-foreground">
+                ★ Preferiti in Lista <strong className="text-foreground">{counters.favInList}</strong> · Compilati <strong className="text-foreground">{counters.favFilled}</strong> · Mancanti{" "}
+                <strong className="text-foreground">{counters.favMissing}</strong>
+              </span>
+            </div>
+          ) : null}
 
           <div className="@container">
           <div
