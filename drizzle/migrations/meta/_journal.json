@@ -351,6 +351,13 @@
       "when": 1791798375359,
       "tag": "0049_generation_preview_coverage_state",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791821303474,
+      "tag": "0050_danea_um_default_sale_unit",
+      "breakpoints": true
     }
   ]
 }

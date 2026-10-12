@@ -6399,6 +6399,10 @@ export type Database = {
           stock_unit_id: string
         }[]
       }
+      ensure_danea_sale_unit: {
+        Args: { _actor_user_id?: string; _product_id: string }
+        Returns: string
+      }
       ensure_default_inventory_location: {
         Args: { _actor_user_id?: string; _company_id: string }
         Returns: string
