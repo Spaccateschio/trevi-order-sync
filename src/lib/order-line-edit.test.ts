@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 
 import { planLineEdit } from "./order-line-edit";
 
@@ -12,25 +13,25 @@ const base = { currentQuantity: 3, currentUnitId: "cs", currentCode: "cs", units
 describe("matita Genera ordini", () => {
   it("3 cs → 3 mz senza conversione chiede conferma esplicita", () => {
     const p = planLineEdit({ ...base, nextQuantityText: "3", nextUnitId: "mz" });
-    expect(p).toMatchObject({ kind: "save", needsUnitWarning: true, fromCode: "cs", toCode: "mz" });
+    assert.partialDeepStrictEqual(p, { kind: "save", needsUnitWarning: true, fromCode: "cs", toCode: "mz" });
   });
   it("solo quantità diversa: nessun avviso U.M.", () => {
-    expect(planLineEdit({ ...base, nextQuantityText: "4", nextUnitId: "cs" })).toMatchObject({ kind: "save", needsUnitWarning: false });
+    assert.partialDeepStrictEqual(planLineEdit({ ...base, nextQuantityText: "4", nextUnitId: "cs" }), { kind: "save", needsUnitWarning: false });
   });
   it("U.M. con conversione valida: nessun avviso", () => {
-    expect(planLineEdit({ ...base, nextQuantityText: "3", nextUnitId: "kg" })).toMatchObject({ needsUnitWarning: false });
+    assert.partialDeepStrictEqual(planLineEdit({ ...base, nextQuantityText: "3", nextUnitId: "kg" }), { needsUnitWarning: false });
   });
   it("conferma già data: va tolta prima di salvare", () => {
-    expect(planLineEdit({ ...base, coverageConfirmed: true, nextQuantityText: "3", nextUnitId: "mz" })).toMatchObject({ revokeFirst: true });
+    assert.partialDeepStrictEqual(planLineEdit({ ...base, coverageConfirmed: true, nextQuantityText: "3", nextUnitId: "mz" }), { revokeFirst: true });
   });
   it("nulla cambiato: nessun salvataggio", () => {
-    expect(planLineEdit({ ...base, nextQuantityText: "3", nextUnitId: "cs" }).kind).toBe("unchanged");
+    assert.equal(planLineEdit({ ...base, nextQuantityText: "3", nextUnitId: "cs" }).kind, "unchanged");
   });
   it("U.M. non venduta dal fornitore o quantità 0: rifiutato", () => {
-    expect(planLineEdit({ ...base, nextQuantityText: "3", nextUnitId: "pz" }).kind).toBe("invalid");
-    expect(planLineEdit({ ...base, nextQuantityText: "0", nextUnitId: "cs" }).kind).toBe("invalid");
+    assert.equal(planLineEdit({ ...base, nextQuantityText: "3", nextUnitId: "pz" }).kind, "invalid");
+    assert.equal(planLineEdit({ ...base, nextQuantityText: "0", nextUnitId: "cs" }).kind, "invalid");
   });
   it("quota già in un ordine: non modificabile", () => {
-    expect(planLineEdit({ ...base, inOrder: true, nextQuantityText: "4", nextUnitId: "cs" }).kind).toBe("invalid");
+    assert.equal(planLineEdit({ ...base, inOrder: true, nextQuantityText: "4", nextUnitId: "cs" }).kind, "invalid");
   });
 });

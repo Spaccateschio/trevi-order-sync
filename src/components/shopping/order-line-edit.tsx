@@ -149,7 +149,7 @@ export function OrderLineEdit({
       {units.isLoading ? (
         <Loader2 className="size-4 animate-spin" />
       ) : (
-        <Select value={unitId ?? undefined} onValueChange={setUnitId}>
+        <Select value={unitId ?? ""} onValueChange={setUnitId}>
           <SelectTrigger className="h-8 w-24" aria-label="U.M."><SelectValue placeholder="U.M." /></SelectTrigger>
           <SelectContent>
             {(units.data ?? []).map((u) => <SelectItem key={u.unit_id} value={u.unit_id}>{u.code}</SelectItem>)}
