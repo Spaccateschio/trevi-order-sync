@@ -388,7 +388,7 @@ export function CardSuppliers({
       toast.success(`${input.s.name} è il fornitore preferito`);
       // Riga confermata e senza quote: proposta al nuovo preferito (salvo conflitto con la stella dell'Inventario).
       if (!pending && target && !assignments.length && !directQuota) {
-        const res = await autoAssignItem(runAssign, companyId, row.item_id);
+        const res = await autoAssignItem(runAssign, companyId, row.item_id, { updateExisting: false });
         if (res.kind === "assegnato") toast.success(`Assegnato a ${res.supplierName}`);
         else if (res.kind === "da_scegliere") toast.info(res.reason);
         await Promise.all([
