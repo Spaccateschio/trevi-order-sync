@@ -147,3 +147,9 @@
 - [x] Contatori sempre visibili + contatori Preferiti
 - [x] U.M. B2B pubblicate nelle card «Non in lista»
 - [x] 42 prove + test/typecheck/build + schermate; resoconto
+
+## 12/10 — Ultime correzioni autorizzate (solo anteprima)
+- [x] Filtri smartphone: ricerca dedicata e due righe scorrevoli in shopping-list-panel.tsx; menu provati, pagina senza overflow.
+- [x] Spunta e quota con scelta coerente: chooseListDestinations condivisa, memoria valida (anche più fornitori), poi stella, poi unico; «Come l'ultima volta» già prima della quantità; deselezioni e conflitti conservati.
+- [x] Diagnosticata lentezza: richieste per card e riletture duplicate, presenti anche nel bundle pubblicato. Raggruppate letture quota diretta/prezzo/preferenze; cache React Query 60s per evitare riletture immediate. A 390 px prima 16,11/9,76s, dopo stabilizzazione 8,64/9,87s; richieste REST 170–175 → 107–114. A 1280 px prima 3,68/5,48s, dopo 4,88/3,10s. Rimangono RPC per prodotto: non promettere tempi fissi, dipendono dalla rete; prova durante aggiornamento codice esclusa dalle misure finali.
+- [x] Test automatici, segnali typecheck/build e schermate 390/1280; resoconto unico. Non pubblicato, nessuna migrazione, nessuna scrittura sui dati operativi nelle verifiche.

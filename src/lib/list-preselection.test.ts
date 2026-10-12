@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { listCounters, memoryStillValid, visualPick } from "@/lib/supplier-selection";
+import { chooseListDestinations, planFromMemory, type SupplierMemory } from "@/lib/supplier-memory";
 
 const s = (linkId: string, o: Partial<{ isB2B: boolean; sourceLinked: boolean; purchasable: boolean; isPreferred: boolean }> = {}) => ({
   linkId, isB2B: false, sourceLinked: true, purchasable: true, isPreferred: false, ...o,
@@ -21,6 +22,38 @@ describe("memoria e stella", () => {
     assert.equal(memoryStillValid("2026-10-01T10:00:00Z", "2026-10-05T10:00:00Z"), false));
   it("stella cambiata prima: la memoria vale", () => assert.equal(memoryStillValid("2026-10-05T10:00:00Z", "2026-10-01T10:00:00Z"), true));
   it("nessuna stella manuale: la memoria vale", () => assert.equal(memoryStillValid("2026-10-05T10:00:00Z", null), true));
+});
+
+describe("spunta e quota condividono le destinazioni", () => {
+  const suppliers = [s("a", { isPreferred: true }), s("b")].map((x) => ({ ...x, allowManual: true, units: [] }));
+  const memory: SupplierMemory = { listId: "old", closedAt: "2026-10-10T10:00:00Z", destinations: [
+    { kind: "fornitore", linkId: "b", unitId: "kg", unitCode: "kg", quantity: 5, stockEquivalent: 5 },
+  ] };
+  const choose = (extra: Partial<Parameters<typeof chooseListDestinations>[0]> = {}) => chooseListDestinations({ suppliers, memory,
+    manualStarAt: null, inventoryStarLinks: [], deselected: [], ...extra });
+  it("memoria prima della stella anche senza quantità", () => assert.deepEqual(choose().linkIds, ["b"]));
+  it("stella cambiata dopo la chiusura prevale", () => assert.deepEqual(choose({ manualStarAt: "2026-10-12T07:00:00Z" }).linkIds, ["a"]));
+  it("memoria multipla spunta tutti i fornitori", () => assert.deepEqual(choose({ memory: { ...memory, destinations: [
+    ...memory.destinations, { kind: "fornitore", linkId: "a", unitId: "kg", unitCode: "kg", quantity: 5, stockEquivalent: 5 },
+  ] } }).linkIds, ["b", "a"]));
+  it("fornitore deselezionato non ritorna dalla memoria", () => assert.deepEqual(choose({ deselected: ["b"] }).linkIds, ["a"]));
+  it("non acquistabile non ritorna dalla memoria", () => assert.deepEqual(choose({ suppliers: suppliers.map((x) => x.linkId === "b" ? { ...x, purchasable: false } : x) }).linkIds, ["a"]));
+  it("conflitto stelle senza memoria: nessuna proposta", () => assert.deepEqual(choose({ memory: null, inventoryStarLinks: ["b"] }).linkIds, []));
+  it("nessuna memoria o stella: unico fornitore", () => assert.deepEqual(choose({ memory: null, suppliers: suppliers.filter((x) => x.linkId === "b") }).linkIds, ["b"]));
+  it("acquisto diretto storico non forza fornitori", () => {
+    const result = choose({ memory: { ...memory, destinations: [{ kind: "diretto", unitId: "kg", unitCode: "kg", quantity: 5 }] } });
+    assert.equal(result.direct, true); assert.deepEqual(result.linkIds, []); assert.equal(result.reason, "memoria");
+  });
+  it("la quota usa lo stesso fornitore spuntato e la nuova quantità, non quella storica", () => {
+    const available = suppliers.map((x) => ({ ...x, units: [{ unitId: "kg", code: "kg" }] }));
+    const choice = choose({ suppliers: available });
+    const plan = planFromMemory(choice.memory, { suppliers: available, deselected: new Set(),
+      decidedUnitId: "kg", decidedCode: "kg", quantity: 12, stockUnitId: "kg", conversions: {} });
+    assert.equal(plan.kind, "scrivi");
+    if (plan.kind !== "scrivi") throw new Error("Quota non pianificata");
+    assert.deepEqual(plan.writes, [{ kind: "fornitore", linkId: "b", target: { unitId: "kg", manual: null, quantity: 12 } }]);
+    assert.deepEqual(choice.linkIds, ["b"]);
+  });
 });
 
 describe("contatori", () => {

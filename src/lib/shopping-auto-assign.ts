@@ -1,7 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
-  autoPickSupplier,
-  memoryStillValid,
   createItemGuard,
   quotaSaveError,
   planQuotaUpdate,
@@ -12,6 +10,7 @@ import {
 } from "@/lib/supplier-selection";
 import {
   deselectedFor,
+  chooseListDestinations,
   pickMemory,
   planFromMemory,
   planRescale,
@@ -265,8 +264,9 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   }));
 
   const deselected = new Set([...deselectedFor(itemId), ...dbDeselected]);
-  let memory = options.onlyLinkId || options.preferLinkId ? null : ((await readMemories(companyId, [item.product_id as string])).get(item.product_id as string) ?? null);
-  if (memory) {
+  const remembered = options.onlyLinkId || options.preferLinkId ? null : ((await readMemories(companyId, [item.product_id as string])).get(item.product_id as string) ?? null);
+  let manualStarAt: string | null = null;
+  if (remembered) {
     // Stella cambiata a mano DOPO l'ultima Lista chiusa: vale la nuova preferenza, non la memoria.
     const { data: manual } = await supabase
       .from("product_supplier_links")
@@ -275,9 +275,13 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
       .not("preferred_set_by", "is", null)
       .order("preferred_set_at", { ascending: false })
       .limit(1);
-    const at = (manual?.[0]?.preferred_set_at as string | null | undefined) ?? null;
-    if (!memoryStillValid(memory.closedAt, at)) memory = null;
+    if (manual === null) return { kind: "saltato", reason: "Preferenza fornitore non disponibile" };
+    manualStarAt = (manual?.[0]?.preferred_set_at as string | null | undefined) ?? null;
   }
+  const choice = chooseListDestinations({ suppliers, deselected, memory: remembered, manualStarAt,
+    inventoryStarLinks: (stars.data ?? []).flatMap((s) => s.product_supplier_link_id ? [s.product_supplier_link_id as string] : []),
+    preferLinkId: options.preferLinkId ?? null });
+  const memory = choice.memory;
   const memCtx = { suppliers, deselected, decidedUnitId, decidedCode, quantity, stockUnitId, conversions };
   const writeAll = async (writes: ({ kind: "fornitore"; linkId: string; assignmentId: string | null; target: { unitId: string | null; manual: string | null; quantity: number } } | { kind: "diretto"; quantity: number; unitId: string | null; unitCode: string | null })[]) => {
     for (const w of writes) {
@@ -340,7 +344,6 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
       }
       if (mp.kind === "proponi" || mp.kind === "scrivi") return { kind: "da_scegliere", reason: mp.kind === "proponi" ? mp.reason : "Acquisto diretto da inserire a mano" };
     }
-    const starLinks = (stars.data ?? []).map((s) => s.product_supplier_link_id as string | null).filter((x): x is string => Boolean(x));
     const targetFor = (s: PickSupplier) => quotaFor(s, decidedUnitId, decidedCode, quantity, stockUnitId, conversions[s.linkId] ?? []);
     const pool = options.onlyLinkId ? suppliers.filter((s) => s.linkId === options.onlyLinkId) : suppliers.filter((s) => !deselected.has(s.linkId));
     if (options.onlyLinkId) {
@@ -350,13 +353,12 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
       linkId = only.linkId;
       target = t;
     } else {
-      const pick = autoPickSupplier(pool, decidedUnitId, decidedCode, starLinks, {
-        preferLinkId: options.preferLinkId ?? null,
-        isEligible: (s) => targetFor(s) !== null,
-      });
-      if (pick.kind !== "pick") return pick;
-      linkId = pick.linkId;
-      target = targetFor(suppliers.find((s) => s.linkId === linkId)!)!;
+      const selected = suppliers.find((s) => choice.linkIds.includes(s.linkId));
+      if (!selected) return { kind: "da_scegliere", reason: "Fornitore da scegliere" };
+      const proposed = targetFor(selected);
+      if (!proposed) return { kind: "verifica", reason: "Da verificare: U.M. diverse senza conversione valida" };
+      linkId = selected.linkId;
+      target = proposed;
     }
   }
   const chosen = suppliers.find((s) => s.linkId === linkId)!;
