@@ -3,7 +3,7 @@
  * Fonte: l'ultima Lista CHIUSA della stessa azienda in cui il prodotto aveva una ripartizione effettiva.
  * Si ricordano solo destinazioni (fornitori / acquisto diretto), U.M. e proporzioni: MAI le quantità.
  */
-import { quotaFor, type PickSupplier, type QuotaTarget, type ValidConversion } from "@/lib/supplier-selection";
+import { quotaFor, splitEvenly, type PickSupplier, type QuotaTarget, type ValidConversion } from "@/lib/supplier-selection";
 
 export type MemoryDestination =
   | {
@@ -264,9 +264,9 @@ export function planRescale(args: {
     return t !== null;
   });
   if (!allSame) return null;
-  const was = splitEvenlyLocal(previousQuantity, rows.length, Number.isInteger(previousQuantity));
+  const was = splitEvenly(previousQuantity, rows.length, Number.isInteger(previousQuantity));
   if (!sameMultiset(was, rows.map((r) => r.purchaseQuantity ?? 0))) return null;
-  const parts = splitEvenlyLocal(ctx.quantity, rows.length, Number.isInteger(ctx.quantity));
+  const parts = splitEvenly(ctx.quantity, rows.length, Number.isInteger(ctx.quantity));
   if (parts.length !== rows.length) return null;
   return rows.map((r, i) => ({
     kind: "fornitore" as const,
@@ -274,17 +274,4 @@ export function planRescale(args: {
     assignmentId: r.id,
     target: { unitId: r.purchaseUnitId, manual: r.purchaseUnitId ? null : r.purchaseUnitCode, quantity: parts[i]! },
   }));
-}
-
-function splitEvenlyLocal(total: number, n: number, integer: boolean): number[] {
-  if (n <= 0 || !(total > 0)) return [];
-  const step = integer ? 1 : 0.001;
-  const units = Math.round(total / step);
-  const base = Math.floor(units / n);
-  let rest = units - base * n;
-  return Array.from({ length: n }, () => {
-    const extra = rest > 0 ? 1 : 0;
-    rest -= extra;
-    return r3((base + extra) * step);
-  });
 }
