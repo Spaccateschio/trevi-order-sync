@@ -15,7 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
-import { ITEM_STATUS_LABEL, type OverviewRow } from "@/lib/shopping-list";
+import { type OverviewRow } from "@/lib/shopping-list";
+import { autoAssignItem } from "@/lib/shopping-auto-assign";
+import { factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
+import { Checkbox } from "@/components/ui/checkbox";
 import { assignShoppingListSupplier, setShoppingListDirectQuota } from "@/lib/shopping-list.functions";
 
 /**
@@ -355,7 +358,7 @@ export function CardSuppliers({
       ]);
       toast.success(input.action === "remove" ? "Ripartizione tolta" : "Ripartizione salvata");
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => toast.error(friendlyAssignError(error.message)),
   });
 
   const canWrite = editable && !pending;
@@ -377,6 +380,16 @@ export function CardSuppliers({
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
       ]);
       toast.success(`${input.s.name} è il fornitore preferito`);
+      // Riga confermata e senza quote: proposta al nuovo preferito (salvo conflitto con la stella dell'Inventario).
+      if (!pending && target && !assignments.length && !directQuota) {
+        const res = await autoAssignItem(runAssign, companyId, row.item_id);
+        if (res.kind === "assegnato") toast.success(`Assegnato a ${res.supplierName}`);
+        else if (res.kind === "da_scegliere") toast.info(res.reason);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+          queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+        ]);
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -462,7 +475,7 @@ export function CardSuppliers({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const busy = mutation.isPending || editMutation.isPending;
+  const busy = mutation.isPending || editMutation.isPending || selectMutation.isPending;
 
   const startEdit = (s: CardSupplier, assignment: RowSupplier | null) => {
     const single = s.units.length === 1 && !s.allowManual;
@@ -598,20 +611,55 @@ export function CardSuppliers({
     if (hit) return { unitId: hit.unitId, manual: null };
     return s.allowManual ? { unitId: null, manual: code } : null;
   };
-  const assignAll = (s: CardSupplier, q: { unitId: string | null; manual: string | null }) =>
-    mutation.mutate({ action: "set", linkId: s.linkId, packs: target, accepted: true, unitId: q.unitId, manualUnitCode: q.manual, assignmentId: null });
-
-  // Un solo fornitore: appena confermata la quantità, gli viene assegnata tutta (una volta sola).
-  // Solo per conferme appena fatte: le card confermate in passato non cambiano da sole.
-  const only = suppliers.length === 1 ? suppliers[0]! : null;
-  const onlyQuick = only ? quickFor(only) : null;
-  const fresh = lockedAt ? Date.now() - new Date(lockedAt).getTime() < 2 * 60_000 : false;
-  useEffect(() => {
-    if (autoRef.current || !canWrite || !fresh || !only || !onlyQuick || !target || target <= 0 || assignments.length || mutation.isPending) return;
-    autoRef.current = true;
-    assignAll(only, onlyQuick);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canWrite, fresh, only?.linkId, onlyQuick?.unitId, onlyQuick?.manual, target, assignments.length]);
+  // Spunta: sceglie/toglie il fornitore SOLO in questa Lista (il collegamento al prodotto resta).
+  // Più spunte con la stessa U.M.: parti uguali (prima si riducono le altre, poi si aggiunge: mai oltre il totale).
+  // U.M. diverse o senza conversione: nessuna divisione automatica, quantità a mano.
+  const selectMutation = useMutation({
+    mutationFn: async ({ s, on, assignment }: { s: CardSupplier; on: boolean; assignment: RowSupplier | null }) => {
+      const call = (linkId: string, packs: number | null, unitId: string | null, manual: string | null, assignmentId: string | null, action: "set" | "remove" = "set") =>
+        runAssign({ data: { companyId, itemId: row.item_id, action, linkId, assignedQuantity: null, purchaseQuantity: packs, minWarningAccepted: true, notes: null, purchaseUnitId: unitId, assignmentId, manualUnitCode: manual } });
+      if (!on) {
+        if (assignment) await call(s.linkId, null, null, null, assignment.id, "remove");
+        return "removed" as const;
+      }
+      const q = quickFor(s);
+      if (!target || !q) return "manual" as const;
+      const others = assignments.filter((a) => a.linkId !== s.linkId);
+      if (!others.length && !directQuota) {
+        await call(s.linkId, target, q.unitId, q.manual, null);
+        return "full" as const;
+      }
+      const comparable = !directQuota && others.every((a) => {
+        const sup = suppliers.find((x) => x.linkId === a.linkId);
+        const oq = sup ? quickFor(sup) : null;
+        return oq !== null && a.purchaseQuantity !== null && (oq.unitId ? a.purchaseUnitId === oq.unitId : !a.purchaseUnitId && (a.purchaseUnitCode ?? "").toUpperCase() === oq.manual);
+      });
+      if (!comparable) return "manual" as const;
+      const parts = splitEvenly(target, others.length + 1, isWholeNumber(target));
+      for (const [i, a] of others.entries()) {
+        if (a.purchaseQuantity !== parts[i]) await call(a.linkId, parts[i]!, a.purchaseUnitId, a.purchaseUnitId ? null : a.purchaseUnitCode, a.id);
+      }
+      await call(s.linkId, parts[others.length]!, q.unitId, q.manual, null);
+      return "split" as const;
+    },
+    onSuccess: async (result, { s }) => {
+      if (result === "manual") {
+        setOpenLink(s.linkId);
+        toast.info("U.M. diverse o quantità non confermata: inserisci la quantità a mano");
+        return;
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+      ]);
+      toast.success(result === "removed" ? `${s.name} tolto da questa Lista` : result === "split" ? "Quantità divisa in parti uguali" : `Tutta la quantità a ${s.name}`);
+    },
+    onError: async (error: Error) => {
+      toast.error(friendlyAssignError(error.message));
+      await queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] });
+    },
+  });
 
   if (loading) return <p className="text-xs text-muted-foreground">Caricamento fornitori…</p>;
 
@@ -648,7 +696,25 @@ export function CardSuppliers({
     return (
       <li key={s.linkId} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
         <div className="flex min-w-0 items-center gap-1 text-xs">
-          {s.isPreferred ? <Star className="size-3 shrink-0 fill-primary text-primary" aria-label="Fornitore preferito" /> : null}
+          {!pending ? (
+            <Checkbox
+              checked={Boolean(assignment)}
+              disabled={!canWrite || busy || (!assignment && (b2bBlocked || noUnits))}
+              aria-label={assignment ? `Togli ${s.name} da questa Lista` : `Scegli ${s.name} per questa Lista`}
+              title={!assignment && !target ? "Conferma prima la quantità da acquistare" : undefined}
+              onCheckedChange={(v) => selectMutation.mutate({ s, on: v === true, assignment })}
+            />
+          ) : null}
+          <button
+            type="button"
+            className="shrink-0 disabled:opacity-60"
+            disabled={!editable || s.isPreferred || linkMutation.isPending}
+            aria-label={s.isPreferred ? `${s.name}: fornitore preferito` : `Imposta ${s.name} come fornitore preferito`}
+            title={s.isPreferred ? "Fornitore preferito (vale anche per le prossime Liste)" : "Imposta come preferito (permanente, solo amministratori)"}
+            onClick={() => linkMutation.mutate({ kind: "preferred", s })}
+          >
+            <Star className={s.isPreferred ? "size-3.5 fill-primary text-primary" : "size-3.5 text-muted-foreground"} aria-hidden="true" />
+          </button>
           <span className="min-w-0 flex-1 truncate font-semibold">{s.name}</span>
           {show.b2b && details && s.isB2B ? <B2BBadge /> : null}
           {editable ? (
@@ -725,7 +791,7 @@ export function CardSuppliers({
             + Assegna quantità
           </Button>
         ) : null}
-        {!assignment && !editingLink && canWrite && !b2bBlocked && !noUnits && !split && openLink !== s.linkId ? (
+        {false && !assignment && !editingLink && canWrite && !b2bBlocked && !noUnits && !split && openLink !== s.linkId ? (
           <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" disabled={!target} title={target ? undefined : "Conferma prima la quantità da acquistare"} onClick={() => setOpenLink(s.linkId)}>
             + Assegna quantità
           </Button>
@@ -906,32 +972,38 @@ export function CardSuppliers({
   return (
     <div className="space-y-2">
       <section className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fornitori disponibili</p>
-        {available.length ? (
-          <ul className="space-y-1">{available.map((s) => supplierRow(s, null))}</ul>
-        ) : (
-          <p className="text-xs text-muted-foreground">{suppliers.length ? "Tutti già nella ripartizione" : "Nessun fornitore collegato"}</p>
-        )}
-        {addButton}
-      </section>
-      <section className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ripartizione di questa Lista</p>
-        {assigned.length || orphans.length ? (
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Fornitori · spunta = acquisto in questa Lista</p>
+        {suppliers.length || orphans.length ? (
           <ul className="space-y-1">
             {assigned.map((s) => supplierRow(s, byLink.get(s.linkId) ?? null))}
+            {available.map((s) => supplierRow(s, null))}
             {orphans.map(orphanRow)}
           </ul>
-        ) : null}
+        ) : (
+          <p className="text-xs text-muted-foreground">Senza fornitore</p>
+        )}
+        {addButton}
         {listConfirmed && (assigned.length || orphans.length) ? (
           <p className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
             <Lock className="size-3" aria-hidden="true" /> Lista confermata: ripartizioni bloccate
           </p>
         ) : null}
-        <DirectQuota companyId={companyId} itemId={row.item_id} editable={editable} unitCode={directUnit} />
+        <DirectQuota
+          companyId={companyId}
+          itemId={row.item_id}
+          editable={editable && !pending}
+          unitCode={directUnit}
+          proposal={!target ? null : assignments.length ? (row.remaining !== null && row.remaining > 0 ? row.remaining : null) : target}
+        />
         {pending ? <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p> : null}
       </section>
       <p className="text-xs">
-        Stato: <span className="font-semibold">{ITEM_STATUS_LABEL[row.status]}</span>
+        Stato: <span className="font-semibold">{rowLabel(factsFromRow(row, Boolean(lockedAt)))}</span>
+        {row.status === "da_verificare" ? (
+          <span className="block text-[11px] text-muted-foreground">
+            Le quote usano U.M. diverse da quella da acquistare ({directUnit}) e senza conversione non si sommano: correggi le quote o conferma la copertura in «Genera ordini».
+          </span>
+        ) : null}
         {row.status === "parziale" && row.remaining !== null ? ` · ${qty(row.remaining)} ${directUnit} da assegnare` : ""}
       </p>
       <UnlinkSupplierDialog
