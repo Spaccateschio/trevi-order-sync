@@ -208,3 +208,83 @@ export function createLatestQueue<V>(worker: (key: string, value: V) => Promise<
     isLatest: (key: string) => !waiting.has(key),
   };
 }
+
+export type RescaleRow = { id: string; linkId: string; purchaseUnitId: string | null; purchaseUnitCode: string | null; purchaseQuantity: number | null; inOrder: boolean };
+export type RescaleWrite =
+  | { kind: "fornitore"; linkId: string; assignmentId: string; target: QuotaTarget }
+  | { kind: "diretto"; quantity: number; unitId: string | null; unitCode: string | null };
+
+const sameMultiset = (a: number[], b: number[]) => {
+  const x = [...a].sort((p, q) => p - q);
+  const y = [...b].sort((p, q) => p - q);
+  return x.length === y.length && x.every((v, i) => Math.abs(v - y[i]!) < 1e-6);
+};
+
+/**
+ * Cambio quantità con PIÙ destinazioni: si ricalcola solo se le quote attuali sono ancora quelle
+ * automatiche (proporzioni della memoria o parti uguali) calcolate sulla quantità precedente.
+ * Quote cambiate a mano, in ordine o non esatte → null (si mostra la differenza da sistemare).
+ */
+export function planRescale(args: {
+  rows: RescaleRow[];
+  directQuota: number | null;
+  previousQuantity: number;
+  memory: SupplierMemory | null;
+  ctx: MemoryContext;
+}): RescaleWrite[] | null {
+  const { rows, directQuota, previousQuantity, memory, ctx } = args;
+  const destCount = rows.length + (directQuota !== null ? 1 : 0);
+  if (destCount < 2 || rows.some((r) => r.inOrder || r.purchaseQuantity === null)) return null;
+  const unitOf = (r: RescaleRow) => ({ unitId: r.purchaseUnitId, manual: r.purchaseUnitId ? null : r.purchaseUnitCode });
+  const sameUnit = (r: RescaleRow, t: QuotaTarget) =>
+    r.purchaseUnitId ? r.purchaseUnitId === t.unitId : !t.unitId && norm(r.purchaseUnitCode) === norm(t.manual);
+
+  // 1) Proporzioni della memoria.
+  const prev = planFromMemory(memory, { ...ctx, quantity: previousQuantity });
+  if (prev.kind === "scrivi" && prev.writes.length === destCount) {
+    const matches = prev.writes.every((w) => {
+      if (w.kind === "diretto") return directQuota !== null && Math.abs(directQuota - w.quantity) < 1e-6;
+      const r = rows.find((x) => x.linkId === w.linkId);
+      return r !== undefined && sameUnit(r, w.target) && Math.abs((r.purchaseQuantity ?? 0) - w.target.quantity) < 1e-6;
+    });
+    if (matches) {
+      const next = planFromMemory(memory, ctx);
+      if (next.kind !== "scrivi") return null;
+      return next.writes.map((w) =>
+        w.kind === "diretto" ? w : { ...w, assignmentId: rows.find((x) => x.linkId === w.linkId)!.id },
+      );
+    }
+  }
+  // 2) Parti uguali (spunte nella stessa U.M. di «Da acquistare»), senza acquisto diretto.
+  if (directQuota !== null) return null;
+  const allSame = rows.every((r) => {
+    const s = ctx.suppliers.find((x) => x.linkId === r.linkId);
+    if (!s) return false;
+    const t = quotaFor(s, ctx.decidedUnitId, ctx.decidedCode, 1, null, [], unitOf(r));
+    return t !== null;
+  });
+  if (!allSame) return null;
+  const was = splitEvenlyLocal(previousQuantity, rows.length, Number.isInteger(previousQuantity));
+  if (!sameMultiset(was, rows.map((r) => r.purchaseQuantity ?? 0))) return null;
+  const parts = splitEvenlyLocal(ctx.quantity, rows.length, Number.isInteger(ctx.quantity));
+  if (parts.length !== rows.length) return null;
+  return rows.map((r, i) => ({
+    kind: "fornitore" as const,
+    linkId: r.linkId,
+    assignmentId: r.id,
+    target: { unitId: r.purchaseUnitId, manual: r.purchaseUnitId ? null : r.purchaseUnitCode, quantity: parts[i]! },
+  }));
+}
+
+function splitEvenlyLocal(total: number, n: number, integer: boolean): number[] {
+  if (n <= 0 || !(total > 0)) return [];
+  const step = integer ? 1 : 0.001;
+  const units = Math.round(total / step);
+  const base = Math.floor(units / n);
+  let rest = units - base * n;
+  return Array.from({ length: n }, () => {
+    const extra = rest > 0 ? 1 : 0;
+    rest -= extra;
+    return r3((base + extra) * step);
+  });
+}
