@@ -706,7 +706,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 category: row.category,
                 imageUrl: countedImages.get(row.product_id) ?? null,
                 isFavorite: pendingFavorites.has(row.product_id),
-                suppliers: [],
+                suppliers: [], deselectedLinks: [],
                 orderState: null as unknown as RowExtras["orderState"],
                 lockedAt: null,
                 inventoryChangedAt: null,
