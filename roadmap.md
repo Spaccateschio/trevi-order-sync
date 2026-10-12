@@ -158,3 +158,9 @@
 - [x] Funzione di sola lettura `shopping_list_cards_bundle` (0047/0048) e card collegate
 - [x] Confronto identico su 41 righe 3 EMME; richieste misurate prima/dopo
 - [ ] Pubblicazione: in attesa del via dell'utente
+
+## 12/10 — U.M. di acquisto per fornitore (solo anteprima)
+- [x] Card parte nell'U.M. predefinita del fornitore unico/★ se quella attuale non è sua
+- [x] Quantità già salvate incompatibili: avviso e correzione con conferma esplicita
+- [x] «Genera ordini»: «U.M. di acquisto da correggere — X vende in …»
+- [ ] Pubblicazione: in attesa del via dell'utente
