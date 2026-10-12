@@ -8,21 +8,24 @@ const units = [
   { unit_id: "mz", code: "mz", conversion_factor: null },
   { unit_id: "kg", code: "kg", conversion_factor: 1 },
 ];
+const has = (o: object, e: Record<string, unknown>) => {
+  for (const [k, v] of Object.entries(e)) assert.equal((o as Record<string, unknown>)[k], v);
+};
 const base = { currentQuantity: 3, currentUnitId: "cs", currentCode: "cs", units, coverageConfirmed: false, inOrder: false };
 
 describe("matita Genera ordini", () => {
   it("3 cs → 3 mz senza conversione chiede conferma esplicita", () => {
     const p = planLineEdit({ ...base, nextQuantityText: "3", nextUnitId: "mz" });
-    assert.partialDeepStrictEqual(p, { kind: "save", needsUnitWarning: true, fromCode: "cs", toCode: "mz" });
+    has(p, { kind: "save", needsUnitWarning: true, fromCode: "cs", toCode: "mz" });
   });
   it("solo quantità diversa: nessun avviso U.M.", () => {
-    assert.partialDeepStrictEqual(planLineEdit({ ...base, nextQuantityText: "4", nextUnitId: "cs" }), { kind: "save", needsUnitWarning: false });
+    has(planLineEdit({ ...base, nextQuantityText: "4", nextUnitId: "cs" }), { kind: "save", needsUnitWarning: false });
   });
   it("U.M. con conversione valida: nessun avviso", () => {
-    assert.partialDeepStrictEqual(planLineEdit({ ...base, nextQuantityText: "3", nextUnitId: "kg" }), { needsUnitWarning: false });
+    has(planLineEdit({ ...base, nextQuantityText: "3", nextUnitId: "kg" }), { needsUnitWarning: false });
   });
   it("conferma già data: va tolta prima di salvare", () => {
-    assert.partialDeepStrictEqual(planLineEdit({ ...base, coverageConfirmed: true, nextQuantityText: "3", nextUnitId: "mz" }), { revokeFirst: true });
+    has(planLineEdit({ ...base, coverageConfirmed: true, nextQuantityText: "3", nextUnitId: "mz" }), { revokeFirst: true });
   });
   it("nulla cambiato: nessun salvataggio", () => {
     assert.equal(planLineEdit({ ...base, nextQuantityText: "3", nextUnitId: "cs" }).kind, "unchanged");
