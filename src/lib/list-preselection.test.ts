@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { listCounters, memoryStillValid, visualPick } from "@/lib/supplier-selection";
-import { chooseListDestinations, type SupplierMemory } from "@/lib/supplier-memory";
+import { chooseListDestinations, planFromMemory, type SupplierMemory } from "@/lib/supplier-memory";
 
 const s = (linkId: string, o: Partial<{ isB2B: boolean; sourceLinked: boolean; purchasable: boolean; isPreferred: boolean }> = {}) => ({
   linkId, isB2B: false, sourceLinked: true, purchasable: true, isPreferred: false, ...o,
@@ -43,6 +43,16 @@ describe("spunta e quota condividono le destinazioni", () => {
   it("acquisto diretto storico non forza fornitori", () => {
     const result = choose({ memory: { ...memory, destinations: [{ kind: "diretto", unitId: "kg", unitCode: "kg", quantity: 5 }] } });
     assert.equal(result.direct, true); assert.deepEqual(result.linkIds, []); assert.equal(result.reason, "memoria");
+  });
+  it("la quota usa lo stesso fornitore spuntato e la nuova quantità, non quella storica", () => {
+    const available = suppliers.map((x) => ({ ...x, units: [{ unitId: "kg", code: "kg" }] }));
+    const choice = choose({ suppliers: available });
+    const plan = planFromMemory(choice.memory, { suppliers: available, deselected: new Set(),
+      decidedUnitId: "kg", decidedCode: "kg", quantity: 12, stockUnitId: "kg", conversions: {} });
+    assert.equal(plan.kind, "scrivi");
+    if (plan.kind !== "scrivi") throw new Error("Quota non pianificata");
+    assert.deepEqual(plan.writes, [{ kind: "fornitore", linkId: "b", target: { unitId: "kg", manual: null, quantity: 12 } }]);
+    assert.deepEqual(choice.linkIds, ["b"]);
   });
 });
 
