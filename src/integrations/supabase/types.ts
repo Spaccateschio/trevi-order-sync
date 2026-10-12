@@ -7769,6 +7769,16 @@ export type Database = {
           source_product_id: string
         }[]
       }
+      shopping_list_cards_bundle: {
+        Args: { _company_id: string; _item_ids: string[] }
+        Returns: {
+          b2b_options: Json
+          item_id: string
+          overview: Json
+          product_id: string
+          supplier_units: Json
+        }[]
+      }
       shopping_list_close_preview: { Args: { _list_id: string }; Returns: Json }
       shopping_list_generation_preview: {
         Args: { _list_id: string }

@@ -330,6 +330,20 @@
       "when": 1791789217198,
       "tag": "0046_sole_supplier_star_and_visual_deselection",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1791792715752,
+      "tag": "0047_shopping_list_cards_bundle",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791792737799,
+      "tag": "0048_shopping_list_cards_bundle_fix",
+      "breakpoints": true
     }
   ]
 }
