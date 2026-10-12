@@ -17,7 +17,7 @@ import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
 import { type OverviewRow } from "@/lib/shopping-list";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
-import { clearDeselected, markDeselected } from "@/lib/supplier-memory";
+import { clearDeselected, deselectedFor, markDeselected } from "@/lib/supplier-memory";
 import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
 import { Checkbox } from "@/components/ui/checkbox";
 import { assignShoppingListSupplier, setShoppingListDirectQuota, setShoppingListSupplierSelection } from "@/lib/shopping-list.functions";
@@ -290,6 +290,7 @@ export function CardSuppliers({
   decidedCode = "",
   lockedAt = null,
   listConfirmed = false,
+  deselectedLinks = [],
 }: {
   companyId: string;
   row: OverviewRow;
@@ -305,6 +306,8 @@ export function CardSuppliers({
   lockedAt?: string | null;
   /** Lista confermata: «Togli da questa Lista» nascosto, al suo posto la nota sul blocco. */
   listConfirmed?: boolean;
+  /** Fornitori tolti volontariamente in questa Lista (salvati nel database). */
+  deselectedLinks?: string[];
 }) {
   const queryClient = useQueryClient();
   const runAssign = useServerFn(assignShoppingListSupplier);
@@ -628,7 +631,8 @@ export function CardSuppliers({
         runAssign({ data: { companyId, itemId: row.item_id, action, linkId, assignedQuantity: null, purchaseQuantity: packs, minWarningAccepted: true, notes: null, purchaseUnitId: unitId, assignmentId, manualUnitCode: manual } });
       if (!on) {
         // Deselezione volontaria salvata nel database: resta anche dopo aggiornamento, riapertura e riconferma.
-        if (assignment) await runSelection({ data: { itemId: row.item_id, linkId: s.linkId, selected: false } });
+        // Anche la spunta solo visiva (senza quota) si registra: il fornitore non torna da solo.
+        await runSelection({ data: { itemId: row.item_id, linkId: s.linkId, selected: false } });
         markDeselected(row.item_id, s.linkId);
         return "removed" as const;
       }
@@ -642,7 +646,9 @@ export function CardSuppliers({
         const res = await autoAssignItem(runAssign, companyId, row.item_id, { onlyLinkId: s.linkId, updateExisting: false });
         return res.kind === "assegnato" ? ("full" as const) : ("manual" as const);
       }
-      if (!target || !q) return "manual" as const;
+      // Senza quantità: resta solo la spunta visiva, la quota nasce quando si scrive la quantità.
+      if (!target) return "visual" as const;
+      if (!q) return "manual" as const;
       if (!others.length && !directQuota) {
         await call(s.linkId, target, q.unitId, q.manual, null);
         return "full" as const;
@@ -671,6 +677,7 @@ export function CardSuppliers({
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
       ]);
+      if (result === "visual") return;
       toast.success(result === "removed" ? `${s.name} tolto da questa Lista` : result === "split" ? "Quantità divisa in parti uguali" : `Tutta la quantità a ${s.name}`);
     },
     onError: async (error: Error) => {
@@ -682,6 +689,9 @@ export function CardSuppliers({
   if (loading) return <p className="text-xs text-muted-foreground">Caricamento fornitori…</p>;
 
   const byLink = new Map(assignments.map((a) => [a.linkId, a]));
+  // Spunta solo visiva (★ valida o unico fornitore) finché non c'è nessuna quota né acquisto diretto: nessuna scrittura.
+  const deselectedSet = new Set([...deselectedLinks, ...deselectedFor(row.item_id)]);
+  const visualLink = !assignments.length && !directQuota && editable ? visualPick(suppliers, deselectedSet) : null;
 
   // Una riga per fornitore collegato: ripartizione salvata (Modifica/Togli) oppure modulo Qtà/U.M./Salva.
   const supplierRow = (s: CardSupplier, assignment: RowSupplier | null) => {
@@ -717,10 +727,10 @@ export function CardSuppliers({
         <div className="flex min-w-0 items-center gap-1 text-xs">
           {!pending ? (
             <Checkbox
-              checked={Boolean(assignment)}
+              checked={Boolean(assignment) || visualLink === s.linkId}
               disabled={!canWrite || busy || selectMutation.isPending || (!assignment && (b2bBlocked || noUnits))}
               aria-label={assignment ? `Togli ${s.name} da questa Lista` : `Scegli ${s.name} per questa Lista`}
-              title={!assignment && !target ? "Conferma prima la quantità da acquistare" : undefined}
+              title={!assignment && visualLink === s.linkId ? "Fornitore proposto: riceverà la quantità appena la scrivi" : undefined}
               onCheckedChange={(v) => selectMutation.mutate({ s, on: v === true, assignment })}
             />
           ) : null}
