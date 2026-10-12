@@ -46,10 +46,20 @@ export function autoPickSupplier(
   decidedUnitId: string | null,
   decidedCode: string,
   inventoryStarLinks: string[],
+  options: {
+    /** Fornitore del Catalogo B2B da cui si è appena aggiunto il prodotto: ha la precedenza se idoneo. */
+    preferLinkId?: string | null;
+    /** Idoneità estesa (es. conversione valida); predefinita: stessa U.M. */
+    isEligible?: (s: PickSupplier) => boolean;
+  } = {},
 ): AutoPick {
   if (!suppliers.length) return { kind: "senza_fornitore" };
-  const eligible = suppliers.filter((s) => quickUnitFor(s, decidedUnitId, decidedCode) !== null);
+  const ok = options.isEligible ?? ((s: PickSupplier) => quickUnitFor(s, decidedUnitId, decidedCode) !== null);
+  const eligible = suppliers.filter(ok);
   if (!eligible.length) return { kind: "da_scegliere", reason: "Nessun fornitore con U.M. uguale a quella da acquistare" };
+  if (options.preferLinkId && eligible.some((s) => s.linkId === options.preferLinkId)) {
+    return { kind: "pick", linkId: options.preferLinkId, reason: "unico" };
+  }
   if (eligible.length === 1 && suppliers.length === 1) return { kind: "pick", linkId: eligible[0]!.linkId, reason: "unico" };
   const preferred = suppliers.filter((s) => s.isPreferred);
   if (preferred.length !== 1) {
