@@ -47,11 +47,6 @@ import { MISSING_SELLING_PRICE, priceLabel } from "@/lib/purchase";
 type Delivery = { date: string; from: string; to: string; address: string; notes: string };
 type SupplierDraft = { selected: boolean; delivery: Delivery; lines: Record<string, { included: boolean; quantity: string }> };
 
-const ISSUE_LABEL: Record<string, string> = {
-  da_assegnare: "senza fornitore",
-  parziale: "quantità non tutta assegnata",
-  da_verificare: "da verificare",
-};
 
 function linePrice(line: { unit_cost: number | null; price_unit_code: string | null; is_b2b: boolean }) {
   if (line.unit_cost === null || line.unit_cost === undefined) return line.is_b2b ? MISSING_SELLING_PRICE : "Prezzo non indicato";
