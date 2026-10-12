@@ -35,4 +35,4 @@
 - Regole B2B Catalogo/preferiti/collegamenti: vedi src/components/catalog/AGENTS.md.
 - Per prodotti a peso variabile il totale economico non nasce dall'ordine. Il valore reale viene determinato al carico sulla quantità/peso effettivamente ricevuto.
 - Prezzo riga d'ordine B2B: solo applicable_b2b_price (netto, listino assegnato, articolo pubblicato) sull'articolo del collegamento usato, letto prima di ogni scrittura in close_shopping_list / create_purchase_orders_from_list; nessun fallback: senza prezzo «Prezzo su richiesta».
-- U.M. di vendita: la predefinita è sempre danea_um, garantita solo da ensure_danea_sale_unit (trigger products_danea_sale_unit, crea anche la U.M. nell'elenco): le U.M. aggiuntive dell'utente non vengono mai toccate.
+- U.M. predefinita di vendita = danea_um, solo da ensure_danea_sale_unit (trigger su products); U.M. aggiuntive mai toccate.
