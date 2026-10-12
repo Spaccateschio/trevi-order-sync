@@ -11,7 +11,7 @@ describe("spunta visiva prima della quantità", () => {
   it("fornitore unico spuntato", () => assert.equal(visualPick([s("a")], []), "a"));
   it("più fornitori senza stella: nessuna spunta", () => assert.equal(visualPick([s("a"), s("b")], []), null));
   it("più stelle: nessuna spunta", () => assert.equal(visualPick([s("a", { isPreferred: true }), s("b", { isPreferred: true })], []), null));
-  it("deselezione volontaria prevale sulla stella", () => assert.equal(visualPick([s("a", { isPreferred: true }), s("b")], ["a"]), null));
+  it("★ tolta: resta solo l'altro fornitore, come nell'assegnazione", () => assert.equal(visualPick([s("a", { isPreferred: true }), s("b")], ["a"]), "b"));
   it("deselezione volontaria prevale sul fornitore unico", () => assert.equal(visualPick([s("a")], ["a"]), null));
   it("B2B non acquistabile mai spuntato", () => assert.equal(visualPick([s("a", { isB2B: true, purchasable: false })], []), null));
 });
