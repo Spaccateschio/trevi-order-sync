@@ -35,7 +35,9 @@ import {
   manageCompanyProductFavorite,
 } from "@/lib/inventory-count.functions";
 import { getProductImageUrls } from "@/lib/product-images.functions";
-import { addShoppingListItems } from "@/lib/shopping-list.functions";
+import { addShoppingListItems, assignShoppingListSupplier, setShoppingListItemQuantityLock } from "@/lib/shopping-list.functions";
+import { autoAssignItem } from "@/lib/shopping-auto-assign";
+import { defaultUnitCode } from "@/lib/supplier-selection";
 import { cn } from "@/lib/utils";
 
 const MANUAL = "__manuale__";
@@ -72,6 +74,8 @@ type Row = {
   unitCodes: string[];
   /** B2B: solo U.M. pubblicate dal venditore, niente «Altra U.M.». */
   isB2b: boolean;
+  /** B2B: U.M. pubblicate con l'indicazione della predefinita del fornitore. */
+  b2bUnits?: { code: string; isDefault: boolean }[];
 };
 
 type Draft = { qty: string; unit: string; manual: string };
@@ -105,6 +109,8 @@ export function AddProductsDialog({
 }) {
   const queryClient = useQueryClient();
   const runAdd = useServerFn(addShoppingListItems);
+  const runLock = useServerFn(setShoppingListItemQuantityLock);
+  const runAssign = useServerFn(assignShoppingListSupplier);
   const getImageUrls = useServerFn(getProductImageUrls);
   const readFavorites = useServerFn(getFavoriteProductIds);
   const runFavorite = useServerFn(manageCompanyProductFavorite);
@@ -262,6 +268,9 @@ export function AddProductsDialog({
             .map((u) => u.units_of_measure?.code)
             .filter((code): code is string => Boolean(code)),
           isB2b: true,
+          b2bUnits: p.product_sale_units
+            .filter((u) => Boolean(u.units_of_measure?.code))
+            .map((u) => ({ code: u.units_of_measure!.code, isDefault: Boolean(u.is_default) })),
         });
       }
     }
@@ -440,6 +449,9 @@ export function AddProductsDialog({
       const targetId = listId ?? (await resolveListId?.()) ?? null;
       if (!targetId) throw new Error("Lista della Spesa non creata");
       const byKey = new Map(rows.map((row) => [row.key, row]));
+      const res_link = new Map<string, string | null>();
+      // Articoli dal Catalogo B2B con quantità e U.M.: dopo l'aggiunta si confermano e si assegnano al fornitore.
+      const catalogAdds: { productId: string; linkId: string | null; code: string }[] = [];
       const items: {
         product_id: string;
         decided_quantity: number | null;
@@ -458,7 +470,7 @@ export function AddProductsDialog({
             _seller_product_id: key.slice(4),
           });
           if (error) throw new Error(error.message);
-          const res = (data ?? {}) as { product_id?: string; status?: string; message?: string };
+          const res = (data ?? {}) as { product_id?: string; link_id?: string; status?: string; message?: string };
           if (res.status === "choose_candidate") {
             throw new Error(`${row.code}: esistono più copie, scegli quale usare dal Catalogo`);
           }
@@ -466,10 +478,15 @@ export function AddProductsDialog({
             throw new Error(`${row.code}: ${res.message ?? "collegamento esistente senza codice articolo, verificalo prima di procedere"}`);
           }
           productId = res.product_id ?? null;
+          res_link.set(key, res.link_id ?? null);
           if (!productId) throw new Error(`Prodotto non creato per ${row.code}`);
         }
         const draft = selected[key] ?? { qty: "", unit: "", manual: "" };
         const unitCode = draft.unit === MANUAL ? draft.manual.trim().toUpperCase() : draft.unit || null;
+        const qtyValue = parseQuantity(draft.qty);
+        if (row.isB2b && qtyValue && qtyValue > 0 && unitCode && !existingProductIds.has(productId)) {
+          catalogAdds.push({ productId, linkId: (res_link.get(key) ?? null), code: row.code });
+        }
         items.push({
           product_id: productId,
           decided_quantity: parseQuantity(draft.qty) ?? null,
@@ -477,13 +494,43 @@ export function AddProductsDialog({
           origin: "manuale",
         });
       }
-      return runAdd({
+      const result = await runAdd({
         data: { companyId, listId: targetId, replaceExisting: false, items },
       });
+      // Conferma + fornitore del Catalogo (stesse regole del pulsante «Conferma»): una riga che non va non ferma le altre.
+      const followUp = { assigned: 0, problems: [] as string[] };
+      if (catalogAdds.length) {
+        const { data: added } = await supabase
+          .from("shopping_list_items")
+          .select("id, product_id, quantity_locked_at")
+          .eq("list_id", targetId)
+          .in("product_id", catalogAdds.map((c) => c.productId));
+        for (const c of catalogAdds) {
+          const item = (added ?? []).find((a) => a.product_id === c.productId);
+          if (!item) continue;
+          try {
+            if (!item.quantity_locked_at) await runLock({ data: { itemId: item.id as string, locked: true } });
+          } catch (e) {
+            followUp.problems.push(`${c.code}: quantità non confermata (${(e as Error).message})`);
+            continue;
+          }
+          const res = await autoAssignItem(runAssign, companyId, item.id as string, { preferLinkId: c.linkId, updateExisting: false });
+          if (res.kind === "assegnato") followUp.assigned += 1;
+          else if (res.kind === "saltato" || res.kind === "verifica" || res.kind === "da_scegliere") followUp.problems.push(`${c.code}: ${res.reason}`);
+        }
+      }
+      return { ...result, ...followUp };
     },
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] });
       await queryClient.invalidateQueries({ queryKey: ["shopping-add-products", companyId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-locks"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments"] }),
+      ]);
+      if (result.assigned) toast.success(`${result.assigned} confermat${result.assigned === 1 ? "o e assegnato" : "i e assegnati"} al fornitore del Catalogo`);
+      for (const problem of result.problems) toast.info(problem);
       toast.success(
         `${result.added} prodott${result.added === 1 ? "o aggiunto" : "i aggiunti"}` +
           (result.skipped ? ` · ${result.skipped} già in lista` : ""),
@@ -500,7 +547,8 @@ export function AddProductsDialog({
   /** U.M. preselezionata: quella d'acquisto del fornitore scelto nel filtro, altrimenti l'U.M. base.
    * Per i prodotti B2B resta il comportamento attuale: nessuna preselezione, si usa l'U.M. del fornitore. */
   const defaultUnit = (row: Row): string => {
-    if (row.isB2b) return "";
+    // B2B: l'unica U.M. pubblicata o la predefinita del fornitore; altrimenti sceglie l'utente.
+    if (row.isB2b) return defaultUnitCode(row.b2bUnits ?? []);
     if (supplierFilter !== "tutti") {
       const code = row.supplierUnits[supplierFilter]?.find((value) => value && row.unitCodes.includes(value));
       if (code) return code;
@@ -801,6 +849,9 @@ export function AddProductsDialog({
                       aria-label={`Quantità ${row.code}`}
                       onChange={(event) => patch(row.key, { qty: event.target.value })}
                     />
+                    {row.isB2b && row.unitCodes.length === 1 ? (
+                      <span className="w-24 text-xs font-semibold" aria-label={`U.M. acquisto ${row.code}`}>{row.unitCodes[0]}</span>
+                    ) : (
                     <Select
                       value={draft.unit}
                       onValueChange={(value) => patch(row.key, { unit: value })}
@@ -817,6 +868,7 @@ export function AddProductsDialog({
                         {!row.isB2b ? <SelectItem value={MANUAL}>Altra U.M.</SelectItem> : null}
                       </SelectContent>
                     </Select>
+                    )}
                     {draft.unit === MANUAL ? (
                       <Input
                         className="h-7 w-20 text-xs uppercase"

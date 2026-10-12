@@ -970,14 +970,17 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runAssignAuto = useServerFn(assignShoppingListSupplier);
   const proposeSupplier = async (itemId: string) => {
     const res = await autoAssignItem(runAssignAuto, companyId, itemId);
-    if (res.kind === "assegnato") {
-      toast.success(`Assegnato a ${res.supplierName}`);
+    if (res.kind === "assegnato" || res.kind === "aggiornato") {
+      toast.success(res.kind === "assegnato" ? `Assegnato a ${res.supplierName}` : `Quota di ${res.supplierName} aggiornata`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", itemId] }),
       ]);
-    } else if (res.kind === "saltato") toast.error(res.reason);
+    } else if (res.kind === "saltato") {
+      toast.error(res.reason);
+      await queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] });
+    } else if (res.kind === "verifica") toast.info(res.reason);
   };
   // Conferma: salva prima un'eventuale quantità ancora in scrittura, poi blocca.
   const toggleLock = async (row: OverviewRow) => {

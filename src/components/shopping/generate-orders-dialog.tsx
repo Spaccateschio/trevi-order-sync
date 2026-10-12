@@ -184,11 +184,11 @@ export function GenerateOrdersDialog({
           report.skipped.push(`${name}: ${(e as Error).message}`);
           continue;
         }
-        const res = await autoAssignItem(runAssignAuto, companyId, f.id);
+        const res = await autoAssignItem(runAssignAuto, companyId, f.id, { updateExisting: false });
         if (res.kind === "assegnato") report.assigned.push(`${name} → ${res.supplierName}`);
         else if (res.kind === "da_scegliere") report.toChoose.push(`${name} (${res.reason})`);
         else if (res.kind === "senza_fornitore") report.toChoose.push(`${name} (senza fornitore)`);
-        else if (res.kind === "saltato") report.skipped.push(`${name}: ${res.reason}`);
+        else if (res.kind === "saltato" || res.kind === "verifica") report.skipped.push(`${name}: ${res.reason}`);
       }
       return report;
     },

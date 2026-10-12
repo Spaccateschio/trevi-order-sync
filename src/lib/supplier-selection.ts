@@ -46,10 +46,20 @@ export function autoPickSupplier(
   decidedUnitId: string | null,
   decidedCode: string,
   inventoryStarLinks: string[],
+  options: {
+    /** Fornitore del Catalogo B2B da cui si è appena aggiunto il prodotto: ha la precedenza se idoneo. */
+    preferLinkId?: string | null;
+    /** Idoneità estesa (es. conversione valida); predefinita: stessa U.M. */
+    isEligible?: (s: PickSupplier) => boolean;
+  } = {},
 ): AutoPick {
   if (!suppliers.length) return { kind: "senza_fornitore" };
-  const eligible = suppliers.filter((s) => quickUnitFor(s, decidedUnitId, decidedCode) !== null);
+  const ok = options.isEligible ?? ((s: PickSupplier) => quickUnitFor(s, decidedUnitId, decidedCode) !== null);
+  const eligible = suppliers.filter(ok);
   if (!eligible.length) return { kind: "da_scegliere", reason: "Nessun fornitore con U.M. uguale a quella da acquistare" };
+  if (options.preferLinkId && eligible.some((s) => s.linkId === options.preferLinkId)) {
+    return { kind: "pick", linkId: options.preferLinkId, reason: "unico" };
+  }
   if (eligible.length === 1 && suppliers.length === 1) return { kind: "pick", linkId: eligible[0]!.linkId, reason: "unico" };
   const preferred = suppliers.filter((s) => s.isPreferred);
   if (preferred.length !== 1) {
@@ -176,4 +186,118 @@ export function factsFromRow(
     quotes: row.status === "da_assegnare" ? 0 : 1,
     excluded,
   };
+}
+
+/** U.M. proposta tra quelle del fornitore: l'unica, oppure l'unica predefinita; altrimenti scelta dell'utente (null). */
+export function defaultUnitOf<T extends { isDefault?: boolean }>(units: (T & { unitId: string })[]): string | null {
+  if (units.length === 1) return units[0]!.unitId;
+  const defaults = units.filter((u) => u.isDefault);
+  return defaults.length === 1 ? defaults[0]!.unitId : null;
+}
+
+/** Stessa regola sui codici (finestra «Aggiungi prodotti», articoli del Catalogo B2B). */
+export function defaultUnitCode(units: { code: string; isDefault: boolean }[]): string {
+  const unique = [...new Map(units.filter((u) => u.code).map((u) => [u.code, u])).values()];
+  if (unique.length === 1) return unique[0]!.code;
+  const defaults = unique.filter((u) => u.isDefault);
+  return defaults.length === 1 ? defaults[0]!.code : "";
+}
+
+/** Conversione valida (effective_supplier_conversion): 1 U.M. d'acquisto = factor U.M. di magazzino. */
+export type ValidConversion = { unitId: string; factor: number };
+
+export type QuotaTarget = { unitId: string | null; manual: string | null; quantity: number };
+
+/**
+ * Quantità per il fornitore partendo da «Da acquistare»: stessa U.M. → stessa quantità; altrimenti,
+ * solo se «Da acquistare» è nell'U.M. di magazzino e c'è UNA conversione valida, quantità convertita
+ * (solo se il risultato è un numero intero di confezioni: mai arrotondamenti arbitrari). null = da verificare.
+ */
+export function quotaFor(
+  s: PickSupplier,
+  decidedUnitId: string | null,
+  decidedCode: string,
+  quantity: number,
+  stockUnitId: string | null,
+  conversions: ValidConversion[],
+  onlyUnit?: { unitId: string | null; manual: string | null },
+): QuotaTarget | null {
+  const same = quickUnitFor(s, decidedUnitId, decidedCode);
+  const matches = (u: { unitId: string | null; manual: string | null }) =>
+    !onlyUnit || (onlyUnit.unitId ? u.unitId === onlyUnit.unitId : !u.unitId && norm(u.manual) === norm(onlyUnit.manual));
+  if (same && matches(same)) return { ...same, quantity };
+  if (!stockUnitId || decidedUnitId !== stockUnitId) return null;
+  const usable = conversions.filter((c) => c.factor > 0 && s.units.some((u) => u.unitId === c.unitId) && matches({ unitId: c.unitId, manual: null }));
+  if (usable.length !== 1) return null;
+  const packs = quantity / usable[0]!.factor;
+  if (!isWholeNumber(packs)) return null;
+  return { unitId: usable[0]!.unitId, manual: null, quantity: Math.round(packs) };
+}
+
+export type QuotaAssignment = {
+  id: string;
+  linkId: string;
+  purchaseUnitId: string | null;
+  purchaseUnitCode: string | null;
+  purchaseQuantity: number | null;
+  /** Quota già in una bozza o in un ordine inviato. */
+  inOrder: boolean;
+};
+
+export type QuotaPlan =
+  | { kind: "set"; linkId: string; assignmentId: string | null; target: QuotaTarget }
+  | { kind: "proponi" }
+  | { kind: "invariato" }
+  | { kind: "verifica"; reason: string };
+
+/**
+ * Cosa fare dopo «Conferma» sulle quote già presenti (D-bis):
+ * nessuna quota → proposta automatica; acquisto diretto → rispettato; più fornitori → nessuna ridistribuzione;
+ * un solo fornitore → la sua quota segue «Da acquistare» se l'U.M. è la stessa o c'è conversione valida;
+ * quota già in ordine → mai toccata.
+ */
+export function planQuotaUpdate(args: {
+  assignments: QuotaAssignment[];
+  directQuota: number | null;
+  suppliers: PickSupplier[];
+  decidedUnitId: string | null;
+  decidedCode: string;
+  quantity: number;
+  stockUnitId: string | null;
+  conversions: Record<string, ValidConversion[]>;
+}): QuotaPlan {
+  const { assignments, directQuota } = args;
+  if (!assignments.length) return directQuota !== null ? { kind: "invariato" } : { kind: "proponi" };
+  if (directQuota !== null) return { kind: "verifica", reason: "Acquisto diretto presente: controlla le quote" };
+  if (assignments.length > 1) return { kind: "verifica", reason: "Più fornitori: controlla la differenza da assegnare" };
+  const a = assignments[0]!;
+  if (a.inOrder) return { kind: "verifica", reason: "Questa quota è già in un ordine: gestiscila dalle Bozze." };
+  const s = args.suppliers.find((x) => x.linkId === a.linkId);
+  if (!s) return { kind: "verifica", reason: "Fornitore non più collegato" };
+  const target = quotaFor(s, args.decidedUnitId, args.decidedCode, args.quantity, args.stockUnitId, args.conversions[s.linkId] ?? [], {
+    unitId: a.purchaseUnitId,
+    manual: a.purchaseUnitId ? null : a.purchaseUnitCode,
+  });
+  if (!target) return { kind: "verifica", reason: "Da verificare: U.M. diverse senza conversione valida" };
+  if (a.purchaseQuantity !== null && Math.abs(a.purchaseQuantity - target.quantity) < 1e-9) return { kind: "invariato" };
+  return { kind: "set", linkId: a.linkId, assignmentId: a.id, target };
+}
+
+/** Una sola richiesta automatica alla volta per riga: doppio clic o chiamate ripetute restituiscono `busy`. */
+export function createItemGuard() {
+  const running = new Set<string>();
+  return async function once<T>(key: string, busy: T, fn: () => Promise<T>): Promise<T> {
+    if (running.has(key)) return busy;
+    running.add(key);
+    try {
+      return await fn();
+    } finally {
+      running.delete(key);
+    }
+  };
+}
+
+/** Messaggio quando la quantità è confermata ma la quota non è stata salvata: mai «Assegnato» finto. */
+export function quotaSaveError(supplierName: string, message: string): string {
+  return `Quantità confermata, ma la quota per ${supplierName} non è stata salvata: ${friendlyAssignError(message)} Assegnala dalla card.`;
 }
