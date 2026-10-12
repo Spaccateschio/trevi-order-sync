@@ -480,7 +480,7 @@ export function CardSuppliers({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const busy = mutation.isPending || editMutation.isPending || selectMutation.isPending;
+  const busy = mutation.isPending || editMutation.isPending;
 
   const startEdit = (s: CardSupplier, assignment: RowSupplier | null) => {
     const single = s.units.length === 1 && !s.allowManual;
@@ -704,7 +704,7 @@ export function CardSuppliers({
           {!pending ? (
             <Checkbox
               checked={Boolean(assignment)}
-              disabled={!canWrite || busy || (!assignment && (b2bBlocked || noUnits))}
+              disabled={!canWrite || busy || selectMutation.isPending || (!assignment && (b2bBlocked || noUnits))}
               aria-label={assignment ? `Togli ${s.name} da questa Lista` : `Scegli ${s.name} per questa Lista`}
               title={!assignment && !target ? "Conferma prima la quantità da acquistare" : undefined}
               onCheckedChange={(v) => selectMutation.mutate({ s, on: v === true, assignment })}
