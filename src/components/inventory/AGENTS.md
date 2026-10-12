@@ -1,0 +1,1 @@
+- Inventory card edits use a per-row UI unlock state: successful saves relock, failed saves remain editable, and all quantity/unit commands share a guard; existing cycle authorization and server validation remain authoritative.
