@@ -76,6 +76,8 @@ type Row = {
   isB2b: boolean;
   /** B2B: U.M. pubblicate con l'indicazione della predefinita del fornitore. */
   b2bUnits?: { code: string; isDefault: boolean }[];
+  /** Prodotto proprio collegato a un articolo B2B: solo le U.M. pubblicate dal venditore. */
+  unitsLocked?: boolean;
 };
 
 type Draft = { qty: string; unit: string; manual: string };
@@ -157,7 +159,7 @@ export function AddProductsDialog({
       const { data, error } = await supabase
         .from("product_supplier_links")
         .select(
-          "product_id, supplier_record_id, purchase_unit_id, supplier_records(legal_name), units_of_measure!purchase_unit_id(code)",
+          "product_id, supplier_record_id, purchase_unit_id, b2b_item_id, is_active, supplier_records(legal_name), units_of_measure!purchase_unit_id(code)",
         )
         .eq("company_id", companyId);
       if (error) throw new Error(error.message);
@@ -212,8 +214,22 @@ export function AddProductsDialog({
       linksByProduct.set(link.product_id, entry);
     }
 
+    // U.M. pubblicate dai venditori B2B (stessa lettura del Catalogo), per articolo venditore.
+    const published = new Map<string, { code: string; isDefault: boolean }[]>();
+    for (const cat of cataloguesQuery.data ?? []) {
+      for (const p of cat.products) {
+        published.set(p.id, p.product_sale_units
+          .filter((u) => Boolean(u.units_of_measure?.code))
+          .map((u) => ({ code: u.units_of_measure!.code, isDefault: Boolean(u.is_default) })));
+      }
+    }
+    const b2bOf = new Map<string, string>();
+    for (const link of (linksQuery.data ?? []) as unknown as { product_id: string; b2b_item_id: string | null; is_active: boolean }[]) {
+      if (link.is_active && link.b2b_item_id) b2bOf.set(link.product_id, link.b2b_item_id);
+    }
     const own: Row[] = (productsQuery.data ?? []).map((p) => {
       const links = linksByProduct.get(p.id);
+      const pub = b2bOf.has(p.id) ? published.get(b2bOf.get(p.id)!) : undefined;
       const supplierUnits: Record<string, string[]> = {};
       for (const pair of links?.pairs ?? []) {
         const list = supplierUnits[pair.name] ?? (supplierUnits[pair.name] = []);
@@ -237,8 +253,9 @@ export function AddProductsDialog({
         baseUm: p.danea_um,
         supplierNames: [...(links?.names ?? [])],
         supplierUnits,
-        unitCodes: [...units],
+        unitCodes: pub?.length ? [...new Set(pub.map((u) => u.code))] : [...units],
         isB2b: false,
+        ...(pub?.length ? { b2bUnits: pub, unitsLocked: true } : {}),
       };
     });
 
@@ -548,7 +565,7 @@ export function AddProductsDialog({
    * Per i prodotti B2B resta il comportamento attuale: nessuna preselezione, si usa l'U.M. del fornitore. */
   const defaultUnit = (row: Row): string => {
     // B2B: l'unica U.M. pubblicata o la predefinita del fornitore; altrimenti sceglie l'utente.
-    if (row.isB2b) return defaultUnitCode(row.b2bUnits ?? []);
+    if (row.isB2b || row.unitsLocked) return defaultUnitCode(row.b2bUnits ?? []);
     if (supplierFilter !== "tutti") {
       const code = row.supplierUnits[supplierFilter]?.find((value) => value && row.unitCodes.includes(value));
       if (code) return code;
@@ -849,7 +866,7 @@ export function AddProductsDialog({
                       aria-label={`Quantità ${row.code}`}
                       onChange={(event) => patch(row.key, { qty: event.target.value })}
                     />
-                    {row.isB2b && row.unitCodes.length === 1 ? (
+                    {(row.isB2b || row.unitsLocked) && row.unitCodes.length === 1 ? (
                       <span className="w-24 text-xs font-semibold" aria-label={`U.M. acquisto ${row.code}`}>{row.unitCodes[0]}</span>
                     ) : (
                     <Select
@@ -865,7 +882,7 @@ export function AddProductsDialog({
                             {code}
                           </SelectItem>
                         ))}
-                        {!row.isB2b ? <SelectItem value={MANUAL}>Altra U.M.</SelectItem> : null}
+                        {!row.isB2b && !row.unitsLocked ? <SelectItem value={MANUAL}>Altra U.M.</SelectItem> : null}
                       </SelectContent>
                     </Select>
                     )}
