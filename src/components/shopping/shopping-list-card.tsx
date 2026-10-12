@@ -398,6 +398,11 @@ export function ShoppingListCard({
     <p className="flex items-center gap-1 text-[10px] font-semibold text-foreground">
       <Lock className="size-3" aria-hidden="true" /> Confermata {dateTimeShort(extra.lockedAt)}
     </p>
+        <Lock className="size-3" aria-hidden="true" /> Confermata {dateTimeShort(extra.lockedAt)}
+    </p>
+  ) : null;
+  const memoryLine = memoryNote ? (
+    <p className="text-[10px] italic leading-tight text-muted-foreground">{memoryNote}</p>
   ) : null;
 
   const recheckNote = recheck ? (
