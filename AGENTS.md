@@ -17,7 +17,6 @@
 - Acquisti: dato d'ordine = quantità + U.M. d'acquisto + fornitore; *_quantity in U.M. magazzino solo equivalente (NULL senza conversione, mai 0): non confondere cassette e kg.
 - U.M. prezzo: config FK (links.price_unit_id non B2B; B2B dal prodotto venditore), documenti fotografano id+codice (+price_quantity sul carico); stock_lots.unit_cost NULL senza base: prezzo mai senza U.M.
 - Regole Lista della Spesa: vedi src/components/shopping/AGENTS.md.
-- Shopping card destination proposals and first assignments use chooseListDestinations; batch same-frame ordinary card reads without persistent caches so UI and quotas agree and React Query invalidation remains authoritative.
 
 - Operational pages show only current work; when the purchase cycle is not red, past counts and closed lists are reachable only via history views (no data deleted).
 - Customer order edits after sending go only through DB RPCs that lock the order row and re-check the supplier lock (customer_update_order_full, request/decide_order_change, supplier_cancel_order); every change is logged in purchase_order_changes: concurrency is decided by the database, not the UI.
@@ -26,7 +25,6 @@
 - Prima impostazione U.M. di magazzino dalla card Inventario: solo set_initial_stock_unit (admin/operatore, FOR UPDATE, solo da NULL, flag app.stock_unit_first_set accettato dal trigger solo da NULL a valore); proposta solo da initial_stock_unit_options, mai salvata senza conferma: l'operatore non può cambiare un'U.M. già impostata.
 - Inventario: U.M. sono solo etichette; chi conta sceglie tra product_inventory_units (scritte solo da manage_product_inventory_unit / set_product_stock_unit), stock_unit_id = principale; conteggi con fattore 1, nessuna conversione; giacenza NULL senza conteggio valido; prodotti senza U.M. hanno la card bloccata ma non bloccano la chiusura; allows_decimals non usato.
 
-- Inventory card edits use a per-row UI unlock state: successful saves relock, failed saves remain editable, and all quantity/unit commands share a guard; existing cycle authorization and server validation remain authoritative.
 - Inventario Modello 2: card = prodotto + ubicazione + product_supplier_link_id (NULL = «Senza fornitore»), chiave unica solo da src/lib/inventory-cards.ts; ogni salvataggio invia la card con _card_explicit, mai ricostruita: nessun conteggio sulla card sbagliata.
 - Recurring company operational schedules (e.g. shopping-list reminder) live only in company_operational_schedules, one row per company+schedule_type, written only via manage_company_operational_schedule (admin check in DB): kept separate from company_settings delivery preferences.
 - Funzioni DB che scrivono: un RETURN senza modifiche è ammesso solo prima della prima scrittura; dopo, ci si ferma solo con RAISE EXCEPTION: nessuno stato a metà.
@@ -35,3 +33,4 @@
 - Regole B2B Catalogo/preferiti/collegamenti: vedi src/components/catalog/AGENTS.md.
 - Per prodotti a peso variabile il totale economico non nasce dall'ordine. Il valore reale viene determinato al carico sulla quantità/peso effettivamente ricevuto.
 - Prezzo riga d'ordine B2B: solo applicable_b2b_price (netto, listino assegnato, articolo pubblicato) sull'articolo del collegamento usato, letto prima di ogni scrittura in close_shopping_list / create_purchase_orders_from_list; nessun fallback: senza prezzo «Prezzo su richiesta».
+- Regole U.M. di vendita: vedi src/components/products/AGENTS.md.
