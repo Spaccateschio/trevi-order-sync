@@ -1,1 +1,1 @@
-- U.M. predefinita di vendita = danea_um, solo da ensure_danea_sale_unit (trigger su products); U.M. aggiuntive mai toccate.
+- U.M. predefinita di vendita = danea_um, solo da ensure_danea_sale_unit (trigger su products); il trigger guard_danea_sale_unit rifiuta ogni altra predefinita e la disattivazione/rimozione della U.M. Danea; U.M. aggiuntive mai toccate.
