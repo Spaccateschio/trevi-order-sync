@@ -483,8 +483,8 @@ export function GenerateOrdersDialog({
                                     <p className="text-xs text-muted-foreground">{linePrice(l)}{l.notes ? ` · ${l.notes}` : ""}</p>
                                     {l.needs_coverage ? (
                                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                                        <span>Manca la conversione U.M.: conferma che {qty(l.quantity)} {l.unit_code ?? ""} coprono il fabbisogno.</span>
-                                        <Button size="sm" variant="outline" disabled={coverage.isPending} onClick={() => coverage.mutate(l.assignment_id)}>Confermo la copertura</Button>
+                                        <span>Manca la conversione U.M.: conferma che vuoi acquistare {qty(l.quantity)} {l.unit_code ?? ""}.</span>
+                                        <Button size="sm" variant="outline" disabled={coverage.isPending} onClick={() => coverage.mutate(l.assignment_id)}>Confermo la quantità</Button>
                                       </div>
                                     ) : null}
                                   </div>

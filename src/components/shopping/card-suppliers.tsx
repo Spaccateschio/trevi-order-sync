@@ -1048,7 +1048,7 @@ export function CardSuppliers({
         Stato: <span className="font-semibold">{rowLabel(factsFromRow(row, Boolean(lockedAt)))}</span>
         {row.status === "da_verificare" ? (
           <span className="block text-[11px] text-muted-foreground">
-            Le quote usano U.M. diverse da quella da acquistare ({directUnit}) e senza conversione non si sommano: correggi le quote o conferma la copertura in «Genera ordini».
+            Le quote usano U.M. diverse da quella da acquistare ({directUnit}) e senza conversione non si sommano: correggi le quote o conferma la quantità in «Genera ordini».
           </span>
         ) : null}
         {row.status === "parziale" && row.remaining !== null ? ` · ${qty(row.remaining)} ${directUnit} da assegnare` : ""}
