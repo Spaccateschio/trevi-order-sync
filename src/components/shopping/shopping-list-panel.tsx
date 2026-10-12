@@ -493,6 +493,23 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   const allRows = overviewQuery.data ?? [];
 
+  // Memoria «Come l'ultima volta»: ultima Lista chiusa della stessa azienda, sola lettura (mai quantità).
+  const memoryProductIds = useMemo(() => [...new Set(allRows.map((r) => r.product_id))].sort(), [allRows]);
+  const memoryQuery = useQuery({
+    queryKey: ["shopping-supplier-memory", companyId, memoryProductIds],
+    enabled: memoryProductIds.length > 0,
+    queryFn: () => readMemories(companyId, memoryProductIds),
+    staleTime: 60_000,
+  });
+  const memoryNoteFor = (row: OverviewRow): string | null => {
+    const memory = memoryQuery.data?.get(row.product_id) ?? null;
+    if (!memory) return null;
+    const sups = extras.get(row.item_id)?.suppliers ?? [];
+    const current = sups.map((x) => ({ linkId: x.linkId as string | null, quantity: x.purchaseQuantity, unitKey: x.purchaseUnitId ?? (x.purchaseUnitCode ?? "").toUpperCase() }));
+    if (!current.length) return row.decided_quantity === null ? "Come l'ultima volta: fornitori proposti quando inserisci la quantità" : null;
+    return matchesMemory(memory, current) ? "Come l'ultima volta" : null;
+  };
+
   // Ultimo conteggio e giacenza per le card: sola lettura, stessa fonte dell'Inventario.
   const stockProductIds = useMemo(() => [...new Set(allRows.map((row) => row.product_id))].sort(), [allRows]);
 
