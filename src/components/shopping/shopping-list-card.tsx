@@ -18,6 +18,7 @@ import {
 import { evaluationBadge, type EvaluationBadgeStatus } from "@/lib/card-labels";
 import { dateTimeShort, qty } from "@/lib/inventory";
 import { type OverviewRow } from "@/lib/shopping-list";
+import type { SupplierMemory } from "@/lib/supplier-memory";
 import { factsFromRow, rowLabel } from "@/lib/supplier-selection";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,7 @@ type UnitOption = { key: string; unitId: string | null; code: string; factor: nu
 function useDecidedUnitOptions(itemId: string, enabled: boolean, manualCodes: string[]) {
   const query = useQuery({
     queryKey: ["shopping-item-supplier-units", itemId],
+    staleTime: 60_000,
     enabled,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("shopping_item_supplier_units", { _item_id: itemId });
@@ -106,6 +108,7 @@ export function ShoppingListCard({
   autoConfirm = false,
   saving = false,
   memoryNote = null,
+  memory = null,
   onUnitChange,
   onClearQuantity,
   pending = false,
@@ -144,6 +147,7 @@ export function ShoppingListCard({
   saving?: boolean;
   /** «Come l'ultima volta» quando fornitori/quote vengono dalla memoria. */
   memoryNote?: string | null;
+  memory?: SupplierMemory | null;
   /** Cambio U.M. di «Da acquistare»: (null, null) = U.M. del prodotto. */
   onUnitChange?: (unitId: string | null, unitCode: string | null) => void;
   /** Svuota la quantità «Da acquistare» (obiettivo non indicato, mai 0). */
@@ -443,6 +447,7 @@ export function ShoppingListCard({
       lockedAt={extra?.lockedAt ?? null}
       listConfirmed={listConfirmed}
       deselectedLinks={extra?.deselectedLinks ?? []}
+      memory={memory}
     />
   );
 

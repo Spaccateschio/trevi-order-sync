@@ -147,3 +147,9 @@
 - [x] Contatori sempre visibili + contatori Preferiti
 - [x] U.M. B2B pubblicate nelle card «Non in lista»
 - [x] 42 prove + test/typecheck/build + schermate; resoconto
+
+## 12/10 — Ultime correzioni autorizzate (solo anteprima)
+- [ ] Filtri smartphone: ricerca dedicata e due righe scorrevoli in shopping-list-panel.tsx.
+- [ ] Spunta e quota con scelta coerente: memoria valida (anche più fornitori), poi stella, poi unico; «Come l'ultima volta» già prima della quantità.
+- [ ] Diagnosticare lentezza a 390 px, confronto prima/dopo e verifica applicabilità alla versione pubblicata; correggere solo codice, nessun cambio di comportamento.
+- [ ] Test automatici, segnali typecheck/build e schermate 390/1280; resoconto unico. Non pubblicare, nessuna modifica ai dati operativi.

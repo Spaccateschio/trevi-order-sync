@@ -17,6 +17,7 @@
 - Acquisti: dato d'ordine = quantità + U.M. d'acquisto + fornitore; *_quantity in U.M. magazzino solo equivalente (NULL senza conversione, mai 0): non confondere cassette e kg.
 - U.M. prezzo: config FK (links.price_unit_id non B2B; B2B dal prodotto venditore), documenti fotografano id+codice (+price_quantity sul carico); stock_lots.unit_cost NULL senza base: prezzo mai senza U.M.
 - Regole Lista della Spesa: vedi src/components/shopping/AGENTS.md.
+- Shopping card destination proposals and first assignments use chooseListDestinations; batch same-frame ordinary card reads without persistent caches so UI and quotas agree and React Query invalidation remains authoritative.
 
 - Operational pages show only current work; when the purchase cycle is not red, past counts and closed lists are reachable only via history views (no data deleted).
 - Customer order edits after sending go only through DB RPCs that lock the order row and re-check the supplier lock (customer_update_order_full, request/decide_order_change, supplier_cancel_order); every change is logged in purchase_order_changes: concurrency is decided by the database, not the UI.

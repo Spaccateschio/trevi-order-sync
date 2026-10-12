@@ -79,7 +79,7 @@ import {
   setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
 import { autoAssignItem, readMemories, type PlannedWrite } from "@/lib/shopping-auto-assign";
-import { createLatestQueue, matchesMemory } from "@/lib/supplier-memory";
+import { createLatestQueue } from "@/lib/supplier-memory";
 import { factsFromRow, listCounters, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
 
 /** Prodotto contato non ancora in Lista, mostrato con la stessa card: nessun dato della Lista inventato. */
@@ -502,14 +502,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     queryFn: () => readMemories(companyId, memoryProductIds),
     staleTime: 60_000,
   });
-  const memoryNoteFor = (row: OverviewRow): string | null => {
-    const memory = memoryQuery.data?.get(row.product_id) ?? null;
-    if (!memory) return null;
-    const sups = extras.get(row.item_id)?.suppliers ?? [];
-    const current = sups.map((x) => ({ linkId: x.linkId as string | null, quantity: x.purchaseQuantity, unitKey: x.purchaseUnitId ?? (x.purchaseUnitCode ?? "").toUpperCase() }));
-    if (!current.length) return row.decided_quantity === null ? "Come l'ultima volta: fornitori proposti quando inserisci la quantità" : null;
-    return matchesMemory(memory, current) ? "Come l'ultima volta" : null;
-  };
+
 
   // Ultimo conteggio e giacenza per le card: sola lettura, stessa fonte dell'Inventario.
   const stockProductIds = useMemo(() => [...new Set(allRows.map((row) => row.product_id))].sort(), [allRows]);
@@ -1470,8 +1463,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           ) : null}
 
           {/* Barra operativa */}
-          <div className="sticky top-14 z-10 flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-card p-1.5 lg:top-0">
-            <div className="relative min-w-40 flex-1">
+          <div className="sticky top-14 z-10 min-w-0 space-y-1.5 rounded-md border border-border bg-card p-1.5 lg:top-0">
+            <div className="relative min-w-0">
               <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
                 className={`h-8 pl-7 text-xs${search ? " border-primary bg-primary/10 font-medium text-primary" : ""}`}
@@ -1481,6 +1474,18 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onChange={(event) => setSearch(event.target.value)}
               />
             </div>
+            <div aria-label="Filtri prodotti" className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible [&>*]:shrink-0">
+            {/* Il filtro Preferiti resta sempre visibile: un tocco lo accende, un altro lo spegne. */}
+            <Button
+              type="button"
+              size="sm"
+              variant={flags.has("preferiti") ? "default" : "outline"}
+              className="h-8 px-2 text-xs"
+              aria-pressed={flags.has("preferiti")}
+              onClick={() => toggleFlag("preferiti", !flags.has("preferiti"))}
+            >
+              ★ Preferiti
+            </Button>
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger className={`h-8 w-36 text-xs${category !== "all" ? " border-primary bg-primary font-medium text-primary-foreground" : ""}`} aria-label="Categoria">
                 <SelectValue />
@@ -1503,17 +1508,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 ))}
               </SelectContent>
             </Select>
-            {/* Il filtro Preferiti resta sempre visibile: un tocco lo accende, un altro lo spegne. */}
-            <Button
-              type="button"
-              size="sm"
-              variant={flags.has("preferiti") ? "default" : "outline"}
-              className="h-8 px-2 text-xs"
-              aria-pressed={flags.has("preferiti")}
-              onClick={() => toggleFlag("preferiti", !flags.has("preferiti"))}
-            >
-              ★ Preferiti
-            </Button>
             <Popover>
               <PopoverTrigger asChild>
                 <Button type="button" size="sm" variant={flags.size ? "default" : "outline"} className="h-8 px-2 text-xs">
@@ -1553,6 +1547,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   <X className="size-3 text-primary-foreground/70" aria-hidden="true" />
                 </button>
               ))}
+            </div>
+            <div aria-label="Comandi prodotti" className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible [&>*]:shrink-0">
+            {editable || (!list && previewMode) ? (
+              <Button type="button" size="sm" className="h-8 px-2 text-xs" onClick={() => setAddOpen(true)}>
+                <Plus aria-hidden="true" />
+                Aggiungi prodotti
+              </Button>
+            ) : null}
             <Popover>
               <PopoverTrigger asChild>
                 <Button type="button" size="sm" variant={hiddenFields ? "default" : "outline"} className="h-8 px-2 text-xs">
@@ -1591,12 +1593,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 <SelectItem value="supplier">Fornitore</SelectItem>
               </SelectContent>
             </Select>
-            {editable || (!list && previewMode) ? (
-              <Button type="button" size="sm" className="h-8 px-2 text-xs" onClick={() => setAddOpen(true)}>
-                <Plus aria-hidden="true" />
-                Aggiungi prodotti
-              </Button>
-            ) : null}
             <Button type="button" size="sm" variant="outline" className="h-8 px-2 text-xs" disabled title="Disponibile a breve">
               <Printer aria-hidden="true" />
               Stampa · Disponibile a breve
@@ -1606,6 +1602,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 Azzera filtri
               </Button>
             ) : null}
+            </div>
           </div>
 
           {list ? (
@@ -1700,7 +1697,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onToggleLock={() => void toggleLock(row)}
                 autoConfirm
                 saving={savingIds.has(row.item_id)}
-                memoryNote={memoryNoteFor(row)}
+                memory={memoryQuery.data?.get(row.product_id) ?? null}
                 lockPending={savingIds.has(row.item_id)}
                 onClearQuantity={() => {
                   setEdits((current) => ({ ...current, [row.item_id]: "" }));

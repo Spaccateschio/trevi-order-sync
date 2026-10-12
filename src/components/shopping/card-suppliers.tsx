@@ -17,8 +17,9 @@ import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
 import { type OverviewRow } from "@/lib/shopping-list";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
-import { clearDeselected, deselectedFor, markDeselected } from "@/lib/supplier-memory";
-import { defaultUnitOf, visualPick, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
+import { chooseListDestinations, matchesMemory, type SupplierMemory, clearDeselected, deselectedFor, markDeselected } from "@/lib/supplier-memory";
+import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
+import { readCardDirectQuota, readCardLinkPrices, readCardB2BPrice, readCardPreference } from "@/lib/shopping-card-reads";
 import { Checkbox } from "@/components/ui/checkbox";
 import { assignShoppingListSupplier, setShoppingListDirectQuota, setShoppingListSupplierSelection } from "@/lib/shopping-list.functions";
 
@@ -106,6 +107,7 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
   // Righe in Lista: U.M. decise dal database (stessa lettura della finestra).
   const linkUnits = useQuery({
     queryKey: ["shopping-item-supplier-units", row.item_id],
+    staleTime: 60_000,
     enabled: !pending,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("shopping_item_supplier_units", { _item_id: row.item_id });
@@ -154,16 +156,10 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
       const map = new Map<string, { net: number | null; gross: number | null }>();
       const bySeller = new Map<string, string[]>();
       for (const o of b2bSources) bySeller.set(o.seller_company_id!, [...(bySeller.get(o.seller_company_id!) ?? []), o.source_product_id!]);
-      for (const [seller, ids] of bySeller) {
-        const { data, error } = await supabase.rpc("buyer_catalog_prices", { _seller_company_id: seller, _product_ids: ids });
-        if (error) throw new Error(error.message);
-        for (const hit of data ?? []) {
-          map.set(hit.product_id as string, {
-            net: hit.net_price === null ? null : Number(hit.net_price),
-            gross: hit.gross_price === null ? null : Number(hit.gross_price),
-          });
-        }
-      }
+      await Promise.all([...bySeller].flatMap(([seller, ids]) => ids.map(async (id) => {
+        const value = await readCardB2BPrice(seller, id);
+        if (value) map.set(id, value);
+      })));
       return map;
     },
   });
@@ -173,11 +169,7 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
   const linkPrices = useQuery({
     queryKey: ["shopping-card-link-prices", productId],
     staleTime: 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("product_supplier_links").select("id, price_unit_id").eq("product_id", productId);
-      if (error) throw new Error(error.message);
-      return new Map((data ?? []).map((l) => [l.id as string, (l.price_unit_id as string | null) ?? null]));
-    },
+    queryFn: async () => (await readCardLinkPrices(productId)) ?? new Map<string, string | null>(),
   });
 
   const unitIds = [
@@ -291,6 +283,7 @@ export function CardSuppliers({
   lockedAt = null,
   listConfirmed = false,
   deselectedLinks = [],
+  memory = null,
 }: {
   companyId: string;
   row: OverviewRow;
@@ -308,6 +301,7 @@ export function CardSuppliers({
   listConfirmed?: boolean;
   /** Fornitori tolti volontariamente in questa Lista (salvati nel database). */
   deselectedLinks?: string[];
+  memory?: SupplierMemory | null;
 }) {
   const queryClient = useQueryClient();
   const runAssign = useServerFn(assignShoppingListSupplier);
@@ -323,10 +317,16 @@ export function CardSuppliers({
   const [details, setDetails] = useState(false);
   const directQuotaQuery = useQuery({
     queryKey: ["shopping-direct-quota", row.item_id],
+    staleTime: 60_000,
     enabled: !pending,
     queryFn: () => readDirectQuota(row.item_id),
   });
   const directQuota = directQuotaQuery.data ?? null;
+  const preferenceQuery = useQuery({
+    queryKey: ["shopping-card-preference", companyId, row.product_id],
+    staleTime: 60_000,
+    queryFn: () => readCardPreference(`${companyId}:${row.product_id}`),
+  });
   const companyUnits = useCompanyUnits(companyId);
   const setEditingNull = () => {
     setEditing(null);
@@ -388,6 +388,7 @@ export function CardSuppliers({
     onSuccess: async (_d, input) => {
       await Promise.all([
         refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id),
+        queryClient.invalidateQueries({ queryKey: ["shopping-card-preference", companyId, row.product_id] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
       ]);
       toast.success(`${input.s.name} è il fornitore preferito`);
@@ -477,6 +478,7 @@ export function CardSuppliers({
       setEditingNull();
       await Promise.all([
         refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id),
+        queryClient.invalidateQueries({ queryKey: ["shopping-card-preference", companyId, row.product_id] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
@@ -691,7 +693,12 @@ export function CardSuppliers({
   const byLink = new Map(assignments.map((a) => [a.linkId, a]));
   // Spunta solo visiva (★ valida o unico fornitore) finché non c'è nessuna quota né acquisto diretto: nessuna scrittura.
   const deselectedSet = new Set([...deselectedLinks, ...deselectedFor(row.item_id)]);
-  const visualLink = !assignments.length && !directQuota && editable ? visualPick(suppliers, deselectedSet) : null;
+  const choice = chooseListDestinations({ suppliers, deselected: deselectedSet, memory,
+    manualStarAt: preferenceQuery.data?.manualStarAt ?? null, inventoryStarLinks: preferenceQuery.data?.stars ?? [] });
+  const visualLinks = new Set(!assignments.length && !directQuota && editable && preferenceQuery.isSuccess ? choice.linkIds : []);
+  const memoryMatch = choice.memory && (assignments.length
+    ? matchesMemory(choice.memory, assignments.map((a) => ({ linkId: a.linkId, quantity: a.purchaseQuantity, unitKey: a.purchaseUnitId ?? a.purchaseUnitCode ?? "" })))
+    : visualLinks.size > 0 || choice.direct);
 
   // Una riga per fornitore collegato: ripartizione salvata (Modifica/Togli) oppure modulo Qtà/U.M./Salva.
   const supplierRow = (s: CardSupplier, assignment: RowSupplier | null) => {
@@ -727,10 +734,10 @@ export function CardSuppliers({
         <div className="flex min-w-0 items-center gap-1 text-xs">
           {!pending ? (
             <Checkbox
-              checked={Boolean(assignment) || visualLink === s.linkId}
+              checked={Boolean(assignment) || visualLinks.has(s.linkId)}
               disabled={!canWrite || busy || selectMutation.isPending || (!assignment && (b2bBlocked || noUnits))}
               aria-label={assignment ? `Togli ${s.name} da questa Lista` : `Scegli ${s.name} per questa Lista`}
-              title={!assignment && visualLink === s.linkId ? "Fornitore proposto: riceverà la quantità appena la scrivi" : undefined}
+              title={!assignment && visualLinks.has(s.linkId) ? "Fornitore proposto: riceverà la quantità appena la scrivi" : undefined}
               onCheckedChange={(v) => selectMutation.mutate({ s, on: v === true, assignment })}
             />
           ) : null}
@@ -1011,6 +1018,7 @@ export function CardSuppliers({
         ) : (
           <p className="text-xs text-muted-foreground">Senza fornitore</p>
         )}
+        {memoryMatch ? <p className="text-[10px] italic text-muted-foreground">Come l’ultima volta</p> : null}
         {addButton}
         {listConfirmed && (assigned.length || orphans.length) ? (
           <p className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
@@ -1044,6 +1052,7 @@ export function CardSuppliers({
         onDone={async () => {
           await Promise.all([
             refreshProductSuppliers(queryClient, row.product_id, pending ? null : row.item_id),
+        queryClient.invalidateQueries({ queryKey: ["shopping-card-preference", companyId, row.product_id] }),
             queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
             queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
             queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
@@ -1065,15 +1074,7 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T) {
  * resta calcolato solo dal database.
  */
 async function readDirectQuota(itemId: string) {
-  const { data, error } = await supabase
-    .from("shopping_list_items")
-    .select("manual_purchase_quantity, manual_purchase_unit_code")
-    .eq("id", itemId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data?.manual_purchase_quantity == null
-    ? null
-    : { quantity: Number(data.manual_purchase_quantity), unit: (data.manual_purchase_unit_code as string | null) ?? "" };
+  return (await readCardDirectQuota(itemId)) ?? null;
 }
 
 /**
@@ -1086,7 +1087,7 @@ function DirectQuota({ companyId, itemId, editable, unitCode, proposal }: { comp
   const run = useServerFn(setShoppingListDirectQuota);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
-  const quota = useQuery({ queryKey: ["shopping-direct-quota", itemId], queryFn: () => readDirectQuota(itemId) });
+  const quota = useQuery({ queryKey: ["shopping-direct-quota", itemId], staleTime: 60_000, queryFn: () => readDirectQuota(itemId) });
   const save = useMutation({
     mutationFn: (quantity: number | null) =>
       run({ data: { companyId, itemId, quantity, unitId: null, unitCode: null } }),

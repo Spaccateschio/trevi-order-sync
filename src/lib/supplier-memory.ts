@@ -3,7 +3,7 @@
  * Fonte: l'ultima Lista CHIUSA della stessa azienda in cui il prodotto aveva una ripartizione effettiva.
  * Si ricordano solo destinazioni (fornitori / acquisto diretto), U.M. e proporzioni: MAI le quantità.
  */
-import { quotaFor, splitEvenly, type PickSupplier, type QuotaTarget, type ValidConversion } from "@/lib/supplier-selection";
+import { autoPickSupplier, memoryStillValid, quotaFor, splitEvenly, type PickSupplier, type QuotaTarget, type ValidConversion } from "@/lib/supplier-selection";
 
 export type MemoryDestination =
   | {
@@ -21,6 +21,30 @@ export type MemoryDestination =
 export type SupplierMemory = { listId: string; closedAt: string; destinations: MemoryDestination[] };
 
 export type HistoryEntry = SupplierMemory;
+
+/** Shared destination choice before and after quantity input; unit/conversion checks remain separate. */
+export function chooseListDestinations(args: {
+  suppliers: PickSupplier[];
+  deselected: Iterable<string>;
+  memory: SupplierMemory | null;
+  manualStarAt: string | null;
+  inventoryStarLinks: string[];
+  preferLinkId?: string | null;
+}) {
+  const off = new Set(args.deselected);
+  const pool = args.suppliers.filter((s) => !off.has(s.linkId));
+  const eligible = (s: PickSupplier) => s.purchasable && (!s.isB2B || s.sourceLinked);
+  const memory = !args.preferLinkId && args.memory && memoryStillValid(args.memory.closedAt, args.manualStarAt)
+    && args.memory.destinations.every((d) => d.kind === "diretto" || pool.some((s) => s.linkId === d.linkId && eligible(s)))
+    ? args.memory : null;
+  if (memory) return {
+    linkIds: [...new Set(memory.destinations.flatMap((d) => d.kind === "fornitore" ? [d.linkId] : []))],
+    direct: memory.destinations.some((d) => d.kind === "diretto"), memory, reason: "memoria" as const,
+  };
+  const pick = autoPickSupplier(pool, null, "", args.inventoryStarLinks, { preferLinkId: args.preferLinkId ?? null, isEligible: eligible });
+  return { linkIds: pick.kind === "pick" ? [pick.linkId] : [], direct: false, memory: null,
+    reason: pick.kind === "pick" ? pick.reason : null };
+}
 
 const norm = (code: string | null | undefined) => (code ?? "").trim().toUpperCase();
 const exact3 = (n: number) => Math.abs(n * 1000 - Math.round(n * 1000)) < 1e-6;
