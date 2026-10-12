@@ -82,3 +82,18 @@ export function readCardB2BPrice(sellerId: string, productId: string) {
   }
   return read(productId);
 }
+type CardBundle = { overview: unknown[]; b2b_options: unknown[]; supplier_units: unknown[] };
+/** Lettura unica (sola lettura) delle card in Lista: stessi dati delle tre funzioni per card, una sola chiamata. */
+export const readCardBundle = batchCardRead<CardBundle>(async (keys) => {
+  const map = new Map<string, CardBundle>();
+  const companies = [...new Set(keys.map((key) => key.split(":")[0] ?? ""))];
+  await Promise.all(companies.map(async (companyId) => {
+    const ids = keys.filter((key) => key.startsWith(`${companyId}:`)).map((key) => key.split(":")[1] ?? "");
+    const { data, error } = await supabase.rpc("shopping_list_cards_bundle", { _company_id: companyId, _item_ids: ids });
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) map.set(`${companyId}:${row.item_id}`, {
+      overview: (row.overview ?? []) as unknown[], b2b_options: (row.b2b_options ?? []) as unknown[], supplier_units: (row.supplier_units ?? []) as unknown[],
+    });
+  }));
+  return map;
+});

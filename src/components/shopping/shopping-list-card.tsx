@@ -1,5 +1,6 @@
 import { Check, Copy, Lock, MoreVertical, Package, Plus, Star, Trash2, TriangleAlert, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { readCardBundle } from "@/lib/shopping-card-reads";
 import type { ReactNode } from "react";
 
 import { ALL_VISIBLE, type DisplayPrefs } from "./card-display";
@@ -41,12 +42,14 @@ type UnitOption = { key: string; unitId: string | null; code: string; factor: nu
  * L'equivalente si mostra solo se TUTTI i fornitori che offrono quella U.M. hanno la stessa conversione: mai applicare
  * la conversione di un fornitore agli altri.
  */
-function useDecidedUnitOptions(itemId: string, enabled: boolean, manualCodes: string[]) {
+function useDecidedUnitOptions(companyId: string, itemId: string, enabled: boolean, manualCodes: string[]) {
   const query = useQuery({
     queryKey: ["shopping-item-supplier-units", itemId],
     staleTime: 60_000,
     enabled,
     queryFn: async () => {
+      const bundle = await readCardBundle(`${companyId}:${itemId}`);
+      if (bundle) return Object.fromEntries((bundle.supplier_units as { link_id: string; units: { unit_id: string; code: string; conversion_factor: number | null }[] }[]).map((r) => [r.link_id, r]));
       const { data, error } = await supabase.rpc("shopping_item_supplier_units", { _item_id: itemId });
       if (error) throw new Error(error.message);
       return Object.fromEntries(
@@ -159,6 +162,7 @@ export function ShoppingListCard({
   const unit = row.unit_code ?? "";
   const suppliers = extra?.suppliers ?? [];
   const decided = useDecidedUnitOptions(
+    companyId,
     row.item_id,
     !pending && (Boolean(onUnitChange) || editable),
     suppliers.filter((s) => !s.purchaseUnitId && s.purchaseUnitCode).map((s) => s.purchaseUnitCode as string),

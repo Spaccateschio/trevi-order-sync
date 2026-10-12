@@ -19,7 +19,7 @@ import { type OverviewRow } from "@/lib/shopping-list";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
 import { chooseListDestinations, matchesMemory, type SupplierMemory, clearDeselected, deselectedFor, markDeselected } from "@/lib/supplier-memory";
 import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
-import { readCardDirectQuota, readCardLinkPrices, readCardB2BPrice, readCardPreference } from "@/lib/shopping-card-reads";
+import { readCardBundle, readCardDirectQuota, readCardLinkPrices, readCardB2BPrice, readCardPreference } from "@/lib/shopping-card-reads";
 import { Checkbox } from "@/components/ui/checkbox";
 import { assignShoppingListSupplier, setShoppingListDirectQuota, setShoppingListSupplierSelection } from "@/lib/shopping-list.functions";
 
@@ -86,6 +86,10 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
     queryKey: ["product-supplier-overview", productId],
     staleTime: 60_000,
     queryFn: async () => {
+      if (!pending && row.item_id) {
+        const bundle = await readCardBundle(`${companyId}:${row.item_id}`);
+        if (bundle) return (bundle.overview as unknown as OverviewRead[]).filter((s) => s.is_active);
+      }
       const { data, error } = await supabase.rpc("product_supplier_overview", { _product_id: productId });
       if (error) throw new Error(error.message);
       return ((data ?? []) as unknown as OverviewRead[]).filter((s) => s.is_active);
@@ -98,6 +102,10 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
     queryKey: ["shopping-card-b2b-options", companyId, productId],
     staleTime: 60_000,
     queryFn: async () => {
+      if (!pending && row.item_id) {
+        const bundle = await readCardBundle(`${companyId}:${row.item_id}`);
+        if (bundle) return Object.fromEntries((bundle.b2b_options as unknown as OptionRead[]).map((r) => [r.link_id, r]));
+      }
       const { data, error } = await supabase.rpc("product_supplier_b2b_options", { _company_id: companyId, _product_id: productId });
       if (error) throw new Error(error.message);
       return Object.fromEntries(((data ?? []) as unknown as OptionRead[]).map((r) => [r.link_id, r]));
@@ -110,6 +118,8 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
     staleTime: 60_000,
     enabled: !pending,
     queryFn: async () => {
+      const bundle = await readCardBundle(`${companyId}:${row.item_id}`);
+      if (bundle) return Object.fromEntries((bundle.supplier_units as unknown as LinkUnitsRead[]).map((r) => [r.link_id, r]));
       const { data, error } = await supabase.rpc("shopping_item_supplier_units", { _item_id: row.item_id });
       if (error) throw new Error(error.message);
       return Object.fromEntries(((data ?? []) as unknown as LinkUnitsRead[]).map((r) => [r.link_id, r]));
