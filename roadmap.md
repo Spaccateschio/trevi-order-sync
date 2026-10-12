@@ -126,5 +126,13 @@
 ## U.M. di magazzino — Passo 3 (completato)
 - [x] Inventario legge solo products.stock_unit_id (descrittore, nessuna logica matematica); danea_um solo informativa; vecchio selettore U.M. eliminato; conteggio salvato in U.M. magazzino con fattore 1; giacenza NULL ("—"/Da verificare) senza baseline valida, mai zero implicito; prodotti senza stock_unit_id visibili come "U.M. da impostare", non confermabili, bloccanti alla chiusura; storico mai convertito; allows_decimals non letto dall'Inventario
 
+## Fase 3 — Memoria fornitori abituali (in attesa del via)
+- [ ] Memoria dei fornitori abituali tra Liste successive
+- [ ] Memoria delle U.M. preferite per fornitore
+- [ ] Memoria dell'acquisto diretto abituale
+- [ ] Rispetto della deselezione volontaria del fornitore anche dopo sblocco e riconferma
+- [ ] Assegnazione automatica della quota quando si spunta manualmente un fornitore con U.M. diversa ma conversione valida
+- [ ] Non copiare le quantità delle Liste precedenti
+
 ## Modello 2 (card = prodotto + collegamento fornitore) — Tappa A in preparazione
 - [ ] Regola aggiuntiva 0038: add_product_to_open_inventory inserisce in inventory_session_products tutte e sole le card visibili da inventory_cards_for, ciascuna con il suo product_supplier_link_id (stessa regola dell'avvio sessione) + prova dedicata rollbackata; idempotente (aggiunge solo card mancanti, mai doppioni sessione+prodotto+ubicazione+link); card già presenti mai rimosse/aggiornate fino alla chiusura; dettagli in /mnt/documents/Integrazione_TappaA_aggiunta_prodotto.md
