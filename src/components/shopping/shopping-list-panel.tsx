@@ -69,12 +69,15 @@ import { hasRole, useIdentity } from "@/hooks/use-identity";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   addShoppingListItems,
+  assignShoppingListSupplier,
   confirmShoppingListProduct,
   manageShoppingList,
   removeShoppingListItem,
   setShoppingListItemQuantity,
   setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
+import { autoAssignItem } from "@/lib/shopping-auto-assign";
+import { factsFromRow, rowLabel, summarizeRows } from "@/lib/supplier-selection";
 
 /** Prodotto contato non ancora in Lista, mostrato con la stessa card: nessun dato della Lista inventato. */
 function pendingOverviewRow(row: CountedRow): OverviewRow {
