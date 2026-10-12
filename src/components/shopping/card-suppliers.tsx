@@ -5,7 +5,7 @@ import { AlertTriangle, Check, Info, Lock, MoreVertical, Pencil, Split, Star, Tr
 import { AddSupplierInline, refreshProductSuppliers, useCompanyUnits } from "./add-supplier-inline";
 import { UnlinkSupplierDialog } from "./unlink-supplier-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import type { RowSupplier } from "./use-shopping-list-extras";
