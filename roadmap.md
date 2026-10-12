@@ -136,3 +136,6 @@
 
 ## Modello 2 (card = prodotto + collegamento fornitore) — Tappa A in preparazione
 - [ ] Regola aggiuntiva 0038: add_product_to_open_inventory inserisce in inventory_session_products tutte e sole le card visibili da inventory_cards_for, ciascuna con il suo product_supplier_link_id (stessa regola dell'avvio sessione) + prova dedicata rollbackata; idempotente (aggiunge solo card mancanti, mai doppioni sessione+prodotto+ubicazione+link); card già presenti mai rimosse/aggiornate fino alla chiusura; dettagli in /mnt/documents/Integrazione_TappaA_aggiunta_prodotto.md
+
+## Rinviato
+- [ ] Controllo delle confezioni intere nel database — oggi il vincolo è verificato solo dal frontend (il DB controlla U.M. e conversioni): una chiamata diretta alla funzione DB potrebbe proporre 2,5 casse. Quando esisterà un'impostazione «Confezione intera obbligatoria» per prodotto o fornitore, valutare il controllo nel DB. Non blocca la pubblicazione attuale.
