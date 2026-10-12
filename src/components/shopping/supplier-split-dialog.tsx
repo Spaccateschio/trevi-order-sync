@@ -118,7 +118,9 @@ export function SupplierSplitDialog({
         .select(
           "id, item_id, product_supplier_link_id, supplier_record_id, assigned_quantity, purchase_quantity, purchase_unit_id, purchase_unit_code, conversion_factor, min_warning_accepted, notes",
         )
-        .eq("item_id", item.item_id);
+        .eq("item_id", item.item_id)
+        // Fornitori tolti in questa Lista: non sono quote attive.
+        .is("deselected_at", null);
       if (error) throw new Error(error.message);
       return (data ?? []) as AssignmentRow[];
     },
