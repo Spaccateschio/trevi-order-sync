@@ -57,3 +57,37 @@ export function preferredSupplierText(suppliers: PurchaseSupplier[]): string {
 export function sortSuppliers(suppliers: PurchaseSupplier[]): PurchaseSupplier[] {
   return [...suppliers].sort((a, b) => (a.isPreferred === b.isPreferred ? a.name.localeCompare(b.name, "it") : a.isPreferred ? -1 : 1));
 }
+
+/** Capacità dell'azienda («acquista»/«vende»): decidono quali sezioni esistono, non chi modifica. */
+export type CompanyCaps = { buys: boolean; sells: boolean };
+
+/** Colonne che hanno senso solo per chi acquista. */
+export const PURCHASE_COLUMN_IDS = ["suppliers", "purchase_units", "preferred_supplier", "supplier_name", "supplier_code", "supplier_product_code", "purchase_cost", "supplier_price", "danea_cost", "supplier_notes"];
+/** Colonne che hanno senso solo per chi vende. */
+export const SALE_COLUMN_IDS = ["sale_units", "default_sale_unit", "unit_review", "price_1", "price_2", "price_3", "price_4", "price_5", "price_6", "price_7", "price_8", "price_9", "status", "b2b_visible", "commercial_availability"];
+
+/** Colonna ammessa per le capacità dell'azienda (il ruolo dell'utente si applica dopo). */
+export function columnAllowedForCaps(id: string, caps: CompanyCaps): boolean {
+  if (PURCHASE_COLUMN_IDS.includes(id)) return caps.buys;
+  if (SALE_COLUMN_IDS.includes(id)) return caps.sells;
+  return true;
+}
+
+export type DetailTab = "prodotto" | "vendita" | "acquisto" | "inventario";
+
+/** Schede del dettaglio: Prodotto e Inventario sempre; Vendita/Acquisto solo con la capacità. */
+export function detailTabsFor(caps: CompanyCaps): DetailTab[] {
+  return ["prodotto", ...(caps.sells ? (["vendita"] as const) : []), ...(caps.buys ? (["acquisto"] as const) : []), "inventario"];
+}
+
+/** Scheda iniziale: quella richiesta se disponibile, altrimenti Prodotto. */
+export function resolveDetailTab(requested: DetailTab, caps: CompanyCaps): DetailTab {
+  return detailTabsFor(caps).includes(requested) ? requested : "prodotto";
+}
+
+/** Rimando dell'indirizzo diretto: null se la vista è disponibile o se nessuna lo è (niente cicli). */
+export function productsViewRedirect(view: ProductsView, caps: CompanyCaps): ProductsView | null {
+  const views = availableViews(caps.buys, caps.sells);
+  if (!views.length || views.includes(view)) return null;
+  return views[0] ?? null;
+}

@@ -22,6 +22,7 @@ export function ProductGrid({
   products,
   archives,
   isAdmin,
+  allowedColumnIds,
   selectedIds,
   visibility,
   order,
@@ -39,6 +40,8 @@ export function ProductGrid({
   products: ProductRow[];
   archives: Map<string, string>;
   isAdmin: boolean;
+  /** Colonne ammesse dalle capacità dell'azienda (il ruolo si applica in aggiunta). */
+  allowedColumnIds?: Set<string>;
   selectedIds: Set<string>;
   visibility: VisibilityState;
   order: ColumnOrderState;
@@ -96,7 +99,7 @@ export function ProductGrid({
         />
       ),
     },
-    ...PRODUCT_COLUMNS.filter((item) => isAdmin || !item.adminOnly).map((item): ColumnDef<ProductRow> => ({
+    ...PRODUCT_COLUMNS.filter((item) => (isAdmin || !item.adminOnly) && (!allowedColumnIds || allowedColumnIds.has(item.id))).map((item): ColumnDef<ProductRow> => ({
       id: item.id,
       accessorFn: (row) => item.value(row, archives),
       header: columnLabel(item, listName),
@@ -113,7 +116,7 @@ export function ProductGrid({
         </span>
       ),
     })),
-  ], [archives, imageUrls, isAdmin, listName, onSelectionChange, selectedIds]);
+  ], [allowedColumnIds, archives, imageUrls, isAdmin, listName, onSelectionChange, selectedIds]);
 
   const table = useReactTable({
     data: products,
