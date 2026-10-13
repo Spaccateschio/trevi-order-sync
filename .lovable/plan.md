@@ -1,91 +1,62 @@
-# Pagina Prodotti per attività dell'azienda — analisi e piano
+# Collegamenti B2B: pagina Clienti e articoli del fornitore
 
-Solo analisi. Nessuna modifica a codice, database, permessi, prodotti, U.M., listini o collegamenti B2B.
+Solo analisi e proposta. Nessuna modifica a dati, collegamenti, prodotti, U.M., listini o permessi.
 
-## Principio di base: capacità dell'azienda e permessi dell'utente
+## Verifica del collegamento 3 EMME ↔ Trevi (sola lettura)
 
-- **Capacità dell'azienda**: «acquista» (`can_buy`) e «vende» (`can_sell`). Le imposta l'amministratore in Amministrazione. Decidono **quali sezioni esistono** per quell'azienda.
-- **Permessi dell'utente**: amministratore oppure operatore. Decidono **chi può modificare** dentro le sezioni che esistono.
-- Le due cose si combinano. Se un'azienda non vende, nessuno vede le funzioni di vendita, nemmeno l'amministratore. Se l'azienda vende, l'operatore le vede in sola lettura.
+- Il collegamento è **attivo**, con entrambi i lati accesi.
+- Trevi è il fornitore, 3 EMME l'acquirente.
+- È collegato sia alla scheda cliente di Trevi sia alla scheda fornitore di 3 EMME.
+- Trevi ha **118 articoli in vetrina**.
 
-## 1. Stato attuale (cosa fa oggi il programma)
+Non è stato cancellato né nascosto nulla.
 
-| Punto | Oggi | Coerente? |
-|---|---|---|
-| Menu laterale | Le voci hanno una capacità «acquista»/«vende» e si nascondono se l'azienda non ce l'ha | Sì |
-| Selettore Acquisti / Vendite nella tabella | Compare solo se l'azienda fa entrambe le cose | Sì |
-| Colonne della tabella | Quelle iniziali dipendono dalla vista. Nel menu Colonne, però, «Altre colonne» mostra anche U.M. vendita, U.M. predefinita, listini e vetrina a chi compra soltanto | Parziale |
-| Azioni sui prodotti selezionati | «In vetrina», «Nascondi» e «Gestisci U.M. vendita» compaiono anche a 3 EMME | No |
-| Dettaglio prodotto | Ha sempre 4 schede: Prodotto, **Vendita**, Acquisto, Inventario, per tutte le aziende | **No** (il problema che hai visto) |
-| Scheda Prodotto | Mostra lo «Stato Pubblicato/Non pubblicato», che riguarda la vendita | Parziale |
-| Indirizzo /vendite/prodotti | Si apre anche per chi non vende, se qualcuno lo scrive a mano. La pagina non controlla la capacità | No |
-| «Importa da Danea» | Nel database è riservato a chi vende (`company_sells`). Il pulsante però compare anche a chi compra soltanto, che riceve un errore | No |
-| Database | Le scritture di vendita (vetrina, U.M. di vendita, listini) sono già protette da controlli dell'amministratore e dell'azienda | Sì, da non toccare |
+## Problema 1: «Cliente associato» e pagina Clienti
 
-**Nascondere e impedire non sono la stessa cosa.** Nascondere riguarda solo ciò che si vede sullo schermo. Impedire spetta al database, che lo fa già per le scritture. Il piano cambia solo ciò che si vede e non tocca nessuna regola del database.
+**Causa.** Nella finestra del collegamento, il riquadro «Cliente associato» compare ogni volta che il collegamento ha una scheda cliente. Il programma non controlla da quale lato si trova chi guarda.
+- Quella scheda è di Trevi: è il modo in cui Trevi registra 3 EMME tra i suoi clienti. Il riferimento in sé è corretto.
+- A 3 EMME, però, viene mostrato come se fosse suo, con il pulsante «Vai alla scheda» che porta alla pagina Clienti, cioè una pagina di vendita.
+- È un errore di presentazione, non di dati.
 
-## 2. Cosa vede ciascuna azienda (proposta)
+**Menu.** La voce Clienti è già nascosta a chi non vende. Ci si arriva solo da questo pulsante, oppure scrivendo l'indirizzo a mano.
 
-| Elemento | Solo Acquisti (3 EMME) | Solo Vendite | Acquisti + Vendite (Trevi) |
-|---|---|---|---|
-| Selettore Acquisti / Vendite | No | No | Sì |
-| Colonne di acquisto (U.M. magazzino, fornitori, U.M. d'acquisto, ★ fornitore, costo) | Sì | No | Nella vista Acquisti |
-| Colonne di vendita (U.M. vendita, predefinita, listini, vetrina) | **No, nemmeno nel menu Colonne** | Sì | Nella vista Vendite |
-| U.M. Danea | Nel menu Colonne, nascosta all'apertura | Sì | In tutte e due le viste |
-| Filtro Fornitore | Sì | No | Nella vista Acquisti |
-| Filtri di vendita (vetrina, disponibilità) | No | Sì | Nella vista Vendite |
-| Azioni In vetrina / Nascondi / Gestisci U.M. vendita | No | Sì (amministratore) | Nella vista Vendite (amministratore) |
-| Importa da Danea | No (il database lo rifiuta) | Sì (amministratore) | Sì (amministratore) |
-| Scheda **Prodotto** | Sì, senza «Stato pubblicato» | Sì | Sì |
-| Scheda **Vendita** | **No** | Sì | Sì |
-| Scheda **Acquisto** | Sì | No | Sì |
-| Scheda **Inventario** | Sì | Sì, solo giacenza in sola lettura se l'azienda non acquista | Sì |
-| Indirizzo /vendite/prodotti | Rimanda ad /acquisti/prodotti | — | Sì |
-| Indirizzo /acquisti/prodotti | — | Rimanda a /vendite/prodotti | Sì |
+**Comportamento proposto**
 
-In ogni sezione visibile, l'**operatore** vede in sola lettura le parti di sola gestione, come accade già oggi.
+| Azienda | Nella finestra del collegamento |
+|---|---|
+| Solo Acquisti (3 EMME) | Riquadro «Fornitore associato» → pulsante «Vai al fornitore» (Acquisti → Fornitori). Niente «Cliente associato», niente listino |
+| Solo Vendite | «Cliente associato» → Clienti, con il «Listino assegnato», come oggi |
+| Acquisti + Vendite (Trevi) | Il riquadro dipende dal ruolo nel collegamento: se Trevi è il fornitore vede «Cliente associato» e il listino; se è l'acquirente vede «Fornitore associato» |
 
-Per **Trevi** le informazioni non si ripetono:
-- la scheda Prodotto contiene i dati comuni;
-- Vendita contiene solo vetrina, disponibilità, U.M. di vendita e listini;
-- Acquisto contiene solo fornitori, U.M. d'acquisto, conversioni e costo;
-- Inventario contiene solo U.M. di magazzino, giacenza e provenienze.
+In più, chi non vende e apre /vendite/clienti scrivendo l'indirizzo viene riportato alla Panoramica, invece di vedere il messaggio. È la stessa regola già usata nella pagina Prodotti.
 
-All'apertura il dettaglio mostra la scheda della vista da cui arrivi, come già oggi. Le preferenze di colonne e filtri restano separate per vista, come già fatto nella Parte B.
+## Problema 2: articoli del fornitore Trevi
 
-## 3. Piano a fasi (una alla volta, ognuna da approvare)
+**Causa.** Lo storico del codice mostra che la finestra del collegamento non ha mai avuto una scheda «Articoli». Ha sempre avuto solo Dettagli, Note e Cronologia, e le recenti modifiche alla pagina Prodotti non l'hanno toccata.
+- Gli articoli sono in **Acquisti → Catalogo fornitori**, alla vetrina di Trevi. Lì 3 EMME vede gli articoli che può comprare, con le U.M. e i prezzi pubblicati da Trevi.
+- La funzione esiste ed è raggiungibile dal menu.
+- Manca però un **passaggio diretto dal collegamento** al catalogo, e per questo sembra sparita.
 
-### Fase 1 — Schede del dettaglio prodotto
-- **Oggi**: le schede Vendita e Acquisto sono sempre visibili.
-- **Proposta**: la scheda Vendita compare solo se l'azienda vende, la scheda Acquisto solo se l'azienda acquista. Se la scheda iniziale richiesta non esiste, si apre «Prodotto». «Stato pubblicato» si vede solo per chi vende.
-- **File**: `product-detail-sheet.tsx` e il passaggio delle capacità in `products-workspace.tsx`.
-- **Rischio**: la finestra prodotto aperta dall'Inventario usa lo stesso dettaglio. Va verificato che apra sempre la scheda Inventario.
-- **Test**: regola pura «quali schede per quali capacità», con 3 casi e la scheda iniziale di ripiego.
+I prodotti propri di 3 EMME (pagina Prodotti) e il catalogo di Trevi (Catalogo fornitori) restano due cose separate.
 
-### Fase 2 — Colonne, filtri e azioni della tabella
-- **Oggi**: le colonne e le azioni di vendita restano raggiungibili da chi compra soltanto.
-- **Proposta**: ogni colonna e ogni azione riceve l'indicazione «acquisti», «vendite» o «comune». Si filtrano per capacità dell'azienda e poi per ruolo dell'utente. «Importa da Danea» compare solo se l'azienda vende.
-- **File**: `product-grid.ts`, `products-view.ts`, `products-workspace.tsx`, `product-mobile-list.tsx`.
-- **Rischio**: una preferenza salvata con colonne non più ammesse. Viene ignorata e non cancellata.
-- **Test**: colonne ammesse per i 3 tipi di azienda; operatore e amministratore.
+**Comportamento proposto.** Quando chi guarda è l'acquirente e il collegamento è operativo, la finestra mostra in alto il pulsante **«Vedi articoli del fornitore»**. Il pulsante apre la vetrina di Trevi nel Catalogo fornitori, senza duplicare nulla. Se il collegamento è sospeso o in attesa, il pulsante non compare e una frase spiega il motivo.
 
-### Fase 3 — Indirizzi diretti
-- **Oggi**: /vendite/prodotti si apre anche per chi non vende.
-- **Proposta**: un rimando all'altra vista quando l'azienda non ha la capacità richiesta.
-- **File**: le due pagine Prodotti.
-- **Test**: regola del rimando.
+## File da modificare
 
-### Fase 4 — Verifica a schermo
-Controllo di 3 EMME e Trevi a 390 px e a 1280 px. Per entrare come Trevi ti chiederò l'approvazione.
+- `src/components/companies/connection-detail.tsx`:
+  - il riquadro cambia in base al lato di chi guarda (Cliente associato / Fornitore associato);
+  - nuovo pulsante «Vedi articoli del fornitore».
+- `src/routes/_authenticated/vendite_.clienti.tsx`: rimando per chi non vende.
+- Un piccolo test sulla regola «cosa mostrare per lato e capacità».
+- `roadmap.md`.
 
-## Cosa riusiamo, senza creare niente di nuovo
-- Le capacità «acquista»/«vende» lette dall'utente collegato.
-- Le funzioni del database `company_buys` e `company_sells`.
-- `availableViews` e le colonne per vista della Parte B.
-- I controlli dell'amministratore già presenti nel database.
+## Rischi
 
-Nessuna nuova tabella, funzione o permesso.
+- Trevi compra e vende: va verificato che, nei collegamenti in cui è fornitore, continui a vedere listino e cliente come oggi.
+- Il collegamento in cui 3 EMME è acquirente ha anche una scheda fornitore sul lato di 3 EMME: il pulsante «Vai al fornitore» va mostrato solo quando questa scheda esiste.
 
-## Punti da decidere
-1. Per un'azienda **solo Vendite**: la scheda Inventario va mostrata in sola lettura, come proposto, oppure nascosta?
-2. Va bene il rimando automatico degli indirizzi diretti (Fase 3), invece di un messaggio «Sezione non disponibile»?
+## Verifiche
+
+- Test sulla regola, controllo del codice e build.
+- Controllo a schermo di 3 EMME a 390 e a 1280 px (ti chiederò l'approvazione per l'accesso) e di Trevi con l'account già collegato.
+- Nessun dato di prova, nessuna pubblicazione.
