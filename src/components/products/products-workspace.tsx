@@ -44,7 +44,7 @@ import { activeCompany, companyBuys, companySells, hasRole, useIdentity } from "
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { availableViews, columnAllowedForCaps, resolveDetailTab, sortSuppliers, VIEW_PRIORITY_COLUMNS, type ProductsView, type PurchaseSupplier } from "@/lib/products-view";
+import { availableViews, columnAllowedForCaps, productsViewRedirect, resolveDetailTab, sortSuppliers, VIEW_PRIORITY_COLUMNS, type ProductsView, type PurchaseSupplier } from "@/lib/products-view";
 
 import type { Json } from "@/integrations/supabase/types";
 import { analyzeDaneaFile, importDaneaFile } from "@/lib/danea.functions";
@@ -523,6 +523,9 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
   // FASE 1: i prodotti propri esistono anche senza profilo di vendita (prodotti manuali e
   // referenze aggiunte dai cataloghi fornitore), quindi la pagina è aperta anche a chi compra.
   if (sheetOnly) return <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => { if (sheetBeforeClose && !sheetBeforeClose()) return; setSelected(null); onSheetClose?.(); }} initialTab={detailTab} caps={caps} wide banner={sheetBanner} />;
+  // Indirizzo diretto verso una vista non disponibile: rimando all'altra (mai cicli, stessa azienda).
+  const redirectView = !identityLoading && identity && view ? productsViewRedirect(view, caps) : null;
+  if (redirectView) return <Navigate to={redirectView === "acquisti" ? "/acquisti/prodotti" : "/vendite/prodotti"} search={prodottoParam ? { prodotto: prodottoParam } : {}} replace />;
   if (!identityLoading && !companySells(identity) && !companyBuys(identity)) return <AppShell title="Prodotti" description="Area non disponibile."><p className="text-sm text-muted-foreground">Nessun profilo di acquisto o vendita attivo per la tua azienda.</p></AppShell>;
 
   const filterSelects = (stacked: boolean) => {
