@@ -77,7 +77,20 @@ export function OrderLineEdit({
       const q = Number(qtyText.replace(",", "."));
       const unit = (units.data ?? []).find((u) => u.unit_id === unitId)!;
       // La conferma data per la vecchia quantità/U.M. non vale per la nuova: va tolta prima, poi riconfermata.
-      if (p.revokeFirst) await runCoverage({ data: { assignmentId: line.assignment_id, confirm: false } });
+      let expectedAssignAt = line.assign_at ?? null;
+      if (p.revokeFirst) {
+        await runCoverage({ data: { assignmentId: line.assignment_id, confirm: false } });
+        // La revoca aggiorna la ripartizione: si rilegge il suo nuovo istante (stessa regola dell'anteprima).
+        const { data: latest, error } = await supabase
+          .from("shopping_list_item_suppliers")
+          .select("updated_at")
+          .eq("item_id", line.item_id)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        expectedAssignAt = latest?.updated_at ?? null;
+      }
       await runCommit({
         data: {
           companyId,
@@ -87,7 +100,7 @@ export function OrderLineEdit({
           unitCode: unit.code,
           expectedQuantity: line.item_quantity ?? null,
           expectedAssignCount: line.assign_count ?? 0,
-          expectedAssignAt: line.assign_at ?? null,
+          expectedAssignAt,
           quotas: [{ link_id: line.link_id!, assignment_id: line.assignment_id, purchase_quantity: q, purchase_unit_id: unit.unit_id, manual_unit_code: null }],
           direct: null,
         },
