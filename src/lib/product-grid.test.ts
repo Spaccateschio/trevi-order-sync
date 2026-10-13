@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from 'node:test';
+import { strict as assert } from 'node:assert';
 import { defaultGridPreferences } from "./product-grid";
 
 describe("defaultGridPreferences", () => {
   it("ordina i prodotti in ordine alfabetico per descrizione quando l'utente non ha scelto un ordinamento", () => {
-    expect(defaultGridPreferences().sorting).toEqual([{ id: "description", desc: false }]);
-    expect(defaultGridPreferences(["code", "description"]).sorting).toEqual([{ id: "description", desc: false }]);
+    assert.deepEqual(defaultGridPreferences().sorting, [{ id: "description", desc: false }]);
+    assert.deepEqual(defaultGridPreferences(["code", "description"]).sorting, [{ id: "description", desc: false }]);
   });
 });
