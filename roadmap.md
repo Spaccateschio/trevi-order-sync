@@ -179,3 +179,9 @@
 ## 13/10
 - [x] Parte A Inventario: riepilogo «Vista attuale» (card da contare/contate/mancanti/%)
 - [x] Parte B Prodotti: viste Acquisti/Vendite (in anteprima, non pubblicata)
+
+## 13/10 — Pagina Prodotti per attività dell'azienda (solo anteprima)
+- [x] Fase 1: dettaglio prodotto — Vendita solo se vende, Acquisto solo se acquista, Inventario sempre; «Stato» solo se vende; scheda non disponibile → Prodotto.
+- [x] Fase 2: colonne/filtri/azioni per capacità azienda, poi ruolo; azioni vetrina/U.M. vendita solo vista Vendite; preferenze con colonne non ammesse ignorate.
+- [x] Fase 3: rimando /vendite/prodotti ↔ /acquisti/prodotti senza cicli.
+- [ ] Futuro: «Importa da Danea» oggi richiede `company_sells` (controllo server in danea.functions.ts, l'import nasce come catalogo di vendita/listini). Valutare l'import del catalogo Danea anche per aziende solo Acquisti (es. 3 EMME). Regola non modificata.

@@ -43,8 +43,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { activeCompany, companyBuys, companySells, hasRole, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { Link } from "@tanstack/react-router";
-import { availableViews, sortSuppliers, VIEW_PRIORITY_COLUMNS, type ProductsView, type PurchaseSupplier } from "@/lib/products-view";
+import { Link, Navigate } from "@tanstack/react-router";
+import { availableViews, columnAllowedForCaps, productsViewRedirect, resolveDetailTab, sortSuppliers, VIEW_PRIORITY_COLUMNS, type ProductsView, type PurchaseSupplier } from "@/lib/products-view";
 
 import type { Json } from "@/integrations/supabase/types";
 import { analyzeDaneaFile, importDaneaFile } from "@/lib/danea.functions";
@@ -118,7 +118,13 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
   const isAdmin = hasRole(identity, "amministratore");
   // Preferenze per utente + azienda + vista (+ dispositivo): una vista non sovrascrive l'altra.
   const gridKey = companyId ? `${baseGridKey}:${companyId}` : baseGridKey;
-  const views = availableViews(companyBuys(identity), companySells(identity));
+  const caps = useMemo(() => ({ buys: companyBuys(identity), sells: companySells(identity) }), [identity]);
+  const views = availableViews(caps.buys, caps.sells);
+  // Prima le capacità dell'azienda, poi il ruolo dell'utente. Le preferenze salvate con colonne
+  // non ammesse restano salvate ma vengono ignorate.
+  const capsColumnIds = useMemo(() => new Set(PRODUCT_COLUMNS.filter((column) => columnAllowedForCaps(column.id, caps)).map((column) => column.id)), [caps]);
+  const detailTab = resolveDetailTab(initialTab, caps);
+  const salesActions = view === "vendite" && caps.sells && isAdmin;
   const queryClient = useQueryClient();
   const pendingSaveRef = useRef<(() => Promise<void>) | null>(null);
   const appliedPrefsKeyRef = useRef<string | null>(null);
@@ -459,7 +465,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
       if (imageFilter === "con" && !product.product_images) return false;
       if (imageFilter === "senza" && product.product_images) return false;
       if (unitConfigFilter === "da_completare" && !unitIssuesByProduct.has(product.id)) return false;
-      if (supplierFilter !== "tutti" && !(product.purchase_suppliers ?? []).some((s) => s.name === supplierFilter)) return false;
+      if (view === "acquisti" && supplierFilter !== "tutti" && !(product.purchase_suppliers ?? []).some((s) => s.name === supplierFilter)) return false;
       return !term || product.code.toLowerCase().includes(term) || (product.description ?? "").toLowerCase().includes(term);
     });
   }, [allProducts, archiveFilter, category, imageFilter, search, status, supplierFilter, unitConfigFilter, unitIssuesByProduct]);
@@ -480,7 +486,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
   const imageUrls = useMemo(() => new Map((imageUrlsQuery.data ?? []).map((row) => [row.productId, row.url])), [imageUrlsQuery.data]);
   const selectedProducts = sortedFiltered.filter((product) => selectedIds.has(product.id));
   const outputProducts = selectedProducts.length ? selectedProducts : sortedFiltered;
-  const visibleColumns = columnOrder.map((id) => PRODUCT_COLUMNS.find((column) => column.id === id)).filter((column) => column && visibility[column.id] !== false && (isAdmin || !column.adminOnly));
+  const visibleColumns = columnOrder.map((id) => PRODUCT_COLUMNS.find((column) => column.id === id)).filter((column) => column && visibility[column.id] !== false && capsColumnIds.has(column.id) && (isAdmin || !column.adminOnly));
   // Le card smartphone usano le stesse preferenze "Colonne" del dispositivo corrente.
   const mobileColumns = visibleColumns.filter((column): column is ProductColumn => Boolean(column));
 
@@ -516,7 +522,10 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
 
   // FASE 1: i prodotti propri esistono anche senza profilo di vendita (prodotti manuali e
   // referenze aggiunte dai cataloghi fornitore), quindi la pagina è aperta anche a chi compra.
-  if (sheetOnly) return <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => { if (sheetBeforeClose && !sheetBeforeClose()) return; setSelected(null); onSheetClose?.(); }} initialTab={initialTab} wide banner={sheetBanner} />;
+  if (sheetOnly) return <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => { if (sheetBeforeClose && !sheetBeforeClose()) return; setSelected(null); onSheetClose?.(); }} initialTab={detailTab} caps={caps} wide banner={sheetBanner} />;
+  // Indirizzo diretto verso una vista non disponibile: rimando all'altra (mai cicli, stessa azienda).
+  const redirectView = !identityLoading && identity && view ? productsViewRedirect(view, caps) : null;
+  if (redirectView) return <Navigate to={redirectView === "acquisti" ? "/acquisti/prodotti" : "/vendite/prodotti"} search={prodottoParam ? { prodotto: prodottoParam } : {}} replace />;
   if (!identityLoading && !companySells(identity) && !companyBuys(identity)) return <AppShell title="Prodotti" description="Area non disponibile."><p className="text-sm text-muted-foreground">Nessun profilo di acquisto o vendita attivo per la tua azienda.</p></AppShell>;
 
   const filterSelects = (stacked: boolean) => {
@@ -532,7 +541,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
   };
 
   // Menu Colonne: in alto quelle della vista, poi «Altre colonne» (nessuna colonna eliminata).
-  const allowedColumns = PRODUCT_COLUMNS.filter((column) => isAdmin || !column.adminOnly);
+  const allowedColumns = PRODUCT_COLUMNS.filter((column) => capsColumnIds.has(column.id) && (isAdmin || !column.adminOnly));
   const priority = view ? VIEW_PRIORITY_COLUMNS[view] : [];
   const columnGroups = priority.length
     ? [
@@ -556,7 +565,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
           <div className="relative min-w-0 flex-1"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input aria-label="Cerca prodotti" className="h-9 pl-8" placeholder="Cerca" value={search} onChange={(event) => { setSearch(event.target.value); setPage(0); }} /></div>
           <Popover><PopoverTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Filtri"><SlidersHorizontal /></Button></PopoverTrigger><PopoverContent align="end" className="w-64 space-y-2">{filterSelects(true)}</PopoverContent></Popover>
           {columnsMenu(true)}
-          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Altre azioni"><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">{isAdmin ? <><DropdownMenuItem onSelect={() => setNewProductOpen(true)}><PackagePlus />Nuovo prodotto</DropdownMenuItem><DropdownMenuSeparator /></> : null}<DropdownMenuItem onSelect={() => setSelectedIds(new Set(visible.map((product) => product.id)))}>Seleziona questa pagina ({visible.length})</DropdownMenuItem><DropdownMenuItem disabled={!selectedIds.size} onSelect={() => setSelectedIds(new Set())}>Azzera selezione</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem disabled={!outputProducts.length} onSelect={() => window.print()}><Printer />Stampa</DropdownMenuItem><DropdownMenuItem disabled={!outputProducts.length} onSelect={exportCsv}><Download />Esporta</DropdownMenuItem>{isAdmin ? <DropdownMenuItem onSelect={() => setImportOpen(true)}><FileUp />Importa da Danea</DropdownMenuItem> : null}</DropdownMenuContent></DropdownMenu>
+          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Altre azioni"><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">{isAdmin ? <><DropdownMenuItem onSelect={() => setNewProductOpen(true)}><PackagePlus />Nuovo prodotto</DropdownMenuItem><DropdownMenuSeparator /></> : null}<DropdownMenuItem onSelect={() => setSelectedIds(new Set(visible.map((product) => product.id)))}>Seleziona questa pagina ({visible.length})</DropdownMenuItem><DropdownMenuItem disabled={!selectedIds.size} onSelect={() => setSelectedIds(new Set())}>Azzera selezione</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem disabled={!outputProducts.length} onSelect={() => window.print()}><Printer />Stampa</DropdownMenuItem><DropdownMenuItem disabled={!outputProducts.length} onSelect={exportCsv}><Download />Esporta</DropdownMenuItem>{isAdmin && caps.sells ? <DropdownMenuItem onSelect={() => setImportOpen(true)}><FileUp />Importa da Danea</DropdownMenuItem> : null}</DropdownMenuContent></DropdownMenu>
         </div>
       </div>
 
@@ -575,14 +584,14 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
 
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-y border-border py-1.5 text-xs">
           <p className="truncate text-muted-foreground">{productsQuery.isLoading ? "Caricamento…" : `${sortedFiltered.length} prodotti`}{selectedProducts.length ? ` · ${selectedProducts.length} selezionati` : ""}</p>
-          <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{isAdmin && selectedProducts.length ? <><Button variant="outline" size="sm" disabled={showcaseMutation.isPending} onClick={() => showcaseMutation.mutate(true)}><Eye />In vetrina</Button><Button variant="outline" size="sm" disabled={showcaseMutation.isPending} onClick={() => showcaseMutation.mutate(false)}><EyeOff />Nascondi</Button><Button variant="outline" size="sm" onClick={() => setUnitBatchOpen(true)}><Ruler />Gestisci U.M. vendita</Button></> : null}{isAdmin ? <Button variant="outline" size="sm" onClick={() => setNewProductOpen(true)}><PackagePlus />Nuovo prodotto</Button> : null}{isAdmin ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
+          <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={() => window.print()}><Printer />Stampa</Button><Button variant="ghost" size="sm" disabled={!outputProducts.length} onClick={exportCsv}><Download />Esporta</Button>{salesActions && selectedProducts.length ? <><Button variant="outline" size="sm" disabled={showcaseMutation.isPending} onClick={() => showcaseMutation.mutate(true)}><Eye />In vetrina</Button><Button variant="outline" size="sm" disabled={showcaseMutation.isPending} onClick={() => showcaseMutation.mutate(false)}><EyeOff />Nascondi</Button><Button variant="outline" size="sm" onClick={() => setUnitBatchOpen(true)}><Ruler />Gestisci U.M. vendita</Button></> : null}{isAdmin ? <Button variant="outline" size="sm" onClick={() => setNewProductOpen(true)}><PackagePlus />Nuovo prodotto</Button> : null}{isAdmin && caps.sells ? <Button size="sm" onClick={() => setImportOpen(true)}><FileUp />Importa da Danea</Button> : null}</div>
         </div>
       </div>
 
       {unitConfigFilter === "da_completare" ? <ul className="divide-y divide-border rounded-md border border-border text-sm" aria-label="Motivi configurazione U.M.">
         {visible.map((product) => <li key={product.id}><button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted" onClick={() => setSelected(product)}><span className="font-medium">{product.description ?? product.code}</span><span className="block text-xs text-muted-foreground">{(unitIssuesByProduct.get(product.id) ?? []).join(" · ")}</span></button></li>)}
       </ul> : null}
-      <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} listName={listName} />
+      <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} allowedColumnIds={capsColumnIds} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} listName={listName} />
       <ProductMobileList products={visible} selectedIds={selectedIds} imageUrls={imageUrls} columns={mobileColumns} archives={archiveNameById} listName={listName} onSelect={(id, checked) => setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; })} onOpen={setSelected} />
 
 
@@ -592,7 +601,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
 
     <div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column ? columnLabel(column, listName) : ""}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>
 
-    <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => setSelected(null)} initialTab={initialTab} />
+    <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => setSelected(null)} initialTab={detailTab} caps={caps} />
     {companyId ? <SalesUnitBatchDialog open={unitBatchOpen} onOpenChange={setUnitBatchOpen} companyId={companyId} productIds={selectedProducts.map((product) => product.id)} units={companyUnitsQuery.data ?? []} /> : null}
     <InternalProductDialog open={newProductOpen} onOpenChange={setNewProductOpen} companyId={companyId} userId={userId} />
     <ImportDialog open={importOpen} onOpenChange={setImportOpen} companyId={companyId} archives={archives.filter((archive) => archive.status === "attivo").map((archive) => ({ id: archive.id, name: archive.name, isDefault: archive.is_default }))} onImported={() => { void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] }); void queryClient.invalidateQueries({ queryKey: ["danea-listini", companyId] }); }} />
