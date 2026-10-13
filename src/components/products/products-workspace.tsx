@@ -43,6 +43,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { activeCompany, companyBuys, companySells, hasRole, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { Link } from "@tanstack/react-router";
+import { availableViews, sortSuppliers, VIEW_PRIORITY_COLUMNS, type ProductsView, type PurchaseSupplier } from "@/lib/products-view";
 
 import type { Json } from "@/integrations/supabase/types";
 import { analyzeDaneaFile, importDaneaFile } from "@/lib/danea.functions";
@@ -96,8 +98,10 @@ function sortProducts(products: ProductRow[], sorting: SortingState, archives: M
  * Cambiano solo la vista salvata delle colonne (gridKey), le colonne iniziali e il tab
  * su cui si apre la scheda. I prodotti, le query e la scheda sono gli stessi.
  */
-export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialVisibleColumns, sheetOnly, onSheetClose, sheetBeforeClose, sheetBanner }: {
+export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, initialTab, initialVisibleColumns, sheetOnly, onSheetClose, sheetBeforeClose, sheetBanner }: {
   gridKey: string;
+  /** Vista Acquisti/Vendite: cambia solo colonne e filtri mostrati. */
+  view?: ProductsView;
   /** Solo la scheda prodotto (es. finestra dall'Inventario): stessi dati, controlli e permessi della pagina. */
   sheetOnly?: boolean;
   onSheetClose?: () => void;
@@ -112,6 +116,9 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
   const companyId = company?.companyId ?? null;
   const userId = identity?.userId ?? null;
   const isAdmin = hasRole(identity, "amministratore");
+  // Preferenze per utente + azienda + vista (+ dispositivo): una vista non sovrascrive l'altra.
+  const gridKey = companyId ? `${baseGridKey}:${companyId}` : baseGridKey;
+  const views = availableViews(companyBuys(identity), companySells(identity));
   const queryClient = useQueryClient();
   const pendingSaveRef = useRef<(() => Promise<void>) | null>(null);
   const appliedPrefsKeyRef = useRef<string | null>(null);
@@ -123,6 +130,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
   const [status, setStatus] = useState("pubblicato");
   const [imageFilter, setImageFilter] = useState("tutte");
   const [unitConfigFilter, setUnitConfigFilter] = useState("tutte");
+  const [supplierFilter, setSupplierFilter] = useState("tutti");
   const [page, setPage] = useState(0);
   const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<ProductRow | null>(null);
@@ -194,7 +202,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
     refetchOnWindowFocus: true,
     queryFn: async () => {
       if (!companyId) return [];
-      const { data, error } = await supabase.from("products").select("id, archive_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, b2b_visible, commercial_availability, price_unit_id, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price), product_images(id)").eq("company_id", companyId).order("code");
+      const { data, error } = await supabase.from("products").select("id, archive_id, stock_unit_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, b2b_visible, commercial_availability, price_unit_id, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price), product_images(id)").eq("company_id", companyId).order("code");
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as ProductRow[];
     },
@@ -282,7 +290,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
 
   const preferencesQuery = useQuery({
     queryKey: ["product-grid-preferences", gridKey, userId, deviceClass],
-    enabled: Boolean(userId),
+    enabled: Boolean(userId && companyId),
     queryFn: async () => {
       if (!userId) return null;
       const { data, error } = await supabase.from("user_grid_preferences").select("columns, sort").eq("user_id", userId).eq("grid_key", gridKey).eq("device_class", deviceClass).maybeSingle();
@@ -355,6 +363,24 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
   const companyUnitsQuery = useQuery({ queryKey: ["company-units", companyId], enabled: Boolean(companyId), queryFn: async () => { if (!companyId) return []; const { data, error } = await supabase.from("units_of_measure").select("id, code, description, status, usage").eq("company_id", companyId).order("code"); if (error) throw new Error(error.message); return data as CompanyUnit[]; } });
   const saleUnitsQuery = useQuery({ queryKey: ["product-sale-units", companyId], enabled: Boolean(companyId), queryFn: async () => { if (!companyId) return []; const { data, error } = await supabase.from("product_sale_units").select("id, product_id, unit_id, is_active, is_customer_visible, is_default, conversion_factor, conversion_reference_um, conversion_type, needs_review, units_of_measure(code, description)").eq("company_id", companyId); if (error) throw new Error(error.message); return data as ProductSaleUnit[]; } });
 
+  // U.M. di acquisto per fornitore: decise dal database (B2B solo U.M. pubblicate e acquistabili).
+  const purchaseUnitsQuery = useQuery({
+    queryKey: ["product-purchase-units", companyId],
+    enabled: Boolean(companyId && isAdmin),
+    queryFn: async () => {
+      if (!companyId) return new Map<string, PurchaseSupplier[]>();
+      const { data, error } = await supabase.rpc("product_purchase_units_overview", { _company_id: companyId });
+      if (error) throw new Error(error.message);
+      const map = new Map<string, PurchaseSupplier[]>();
+      for (const row of data ?? []) {
+        const list = map.get(row.product_id) ?? [];
+        list.push({ linkId: row.link_id, name: row.supplier_name ?? "Fornitore senza nome", isB2b: row.is_b2b, purchasable: row.purchasable, isPreferred: row.is_preferred, units: (row.units as { code: string; is_default: boolean }[] | null) ?? [] });
+        map.set(row.product_id, list);
+      }
+      for (const [key, list] of map) map.set(key, sortSuppliers(list));
+      return map;
+    },
+  });
   const archives = archivesQuery.data ?? [];
   const archiveNameById = useMemo(() => new Map(archives.map((archive) => [archive.id, archive.name])), [archives]);
   // Collegamenti fornitore per prodotto: il principale è quello preferito/con priorità più alta.
@@ -401,8 +427,11 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
       supplier_price: supplierPrices?.get(product.id) ?? null,
       danea_cost: daneaCosts?.get(product.id)?.supplier_net_price ?? null,
       danea_cost_supplier: daneaCosts?.get(product.id)?.supplier_name ?? null,
+      stock_unit_code: product.stock_unit_id ? companyUnitsQuery.data?.find((unit) => unit.id === product.stock_unit_id)?.code ?? null : null,
+      purchase_suppliers: purchaseUnitsQuery.data?.get(product.id) ?? [],
     };
-  }), [linksByProduct, productsQuery.data, saleUnitsQuery.data, supplierPrices, daneaCosts]);
+  }), [linksByProduct, productsQuery.data, saleUnitsQuery.data, supplierPrices, daneaCosts, companyUnitsQuery.data, purchaseUnitsQuery.data]);
+  const supplierOptions = useMemo(() => [...new Set([...(purchaseUnitsQuery.data?.values() ?? [])].flat().map((s) => s.name))].sort((a, b) => a.localeCompare(b, "it")), [purchaseUnitsQuery.data]);
   const currentProduct = selected ? allProducts.find((product) => product.id === selected.id) ?? selected : null;
   // Apertura diretta della scheda quando si arriva dalla sezione Prodotti forniti del fornitore.
   const openedFromParam = useRef<string | null>(null);
@@ -430,9 +459,10 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
       if (imageFilter === "con" && !product.product_images) return false;
       if (imageFilter === "senza" && product.product_images) return false;
       if (unitConfigFilter === "da_completare" && !unitIssuesByProduct.has(product.id)) return false;
+      if (supplierFilter !== "tutti" && !(product.purchase_suppliers ?? []).some((s) => s.name === supplierFilter)) return false;
       return !term || product.code.toLowerCase().includes(term) || (product.description ?? "").toLowerCase().includes(term);
     });
-  }, [allProducts, archiveFilter, category, imageFilter, search, status, unitConfigFilter, unitIssuesByProduct]);
+  }, [allProducts, archiveFilter, category, imageFilter, search, status, supplierFilter, unitConfigFilter, unitIssuesByProduct]);
   const sortedFiltered = useMemo(() => sortProducts(filtered, sorting, archiveNameById), [archiveNameById, filtered, sorting]);
   const pageCount = Math.max(1, Math.ceil(sortedFiltered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -496,11 +526,26 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
       {archives.length > 1 ? <Select value={archiveFilter} onValueChange={(value) => { setArchiveFilter(value); setPage(0); }}><SelectTrigger className={triggerClass("w-44")}><SelectValue placeholder="Archivio" /></SelectTrigger><SelectContent><SelectItem value="tutti">Tutti gli archivi</SelectItem>{archives.map((archive) => <SelectItem key={archive.id} value={archive.id}>{archive.name}</SelectItem>)}</SelectContent></Select> : null}
       <Select value={status} onValueChange={(value) => { setStatus(value); setPage(0); }}><SelectTrigger className={triggerClass("w-48")}><SelectValue placeholder="Stato" /></SelectTrigger><SelectContent><SelectItem value="pubblicato">Catalogo attuale</SelectItem><SelectItem value="non_pubblicato">Non più inviati</SelectItem><SelectItem value="tutti">Tutti gli stati</SelectItem></SelectContent></Select>
       <Select value={imageFilter} onValueChange={(value) => { setImageFilter(value); setPage(0); }}><SelectTrigger className={triggerClass("w-40")}><SelectValue placeholder="Immagine" /></SelectTrigger><SelectContent><SelectItem value="tutte">Tutte le immagini</SelectItem><SelectItem value="con">Con immagine</SelectItem><SelectItem value="senza">Senza immagine</SelectItem></SelectContent></Select>
+      {view === "acquisti" && isAdmin ? <Select value={supplierFilter} onValueChange={(value) => { setSupplierFilter(value); setPage(0); }}><SelectTrigger className={triggerClass("w-48")} aria-label="Fornitore"><SelectValue placeholder="Fornitore" /></SelectTrigger><SelectContent><SelectItem value="tutti">Tutti i fornitori</SelectItem>{supplierOptions.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select> : null}
       <Select value={unitConfigFilter} onValueChange={(value) => { setUnitConfigFilter(value); setPage(0); }}><SelectTrigger className={triggerClass("w-56")} aria-label="Configurazione U.M."><SelectValue /></SelectTrigger><SelectContent><SelectItem value="tutte">Tutte le configurazioni U.M.</SelectItem><SelectItem value="da_completare">Configurazione U.M. da completare ({unitIssuesByProduct.size})</SelectItem></SelectContent></Select>
     </>;
   };
 
-  const columnsMenu = (iconOnly: boolean) => <DropdownMenu><DropdownMenuTrigger asChild>{iconOnly ? <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Colonne"><Columns3 /></Button> : <Button variant="outline" size="sm"><Columns3 />Colonne</Button>}</DropdownMenuTrigger><DropdownMenuContent align="end" className="max-h-[70vh] w-64 overflow-y-auto"><DropdownMenuLabel>{deviceClass === "smartphone" ? "Campi visibili nelle card" : "Colonne visibili"}</DropdownMenuLabel>{PRODUCT_COLUMNS.filter((column) => isAdmin || !column.adminOnly).map((column) => <DropdownMenuCheckboxItem key={column.id} checked={visibility[column.id] !== false} onSelect={(event) => event.preventDefault()} onCheckedChange={(checked) => setVisibility((current) => ({ ...current, [column.id]: checked }))}>{columnLabel(column, listName)}</DropdownMenuCheckboxItem>)}<DropdownMenuSeparator /><DropdownMenuItem onSelect={resetPreferences}><RotateCcw />Ripristina predefinite</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
+  // Menu Colonne: in alto quelle della vista, poi «Altre colonne» (nessuna colonna eliminata).
+  const allowedColumns = PRODUCT_COLUMNS.filter((column) => isAdmin || !column.adminOnly);
+  const priority = view ? VIEW_PRIORITY_COLUMNS[view] : [];
+  const columnGroups = priority.length
+    ? [
+      { label: view === "acquisti" ? "Acquisti" : "Vendite", columns: priority.map((id) => allowedColumns.find((column) => column.id === id)).filter((column): column is ProductColumn => Boolean(column)) },
+      { label: "Altre colonne", columns: allowedColumns.filter((column) => !priority.includes(column.id)) },
+    ]
+    : [{ label: "Colonne", columns: allowedColumns }];
+  const viewSwitch = view && views.length > 1 ? <div className="grid shrink-0 grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Vista prodotti">
+    <Button asChild size="sm" className="h-8 text-xs" variant={view === "acquisti" ? "default" : "ghost"}><Link to="/acquisti/prodotti">Acquisti</Link></Button>
+    <Button asChild size="sm" className="h-8 text-xs" variant={view === "vendite" ? "default" : "ghost"}><Link to="/vendite/prodotti">Vendite</Link></Button>
+  </div> : null;
+
+  const columnsMenu = (iconOnly: boolean) => <DropdownMenu><DropdownMenuTrigger asChild>{iconOnly ? <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Colonne"><Columns3 /></Button> : <Button variant="outline" size="sm"><Columns3 />Colonne</Button>}</DropdownMenuTrigger><DropdownMenuContent align="end" className="max-h-[70vh] w-64 overflow-y-auto"><DropdownMenuLabel>{deviceClass === "smartphone" ? "Campi visibili nelle card" : "Colonne visibili"}</DropdownMenuLabel>{columnGroups.map((group, index) => <div key={group.label}>{index > 0 ? <><DropdownMenuSeparator /><DropdownMenuLabel className="text-xs text-muted-foreground">{group.label}</DropdownMenuLabel></> : null}{group.columns.map((column) => <DropdownMenuCheckboxItem key={column.id} checked={visibility[column.id] !== false} onSelect={(event) => event.preventDefault()} onCheckedChange={(checked) => setVisibility((current) => ({ ...current, [column.id]: checked }))}>{columnLabel(column, listName)}</DropdownMenuCheckboxItem>)}</div>)}<DropdownMenuSeparator /><DropdownMenuItem onSelect={resetPreferences}><RotateCcw />Ripristina predefinite</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
 
   return <AppShell title="Prodotti" compact wide>
     <div className="space-y-2">
@@ -523,6 +568,7 @@ export function ProductsWorkspace({ gridKey, prodottoParam, initialTab, initialV
             <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Seleziona prodotti"><SquareCheckBig /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setSelectedIds(new Set(visible.map((product) => product.id)))}>Seleziona questa pagina ({visible.length})</DropdownMenuItem><DropdownMenuItem onSelect={() => setSelectedIds(new Set(sortedFiltered.map((product) => product.id)))}>Seleziona tutti i risultati ({sortedFiltered.length})</DropdownMenuItem><DropdownMenuItem disabled={!selectedIds.size} onSelect={() => setSelectedIds(new Set())}>Azzera selezione</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
           </div>
           <div className="col-span-2 flex min-w-0 gap-2 overflow-x-auto xl:col-span-1 xl:flex-1">
+            {viewSwitch}
             {filterSelects(false)}
           </div>
         </div>
