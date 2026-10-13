@@ -185,3 +185,4 @@
 - [x] Fase 2: colonne/filtri/azioni per capacità azienda, poi ruolo; azioni vetrina/U.M. vendita solo vista Vendite; preferenze con colonne non ammesse ignorate.
 - [x] Fase 3: rimando /vendite/prodotti ↔ /acquisti/prodotti senza cicli.
 - [ ] Futuro: «Importa da Danea» oggi richiede `company_sells` (controllo server in danea.functions.ts, l'import nasce come catalogo di vendita/listini). Valutare l'import del catalogo Danea anche per aziende solo Acquisti (es. 3 EMME). Regola non modificata.
+- [ ] B2B 3 EMME: verificare a schermo Acquisti → Catalogo fornitori → Trevi (nessuna modifica). Correzioni «Cliente associato»/articoli in attesa di autorizzazione.
