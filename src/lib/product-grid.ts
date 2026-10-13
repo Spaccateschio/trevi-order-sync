@@ -1,5 +1,7 @@
 import type { SortingState } from "@tanstack/react-table";
 
+import { preferredSupplierText, purchaseUnitsSummary, type PurchaseSupplier } from "./products-view";
+
 export type ProductPrice = {
   list_number: number;
   net_price: number | null;
@@ -59,6 +61,11 @@ export type ProductRow = {
   /** Costo fornitore netto ricevuto dall'ultima importazione Danea (U.M. prezzo non inviata da Danea). */
   danea_cost?: number | null;
   danea_cost_supplier?: string | null;
+  /** U.M. di magazzino (products.stock_unit_id), mai sostituita da altre U.M. */
+  stock_unit_id?: string | null;
+  stock_unit_code?: string | null;
+  /** Fornitori attivi con U.M. di acquisto decise dal database (product_purchase_units_overview). */
+  purchase_suppliers?: PurchaseSupplier[];
 };
 
 export const AVAILABILITY_LABELS: Record<ProductRow["commercial_availability"], string> = {
@@ -110,6 +117,10 @@ export const PRODUCT_COLUMNS: ProductColumn[] = [
   { id: "description_html", label: "Descrizione HTML", size: 260, minSize: 150, value: (p) => text(p.description_html) },
   { id: "category", label: "Categoria", size: 170, minSize: 110, value: (p) => text(p.category) },
   { id: "subcategory", label: "Sottocategoria", size: 170, minSize: 110, value: (p) => text(p.subcategory) },
+  { id: "stock_unit", label: "U.M. magazzino", size: 120, minSize: 90, value: (p) => text(p.stock_unit_code) },
+  { id: "suppliers", label: "Fornitori collegati", size: 220, minSize: 130, adminOnly: true, value: (p) => p.purchase_suppliers?.length ? p.purchase_suppliers.map((s) => s.name).join(", ") : "—" },
+  { id: "purchase_units", label: "U.M. acquisto per fornitore", size: 280, minSize: 160, adminOnly: true, value: (p) => purchaseUnitsSummary(p.purchase_suppliers ?? []) },
+  { id: "preferred_supplier", label: "Fornitore preferito", size: 180, minSize: 120, adminOnly: true, value: (p) => preferredSupplierText(p.purchase_suppliers ?? []) },
   { id: "danea_um", label: "U.M. Danea", size: 100, minSize: 76, value: (p) => text(p.danea_um) },
   { id: "sale_units", label: "U.M. vendita", size: 160, minSize: 110, value: (p) => p.sale_units?.map((unit) => unit.code).join(", ") || "—" },
   { id: "default_sale_unit", label: "U.M. predefinita", size: 145, minSize: 110, value: (p) => p.sale_units?.find((unit) => unit.is_default)?.code ?? "—" },
