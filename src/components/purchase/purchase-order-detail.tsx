@@ -127,6 +127,20 @@ export function PurchaseOrderDetail({
     },
   });
 
+  // Stessa regola del database (manage_purchase_order): B2B solo se l'ordine ha un collegamento attivo.
+  const relationQuery = useQuery({
+    queryKey: ["order-relation", order.order_id],
+    queryFn: async (): Promise<boolean> => {
+      const { data, error } = await supabase
+        .from("purchase_orders")
+        .select("relation_id")
+        .eq("id", order.order_id)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return Boolean(data?.relation_id);
+    },
+  });
+
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["purchase-orders", companyId] }),
@@ -322,13 +336,13 @@ export function PurchaseOrderDetail({
       <div className="flex flex-wrap gap-2">
         {draft ? (
           <>
-            <Button onClick={() => setSendOpen(true)} disabled={action.isPending}>
+            <Button onClick={() => setSendOpen(true)} disabled={action.isPending || relationQuery.data === undefined}>
               <Send className="mr-1 h-4 w-4" /> Invia l'ordine al fornitore
             </Button>
             <SendOrderDialog
               open={sendOpen}
               onOpenChange={setSendOpen}
-              isB2b={(itemsQuery.data ?? []).some((item) => Boolean(item.product_supplier_links?.supplier_company_id))}
+              isB2b={relationQuery.data === true}
               supplierName={order.supplier_name}
               orderNumber={order.number}
               pending={action.isPending}
