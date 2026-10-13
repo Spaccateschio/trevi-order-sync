@@ -13,6 +13,7 @@ import {
 import { ArrowDown, ArrowUp, ArrowUpDown, GripVertical, ImageOff } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { SupplierUnitsCell } from "@/components/products/supplier-units-cell";
 import { Checkbox } from "@/components/ui/checkbox";
 import { columnLabel, formatGridValue, PRODUCT_COLUMNS, type ProductRow } from "@/lib/product-grid";
 import { cn } from "@/lib/utils";
@@ -104,6 +105,8 @@ export function ProductGrid({
       sortingFn: item.numeric ? "basic" : "alphanumeric",
       cell: (context) => item.id === "image" ? (
         imageUrls.get(context.row.original.id) ? <img src={imageUrls.get(context.row.original.id)} alt="" loading="lazy" className="mx-auto h-7 w-10 object-contain" /> : <ImageOff className="mx-auto h-4 w-4 text-muted-foreground" aria-label="Senza immagine" />
+      ) : item.id === "purchase_units" ? (
+        <SupplierUnitsCell suppliers={context.row.original.purchase_suppliers ?? []} />
       ) : (
         <span className={cn("block truncate", item.id === "code" && "font-mono text-xs font-semibold", item.numeric && "text-right tabular-nums")}>
           {formatGridValue(item, context.getValue<string | number | null>())}
