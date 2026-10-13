@@ -181,6 +181,11 @@ export function summarizeCards(rows: FilterableCard[]): CardSummary {
   };
 }
 
+/** Percentuale di card contate (0 confermato = contata), arrotondata all'intero; 0 senza card. */
+export function cardPercentage(summary: Pick<CardSummary, "cards" | "confirmed">): number {
+  return summary.cards ? Math.round((summary.confirmed / summary.cards) * 100) : 0;
+}
+
 export type SearchElsewhere = { reasons: CardFilterKey[]; locations: { id: string; name: string }[] };
 
 /**

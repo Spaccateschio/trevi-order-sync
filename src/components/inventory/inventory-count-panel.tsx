@@ -93,7 +93,7 @@ import {
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
 import {
-  buildInventoryPrintHtml, findSearchElsewhere, isFavoriteCard, selectInventoryCards, summarizeCards,
+  buildInventoryPrintHtml, cardPercentage, findSearchElsewhere, isFavoriteCard, selectInventoryCards, summarizeCards,
   type CardFilterKey, type InventoryCardFilters, type InventoryPrintMode, type InventoryPrintRow, type SearchElsewhere,
 } from "@/lib/inventory-print";
 import { inventoryCardLocked, afterInventoryCardSave, canEditInventoryCard } from "@/lib/inventory-card-lock";
@@ -2720,9 +2720,15 @@ function PhysicalCount({
           {sessionActive ? (
             <div className="border-b border-border px-2 py-1 text-xs text-muted-foreground">
               <p aria-live="polite">
-                <strong className="text-foreground">{filtersActive ? "Vista filtrata" : "Vista completa"}</strong>
-                {" · "}{filteredSummary.cards} card · {filteredSummary.products} prodotti · {filteredSummary.confirmed} confermate
-                {" · "}{filteredSummary.pending} da controllare · {filteredSummary.differences} differenze
+                <strong className="text-foreground">
+                  Vista attuale · {productView === "favorites" ? "Preferiti" : "Tutti"}{filtersActive ? " (filtrata)" : ""}
+                </strong>
+                {" · "}<strong className="text-foreground">{filteredSummary.cards}</strong> card da contare
+                {" · "}<strong className="text-foreground">{filteredSummary.confirmed}</strong> contate
+                {" · "}<strong className="text-primary">{filteredSummary.pending}</strong> mancanti
+                {" · "}{cardPercentage(filteredSummary)}%
+                {filteredSummary.products !== filteredSummary.cards ? ` · ${filteredSummary.products} prodotti` : ""}
+                {filteredSummary.differences ? ` · ${filteredSummary.differences} differenze` : ""}
               </p>
               {filtersActive ? (
                 <p className="mt-0.5">«Conferma inventario» controlla comunque tutte le card previste dalla sessione, anche quelle non visualizzate.</p>
