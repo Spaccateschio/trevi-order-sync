@@ -203,7 +203,7 @@ export function defaultGridPreferences(visibleColumns: string[] = DEFAULT_VISIBL
     visibility: Object.fromEntries(PRODUCT_COLUMNS.map((column) => [column.id, wanted.includes(column.id)])),
     order: [...wanted.filter((id) => DEFAULT_COLUMN_ORDER.includes(id)), ...DEFAULT_COLUMN_ORDER.filter((id) => !wanted.includes(id))],
     sizing: Object.fromEntries(PRODUCT_COLUMNS.map((column) => [column.id, column.size])),
-    sorting: [],
+    sorting: [{ id: "description", desc: false }],
   };
 }
 

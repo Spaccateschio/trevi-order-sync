@@ -320,7 +320,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
     setVisibility(mergedVisibility);
     setColumnOrder([...savedOrder, ...defaults.order.filter((id) => !savedOrder.includes(id))]);
     setColumnSizing({ ...defaults.sizing, ...(columns?.sizing ?? {}) });
-    setSorting(Array.isArray(savedSort) ? savedSort : defaults.sorting);
+    setSorting(Array.isArray(savedSort) && savedSort.length ? savedSort : defaults.sorting);
     setPreferencesReady(true);
   }, [defaults, deviceClass, preferencesQuery.data, preferencesQuery.isLoading]);
 
