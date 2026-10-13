@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 export type ProductDetailTab = "prodotto" | "vendita" | "acquisto" | "inventario";
 import { ChevronDown, Info } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import type { CompanyCaps } from "@/lib/products-view";
 import { supabase } from "@/integrations/supabase/client";
 import { AVAILABILITY_LABELS, dateTime, euro, type ProductRow } from "@/lib/product-grid";
 import { PurchaseUnitsOverview, SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
@@ -178,7 +179,8 @@ function PriceUnitSelector({ product, companyId, companyUnits, editable }: { pro
   );
 }
 
-function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, companyId, companyUnits, saleUnits, initialTab }: {
+function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, companyId, companyUnits, saleUnits, initialTab, caps }: {
+  caps: CompanyCaps;
   product: ProductRow;
   archiveName: string;
   listName: (number: number) => string;
@@ -199,8 +201,8 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
       <Tabs defaultValue={initialTab} className="mt-3 gap-3">
         <TabsList className="w-full">
           <TabsTrigger value="prodotto">Prodotto</TabsTrigger>
-          <TabsTrigger value="vendita">Vendita</TabsTrigger>
-          <TabsTrigger value="acquisto">Acquisto</TabsTrigger>
+          {caps.sells ? <TabsTrigger value="vendita">Vendita</TabsTrigger> : null}
+          {caps.buys ? <TabsTrigger value="acquisto">Acquisto</TabsTrigger> : null}
           <TabsTrigger value="inventario">Inventario</TabsTrigger>
         </TabsList>
 
@@ -215,7 +217,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
             <Field label="Sottocategoria" value={product.subcategory ?? "—"} />
             <Field label="Archivio" value={archiveName} />
             <Field label="Origine" value={product.danea_internal_id ? "Danea" : "Creato in Trevi Fruit"} />
-            <Field label="Stato" value={product.publish_status === "pubblicato" ? "Pubblicato" : "Non pubblicato"} />
+            {caps.sells ? <Field label="Stato" value={product.publish_status === "pubblicato" ? "Pubblicato" : "Non pubblicato"} /> : null}
           </dl>
           <Collapsible open={daneaOpen} onOpenChange={setDaneaOpen} className="border-t border-border pt-2">
             <CollapsibleTrigger asChild><Button type="button" variant="ghost" className="w-full justify-between px-0 text-sm font-semibold" aria-label={`${daneaOpen ? "Chiudi" : "Apri"} dati Danea`}>Dati Danea <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">Sola lettura<ChevronDown className={`transition-transform ${daneaOpen ? "rotate-180" : ""}`} /></span></Button></CollapsibleTrigger>
@@ -235,7 +237,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
         </TabsContent>
 
         {/* Vendita: vetrina, disponibilità, U.M. del prezzo, U.M. ordinabili, listini. */}
-        <TabsContent value="vendita" className="space-y-3">
+        {caps.sells ? <TabsContent value="vendita" className="space-y-3">
           {companyId ? (
             <div className="divide-y divide-border/60 rounded-lg border border-border px-3">
               <ShowcaseToggle product={product} companyId={companyId} editable={isAdmin} />
@@ -253,10 +255,10 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
           </section>
           {/* U.M. ordinabili dal cliente: impostazioni di vendita, indipendenti da quelle d'acquisto. */}
           {companyId ? <SalesUnitManager companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} assignments={saleUnits} editable={isAdmin} showPurchase={false} /> : null}
-        </TabsContent>
+        </TabsContent> : null}
 
         {/* Acquisto: fornitori, referenze, priorità, U.M. acquistabili, costi. */}
-        <TabsContent value="acquisto" className="space-y-3">
+        {caps.buys ? <TabsContent value="acquisto" className="space-y-3">
           <section aria-labelledby="purchase-units-title">
             <h3 id="purchase-units-title" className="text-sm font-semibold">U.M. di acquisto</h3>
             <PurchaseUnitsOverview productId={product.id} />
@@ -267,7 +269,7 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
           {companyId ? <ProductSuppliersManager companyId={companyId} productId={product.id} productArchiveId={product.archive_id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
 
           {isAdmin ? <section className="border-t border-border pt-2"><h3 className="text-sm font-semibold">Costo ricevuto da Danea</h3><dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-2"><Field label="Fornitore" value={cost?.supplier_name ?? product.supplier_name ?? "—"} /><Field label="Codice fornitore" value={cost?.supplier_code ?? product.supplier_code ?? "—"} /><Field label="Codice prodotto" value={cost?.supplier_product_code ?? product.supplier_product_code ?? "—"} /><Field label="Costo netto" value={euro(cost?.supplier_net_price)} /></dl></section> : null}
-        </TabsContent>
+        </TabsContent> : null}
 
         {/* Inventario: giacenza, zone, scorta minima, fabbisogno, conteggi e provenienze dei carichi. */}
         <TabsContent value="inventario" className="space-y-3">
@@ -291,6 +293,7 @@ export function ProductDetailSheet({
   companyUnits,
   saleUnits,
   initialTab = "prodotto",
+  caps,
   wide = false,
   banner,
 }: {
@@ -305,6 +308,8 @@ export function ProductDetailSheet({
   saleUnits: ProductSaleUnit[];
   /** Tab iniziale: Vendite → Prodotti apre "vendita", Acquisti → Prodotti apre "acquisto". */
   initialTab?: ProductDetailTab;
+  /** Capacità dell'azienda: Vendita solo se vende, Acquisto solo se acquista. */
+  caps: CompanyCaps;
   /** Finestra ampia su computer e a tutto schermo su smartphone (usata dall'Inventario). */
   wide?: boolean;
   banner?: ReactNode;
