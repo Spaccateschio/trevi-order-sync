@@ -25,9 +25,9 @@ describe("contatore vista attuale inventario", () => {
   });
   it("Tutti comprende i preferiti; Preferiti solo i preferiti", () => {
     const rows = [card("p1", 1, true), card("p2", null, false)];
-    const all = selectInventoryCards(rows, { view: "all" } as never);
+    const all = selectInventoryCards(rows, { view: "all", work: "all", search: "", locationId: null, category: null, subcategory: null, supplier: null });
     assert.equal(all.length, 2);
-    const fav = selectInventoryCards(rows, { view: "favorites" } as never);
+    const fav = selectInventoryCards(rows, { view: "favorites", work: "all", search: "", locationId: null, category: null, subcategory: null, supplier: null });
     assert.equal(fav.length, 1);
   });
 });
