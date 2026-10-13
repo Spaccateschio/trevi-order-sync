@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { ProductsWorkspace } from "@/components/products/products-workspace";
+import { VIEW_INITIAL_COLUMNS } from "@/lib/products-view";
 
 export const Route = createFileRoute("/_authenticated/acquisti_/prodotti")({
   head: () => ({
@@ -25,7 +26,8 @@ function AcquistiProdottiPage() {
       gridKey="acquisti.prodotti"
       prodottoParam={prodotto}
       initialTab="prodotto"
-      initialVisibleColumns={["description", "code", "danea_um", "supplier_name", "supplier_product_code", "purchase_cost", "supplier_price", "danea_cost", "category"]}
+      view="acquisti"
+      initialVisibleColumns={VIEW_INITIAL_COLUMNS.acquisti}
     />
   );
 }

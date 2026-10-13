@@ -1,1 +1,2 @@
 - U.M. predefinita di vendita = danea_um, solo da ensure_danea_sale_unit (trigger su products); il trigger guard_danea_sale_unit rifiuta ogni altra predefinita e la disattivazione/rimozione della U.M. Danea; U.M. aggiuntive mai toccate.
+- U.M. di acquisto per fornitore nella pagina Prodotti: solo product_purchase_units_overview (B2B = U.M. di vendita pubblicate, attive, visibili e acquistabili, stessa regola della Lista; esterni = solo U.M. del collegamento); il browser formatta soltanto (src/lib/products-view.ts), mai U.M. sostitutive o conversioni.

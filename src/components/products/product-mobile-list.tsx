@@ -8,6 +8,7 @@ import {
   type ProductColumn,
   type ProductRow,
 } from "@/lib/product-grid";
+import { NOT_CONFIGURED } from "@/lib/products-view";
 import { cn } from "@/lib/utils";
 
 const CORE_FIELDS = new Set(["code", "description", "image"]);
@@ -83,7 +84,19 @@ export function ProductMobileList({
               </div>
               {extraColumns.length ? (
                 <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                  {extraColumns.map((column) => (
+                  {extraColumns.map((column) => column.id === "purchase_units" ? (
+                    // Un fornitore per riga: le U.M. di fornitori diversi non si mescolano.
+                    <span key={column.id} className="w-full min-w-0">
+                      <span className="font-medium">{columnLabel(column, listName)}:</span>
+                      {(product.purchase_suppliers ?? []).length
+                        ? (product.purchase_suppliers ?? []).map((s) => (
+                          <span key={s.linkId} className="block truncate">
+                            {s.isPreferred ? "★ " : ""}{s.name}: {s.units.length ? s.units.map((u) => u.code).join(", ") : NOT_CONFIGURED}{s.purchasable ? "" : " (non acquistabile)"}
+                          </span>
+                        ))
+                        : " —"}
+                    </span>
+                  ) : (
                     <span key={column.id} className="min-w-0 max-w-full truncate">
                       <span className="font-medium">{columnLabel(column, listName)}:</span>{" "}
                       {formatGridValue(column, column.value(product, archives))}

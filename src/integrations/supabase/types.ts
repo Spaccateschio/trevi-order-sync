@@ -7173,6 +7173,19 @@ export type Database = {
           physical: number
         }[]
       }
+      product_purchase_units_overview: {
+        Args: { _company_id: string }
+        Returns: {
+          is_b2b: boolean
+          is_preferred: boolean
+          link_id: string
+          product_id: string
+          purchasable: boolean
+          supplier_name: string
+          supplier_record_id: string
+          units: Json
+        }[]
+      }
       product_stock_overview: { Args: { _product_id: string }; Returns: Json }
       product_supplier_b2b_options: {
         Args: { _company_id: string; _product_id: string }

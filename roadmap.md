@@ -178,4 +178,4 @@
 
 ## 13/10
 - [x] Parte A Inventario: riepilogo «Vista attuale» (card da contare/contate/mancanti/%)
-- [ ] Parte B Prodotti: viste Acquisti/Vendite — in attesa OK utente
+- [x] Parte B Prodotti: viste Acquisti/Vendite (in anteprima, non pubblicata)
