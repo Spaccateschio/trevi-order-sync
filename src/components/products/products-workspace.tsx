@@ -43,7 +43,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { activeCompany, companyBuys, companySells, hasRole, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { Link } from "@tanstack/react-router";
+import { Link, Navigate } from "@tanstack/react-router";
 import { availableViews, columnAllowedForCaps, productsViewRedirect, resolveDetailTab, sortSuppliers, VIEW_PRIORITY_COLUMNS, type ProductsView, type PurchaseSupplier } from "@/lib/products-view";
 
 import type { Json } from "@/integrations/supabase/types";
