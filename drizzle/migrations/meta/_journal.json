@@ -365,6 +365,13 @@
       "when": 1791822939910,
       "tag": "0051_danea_sale_unit_default_lock",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1791869886779,
+      "tag": "0052_azzeramento_dati_operativi_prova",
+      "breakpoints": true
     }
   ]
 }
