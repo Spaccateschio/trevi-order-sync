@@ -89,6 +89,15 @@ function Onboarding() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  async function handleSignOut() {
+    setBusy(true);
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+    setBusy(false);
+    navigate({ to: "/auth", replace: true });
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!profilo) return;
@@ -158,6 +167,15 @@ function Onboarding() {
               onClick={() => setStep(2)}
             >
               Continua
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="mt-3 w-full"
+              disabled={busy}
+              onClick={handleSignOut}
+            >
+              Non sei tu? Esci e torna all'accesso
             </Button>
           </section>
         ) : (
