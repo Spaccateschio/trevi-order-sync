@@ -175,3 +175,7 @@
 ## U.M. di magazzino — da valutare, nessun cambio autorizzato
 - [ ] 0251 UOVA CONF. (trevi srl): magazzino cs, Danea nr. Nessuno storico da preservare: cambio futuro da valutare. In attesa di autorizzazione.
 - [ ] 0288 ALLORO (trevi srl): magazzino mz, Danea nr. Da valutare dopo il prossimo inventario completato; i conteggi storici in mz restano invariati; nessuna conversione non documentata. In attesa di autorizzazione.
+
+## 13/10
+- [x] Parte A Inventario: riepilogo «Vista attuale» (card da contare/contate/mancanti/%)
+- [ ] Parte B Prodotti: viste Acquisti/Vendite — in attesa OK utente
