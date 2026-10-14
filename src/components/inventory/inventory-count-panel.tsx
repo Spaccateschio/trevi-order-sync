@@ -33,6 +33,7 @@ import {
 
 import { FullInventoryStartButton, InventoryExtraCards } from "./inventory-add-cards";
 import { HabitualZoneControl, HabitualZonesProvider, useHabitualMap } from "./habitual-zone-control";
+import { pickCardMinWidth } from "@/lib/inventory-card-size";
 import { habitualFirst, matchesHabitual, NO_HABITUAL, type HabitualFilter } from "@/lib/habitual-locations";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -2604,6 +2605,24 @@ function PhysicalCount({
   // Il filtro fornitore è già applicato dalla regola unica delle card (selectInventoryCards).
   const visibleRows = rows;
   const filteredSummary = summarizeCards(visibleRows);
+  // Card più strette quando sotto il nome non c'è nulla da leggere; una sola misura per tutte.
+  const cardMinWidth = useMemo(
+    () =>
+      pickCardMinWidth(
+        visibleRows.map((row) => ({
+          habitualZones: habitualMap.get(row.product_id)?.ids.length ?? 0,
+          category: fieldPreferences.isVisible("categoria") && Boolean(row.category),
+          supplier:
+            (fieldPreferences.isVisible("fornitore") || fieldPreferences.isVisible("prezzo_acquisto")) &&
+            Boolean(cardSupplierName(row)),
+          stockInfo:
+            (fieldPreferences.isVisible("scorta_minima") || fieldPreferences.isVisible("fabbisogno")) &&
+            (row.min_stock !== null || row.order_multiple !== null),
+          lastCount: fieldPreferences.isVisible("ultimo_conteggio") && Boolean(row.counted_at),
+        })),
+      ),
+    [fieldPreferences.visibility, fieldPreferences.isVisible, habitualMap, visibleRows],
+  );
 
   // Barra compatta (ricerca + filtri) mostrata solo quando la ricerca originale esce dallo schermo.
   const cycleLock = useContext(CycleLockContext);
@@ -2885,7 +2904,10 @@ function PhysicalCount({
             </div>
           )}
           {visibleRows.length || catalogCandidates.length ? (
-            <div className="grid auto-rows-fr items-stretch gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
+            <div
+              className="grid auto-rows-fr items-stretch gap-2 p-2"
+              style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${cardMinWidth}px, 1fr))` }}
+            >
               {[
                 // Intestazione del prodotto quando ha più card: nome e totale (solo U.M. compatibili).
                 ...[...new Map(visibleRows.map((row) => [groupKey(row), row])).values()]
