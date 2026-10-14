@@ -393,6 +393,13 @@
       "when": 1791949207495,
       "tag": "0055_inventory_add_cards_and_full_start",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1791978641412,
+      "tag": "0056_update_draft_order_address_id",
+      "breakpoints": true
     }
   ]
 }
