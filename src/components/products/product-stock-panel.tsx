@@ -32,6 +32,7 @@ import {
 } from "@/lib/inventory";
 import { manageProductStockSettings, recordInventoryAdjustment } from "@/lib/inventory.functions";
 import type { CompanyUnit } from "./sales-unit-manager";
+import { HabitualLocationsEditor } from "./habitual-locations-editor";
 
 /** Riquadro Inventario della scheda prodotto: giacenza per zona, parametri di magazzino e rettifiche. */
 export function ProductStockPanel({
@@ -179,6 +180,8 @@ export function ProductStockPanel({
               <p className="py-2 text-sm text-muted-foreground">Nessuna zona configurata.</p>
             ) : null}
           </div>
+
+          <HabitualLocationsEditor companyId={companyId} productId={productId} locations={overview.locations} isAdmin={editable} />
 
           <div className="mt-3 grid grid-cols-2 gap-3 rounded-md bg-muted/30 p-2 text-sm sm:grid-cols-4">
             <div>
