@@ -414,6 +414,13 @@
       "when": 1791989156811,
       "tag": "0058_direct_purchase_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1791993947298,
+      "tag": "0059_direct_quota_allow_exceed",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,7 @@ import {
   type QuotaAssignment,
   type ValidConversion,
 } from "@/lib/supplier-selection";
+import { planDirectChange } from "@/lib/direct-quota-plan";
 import {
   deselectedFor,
   chooseListDestinations,
@@ -386,4 +387,123 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
     return { kind: "saltato", reason: quotaSaveError(chosen.name, (e as Error).message) };
   }
   return plan.kind === "set" ? { kind: "aggiornato", supplierName: chosen.name } : { kind: "assegnato", supplierName: chosen.name };
+}
+
+const normCode = (code: string | null | undefined) => (code ?? "").trim().toUpperCase();
+
+export type DirectQuotaChangeResult =
+  | { kind: "salvato" }
+  | { kind: "da_sistemare"; reason: string }
+  | { kind: "invariato" }
+  | { kind: "saltato"; reason: string };
+
+/**
+ * Cambio della quota «Acquisto diretto» (null = togli la quota): calcola le quote fornitore da
+ * riscrivere (residuo) da passare a commit_shopping_list_item_quantity in UNA transazione, insieme
+ * alla quota diretta. Solo calcolo: chi chiama legge i valori attesi e chiama il commit
+ * (ricontrollato dal database). Eccedenza ammessa con avviso: nessuna quota fornitore viene toccata.
+ */
+export async function planDirectQuotaRescale(
+  companyId: string,
+  itemId: string,
+  directQuantity: number | null,
+): Promise<{ collect: PlannedWrite[]; result: DirectQuotaChangeResult }> {
+  const collect: PlannedWrite[] = [];
+  const result = await once<DirectQuotaChangeResult>(
+    itemId,
+    { kind: "saltato", reason: "Salvataggio già in corso: riprova tra un attimo" },
+    () => runDirectChange(companyId, itemId, directQuantity, collect),
+  );
+  return { collect, result };
+}
+
+async function runDirectChange(companyId: string, itemId: string, directQuantity: number | null, collect: PlannedWrite[]): Promise<DirectQuotaChangeResult> {
+  const { data: item, error } = await supabase
+    .from("shopping_list_items")
+    .select("id, product_id, decided_quantity, decided_unit_id, decided_unit_code, unit_code, manual_purchase_quantity, manual_purchase_unit_id, manual_purchase_unit_code, manual_purchase_done_at")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (error || !item) return { kind: "saltato", reason: error?.message ?? "Riga non trovata" };
+  if (item.manual_purchase_done_at) return { kind: "saltato", reason: "Acquisto diretto già registrato: non modificabile" };
+  const quantity = item.decided_quantity === null ? null : Number(item.decided_quantity);
+  if (!quantity || quantity <= 0) return { kind: "saltato", reason: "Conferma prima la quantità da acquistare" };
+  const decidedCode = ((item.decided_unit_code as string | null) ?? (item.decided_unit_id ? "" : (item.unit_code as string | null))) ?? "";
+  const ruledUnitId = (item.decided_unit_id as string | null) ?? null;
+  const directOldRaw = item.manual_purchase_quantity === null ? null : Number(item.manual_purchase_quantity);
+  const directComparable =
+    directOldRaw !== null &&
+    ((item.manual_purchase_unit_id && item.manual_purchase_unit_id === ruledUnitId) ||
+      (!item.manual_purchase_unit_id && normCode(item.manual_purchase_unit_code ?? "") === normCode(decidedCode)));
+  const directOld = directComparable ? directOldRaw : null;
+  const directNew = directQuantity ?? 0;
+  if (directComparable && Math.abs(directNew - (directOld ?? 0)) < 1e-9) return { kind: "invariato" };
+  if (directOldRaw === null && directQuantity === null) return { kind: "invariato" };
+
+  // La quota diretta si salva sempre (anche in eccedenza, con avviso); le quote fornitore seguono il residuo.
+  collect.push({ kind: "diretto", quantity: directNew, unitId: null, unitCode: null });
+
+  const [assignments, overview, units, product] = await Promise.all([
+    supabase.from("shopping_list_item_suppliers").select("id, product_supplier_link_id, purchase_unit_id, purchase_unit_code, purchase_quantity, deselected_at").eq("item_id", itemId),
+    supabase.rpc("product_supplier_overview", { _product_id: item.product_id }),
+    supabase.rpc("shopping_item_supplier_units", { _item_id: itemId }),
+    supabase.from("products").select("stock_unit_id").eq("id", item.product_id).maybeSingle(),
+  ]);
+  const failure = assignments.error ?? overview.error ?? units.error;
+  if (failure) return { kind: "saltato", reason: failure.message };
+  const allRows = assignments.data ?? [];
+  const rows = allRows.filter((r) => !r.deselected_at);
+  if (rows.length) {
+    const { data: orderRows, error: orderError } = await supabase
+      .from("purchase_order_items")
+      .select("source_assignment_id")
+      .in("source_assignment_id", rows.map((r) => r.id as string));
+    if (orderError) return { kind: "saltato", reason: orderError.message };
+    if ((orderRows ?? []).length) return { kind: "da_sistemare", reason: "Quote già in un ordine o in una bozza: sistemale dalle Bozze" };
+  }
+  const unitsByLink = new Map(((units.data ?? []) as unknown as UnitsRead[]).map((u) => [u.link_id, u]));
+  const active = ((overview.data ?? []) as unknown as OverviewRead[]).filter((s) => s.is_active);
+  const suppliers = active.map((s) => {
+    const u = unitsByLink.get(s.link_id);
+    return {
+      linkId: s.link_id,
+      name: s.supplier_name,
+      isB2B: Boolean(u?.is_b2b),
+      sourceLinked: Boolean(u?.source_linked),
+      purchasable: u ? u.purchasable !== false : false,
+      allowManual: Boolean(u?.allow_manual),
+      units: (u?.units ?? []).map((x) => ({ unitId: x.unit_id, code: x.code })),
+      isPreferred: Boolean(s.is_preferred),
+    };
+  });
+  const stockUnitId = (product.data?.stock_unit_id as string | null | undefined) ?? null;
+  const poolRows = rows.map((r) => ({
+    id: r.id as string,
+    linkId: r.product_supplier_link_id as string,
+    purchaseQuantity: r.purchase_quantity === null ? null : Number(r.purchase_quantity),
+    purchaseUnitId: (r.purchase_unit_id as string | null) ?? null,
+    purchaseUnitCode: (r.purchase_unit_code as string | null) ?? null,
+  }));
+  if (!poolRows.length) return { kind: "salvato" };
+  const memory = (await readMemories(companyId, [item.product_id as string])).get(item.product_id as string) ?? null;
+  const conversions = stockUnitId && ruledUnitId === stockUnitId ? await readConversions(poolRows.map((r) => r.linkId)) : {};
+  const plan = planDirectChange({
+    quantity,
+    directOld,
+    directNew,
+    suppliers,
+    assignments: poolRows,
+    decidedUnitId: ruledUnitId,
+    decidedCode,
+    stockUnitId,
+    conversions,
+    memory,
+  });
+  if (plan.kind === "da_sistemare") {
+    if (directOldRaw !== null && !directComparable) return { kind: "da_sistemare", reason: `Acquisto diretto in U.M. diversa: ${plan.reason}` };
+    return plan;
+  }
+  if (plan.kind !== "scritti") return { kind: "salvato" };
+  for (const w of plan.writes)
+    collect.push({ kind: "fornitore", linkId: w.linkId, assignmentId: w.assignmentId, purchaseQuantity: w.quantity, purchaseUnitId: w.unitId, manualUnitCode: w.manual });
+  return { kind: "salvato" };
 }
