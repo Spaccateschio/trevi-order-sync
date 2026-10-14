@@ -102,7 +102,7 @@ function DeliveryFields({
         <Label className="text-xs">Luogo</Label>
         <Select
           value={selected}
-          disabled={disabled}
+          disabled={Boolean(disabled)}
           onValueChange={(v) => {
             if (v === OTHER_ADDRESS) onChange({ ...value, addressId: null, address: known ? "" : value.address });
             else onChange({ ...value, addressId: v, address: addresses.find((a) => a.id === v)?.text ?? "" });

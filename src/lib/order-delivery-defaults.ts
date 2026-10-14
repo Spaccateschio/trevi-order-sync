@@ -57,7 +57,7 @@ export function deliveryDefaults(input: {
     place(input.list, addresses) ??
     place(input.lastOrder, addresses) ??
     place(input.company, addresses) ??
-    place({ addressId: input.mainDeliveryAddressId }, addresses) ?? { address: "", addressId: null };
+    place({ addressId: input.mainDeliveryAddressId ?? null }, addresses) ?? { address: "", addressId: null };
   return {
     date: validDate(input.list?.date) || validDate(input.company?.date),
     from,
