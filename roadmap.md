@@ -212,3 +212,10 @@
 
 - [x] 14/10 — «Genera ordini»: menu Luogo con indirizzi aziendali attivi + «Altro indirizzo…», precompilazione Lista → ultimo ordine → Preferenze → indirizzo principale di consegna; update_draft_order accetta address_id (solo anteprima)
 - [ ] Futuro (non approvato): Consegna/Ritiro sull'ordine; campo pickup_address_id separato per indirizzi del fornitore; creazione e modifica bozze per entrambe le modalità
+
+## Acquisto diretto come documento (AD-AAAA-NNNNN)
+- [ ] Fase 1: bozza di acquisto diretto da «Genera ordini» (piano da approvare)
+- [ ] Fase 2: completamento, conferma e annullamento dell'acquisto diretto
+- [ ] Fase 3: carico merce da acquisto diretto confermato (quantità, U.M., peso, prezzi effettivi)
+- [ ] Fase 4: storico, consultazione e stampa dei documenti
+- [ ] Foto dello scontrino: sviluppo successivo
