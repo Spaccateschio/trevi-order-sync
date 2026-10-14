@@ -2879,6 +2879,28 @@ function PhysicalCount({
             {void excludedCatalogCount}
           </div>
 
+          {/* Filtro zona abituale sempre visibile: agisce solo sulla vista, mai su card o chiusura. */}
+          <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1.5">
+            <span className="text-[11px] font-semibold uppercase text-muted-foreground">Zona abituale:</span>
+            <Button size="sm" className="h-7 px-2 text-[11px]" variant={habitualFilter === null ? "default" : "outline"} onClick={() => onHabitualChange(null)}>
+              Tutte
+            </Button>
+            {locationOptions.map((location) => (
+              <Button
+                key={location.id}
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                variant={habitualFilter === location.id ? "default" : "outline"}
+                onClick={() => onHabitualChange(location.id)}
+              >
+                {location.name}
+              </Button>
+            ))}
+            <Button size="sm" className="h-7 px-2 text-[11px]" variant={habitualFilter === NO_HABITUAL ? "default" : "outline"} onClick={() => onHabitualChange(NO_HABITUAL)}>
+              Senza zona
+            </Button>
+          </div>
+
           {cardLockState.canSave ? null : (
             <div role="alert" className="m-2 flex flex-wrap items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
               Aggiorna la pagina: l'Inventario è stato aggiornato. I salvataggi sono sospesi fino al ricaricamento.

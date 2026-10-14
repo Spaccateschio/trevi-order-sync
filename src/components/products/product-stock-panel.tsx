@@ -164,24 +164,13 @@ export function ProductStockPanel({
 
       {overview ? (
         <>
-          <div className="mt-3 divide-y divide-border">
-            {overview.locations.map((row) => (
-              <div key={row.location_id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-                <span className="truncate">{row.location_name}</span>
-                <span className={row.has_count ? "" : "text-muted-foreground"}>
-                  {row.has_count ? `${qty(row.quantity)} ${daneaUm ?? ""}`.trim() : "mai contato"}
-                  {row.counted_at ? (
-                    <span className="ml-2 text-xs text-muted-foreground">{dateTimeShort(row.counted_at)}</span>
-                  ) : null}
-                </span>
-              </div>
-            ))}
-            {!overview.locations.length ? (
-              <p className="py-2 text-sm text-muted-foreground">Nessuna zona configurata.</p>
-            ) : null}
-          </div>
-
-          <HabitualLocationsEditor companyId={companyId} productId={productId} locations={overview.locations} isAdmin={editable} />
+          <HabitualLocationsEditor
+            companyId={companyId}
+            productId={productId}
+            locations={overview.locations}
+            daneaUm={daneaUm}
+            isAdmin={editable}
+          />
 
           <div className="mt-3 grid grid-cols-2 gap-3 rounded-md bg-muted/30 p-2 text-sm sm:grid-cols-4">
             <div>

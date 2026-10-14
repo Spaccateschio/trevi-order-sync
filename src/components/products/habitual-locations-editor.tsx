@@ -6,18 +6,29 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { dateTimeShort, qty } from "@/lib/inventory";
 import { habitualError, setPrimary, toggleHabitual, type HabitualState } from "@/lib/habitual-locations";
 
-/** Zone abituali del prodotto: solo organizzative, non creano card né toccano giacenze o conteggi. */
+export type HabitualLocationRow = {
+  location_id: string;
+  location_name: string;
+  has_count: boolean;
+  quantity: number | null;
+  counted_at: string | null;
+};
+
+/** Elenco unico delle zone del prodotto: conteggio per zona + zone abituali (solo organizzative). */
 export function HabitualLocationsEditor({
   companyId,
   productId,
   locations,
+  daneaUm,
   isAdmin,
 }: {
   companyId: string;
   productId: string;
-  locations: { location_id: string; location_name: string }[];
+  locations: HabitualLocationRow[];
+  daneaUm: string | null;
   isAdmin: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -75,13 +86,14 @@ export function HabitualLocationsEditor({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (!locations.length) return null;
+  if (!locations.length) {
+    return <p className="mt-3 py-2 text-sm text-muted-foreground">Nessuna zona configurata.</p>;
+  }
 
   return (
-    <section className="mt-4 border-t border-border pt-3">
-      <h4 className="text-sm font-semibold">Zone abituali</h4>
+    <section className="mt-3">
       <p className="text-xs text-muted-foreground">
-        Dove si trova di solito il prodotto. Puoi comunque contarlo in qualsiasi zona.
+        Spunta le zone dove si trova di solito il prodotto e scegli la principale con la stella. Puoi comunque contarlo in qualsiasi zona.
       </p>
       <div className="mt-2 divide-y divide-border">
         {locations.map((loc) => {
@@ -98,19 +110,27 @@ export function HabitualLocationsEditor({
                 />
                 <span className="truncate">{loc.location_name}</span>
               </label>
-              {checked ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={primary ? "secondary" : "ghost"}
-                  disabled={!canEdit || save.isPending}
-                  onClick={() => setDraft((s) => setPrimary(s, loc.location_id))}
-                  aria-label={`Imposta ${loc.location_name} come principale`}
-                >
-                  <Star className={primary ? "fill-primary text-primary" : "text-muted-foreground"} />
-                  <span className="text-xs">{primary ? "Principale" : "Rendi principale"}</span>
-                </Button>
-              ) : null}
+              <span className="flex shrink-0 items-center gap-2">
+                <span className={loc.has_count ? "" : "text-muted-foreground"}>
+                  {loc.has_count ? `${qty(loc.quantity)} ${daneaUm ?? ""}`.trim() : "mai contato"}
+                  {loc.counted_at ? (
+                    <span className="ml-2 text-xs text-muted-foreground">{dateTimeShort(loc.counted_at)}</span>
+                  ) : null}
+                </span>
+                {checked ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={primary ? "secondary" : "ghost"}
+                    disabled={!canEdit || save.isPending}
+                    onClick={() => setDraft((s) => setPrimary(s, loc.location_id))}
+                    aria-label={`Imposta ${loc.location_name} come principale`}
+                  >
+                    <Star className={primary ? "fill-primary text-primary" : "text-muted-foreground"} />
+                    <span className="text-xs">{primary ? "Principale" : "Rendi principale"}</span>
+                  </Button>
+                ) : null}
+              </span>
             </div>
           );
         })}
