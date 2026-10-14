@@ -70,6 +70,7 @@ export function HabitualLocationsEditor({
     onSuccess: () => {
       toast.success("Zone abituali salvate");
       void queryClient.invalidateQueries({ queryKey: key });
+      void queryClient.invalidateQueries({ queryKey: ["habitual-locations", companyId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
