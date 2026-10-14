@@ -28,6 +28,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { qty } from "@/lib/inventory";
+import { addDays, localToday, useDeliveryPreferences } from "@/lib/delivery-preferences";
+import { deliveryDefaults } from "@/lib/order-delivery-defaults";
 import {
   changeDraftSupplier,
   confirmAssignmentCoverage,
@@ -240,10 +242,47 @@ export function GenerateOrdersDialog({
     if (open) setStep(mode === "bozze" ? "fornitori" : "avviso");
   }, [open, mode]);
 
+  const prefs = useDeliveryPreferences(open ? companyId : null);
+  const supplierIds = (preview.data?.suppliers ?? []).map((s) => s.supplier_record_id).sort();
+  // Ultimo ordine non annullato per fornitore: lettura già consentita (stessa tabella usata dalle bozze).
+  const lastOrders = useQuery({
+    queryKey: ["last-orders-delivery", companyId, supplierIds.join(",")],
+    enabled: open && supplierIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("purchase_orders")
+        .select("supplier_record_id, delivery_time_from, delivery_time_to, delivery_address_text, created_at")
+        .eq("company_id", companyId)
+        .in("supplier_record_id", supplierIds)
+        .neq("status", "annullato")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw new Error(error.message);
+      const map: Record<string, { from: string | null; to: string | null; address: string | null }> = {};
+      for (const o of data ?? []) {
+        if (!o.supplier_record_id || map[o.supplier_record_id]) continue;
+        map[o.supplier_record_id] = { from: o.delivery_time_from, to: o.delivery_time_to, address: o.delivery_address_text };
+      }
+      return map;
+    },
+  });
+  const prefsReady = !prefs.isLoading;
+  const lastReady = supplierIds.length === 0 || lastOrders.isFetched;
+
   // Inizializza le card nuove senza toccare quelle già modificate.
   useEffect(() => {
     const data = preview.data;
-    if (!data) return;
+    if (!data || !prefsReady || !lastReady) return;
+    const p = prefs.data;
+    const today = localToday(p?.timezone ?? "Europe/Rome");
+    const company = p
+      ? {
+          date: p.day === "domani" ? addDays(today, 1) : today,
+          from: p.timeFrom,
+          to: p.timeTo,
+          address: p.addresses.find((a) => a.id === p.addressId)?.text ?? null,
+        }
+      : null;
     setDrafts((prev) => {
       const next = { ...prev };
       for (const s of data.suppliers) {
@@ -253,10 +292,12 @@ export function GenerateOrdersDialog({
         next[s.supplier_record_id] = {
           selected: old?.selected ?? true,
           delivery: old?.delivery ?? {
-            date: data.delivery.date ?? "",
-            from: data.delivery.time_from ?? "",
-            to: data.delivery.time_to ?? "",
-            address: data.delivery.address_text ?? "",
+            ...deliveryDefaults({
+              today,
+              list: { date: data.delivery.date, from: data.delivery.time_from, to: data.delivery.time_to, address: data.delivery.address_text },
+              lastOrder: lastOrders.data?.[s.supplier_record_id] ?? null,
+              company,
+            }),
             notes: "",
           },
           lines,
@@ -264,7 +305,7 @@ export function GenerateOrdersDialog({
       }
       return next;
     });
-  }, [preview.data]);
+  }, [preview.data, prefsReady, lastReady, prefs.data, lastOrders.data]);
 
   const refresh = () =>
     Promise.all([
