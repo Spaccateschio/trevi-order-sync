@@ -653,7 +653,7 @@ export function GenerateOrdersDialog({
                 </section>
               ) : null}
 
-              {data.direct.length || directDocs.data?.length ? (() => {
+              {(() => {
                 const liveDoc = (itemId: string) =>
                   directDocs.data?.find((d) => d.status === "bozza" && d.direct_purchase_items.some((i) => i.active_source_item_id === itemId));
                 const toDraft = data.direct.filter((x) => !x.done && !liveDoc(x.item_id));
@@ -667,6 +667,9 @@ export function GenerateOrdersDialog({
                         </Button>
                       ) : null}
                     </div>
+                    {!data.direct.length && !directDocs.data?.length ? (
+                      <p className="text-sm text-muted-foreground">Nessun acquisto diretto in questa Lista: usa la spunta «Acquisto diretto (compro io)» sulla card del prodotto.</p>
+                    ) : null}
                     {data.direct.map((x) => {
                       const d = liveDoc(x.item_id);
                       return (
@@ -699,7 +702,7 @@ export function GenerateOrdersDialog({
                     ) : null}
                   </section>
                 );
-              })() : null}
+              })()}
 
               <DirectPurchaseDraftDialog
                 docId={openDirectDoc}
