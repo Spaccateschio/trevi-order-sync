@@ -931,6 +931,24 @@ export function InventoryCountPanel({
     () => habitualFirst(baseRows.filter((row) => matchesHabitual(row.product_id, habitualMap, habitualFilter)), habitualMap, selectedLocationId),
     [baseRows, habitualFilter, habitualMap, selectedLocationId],
   );
+  // Card più strette quando sotto il nome non c'è nulla da leggere; una sola misura per tutte.
+  const cardMinWidth = useMemo(
+    () =>
+      pickCardMinWidth(
+        rows.map((row) => ({
+          habitualZones: habitualMap.get(row.product_id)?.ids.length ?? 0,
+          category: fieldPreferences.isVisible("categoria") && Boolean(row.category),
+          supplier:
+            (fieldPreferences.isVisible("fornitore") || fieldPreferences.isVisible("prezzo_acquisto")) &&
+            Boolean(cardSupplierName(row)),
+          stockInfo:
+            (fieldPreferences.isVisible("scorta_minima") || fieldPreferences.isVisible("fabbisogno")) &&
+            (row.min_stock !== null || row.order_multiple !== null),
+          lastCount: fieldPreferences.isVisible("ultimo_conteggio") && Boolean(row.counted_at),
+        })),
+      ),
+    [fieldPreferences.visibility, fieldPreferences.isVisible, habitualMap, rows],
+  );
   // Quantità scritte prima dell'apertura: chiave «prodotto:ubicazione:-» → card reale della sessione.
   // Una sola card (o una sola con stella) = trasferita; più card senza scelta univoca = avviso, nessuna assegnazione arbitraria.
   useEffect(() => {
@@ -1690,6 +1708,7 @@ export function InventoryCountPanel({
               link_active: null, card_favorite: false, card_label: null,
             }))}
             catalogCandidates={[]}
+            cardMinWidth={cardMinWidth}
             extraSection={
               <InventoryExtraCards
                 companyId={companyId}
@@ -2504,6 +2523,7 @@ function PhysicalCount({
   statusSlot,
   printAction,
   extraSection,
+  cardMinWidth,
 }: {
   companyId: string;
   sessionActive: boolean;
@@ -2570,6 +2590,7 @@ function PhysicalCount({
   statusSlot?: ReactNode;
   printAction?: ReactNode;
   extraSection?: ReactNode;
+  cardMinWidth: number;
 }) {
   const total = progress?.total ?? 0;
   const generalCompleted = progress?.completed ?? 0;
@@ -2605,24 +2626,6 @@ function PhysicalCount({
   // Il filtro fornitore è già applicato dalla regola unica delle card (selectInventoryCards).
   const visibleRows = rows;
   const filteredSummary = summarizeCards(visibleRows);
-  // Card più strette quando sotto il nome non c'è nulla da leggere; una sola misura per tutte.
-  const cardMinWidth = useMemo(
-    () =>
-      pickCardMinWidth(
-        visibleRows.map((row) => ({
-          habitualZones: habitualMap.get(row.product_id)?.ids.length ?? 0,
-          category: fieldPreferences.isVisible("categoria") && Boolean(row.category),
-          supplier:
-            (fieldPreferences.isVisible("fornitore") || fieldPreferences.isVisible("prezzo_acquisto")) &&
-            Boolean(cardSupplierName(row)),
-          stockInfo:
-            (fieldPreferences.isVisible("scorta_minima") || fieldPreferences.isVisible("fabbisogno")) &&
-            (row.min_stock !== null || row.order_multiple !== null),
-          lastCount: fieldPreferences.isVisible("ultimo_conteggio") && Boolean(row.counted_at),
-        })),
-      ),
-    [fieldPreferences.visibility, fieldPreferences.isVisible, habitualMap, visibleRows],
-  );
 
   // Barra compatta (ricerca + filtri) mostrata solo quando la ricerca originale esce dallo schermo.
   const cycleLock = useContext(CycleLockContext);
