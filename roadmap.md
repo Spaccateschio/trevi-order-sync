@@ -197,4 +197,4 @@
 
 
 ## 14/10 — Ripristino filtri fissi Inventario (solo anteprima)
-- [ ] Ripristinare gli stessi filtri insieme alla ricerca rapida durante lo scorrimento; verificare a schermo senza scrivere dati operativi.
+- [x] Ripristinati gli stessi filtri insieme alla ricerca rapida durante lo scorrimento; verificati Inventario reale 3 EMME, menu Filtri e passaggio a Tutti, schermi 390/718/1280 px senza overflow. 21 test superati, build automatica OK. Nessun conteggio o dato operativo scritto, nessuna pubblicazione.
