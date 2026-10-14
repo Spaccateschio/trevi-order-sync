@@ -28,7 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { qty } from "@/lib/inventory";
-import { addDays, localToday, useDeliveryPreferences } from "@/lib/delivery-preferences";
+import { addDays, localToday, useDeliveryPreferences, type CompanyAddressOption } from "@/lib/delivery-preferences";
 import { deliveryDefaults } from "@/lib/order-delivery-defaults";
 import {
   changeDraftSupplier,
@@ -49,7 +49,9 @@ import { supplierUnitProposal, unitsSoldText, type ProposalLink } from "@/lib/su
 import { issueReason, type RowFacts } from "@/lib/supplier-selection";
 import { MISSING_SELLING_PRICE, priceLabel } from "@/lib/purchase";
 
-type Delivery = { date: string; from: string; to: string; address: string; notes: string };
+/** addressId: id indirizzo aziendale scelto; null = «Altro indirizzo…»; undefined = collegamento non toccato. */
+type Delivery = { date: string; from: string; to: string; address: string; notes: string; addressId?: string | null };
+const OTHER_ADDRESS = "__altro__";
 type SupplierDraft = { selected: boolean; delivery: Delivery; lines: Record<string, { included: boolean; quantity: string }> };
 
 
@@ -65,10 +67,23 @@ function toDeliveryPayload(d: Delivery) {
     time_to: d.to || null,
     address_text: d.address.trim() || null,
     notes: d.notes.trim() || null,
+    ...(d.addressId !== undefined ? { address_id: d.addressId } : {}),
   };
 }
 
-function DeliveryFields({ value, onChange, disabled }: { value: Delivery; onChange: (d: Delivery) => void; disabled?: boolean }) {
+function DeliveryFields({
+  value,
+  onChange,
+  disabled,
+  addresses,
+}: {
+  value: Delivery;
+  onChange: (d: Delivery) => void;
+  disabled?: boolean;
+  addresses: CompanyAddressOption[];
+}) {
+  const known = value.addressId ? addresses.find((a) => a.id === value.addressId) : undefined;
+  const selected = known ? known.id : OTHER_ADDRESS;
   return (
     <div className="grid gap-2 sm:grid-cols-4">
       <div className="space-y-1">
@@ -85,7 +100,36 @@ function DeliveryFields({ value, onChange, disabled }: { value: Delivery; onChan
       </div>
       <div className="space-y-1 sm:col-span-1">
         <Label className="text-xs">Luogo</Label>
-        <Input value={value.address} disabled={disabled} maxLength={300} onChange={(e) => onChange({ ...value, address: e.target.value })} />
+        <Select
+          value={selected}
+          disabled={disabled}
+          onValueChange={(v) => {
+            if (v === OTHER_ADDRESS) onChange({ ...value, addressId: null, address: known ? "" : value.address });
+            else onChange({ ...value, addressId: v, address: addresses.find((a) => a.id === v)?.text ?? "" });
+          }}
+        >
+          <SelectTrigger aria-label="Luogo">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {addresses.map((a) => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.text || "Indirizzo senza descrizione"}
+              </SelectItem>
+            ))}
+            <SelectItem value={OTHER_ADDRESS}>Altro indirizzo…</SelectItem>
+          </SelectContent>
+        </Select>
+        {selected === OTHER_ADDRESS ? (
+          <Input
+            aria-label="Altro indirizzo"
+            placeholder="Scrivi l'indirizzo"
+            value={value.address}
+            disabled={disabled}
+            maxLength={300}
+            onChange={(e) => onChange({ ...value, addressId: null, address: e.target.value })}
+          />
+        ) : null}
       </div>
       <div className="space-y-1 sm:col-span-4">
         <Label className="text-xs">Note per il fornitore</Label>
@@ -251,17 +295,17 @@ export function GenerateOrdersDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("supplier_record_id, delivery_time_from, delivery_time_to, delivery_address_text, created_at")
+        .select("supplier_record_id, destination_address_id, delivery_time_from, delivery_time_to, delivery_address_text, created_at")
         .eq("company_id", companyId)
         .in("supplier_record_id", supplierIds)
         .neq("status", "annullato")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw new Error(error.message);
-      const map: Record<string, { from: string | null; to: string | null; address: string | null }> = {};
+      const map: Record<string, { from: string | null; to: string | null; address: string | null; addressId: string | null }> = {};
       for (const o of data ?? []) {
         if (!o.supplier_record_id || map[o.supplier_record_id]) continue;
-        map[o.supplier_record_id] = { from: o.delivery_time_from, to: o.delivery_time_to, address: o.delivery_address_text };
+        map[o.supplier_record_id] = { from: o.delivery_time_from, to: o.delivery_time_to, address: o.delivery_address_text, addressId: o.destination_address_id };
       }
       return map;
     },
@@ -280,9 +324,12 @@ export function GenerateOrdersDialog({
           date: p.day === "domani" ? addDays(today, 1) : today,
           from: p.timeFrom,
           to: p.timeTo,
-          address: p.addresses.find((a) => a.id === p.addressId)?.text ?? null,
+          addressId: p.addressId,
         }
       : null;
+    const addresses = p?.addresses ?? [];
+    // Indirizzo principale di consegna: primo indirizzo attivo con tipologia «consegna».
+    const mainDelivery = addresses.find((a) => a.functions.includes("consegna"))?.id ?? null;
     setDrafts((prev) => {
       const next = { ...prev };
       for (const s of data.suppliers) {
@@ -294,9 +341,11 @@ export function GenerateOrdersDialog({
           delivery: old?.delivery ?? {
             ...deliveryDefaults({
               today,
-              list: { date: data.delivery.date, from: data.delivery.time_from, to: data.delivery.time_to, address: data.delivery.address_text },
+              list: { date: data.delivery.date, from: data.delivery.time_from, to: data.delivery.time_to, address: data.delivery.address_text, addressId: data.delivery.address_id },
               lastOrder: lastOrders.data?.[s.supplier_record_id] ?? null,
               company,
+              addresses,
+              mainDeliveryAddressId: mainDelivery,
             }),
             notes: "",
           },
@@ -350,6 +399,10 @@ export function GenerateOrdersDialog({
             const q = Number(d.lines[l.assignment_id]?.quantity.replace(",", "."));
             return Number.isFinite(q) && q > 0 && q < l.quantity;
           });
+          // «Altro indirizzo…»: la creazione ripiega sull'indirizzo della Lista; il collegamento si svuota subito dopo.
+          if (!res.already_exists && d.delivery.addressId === null && data.delivery.address_id) {
+            await runUpdate({ data: { orderId: res.order_id, lines: [], delivery: toDeliveryPayload(d.delivery) } });
+          }
           if (reduced.length && !res.already_exists) {
             const { data: rows } = await supabase
               .from("purchase_order_items")
@@ -504,7 +557,7 @@ export function GenerateOrdersDialog({
                           <span className="font-normal text-muted-foreground">· {s.lines.length} {s.lines.length === 1 ? "prodotto" : "prodotti"}</span>
                         </label>
                         <div className="mt-2">
-                          <DeliveryFields value={d.delivery} disabled={!d.selected} onChange={(delivery) => setDraft(s.supplier_record_id, (x) => ({ ...x, delivery }))} />
+                          <DeliveryFields addresses={prefs.data?.addresses ?? []} value={d.delivery} disabled={!d.selected} onChange={(delivery) => setDraft(s.supplier_record_id, (x) => ({ ...x, delivery }))} />
                         </div>
                         <Collapsible>
                           <CollapsibleTrigger asChild>
@@ -652,6 +705,7 @@ type DraftRow = {
   delivery_time_from: string | null;
   delivery_time_to: string | null;
   delivery_address_text: string | null;
+  destination_address_id: string | null;
   supplier_notes: string | null;
   supplier_records: { legal_name: string | null } | null;
 };
@@ -691,7 +745,7 @@ function DraftOrderEditor({
       const [o, items] = await Promise.all([
         supabase
           .from("purchase_orders")
-          .select("id, number, status, supplier_record_id, relation_id, shopping_list_id, delivery_date, delivery_time_from, delivery_time_to, delivery_address_text, supplier_notes, supplier_records(legal_name)")
+          .select("id, number, status, supplier_record_id, relation_id, shopping_list_id, delivery_date, delivery_time_from, delivery_time_to, delivery_address_text, destination_address_id, supplier_notes, supplier_records(legal_name)")
           .eq("id", orderId)
           .single(),
         supabase
@@ -723,8 +777,11 @@ function DraftOrderEditor({
   const [state, setState] = useState<DraftEditState | null>(null);
   useEffect(() => {
     if (state || !order.data) return;
-    setState(draftStateFromSaved(order.data.order, order.data.items));
+    const saved = draftStateFromSaved(order.data.order, order.data.items);
+    const delivery: Delivery = { ...saved.delivery, addressId: order.data.order.destination_address_id };
+    setState({ ...saved, delivery });
   }, [order.data, state]);
+  const editPrefs = useDeliveryPreferences(companyId);
 
   const isB2b = Boolean(order.data?.order.relation_id);
   const dirty = isDraftDirty(state, order.data?.order ?? null, order.data?.items ?? []);
@@ -815,7 +872,7 @@ function DraftOrderEditor({
           <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Caricamento…</p>
         ) : (
           <div className="space-y-3">
-            <DeliveryFields value={state.delivery} disabled={!editable} onChange={(delivery) => setState({ ...state, delivery })} />
+            <DeliveryFields addresses={editPrefs.data?.addresses ?? []} value={state.delivery} disabled={!editable} onChange={(delivery) => setState({ ...state, delivery })} />
             <div className="space-y-1">
               {order.data!.items.map((i) => (
                 <div key={i.id} className="grid grid-cols-[1fr_8rem] items-center gap-2 rounded border border-border/60 p-2 text-sm">
