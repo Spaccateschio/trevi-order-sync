@@ -209,3 +209,6 @@
 - [x] 31 test pertinenti e build automatica OK; verificati 390/607/1280 px, entrambe le viste prima/dopo scroll, nessun overflow o errore a schermo. Typecheck separato non disponibile nei segnali automatici. Nessuna pubblicazione. Durante la prova una bozza temporanea è stata salvata dall'autosalvataggio esistente e poi rimossa; nessun conteggio confermato.
 
 - [x] 14/10 — Inventario: «Tutti» mostra anche gli articoli dei fornitori collegati (Mostra altri), ricerca su tutte le card, «Togli i filtri» quando la vista è vuota (solo anteprima)
+
+- [x] 14/10 — «Genera ordini»: menu Luogo con indirizzi aziendali attivi + «Altro indirizzo…», precompilazione Lista → ultimo ordine → Preferenze → indirizzo principale di consegna; update_draft_order accetta address_id (solo anteprima)
+- [ ] Futuro (non approvato): Consegna/Ritiro sull'ordine; campo pickup_address_id separato per indirizzi del fornitore; creazione e modifica bozze per entrambe le modalità
