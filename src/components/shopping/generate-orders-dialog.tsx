@@ -278,6 +278,7 @@ export function GenerateOrdersDialog({
 
   const [step, setStep] = useState<"avviso" | "fornitori">("avviso");
   const [drafts, setDrafts] = useState<Record<string, SupplierDraft>>({});
+  const [rebuild, setRebuild] = useState(0);
   const [editingOrder, setEditingOrder] = useState<string | null>(null);
   // Una chiave per fornitore finché la generazione non riesce: ripetere il clic restituisce lo stesso ordine.
   const keys = useRef<Record<string, string>>({});
@@ -354,7 +355,7 @@ export function GenerateOrdersDialog({
       }
       return next;
     });
-  }, [preview.data, prefsReady, lastReady, prefs.data, lastOrders.data]);
+  }, [preview.data, prefsReady, lastReady, prefs.data, lastOrders.data, rebuild]);
 
   const refresh = () =>
     Promise.all([
@@ -427,6 +428,8 @@ export function GenerateOrdersDialog({
     onSuccess: async ({ done, failed }) => {
       setDrafts({});
       await refresh();
+      // Ricostruisce sempre le card dai dati attuali, anche se identici a prima (es. tentativo fallito).
+      setRebuild((n) => n + 1);
       if (done.length) toast.success(`Bozze generate: ${done.join(", ")}`);
       for (const f of failed) toast.error(f);
     },
