@@ -407,6 +407,13 @@
       "when": 1791987776383,
       "tag": "0057_fix_generate_supplier_order_safeupdate",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1791989156811,
+      "tag": "0058_direct_purchase_documents",
+      "breakpoints": true
     }
   ]
 }

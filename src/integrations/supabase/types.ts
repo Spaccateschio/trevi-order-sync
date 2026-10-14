@@ -1441,6 +1441,204 @@ export type Database = {
           },
         ]
       }
+      direct_purchase_items: {
+        Row: {
+          active_source_item_id: string | null
+          company_id: string
+          created_at: string
+          direct_purchase_id: string
+          id: string
+          notes: string | null
+          planned_quantity: number | null
+          planned_unit_code: string | null
+          planned_unit_id: string | null
+          price_unit_id: string | null
+          product_code: string | null
+          product_id: string | null
+          product_name: string
+          quantity: number | null
+          sort_order: number
+          source_item_id: string | null
+          unit_id: string | null
+          unit_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          active_source_item_id?: string | null
+          company_id: string
+          created_at?: string
+          direct_purchase_id: string
+          id?: string
+          notes?: string | null
+          planned_quantity?: number | null
+          planned_unit_code?: string | null
+          planned_unit_id?: string | null
+          price_unit_id?: string | null
+          product_code?: string | null
+          product_id?: string | null
+          product_name: string
+          quantity?: number | null
+          sort_order?: number
+          source_item_id?: string | null
+          unit_id?: string | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active_source_item_id?: string | null
+          company_id?: string
+          created_at?: string
+          direct_purchase_id?: string
+          id?: string
+          notes?: string | null
+          planned_quantity?: number | null
+          planned_unit_code?: string | null
+          planned_unit_id?: string | null
+          price_unit_id?: string | null
+          product_code?: string | null
+          product_id?: string | null
+          product_name?: string
+          quantity?: number | null
+          sort_order?: number
+          source_item_id?: string | null
+          unit_id?: string | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_purchase_items_active_source_item_id_fkey"
+            columns: ["active_source_item_id"]
+            isOneToOne: true
+            referencedRelation: "shopping_list_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_purchase_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_purchase_items_direct_purchase_id_fkey"
+            columns: ["direct_purchase_id"]
+            isOneToOne: false
+            referencedRelation: "direct_purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_purchase_items_planned_unit_id_fkey"
+            columns: ["planned_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_purchase_items_price_unit_id_fkey"
+            columns: ["price_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_purchase_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_purchase_items_source_item_id_fkey"
+            columns: ["source_item_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_list_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_purchase_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      direct_purchases: {
+        Row: {
+          cancelled_at: string | null
+          cancelled_by: string | null
+          company_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          created_by: string | null
+          generation_key: string | null
+          id: string
+          notes: string | null
+          number: string
+          purchase_date: string | null
+          purchased_where: string | null
+          shopping_list_id: string | null
+          status: Database["public"]["Enums"]["direct_purchase_status"]
+          total_paid: number | null
+          updated_at: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          company_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          generation_key?: string | null
+          id?: string
+          notes?: string | null
+          number: string
+          purchase_date?: string | null
+          purchased_where?: string | null
+          shopping_list_id?: string | null
+          status?: Database["public"]["Enums"]["direct_purchase_status"]
+          total_paid?: number | null
+          updated_at?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          company_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          generation_key?: string | null
+          id?: string
+          notes?: string | null
+          number?: string
+          purchase_date?: string | null
+          purchased_where?: string | null
+          shopping_list_id?: string | null
+          status?: Database["public"]["Enums"]["direct_purchase_status"]
+          total_paid?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_purchases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_purchases_shopping_list_id_fkey"
+            columns: ["shopping_list_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goods_receipt_items: {
         Row: {
           company_id: string
@@ -4535,6 +4733,8 @@ export type Database = {
           company_id: string
           created_at: string
           created_by: string | null
+          direct_purchase_doc_id: string | null
+          direct_purchase_item_id: string | null
           id: string
           item_id: string | null
           list_id: string
@@ -4552,6 +4752,8 @@ export type Database = {
           company_id: string
           created_at?: string
           created_by?: string | null
+          direct_purchase_doc_id?: string | null
+          direct_purchase_item_id?: string | null
           id?: string
           item_id?: string | null
           list_id: string
@@ -4569,6 +4771,8 @@ export type Database = {
           company_id?: string
           created_at?: string
           created_by?: string | null
+          direct_purchase_doc_id?: string | null
+          direct_purchase_item_id?: string | null
           id?: string
           item_id?: string | null
           list_id?: string
@@ -4588,6 +4792,20 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_direct_purchases_direct_purchase_doc_id_fkey"
+            columns: ["direct_purchase_doc_id"]
+            isOneToOne: false
+            referencedRelation: "direct_purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_direct_purchases_direct_purchase_item_id_fkey"
+            columns: ["direct_purchase_item_id"]
+            isOneToOne: true
+            referencedRelation: "direct_purchase_items"
             referencedColumns: ["id"]
           },
           {
@@ -5915,6 +6133,10 @@ export type Database = {
         Args: { _assignment_id: string; _exclude_line_id?: string }
         Returns: number
       }
+      _company_unit_active: {
+        Args: { _company_id: string; _unit_id: string }
+        Returns: boolean
+      }
       _delivery_open_core: {
         Args: {
           _actor_user_id: string
@@ -5948,6 +6170,10 @@ export type Database = {
           _notes: string
         }
         Returns: string
+      }
+      _direct_purchase_actor_ok: {
+        Args: { _company_id: string }
+        Returns: boolean
       }
       _ensure_sole_supplier_preferred: {
         Args: { _product_id: string }
@@ -6223,6 +6449,7 @@ export type Database = {
         Args: { _invitation_id: string }
         Returns: undefined
       }
+      cancel_direct_purchase: { Args: { _id: string }; Returns: Json }
       change_draft_supplier: {
         Args: {
           _generation_key: string
@@ -6291,6 +6518,7 @@ export type Database = {
         Args: { _assignment_id: string; _confirm?: boolean }
         Returns: Json
       }
+      confirm_direct_purchase: { Args: { _id: string }; Returns: Json }
       confirm_goods_receipt: {
         Args: { _actor_user_id?: string; _receipt_id: string }
         Returns: string
@@ -6509,6 +6737,14 @@ export type Database = {
           _token_hash: string
         }
         Returns: string
+      }
+      generate_direct_purchase_draft: {
+        Args: {
+          _generation_key: string
+          _item_ids?: string[]
+          _list_id: string
+        }
+        Returns: Json
       }
       generate_invite_code: { Args: never; Returns: string }
       generate_supplier_order: {
@@ -7966,6 +8202,10 @@ export type Database = {
         Args: { _company_id: string; _link_id: string }
         Returns: Json
       }
+      update_direct_purchase_draft: {
+        Args: { _header: Json; _id: string; _lines?: Json }
+        Returns: Json
+      }
       update_draft_order: {
         Args: { _delivery?: Json; _lines?: Json; _order_id: string }
         Returns: Json
@@ -7991,6 +8231,7 @@ export type Database = {
         | "rettificata"
         | "accettata"
         | "rifiutata"
+      direct_purchase_status: "bozza" | "confermato" | "annullato"
       entity_status: "attivo" | "disattivato" | "revocato"
       goods_receipt_status: "bozza" | "confermato"
       inventory_movement_type:
@@ -8229,6 +8470,7 @@ export const Constants = {
         "accettata",
         "rifiutata",
       ],
+      direct_purchase_status: ["bozza", "confermato", "annullato"],
       entity_status: ["attivo", "disattivato", "revocato"],
       goods_receipt_status: ["bozza", "confermato"],
       inventory_movement_type: [
