@@ -15,6 +15,8 @@ const delivery = z.object({
   time_to: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
   address_text: z.string().trim().max(300).nullable(),
   notes: z.string().trim().max(1000).nullable(),
+  /** Indirizzo aziendale scelto: assente = invariato; null = «Altro indirizzo…» (testo libero). Verificato dal database. */
+  address_id: uuid.nullable().optional(),
 });
 
 export type GenerationLine = {
