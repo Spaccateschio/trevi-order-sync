@@ -194,3 +194,7 @@
 - [x] Ricerca nei cataloghi fornitori: «Aggiungi al conteggio» (admin+operatore, inventario aperto) / «Aggiungi ai miei prodotti» (solo admin)
 - [ ] RIMANDATO: segnalazione prodotto mancante all'amministratore (nome, quantità, nota/foto), senza creare prodotti né bloccare la chiusura. In attesa di autorizzazione.
 - [ ] Pubblicazione: in attesa del via dell'utente
+
+
+## 14/10 — Ripristino filtri fissi Inventario (solo anteprima)
+- [x] Ripristinati gli stessi filtri insieme alla ricerca rapida durante lo scorrimento; verificati Inventario reale 3 EMME, menu Filtri e passaggio a Tutti, schermi 390/718/1280 px senza overflow. 21 test superati, build automatica OK. Nessun conteggio o dato operativo scritto, nessuna pubblicazione.
