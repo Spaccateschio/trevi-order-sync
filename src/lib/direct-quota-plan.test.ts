@@ -14,7 +14,7 @@ const sup = (linkId: string, units: string[] = [KG], allowManual = true): PickSu
   sourceLinked: true,
   purchasable: true,
   allowManual,
-  units: units.map((u) => ({ unitId: u, code: u === KG ? "kg" : "cs" })),
+  units: units.map((u) => ({ unitId: u, code: u === CS ? "cs" : "kg" })),
   isPreferred: true,
 });
 
