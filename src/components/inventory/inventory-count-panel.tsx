@@ -3190,16 +3190,16 @@ function ProductCard({
         locked && "border-primary/60 bg-primary/15",
       )}
     >
-      <div className="grid grid-cols-[48px_minmax(0,1fr)_fit-content(45%)] items-center gap-2">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
         {imageUrl ? (
-          <img src={imageUrl} alt="" loading="lazy" className="size-12 rounded-sm border border-border object-cover" />
+          <img src={imageUrl} alt="" loading="lazy" className="size-10 shrink-0 rounded-sm border border-border object-cover @[340px]:size-12" />
         ) : (
-          <span className="flex size-12 items-center justify-center rounded-sm border border-border bg-muted">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-sm border border-border bg-muted @[340px]:size-12">
             <Package className="size-5 text-muted-foreground" aria-hidden="true" />
           </span>
         )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
+        <div className="min-w-0">
+          <p className="truncate font-display text-[13px] font-bold uppercase leading-tight @[340px]:text-sm">{name}</p>
           {showCard ? (
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
               <span className="truncate text-[11px] font-semibold leading-tight text-foreground">{cardTitle(row)}</span>
@@ -3251,7 +3251,7 @@ function ProductCard({
             </p>
           ) : null}
         </div>
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
+        <div className="flex shrink-0 items-center justify-end gap-0.5">
           <PriceTrendIcon
             series={priceSeries}
             label={`Andamento prezzo di ${name}`}
@@ -3273,17 +3273,6 @@ function ProductCard({
               <Star className={cn("size-3.5", row.is_favorite && "fill-current")} />
             </Button>
           ) : null}
-          <span
-            className={cn(
-              "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
-              !isConfirmed && "bg-muted text-muted-foreground",
-              isConfirmed && !hasDifference && "bg-success/15 text-success",
-              hasDifference && "bg-destructive/10 text-destructive",
-              needsRecount && "bg-primary/15 text-primary",
-            )}
-          >
-            {previewStatus ?? status}
-          </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -3340,23 +3329,33 @@ function ProductCard({
           ) : null}
         </div>
       </div>
-      {(isVisible("non_conforme") && row.non_compliant) || (isVisible("proposta") && proposalOpen) ? (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {isVisible("non_conforme") && row.non_compliant ? (
-            <span className="rounded-sm bg-destructive/10 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-destructive">
-              Non conforme
-              {row.non_compliant_quantity === null
-                ? ""
-                : ` ${formatQuantity(Number(row.non_compliant_quantity), unit)}`}
-            </span>
-          ) : null}
-          {isVisible("proposta") && proposalOpen ? (
-            <span className="rounded-sm bg-primary/15 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-primary">
-              Da proporre per acquisto
-            </span>
-          ) : null}
-        </div>
-      ) : null}
+      {/* Stato della card su una riga propria: nella card stretta non ruba spazio al nome. */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        <span
+          className={cn(
+            "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
+            !isConfirmed && "bg-muted text-muted-foreground",
+            isConfirmed && !hasDifference && "bg-success/15 text-success",
+            hasDifference && "bg-destructive/10 text-destructive",
+            needsRecount && "bg-primary/15 text-primary",
+          )}
+        >
+          {previewStatus ?? status}
+        </span>
+        {isVisible("non_conforme") && row.non_compliant ? (
+          <span className="rounded-sm bg-destructive/10 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-destructive">
+            Non conforme
+            {row.non_compliant_quantity === null
+              ? ""
+              : ` ${formatQuantity(Number(row.non_compliant_quantity), unit)}`}
+          </span>
+        ) : null}
+        {isVisible("proposta") && proposalOpen ? (
+          <span className="rounded-sm bg-primary/15 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-primary">
+            Da proporre per acquisto
+          </span>
+        ) : null}
+      </div>
 
       {/* Card stretta (< 340 px): «Conferma» va a capo a tutta larghezza invece di comprimersi o perdere il testo. */}
       <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-1.5 @[340px]:grid-cols-[auto_minmax(110px,1fr)_auto_auto]">
