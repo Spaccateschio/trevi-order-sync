@@ -773,7 +773,7 @@ export function CardSuppliers({
               <DropdownMenuContent align="end">
                 {canWrite ? (
                   <DropdownMenuItem disabled={busy} onSelect={() => startEdit(s, assignment)}>
-                    <Pencil aria-hidden="true" /> Modifica
+                    <Pencil aria-hidden="true" /> Modifica quantità
                   </DropdownMenuItem>
                 ) : null}
                 {canWrite && assignment ? (
