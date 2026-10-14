@@ -175,7 +175,7 @@ export const commitShoppingListItemQuantity = createServerFn({ method: "POST" })
         expectedAssignCount: z.number().int().min(0),
         expectedAssignAt: z.string().nullable(),
         quotas: z.array(commitQuota).max(50),
-        direct: z.object({ quantity: z.number().positive(), unit_id: z.string().uuid().nullable(), unit_code: z.string().trim().max(20).nullable() }).nullable(),
+        direct: z.object({ quantity: z.number().min(0), unit_id: z.string().uuid().nullable(), unit_code: z.string().trim().max(20).nullable() }).nullable(),
       })
       .parse(input),
   )

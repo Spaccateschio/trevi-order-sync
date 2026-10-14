@@ -16,12 +16,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
 import { type OverviewRow } from "@/lib/shopping-list";
-import { autoAssignItem } from "@/lib/shopping-auto-assign";
+import { autoAssignItem, planDirectQuotaRescale } from "@/lib/shopping-auto-assign";
 import { chooseListDestinations, matchesMemory, type SupplierMemory, clearDeselected, deselectedFor, markDeselected } from "@/lib/supplier-memory";
 import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
 import { readCardBundle, readCardDirectQuota, readCardLinkPrices, readCardB2BPrice, readCardPreference } from "@/lib/shopping-card-reads";
 import { Checkbox } from "@/components/ui/checkbox";
-import { assignShoppingListSupplier, setShoppingListDirectQuota, setShoppingListSupplierSelection } from "@/lib/shopping-list.functions";
+import { assignShoppingListSupplier, commitShoppingListItemQuantity, setShoppingListDirectQuota, setShoppingListSupplierSelection } from "@/lib/shopping-list.functions";
 
 /**
  * Sezione FORNITORI della card: solo presentazione + la stessa regola di salvataggio della finestra
@@ -1040,16 +1040,23 @@ export function CardSuppliers({
           itemId={row.item_id}
           editable={editable && !pending}
           unitCode={directUnit}
-          proposal={!target ? null : assignments.length ? (row.remaining !== null && row.remaining > 0 ? row.remaining : null) : target}
+          target={target ?? null}
+          remaining={row.remaining}
         />
         {pending ? <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p> : null}
       </section>
       <p className="text-xs">
         Stato: <span className="font-semibold">{rowLabel(factsFromRow(row, Boolean(lockedAt)))}</span>
         {row.status === "da_verificare" ? (
-          <span className="block text-[11px] text-muted-foreground">
-            Le quote usano U.M. diverse da quella da acquistare ({directUnit}) e senza conversione non si sommano: correggi le quote o conferma la quantità in «Genera ordini».
-          </span>
+          row.remaining !== null && row.remaining < 0 ? (
+            <span className="block text-[11px] text-muted-foreground">
+              Quantità superiore di {qty(-row.remaining)} {directUnit} rispetto a «Da acquistare»: riduci le quote o togli un acquisto diretto.
+            </span>
+          ) : (
+            <span className="block text-[11px] text-muted-foreground">
+              Le quote usano U.M. diverse da quella da acquistare ({directUnit}) e senza conversione non si sommano: correggi le quote o conferma la quantità in «Genera ordini».
+            </span>
+          )
         ) : null}
         {row.status === "parziale" && row.remaining !== null ? ` · ${qty(row.remaining)} ${directUnit} da assegnare` : ""}
       </p>
@@ -1078,47 +1085,105 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T) {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as { [K in keyof T]: Exclude<T[K], undefined> } & { _company_id: string; _action: string };
 }
 
-/**
- * Quota «Acquisto diretto» scelta esplicitamente per questa riga della Lista (una sola, modificabile
- * o rimovibile finché la Lista è aperta). Non tocca i collegamenti fornitore. Lo stato della riga
- * resta calcolato solo dal database.
- */
 async function readDirectQuota(itemId: string) {
   return (await readCardDirectQuota(itemId)) ?? null;
 }
 
 /**
  * «Acquisto diretto (compro io)» come casella: vale solo per questa Lista, non è mai «completato»
- * finché non viene registrato esplicitamente in «Genera ordini». Spunta = quota proposta
- * (tutta la quantità se non ci sono altre quote, altrimenti il residuo); senza proposta si scrive a mano.
+ * finché non viene registrato esplicitamente in «Genera ordini». La quota si salva da sola uscendo
+ * dal campo o con Invio, come le quote dei fornitori: un'unica operazione (commit) che salva anche
+ * le quote fornitore ricalcolate sul residuo (planDirectQuotaRescale). Eccedenza ammessa con avviso.
  */
-function DirectQuota({ companyId, itemId, editable, unitCode, proposal }: { companyId: string; itemId: string; editable: boolean; unitCode: string; proposal: number | null }) {
+function DirectQuota({ companyId, itemId, editable, unitCode, target, remaining }: { companyId: string; itemId: string; editable: boolean; unitCode: string; target: number | null; remaining: number | null }) {
   const queryClient = useQueryClient();
-  const run = useServerFn(setShoppingListDirectQuota);
+  const runSimple = useServerFn(setShoppingListDirectQuota);
+  const runCommit = useServerFn(commitShoppingListItemQuantity);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const quota = useQuery({ queryKey: ["shopping-direct-quota", itemId], staleTime: 60_000, queryFn: () => readDirectQuota(itemId) });
+  const invalidate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["shopping-direct-quota", itemId] }),
+      queryClient.invalidateQueries({ queryKey: ["shopping-extras-direct"] }),
+      queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+      queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+      queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", itemId] }),
+    ]);
   const save = useMutation({
-    mutationFn: (quantity: number | null) =>
-      run({ data: { companyId, itemId, quantity, unitId: null, unitCode: null } }),
-    onSuccess: async () => {
+    mutationFn: async (quantity: number | null) => {
+      // Senza quantità confermata non c'è nulla da ripartire: quota diretta da sola.
+      if (!target) {
+        await runSimple({ data: { companyId, itemId, quantity, unitId: null, unitCode: null } });
+        return null;
+      }
+      const plan = await planDirectQuotaRescale(companyId, itemId, quantity);
+      if (plan.result.kind === "saltato") throw new Error(plan.result.reason);
+      if (plan.result.kind === "invariato") return plan.result;
+      // Versione delle quote letta ora: il database rifiuta se cambiano nel frattempo.
+      const { data: quotaRows, error: quotaErr } = await supabase.from("shopping_list_item_suppliers").select("updated_at").eq("item_id", itemId);
+      if (quotaErr) throw new Error(quotaErr.message);
+      const { data: itemNow, error: itemErr } = await supabase
+        .from("shopping_list_items")
+        .select("decided_quantity, decided_unit_id, decided_unit_code")
+        .eq("id", itemId)
+        .maybeSingle();
+      if (itemErr || !itemNow) throw new Error(itemErr?.message ?? "Riga non trovata");
+      const direct = plan.collect.find((w) => w.kind === "diretto");
+      await runCommit({
+        data: {
+          companyId,
+          itemId,
+          quantity: itemNow.decided_quantity === null ? null : Number(itemNow.decided_quantity),
+          unitId: (itemNow.decided_unit_id as string | null) ?? null,
+          unitCode: (itemNow.decided_unit_code as string | null) ?? "",
+          expectedQuantity: itemNow.decided_quantity === null ? null : Number(itemNow.decided_quantity),
+          expectedAssignCount: quotaRows?.length ?? 0,
+          expectedAssignAt: (quotaRows ?? []).map((r) => r.updated_at as string).sort().at(-1) ?? null,
+          quotas: plan.collect.flatMap((w) =>
+            w.kind === "fornitore" ? [{ link_id: w.linkId, assignment_id: w.assignmentId, purchase_quantity: w.purchaseQuantity, purchase_unit_id: w.purchaseUnitId, manual_unit_code: w.manualUnitCode }] : [],
+          ),
+          direct: direct ? { quantity: direct.quantity, unit_id: direct.unitId, unit_code: direct.unitCode } : null,
+        },
+      });
+      return plan.result;
+    },
+    onSuccess: async (result) => {
       setEditing(false);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["shopping-direct-quota", itemId] }),
-        queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
-      ]);
+      setValue("");
+      await invalidate();
+      if (result?.kind === "da_sistemare") toast.info(`Acquisto diretto salvato. ${result.reason}`);
+      else if (result) toast.success("Acquisto diretto salvato");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Salvataggio non riuscito"),
   });
   const current = quota.data ?? null;
   const checked = Boolean(current) || editing;
 
+  const startEdit = () => {
+    // Spunta senza salvare: proponi il residuo (0 se i fornitori hanno già tutto).
+    const residual = current ? current.quantity : remaining !== null && remaining > 0 ? remaining : 0;
+    setValue(String(residual));
+    setEditing(true);
+  };
+  const maybeSave = () => {
+    if (!editing || save.isPending) return;
+    const raw = value.trim();
+    const n = raw === "" ? null : parseQuantity(raw);
+    if (raw !== "" && (n === null || n < 0)) { toast.error("Quantità non valida"); return; }
+    const newValue = n === null || n === 0 ? null : n;
+    const oldValue = current ? current.quantity : null;
+    if ((newValue ?? null) === (oldValue ?? null)) { setEditing(false); return; }
+    save.mutate(newValue);
+  };
+  const saving = save.isPending;
+
   return (
     <div className="space-y-1 rounded-sm border border-dashed border-border px-1.5 py-1">
       <div className="flex flex-wrap items-center gap-1 text-xs">
         <Checkbox
           checked={checked}
-          disabled={!editable || save.isPending}
+          disabled={!editable || saving}
           aria-label={checked ? "Togli acquisto diretto" : "Scegli acquisto diretto"}
           onCheckedChange={(v) => {
             if (v !== true) {
@@ -1126,8 +1191,7 @@ function DirectQuota({ companyId, itemId, editable, unitCode, proposal }: { comp
               if (current) save.mutate(null);
               return;
             }
-            if (proposal && proposal > 0) save.mutate(proposal);
-            else { setValue(""); setEditing(true); }
+            startEdit();
           }}
         />
         <span className="font-semibold">Acquisto diretto (compro io)</span>
@@ -1138,7 +1202,7 @@ function DirectQuota({ companyId, itemId, editable, unitCode, proposal }: { comp
               className="rounded bg-primary px-1.5 py-0.5 font-bold text-primary-foreground disabled:opacity-70"
               disabled={!editable}
               aria-label="Modifica quota diretta"
-              onClick={() => { setValue(String(current.quantity)); setEditing(true); }}
+              onClick={startEdit}
             >
               {qty(current.quantity)} {current.unit}
             </button>
@@ -1147,24 +1211,29 @@ function DirectQuota({ companyId, itemId, editable, unitCode, proposal }: { comp
         ) : null}
       </div>
       {editing ? (
-        <form
-          className="flex flex-wrap items-center gap-1"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const n = parseQuantity(value);
-            if (n === null || n < 0) { toast.error("Quantità non valida"); return; }
-            save.mutate(n === 0 ? null : n);
-          }}
-        >
-          <Input autoFocus inputMode="decimal" className="h-8 w-20" value={value} onChange={(e) => setValue(e.target.value)} aria-label="Quantità acquisto diretto" />
+        <div className="flex flex-wrap items-center gap-1">
+          <Input
+            autoFocus
+            inputMode="decimal"
+            className="h-8 w-20"
+            value={value}
+            disabled={saving}
+            onChange={(e) => setValue(e.target.value)}
+            aria-label="Quantità acquisto diretto"
+            onBlur={maybeSave}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                maybeSave();
+              }
+            }}
+          />
           <span className="text-xs">{current?.unit || unitCode}</span>
-          <Button type="submit" size="sm" className="h-8 px-2" disabled={save.isPending} aria-label="Salva quota diretta">
-            <Check className="size-3.5" aria-hidden="true" />
-          </Button>
-          <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditing(false)} aria-label="Annulla">
+          <Button type="button" size="sm" variant="ghost" className="h-8 px-2" disabled={saving} onClick={() => setEditing(false)} aria-label="Annulla">
             <X className="size-3.5" aria-hidden="true" />
           </Button>
-        </form>
+          {saving ? <span className="text-[11px] text-muted-foreground">Salvataggio in corso…</span> : null}
+        </div>
       ) : null}
     </div>
   );
