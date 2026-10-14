@@ -198,3 +198,6 @@
 
 ## 14/10 — Ripristino filtri fissi Inventario (solo anteprima)
 - [x] Ripristinati gli stessi filtri insieme alla ricerca rapida durante lo scorrimento; verificati Inventario reale 3 EMME, menu Filtri e passaggio a Tutti, schermi 390/718/1280 px senza overflow. 21 test superati, build automatica OK. Nessun conteggio o dato operativo scritto, nessuna pubblicazione.
+
+## 14/10 — Card Inventario più strette (solo anteprima)
+- [x] Griglia a larghezza automatica: card strette (250 px) quando sotto il nome non c'è nulla da leggere, più larghe (320 px) quando almeno metà delle card in vista ha scritte; tutte sempre della stessa misura. «Zona abituale: nessuna» sostituita da «+ zona»; nome a tutta larghezza con comandi a destra, immagine e scritte sotto, badge di stato su riga propria. Verificato 390/848/1480 px: 3 card per riga a 848 px (257×315 tutte uguali), campo quantità, «Conferma» e +1 +3 +5 +10 interi. 198 test, typecheck pulito, build OK. Nessun dato toccato, nessuna pubblicazione.
