@@ -104,7 +104,7 @@ export function InventoryExtraCards({
           </p>
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {possible.slice(0, MAX_SHOWN).map((card) => (
-              <article key={`${card.productId}-${card.linkId ?? "nofornitore"}`} className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/40 p-2 opacity-80">
+              <article key={`${card.productId}-${card.linkId ?? "nofornitore"}`} className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-muted/40 p-2 opacity-80">
                 <Package className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-display text-sm font-bold uppercase leading-tight">{card.description?.trim() || card.code}</p>
@@ -112,7 +112,7 @@ export function InventoryExtraCards({
                     Cod. {card.code} · {card.supplierName ?? "Senza fornitore"}
                   </p>
                 </div>
-                <Button size="sm" variant="outline" className="h-8 shrink-0 text-xs" disabled={busy !== null} onClick={() => addPossible(card)}>
+                <Button size="sm" variant="outline" className="h-8 w-full shrink-0 text-xs sm:w-auto" disabled={busy !== null} onClick={() => addPossible(card)}>
                   <Plus aria-hidden="true" /> Aggiungi al conteggio
                 </Button>
               </article>
@@ -131,7 +131,7 @@ export function InventoryExtraCards({
           </p>
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {catalog.slice(0, MAX_SHOWN).map((candidate) => (
-              <article key={candidate.sellerProductId} className="flex items-center gap-2 rounded-md border border-dashed border-primary/40 bg-card p-2">
+              <article key={candidate.sellerProductId} className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-primary/40 bg-card p-2">
                 <Store className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-display text-sm font-bold uppercase leading-tight">{candidate.description?.trim() || candidate.code}</p>
@@ -140,11 +140,11 @@ export function InventoryExtraCards({
                   </p>
                 </div>
                 {sessionId ? (
-                  <Button size="sm" className="h-8 shrink-0 text-xs" disabled={busy !== null} onClick={() => addFromCatalog(candidate)}>
+                  <Button size="sm" className="h-8 w-full shrink-0 text-xs sm:w-auto" disabled={busy !== null} onClick={() => addFromCatalog(candidate)}>
                     <Plus aria-hidden="true" /> Aggiungi al conteggio
                   </Button>
                 ) : isAdmin ? (
-                  <Button size="sm" variant="outline" className="h-8 shrink-0 text-xs" disabled={busy !== null} onClick={() => addFromCatalog(candidate)}>
+                  <Button size="sm" variant="outline" className="h-8 w-full shrink-0 text-xs sm:w-auto" disabled={busy !== null} onClick={() => addFromCatalog(candidate)}>
                     <Plus aria-hidden="true" /> Aggiungi ai miei prodotti
                   </Button>
                 ) : (
