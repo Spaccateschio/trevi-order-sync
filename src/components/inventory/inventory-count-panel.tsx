@@ -2636,127 +2636,7 @@ function PhysicalCount({
     };
   }, []);
 
-  return (
-    <section className="space-y-2 pb-24 lg:pb-16">
-      <div
-        ref={stickyHeaderRef}
-        className={cn(
-          // Sotto la testata mobile (sticky top-0, h-14) e sempre con sfondo pieno.
-          "sticky top-14 z-10 rounded-md border bg-card px-3 py-2 shadow-sm lg:top-0",
-          completed ? "border-success/60" : "border-primary/20",
-        )}
-      >
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase leading-none text-muted-foreground">
-              {sessionActive ? "Inventario generale" : "Nessun inventario in corso"}
-            </p>
-            <h2 className="truncate font-display text-sm font-bold uppercase leading-tight sm:text-base">
-              {sessionActive ? sessionName : cycleLock.locked ? "Completa prima il ciclo acquisti" : "Scrivi una quantità per iniziare"}
-            </h2>
-          </div>
-          {sessionActive ? (
-            <div className="flex shrink-0 items-baseline gap-1.5">
-              <p className="text-lg font-bold leading-none sm:text-xl">
-                {generalCompleted} / {total}
-              </p>
-              <p className="text-[10px] font-semibold text-muted-foreground">{percentage}%</p>
-            </div>
-          ) : null}
-        </div>
-        {statusSlot}
-        {!sessionActive && lastClosed ? (
-          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1.5">
-            <div className="min-w-0 text-xs leading-tight text-muted-foreground">
-              <p className="text-[10px] font-semibold uppercase">Ultimo inventario · passato, non è il conteggio da fare ora</p>
-              <p className="font-medium text-foreground">
-                {lastClosed.finishedAt ? dateTimeShort(lastClosed.finishedAt) : lastClosed.name}
-              </p>
-              <p>
-                {lastClosed.author ? `Fatto da ${lastClosed.author} · ` : ""}
-                {lastClosed.counted} prodotti contati
-              </p>
-            </div>
-            <div className="flex shrink-0 gap-1.5">
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onViewLastClosed}>
-                Visualizza
-              </Button>
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onOpenInventoryHistory}>
-                Storico inventari
-              </Button>
-            </div>
-          </div>
-        ) : null}
-        {sessionActive ? (
-          <>
-            <Progress value={percentage} className="mt-1.5 h-2" />
-            <div className="mt-1.5 grid grid-cols-3 divide-x divide-border text-center text-[10px] leading-tight sm:text-xs">
-              <p>
-                <strong className="mr-1 text-sm sm:text-base">{unchanged}</strong>confermati
-              </p>
-              <p>
-                <strong className="mr-1 text-sm text-destructive sm:text-base">{generalDifferences}</strong>differenze
-              </p>
-              <p>
-                <strong className="mr-1 text-sm text-primary sm:text-base">{total - generalCompleted}</strong>mancanti
-              </p>
-            </div>
-            {(progress?.missing_unit ?? 0) > 0 ? (
-              <button
-                type="button"
-                onClick={() => onWorkFilterChange(workFilter === "missing_unit" ? "all" : "missing_unit")}
-                className="mt-1.5 block w-full cursor-pointer rounded-sm border border-warning/50 bg-warning/10 px-2 py-1 text-left text-[10px] font-semibold text-warning-foreground transition-colors hover:bg-warning/20"
-              >
-                {progress!.missing_unit} {progress!.missing_unit === 1 ? "prodotto senza" : "prodotti senza"} U.M.: la loro card resta bloccata,
-                ma l'inventario si può chiudere lo stesso.{" "}
-                <span className="underline underline-offset-2">
-                  {workFilter === "missing_unit" ? "Togli il filtro per vedere tutti i prodotti." : "Tocca qui per vedere quali sono."}
-                </span>
-              </button>
-            ) : null}
-          </>
-        ) : null}
-        {compactBar && (
-          <div className="mt-2 space-y-1.5 border-t border-border pt-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="h-9 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)}
-                placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto (barra fissa)" />
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div ref={topFiltersRef} className="relative rounded-md border border-border bg-card p-2">
-        <Search className="absolute left-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input className="h-10 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto" />
-      </div>
-
-      <div className="overflow-hidden rounded-md border border-border bg-card">
-        <div className="overflow-hidden rounded-md border border-border bg-card">
-          {sessionActive ? (
-            <div className="border-b border-border px-2 py-1 text-xs text-muted-foreground">
-              <p aria-live="polite">
-                <strong className="text-foreground">
-                  Vista attuale · {productView === "favorites" ? "Preferiti" : "Tutti"}{filtersActive ? " (filtrata)" : ""}
-                </strong>
-                {" · "}<strong className="text-foreground">{filteredSummary.cards}</strong> card da contare
-                {" · "}<strong className="text-foreground">{filteredSummary.confirmed}</strong> contate
-                {" · "}<strong className="text-primary">{filteredSummary.pending}</strong> mancanti
-                {" · "}{cardPercentage(filteredSummary)}%
-                {filteredSummary.products !== filteredSummary.cards ? ` · ${filteredSummary.products} prodotti` : ""}
-                {filteredSummary.differences ? ` · ${filteredSummary.differences} differenze` : ""}
-              </p>
-              {filtersActive ? (
-                <p className="mt-0.5">«Conferma inventario» controlla comunque tutte le card previste dalla sessione, anche quelle non visualizzate.</p>
-              ) : null}
-            </div>
-          ) : scope !== "Tutto l'inventario" ? (
-            <p className="border-b border-border px-2 py-1 text-xs text-muted-foreground">
-              <strong className="text-foreground">{scope}</strong> · {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? visibleRows.length} completati
-            </p>
-          ) : null}
+  const filterControls = (
           <div className="flex flex-wrap items-center gap-1.5 border-b border-border p-2">
             <div className="grid grid-cols-2 rounded-md border border-border p-0.5">
               <Button size="sm" className="h-8 text-xs" variant={productView === "favorites" ? "default" : "ghost"} onClick={() => onViewChange("favorites")}>
@@ -2871,6 +2751,131 @@ function PhysicalCount({
             </div>
             {void excludedCatalogCount}
           </div>
+  );
+
+  return (
+    <section className="space-y-2 pb-24 lg:pb-16">
+      <div
+        ref={stickyHeaderRef}
+        className={cn(
+          // Sotto la testata mobile (sticky top-0, h-14) e sempre con sfondo pieno.
+          "sticky top-14 z-10 rounded-md border bg-card px-3 py-2 shadow-sm lg:top-0",
+          completed ? "border-success/60" : "border-primary/20",
+        )}
+      >
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase leading-none text-muted-foreground">
+              {sessionActive ? "Inventario generale" : "Nessun inventario in corso"}
+            </p>
+            <h2 className="truncate font-display text-sm font-bold uppercase leading-tight sm:text-base">
+              {sessionActive ? sessionName : cycleLock.locked ? "Completa prima il ciclo acquisti" : "Scrivi una quantità per iniziare"}
+            </h2>
+          </div>
+          {sessionActive ? (
+            <div className="flex shrink-0 items-baseline gap-1.5">
+              <p className="text-lg font-bold leading-none sm:text-xl">
+                {generalCompleted} / {total}
+              </p>
+              <p className="text-[10px] font-semibold text-muted-foreground">{percentage}%</p>
+            </div>
+          ) : null}
+        </div>
+        {statusSlot}
+        {!sessionActive && lastClosed ? (
+          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1.5">
+            <div className="min-w-0 text-xs leading-tight text-muted-foreground">
+              <p className="text-[10px] font-semibold uppercase">Ultimo inventario · passato, non è il conteggio da fare ora</p>
+              <p className="font-medium text-foreground">
+                {lastClosed.finishedAt ? dateTimeShort(lastClosed.finishedAt) : lastClosed.name}
+              </p>
+              <p>
+                {lastClosed.author ? `Fatto da ${lastClosed.author} · ` : ""}
+                {lastClosed.counted} prodotti contati
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-1.5">
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onViewLastClosed}>
+                Visualizza
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onOpenInventoryHistory}>
+                Storico inventari
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {sessionActive ? (
+          <>
+            <Progress value={percentage} className="mt-1.5 h-2" />
+            <div className="mt-1.5 grid grid-cols-3 divide-x divide-border text-center text-[10px] leading-tight sm:text-xs">
+              <p>
+                <strong className="mr-1 text-sm sm:text-base">{unchanged}</strong>confermati
+              </p>
+              <p>
+                <strong className="mr-1 text-sm text-destructive sm:text-base">{generalDifferences}</strong>differenze
+              </p>
+              <p>
+                <strong className="mr-1 text-sm text-primary sm:text-base">{total - generalCompleted}</strong>mancanti
+              </p>
+            </div>
+            {(progress?.missing_unit ?? 0) > 0 ? (
+              <button
+                type="button"
+                onClick={() => onWorkFilterChange(workFilter === "missing_unit" ? "all" : "missing_unit")}
+                className="mt-1.5 block w-full cursor-pointer rounded-sm border border-warning/50 bg-warning/10 px-2 py-1 text-left text-[10px] font-semibold text-warning-foreground transition-colors hover:bg-warning/20"
+              >
+                {progress!.missing_unit} {progress!.missing_unit === 1 ? "prodotto senza" : "prodotti senza"} U.M.: la loro card resta bloccata,
+                ma l'inventario si può chiudere lo stesso.{" "}
+                <span className="underline underline-offset-2">
+                  {workFilter === "missing_unit" ? "Togli il filtro per vedere tutti i prodotti." : "Tocca qui per vedere quali sono."}
+                </span>
+              </button>
+            ) : null}
+          </>
+        ) : null}
+        {compactBar && (
+          <div className="mt-2 space-y-1.5 border-t border-border pt-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input className="h-9 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto (barra fissa)" />
+            </div>
+            {filterControls}
+          </div>
+        )}
+      </div>
+
+      <div ref={topFiltersRef} className="relative rounded-md border border-border bg-card p-2">
+        <Search className="absolute left-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input className="h-10 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto" />
+      </div>
+
+      <div className="overflow-hidden rounded-md border border-border bg-card">
+        <div className="overflow-hidden rounded-md border border-border bg-card">
+          {sessionActive ? (
+            <div className="border-b border-border px-2 py-1 text-xs text-muted-foreground">
+              <p aria-live="polite">
+                <strong className="text-foreground">
+                  Vista attuale · {productView === "favorites" ? "Preferiti" : "Tutti"}{filtersActive ? " (filtrata)" : ""}
+                </strong>
+                {" · "}<strong className="text-foreground">{filteredSummary.cards}</strong> card da contare
+                {" · "}<strong className="text-foreground">{filteredSummary.confirmed}</strong> contate
+                {" · "}<strong className="text-primary">{filteredSummary.pending}</strong> mancanti
+                {" · "}{cardPercentage(filteredSummary)}%
+                {filteredSummary.products !== filteredSummary.cards ? ` · ${filteredSummary.products} prodotti` : ""}
+                {filteredSummary.differences ? ` · ${filteredSummary.differences} differenze` : ""}
+              </p>
+              {filtersActive ? (
+                <p className="mt-0.5">«Conferma inventario» controlla comunque tutte le card previste dalla sessione, anche quelle non visualizzate.</p>
+              ) : null}
+            </div>
+          ) : scope !== "Tutto l'inventario" ? (
+            <p className="border-b border-border px-2 py-1 text-xs text-muted-foreground">
+              <strong className="text-foreground">{scope}</strong> · {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? visibleRows.length} completati
+            </p>
+          ) : null}
+          {filterControls}
 
 
           {cardLockState.canSave ? null : (
