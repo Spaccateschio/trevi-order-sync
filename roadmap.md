@@ -186,3 +186,11 @@
 - [x] Fase 3: rimando /vendite/prodotti ↔ /acquisti/prodotti senza cicli.
 - [ ] Futuro: «Importa da Danea» oggi richiede `company_sells` (controllo server in danea.functions.ts, l'import nasce come catalogo di vendita/listini). Valutare l'import del catalogo Danea anche per aziende solo Acquisti (es. 3 EMME). Regola non modificata.
 - [ ] B2B 3 EMME: verificare a schermo Acquisti → Catalogo fornitori → Trevi (nessuna modifica). Correzioni «Cliente associato»/articoli in attesa di autorizzazione.
+
+## 14/10 — Inventario: aggiunte al conteggio, stelle, filtri (solo anteprima)
+- [x] Una sola barra filtri; zone abituali in menu a tendina
+- [x] Nell'Inventario solo la stella del prodotto (stella della card nascosta, dati invariati)
+- [x] «Tutti»: card fuori sessione con «Aggiungi al conteggio»; avvio «Inventario completo» (amministratore)
+- [x] Ricerca nei cataloghi fornitori: «Aggiungi al conteggio» (admin+operatore, inventario aperto) / «Aggiungi ai miei prodotti» (solo admin)
+- [ ] RIMANDATO: segnalazione prodotto mancante all'amministratore (nome, quantità, nota/foto), senza creare prodotti né bloccare la chiusura. In attesa di autorizzazione.
+- [ ] Pubblicazione: in attesa del via dell'utente
