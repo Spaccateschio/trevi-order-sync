@@ -103,6 +103,7 @@ describe("Acquisto diretto: ripartizione con i fornitori", () => {
   test("riga senza U.M. decisa: quota del fornitore con U.M. che combacia per codice", () => {
     const plan = planDirectChange({
       ...base,
+      decidedUnitId: null,
       directOld: null,
       directNew: 5,
       suppliers: [sup("trevi", [KG_OTHER])],
