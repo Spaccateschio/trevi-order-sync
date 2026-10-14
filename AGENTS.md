@@ -34,6 +34,4 @@
 - Per prodotti a peso variabile il totale economico non nasce dall'ordine. Il valore reale viene determinato al carico sulla quantità/peso effettivamente ricevuto.
 - Prezzo riga d'ordine B2B: solo applicable_b2b_price (netto, listino assegnato, articolo pubblicato) sull'articolo del collegamento usato, letto prima di ogni scrittura in close_shopping_list / create_purchase_orders_from_list; nessun fallback: senza prezzo «Prezzo su richiesta».
 - Regole U.M. di vendita: vedi src/components/products/AGENTS.md.
-- Zone abituali prodotto: solo product_habitual_locations, scritte solo da set_product_habitual_locations (admin/operatore, una sola principale tra le abituali, mai scelta in automatico); informazione organizzativa: non crea card né tocca giacenze, conteggi, Lista o ordini.
-- Aggiunte al conteggio durante un inventario aperto solo con add_card_to_open_inventory / add_catalog_item_to_open_inventory (admin+operatore); l'operatore crea prodotti dal catalogo solo tramite quest'ultima (flag app.inventory_catalog_add): fuori dall'inventario resta riservato all'amministratore.
-- «Inventario completo» solo con start_full_general_inventory (admin, solo all'avvio): tutte le card prodotto+fornitore attivo, «Senza fornitore» se nessuno; nessun conteggio creato.
+- Regole Inventario (zone abituali, aggiunte al conteggio, inventario completo): vedi src/components/inventory/AGENTS.md.
