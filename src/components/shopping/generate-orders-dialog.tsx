@@ -702,7 +702,7 @@ export function GenerateOrdersDialog({
                     ) : null}
                   </section>
                 );
-              })() : null}
+              })()}
 
               <DirectPurchaseDraftDialog
                 docId={openDirectDoc}
