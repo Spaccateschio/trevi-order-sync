@@ -6040,6 +6040,24 @@ export type Database = {
         Args: { _actor_user_id?: string; _delivery_id: string }
         Returns: string
       }
+      add_card_to_open_inventory: {
+        Args: {
+          _company_id: string
+          _link_id?: string
+          _location_id?: string
+          _product_id: string
+        }
+        Returns: Json
+      }
+      add_catalog_item_to_open_inventory: {
+        Args: {
+          _company_id: string
+          _location_id?: string
+          _seller_company_id: string
+          _seller_product_id: string
+        }
+        Returns: Json
+      }
       add_catalog_product_to_own_products: {
         Args: {
           _actor_user_id?: string
@@ -7900,6 +7918,10 @@ export type Database = {
           unit_code: string
           untranslatable: number
         }[]
+      }
+      start_full_general_inventory: {
+        Args: { _archive_id?: string; _company_id: string; _name?: string }
+        Returns: string
       }
       start_general_inventory: {
         Args: {

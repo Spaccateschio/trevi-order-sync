@@ -386,6 +386,13 @@
       "when": 1791946723435,
       "tag": "0054_product_habitual_locations",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1791949207495,
+      "tag": "0055_inventory_add_cards_and_full_start",
+      "breakpoints": true
     }
   ]
 }
