@@ -65,7 +65,9 @@ export function InventoryExtraCards({
     return !term || `${card.code} ${card.description ?? ""} ${card.supplierName ?? ""}`.toLowerCase().includes(term);
   }).sort((a, b) => (a.description ?? a.code).localeCompare(b.description ?? b.code, "it")), [possibleQuery.data, category, subcategory, term]);
 
-  const catalog = term.length >= 2 ? catalogCandidates : [];
+  // Vista «Tutti» = tutto: anche gli articoli dei fornitori collegati, senza dover cercare.
+  const catalog = term.length >= 2 || showPossible ? catalogCandidates : [];
+  const [catalogShown, setCatalogShown] = useState(MAX_SHOWN);
 
   const run = async (key: string, action: () => Promise<unknown>, message: string) => {
     setBusy(key);
@@ -130,7 +132,7 @@ export function InventoryExtraCards({
             <strong className="text-foreground">Nei cataloghi dei fornitori · {catalog.length}</strong> — non sono ancora tuoi prodotti.
           </p>
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {catalog.slice(0, MAX_SHOWN).map((candidate) => (
+            {catalog.slice(0, catalogShown).map((candidate) => (
               <article key={candidate.sellerProductId} className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-primary/40 bg-card p-2">
                 <Store className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
@@ -153,6 +155,11 @@ export function InventoryExtraCards({
               </article>
             ))}
           </div>
+          {catalog.length > catalogShown ? (
+            <Button size="sm" variant="outline" className="mt-2 h-8 w-full text-xs" onClick={() => setCatalogShown((n) => n + MAX_SHOWN)}>
+              Mostra altri ({catalog.length - catalogShown})
+            </Button>
+          ) : null}
         </section>
       ) : null}
     </div>
