@@ -2619,6 +2619,58 @@ export type Database = {
           },
         ]
       }
+      product_habitual_locations: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_primary: boolean
+          location_id: string
+          product_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_primary?: boolean
+          location_id: string
+          product_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_primary?: boolean
+          location_id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_habitual_locations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_habitual_locations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_habitual_locations_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_images: {
         Row: {
           archive_id: string
@@ -7598,6 +7650,14 @@ export type Database = {
         Args: {
           _availability: Database["public"]["Enums"]["product_commercial_availability"]
           _company_id: string
+          _product_id: string
+        }
+        Returns: undefined
+      }
+      set_product_habitual_locations: {
+        Args: {
+          _location_ids: string[]
+          _primary_location_id: string
           _product_id: string
         }
         Returns: undefined

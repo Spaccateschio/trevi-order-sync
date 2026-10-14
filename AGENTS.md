@@ -34,3 +34,4 @@
 - Per prodotti a peso variabile il totale economico non nasce dall'ordine. Il valore reale viene determinato al carico sulla quantità/peso effettivamente ricevuto.
 - Prezzo riga d'ordine B2B: solo applicable_b2b_price (netto, listino assegnato, articolo pubblicato) sull'articolo del collegamento usato, letto prima di ogni scrittura in close_shopping_list / create_purchase_orders_from_list; nessun fallback: senza prezzo «Prezzo su richiesta».
 - Regole U.M. di vendita: vedi src/components/products/AGENTS.md.
+- Zone abituali prodotto: solo product_habitual_locations, scritte solo da set_product_habitual_locations (admin/operatore, una sola principale tra le abituali, mai scelta in automatico); informazione organizzativa: non crea card né tocca giacenze, conteggi, Lista o ordini.

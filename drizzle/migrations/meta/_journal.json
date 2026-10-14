@@ -379,6 +379,13 @@
       "when": 1791874319872,
       "tag": "0053_product_purchase_units_overview",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1791946723435,
+      "tag": "0054_product_habitual_locations",
+      "breakpoints": true
     }
   ]
 }
