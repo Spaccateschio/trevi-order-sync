@@ -834,11 +834,11 @@ export function InventoryCountPanel({
     const term = search.trim().toLowerCase();
     return catalogCandidates
       .filter((candidate) => {
-        if (effectiveProductView === "favorites" && !candidate.isFavorite) return false;
+        if (!term && effectiveProductView === "favorites" && !candidate.isFavorite) return false;
         if (supplierFilter && candidate.sellerCompanyName !== supplierFilter) return false;
         if (category && (candidate.category ?? NO_CATEGORY) !== category) return false;
         if (subcategory && (candidate.subcategory ?? NO_SUBCATEGORY) !== subcategory) return false;
-        if (workFilter !== "pending" && workFilter !== "all") return false;
+        if (!term && workFilter !== "pending" && workFilter !== "all") return false;
         return !term || `${candidate.code} ${candidate.description ?? ""}`.toLowerCase().includes(term);
       })
       .sort((left, right) => byName(left.description, left.code, right.description, right.code));
@@ -912,8 +912,9 @@ export function InventoryCountPanel({
     [allRowsQuery.data, managedProductIds],
   );
   const cardFilters = useMemo<InventoryCardFilters>(() => ({
-    view: effectiveProductView,
-    work: workFilter,
+    // Con una ricerca scritta si cerca tra tutte le card del conteggio, anche fuori da Preferiti e stati.
+    view: search.trim() ? "all" : effectiveProductView,
+    work: search.trim() ? "all" : workFilter,
     search,
     locationId: selectedLocationId,
     category,
@@ -1716,7 +1717,7 @@ export function InventoryCountPanel({
                 companyId={companyId}
                 sessionId={sessionId ?? null}
                 isAdmin={isAdmin}
-                showPossible={effectiveProductView === "all" && (workFilter === "all" || workFilter === "pending")}
+                showPossible={Boolean(search.trim()) || (effectiveProductView === "all" && (workFilter === "all" || workFilter === "pending"))}
                 search={search}
                 category={category}
                 subcategory={subcategory}
@@ -3021,7 +3022,15 @@ function PhysicalCount({
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onShowElsewhere(searchElsewhere)}>Mostra</Button>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">Cambia filtro o selezione per continuare.</p>
+                <div className="mt-1 grid justify-items-center gap-2 text-xs text-muted-foreground">
+                  <span>{filtersActive ? "Ci sono filtri attivi che nascondono i prodotti." : "Cambia filtro o selezione per continuare."}</span>
+                  {filtersActive && !loading ? (
+                    <Button size="sm" variant="outline" className="h-7 text-xs"
+                      onClick={() => onShowElsewhere({ reasons: ["view", "work", "category", "subcategory", "location", "supplier"], locations: [] })}>
+                      Togli i filtri
+                    </Button>
+                  ) : null}
+                </div>
               )}
             </div>
           ) : null}
