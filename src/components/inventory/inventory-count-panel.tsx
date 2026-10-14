@@ -33,6 +33,7 @@ import {
 
 import { FullInventoryStartButton, InventoryExtraCards } from "./inventory-add-cards";
 import { HabitualZoneControl, HabitualZonesProvider, useHabitualMap } from "./habitual-zone-control";
+import { pickCardMinWidth } from "@/lib/inventory-card-size";
 import { habitualFirst, matchesHabitual, NO_HABITUAL, type HabitualFilter } from "@/lib/habitual-locations";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -930,6 +931,24 @@ export function InventoryCountPanel({
     () => habitualFirst(baseRows.filter((row) => matchesHabitual(row.product_id, habitualMap, habitualFilter)), habitualMap, selectedLocationId),
     [baseRows, habitualFilter, habitualMap, selectedLocationId],
   );
+  // Card più strette quando sotto il nome non c'è nulla da leggere; una sola misura per tutte.
+  const cardMinWidth = useMemo(
+    () =>
+      pickCardMinWidth(
+        rows.map((row) => ({
+          habitualZones: habitualMap.get(row.product_id)?.ids.length ?? 0,
+          category: fieldPreferences.isVisible("categoria") && Boolean(row.category),
+          supplier:
+            (fieldPreferences.isVisible("fornitore") || fieldPreferences.isVisible("prezzo_acquisto")) &&
+            Boolean(cardSupplierName(row)),
+          stockInfo:
+            (fieldPreferences.isVisible("scorta_minima") || fieldPreferences.isVisible("fabbisogno")) &&
+            (row.min_stock !== null || row.order_multiple !== null),
+          lastCount: fieldPreferences.isVisible("ultimo_conteggio") && Boolean(row.counted_at),
+        })),
+      ),
+    [fieldPreferences.visibility, fieldPreferences.isVisible, habitualMap, rows],
+  );
   // Quantità scritte prima dell'apertura: chiave «prodotto:ubicazione:-» → card reale della sessione.
   // Una sola card (o una sola con stella) = trasferita; più card senza scelta univoca = avviso, nessuna assegnazione arbitraria.
   useEffect(() => {
@@ -1689,6 +1708,7 @@ export function InventoryCountPanel({
               link_active: null, card_favorite: false, card_label: null,
             }))}
             catalogCandidates={[]}
+            cardMinWidth={cardMinWidth}
             extraSection={
               <InventoryExtraCards
                 companyId={companyId}
@@ -2503,6 +2523,7 @@ function PhysicalCount({
   statusSlot,
   printAction,
   extraSection,
+  cardMinWidth,
 }: {
   companyId: string;
   sessionActive: boolean;
@@ -2569,6 +2590,7 @@ function PhysicalCount({
   statusSlot?: ReactNode;
   printAction?: ReactNode;
   extraSection?: ReactNode;
+  cardMinWidth: number;
 }) {
   const total = progress?.total ?? 0;
   const generalCompleted = progress?.completed ?? 0;
@@ -2885,7 +2907,10 @@ function PhysicalCount({
             </div>
           )}
           {visibleRows.length || catalogCandidates.length ? (
-            <div className="grid auto-rows-fr items-stretch gap-2 p-2 md:grid-cols-2 xl:grid-cols-3">
+            <div
+              className="grid auto-rows-fr items-stretch gap-2 p-2"
+              style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${cardMinWidth}px, 1fr))` }}
+            >
               {[
                 // Intestazione del prodotto quando ha più card: nome e totale (solo U.M. compatibili).
                 ...[...new Map(visibleRows.map((row) => [groupKey(row), row])).values()]
@@ -3165,16 +3190,10 @@ function ProductCard({
         locked && "border-primary/60 bg-primary/15",
       )}
     >
-      <div className="grid grid-cols-[48px_minmax(0,1fr)_fit-content(45%)] items-center gap-2">
-        {imageUrl ? (
-          <img src={imageUrl} alt="" loading="lazy" className="size-12 rounded-sm border border-border object-cover" />
-        ) : (
-          <span className="flex size-12 items-center justify-center rounded-sm border border-border bg-muted">
-            <Package className="size-5 text-muted-foreground" aria-hidden="true" />
-          </span>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-sm font-bold uppercase leading-tight">{name}</p>
+      {/* Nome a tutta larghezza, comandi a destra; immagine e scritte sotto, così il nome non compete con l'immagine. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-1 gap-y-1">
+        <div className="col-start-1 row-start-1 min-w-0">
+          <p className="truncate font-display text-[13px] font-bold uppercase leading-tight @[340px]:text-sm">{name}</p>
           {showCard ? (
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
               <span className="truncate text-[11px] font-semibold leading-tight text-foreground">{cardTitle(row)}</span>
@@ -3184,6 +3203,16 @@ function ProductCard({
               ) : null}
             </div>
           ) : null}
+        </div>
+        <div className="col-start-1 row-start-2 flex min-w-0 items-start gap-2">
+          {imageUrl ? (
+            <img src={imageUrl} alt="" loading="lazy" className="size-10 shrink-0 rounded-sm border border-border object-cover @[340px]:size-12" />
+          ) : (
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-sm border border-border bg-muted @[340px]:size-12">
+              <Package className="size-5 text-muted-foreground" aria-hidden="true" />
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
           <p className="text-[11px] leading-tight text-muted-foreground">
             Cod. {row.code}
             {unit ? ` · ${unit}` : ""}
@@ -3225,8 +3254,9 @@ function ProductCard({
               {history.lastAt ? ` · ${new Date(history.lastAt).toLocaleDateString("it-IT")}` : ""}
             </p>
           ) : null}
+          </div>
         </div>
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
+        <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-0.5">
           <PriceTrendIcon
             series={priceSeries}
             label={`Andamento prezzo di ${name}`}
@@ -3248,17 +3278,6 @@ function ProductCard({
               <Star className={cn("size-3.5", row.is_favorite && "fill-current")} />
             </Button>
           ) : null}
-          <span
-            className={cn(
-              "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
-              !isConfirmed && "bg-muted text-muted-foreground",
-              isConfirmed && !hasDifference && "bg-success/15 text-success",
-              hasDifference && "bg-destructive/10 text-destructive",
-              needsRecount && "bg-primary/15 text-primary",
-            )}
-          >
-            {previewStatus ?? status}
-          </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -3315,23 +3334,33 @@ function ProductCard({
           ) : null}
         </div>
       </div>
-      {(isVisible("non_conforme") && row.non_compliant) || (isVisible("proposta") && proposalOpen) ? (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {isVisible("non_conforme") && row.non_compliant ? (
-            <span className="rounded-sm bg-destructive/10 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-destructive">
-              Non conforme
-              {row.non_compliant_quantity === null
-                ? ""
-                : ` ${formatQuantity(Number(row.non_compliant_quantity), unit)}`}
-            </span>
-          ) : null}
-          {isVisible("proposta") && proposalOpen ? (
-            <span className="rounded-sm bg-primary/15 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-primary">
-              Da proporre per acquisto
-            </span>
-          ) : null}
-        </div>
-      ) : null}
+      {/* Stato della card su una riga propria: nella card stretta non ruba spazio al nome. */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        <span
+          className={cn(
+            "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
+            !isConfirmed && "bg-muted text-muted-foreground",
+            isConfirmed && !hasDifference && "bg-success/15 text-success",
+            hasDifference && "bg-destructive/10 text-destructive",
+            needsRecount && "bg-primary/15 text-primary",
+          )}
+        >
+          {previewStatus ?? status}
+        </span>
+        {isVisible("non_conforme") && row.non_compliant ? (
+          <span className="rounded-sm bg-destructive/10 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-destructive">
+            Non conforme
+            {row.non_compliant_quantity === null
+              ? ""
+              : ` ${formatQuantity(Number(row.non_compliant_quantity), unit)}`}
+          </span>
+        ) : null}
+        {isVisible("proposta") && proposalOpen ? (
+          <span className="rounded-sm bg-primary/15 px-1.5 py-1 text-[9px] font-bold uppercase leading-none text-primary">
+            Da proporre per acquisto
+          </span>
+        ) : null}
+      </div>
 
       {/* Card stretta (< 340 px): «Conferma» va a capo a tutta larghezza invece di comprimersi o perdere il testo. */}
       <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-1.5 @[340px]:grid-cols-[auto_minmax(110px,1fr)_auto_auto]">
