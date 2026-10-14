@@ -216,6 +216,7 @@
 ## Acquisto diretto come documento (AD-AAAA-NNNNN)
 
 
+- [x] Quota acquisto diretto: salvataggio automatico con ripartizione del residuo ai fornitori e avviso di quantità superiore (eccedenza ammessa, riga «da verificare») — anteprima, non pubblicato
 - [ ] Fase 3: carico merce da acquisto diretto confermato (quantità, U.M., peso, prezzi effettivi)
 - [ ] Fase 4: storico, consultazione e stampa dei documenti
 - [ ] Foto dello scontrino: sviluppo successivo
