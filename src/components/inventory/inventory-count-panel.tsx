@@ -31,6 +31,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
+import { FullInventoryStartButton, InventoryExtraCards } from "./inventory-add-cards";
 import { HabitualZoneControl, HabitualZonesProvider, useHabitualMap } from "./habitual-zone-control";
 import { habitualFirst, matchesHabitual, NO_HABITUAL, type HabitualFilter } from "@/lib/habitual-locations";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -1613,6 +1614,13 @@ export function InventoryCountPanel({
             statusSlot={
               <div className="mt-1.5 space-y-1.5">
                 <CycleLight cycle={cycleQuery.data} sessionActive={Boolean(sessionId)} />
+                {!sessionId && isAdmin && cycleColor !== "rosso" && archiveId && !sessionQuery.isLoading ? (
+                  <FullInventoryStartButton
+                    companyId={companyId}
+                    archiveId={archiveId}
+                    onStarted={() => queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] })}
+                  />
+                ) : null}
                 {!sessionId && cycleColor === "rosso" && isAdmin ? (
                   <div className="flex flex-wrap gap-1.5">
                     {cycleQuery.data?.session_id && cycleQuery.data?.list_status !== "chiusa" ? (
@@ -1681,6 +1689,19 @@ export function InventoryCountPanel({
               link_active: null, card_favorite: false, card_label: null,
             }))}
             catalogCandidates={[]}
+            extraSection={
+              <InventoryExtraCards
+                companyId={companyId}
+                sessionId={sessionId ?? null}
+                isAdmin={isAdmin}
+                showPossible={effectiveProductView === "all" && (workFilter === "all" || workFilter === "pending")}
+                search={search}
+                category={category}
+                subcategory={subcategory}
+                locationId={selectedLocation?.id ?? null}
+                catalogCandidates={visibleCatalogCandidates}
+              />
+            }
             excludedCatalogCount={visibleCatalogCandidates.length}
             catalogImages={catalogImages}
             catalogDrafts={catalogDrafts}
@@ -2481,6 +2502,7 @@ function PhysicalCount({
   closing,
   statusSlot,
   printAction,
+  extraSection,
 }: {
   companyId: string;
   sessionActive: boolean;
@@ -2546,6 +2568,7 @@ function PhysicalCount({
   closing: boolean;
   statusSlot?: ReactNode;
   printAction?: ReactNode;
+  extraSection?: ReactNode;
 }) {
   const total = progress?.total ?? 0;
   const generalCompleted = progress?.completed ?? 0;
@@ -2997,6 +3020,8 @@ function PhysicalCount({
               )}
             </div>
           ) : null}
+
+          {extraSection}
 
           <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
             {savedDraftCount ? (
