@@ -3190,15 +3190,9 @@ function ProductCard({
         locked && "border-primary/60 bg-primary/15",
       )}
     >
-      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
-        {imageUrl ? (
-          <img src={imageUrl} alt="" loading="lazy" className="size-10 shrink-0 rounded-sm border border-border object-cover @[340px]:size-12" />
-        ) : (
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-sm border border-border bg-muted @[340px]:size-12">
-            <Package className="size-5 text-muted-foreground" aria-hidden="true" />
-          </span>
-        )}
-        <div className="min-w-0">
+      {/* Nome a tutta larghezza, comandi a destra; immagine e scritte sotto, così il nome non compete con l'immagine. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-1 gap-y-1">
+        <div className="col-start-1 row-start-1 min-w-0">
           <p className="truncate font-display text-[13px] font-bold uppercase leading-tight @[340px]:text-sm">{name}</p>
           {showCard ? (
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
@@ -3209,6 +3203,16 @@ function ProductCard({
               ) : null}
             </div>
           ) : null}
+        </div>
+        <div className="col-start-1 row-start-2 flex min-w-0 items-start gap-2">
+          {imageUrl ? (
+            <img src={imageUrl} alt="" loading="lazy" className="size-10 shrink-0 rounded-sm border border-border object-cover @[340px]:size-12" />
+          ) : (
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-sm border border-border bg-muted @[340px]:size-12">
+              <Package className="size-5 text-muted-foreground" aria-hidden="true" />
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
           <p className="text-[11px] leading-tight text-muted-foreground">
             Cod. {row.code}
             {unit ? ` · ${unit}` : ""}
@@ -3250,8 +3254,9 @@ function ProductCard({
               {history.lastAt ? ` · ${new Date(history.lastAt).toLocaleDateString("it-IT")}` : ""}
             </p>
           ) : null}
+          </div>
         </div>
-        <div className="flex shrink-0 items-center justify-end gap-0.5">
+        <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-0.5">
           <PriceTrendIcon
             series={priceSeries}
             label={`Andamento prezzo di ${name}`}
