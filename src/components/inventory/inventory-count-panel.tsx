@@ -2672,7 +2672,7 @@ function PhysicalCount({
       const search = topFiltersRef.current;
       const header = stickyHeaderRef.current;
       if (!search || !header) return;
-      setCompactBar(search.getBoundingClientRect().top < header.getBoundingClientRect().top - 4);
+      setCompactBar(search.getBoundingClientRect().top < header.getBoundingClientRect().top - 20);
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(check); };
     window.addEventListener("scroll", schedule, { passive: true, capture: true });
