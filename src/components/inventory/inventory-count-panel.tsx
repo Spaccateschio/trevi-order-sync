@@ -11,6 +11,8 @@ import {
   CircleAlert,
   ClipboardCheck,
   Columns3,
+  LayoutGrid,
+  List,
   Delete,
   ExternalLink,
   History,
@@ -2592,6 +2594,34 @@ function PhysicalCount({
   extraSection?: ReactNode;
   cardMinWidth: number;
 }) {
+  const [layout, setLayout] = useState<"cards" | "rows">("cards");
+  const [layoutKey, setLayoutKey] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!active || !data.user) return;
+      // Device identity is local to this browser, independent of viewport resizing.
+      try {
+        const deviceKey = "trevi-inventory-device";
+        let device = localStorage.getItem(deviceKey);
+        if (!device) { device = crypto.randomUUID(); localStorage.setItem(deviceKey, device); }
+        const key = `trevi-inventory-layout:${data.user.id}:${companyId}:${device}`;
+        setLayout(localStorage.getItem(key) === "rows" ? "rows" : "cards");
+        setLayoutKey(key);
+      } catch { setLayout("cards"); setLayoutKey(null); }
+    });
+    return () => { active = false; };
+  }, [companyId]);
+  const changeLayout = (next: "cards" | "rows") => {
+    setLayout(next);
+    if (layoutKey) { try { localStorage.setItem(layoutKey, next); } catch { /* Unavailable storage never blocks work. */ } }
+  };
+  const layoutControls = (
+    <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-border p-0.5" role="group" aria-label="Vista prodotti">
+      <Button size="sm" variant={layout === "cards" ? "default" : "ghost"} className="h-8 w-8 px-0" aria-label="Vista Card" aria-pressed={layout === "cards"} title="Card" onClick={() => changeLayout("cards")}><LayoutGrid className="size-4" /></Button>
+      <Button size="sm" variant={layout === "rows" ? "default" : "ghost"} className="h-8 w-8 px-0" aria-label="Vista Righe" aria-pressed={layout === "rows"} title="Righe" onClick={() => changeLayout("rows")}><List className="size-4" /></Button>
+    </div>
+  );
   const total = progress?.total ?? 0;
   const generalCompleted = progress?.completed ?? 0;
   const generalDifferences = progress?.differences ?? 0;
@@ -2642,7 +2672,7 @@ function PhysicalCount({
       const search = topFiltersRef.current;
       const header = stickyHeaderRef.current;
       if (!search || !header) return;
-      setCompactBar(search.getBoundingClientRect().top < header.getBoundingClientRect().bottom);
+      setCompactBar(search.getBoundingClientRect().top < header.getBoundingClientRect().top - 20);
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(check); };
     window.addEventListener("scroll", schedule, { passive: true, capture: true });
@@ -2659,7 +2689,7 @@ function PhysicalCount({
   }, []);
 
   const filterControls = (
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-border p-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto py-1 [&>*]:shrink-0">
             <div className="grid grid-cols-2 rounded-md border border-border p-0.5">
               <Button size="sm" className="h-8 text-xs" variant={productView === "favorites" ? "default" : "ghost"} onClick={() => onViewChange("favorites")}>
                 <Star className="size-3.5" /> Preferiti
@@ -2707,7 +2737,7 @@ function PhysicalCount({
               </DropdownMenuContent>
             </DropdownMenu>
             <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
-            <div className="flex flex-wrap items-center gap-1.5 rounded-md bg-muted/50 p-0.5">
+            <div className="flex shrink-0 items-center gap-1.5">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" className="h-8 text-[11px]">
@@ -2777,6 +2807,7 @@ function PhysicalCount({
 
   return (
     <section className="space-y-2 pb-24 lg:pb-16">
+      <div ref={topFiltersRef} className="h-px" aria-hidden="true" />
       <div
         ref={stickyHeaderRef}
         className={cn(
@@ -2803,8 +2834,13 @@ function PhysicalCount({
             </div>
           ) : null}
         </div>
-        {statusSlot}
-        {!sessionActive && lastClosed ? (
+        {compactBar ? (
+          <details className="text-[10px] text-muted-foreground">
+            <summary className="cursor-pointer">{cycleLock.locked ? "Ciclo acquisti bloccato" : completed ? "Conteggio completato" : "Inventario in corso"} · Dettagli e azioni</summary>
+            {statusSlot}
+          </details>
+        ) : statusSlot}
+        {!compactBar && !sessionActive && lastClosed ? (
           <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1.5">
             <div className="min-w-0 text-xs leading-tight text-muted-foreground">
               <p className="text-[10px] font-semibold uppercase">Ultimo inventario · passato, non è il conteggio da fare ora</p>
@@ -2826,7 +2862,7 @@ function PhysicalCount({
             </div>
           </div>
         ) : null}
-        {sessionActive ? (
+        {sessionActive && !compactBar ? (
           <>
             <Progress value={percentage} className="mt-1.5 h-2" />
             <div className="mt-1.5 grid grid-cols-3 divide-x divide-border text-center text-[10px] leading-tight sm:text-xs">
@@ -2855,22 +2891,14 @@ function PhysicalCount({
             ) : null}
           </>
         ) : null}
-        {compactBar && (
-          <div className="mt-2 space-y-1.5 border-t border-border pt-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="h-9 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)}
-                placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto (barra fissa)" />
-            </div>
-            {filterControls}
+        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <div className="relative min-w-0">
+            <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="h-9 pl-8 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto" />
           </div>
-        )}
-      </div>
-
-      <div ref={topFiltersRef} className="relative rounded-md border border-border bg-card p-2">
-        <Search className="absolute left-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input className="h-10 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto" />
+          {layoutControls}
+        </div>
+        {filterControls}
       </div>
 
       <div className="overflow-hidden rounded-md border border-border bg-card">
@@ -2897,9 +2925,6 @@ function PhysicalCount({
               <strong className="text-foreground">{scope}</strong> · {scopeProgress?.completed ?? 0} / {scopeProgress?.total ?? visibleRows.length} completati
             </p>
           ) : null}
-          {filterControls}
-
-
           {cardLockState.canSave ? null : (
             <div role="alert" className="m-2 flex flex-wrap items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
               Aggiorna la pagina: l'Inventario è stato aggiornato. I salvataggi sono sospesi fino al ricaricamento.
@@ -2908,8 +2933,8 @@ function PhysicalCount({
           )}
           {visibleRows.length || catalogCandidates.length ? (
             <div
-              className="grid auto-rows-fr items-stretch gap-2 p-2"
-              style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${cardMinWidth}px, 1fr))` }}
+              className={layout === "rows" ? "grid grid-cols-1 gap-1 p-1" : "grid auto-rows-fr items-stretch gap-2 p-2"}
+              style={layout === "cards" ? { gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${cardMinWidth}px), 1fr))` } : undefined}
             >
               {[
                 // Intestazione del prodotto quando ha più card: nome e totale (solo U.M. compatibili).
@@ -2932,6 +2957,7 @@ function PhysicalCount({
                   code: row.code,
                   node: (
                     <ProductCard
+                      layout={layout}
                       companyId={companyId}
                       row={row}
                       imageUrl={imageUrls.get(row.product_id)}
@@ -3057,6 +3083,7 @@ type StockHistory = {
 };
 
 function ProductCard({
+  layout = "cards",
   companyId,
   row,
   imageUrl,
@@ -3077,6 +3104,7 @@ function ProductCard({
   onOpenProduct,
   history,
 }: {
+  layout?: "cards" | "rows";
   companyId: string;
   row: InventoryCountRow;
   imageUrl: string | undefined;
@@ -3098,6 +3126,7 @@ function ProductCard({
   history?: StockHistory | null;
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
+  const rowLayout = layout === "rows";
   const cycleLock = useContext(CycleLockContext);
   const cycleLocked = cycleLock.locked && Boolean(history);
   const canCorrect =
@@ -3182,7 +3211,7 @@ function ProductCard({
   return (
     <article
       className={cn(
-        "@container flex h-full flex-col rounded-md border-2 bg-card p-2",
+        rowLayout ? "@container grid grid-cols-1 items-center gap-1 rounded-md border bg-card px-2 py-1.5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)] lg:gap-3" : "@container flex h-full flex-col rounded-md border-2 bg-card p-2",
         !isConfirmed && "border-border",
         isConfirmed && !hasDifference && "border-success/50 bg-success/5",
         hasDifference && "border-destructive/50 bg-destructive/5",
@@ -3191,10 +3220,13 @@ function ProductCard({
       )}
     >
       {/* Nome a tutta larghezza, comandi a destra; immagine e scritte sotto, così il nome non compete con l'immagine. */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-1 gap-y-1">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-1 gap-y-1">
         <div className="col-start-1 row-start-1 min-w-0">
-          <p className="truncate font-display text-[13px] font-bold uppercase leading-tight @[340px]:text-sm">{name}</p>
-          {showCard ? (
+          <p title={name} className="truncate font-display text-[13px] font-bold uppercase leading-tight @[340px]:text-sm">{name}</p>
+          {rowLayout ? <p className="truncate text-[10px] leading-tight text-muted-foreground" title={`Cod. ${row.code} · ${cardTitle(row)}${isVisible("zona") && row.location_name ? ` · Zona conteggio: ${row.location_name}` : ""}`}>
+            {row.code} · {cardTitle(row)}{isVisible("zona") && row.location_name ? ` · ${row.location_name}` : ""}
+          </p> : null}
+          {showCard && !rowLayout ? (
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
               <span className="truncate text-[11px] font-semibold leading-tight text-foreground">{cardTitle(row)}</span>
               {/* Stella della card nascosta: nell'Inventario decide solo la stella del prodotto (dati invariati). */}
@@ -3204,7 +3236,7 @@ function ProductCard({
             </div>
           ) : null}
         </div>
-        <div className="col-start-1 row-start-2 flex min-w-0 items-start gap-2">
+        <div className={rowLayout ? "hidden" : "col-start-1 row-start-2 flex min-w-0 items-start gap-2"}>
           {imageUrl ? (
             <img src={imageUrl} alt="" loading="lazy" className="size-10 shrink-0 rounded-sm border border-border object-cover @[340px]:size-12" />
           ) : (
@@ -3308,6 +3340,22 @@ function ProductCard({
                 <ShoppingCart className="size-3.5" />
                 {proposalOpen ? "Chiudi proposta d'acquisto" : "Proponi per l'acquisto"}
               </DropdownMenuItem>
+              {rowLayout ? <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>{previewStatus ?? status}</DropdownMenuLabel>
+                <DropdownMenuItem disabled>Calcolata: {calculated === null || (history && !history.hasCount) ? "—" : formatQuantity(calculated, unit)} {unit}</DropdownMenuItem>
+                {[1, 3, 5, 10].map((increment) => <DropdownMenuItem key={increment} disabled={!editable} onClick={() => changeQuantity(addToQuantity(correcting ? correction.value : value, increment))}>+{increment}</DropdownMenuItem>)}
+                <DropdownMenuItem disabled={!editable} onClick={() => changeQuantity("")}>Azzera quantità</DropdownMenuItem>
+                <DropdownMenuLabel>Zona abituale</DropdownMenuLabel>
+                <HabitualZoneControl productId={row.product_id} />
+                {isVisible("categoria") && row.category ? <DropdownMenuLabel>{row.category}{isVisible("sottocategoria") && row.subcategory ? ` · ${row.subcategory}` : ""}</DropdownMenuLabel> : null}
+                {isVisible("prezzo_acquisto") && supplier?.cost != null ? <DropdownMenuLabel>Prezzo acquisto: € {Number(supplier.cost).toFixed(2).replace(".", ",")}</DropdownMenuLabel> : null}
+                {isVisible("scorta_minima") ? <DropdownMenuLabel>Scorta minima: {row.min_stock ?? "—"}</DropdownMenuLabel> : null}
+                {isVisible("fabbisogno") ? <DropdownMenuLabel>Multiplo: {row.order_multiple ?? "—"}</DropdownMenuLabel> : null}
+                {isVisible("ultimo_conteggio") && row.counted_at ? <DropdownMenuLabel>Ultimo conteggio: {dateTimeShort(row.counted_at)}</DropdownMenuLabel> : null}
+                {isVisible("non_conforme") && row.non_compliant ? <DropdownMenuLabel>Non conforme</DropdownMenuLabel> : null}
+                {isVisible("proposta") && proposalOpen ? <DropdownMenuLabel>Da proporre per acquisto</DropdownMenuLabel> : null}
+              </> : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onHistory} disabled={!actionsEnabled}>
                 <History className="size-3.5" /> Storico dei controlli
@@ -3335,7 +3383,7 @@ function ProductCard({
         </div>
       </div>
       {/* Stato della card su una riga propria: nella card stretta non ruba spazio al nome. */}
-      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+      <div className={rowLayout ? "hidden" : "mt-1.5 flex flex-wrap items-center gap-1"}>
         <span
           className={cn(
             "rounded-sm px-1.5 py-1 text-[9px] font-bold uppercase leading-none",
@@ -3363,8 +3411,8 @@ function ProductCard({
       </div>
 
       {/* Card stretta (< 340 px): «Conferma» va a capo a tutta larghezza invece di comprimersi o perdere il testo. */}
-      <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-1.5 @[340px]:grid-cols-[auto_minmax(110px,1fr)_auto_auto]">
-        <div>
+      <div className={rowLayout ? "grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2" : "mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-1.5 @[340px]:grid-cols-[auto_minmax(110px,1fr)_auto_auto]"}>
+        <div className={rowLayout ? "hidden" : undefined}>
           <p className="text-[9px] leading-none text-muted-foreground">Calcolata</p>
           <p className="mt-1 text-sm font-bold leading-none">
             {/* Giacenza non nota o da verificare: mai mostrata come 0. */}
@@ -3389,9 +3437,9 @@ function ProductCard({
               </span>
             ) : null}
           </div>
-          <div className="mt-1 flex items-center gap-1">
+          <div className={rowLayout ? "mt-0.5 flex items-center gap-1" : "mt-1 flex items-center gap-1"}>
             <Input
-              className="h-10 min-w-0 flex-1 px-2 text-right text-base font-bold disabled:opacity-100"
+              className={cn("min-w-0 flex-1 px-2 text-right text-base font-bold disabled:opacity-100", rowLayout ? "h-8" : "h-10")}
               type="text"
               inputMode="decimal"
               data-count-input="true"
@@ -3425,7 +3473,7 @@ function ProductCard({
                 type="button"
                 variant={!locked ? "secondary" : "outline"}
                 size="sm"
-                className="h-10 w-9 shrink-0 px-0"
+                className={rowLayout ? "h-8 w-7 shrink-0 px-0" : "h-10 w-9 shrink-0 px-0"}
                 aria-label={!locked ? `Blocca ${name}` : `Sblocca ${name}`}
                 title={!locked ? "Blocca" : "Sblocca"}
                 disabled={correction.pending || cardLock.pending || unitMissing}
@@ -3457,7 +3505,7 @@ function ProductCard({
             {difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, unit)}`}
           </p>
         </div>
-        <Button className="col-span-full h-10 w-full px-2 text-[11px] @[340px]:col-span-1 @[340px]:w-auto sm:px-3" variant={isConfirmed ? "secondary" : "default"} onClick={confirmQuantity} disabled={!editable}>
+        <Button className={rowLayout ? "h-8 shrink-0 px-2 text-[11px]" : "col-span-full h-10 w-full px-2 text-[11px] @[340px]:col-span-1 @[340px]:w-auto sm:px-3"} variant={isConfirmed ? "secondary" : "default"} onClick={confirmQuantity} disabled={!editable}>
           <Check className="size-4" />
           <span>Conferma</span>
         </Button>
@@ -3470,7 +3518,7 @@ function ProductCard({
           <InitialStockUnitPicker productId={row.product_id} linkId={row.product_supplier_link_id ?? null} />
         </div>
       ) : null}
-      <div className="mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2">
+      <div className={rowLayout ? "hidden" : "mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2"}>
         {[1, 3, 5, 10].map((increment) => (
           <Button
             key={increment}
