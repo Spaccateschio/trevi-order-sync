@@ -32,7 +32,12 @@ export function extraCardLineCount(signal: CardTextSignal): number {
   );
 }
 
-/** Larghezza minima della griglia: stretta se nessuna card in vista ha scritte sotto il nome. */
+/**
+ * Larghezza minima della griglia. Le card si allargano solo se sono davvero tante quelle con
+ * scritte sotto il nome: una zona abituale孤立 su ventidue card non deve restringere lo schermo.
+ */
 export function pickCardMinWidth(signals: CardTextSignal[]): number {
-  return signals.some((signal) => extraCardLineCount(signal) > 0) ? CARD_MIN_WIDE : CARD_MIN_NARROW;
+  if (!signals.length) return CARD_MIN_NARROW;
+  const full = signals.filter((signal) => extraCardLineCount(signal) > 0).length;
+  return full * 2 >= signals.length ? CARD_MIN_WIDE : CARD_MIN_NARROW;
 }
