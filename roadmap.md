@@ -203,7 +203,7 @@
 - [x] Griglia a larghezza automatica: card strette (250 px) quando sotto il nome non c'è nulla da leggere, più larghe (320 px) quando almeno metà delle card in vista ha scritte; tutte sempre della stessa misura. «Zona abituale: nessuna» sostituita da «+ zona»; nome a tutta larghezza con comandi a destra, immagine e scritte sotto, badge di stato su riga propria. Verificato 390/848/1480 px: 3 card per riga a 848 px (257×315 tutte uguali), campo quantità, «Conferma» e +1 +3 +5 +10 interi. 198 test, typecheck pulito, build OK. Nessun dato toccato, nessuna pubblicazione.
 
 ## 14/10 — Parte alta compatta e Card / Righe (solo anteprima)
-- [ ] Compattare la parte alta scorrendo, senza duplicare ricerca e filtri; selettore Card/Righe sempre raggiungibile.
-- [ ] Righe a due fasce a 390 px, una riga su schermi larghi; stessi comandi e protezioni delle card.
-- [ ] Ricordare vista localmente per utente, azienda e dispositivo, fallback Card; conservare bozze, U.M., ricerca e filtri cambiando vista.
-- [ ] Test pertinenti e verifiche 390/607/1280 px, entrambe le viste prima/dopo scroll; nessuna scrittura operativa, nessuna pubblicazione.
+- [x] Parte alta compatta durante lo scorrimento, senza duplicare ricerca e filtri; selettore Card/Righe sempre raggiungibile.
+- [x] Righe a due fasce a 390/607 px, una riga a 1280 px; stessi comandi e protezioni delle card.
+- [x] Vista ricordata localmente per utente, azienda e dispositivo, fallback Card; bozze, U.M., ricerca e filtri conservati cambiando vista.
+- [x] 31 test pertinenti, typecheck e build puliti; verificati 390/607/1280 px, entrambe le viste prima/dopo scroll, nessun overflow o errore a schermo. Nessuna pubblicazione.
