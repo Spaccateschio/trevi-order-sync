@@ -86,7 +86,9 @@ export function HabitualZoneControl({ productId }: { productId: string }) {
   }, [open]);
   const name = (id: string) => locations.find((l) => l.id === id)?.name ?? "—";
   const ordered = [...saved.ids].sort((a, b) => (a === saved.primaryId ? -1 : b === saved.primaryId ? 1 : 0));
-  const label = ordered.length ? ordered.map(name).join(", ") : "nessuna";
+  // Senza zone la riga «nessuna» non aggiunge nulla: lascia il posto a un segno «+ zona».
+  const hasZones = ordered.length > 0;
+  const label = ordered.map(name).join(", ");
   const error = habitualError(draft);
 
   const save = useMutation({
@@ -110,12 +112,16 @@ export function HabitualZoneControl({ productId }: { productId: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const text = (
+  const text = hasZones ? (
     <span className="truncate">
-      Zona abituale: <span className={ordered.length ? "text-foreground" : ""}>{label}</span>
+      Zona abituale: <span className="text-foreground">{label}</span>
     </span>
+  ) : (
+    <span className="shrink-0 font-semibold">+ zona</span>
   );
   if (!canEdit || !locations.length) {
+    // Chi non può modificarle legge solo ciò che c'è: «nessuna» non è una scritta da mostrare.
+    if (!hasZones) return null;
     return <p className="flex items-center gap-1 text-[11px] leading-tight text-muted-foreground"><MapPin className="size-3 shrink-0" />{text}</p>;
   }
   return (
@@ -124,7 +130,7 @@ export function HabitualZoneControl({ productId }: { productId: string }) {
         <button
           type="button"
           className="flex max-w-full items-center gap-1 text-left text-[11px] leading-tight text-muted-foreground underline-offset-2 hover:underline"
-          aria-label="Modifica zone abituali del prodotto"
+          aria-label={hasZones ? "Modifica zone abituali del prodotto" : "Aggiungi zona abituale al prodotto"}
         >
           <MapPin className="size-3 shrink-0" />
           {text}
