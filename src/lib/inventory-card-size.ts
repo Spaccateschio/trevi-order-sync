@@ -33,8 +33,8 @@ export function extraCardLineCount(signal: CardTextSignal): number {
 }
 
 /**
- * Larghezza minima della griglia. Le card si allargano solo se sono davvero tante quelle con
- * scritte sotto il nome: una zona abituale孤立 su ventidue card non deve restringere lo schermo.
+ * Larghezza minima della griglia. Le card si allargano solo se sono tante quelle con scritte
+ * sotto il nome: una zona abituale sola su ventidue card non deve restringere tutto lo schermo.
  */
 export function pickCardMinWidth(signals: CardTextSignal[]): number {
   if (!signals.length) return CARD_MIN_NARROW;
