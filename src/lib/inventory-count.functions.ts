@@ -853,3 +853,110 @@ export const reopenInventoryCount = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return result as { session_id: string; reset: boolean };
   });
+
+/** Card possibili dei propri prodotti non ancora nella sessione (vista «Tutti»): solo lettura. */
+export type PossibleInventoryCard = {
+  productId: string;
+  linkId: string | null;
+  supplierName: string | null;
+  code: string;
+  description: string | null;
+  category: string | null;
+  subcategory: string | null;
+};
+
+export const getPossibleInventoryCards = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ companyId: z.string().uuid(), sessionId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }): Promise<PossibleInventoryCard[]> => {
+    const [productsResult, linksResult, sessionResult] = await Promise.all([
+      context.supabase.from("products").select("id, code, description, category, subcategory")
+        .eq("company_id", data.companyId).eq("publish_status", "pubblicato").eq("is_managed", true).limit(5000),
+      context.supabase.from("product_supplier_links").select("id, product_id, supplier_records(legal_name)")
+        .eq("company_id", data.companyId).eq("is_active", true).limit(10000),
+      context.supabase.from("inventory_session_products").select("product_id, product_supplier_link_id")
+        .eq("session_id", data.sessionId).eq("company_id", data.companyId).limit(20000),
+    ]);
+    for (const result of [productsResult, linksResult, sessionResult]) if (result.error) throw new Error(result.error.message);
+    const inSession = new Set((sessionResult.data ?? []).map((row) => `${row.product_id}|${row.product_supplier_link_id ?? ""}`));
+    const linksByProduct = new Map<string, { id: string; name: string | null }[]>();
+    for (const link of (linksResult.data ?? []) as { id: string; product_id: string; supplier_records: { legal_name: string | null } | null }[]) {
+      const list = linksByProduct.get(link.product_id) ?? [];
+      list.push({ id: link.id, name: link.supplier_records?.legal_name ?? null });
+      linksByProduct.set(link.product_id, list);
+    }
+    const out: PossibleInventoryCard[] = [];
+    for (const product of productsResult.data ?? []) {
+      const links = linksByProduct.get(product.id) ?? [];
+      const base = { productId: product.id, code: product.code, description: product.description, category: product.category, subcategory: product.subcategory };
+      if (!links.length) {
+        if (!inSession.has(`${product.id}|`)) out.push({ ...base, linkId: null, supplierName: null });
+        continue;
+      }
+      for (const link of links) {
+        if (!inSession.has(`${product.id}|${link.id}`)) out.push({ ...base, linkId: link.id, supplierName: link.name });
+      }
+    }
+    return out;
+  });
+
+/** Aggiunge una card (prodotto + fornitore, o «Senza fornitore») all'inventario aperto. */
+export const addCardToOpenInventory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      companyId: z.string().uuid(),
+      productId: z.string().uuid(),
+      linkId: z.string().uuid().nullable(),
+      locationId: z.string().uuid().nullable(),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("add_card_to_open_inventory", {
+      _company_id: data.companyId,
+      _product_id: data.productId,
+      ...(data.linkId ? { _link_id: data.linkId } : {}),
+      ...(data.locationId ? { _location_id: data.locationId } : {}),
+    });
+    if (error) throw new Error(error.message);
+    return result as { added: number };
+  });
+
+/** Articolo del catalogo fornitore → prodotto proprio (stessa funzione del Catalogo) + card, in un solo passaggio. */
+export const addCatalogItemToOpenInventory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      companyId: z.string().uuid(),
+      sellerCompanyId: z.string().uuid(),
+      sellerProductId: z.string().uuid(),
+      locationId: z.string().uuid().nullable(),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("add_catalog_item_to_open_inventory", {
+      _company_id: data.companyId,
+      _seller_company_id: data.sellerCompanyId,
+      _seller_product_id: data.sellerProductId,
+      ...(data.locationId ? { _location_id: data.locationId } : {}),
+    });
+    if (error) throw new Error(error.message);
+    return result as { added: number; product_id: string };
+  });
+
+/** Avvio «Inventario completo»: tutte le card possibili dei propri prodotti. */
+export const startFullGeneralInventory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ companyId: z.string().uuid(), archiveId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: id, error } = await context.supabase.rpc("start_full_general_inventory", {
+      _company_id: data.companyId,
+      _archive_id: data.archiveId,
+    });
+    if (error) throw new Error(error.message);
+    return { id: id as string };
+  });

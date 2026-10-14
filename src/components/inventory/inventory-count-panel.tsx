@@ -31,6 +31,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
+import { FullInventoryStartButton, InventoryExtraCards } from "./inventory-add-cards";
 import { HabitualZoneControl, HabitualZonesProvider, useHabitualMap } from "./habitual-zone-control";
 import { habitualFirst, matchesHabitual, NO_HABITUAL, type HabitualFilter } from "@/lib/habitual-locations";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -1613,6 +1614,13 @@ export function InventoryCountPanel({
             statusSlot={
               <div className="mt-1.5 space-y-1.5">
                 <CycleLight cycle={cycleQuery.data} sessionActive={Boolean(sessionId)} />
+                {!sessionId && isAdmin && cycleColor !== "rosso" && archiveId && !sessionQuery.isLoading ? (
+                  <FullInventoryStartButton
+                    companyId={companyId}
+                    archiveId={archiveId}
+                    onStarted={() => queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] })}
+                  />
+                ) : null}
                 {!sessionId && cycleColor === "rosso" && isAdmin ? (
                   <div className="flex flex-wrap gap-1.5">
                     {cycleQuery.data?.session_id && cycleQuery.data?.list_status !== "chiusa" ? (
@@ -1681,6 +1689,19 @@ export function InventoryCountPanel({
               link_active: null, card_favorite: false, card_label: null,
             }))}
             catalogCandidates={[]}
+            extraSection={
+              <InventoryExtraCards
+                companyId={companyId}
+                sessionId={sessionId ?? null}
+                isAdmin={isAdmin}
+                showPossible={effectiveProductView === "all" && (workFilter === "all" || workFilter === "pending")}
+                search={search}
+                category={category}
+                subcategory={subcategory}
+                locationId={selectedLocation?.id ?? null}
+                catalogCandidates={visibleCatalogCandidates}
+              />
+            }
             excludedCatalogCount={visibleCatalogCandidates.length}
             catalogImages={catalogImages}
             catalogDrafts={catalogDrafts}
@@ -2481,6 +2502,7 @@ function PhysicalCount({
   closing,
   statusSlot,
   printAction,
+  extraSection,
 }: {
   companyId: string;
   sessionActive: boolean;
@@ -2546,6 +2568,7 @@ function PhysicalCount({
   closing: boolean;
   statusSlot?: ReactNode;
   printAction?: ReactNode;
+  extraSection?: ReactNode;
 }) {
   const total = progress?.total ?? 0;
   const generalCompleted = progress?.completed ?? 0;
@@ -2700,33 +2723,6 @@ function PhysicalCount({
               <Input className="h-9 pl-9 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)}
                 placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto (barra fissa)" />
             </div>
-            <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]">
-              <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "favorites" ? "default" : "outline"} onClick={() => onViewChange("favorites")}>
-                <Star className="size-3" /> Preferiti
-              </Button>
-              <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={productView === "all" ? "default" : "outline"} onClick={() => onViewChange("all")}>
-                Tutti
-              </Button>
-              <span className="mx-0.5 w-px shrink-0 bg-border" />
-              <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={workFilter === "all" ? "default" : "outline"} onClick={() => onWorkFilterChange("all")}>
-                Tutti gli stati
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" className="h-7 shrink-0 px-2 text-[11px]" variant={workFilter !== "all" ? "default" : "outline"}>
-                    {workFilter !== "all" ? `Altri stati: ${WORK_FILTER_LABELS[workFilter]}` : "Altri stati"}
-                    <ChevronDown className="size-3" aria-hidden="true" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  {(["pending", "completed", "differences", "not_comparable", "recount", "missing_unit"] as const).map((value) => (
-                    <DropdownMenuCheckboxItem key={value} checked={workFilter === value} onCheckedChange={() => onWorkFilterChange(value)}>
-                      {WORK_FILTER_LABELS[value]}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
           </div>
         )}
       </div>
@@ -2791,6 +2787,23 @@ function PhysicalCount({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="h-8 px-2 text-xs" variant={habitualFilter !== null ? "default" : "outline"}>
+                  Zona abituale: {habitualFilter === null ? "Tutte" : habitualFilter === NO_HABITUAL ? "Senza zona" : (locationOptions.find((l) => l.id === habitualFilter)?.name ?? "—")}
+                  <ChevronDown className="size-3.5" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuCheckboxItem checked={habitualFilter === null} onCheckedChange={() => onHabitualChange(null)}>Tutte (anche senza zona)</DropdownMenuCheckboxItem>
+                {locationOptions.map((location) => (
+                  <DropdownMenuCheckboxItem key={`ab-${location.id}`} checked={habitualFilter === location.id} onCheckedChange={() => onHabitualChange(location.id)}>
+                    {location.name}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuCheckboxItem checked={habitualFilter === NO_HABITUAL} onCheckedChange={() => onHabitualChange(NO_HABITUAL)}>Senza zona abituale</DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
             <div className="flex flex-wrap items-center gap-1.5 rounded-md bg-muted/50 p-0.5">
             <DropdownMenu>
@@ -2800,17 +2813,6 @@ function PhysicalCount({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuLabel className="text-xs">Zona abituale del prodotto</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => onHabitualChange(null)}>Tutte (anche senza zona)</DropdownMenuItem>
-                {locationOptions.map((location) => (
-                  <DropdownMenuCheckboxItem key={`ab-${location.id}`} checked={habitualFilter === location.id} onCheckedChange={() => onHabitualChange(location.id)}>
-                    {location.name}
-                  </DropdownMenuCheckboxItem>
-                ))}
-                <DropdownMenuCheckboxItem checked={habitualFilter === NO_HABITUAL} onCheckedChange={() => onHabitualChange(NO_HABITUAL)}>
-                  Senza zona abituale
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs">Zona del conteggio</DropdownMenuLabel>
                 <DropdownMenuItem onClick={onAllZones}>Tutte le zone</DropdownMenuItem>
                 {locationOptions.map((location) => (
@@ -2840,15 +2842,6 @@ function PhysicalCount({
                 {subcategories.length ? subcategories.slice(0, 12).map((item) => (
                   <DropdownMenuItem key={`${item.category}-${item.name}`} onClick={() => onSubcategoryChange(item.name)}>{item.name}</DropdownMenuItem>
                 )) : <DropdownMenuItem disabled>Nessuna sottocategoria</DropdownMenuItem>}
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs">Stato conteggio</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => onWorkFilterChange("all")}>Tutti gli stati</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onWorkFilterChange("pending")}>Da controllare</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onWorkFilterChange("completed")}>Confermati</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onWorkFilterChange("differences")}>Differenze</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onWorkFilterChange("not_comparable")}>U.M. diverse</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onWorkFilterChange("recount")}>Da ricontare</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onWorkFilterChange("missing_unit")}>U.M. da impostare</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
@@ -2879,27 +2872,6 @@ function PhysicalCount({
             {void excludedCatalogCount}
           </div>
 
-          {/* Filtro zona abituale sempre visibile: agisce solo sulla vista, mai su card o chiusura. */}
-          <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1.5">
-            <span className="text-[11px] font-semibold uppercase text-muted-foreground">Zona abituale:</span>
-            <Button size="sm" className="h-7 px-2 text-[11px]" variant={habitualFilter === null ? "default" : "outline"} onClick={() => onHabitualChange(null)}>
-              Tutte
-            </Button>
-            {locationOptions.map((location) => (
-              <Button
-                key={location.id}
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                variant={habitualFilter === location.id ? "default" : "outline"}
-                onClick={() => onHabitualChange(location.id)}
-              >
-                {location.name}
-              </Button>
-            ))}
-            <Button size="sm" className="h-7 px-2 text-[11px]" variant={habitualFilter === NO_HABITUAL ? "default" : "outline"} onClick={() => onHabitualChange(NO_HABITUAL)}>
-              Senza zona
-            </Button>
-          </div>
 
           {cardLockState.canSave ? null : (
             <div role="alert" className="m-2 flex flex-wrap items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
@@ -2997,6 +2969,8 @@ function PhysicalCount({
               )}
             </div>
           ) : null}
+
+          {extraSection}
 
           <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
             {savedDraftCount ? (
@@ -3199,18 +3173,7 @@ function ProductCard({
           {showCard ? (
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
               <span className="truncate text-[11px] font-semibold leading-tight text-foreground">{cardTitle(row)}</span>
-              {row.product_supplier_link_id ? (
-                <button
-                  type="button"
-                  className={cn("inline-flex size-5 items-center justify-center rounded-sm disabled:opacity-60", row.card_favorite ? "text-primary" : "text-muted-foreground")}
-                  disabled={!cardLock.isAdmin || cardLock.cardFavoritePending}
-                  onClick={() => cardLock.toggleCardFavorite(row)}
-                  aria-label={row.card_favorite ? `Togli la stella alla card ${cardTitle(row)}` : `Metti la stella alla card ${cardTitle(row)}`}
-                  title={cardLock.isAdmin ? (row.card_favorite ? "Card preferita" : "Card non preferita") : "Stella della card: modificabile solo dagli amministratori"}
-                >
-                  <Star className={cn("size-3", row.card_favorite && "fill-current")} />
-                </button>
-              ) : null}
+              {/* Stella della card nascosta: nell'Inventario decide solo la stella del prodotto (dati invariati). */}
               {row.card_label && row.card_label !== "Senza fornitore" ? (
                 <span className="rounded-sm bg-muted px-1 py-0.5 text-[9px] font-bold uppercase leading-none text-muted-foreground">{row.card_label}</span>
               ) : null}
