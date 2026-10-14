@@ -36,12 +36,13 @@ import {
   generateSupplierOrder,
   getGenerationPreview,
   manageListExclusion,
-  registerDirectPurchase,
   updateDraftOrder,
   type GenerationLine,
   type GenerationPreview,
 } from "@/lib/order-generation.functions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
+import { generateDirectPurchaseDraft } from "@/lib/direct-purchase.functions";
+import { DirectPurchaseDraftDialog, STATUS_LABEL } from "@/components/purchase/direct-purchase-draft-dialog";
 import { assignShoppingListSupplier, setShoppingListItemQuantityLock } from "@/lib/shopping-list.functions";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
 import { readCardBundle } from "@/lib/shopping-card-reads";
@@ -166,7 +167,7 @@ export function GenerateOrdersDialog({
   const runGenerate = useServerFn(generateSupplierOrder);
   const runUpdate = useServerFn(updateDraftOrder);
   const runExclusion = useServerFn(manageListExclusion);
-  const runDirect = useServerFn(registerDirectPurchase);
+  const runDirectDraft = useServerFn(generateDirectPurchaseDraft);
   const runCoverage = useServerFn(confirmAssignmentCoverage);
 
   const preview = useQuery({
@@ -446,12 +447,33 @@ export function GenerateOrdersDialog({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Acquisti diretti (documenti AD) della Lista: lettura con RLS dell'azienda.
+  const directDocs = useQuery({
+    queryKey: ["direct-purchases-list", listId],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("direct_purchases")
+        .select("id, number, status, created_at, direct_purchase_items(source_item_id, active_source_item_id)")
+        .eq("shopping_list_id", listId)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const [openDirectDoc, setOpenDirectDoc] = useState<string | null>(null);
+  // Una chiave finché la creazione non riesce: ripetere il clic restituisce la stessa bozza.
+  const directKey = useRef<string | null>(null);
   const direct = useMutation({
-    mutationFn: (itemId: string) => runDirect({ data: { itemId } }),
+    mutationFn: async (itemIds: string[]) => {
+      const key = (directKey.current ??= crypto.randomUUID());
+      return runDirectDraft({ data: { listId, generationKey: key, itemIds } });
+    },
     onSuccess: async (res) => {
-      await refresh();
-      toast.success("Acquisto diretto registrato");
-      afterClose(res.list_closed);
+      directKey.current = null;
+      await queryClient.invalidateQueries({ queryKey: ["direct-purchases-list", listId] });
+      toast.success(res.already_exists ? `Bozza ${res.number} già creata` : `Bozza acquisto diretto ${res.number} creata`);
+      setOpenDirectDoc(res.id);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -631,21 +653,66 @@ export function GenerateOrdersDialog({
                 </section>
               ) : null}
 
-              {data.direct.length ? (
-                <section className="space-y-2 rounded-md border border-border p-3">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold"><ShoppingBag className="size-4" /> Acquisti diretti</h3>
-                  {data.direct.map((x) => (
-                    <div key={x.item_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span>{x.code ? `${x.code} · ` : ""}{x.name} — {qty(x.quantity)} {x.unit_code ?? ""}</span>
-                      {x.done ? (
-                        <Badge variant="secondary">Registrato</Badge>
-                      ) : (
-                        <Button size="sm" variant="outline" disabled={direct.isPending} onClick={() => direct.mutate(x.item_id)}>Registra acquisto fatto</Button>
-                      )}
+              {data.direct.length || directDocs.data?.length ? (() => {
+                const liveDoc = (itemId: string) =>
+                  directDocs.data?.find((d) => d.status === "bozza" && d.direct_purchase_items.some((i) => i.active_source_item_id === itemId));
+                const toDraft = data.direct.filter((x) => !x.done && !liveDoc(x.item_id));
+                return (
+                  <section className="space-y-2 rounded-md border border-border p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="flex items-center gap-2 text-sm font-semibold"><ShoppingBag className="size-4" /> Acquisti diretti</h3>
+                      {toDraft.length ? (
+                        <Button size="sm" disabled={direct.isPending} onClick={() => direct.mutate(toDraft.map((x) => x.item_id))}>
+                          {direct.isPending ? <Loader2 className="size-4 animate-spin" /> : null} Genera bozza acquisto diretto ({toDraft.length})
+                        </Button>
+                      ) : null}
                     </div>
-                  ))}
-                </section>
-              ) : null}
+                    {data.direct.map((x) => {
+                      const d = liveDoc(x.item_id);
+                      return (
+                        <div key={x.item_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                          <span>{x.code ? `${x.code} · ` : ""}{x.name} — {qty(x.quantity)} {x.unit_code ?? ""}</span>
+                          {x.done ? (
+                            <Badge variant="secondary">Confermato e gestito</Badge>
+                          ) : d ? (
+                            <Button size="sm" variant="outline" onClick={() => setOpenDirectDoc(d.id)}>In bozza {d.number}</Button>
+                          ) : (
+                            <Badge variant="outline">Da inserire in una bozza</Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {directDocs.data?.length ? (
+                      <div className="space-y-1 border-t border-border pt-2">
+                        <div className="text-xs font-medium text-muted-foreground">Documenti di questa Lista</div>
+                        {directDocs.data.map((d) => (
+                          <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                            <span className="flex items-center gap-2">
+                              {d.number}
+                              <Badge variant={d.status === "bozza" ? "outline" : "secondary"}>{STATUS_LABEL[d.status]}</Badge>
+                              <span className="text-xs text-muted-foreground">{d.direct_purchase_items.length} prodotti</span>
+                            </span>
+                            <Button size="sm" variant="ghost" onClick={() => setOpenDirectDoc(d.id)}>{d.status === "bozza" ? "Apri bozza" : "Vedi"}</Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </section>
+                );
+              })() : null}
+
+              <DirectPurchaseDraftDialog
+                docId={openDirectDoc}
+                companyId={companyId}
+                currentQuotas={Object.fromEntries(data.direct.map((x) => [x.item_id, { quantity: x.quantity, unit_code: x.unit_code, done: x.done }]))}
+                onOpenChange={(o) => !o && setOpenDirectDoc(null)}
+                onChanged={async (res) => {
+                  setOpenDirectDoc(null);
+                  await refresh();
+                  setRebuild((n) => n + 1);
+                  afterClose(res?.list_closed);
+                }}
+              />
 
               {data.issues.length || data.excluded.length ? (
                 <section className="space-y-2 rounded-md border border-dashed border-border p-3">
