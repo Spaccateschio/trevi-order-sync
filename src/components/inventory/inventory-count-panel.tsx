@@ -31,6 +31,8 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
+import { HabitualZoneControl, HabitualZonesProvider, useHabitualMap } from "./habitual-zone-control";
+import { habitualFirst, matchesHabitual, NO_HABITUAL, type HabitualFilter } from "@/lib/habitual-locations";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -326,6 +328,10 @@ export function InventoryCountPanel({
   const [category, setCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<string | null>(null);
   const [supplierFilter, setSupplierFilter] = useState<string | null>(null);
+  // Zona abituale: filtro solo della vista (organizzativo), non cambia le card della sessione né la chiusura.
+  const [habitualFilter, setHabitualFilter] = useState<HabitualFilter>(null);
+  const habitualQuery = useHabitualMap(companyId);
+  const habitualMap = useMemo(() => habitualQuery.data ?? new Map(), [habitualQuery.data]);
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [unlockedCards, setUnlockedCards] = useState<Set<string>>(new Set());
@@ -721,6 +727,8 @@ export function InventoryCountPanel({
     category ? `Categoria: ${category}` : "",
     subcategory ? `Sottocategoria: ${subcategory}` : "",
     supplierFilter ? `Fornitore: ${supplierFilter}` : "",
+    habitualFilter === NO_HABITUAL ? "Senza zona abituale"
+      : habitualFilter ? `Zona abituale: ${activeLocations.find((l) => l.id === habitualFilter)?.name ?? ""}` : "",
     search.trim() ? `Ricerca: «${search.trim()}»` : "",
   ].filter(Boolean).join(" · ");
   const printInventory = (mode: InventoryPrintMode) => {
@@ -908,13 +916,18 @@ export function InventoryCountPanel({
     subcategory,
     supplier: supplierFilter,
   }), [category, effectiveProductView, search, selectedLocationId, subcategory, supplierFilter, workFilter]);
-  const rows = useMemo(
+  const baseRows = useMemo(
     () => selectInventoryCards(sessionCards, cardFilters, cardSupplierName)
       // Card dello stesso prodotto vicine: stella, fornitori attivi A→Z, scollegati, «Senza fornitore».
       .sort((left, right) => byName(left.description, left.code, right.description, right.code)
         || left.location_name.localeCompare(right.location_name, "it")
         || compareCards(left, right)),
     [cardFilters, sessionCards],
+  );
+  // Filtro zona abituale (per prodotto) + abituali della zona del conteggio scelta in testa.
+  const rows = useMemo(
+    () => habitualFirst(baseRows.filter((row) => matchesHabitual(row.product_id, habitualMap, habitualFilter)), habitualMap, selectedLocationId),
+    [baseRows, habitualFilter, habitualMap, selectedLocationId],
   );
   // Quantità scritte prima dell'apertura: chiave «prodotto:ubicazione:-» → card reale della sessione.
   // Una sola card (o una sola con stella) = trasferita; più card senza scelta univoca = avviso, nessuna assegnazione arbitraria.
@@ -941,8 +954,9 @@ export function InventoryCountPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, autoStartPending, allRowsQuery.data]);
   const searchElsewhere = useMemo(
-    () => (rows.length ? null : findSearchElsewhere(sessionCards, cardFilters, cardSupplierName)),
-    [cardFilters, rows.length, sessionCards],
+    () => (rows.length ? null : findSearchElsewhere(
+      sessionCards.filter((row) => matchesHabitual(row.product_id, habitualMap, habitualFilter)), cardFilters, cardSupplierName)),
+    [cardFilters, habitualFilter, habitualMap, rows.length, sessionCards],
   );
   const supplierOptions = useMemo(
     () => [...new Set([
@@ -952,7 +966,7 @@ export function InventoryCountPanel({
     [catalogCandidates, sessionCards],
   );
   const filtersActive = effectiveProductView === "favorites" || workFilter !== "all" || Boolean(search.trim())
-    || Boolean(selectedLocationId) || Boolean(category) || Boolean(subcategory) || Boolean(supplierFilter);
+    || Boolean(selectedLocationId) || Boolean(category) || Boolean(subcategory) || Boolean(supplierFilter) || Boolean(habitualFilter);
   const cardGroupSize = useMemo(() => {
     const map = new Map<string, number>();
     for (const row of sessionCards) map.set(groupKey(row), (map.get(groupKey(row)) ?? 0) + 1);
@@ -1575,6 +1589,7 @@ export function InventoryCountPanel({
             }),
           }}>
           <UnitChoiceContext.Provider value={unitChoice}>
+          <HabitualZonesProvider companyId={companyId} map={habitualMap} locations={activeLocations} isAdmin={isAdmin}>
           <CycleLockContext.Provider value={{
             locked: !sessionId && cycleColor === "rosso",
             cycleSessionId: cycleQuery.data?.session_id ?? null,
@@ -1710,6 +1725,8 @@ export function InventoryCountPanel({
             }}
             onSubcategoryChange={setSubcategory}
             onSupplierChange={setSupplierFilter}
+            habitualFilter={habitualFilter}
+            onHabitualChange={setHabitualFilter}
             onSearchChange={setSearch}
             onDraftChange={(key, value) => {
               if (sessionId) {
@@ -1816,6 +1833,7 @@ export function InventoryCountPanel({
             closing={closeMutation.isPending}
           />
           </CycleLockContext.Provider>
+          </HabitualZonesProvider>
           </UnitChoiceContext.Provider>
           </CardLockContext.Provider>
         )}
@@ -2431,6 +2449,8 @@ function PhysicalCount({
   onCategoryChange,
   onSubcategoryChange,
   onSupplierChange,
+  habitualFilter,
+  onHabitualChange,
   onSearchChange,
   onDraftChange,
   onConfirm,
@@ -2495,6 +2515,8 @@ function PhysicalCount({
   onCategoryChange: (value: string) => void;
   onSubcategoryChange: (value: string) => void;
   onSupplierChange: (value: string | null) => void;
+  habitualFilter: HabitualFilter;
+  onHabitualChange: (value: HabitualFilter) => void;
   onSearchChange: (value: string) => void;
   onDraftChange: (key: string, value: string) => void;
   onConfirm: (row: InventoryCountRow) => void;
@@ -2778,7 +2800,18 @@ function PhysicalCount({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuLabel className="text-xs">Zona</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-xs">Zona abituale del prodotto</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => onHabitualChange(null)}>Tutte (anche senza zona)</DropdownMenuItem>
+                {locationOptions.map((location) => (
+                  <DropdownMenuCheckboxItem key={`ab-${location.id}`} checked={habitualFilter === location.id} onCheckedChange={() => onHabitualChange(location.id)}>
+                    {location.name}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuCheckboxItem checked={habitualFilter === NO_HABITUAL} onCheckedChange={() => onHabitualChange(NO_HABITUAL)}>
+                  Senza zona abituale
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Zona del conteggio</DropdownMenuLabel>
                 <DropdownMenuItem onClick={onAllZones}>Tutte le zone</DropdownMenuItem>
                 {locationOptions.map((location) => (
                   <DropdownMenuItem key={location.id} onClick={() => onLocationChange(location.id)}>
@@ -3164,8 +3197,9 @@ function ProductCard({
           <p className="text-[11px] leading-tight text-muted-foreground">
             Cod. {row.code}
             {unit ? ` · ${unit}` : ""}
-            {isVisible("zona") ? ` · ${row.location_name}` : ""}
+            {isVisible("zona") ? ` · Zona conteggio: ${row.location_name}` : ""}
           </p>
+          <HabitualZoneControl productId={row.product_id} />
           {row.danea_um?.trim() && row.danea_um.trim().toLowerCase() !== unit.toLowerCase() ? (
             <p className="text-[10px] leading-tight text-muted-foreground/80">Danea: {row.danea_um.trim()} (solo informativa)</p>
           ) : null}

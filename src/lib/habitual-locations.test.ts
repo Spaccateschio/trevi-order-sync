@@ -26,3 +26,34 @@ describe("zone abituali", () => {
     assert.equal(habitualError({ ids: [], primaryId: null }), null);
   });
 });
+
+import { buildHabitualMap, habitualFirst, matchesHabitual, NO_HABITUAL } from "./habitual-locations";
+
+describe("filtro e ordinamento per zona abituale", () => {
+  const map = buildHabitualMap([
+    { product_id: "mela", location_id: "frigo1", is_primary: true },
+    { product_id: "mela", location_id: "magazzino", is_primary: false },
+    { product_id: "pera", location_id: "magazzino", is_primary: true },
+  ]);
+  // Due card dello stesso prodotto (due fornitori) seguono la stessa zona abituale.
+  const cards = [
+    { product_id: "kiwi", key: "k" },
+    { product_id: "pera", key: "p" },
+    { product_id: "mela", key: "m1" },
+    { product_id: "mela", key: "m2" },
+  ];
+
+  it("senza filtro tutti i prodotti, anche senza zona, restano visibili", () => {
+    assert.equal(cards.filter((c) => matchesHabitual(c.product_id, map, null)).length, 4);
+  });
+  it("zona abituale: tutte le card del prodotto associato", () => {
+    assert.deepEqual(cards.filter((c) => matchesHabitual(c.product_id, map, "frigo1")).map((c) => c.key), ["m1", "m2"]);
+  });
+  it("«Senza zona abituale» mostra solo i prodotti non configurati", () => {
+    assert.deepEqual(cards.filter((c) => matchesHabitual(c.product_id, map, NO_HABITUAL)).map((c) => c.key), ["k"]);
+  });
+  it("zona del conteggio scelta: prima gli abituali, gli altri restano contabili", () => {
+    assert.deepEqual(habitualFirst(cards, map, "magazzino").map((c) => c.key), ["p", "m1", "m2", "k"]);
+    assert.equal(habitualFirst(cards, map, "frigo2").length, 4);
+  });
+});
