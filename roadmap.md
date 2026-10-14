@@ -206,4 +206,4 @@
 - [x] Parte alta compatta durante lo scorrimento, senza duplicare ricerca e filtri; selettore Card/Righe sempre raggiungibile.
 - [x] Righe a due fasce a 390/607 px, una riga a 1280 px; stessi comandi e protezioni delle card.
 - [x] Vista ricordata localmente per utente, azienda e dispositivo, fallback Card; bozze, U.M., ricerca e filtri conservati cambiando vista.
-- [x] 31 test pertinenti, typecheck e build puliti; verificati 390/607/1280 px, entrambe le viste prima/dopo scroll, nessun overflow o errore a schermo. Nessuna pubblicazione.
+- [x] 31 test pertinenti e build automatica OK; verificati 390/607/1280 px, entrambe le viste prima/dopo scroll, nessun overflow o errore a schermo. Typecheck separato non disponibile nei segnali automatici. Nessuna pubblicazione. Durante la prova una bozza temporanea è stata salvata dall'autosalvataggio esistente e poi rimossa; nessun conteggio confermato.
