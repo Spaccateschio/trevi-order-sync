@@ -221,3 +221,4 @@
 - [ ] Fase 4: storico, consultazione e stampa dei documenti
 - [ ] Foto dello scontrino: sviluppo successivo
 - [x] Fasi 1 e 2 acquisto diretto: documento AD, bozza, conferma e annullamento (anteprima, non pubblicato)
+- [x] 15/10 — «Prima di generare gli ordini»: elenchi «Prodotti (N)» aperti per fornitori e acquisti diretti, eccedenza solo con U.M. uguali, rilettura all'apertura; ARANCE: quota diretta non salvata (solo anteprima, in attesa di controllo)
