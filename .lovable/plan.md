@@ -1,4 +1,22 @@
-# Acquisto diretto come documento — Fase 1 (bozza)
+# Riepilogo prodotti per fornitori e acquisti diretti
+
+## Intervento richiesto, solo in anteprima
+- Nella finestra «Prima di generare gli ordini», mostrare per ogni fornitore e per «Acquisti diretti» lo stesso comando espandibile «Prodotti (numero)».
+- Aprire gli elenchi inizialmente, così prodotti e quantità sono subito controllabili; resta possibile richiuderli.
+- Per acquisti diretti mostrare codice, nome completo, quantità e U.M. salvate, distinguendo prodotti da inserire in bozza, già in bozza e confermati. Nessuna quantità diretta dedotta dai fornitori.
+- Conservare i comandi esistenti dei fornitori e delle bozze AD. La generazione non invia nulla.
+- Verificare che riaprendo la finestra il riepilogo legga le quote aggiornate. Se i dati diretti risultano assenti nonostante una quota salvata, segnalare la causa: nessuna modifica al database o alle regole senza ulteriore autorizzazione.
+
+## File autorizzati dal piano
+- `src/components/shopping/generate-orders-dialog.tsx`: presentazione degli elenchi e, se necessario, aggiornamento delle letture all'apertura.
+- `roadmap.md`: esito dell'intervento.
+
+## Verifica e limiti
+Controllare apertura/chiusura degli elenchi e leggibilità su schermi stretti e larghi, senza creare ordini o modificare quantità reali. Controllare gli errori dell'anteprima. Nessuna modifica a card, Inventario, database, carico merce o invio; nessuna pubblicazione.
+
+---
+
+# Piano precedente — Acquisto diretto come documento, Fase 1
 
 Obiettivo: in «Genera ordini» la card «Acquisti diretti» crea una BOZZA di acquisto diretto numerata AD-AAAA-NNNNN con i prodotti e le quantità dirette della Lista. La bozza si modifica liberamente. Nessuna giacenza, nessun fornitore, nessun invio, nessuna notifica. La quota diretta della Lista NON diventa gestita alla creazione della bozza (lo diventerà alla conferma, Fase 2).
 
