@@ -233,3 +233,5 @@
 - [ ] AD: pagina esterna da link per il collaboratore/fornitore non B2B: peso netto, lordo, prezzo, dati utili al carico
 - [ ] AD: pagina conferma ricezione con spunta prodotti ritirati/consegnati → carico merce e inventario
 - [x] Fase A Genera e invia (anteprima, non pubblicato): B2B inviati subito, non B2B condivisione, AD creato, riepilogo esiti con riprova
+
+- [x] Scarico ordini B2B in Danea: sviluppo completato in anteprima (non pubblicato, nessuna postazione ordini creata). In attesa: prova su archivio Danea di test.
