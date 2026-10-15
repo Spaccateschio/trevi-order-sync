@@ -232,3 +232,4 @@
 - [ ] AD: stampa e condividi (come ordini non B2B)
 - [ ] AD: pagina esterna da link per il collaboratore/fornitore non B2B: peso netto, lordo, prezzo, dati utili al carico
 - [ ] AD: pagina conferma ricezione con spunta prodotti ritirati/consegnati → carico merce e inventario
+- [ ] Fase A Genera e invia: B2B inviati subito, non B2B condivisione, AD creato, riepilogo esiti con riprova
