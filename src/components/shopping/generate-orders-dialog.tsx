@@ -431,6 +431,34 @@ export function GenerateOrdersDialog({
           failed.push(`${s.name}: ${(error as Error).message}`);
         }
       }
+      // Acquisto diretto: stessa spunta degli altri fornitori, un solo pulsante per tutti.
+      if (directSelected && directChecked.length) {
+        try {
+          const key = (directKey.current ??= crypto.randomUUID());
+          const res = await runDirectDraft({ data: { listId, generationKey: key, itemIds: directChecked.map((x) => x.item_id) } });
+          // Intestazione (chi acquista, data, luogo) solo sulla bozza appena creata: mai sovrascrivere modifiche manuali.
+          if (!res.already_exists && (directHeader.buyer.trim() || directHeader.date || directHeader.where.trim())) {
+            await runUpdateDirect({
+              data: {
+                id: res.id,
+                header: {
+                  buyer_label: directHeader.buyer.trim() || null,
+                  purchase_date: directHeader.date || null,
+                  purchased_where: directHeader.where.trim() || null,
+                  total_paid: null,
+                  notes: null,
+                },
+                lines: [],
+              },
+            });
+          }
+          directKey.current = null;
+          await queryClient.invalidateQueries({ queryKey: ["direct-purchases-list", listId] });
+          done.push(`Acquisto diretto ${res.number}`);
+        } catch (error) {
+          failed.push(`Acquisto diretto: ${(error as Error).message}`);
+        }
+      }
       return { done, failed };
     },
     onSuccess: async ({ done, failed }) => {
