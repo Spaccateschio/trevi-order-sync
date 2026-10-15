@@ -463,6 +463,7 @@ export function GenerateOrdersDialog({
     },
   });
   const [openDirectDoc, setOpenDirectDoc] = useState<string | null>(null);
+  const [directSel, setDirectSel] = useState<Record<string, boolean>>({});
   // Una chiave finché la creazione non riesce: ripetere il clic restituisce la stessa bozza.
   const directKey = useRef<string | null>(null);
   const direct = useMutation({
@@ -697,8 +698,8 @@ export function GenerateOrdersDialog({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="flex items-center gap-2 text-sm font-semibold"><ShoppingBag className="size-4" /> Acquisti diretti</h3>
                       {toDraft.length ? (
-                        <Button size="sm" disabled={direct.isPending} onClick={() => direct.mutate(toDraft.map((x) => x.item_id))}>
-                          {direct.isPending ? <Loader2 className="size-4 animate-spin" /> : null} Genera bozza acquisto diretto ({toDraft.length})
+                        <Button size="sm" disabled={direct.isPending || !toDraft.some((x) => directSel[x.item_id] !== false)} onClick={() => direct.mutate(toDraft.filter((x) => directSel[x.item_id] !== false).map((x) => x.item_id))}>
+                          {direct.isPending ? <Loader2 className="size-4 animate-spin" /> : null} Genera bozza acquisto diretto ({toDraft.filter((x) => directSel[x.item_id] !== false).length})
                         </Button>
                       ) : null}
                     </div>
@@ -713,20 +714,33 @@ export function GenerateOrdersDialog({
                         <CollapsibleContent className="max-h-[50vh] space-y-1 overflow-y-auto">
                           {data.direct.map((x) => {
                             const d = liveDoc(x.item_id);
+                            const selectable = !x.done && !d;
                             return (
-                              <div key={x.item_id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded border border-border/60 p-2 text-sm">
+                              <div key={x.item_id} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded border border-border/60 p-2 text-sm sm:grid-cols-[auto_minmax(0,1fr)_8rem_auto]">
+                                <Checkbox
+                                  className="mt-1"
+                                  checked={selectable ? directSel[x.item_id] !== false : x.done || !!d}
+                                  disabled={!selectable}
+                                  onCheckedChange={(v) => setDirectSel((s) => ({ ...s, [x.item_id]: v === true }))}
+                                />
                                 <div className="min-w-0">
                                   <p className="break-words font-medium">{x.code ? `${x.code} · ` : ""}{x.name}</p>
-                                  <p className="text-sm">{qty(x.quantity)} {x.unit_code ?? ""}</p>
+                                  <p className="text-xs text-muted-foreground">Quota diretta: {qty(x.quantity)} {x.unit_code ?? ""}</p>
                                   {excessBadge(x.item_id)}
                                 </div>
-                                {x.done ? (
-                                  <Badge variant="secondary">Confermato e gestito</Badge>
-                                ) : d ? (
-                                  <Button size="sm" variant="outline" onClick={() => setOpenDirectDoc(d.id)}>In bozza {d.number}</Button>
-                                ) : (
-                                  <Badge variant="outline">Da inserire in bozza</Badge>
-                                )}
+                                <div className="col-span-2 flex items-center gap-1 sm:col-span-1">
+                                  <Input inputMode="decimal" className="h-8 text-right" value={qty(x.quantity)} readOnly disabled />
+                                  <span className="w-10 text-xs text-muted-foreground">{x.unit_code ?? ""}</span>
+                                </div>
+                                <div className="col-span-2 flex items-center justify-end sm:col-span-1">
+                                  {x.done ? (
+                                    <Badge variant="secondary">Confermato e gestito</Badge>
+                                  ) : d ? (
+                                    <Button size="sm" variant="outline" onClick={() => setOpenDirectDoc(d.id)}>In bozza {d.number}</Button>
+                                  ) : (
+                                    <Badge variant="outline">Da inserire in bozza</Badge>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
