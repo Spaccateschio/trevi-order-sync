@@ -378,17 +378,30 @@ export function GenerateOrdersDialog({
     }
   };
 
+  const runOrder = useServerFn(managePurchaseOrder);
+  // Esiti dell'ultima generazione: restano visibili finché la finestra è aperta.
+  const [outcomes, setOutcomes] = useState<GenerationOutcome[]>([]);
+  const [shareTarget, setShareTarget] = useState<Extract<GenerationOutcome, { kind: "da_condividere" }> | null>(null);
+  useEffect(() => {
+    if (!open) setOutcomes([]);
+  }, [open]);
+
+  const listClosedNow = async () => {
+    const { data } = await supabase.from("shopping_lists").select("status").eq("id", listId).single();
+    return data?.status === "chiusa";
+  };
+
   const generate = useMutation({
     mutationFn: async () => {
       const data = preview.data as GenerationPreview;
-      const done: string[] = [];
-      const failed: string[] = [];
+      const out: GenerationOutcome[] = [];
       for (const s of data.suppliers) {
         const d = drafts[s.supplier_record_id];
         if (!d?.selected) continue;
         const chosen = s.lines.filter((l) => d.lines[l.assignment_id]?.included);
         if (!chosen.length) continue;
         const key = (keys.current[s.supplier_record_id] ??= crypto.randomUUID());
+        let created: { order_id: string; number: string | null } | null = null;
         try {
           const res = await runGenerate({
             data: {
@@ -422,12 +435,24 @@ export function GenerateOrdersDialog({
             if (lines.length) await runUpdate({ data: { orderId: res.order_id, lines, delivery: null } });
           }
           delete keys.current[s.supplier_record_id];
-          done.push(s.name);
+          created = { order_id: res.order_id, number: res.number };
         } catch (error) {
-          failed.push(`${s.name}: ${(error as Error).message}`);
+          out.push({ kind: "errore_generazione", name: s.name, message: (error as Error).message });
+          continue;
+        }
+        // Ordine creato: B2B parte subito; un errore d'invio lascia la bozza da riprovare senza rigenerarla.
+        if (afterCreateAction(s.is_b2b) === "invia_piattaforma") {
+          try {
+            await runOrder({ data: { orderId: created.order_id, action: "send", destinationLocationId: null, notes: null, sendChannel: null } });
+            out.push({ kind: "inviato", name: s.name, orderId: created.order_id, number: created.number });
+          } catch (error) {
+            out.push({ kind: "errore_invio", name: s.name, orderId: created.order_id, number: created.number, isB2b: true, message: (error as Error).message });
+          }
+        } else {
+          out.push({ kind: "da_condividere", name: s.name, orderId: created.order_id, number: created.number });
         }
       }
-      // Acquisto diretto: stessa spunta degli altri fornitori, un solo pulsante per tutti.
+      // Acquisto diretto: stessa spunta degli altri fornitori, un solo pulsante per tutti. Nessun invio.
       if (directSelected && directChecked.length) {
         try {
           const key = (directKey.current ??= crypto.randomUUID());
@@ -450,22 +475,51 @@ export function GenerateOrdersDialog({
           }
           directKey.current = null;
           await queryClient.invalidateQueries({ queryKey: ["direct-purchases-list", listId] });
-          done.push(`Acquisto diretto ${res.number}`);
+          out.push({ kind: "acquisto_diretto", name: "Acquisto diretto", id: res.id, number: res.number });
         } catch (error) {
-          failed.push(`Acquisto diretto: ${(error as Error).message}`);
+          out.push({ kind: "errore_generazione", name: "Acquisto diretto", message: (error as Error).message });
         }
       }
-      return { done, failed };
+      return { out, closed: out.some((o) => o.kind === "inviato") ? await listClosedNow() : false };
     },
-    onSuccess: async ({ done, failed }) => {
+    onSuccess: async ({ out, closed }) => {
       setDrafts({});
+      setOutcomes(out);
       await refresh();
       // Ricostruisce sempre le card dai dati attuali, anche se identici a prima (es. tentativo fallito).
       setRebuild((n) => n + 1);
-      if (done.length) toast.success(`Bozze generate: ${done.join(", ")}`);
-      for (const f of failed) toast.error(f);
+      const sum = summarize(out);
+      if (sum.errori) toast.error(`${sum.errori} ${sum.errori === 1 ? "operazione non riuscita" : "operazioni non riuscite"}: vedi il riepilogo`);
+      else toast.success("Ordini generati");
+      if (closed) toast.success("Lista completata e chiusa");
     },
     onError: (error: Error) => toast.error(error.message),
+  });
+
+  // Invio di un ordine già creato (riprova B2B o conferma della condivisione non B2B): mai una nuova generazione.
+  const sendOne = useMutation({
+    mutationFn: async (p: { orderId: string; channel: SendChannel | null }) => {
+      await runOrder({ data: { orderId: p.orderId, action: "send", destinationLocationId: null, notes: null, sendChannel: p.channel } });
+      return { ...p, closed: await listClosedNow() };
+    },
+    onSuccess: async ({ orderId, closed }) => {
+      setOutcomes((list) => {
+        const cur = list.find((o) => "orderId" in o && o.orderId === orderId);
+        return cur && "orderId" in cur ? replaceOutcome(list, orderId, { kind: "inviato", name: cur.name, orderId, number: cur.number }) : list;
+      });
+      setShareTarget(null);
+      await refresh();
+      toast.success("Ordine inviato");
+      if (closed) toast.success("Lista completata e chiusa");
+    },
+    onError: (error: Error, p) => {
+      setOutcomes((list) => {
+        const cur = list.find((o) => "orderId" in o && o.orderId === p.orderId);
+        if (!cur || !("orderId" in cur) || p.channel) return list;
+        return replaceOutcome(list, p.orderId, { kind: "errore_invio", name: cur.name, orderId: p.orderId, number: cur.number, isB2b: true, message: error.message });
+      });
+      toast.error(error.message);
+    },
   });
 
   const exclusion = useMutation({
@@ -568,7 +622,7 @@ export function GenerateOrdersDialog({
           <DialogHeader>
             <DialogTitle>{step === "avviso" ? "Prima di generare gli ordini" : "Genera ordini per fornitore"}</DialogTitle>
             <DialogDescription>
-              Gli ordini nascono come bozze: puoi modificarli e inviarli quando vuoi. La Lista si chiude da sola quando tutto è stato gestito.
+              Gli ordini B2B partono subito tramite la piattaforma; gli altri si condividono e risultano inviati solo quando lo confermi. La Lista si chiude da sola quando tutto è stato gestito.
             </DialogDescription>
           </DialogHeader>
 
@@ -832,6 +886,15 @@ export function GenerateOrdersDialog({
                 </section>
               ) : null}
 
+              {outcomes.length ? (
+                <GenerationSummary
+                  outcomes={outcomes}
+                  pendingOrder={sendOne.isPending ? sendOne.variables?.orderId ?? null : null}
+                  onRetry={(o) => sendOne.mutate({ orderId: o.orderId, channel: null })}
+                  onShare={(o) => setShareTarget(o)}
+                  onOpenDirect={(id) => setOpenDirectDoc(id)}
+                />
+              ) : null}
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Chiudi</Button>
                 {data.suppliers.length || directChecked.length ? (
