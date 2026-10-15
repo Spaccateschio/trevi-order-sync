@@ -169,13 +169,16 @@ export const moveDaneaStation = createServerFn({ method: "POST" })
  */
 export const createDaneaStation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { companyId: string; archiveId: string; name: string }) => {
+  .inputValidator((input: { companyId: string; archiveId: string; name: string; use?: "prodotti" | "ordini" }) => {
     if (!input?.companyId) throw new Error("Azienda mancante");
     if (!input?.archiveId) throw new Error("Scegli l'archivio Danea della postazione");
+    // Un solo uso per postazione: una postazione ordini non trasferisce prodotti e viceversa.
+    const use = input.use ?? "prodotti";
+    if (use !== "prodotti" && use !== "ordini") throw new Error("Uso postazione non valido");
     const name = input.name?.trim();
     if (!name) throw new Error("Indica un nome per la postazione (es. PC Ufficio)");
     if (name.length > 60) throw new Error("Nome postazione troppo lungo");
-    return { companyId: input.companyId, archiveId: input.archiveId, name };
+    return { companyId: input.companyId, archiveId: input.archiveId, name, use };
   })
   .handler(async ({ data, context }) => {
     await assertCompanyAdmin(context.supabase, data.companyId);
@@ -201,7 +204,7 @@ export const createDaneaStation = createServerFn({ method: "POST" })
     let lastError: string | null = null;
 
     for (let attempt = 0; attempt < 5 && !created; attempt += 1) {
-      const username = `${base}-${randomHex(3)}`;
+      const username = `${base}${data.use === "ordini" ? "-ordini" : ""}-${randomHex(3)}`;
       const { data: row, error } = await supabaseAdmin
         .from("danea_stations")
         .insert({
@@ -211,6 +214,7 @@ export const createDaneaStation = createServerFn({ method: "POST" })
           username,
           password_hash: passwordHash,
           password_salt: salt,
+          allowed_uses: [data.use],
           created_by: context.userId,
         })
         .select("id, username")
@@ -231,7 +235,7 @@ export const createDaneaStation = createServerFn({ method: "POST" })
       action: "danea_station.created",
       entity_type: "danea_station",
       entity_id: created.id,
-      detail: { name: data.name, username: created.username, archive_id: data.archiveId },
+      detail: { name: data.name, username: created.username, archive_id: data.archiveId, use: data.use },
     });
 
     return { id: created.id, username: created.username, password };
