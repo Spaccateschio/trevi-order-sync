@@ -620,9 +620,9 @@ export function GenerateOrdersDialog({
                         </div>
                         <Collapsible>
                           <CollapsibleTrigger asChild>
-                            <Button size="sm" variant="ghost" className="mt-2 px-1"><ChevronDown className="size-4" /> Prodotti</Button>
+                            <Button size="sm" variant="ghost" className="mt-2 px-1"><ChevronDown className="size-4" /> Prodotti ({s.lines.length})</Button>
                           </CollapsibleTrigger>
-                          <CollapsibleContent className="space-y-1">
+                          <CollapsibleContent className="max-h-[50vh] space-y-1 overflow-y-auto">
                             {s.lines.map((l: GenerationLine) => {
                               const ln = d.lines[l.assignment_id];
                               return (
@@ -634,8 +634,9 @@ export function GenerateOrdersDialog({
                                     onCheckedChange={(v) => setDraft(s.supplier_record_id, (x) => ({ ...x, lines: { ...x.lines, [l.assignment_id]: { quantity: x.lines[l.assignment_id]?.quantity ?? "", included: v === true } } }))}
                                   />
                                   <div className="min-w-0">
-                                    <p className="truncate font-medium">{l.code ? `${l.code} · ` : ""}{l.name}</p>
-                                    <p className="text-xs text-muted-foreground">{linePrice(l)}{l.notes ? ` · ${l.notes}` : ""}</p>
+                                    <p className="break-words font-medium">{l.code ? `${l.code} · ` : ""}{l.name}</p>
+                                    <p className="text-xs text-muted-foreground">Assegnati: {qty(Number(l.saved_quantity ?? l.quantity))} {l.unit_code ?? ""}{linePrice(l) ? ` · ${linePrice(l)}` : ""}{l.notes ? ` · ${l.notes}` : ""}</p>
+                                    {excessBadge(l.item_id)}
                                     {l.needs_coverage ? (
                                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                                         <span>Da confermare — manca la conversione U.M.: conferma che vuoi acquistare {qty(l.quantity)} {l.unit_code ?? ""}.</span>
@@ -704,21 +705,34 @@ export function GenerateOrdersDialog({
                     {!data.direct.length && !directDocs.data?.length ? (
                       <p className="text-sm text-muted-foreground">Nessun acquisto diretto in questa Lista: usa la spunta «Acquisto diretto (compro io)» sulla card del prodotto.</p>
                     ) : null}
-                    {data.direct.map((x) => {
-                      const d = liveDoc(x.item_id);
-                      return (
-                        <div key={x.item_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                          <span>{x.code ? `${x.code} · ` : ""}{x.name} — {qty(x.quantity)} {x.unit_code ?? ""}</span>
-                          {x.done ? (
-                            <Badge variant="secondary">Confermato e gestito</Badge>
-                          ) : d ? (
-                            <Button size="sm" variant="outline" onClick={() => setOpenDirectDoc(d.id)}>In bozza {d.number}</Button>
-                          ) : (
-                            <Badge variant="outline">Da inserire in una bozza</Badge>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {data.direct.length ? (
+                      <Collapsible defaultOpen>
+                        <CollapsibleTrigger asChild>
+                          <Button size="sm" variant="ghost" className="px-1"><ChevronDown className="size-4" /> Prodotti ({data.direct.length})</Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="max-h-[50vh] space-y-1 overflow-y-auto">
+                          {data.direct.map((x) => {
+                            const d = liveDoc(x.item_id);
+                            return (
+                              <div key={x.item_id} className="grid grid-cols-[1fr_auto] items-center gap-2 rounded border border-border/60 p-2 text-sm">
+                                <div className="min-w-0">
+                                  <p className="break-words font-medium">{x.code ? `${x.code} · ` : ""}{x.name}</p>
+                                  <p className="text-sm">{qty(x.quantity)} {x.unit_code ?? ""}</p>
+                                  {excessBadge(x.item_id)}
+                                </div>
+                                {x.done ? (
+                                  <Badge variant="secondary">Confermato e gestito</Badge>
+                                ) : d ? (
+                                  <Button size="sm" variant="outline" onClick={() => setOpenDirectDoc(d.id)}>In bozza {d.number}</Button>
+                                ) : (
+                                  <Badge variant="outline">Da inserire in bozza</Badge>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ) : null}
                     {directDocs.data?.length ? (
                       <div className="space-y-1 border-t border-border pt-2">
                         <div className="text-xs font-medium text-muted-foreground">Documenti di questa Lista</div>
