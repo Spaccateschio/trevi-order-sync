@@ -33,3 +33,4 @@
 - Prezzo riga d'ordine B2B: solo applicable_b2b_price (netto, listino assegnato, articolo pubblicato) sull'articolo del collegamento usato, letto prima di ogni scrittura in close_shopping_list / create_purchase_orders_from_list; nessun fallback: senza prezzo «Prezzo su richiesta».
 - Regole U.M. di vendita: vedi src/components/products/AGENTS.md.
 - Regole Inventario (zone abituali, aggiunte al conteggio, inventario completo): vedi src/components/inventory/AGENTS.md.
+- Prove: nessuna prova deve modificare dati operativi reali, nemmeno temporaneamente e nemmeno con l'intenzione di ripristinarli successivamente. Le prove che richiedono scritture devono essere eseguite esclusivamente in transazioni annullate o su dati di prova creati e cancellati nella stessa transazione. Non utilizzare dati operativi come banco di prova senza autorizzazione esplicita dell'utente. Vale per Inventario, Lista della Spesa, Ordini, Acquisti diretti, Carichi e ogni altra funzionalità.
