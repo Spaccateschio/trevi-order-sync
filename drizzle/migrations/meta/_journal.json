@@ -428,6 +428,13 @@
       "when": 1792039443484,
       "tag": "0060_item_state_excess_is_assigned",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1792041179175,
+      "tag": "0061_direct_purchase_buyer_label",
+      "breakpoints": true
     }
   ]
 }

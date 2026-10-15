@@ -36,6 +36,7 @@ export const updateDirectPurchaseDraft = createServerFn({ method: "POST" })
           purchase_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
           total_paid: z.number().min(0).nullable(),
           notes: z.string().trim().max(1000).nullable(),
+          buyer_label: z.string().trim().max(200).nullable(),
         }),
         lines: z
           .array(

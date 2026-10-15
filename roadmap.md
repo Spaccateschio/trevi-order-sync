@@ -217,6 +217,10 @@
 
 
 - [x] Quota acquisto diretto: salvataggio automatico con ripartizione del residuo ai fornitori e avviso di quantità superiore (eccedenza ammessa, riga «da verificare») — anteprima, non pubblicato
+- [x] Acquisto diretto come ordine normale (Fase 1): spunta in testa, «Chi acquista», data e luogo nella finestra Genera ordini; un solo pulsante «Genera ordini selezionati» che conta fornitori + diretto; campo buyer_label nel documento AD — anteprima, non pubblicato
+- [ ] Acquisto diretto Fase 2: stampa e condivisione del documento AD
+- [ ] Acquisto diretto Fase 3: pagina con link per inserire peso netto/lordo, prezzo e dati di carico (non B2B)
+- [ ] Acquisto diretto Fase 4: pagina di conferma ricezione con spunta dei prodotti ritirati/consegnati
 - [ ] Fase 3: carico merce da acquisto diretto confermato (quantità, U.M., peso, prezzi effettivi)
 - [ ] Fase 4: storico, consultazione e stampa dei documenti
 - [ ] Foto dello scontrino: sviluppo successivo

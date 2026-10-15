@@ -41,7 +41,7 @@ import {
   type GenerationPreview,
 } from "@/lib/order-generation.functions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
-import { generateDirectPurchaseDraft } from "@/lib/direct-purchase.functions";
+import { generateDirectPurchaseDraft, updateDirectPurchaseDraft } from "@/lib/direct-purchase.functions";
 import { DirectPurchaseDraftDialog, STATUS_LABEL } from "@/components/purchase/direct-purchase-draft-dialog";
 import { assignShoppingListSupplier, setShoppingListItemQuantityLock } from "@/lib/shopping-list.functions";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
@@ -333,6 +333,8 @@ export function GenerateOrdersDialog({
     const addresses = p?.addresses ?? [];
     // Indirizzo principale di consegna: primo indirizzo attivo con tipologia «consegna».
     const mainDelivery = addresses.find((a) => a.functions.includes("consegna"))?.id ?? null;
+    // Data dell'acquisto diretto: stessa regola dei fornitori (preferenze aziendali), senza toccare modifiche manuali.
+    setDirectHeader((prev) => (prev.date ? prev : { ...prev, date: company?.date ?? today }));
     setDrafts((prev) => {
       const next = { ...prev };
       for (const s of data.suppliers) {
@@ -425,6 +427,34 @@ export function GenerateOrdersDialog({
           failed.push(`${s.name}: ${(error as Error).message}`);
         }
       }
+      // Acquisto diretto: stessa spunta degli altri fornitori, un solo pulsante per tutti.
+      if (directSelected && directChecked.length) {
+        try {
+          const key = (directKey.current ??= crypto.randomUUID());
+          const res = await runDirectDraft({ data: { listId, generationKey: key, itemIds: directChecked.map((x) => x.item_id) } });
+          // Intestazione (chi acquista, data, luogo) solo sulla bozza appena creata: mai sovrascrivere modifiche manuali.
+          if (!res.already_exists && (directHeader.buyer.trim() || directHeader.date || directHeader.where.trim())) {
+            await runUpdateDirect({
+              data: {
+                id: res.id,
+                header: {
+                  buyer_label: directHeader.buyer.trim() || null,
+                  purchase_date: directHeader.date || null,
+                  purchased_where: directHeader.where.trim() || null,
+                  total_paid: null,
+                  notes: null,
+                },
+                lines: [],
+              },
+            });
+          }
+          directKey.current = null;
+          await queryClient.invalidateQueries({ queryKey: ["direct-purchases-list", listId] });
+          done.push(`Acquisto diretto ${res.number}`);
+        } catch (error) {
+          failed.push(`Acquisto diretto: ${(error as Error).message}`);
+        }
+      }
       return { done, failed };
     },
     onSuccess: async ({ done, failed }) => {
@@ -464,21 +494,18 @@ export function GenerateOrdersDialog({
   });
   const [openDirectDoc, setOpenDirectDoc] = useState<string | null>(null);
   const [directSel, setDirectSel] = useState<Record<string, boolean>>({});
+  // La sezione Acquisti diretti si comporta come un fornitore: spunta in testa, chi acquista, data e luogo.
+  const [directSelected, setDirectSelected] = useState(true);
+  const [directHeader, setDirectHeader] = useState({ buyer: "", date: "", where: "" });
+  const runUpdateDirect = useServerFn(updateDirectPurchaseDraft);
   // Una chiave finché la creazione non riesce: ripetere il clic restituisce la stessa bozza.
   const directKey = useRef<string | null>(null);
-  const direct = useMutation({
-    mutationFn: async (itemIds: string[]) => {
-      const key = (directKey.current ??= crypto.randomUUID());
-      return runDirectDraft({ data: { listId, generationKey: key, itemIds } });
-    },
-    onSuccess: async (res) => {
-      directKey.current = null;
-      await queryClient.invalidateQueries({ queryKey: ["direct-purchases-list", listId] });
-      toast.success(res.already_exists ? `Bozza ${res.number} già creata` : `Bozza acquisto diretto ${res.number} creata`);
-      setOpenDirectDoc(res.id);
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
+
+  // Quote dirette ancora da mettere in bozza (non gestite e non già in una bozza AD aperta).
+  const liveDirectDoc = (itemId: string) =>
+    directDocs.data?.find((d) => d.status === "bozza" && d.direct_purchase_items.some((i) => i.active_source_item_id === itemId));
+  const directToDraft = (preview.data?.direct ?? []).filter((x) => !x.done && !liveDirectDoc(x.item_id));
+  const directChecked = directToDraft.filter((x) => directSel[x.item_id] !== false);
 
   // Conferma o annullamento (persistente, tracciato nel DB; revocabile finché la quota non è in un ordine).
   const coverage = useMutation({
@@ -522,7 +549,8 @@ export function GenerateOrdersDialog({
     return e ? <p className="text-xs font-medium text-destructive">+{qty(e.amount)} {e.unit} in eccesso</p> : null;
   };
   const selectedCount = data
-    ? data.suppliers.filter((s) => drafts[s.supplier_record_id]?.selected && s.lines.some((l) => drafts[s.supplier_record_id]?.lines[l.assignment_id]?.included)).length
+    ? data.suppliers.filter((s) => drafts[s.supplier_record_id]?.selected && s.lines.some((l) => drafts[s.supplier_record_id]?.lines[l.assignment_id]?.included)).length +
+      (directSelected && directChecked.length ? 1 : 0)
     : 0;
   const blockedByCoverage = data
     ? data.suppliers.some(
@@ -689,82 +717,89 @@ export function GenerateOrdersDialog({
                 </section>
               ) : null}
 
-              {(() => {
-                const liveDoc = (itemId: string) =>
-                  directDocs.data?.find((d) => d.status === "bozza" && d.direct_purchase_items.some((i) => i.active_source_item_id === itemId));
-                const toDraft = data.direct.filter((x) => !x.done && !liveDoc(x.item_id));
-                return (
-                  <section className="space-y-2 rounded-md border border-border p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="flex items-center gap-2 text-sm font-semibold"><ShoppingBag className="size-4" /> Acquisti diretti</h3>
-                      {toDraft.length ? (
-                        <Button size="sm" disabled={direct.isPending || !toDraft.some((x) => directSel[x.item_id] !== false)} onClick={() => direct.mutate(toDraft.filter((x) => directSel[x.item_id] !== false).map((x) => x.item_id))}>
-                          {direct.isPending ? <Loader2 className="size-4 animate-spin" /> : null} Genera bozza acquisto diretto ({toDraft.filter((x) => directSel[x.item_id] !== false).length})
-                        </Button>
-                      ) : null}
-                    </div>
-                    {!data.direct.length && !directDocs.data?.length ? (
-                      <p className="text-sm text-muted-foreground">Nessun acquisto diretto in questa Lista: usa la spunta «Acquisto diretto (compro io)» sulla card del prodotto.</p>
-                    ) : null}
-                    {data.direct.length ? (
-                      <Collapsible defaultOpen>
-                        <CollapsibleTrigger asChild>
-                          <Button size="sm" variant="ghost" className="px-1"><ChevronDown className="size-4" /> Prodotti ({data.direct.length})</Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="max-h-[50vh] space-y-1 overflow-y-auto">
-                          {data.direct.map((x) => {
-                            const d = liveDoc(x.item_id);
-                            const selectable = !x.done && !d;
-                            return (
-                              <div key={x.item_id} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded border border-border/60 p-2 text-sm sm:grid-cols-[auto_minmax(0,1fr)_8rem_auto]">
-                                <Checkbox
-                                  className="mt-1"
-                                  checked={selectable ? directSel[x.item_id] !== false : x.done || !!d}
-                                  disabled={!selectable}
-                                  onCheckedChange={(v) => setDirectSel((s) => ({ ...s, [x.item_id]: v === true }))}
-                                />
-                                <div className="min-w-0">
-                                  <p className="break-words font-medium">{x.code ? `${x.code} · ` : ""}{x.name}</p>
-                                  <p className="text-xs text-muted-foreground">Quota diretta: {qty(x.quantity)} {x.unit_code ?? ""}</p>
-                                  {excessBadge(x.item_id)}
-                                </div>
-                                <div className="col-span-2 flex items-center gap-1 sm:col-span-1">
-                                  <Input inputMode="decimal" className="h-8 text-right" value={qty(x.quantity)} readOnly disabled />
-                                  <span className="w-10 text-xs text-muted-foreground">{x.unit_code ?? ""}</span>
-                                </div>
-                                <div className="col-span-2 flex items-center justify-end sm:col-span-1">
-                                  {x.done ? (
-                                    <Badge variant="secondary">Confermato e gestito</Badge>
-                                  ) : d ? (
-                                    <Button size="sm" variant="outline" onClick={() => setOpenDirectDoc(d.id)}>In bozza {d.number}</Button>
-                                  ) : (
-                                    <Badge variant="outline">Da inserire in bozza</Badge>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ) : null}
-                    {directDocs.data?.length ? (
-                      <div className="space-y-1 border-t border-border pt-2">
-                        <div className="text-xs font-medium text-muted-foreground">Documenti di questa Lista</div>
-                        {directDocs.data.map((d) => (
-                          <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                            <span className="flex items-center gap-2">
-                              {d.number}
-                              <Badge variant={d.status === "bozza" ? "outline" : "secondary"}>{STATUS_LABEL[d.status]}</Badge>
-                              <span className="text-xs text-muted-foreground">{d.direct_purchase_items.length} prodotti</span>
-                            </span>
-                            <Button size="sm" variant="ghost" onClick={() => setOpenDirectDoc(d.id)}>{d.status === "bozza" ? "Apri bozza" : "Vedi"}</Button>
-                          </div>
-                        ))}
+              <section className="space-y-2">
+                <h3 className="flex items-center gap-2 text-sm font-semibold"><ShoppingBag className="size-4" /> Acquisti diretti</h3>
+                {!data.direct.length && !directDocs.data?.length ? (
+                  <p className="text-sm text-muted-foreground">Nessun acquisto diretto in questa Lista: usa la spunta «Acquisto diretto (compro io)» sulla card del prodotto.</p>
+                ) : null}
+                {data.direct.length ? (
+                  <div className="rounded-md border border-border p-3">
+                    <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+                      <Checkbox checked={directSelected} onCheckedChange={(v) => setDirectSelected(v === true)} />
+                      Acquisto diretto
+                      <span className="font-normal text-muted-foreground">· {data.direct.length} {data.direct.length === 1 ? "prodotto" : "prodotti"}</span>
+                    </label>
+                    <div className="mt-2 grid min-w-0 gap-2 sm:grid-cols-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="gd-buyer" className="text-xs">Chi acquista</Label>
+                        <Input id="gd-buyer" className="h-8" value={directHeader.buyer} disabled={!directSelected} placeholder="Collaboratore o fornitore nuovo…" onChange={(e) => setDirectHeader((h) => ({ ...h, buyer: e.target.value }))} />
                       </div>
-                    ) : null}
-                  </section>
-                );
-              })()}
+                      <div className="space-y-1">
+                        <Label htmlFor="gd-date" className="text-xs">Data</Label>
+                        <Input id="gd-date" type="date" className="h-8" value={directHeader.date} disabled={!directSelected} onChange={(e) => setDirectHeader((h) => ({ ...h, date: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="gd-where" className="text-xs">Luogo</Label>
+                        <Input id="gd-where" className="h-8" value={directHeader.where} disabled={!directSelected} placeholder="Negozio, mercato…" onChange={(e) => setDirectHeader((h) => ({ ...h, where: e.target.value }))} />
+                      </div>
+                    </div>
+                    <Collapsible defaultOpen>
+                      <CollapsibleTrigger asChild>
+                        <Button size="sm" variant="ghost" className="mt-2 px-1"><ChevronDown className="size-4" /> Prodotti ({data.direct.length})</Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="max-h-[50vh] space-y-1 overflow-y-auto">
+                        {data.direct.map((x) => {
+                          const d = liveDirectDoc(x.item_id);
+                          const selectable = !x.done && !d;
+                          return (
+                            <div key={x.item_id} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded border border-border/60 p-2 text-sm sm:grid-cols-[auto_minmax(0,1fr)_8rem_auto]">
+                              <Checkbox
+                                className="mt-1"
+                                checked={selectable ? directSel[x.item_id] !== false : x.done || !!d}
+                                disabled={!selectable || !directSelected}
+                                onCheckedChange={(v) => setDirectSel((s) => ({ ...s, [x.item_id]: v === true }))}
+                              />
+                              <div className="min-w-0">
+                                <p className="break-words font-medium">{x.code ? `${x.code} · ` : ""}{x.name}</p>
+                                <p className="text-xs text-muted-foreground">Quota diretta: {qty(x.quantity)} {x.unit_code ?? ""}</p>
+                                {excessBadge(x.item_id)}
+                              </div>
+                              <div className="col-span-2 flex items-center gap-1 sm:col-span-1">
+                                <Input inputMode="decimal" className="h-8 text-right" value={qty(x.quantity)} readOnly disabled />
+                                <span className="w-10 text-xs text-muted-foreground">{x.unit_code ?? ""}</span>
+                              </div>
+                              <div className="col-span-2 flex items-center justify-end sm:col-span-1">
+                                {x.done ? (
+                                  <Badge variant="secondary">Confermato e gestito</Badge>
+                                ) : d ? (
+                                  <Button size="sm" variant="outline" onClick={() => setOpenDirectDoc(d.id)}>In bozza {d.number}</Button>
+                                ) : (
+                                  <Badge variant="outline">Da inserire in bozza</Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                ) : null}
+                {directDocs.data?.length ? (
+                  <div className="space-y-1 rounded-md border border-border p-3">
+                    <div className="text-xs font-medium text-muted-foreground">Documenti di questa Lista</div>
+                    {directDocs.data.map((d) => (
+                      <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <span className="flex items-center gap-2">
+                          {d.number}
+                          <Badge variant={d.status === "bozza" ? "outline" : "secondary"}>{STATUS_LABEL[d.status]}</Badge>
+                          <span className="text-xs text-muted-foreground">{d.direct_purchase_items.length} prodotti</span>
+                        </span>
+                        <Button size="sm" variant="ghost" onClick={() => setOpenDirectDoc(d.id)}>{d.status === "bozza" ? "Apri bozza" : "Vedi"}</Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
 
               <DirectPurchaseDraftDialog
                 docId={openDirectDoc}
@@ -799,7 +834,7 @@ export function GenerateOrdersDialog({
 
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Chiudi</Button>
-                {data.suppliers.length ? (
+                {data.suppliers.length || directChecked.length ? (
                   <Button disabled={!selectedCount || blockedByCoverage || generate.isPending} onClick={() => generate.mutate()}>
                     {generate.isPending ? <Loader2 className="size-4 animate-spin" /> : null} Genera ordini selezionati ({selectedCount})
                   </Button>

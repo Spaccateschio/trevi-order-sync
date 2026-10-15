@@ -30,7 +30,7 @@ const NONE = "__none__";
 const eur = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
 type LineState = { id: string; quantity: string; unitId: string | null; unitPrice: string; priceUnitId: string | null; notes: string };
-type HeaderState = { where: string; date: string; total: string; notes: string };
+type HeaderState = { where: string; date: string; total: string; notes: string; buyer: string };
 
 export const STATUS_LABEL: Record<string, string> = { bozza: "Bozza", confermato: "Confermato", annullato: "Annullato" };
 
@@ -86,7 +86,7 @@ export function DirectPurchaseDraftDialog({
     },
   });
 
-  const [header, setHeader] = useState<HeaderState>({ where: "", date: "", total: "", notes: "" });
+  const [header, setHeader] = useState<HeaderState>({ where: "", date: "", total: "", notes: "", buyer: "" });
   const [lines, setLines] = useState<LineState[]>([]);
   const [dirty, setDirty] = useState(false);
   const [ask, setAsk] = useState<null | "confirm" | "cancel">(null);
@@ -99,6 +99,7 @@ export function DirectPurchaseDraftDialog({
       date: h.purchase_date ?? "",
       total: h.total_paid == null ? "" : String(h.total_paid).replace(".", ","),
       notes: h.notes ?? "",
+      buyer: h.buyer_label ?? "",
     });
     setLines(
       doc.data.items.map((i) => ({
@@ -149,6 +150,7 @@ export function DirectPurchaseDraftDialog({
         purchase_date: header.date || null,
         total_paid: totalPaid == null || Number.isNaN(totalPaid) ? null : totalPaid,
         notes: header.notes.trim() || null,
+        buyer_label: header.buyer.trim() || null,
       },
       lines: lines.map((l, idx) => {
         const q = calc[idx]?.quantity ?? null;
@@ -254,7 +256,11 @@ export function DirectPurchaseDraftDialog({
             ) : null}
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="space-y-1 sm:col-span-2">
+              <div className="space-y-1">
+                <Label htmlFor="dp-buyer">Chi acquista</Label>
+                <Input id="dp-buyer" value={header.buyer} disabled={!editable} placeholder="Collaboratore o fornitore nuovo…" onChange={(e) => patchHeader({ buyer: e.target.value })} />
+              </div>
+              <div className="space-y-1">
                 <Label htmlFor="dp-where">Dove ho comprato</Label>
                 <Input id="dp-where" value={header.where} disabled={!editable} placeholder="Negozio, mercato, supermercato…" onChange={(e) => patchHeader({ where: e.target.value })} />
               </div>
