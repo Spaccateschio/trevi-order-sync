@@ -41,7 +41,7 @@ import {
   type GenerationPreview,
 } from "@/lib/order-generation.functions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
-import { generateDirectPurchaseDraft } from "@/lib/direct-purchase.functions";
+import { generateDirectPurchaseDraft, updateDirectPurchaseDraft } from "@/lib/direct-purchase.functions";
 import { DirectPurchaseDraftDialog, STATUS_LABEL } from "@/components/purchase/direct-purchase-draft-dialog";
 import { assignShoppingListSupplier, setShoppingListItemQuantityLock } from "@/lib/shopping-list.functions";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
