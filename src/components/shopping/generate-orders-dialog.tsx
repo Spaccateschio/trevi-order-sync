@@ -618,7 +618,7 @@ export function GenerateOrdersDialog({
                         <div className="mt-2">
                           <DeliveryFields addresses={prefs.data?.addresses ?? []} value={d.delivery} disabled={!d.selected} onChange={(delivery) => setDraft(s.supplier_record_id, (x) => ({ ...x, delivery }))} />
                         </div>
-                        <Collapsible>
+                        <Collapsible defaultOpen>
                           <CollapsibleTrigger asChild>
                             <Button size="sm" variant="ghost" className="mt-2 px-1"><ChevronDown className="size-4" /> Prodotti ({s.lines.length})</Button>
                           </CollapsibleTrigger>
