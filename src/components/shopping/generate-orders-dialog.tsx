@@ -86,7 +86,7 @@ function DeliveryFields({
   const known = value.addressId ? addresses.find((a) => a.id === value.addressId) : undefined;
   const selected = known ? known.id : OTHER_ADDRESS;
   return (
-    <div className="grid gap-2 sm:grid-cols-4">
+    <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-4 [&>*]:min-w-0">
       <div className="space-y-1">
         <Label className="text-xs">Data</Label>
         <Input type="date" value={value.date} disabled={disabled} onChange={(e) => onChange({ ...value, date: e.target.value })} />
@@ -109,7 +109,7 @@ function DeliveryFields({
             else onChange({ ...value, addressId: v, address: addresses.find((a) => a.id === v)?.text ?? "" });
           }}
         >
-          <SelectTrigger aria-label="Luogo">
+          <SelectTrigger aria-label="Luogo" className="w-full min-w-0 [&>span]:truncate">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -535,7 +535,7 @@ export function GenerateOrdersDialog({
   return (
     <>
       <Dialog open={open && !editingOrder} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-3xl overflow-x-hidden overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{step === "avviso" ? "Prima di generare gli ordini" : "Genera ordini per fornitore"}</DialogTitle>
             <DialogDescription>
@@ -609,7 +609,7 @@ export function GenerateOrdersDialog({
                     if (!d) return null;
                     return (
                       <div key={s.supplier_record_id} className="rounded-md border border-border p-3">
-                        <label className="flex items-center gap-2 text-sm font-medium">
+                        <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
                           <Checkbox checked={d.selected} onCheckedChange={(v) => setDraft(s.supplier_record_id, (x) => ({ ...x, selected: v === true }))} />
                           {s.name}
                           {s.is_b2b ? <Badge variant="secondary">B2B</Badge> : null}
@@ -626,7 +626,7 @@ export function GenerateOrdersDialog({
                             {s.lines.map((l: GenerationLine) => {
                               const ln = d.lines[l.assignment_id];
                               return (
-                                <div key={l.assignment_id} className="grid grid-cols-[auto_1fr] gap-2 rounded border border-border/60 p-2 text-sm sm:grid-cols-[auto_1fr_8rem_auto]">
+                                <div key={l.assignment_id} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded border border-border/60 p-2 text-sm sm:grid-cols-[auto_minmax(0,1fr)_8rem_auto]">
                                   <Checkbox
                                     className="mt-1"
                                     checked={ln?.included ?? false}
@@ -714,7 +714,7 @@ export function GenerateOrdersDialog({
                           {data.direct.map((x) => {
                             const d = liveDoc(x.item_id);
                             return (
-                              <div key={x.item_id} className="grid grid-cols-[1fr_auto] items-center gap-2 rounded border border-border/60 p-2 text-sm">
+                              <div key={x.item_id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded border border-border/60 p-2 text-sm">
                                 <div className="min-w-0">
                                   <p className="break-words font-medium">{x.code ? `${x.code} · ` : ""}{x.name}</p>
                                   <p className="text-sm">{qty(x.quantity)} {x.unit_code ?? ""}</p>

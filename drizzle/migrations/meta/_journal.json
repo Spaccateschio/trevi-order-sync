@@ -421,6 +421,13 @@
       "when": 1791993947298,
       "tag": "0059_direct_quota_allow_exceed",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1792039443484,
+      "tag": "0060_item_state_excess_is_assigned",
+      "breakpoints": true
     }
   ]
 }
