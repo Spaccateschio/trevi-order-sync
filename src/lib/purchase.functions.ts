@@ -392,6 +392,7 @@ export const createOrderShareLink = createServerFn({ method: "POST" })
         orderId: uuid,
         recipientLabel: z.string().trim().max(160).nullable(),
         validHours: z.number().int().min(1).max(720),
+        keepExisting: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -405,6 +406,7 @@ export const createOrderShareLink = createServerFn({ method: "POST" })
       _token_hash: tokenHash,
       _expires_at: expiresAt,
       _actor_user_id: context.userId,
+      ...(data.keepExisting ? { _keep_existing: true } : {}),
       ...(data.recipientLabel === null ? {} : { _recipient_label: data.recipientLabel }),
     });
     if (error) throw new Error(error.message);

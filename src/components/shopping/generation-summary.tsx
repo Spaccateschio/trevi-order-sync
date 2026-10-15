@@ -110,18 +110,36 @@ export function ShareOrderDialog({
     },
   });
   const runShare = useServerFn(createOrderShareLink);
-  // Link personale (token, scadenza 72 ore, revocabile) creato una sola volta per ordine.
+  // Nel database c'è solo l'impronta del codice: un link già mandato non si può rileggere, ma resta valido.
+  const active = useQuery({
+    queryKey: ["order-share-links-active", target.orderId],
+    enabled: !link,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("purchase_order_share_links")
+        .select("id, expires_at")
+        .eq("order_id", target.orderId)
+        .is("revoked_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .order("expires_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  // Link personale (token, 72 ore, revocabile). Mai revocare i link già mandati: restano validi fino a scadenza o revoca.
   const share = useMutation({
-    mutationFn: () => runShare({ data: { orderId: target.orderId, recipientLabel: target.name, validHours: 72 } }),
+    mutationFn: () => runShare({ data: { orderId: target.orderId, recipientLabel: target.name, validHours: 72, keepExisting: true } }),
     onSuccess: (res) => onLink({ url: `${window.location.origin}/consegna/${res.token}`, expiresAt: res.expiresAt }),
   });
+  const existing = active.data?.[0] ?? null;
   const requested = useRef(false);
   useEffect(() => {
-    if (!link && !requested.current) {
+    // Crea da solo il link solo se non ne esiste uno valido: nessun nuovo link a ogni apertura.
+    if (!link && !requested.current && active.isSuccess && !existing) {
       requested.current = true;
       share.mutate();
     }
-  }, [link, share]);
+  }, [link, active.isSuccess, existing, share]);
   const text = lines.data && link ? orderShareText(target.number, target.name, lines.data as never, link.url) : "";
   const subject = `Ordine ${target.number ?? ""}`;
 
@@ -138,11 +156,18 @@ export function ShareOrderDialog({
             <Button size="sm" variant="outline" onClick={() => share.mutate()}>Riprova</Button>
           </div>
         ) : null}
+        {!link && existing ? (
+          <div className="space-y-2 rounded-md border border-border p-2 text-sm">
+            <p>Il fornitore ha già un link valido fino al {new Date(existing.expires_at).toLocaleString("it-IT")}: continua a funzionare.</p>
+            <p className="text-xs text-muted-foreground">Per sicurezza l'indirizzo non si può rileggere. Se devi rimandarlo, crea un link aggiuntivo: quello già mandato resta valido.</p>
+            <Button size="sm" variant="outline" disabled={share.isPending} onClick={() => share.mutate()}>Crea link aggiuntivo</Button>
+          </div>
+        ) : null}
         {link ? <p className="text-xs text-muted-foreground">Link valido fino al {new Date(link.expiresAt).toLocaleString("it-IT")}; si può revocare dal dettaglio ordine.</p> : null}
-        {lines.isLoading || share.isPending ? (
+        {lines.isLoading || share.isPending || active.isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Caricamento…</p>
         ) : (
-          <pre className="max-h-60 overflow-y-auto whitespace-pre-wrap rounded border border-border bg-muted p-2 text-xs">{text}</pre>
+          text ? <pre className="max-h-60 overflow-y-auto whitespace-pre-wrap rounded border border-border bg-muted p-2 text-xs">{text}</pre> : null
         )}
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" disabled={!text} asChild>
@@ -154,7 +179,7 @@ export function ShareOrderDialog({
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" disabled={pending} onClick={onClose}>Più tardi</Button>
-          <Button disabled={pending || !text} onClick={() => setConfirmOpen(true)}>Ho inviato l'ordine</Button>
+          <Button disabled={pending || (!text && !existing)} onClick={() => setConfirmOpen(true)}>Ho inviato l'ordine</Button>
         </DialogFooter>
         <SendOrderDialog
           open={confirmOpen}
