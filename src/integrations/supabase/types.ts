@@ -1566,6 +1566,7 @@ export type Database = {
       }
       direct_purchases: {
         Row: {
+          buyer_label: string | null
           cancelled_at: string | null
           cancelled_by: string | null
           company_id: string
@@ -1585,6 +1586,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          buyer_label?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
           company_id: string
@@ -1604,6 +1606,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          buyer_label?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
           company_id?: string
