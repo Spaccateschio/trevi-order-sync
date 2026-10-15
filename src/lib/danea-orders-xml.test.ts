@@ -52,7 +52,7 @@ test("prezzo mancante: mai zero, campo omesso", () => {
 test("codice cliente mancante: ordine escluso con diagnostica", () => {
   const r = buildDaneaOrdersXml(null, [order({ customer: { ...customer, code: null } })]);
   assert.deepEqual(r.exportedIds, []);
-  assert.match(r.excluded[0]!.reasons[0], /Codice cliente Danea mancante/);
+  assert.match(r.excluded[0]!.reasons[0]!, /Codice cliente Danea mancante/);
 });
 
 test("cliente non collegato o di altro archivio: escluso", () => {
