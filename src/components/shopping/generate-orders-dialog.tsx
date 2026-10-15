@@ -492,6 +492,12 @@ export function GenerateOrdersDialog({
       return data ?? [];
     },
   });
+  // Quote dirette ancora da mettere in bozza (non gestite e non già in una bozza AD aperta).
+  const liveDirectDoc = (itemId: string) =>
+    directDocs.data?.find((d) => d.status === "bozza" && d.direct_purchase_items.some((i) => i.active_source_item_id === itemId));
+  const directToDraft = (preview.data?.direct ?? []).filter((x) => !x.done && !liveDirectDoc(x.item_id));
+  const directChecked = directToDraft.filter((x) => directSel[x.item_id] !== false);
+
   const [openDirectDoc, setOpenDirectDoc] = useState<string | null>(null);
   const [directSel, setDirectSel] = useState<Record<string, boolean>>({});
   // La sezione Acquisti diretti si comporta come un fornitore: spunta in testa, chi acquista, data e luogo.
