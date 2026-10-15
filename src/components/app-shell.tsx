@@ -30,8 +30,15 @@ function NavLink({ item, pathname, nested = false }: { item: NavItem; pathname: 
 export function AppShell({ title, description, actions, compact = false, wide = false, children }: { title: string; description?: string; actions?: ReactNode; compact?: boolean; wide?: boolean; children: ReactNode }) {
   const { data: identity, isSuccess } = useIdentity();
   const navigate = useNavigate();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const isHome = pathname === "/dashboard" || pathname === "/";
+
+  function handleBack() {
+    if (router.history.canGoBack()) router.history.back();
+    else navigate({ to: "/dashboard" });
+  }
   const company = activeCompany(identity);
   const { preferences } = useNavigationPreferences(identity?.userId, company?.companyId);
   const [openGroups, setOpenGroups] = useState<NavGroupKey[]>([]);
