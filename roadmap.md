@@ -223,3 +223,5 @@
 - [x] Fasi 1 e 2 acquisto diretto: documento AD, bozza, conferma e annullamento (anteprima, non pubblicato)
 - [x] 15/10 — «Prima di generare gli ordini»: elenchi «Prodotti (N)» aperti per fornitori e acquisti diretti, eccedenza solo con U.M. uguali, rilettura all'apertura; ARANCE: quota diretta non salvata (solo anteprima, in attesa di controllo)
 - [x] 15/10 — Finestra «Prima di generare gli ordini» adattata a 390/768/1280 px; eccedenza = «Assegnato» con avviso (stato riga nel DB); regola permanente sulle prove in AGENTS.md (solo anteprima, in attesa di controllo)
+
+- [ ] Acquisto diretto come ordine normale: incluso in «Genera ordini selezionati» (conteggio 3), stessa spunta dei fornitori, destinatario facoltativo (collaboratore / fornitore senza anagrafica) — in attesa di approvazione piano
