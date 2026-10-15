@@ -834,7 +834,7 @@ export function GenerateOrdersDialog({
 
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Chiudi</Button>
-                {data.suppliers.length ? (
+                {data.suppliers.length || directChecked.length ? (
                   <Button disabled={!selectedCount || blockedByCoverage || generate.isPending} onClick={() => generate.mutate()}>
                     {generate.isPending ? <Loader2 className="size-4 animate-spin" /> : null} Genera ordini selezionati ({selectedCount})
                   </Button>
