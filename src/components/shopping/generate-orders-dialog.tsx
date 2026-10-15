@@ -220,6 +220,7 @@ export function GenerateOrdersDialog({
         excluded: Boolean(i.excluded_at),
         links: count.get(i.product_id as string) ?? 0,
         unitIssue: unitIssues.get(i.id as string) ?? null,
+        unitCode: ((i.decided_unit_code as string | null) ?? (i.unit_code as string | null) ?? "").trim(),
       }));
     },
   });
