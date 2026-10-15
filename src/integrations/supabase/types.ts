@@ -4797,6 +4797,50 @@ export type Database = {
           },
         ]
       }
+      seller_price_info: {
+        Row: {
+          company_id: string
+          created_at: string
+          info_text: string | null
+          last_price_update_at: string | null
+          last_price_update_run_id: string | null
+          last_price_update_source: string | null
+          updated_at: string
+          updated_by: string | null
+          usual_update_time: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          info_text?: string | null
+          last_price_update_at?: string | null
+          last_price_update_run_id?: string | null
+          last_price_update_source?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          usual_update_time?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          info_text?: string | null
+          last_price_update_at?: string | null
+          last_price_update_run_id?: string | null
+          last_price_update_source?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          usual_update_time?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seller_price_info_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shopping_list_direct_purchases: {
         Row: {
           company_id: string
@@ -6320,6 +6364,15 @@ export type Database = {
         Args: { _actor: string; _list_id: string }
         Returns: boolean
       }
+      _touch_seller_price_update: {
+        Args: {
+          _at: string
+          _company_id: string
+          _run_id: string
+          _source: string
+        }
+        Returns: undefined
+      }
       _unit_offered_by_other_links: {
         Args: {
           _company_id: string
@@ -6754,6 +6807,14 @@ export type Database = {
             Args: { _include_exported: boolean; _station_id: string }
             Returns: Json
           }
+      danea_record_price_list_update: {
+        Args: { _company_id: string; _run_id: string }
+        Returns: undefined
+      }
+      danea_replace_product_prices: {
+        Args: { _company_id: string; _product_ids: string[]; _rows: Json }
+        Returns: boolean
+      }
       danea_requeue_order: {
         Args: { _order_id: string; _reason: string }
         Returns: undefined
@@ -7954,6 +8015,14 @@ export type Database = {
         }
         Returns: string
       }
+      seller_price_info_for: {
+        Args: { _seller_company_id: string }
+        Returns: {
+          info_text: string
+          last_price_update_at: string
+          usual_update_time: string
+        }[]
+      }
       set_company_capabilities: {
         Args: { _can_buy: boolean; _can_sell: boolean; _company_id: string }
         Returns: undefined
@@ -8119,6 +8188,30 @@ export type Database = {
       set_relation_side_enabled: {
         Args: { _enabled: boolean; _relation_id: string }
         Returns: undefined
+      }
+      set_seller_price_info: {
+        Args: {
+          _company_id: string
+          _info_text: string
+          _usual_update_time: string
+        }
+        Returns: {
+          company_id: string
+          created_at: string
+          info_text: string | null
+          last_price_update_at: string | null
+          last_price_update_run_id: string | null
+          last_price_update_source: string | null
+          updated_at: string
+          updated_by: string | null
+          usual_update_time: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "seller_price_info"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_shopping_list_delivery_date: {
         Args: { _company_id: string; _delivery_date: string; _list_id: string }
