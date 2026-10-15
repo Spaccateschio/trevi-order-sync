@@ -167,7 +167,7 @@ export function ShareOrderDialog({
         {lines.isLoading || share.isPending || active.isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Caricamento…</p>
         ) : (
-          text ? <pre className="max-h-60 overflow-y-auto whitespace-pre-wrap rounded border border-border bg-muted p-2 text-xs">{text}</pre>
+          text ? <pre className="max-h-60 overflow-y-auto whitespace-pre-wrap rounded border border-border bg-muted p-2 text-xs">{text}</pre> : null
         )}
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" disabled={!text} asChild>
