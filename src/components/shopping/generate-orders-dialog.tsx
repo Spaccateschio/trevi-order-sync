@@ -463,6 +463,7 @@ export function GenerateOrdersDialog({
     },
   });
   const [openDirectDoc, setOpenDirectDoc] = useState<string | null>(null);
+  const [directSel, setDirectSel] = useState<Record<string, boolean>>({});
   // Una chiave finché la creazione non riesce: ripetere il clic restituisce la stessa bozza.
   const directKey = useRef<string | null>(null);
   const direct = useMutation({
