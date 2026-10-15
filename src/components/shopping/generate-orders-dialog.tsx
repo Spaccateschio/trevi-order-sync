@@ -333,6 +333,8 @@ export function GenerateOrdersDialog({
     const addresses = p?.addresses ?? [];
     // Indirizzo principale di consegna: primo indirizzo attivo con tipologia «consegna».
     const mainDelivery = addresses.find((a) => a.functions.includes("consegna"))?.id ?? null;
+    // Data dell'acquisto diretto: stessa regola dei fornitori (preferenze aziendali), senza toccare modifiche manuali.
+    setDirectHeader((prev) => (prev.date ? prev : { ...prev, date: company?.date ?? today }));
     setDrafts((prev) => {
       const next = { ...prev };
       for (const s of data.suppliers) {
@@ -547,7 +549,8 @@ export function GenerateOrdersDialog({
     return e ? <p className="text-xs font-medium text-destructive">+{qty(e.amount)} {e.unit} in eccesso</p> : null;
   };
   const selectedCount = data
-    ? data.suppliers.filter((s) => drafts[s.supplier_record_id]?.selected && s.lines.some((l) => drafts[s.supplier_record_id]?.lines[l.assignment_id]?.included)).length
+    ? data.suppliers.filter((s) => drafts[s.supplier_record_id]?.selected && s.lines.some((l) => drafts[s.supplier_record_id]?.lines[l.assignment_id]?.included)).length +
+      (directSelected && directChecked.length ? 1 : 0)
     : 0;
   const blockedByCoverage = data
     ? data.suppliers.some(
