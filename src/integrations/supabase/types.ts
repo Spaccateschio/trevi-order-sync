@@ -6748,10 +6748,12 @@ export type Database = {
         }
         Returns: string
       }
-      danea_orders_export_candidates: {
-        Args: { _station_id: string }
-        Returns: Json
-      }
+      danea_orders_export_candidates:
+        | { Args: { _station_id: string }; Returns: Json }
+        | {
+            Args: { _include_exported: boolean; _station_id: string }
+            Returns: Json
+          }
       danea_requeue_order: {
         Args: { _order_id: string; _reason: string }
         Returns: undefined
