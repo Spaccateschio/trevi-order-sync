@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
+import { DaneaOrderDownloadPanel } from "@/components/danea/order-download-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,6 +88,7 @@ function DaneaPage() {
   const isAdmin = hasRole(identity, "amministratore");
 
   const [name, setName] = useState("");
+  const [stationUse, setStationUse] = useState<"prodotti" | "ordini">("prodotti");
   const [stationArchiveId, setStationArchiveId] = useState("");
   const [newArchiveName, setNewArchiveName] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -121,7 +123,7 @@ function DaneaPage() {
       const { data, error } = await supabase
         .from("danea_stations")
         .select(
-          "id, archive_id, name, username, status, last_auth_at, last_auth_outcome, last_success_at, detected_creator, detected_app_version, created_at",
+          "id, archive_id, name, username, allowed_uses, status, last_auth_at, last_auth_outcome, last_success_at, detected_creator, detected_app_version, created_at",
         )
         .eq("company_id", companyId!)
         .order("created_at", { ascending: true });
@@ -241,7 +243,9 @@ function DaneaPage() {
 
   const createMutation = useMutation({
     mutationFn: async () =>
-      await createStation({ data: { companyId: companyId!, archiveId: chosenArchiveId, name } }),
+      await createStation({
+        data: { companyId: companyId!, archiveId: chosenArchiveId, name, use: stationUse },
+      }),
     onSuccess: (result) => {
       setFresh({ username: result.username, password: result.password });
       setName("");
@@ -346,6 +350,18 @@ function DaneaPage() {
                   {archive.name}
                 </option>
               ))}
+            </select>
+            <Label htmlFor="station-use" className="text-xs">
+              Uso della postazione
+            </Label>
+            <select
+              id="station-use"
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={stationUse}
+              onChange={(e) => setStationUse(e.target.value as "prodotti" | "ordini")}
+            >
+              <option value="prodotti">Invio prodotti e prezzi da Danea</option>
+              <option value="ordini">Scarico ordini in Danea</option>
             </select>
             <Label htmlFor="station-name" className="text-xs">
               Nome postazione
@@ -469,7 +485,10 @@ function DaneaPage() {
                           key={station.id}
                           className="flex flex-wrap items-center gap-2 border-t border-border pt-1.5 text-xs"
                         >
-                          <span className="font-medium">{station.name}</span>
+                          <span className="font-medium">
+                        {station.name}
+                        {station.allowed_uses?.includes("ordini") ? " · Ordini" : " · Prodotti"}
+                      </span>
                           <span className="font-mono text-[11px] text-muted-foreground">
                             {station.username}
                           </span>
@@ -624,7 +643,12 @@ function DaneaPage() {
                   <tbody>
                     {list.map((station) => (
                       <tr key={station.id} className="border-t border-border">
-                        <td className="py-1.5 pr-3">{station.name}</td>
+                        <td className="py-1.5 pr-3">
+                          {station.name}
+                          <span className="block text-[10px] text-muted-foreground">
+                            {station.allowed_uses?.includes("ordini") ? "Scarico ordini" : "Prodotti e prezzi"}
+                          </span>
+                        </td>
                         <td className="py-1.5 pr-3">
                           {archiveNameById.get(station.archive_id) ?? "—"}
                         </td>
@@ -685,6 +709,8 @@ function DaneaPage() {
             </p>
           )}
         </section>
+
+        <DaneaOrderDownloadPanel companyId={companyId} />
 
         <section className={CARD}>
           <h2 className={CARD_TITLE}>Listini ricevuti</h2>

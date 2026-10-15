@@ -260,6 +260,15 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
                   {o.modified_at && !o.seen_at && o.status === "inviato" ? (
                     <Badge variant="outline" className="border-warning text-warning-foreground bg-warning/20">Modificato</Badge>
                   ) : null}
+                  {o.danea_exported_at ? (
+                    <Badge variant="outline">Scaricato da Danea</Badge>
+                  ) : null}
+                  {o.danea_exported_at && o.status === "annullato" ? (
+                    <Badge variant="destructive">Annullato dopo lo scarico in Danea: annullare anche in Danea</Badge>
+                  ) : null}
+                  {o.danea_exported_at && o.status !== "annullato" && o.modified_at && new Date(o.modified_at) > new Date(o.danea_exported_at) ? (
+                    <Badge variant="outline" className="border-warning text-warning-foreground bg-warning/20">Modificato dopo lo scarico in Danea</Badge>
+                  ) : null}
                   {(extrasQuery.data?.reqs ?? []).some((r) => r.order_id === o.id) ? (
                     <Badge variant="outline"><MessageSquare className="mr-1 h-3 w-3" />Richiesta modifica</Badge>
                   ) : null}

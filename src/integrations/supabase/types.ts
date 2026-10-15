@@ -1158,6 +1158,66 @@ export type Database = {
         }
         Relationships: []
       }
+      danea_order_exports: {
+        Row: {
+          archive_id: string
+          company_id: string
+          created_at: string
+          error_message: string | null
+          excluded: Json
+          id: string
+          order_count: number
+          order_ids: string[]
+          outcome: string
+          payload_bytes: number | null
+          payload_hash: string | null
+          station_id: string
+        }
+        Insert: {
+          archive_id: string
+          company_id: string
+          created_at?: string
+          error_message?: string | null
+          excluded?: Json
+          id?: string
+          order_count?: number
+          order_ids?: string[]
+          outcome: string
+          payload_bytes?: number | null
+          payload_hash?: string | null
+          station_id: string
+        }
+        Update: {
+          archive_id?: string
+          company_id?: string
+          created_at?: string
+          error_message?: string | null
+          excluded?: Json
+          id?: string
+          order_count?: number
+          order_ids?: string[]
+          outcome?: string
+          payload_bytes?: number | null
+          payload_hash?: string | null
+          station_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "danea_order_exports_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "danea_order_exports_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "danea_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       danea_price_lists: {
         Row: {
           archive_id: string
@@ -4590,7 +4650,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer_modified_at: string | null
+          danea_export_id: string | null
           danea_exported_at: string | null
+          danea_exported_station_id: string | null
           delivery_address_text: string | null
           delivery_date: string | null
           delivery_time_from: string | null
@@ -4623,7 +4685,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_modified_at?: string | null
+          danea_export_id?: string | null
           danea_exported_at?: string | null
+          danea_exported_station_id?: string | null
           delivery_address_text?: string | null
           delivery_date?: string | null
           delivery_time_from?: string | null
@@ -4656,7 +4720,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_modified_at?: string | null
+          danea_export_id?: string | null
           danea_exported_at?: string | null
+          danea_exported_station_id?: string | null
           delivery_address_text?: string | null
           delivery_date?: string | null
           delivery_time_from?: string | null
@@ -6140,6 +6206,37 @@ export type Database = {
         Args: { _company_id: string; _unit_id: string }
         Returns: boolean
       }
+      _danea_order_station: {
+        Args: { _station_id: string }
+        Returns: {
+          allowed_uses: string[]
+          archive_id: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          detected_app_version: string | null
+          detected_creator: string | null
+          detected_default_price: number | null
+          detected_image_folder: string | null
+          detected_warehouse: string | null
+          id: string
+          last_auth_at: string | null
+          last_auth_outcome: string | null
+          last_success_at: string | null
+          name: string
+          password_hash: string
+          password_salt: string
+          status: Database["public"]["Enums"]["danea_connection_status"]
+          updated_at: string
+          username: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "danea_stations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       _delivery_open_core: {
         Args: {
           _actor_user_id: string
@@ -6631,6 +6728,33 @@ export type Database = {
           _time_to: string
         }
         Returns: string
+      }
+      danea_log_order_export: {
+        Args: {
+          _error: string
+          _excluded: Json
+          _outcome: string
+          _station_id: string
+        }
+        Returns: string
+      }
+      danea_mark_orders_exported: {
+        Args: {
+          _excluded: Json
+          _order_ids: string[]
+          _payload_bytes: number
+          _payload_hash: string
+          _station_id: string
+        }
+        Returns: string
+      }
+      danea_orders_export_candidates: {
+        Args: { _station_id: string }
+        Returns: Json
+      }
+      danea_requeue_order: {
+        Args: { _order_id: string; _reason: string }
+        Returns: undefined
       }
       decide_company_relation: {
         Args: { _accept: boolean; _relation_id: string }
