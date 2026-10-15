@@ -13,6 +13,35 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  PRICE_NOT_UPDATED_WARNING,
+  formatPriceUpdate,
+  priceListNotUpdatedToday,
+} from "@/lib/price-info";
+
+const REASON: Record<string, string> = {
+  rapporto_non_attivo: "Prezzo da verificare (rapporto non attivo)",
+  listino_non_assegnato: "Prezzo su richiesta (nessun listino assegnato)",
+  prezzo_mancante: "Prezzo su richiesta (prezzo mancante nel listino)",
+  um_diversa: "U.M. prezzo diversa – da pesare",
+  articolo_mancante: "Articolo non collegato",
+};
+const eur = (v: number | null) =>
+  v === null ? "—" : `${Number(v).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} €`;
+
+type ExportLine = {
+  order_id: string;
+  item_id: string;
+  price: number | null;
+  price_unit_code: string | null;
+  list_number: number | null;
+  list_price: number | null;
+  price_list_updated_at: string | null;
+  customer_price: number | null;
+  customer_price_unit_code: string | null;
+  reason: string | null;
+  purchase_order_items: { product_name: string | null } | null;
+};
 
 export const DANEA_ORDERS_URL = "https://trevi-order-sync.lovable.app/api/public/danea/orders";
 
@@ -43,13 +72,27 @@ export function DaneaOrderDownloadPanel({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
   const [requeue, setRequeue] = useState<ExportedOrder | null>(null);
   const [reason, setReason] = useState("");
+  const [openPrices, setOpenPrices] = useState<string | null>(null);
+
+  const priceInfoQuery = useQuery({
+    queryKey: ["seller-price-info-settings", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("seller_price_info")
+        .select("usual_update_time, last_price_update_at, last_price_update_source")
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+  });
 
   const exportsQuery = useQuery({
     queryKey: ["danea", "order-exports", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("danea_order_exports")
-        .select("id, outcome, order_count, excluded, error_message, created_at")
+        .select("id, outcome, order_count, excluded, error_message, created_at, warnings")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false })
         .limit(10);
@@ -74,6 +117,31 @@ export function DaneaOrderDownloadPanel({ companyId }: { companyId: string }) {
       return (data ?? []) as unknown as ExportedOrder[];
     },
   });
+
+  const orderIds = (ordersQuery.data ?? []).map((o) => o.id);
+  const linesQuery = useQuery({
+    queryKey: ["danea", "export-lines", companyId, orderIds],
+    enabled: orderIds.length > 0,
+    queryFn: async (): Promise<ExportLine[]> => {
+      const { data, error } = await supabase
+        .from("danea_order_export_lines")
+        .select(
+          "order_id, item_id, price, price_unit_code, list_number, list_price, price_list_updated_at, customer_price, customer_price_unit_code, reason, created_at, purchase_order_items(product_name)",
+        )
+        .eq("company_id", companyId)
+        .in("order_id", orderIds)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      // Solo l'ultimo scarico di ogni riga.
+      const seen = new Set<string>();
+      return ((data ?? []) as unknown as ExportLine[]).filter((l) => !seen.has(l.item_id) && seen.add(l.item_id));
+    },
+  });
+  const linesByOrder = new Map<string, ExportLine[]>();
+  for (const l of linesQuery.data ?? []) linesByOrder.set(l.order_id, [...(linesByOrder.get(l.order_id) ?? []), l]);
+
+  const info = priceInfoQuery.data;
+  const notUpdated = priceListNotUpdatedToday(info?.last_price_update_at, info?.usual_update_time);
 
   const requeueMutation = useMutation({
     mutationFn: async (vars: { orderId: string; reason: string }) => {
@@ -123,6 +191,25 @@ export function DaneaOrderDownloadPanel({ companyId }: { companyId: string }) {
         «Scaricato da Danea» significa che Trevi Fruit ha consegnato l'ordine a Danea: non prova
         che Danea l'abbia importato. Se in Danea l'ordine non compare, usa «Rimetti in scarico».
       </p>
+
+      <div className="mt-2 rounded-md border border-border p-2 text-xs">
+        <p>
+          <span className="font-medium">Ultimo aggiornamento del listino:</span>{" "}
+          {info?.last_price_update_at
+            ? `${formatPriceUpdate(info.last_price_update_at)} (${info.last_price_update_source === "manuale" ? "modifica manuale" : "invio da Danea"})`
+            : "non ancora registrato"}
+          {info?.usual_update_time ? ` · Aggiornamento abituale ore ${info.usual_update_time.slice(0, 5)}` : ""}
+        </p>
+        <p className="mt-1 text-muted-foreground">
+          Allo scarico Danea riceve il prezzo del listino assegnato al cliente in vigore in quel momento; il prezzo visto
+          dal cliente resta nell'ordine.
+        </p>
+        {notUpdated ? (
+          <p className="mt-1 font-medium text-destructive">
+            {PRICE_NOT_UPDATED_WARNING}: invia prima il listino da Danea, poi scarica gli ordini. Lo scarico non è bloccato.
+          </p>
+        ) : null}
+      </div>
 
       {lastExcluded ? (
         <div className="mt-3 rounded-md border border-destructive/40 p-2 text-xs">
