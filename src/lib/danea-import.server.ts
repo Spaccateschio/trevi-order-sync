@@ -240,7 +240,7 @@ export async function importDaneaCatalog(
       if (error) throw new Error(`Revisione U.M. Trevi Fruit: ${error.message}`);
     }
 
-    await applyPrices(supabaseAdmin, companyId, doc, idByCode);
+    const pricesChanged = await applyPrices(supabaseAdmin, companyId, doc, idByCode);
     await applySupplierCosts(supabaseAdmin, companyId, doc, idByCode);
     // Riconciliazione fornitore Danea: abbina SOLO per archivio + codice fornitore.
     // Non tocca mai le associazioni/condizioni Trevi Fruit già presenti.
@@ -316,6 +316,16 @@ export async function importDaneaCatalog(
         finished_at: new Date().toISOString(),
       })
       .eq("id", runId);
+
+    // Ultimo aggiornamento listino: solo invio completato con almeno un prezzo
+    // nuovo, diverso o rimosso. Un errore qui non annulla l'invio già salvato.
+    if (pricesChanged) {
+      const { error } = await supabaseAdmin.rpc("danea_record_price_list_update", {
+        _company_id: companyId,
+        _run_id: runId,
+      });
+      if (error) console.error("Aggiornamento listino non registrato:", error.message);
+    }
 
     if (station) {
       await supabaseAdmin
@@ -457,15 +467,9 @@ async function applyPrices(
   idByCode: Map<string, string>,
 ) {
   const productIds = [...idByCode.values()];
-  if (!productIds.length) return;
-
-  for (const chunk of chunked(productIds, 200)) {
-    const { error } = await supabaseAdmin.from("product_prices").delete().in("product_id", chunk);
-    if (error) throw new Error(`Pulizia prezzi: ${error.message}`);
-  }
+  if (!productIds.length) return false;
 
   const rows: {
-    company_id: string;
     product_id: string;
     list_number: number;
     net_price: number | null;
@@ -479,20 +483,19 @@ async function applyPrices(
       const net = product.netPrices[i] ?? null;
       const gross = product.grossPrices[i] ?? null;
       if (net === null && gross === null) continue;
-      rows.push({
-        company_id: companyId,
-        product_id: productId,
-        list_number: i,
-        net_price: net,
-        gross_price: gross,
-      });
+      rows.push({ product_id: productId, list_number: i, net_price: net, gross_price: gross });
     }
   }
 
-  for (const chunk of chunked(rows, 500)) {
-    const { error } = await supabaseAdmin.from("product_prices").insert(chunk);
-    if (error) throw new Error(`Salvataggio prezzi: ${error.message}`);
-  }
+  // Una sola transazione con blocco del listino: uno scarico ordini
+  // contemporaneo vede tutto il listino vecchio o tutto il nuovo.
+  const { data, error } = await supabaseAdmin.rpc("danea_replace_product_prices", {
+    _company_id: companyId,
+    _product_ids: productIds,
+    _rows: rows,
+  });
+  if (error) throw new Error(`Salvataggio prezzi: ${error.message}`);
+  return data === true;
 }
 
 /** Danea trasmette un solo fornitore/costo per prodotto: memorizziamo solo quello ricevuto. */

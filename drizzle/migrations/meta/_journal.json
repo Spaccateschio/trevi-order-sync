@@ -463,6 +463,20 @@
       "when": 1792052371635,
       "tag": "0065_danea_order_candidates_include_exported",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1792096121774,
+      "tag": "0066_seller_price_info",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1792096173698,
+      "tag": "0067_danea_export_priced_lines",
+      "breakpoints": true
     }
   ]
 }
