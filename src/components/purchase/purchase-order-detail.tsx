@@ -21,6 +21,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { dateTimeShort, qty } from "@/lib/inventory";
 import type { LocationRow } from "@/lib/inventory";
+import { PriceInfoNotice } from "@/components/pricing/price-info-notice";
 import {
   DELIVERY_ORIGIN_LABEL,
   DELIVERY_STATUS_LABEL,
@@ -332,6 +333,15 @@ export function PurchaseOrderDetail({
           </div>
         ))}
       </section>
+
+      {relationQuery.data === true ? (
+        <PriceInfoNotice
+          sellerCompanyId={
+            (itemsQuery.data ?? []).find((i) => i.product_supplier_links?.supplier_company_id)
+              ?.product_supplier_links?.supplier_company_id ?? null
+          }
+        />
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {draft ? (
