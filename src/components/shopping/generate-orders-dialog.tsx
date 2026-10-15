@@ -464,21 +464,12 @@ export function GenerateOrdersDialog({
   });
   const [openDirectDoc, setOpenDirectDoc] = useState<string | null>(null);
   const [directSel, setDirectSel] = useState<Record<string, boolean>>({});
+  // La sezione Acquisti diretti si comporta come un fornitore: spunta in testa, chi acquista, data e luogo.
+  const [directSelected, setDirectSelected] = useState(true);
+  const [directHeader, setDirectHeader] = useState({ buyer: "", date: "", where: "" });
+  const runUpdateDirect = useServerFn(updateDirectPurchaseDraft);
   // Una chiave finché la creazione non riesce: ripetere il clic restituisce la stessa bozza.
   const directKey = useRef<string | null>(null);
-  const direct = useMutation({
-    mutationFn: async (itemIds: string[]) => {
-      const key = (directKey.current ??= crypto.randomUUID());
-      return runDirectDraft({ data: { listId, generationKey: key, itemIds } });
-    },
-    onSuccess: async (res) => {
-      directKey.current = null;
-      await queryClient.invalidateQueries({ queryKey: ["direct-purchases-list", listId] });
-      toast.success(res.already_exists ? `Bozza ${res.number} già creata` : `Bozza acquisto diretto ${res.number} creata`);
-      setOpenDirectDoc(res.id);
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
 
   // Conferma o annullamento (persistente, tracciato nel DB; revocabile finché la quota non è in un ordine).
   const coverage = useMutation({
