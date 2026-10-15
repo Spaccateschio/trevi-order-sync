@@ -235,3 +235,10 @@
 - [x] Fase A Genera e invia (anteprima, non pubblicato): B2B inviati subito, non B2B condivisione, AD creato, riepilogo esiti con riprova
 
 - [x] Scarico ordini B2B in Danea: sviluppo completato in anteprima (non pubblicato, nessuna postazione ordini creata). In attesa: prova su archivio Danea di test.
+
+## Prezzi variabili fino allo scarico Danea (autorizzato, solo anteprima)
+- [ ] Fase 1: ultimo aggiornamento reale del listino + orario abituale e testo per azienda
+- [ ] Fase 2: messaggio prezzi al cliente (Catalogo fornitore, ordine prima dell'invio)
+- [ ] Fase 3: prezzo del listino corrente allo scarico, storico righe esportate, coerenza con blocco
+- [ ] Fase 4: pagina Danea con ultimo aggiornamento, avvisi, prezzi da verificare
+- [ ] Resoconto, schermate e istruzioni prova Danea (non pubblicare)
