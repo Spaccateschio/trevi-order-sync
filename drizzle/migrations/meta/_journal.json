@@ -470,6 +470,13 @@
       "when": 1792096121774,
       "tag": "0066_seller_price_info",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1792096173698,
+      "tag": "0067_danea_export_priced_lines",
+      "breakpoints": true
     }
   ]
 }

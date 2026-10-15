@@ -1158,6 +1158,95 @@ export type Database = {
         }
         Relationships: []
       }
+      danea_order_export_lines: {
+        Row: {
+          company_id: string
+          created_at: string
+          customer_price: number | null
+          customer_price_unit_code: string | null
+          export_id: string
+          id: string
+          item_id: string
+          line_unit_code: string | null
+          list_number: number | null
+          list_price: number | null
+          order_id: string
+          price: number | null
+          price_list_updated_at: string | null
+          price_unit_code: string | null
+          price_unit_id: string | null
+          reason: string | null
+          seller_product_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          customer_price?: number | null
+          customer_price_unit_code?: string | null
+          export_id: string
+          id?: string
+          item_id: string
+          line_unit_code?: string | null
+          list_number?: number | null
+          list_price?: number | null
+          order_id: string
+          price?: number | null
+          price_list_updated_at?: string | null
+          price_unit_code?: string | null
+          price_unit_id?: string | null
+          reason?: string | null
+          seller_product_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          customer_price?: number | null
+          customer_price_unit_code?: string | null
+          export_id?: string
+          id?: string
+          item_id?: string
+          line_unit_code?: string | null
+          list_number?: number | null
+          list_price?: number | null
+          order_id?: string
+          price?: number | null
+          price_list_updated_at?: string | null
+          price_unit_code?: string | null
+          price_unit_id?: string | null
+          reason?: string | null
+          seller_product_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "danea_order_export_lines_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "danea_order_export_lines_export_id_fkey"
+            columns: ["export_id"]
+            isOneToOne: false
+            referencedRelation: "danea_order_exports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "danea_order_export_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "danea_order_export_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       danea_order_exports: {
         Row: {
           archive_id: string
@@ -1171,7 +1260,9 @@ export type Database = {
           outcome: string
           payload_bytes: number | null
           payload_hash: string | null
+          price_list_updated_at: string | null
           station_id: string
+          warnings: Json
         }
         Insert: {
           archive_id: string
@@ -1185,7 +1276,9 @@ export type Database = {
           outcome: string
           payload_bytes?: number | null
           payload_hash?: string | null
+          price_list_updated_at?: string | null
           station_id: string
+          warnings?: Json
         }
         Update: {
           archive_id?: string
@@ -1199,7 +1292,9 @@ export type Database = {
           outcome?: string
           payload_bytes?: number | null
           payload_hash?: string | null
+          price_list_updated_at?: string | null
           station_id?: string
+          warnings?: Json
         }
         Relationships: [
           {
@@ -6250,6 +6345,19 @@ export type Database = {
         Args: { _company_id: string; _unit_id: string }
         Returns: boolean
       }
+      _danea_export_line_price: {
+        Args: {
+          _line_unit: string
+          _relation_id: string
+          _seller_company_id: string
+          _seller_product_id: string
+        }
+        Returns: Json
+      }
+      _danea_export_lines_json: {
+        Args: { _export_ids: string[]; _order_ids: string[] }
+        Returns: Json
+      }
       _danea_order_station: {
         Args: { _station_id: string }
         Returns: {
@@ -6782,12 +6890,35 @@ export type Database = {
         }
         Returns: string
       }
+      danea_export_orders_priced: {
+        Args: {
+          _excluded: Json
+          _order_ids: string[]
+          _station_id: string
+          _warnings: Json
+        }
+        Returns: Json
+      }
+      danea_export_stored_prices: {
+        Args: { _order_ids: string[]; _station_id: string }
+        Returns: Json
+      }
       danea_log_order_export: {
         Args: {
           _error: string
           _excluded: Json
           _outcome: string
           _station_id: string
+        }
+        Returns: string
+      }
+      danea_log_order_export_warn: {
+        Args: {
+          _error: string
+          _excluded: Json
+          _outcome: string
+          _station_id: string
+          _warnings: Json
         }
         Returns: string
       }
@@ -6817,6 +6948,15 @@ export type Database = {
       }
       danea_requeue_order: {
         Args: { _order_id: string; _reason: string }
+        Returns: undefined
+      }
+      danea_set_export_payload: {
+        Args: {
+          _export_id: string
+          _payload_bytes: number
+          _payload_hash: string
+          _station_id: string
+        }
         Returns: undefined
       }
       decide_company_relation: {
