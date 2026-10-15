@@ -1,50 +1,40 @@
-# Preparazione ordini e scarico unico in Danea — analisi e proposta
+# Prezzi variabili fino allo scarico in Danea (Soluzione B)
 
-## Come funziona oggi (verificato, sola lettura)
-- **Ordine B2B**: è un ordine del cliente (es. 3 EMME) con collegamento a Trevi Srl. Stati: bozza, inviato, parzialmente consegnato, consegnato, chiuso, annullato. Nessuno stato di preparazione.
-- **Righe**: conservano quantità ordinata e U.M. (fotografate), prezzo e U.M. del prezzo, codice articolo. Nessun campo per la quantità preparata.
-- **Blocco «visto»**: quando Trevi apre l'ordine, il cliente non può più modificarlo da solo (solo richieste di modifica, decise dal database). Lo riutilizziamo: preparare = aver visto.
-- **Danea oggi**: scarica ogni ordine inviato appena arriva, una volta sola, con «Rimetti in scarico» per l'amministratore. Ci sono **2 ordini già scaricati** (incluso ORD-2026-00004): restano come sono.
-- **Magazzini/zone**: esistono, ma sono legati ai prodotti di chi compra (inventario), non agli articoli che Trevi vende. Per la preparazione serve una zona sull'articolo di vendita di Trevi.
+## Analisi dello stato attuale (sola lettura)
 
-## Flusso proposto
-```text
-Cliente invia → Trevi vede in «Preparazione ordini» → righe preparate / non disponibili
-→ «Preparazione completata» → scaricabile in Danea → scaricato una sola volta
-```
+1. **Dove sono i prezzi**
+   - Listino del venditore: `product_prices` (company_id, product_id, list_number, net_price, gross_price, updated_at). U.M. del prezzo: `products.price_unit_id`.
+   - Listini Danea: `danea_price_lists` (numero, nome, attivo, archivio).
+   - Listino assegnato al cliente: `customer_records.assigned_price_list_number` (+ archive_id), tramite `supplier_customer_relations`.
+   - Prezzo dell'ordine (quello visto dal cliente): `purchase_order_items.unit_cost` + `price_unit_id` / `price_unit_code`. Scritto all'invio, oggi è anche quello che va in Danea.
+   - Storico prezzi: `supplier_price_observations` / `supplier_price_series` (fonte danea_price_list, b2b_price_list, manual_cost…).
+2. **Ora dell'ultimo aggiornamento**: `danea_sync_runs` (finished_at, outcome completato, per azienda/archivio) per le importazioni Danea; `product_prices.updated_at` per le modifiche manuali. Il dato non è oggi salvato in un unico punto affidabile → proposta: nuovo campo per azienda aggiornato da entrambe le vie.
+3. **Orario abituale**: nuova riga in `company_operational_schedules` (tipo «aggiornamento listino», facoltativo, solo informativo), gestita con `manage_company_operational_schedule` già esistente; testo informativo personalizzabile salvato nella stessa riga. Schermata: Impostazioni → Azienda, accanto al promemoria Lista della Spesa.
+4. **Dove compare il messaggio**: intestazione del Catalogo fornitore lato cliente, riepilogo ordine prima dell'invio (dialogo di invio / finestra Genera ordini per fornitori B2B), stampa dell'ordine. Senza orario abituale la parte relativa viene omessa. Nessuna percentuale né promessa.
+5. **`applicable_b2b_price` oggi**: dato venditore+cliente+prodotto, trova il listino assegnato al cliente (rapporto attivo e abilitato da entrambe le parti, listino attivo dello stesso archivio), restituisce netto/lordo da `product_prices`, solo se l'articolo è acquistabile (`b2b_item_purchasable`). Nessun fallback. Limiti per lo scarico: richiede il rapporto ancora attivo e l'articolo ancora pubblicato; non restituisce l'U.M. del prezzo né l'ora del listino.
+6. **Esportazione XML**: oggi `danea_orders_export_candidates` passa `unit_cost` della riga. Nuovo: la selezione restituisce per ogni riga il prezzo del listino corrente (stessa regola di `applicable_b2b_price`, con U.M. del prezzo del prodotto venditore). Il resto della regola XML non cambia: Price solo se U.M. riga = U.M. prezzo e prezzo > 0; altrimenti campo omesso e motivo nelle note («Prezzo su richiesta», «U.M. prezzo diversa – da pesare»). Prezzo visto dal cliente indicato solo in nota se diverso.
+7. **Storico del prezzo esportato**: nuova tabella `danea_order_export_lines` (export_id, order_id, item_id, prezzo scelto, U.M. prezzo, numero listino, ora aggiornamento listino, motivo assenza, prezzo cliente originale). Sola scrittura dal servizio, lettura per l'azienda venditrice, mai modificata. `purchase_order_items.unit_cost` non viene mai toccato.
+8. **Coerenza durante uno scarico**: tutta la lettura prezzi + registrazione avviene in **una sola funzione DB** in una transazione, con lock condiviso per venditore (`pg_advisory_xact_lock_shared`) che l'importazione listino prende in modo esclusivo: uno scarico vede o tutto il listino vecchio o tutto il nuovo. Il server prepara l'XML solo con le righe restituite da quella funzione, che salva anche lo storico prima della risposta.
+9. **Migrazioni e codice** (vedi fasi).
+10. **Protezione**: gli ordini già scaricati (incluso ORD-2026-00004) non vengono rimessi in scarico né ricalcolati; i riscarichi richiesti da Danea per numero riusano il prezzo già registrato in storico, non il listino nuovo. Nessun nuovo passaggio obbligatorio di preparazione/sblocco. Prove solo in transazioni annullate.
 
-## Blocco e sblocco dello scarico (tua richiesta)
-Ogni ordine ha un interruttore **«Scarico in Danea: bloccato / sbloccato»**:
-- Un ordine diventa sbloccato da solo con «Preparazione completata».
-- Un responsabile può **bloccarlo** (es. preparazione da rivedere) o **sbloccarlo a mano** anche senza preparazione (es. ordine urgente da fatturare comunque, scaricato con le quantità ordinate e nota «non preparato»).
-- Il preparatore può chiudere l'ordine; il responsabile può **riaprirlo** finché non è scaricato. Nessuna conferma obbligatoria del responsabile, come suggerisci.
-- Dopo lo scarico non si riapre: si usa «Rimetti in scarico» come oggi.
-- **Ordini vecchi** (arrivati prima di questa novità e non ancora scaricati): restano **sbloccati** come oggi, così non si fermano; quelli già scaricati non vengono toccati.
+## Fasi
 
-## Fase 1 — Pagina Preparazione (manuale)
-- Operativo → Preparazione ordini: elenco ordini da preparare (cliente, consegna, avanzamento), apertura per zona.
-- Riga: ordinato (3 cs) e preparato (12,400 kg + U.M.), stato Da preparare / In preparazione / Preparata / Non disponibile, chi e quando.
-- Più preparatori: «prendo io» blocca la riga per qualche minuto; il database impedisce due conferme della stessa riga; la quantità ordinata non viene mai sovrascritta.
-- «Preparazione completata» solo con tutte le righe gestite; «Riapri» per il responsabile.
+**Fase 1 — Orario e ultimo aggiornamento**
+- Migrazione: tipo pianificazione «aggiornamento listino» + testo informativo; campo `companies`/`company_settings.price_list_updated_at` aggiornato da trigger su importazione listini Danea e modifiche manuali di `product_prices`.
+- Impostazioni → Azienda: campo orario facoltativo e testo personalizzabile.
 
-## Fase 2 — Danea
-- Scaricati solo ordini sbloccati e non ancora scaricati; nel file la quantità preparata e la sua U.M., l'ordinato nelle note; righe non disponibili escluse.
-- **Prezzi**: il prezzo dell'ordine è sempre trattato come **indicativo**. Va nel file solo se l'U.M. del prezzo è uguale a quella preparata (es. €/kg con 12,400 kg); altrimenti niente prezzo e nota «Prezzo indicativo 2,50 €/cs – da definire». Mai zero. Il prezzo definitivo si fa in Danea. Listini non toccati.
-- Tutto il resto resta: login postazioni, separazione aziende, controllo codici, storico, «Rimetti in scarico».
+**Fase 2 — Messaggio al cliente**
+- Componente unico del messaggio usato in Catalogo fornitore, invio ordine e stampa. Lettura tramite funzione DB che espone al cliente collegato solo orario, ultimo aggiornamento e testo.
 
-## Fase 3 — Assistente vocale AI
-Conversazione a voce (telefono, tablet, auricolari, occhiali come microfono). Usa le stesse funzioni della Fase 1; salva solo dopo «confermo».
+**Fase 3 — Prezzo definitivo allo scarico**
+- Migrazione: tabella `danea_order_export_lines` (GRANT, RLS su company_id venditore); nuova funzione di scarico che in una transazione con lock legge prezzi correnti, registra ordini e righe; importazione listino con lock esclusivo.
+- `danea-orders-export.server.ts`, `danea-orders-xml.ts`: uso del prezzo dello scarico; note per prezzo mancante/U.M. incompatibile; riscarichi con prezzo storico.
+- Test: prezzo nuovo in XML, prezzo cliente invariato, mai 0, U.M. diversa → nota, riscarico con prezzo registrato.
 
-## Fase 4 — Occhiali con display
-Solo dopo verifica di compatibilità.
+**Fase 4 — Pagina Danea**
+- Riquadro «Scarico ordini»: data/ora ultimo aggiornamento listino; avviso «Listino non ancora aggiornato oggi» se lo scarico avviene prima dell'orario abituale, registrato nello storico dello scarico (senza bloccarlo); dettaglio prezzi esportati per ordine.
 
-## Cosa non tocco
-Lista della Spesa, Inventario, ordini fornitori, consegne, carichi, listini, ordini già scaricati. Prove solo con dati finti annullati.
-
-## Dettagli tecnici
-- `purchase_orders`: `preparation_status` (null = ordine precedente / da_preparare / in_preparazione / completata), `prepared_at/by`, `danea_hold` (bool) + `danea_hold_by/at/reason`. Backfill: ordini esistenti `preparation_status = null` → trattati come oggi.
-- Nuova `purchase_order_item_preparations` (1 per riga: status, prepared_quantity, prepared_unit_id+code fotografati, claimed_by/claimed_until, confirmed_by/at, not_available_reason) con RLS per l'azienda venditrice (relazione), GRANT, scrittura solo via RPC SECURITY DEFINER con FOR UPDATE: `prep_claim_line`, `prep_confirm_line`, `prep_mark_unavailable`, `prep_complete_order`, `prep_reopen_order`, `danea_set_order_hold` (admin). Audit in `purchase_order_changes`.
-- Zona: `preparation_zone` sull'articolo di vendita del venditore (o tabella zone del venditore), facoltativa: senza zona → «Senza zona».
-- `danea_orders_export_candidates`: aggiunge filtro `NOT danea_hold AND (preparation_status IS NULL OR = 'completata')` e restituisce quantità preparate; `danea-orders-xml.ts` usa preparato se presente.
-- Nuove schermate: `operativo.preparazione.tsx` (+ dettaglio ordine); badge blocco in `received-orders-panel.tsx`.
-- Da decidere: default del blocco per i nuovi ordini = bloccato fino a preparazione (proposto).
+## Punti da decidere
+- Se il rapporto con il cliente è sospeso o l'articolo non è più pubblicato al momento dello scarico: proposta = nessun prezzo e nota «Prezzo da verificare», mai il prezzo vecchio in automatico.
+- Danea vede l'avviso solo nell'app (Danea non mostra messaggi dal file): conferma che va bene.
