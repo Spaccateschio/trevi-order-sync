@@ -1,7 +1,7 @@
 import { NotificationBell } from "@/components/notification-bell";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, LogOut } from "lucide-react";
+import { ArrowLeft, ChevronDown, LogOut } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { BrandMark } from "@/components/brand-mark";
