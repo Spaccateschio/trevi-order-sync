@@ -30,7 +30,8 @@ export function orderShareText(
   number: string | null,
   supplier: string,
   lines: { product_name: string | null; product_code: string | null; purchase_quantity: number; purchase_unit_code: string | null }[],
+  linkUrl: string,
 ) {
   const rows = lines.map((l) => `- ${l.product_code ? `${l.product_code} ` : ""}${l.product_name ?? ""}: ${l.purchase_quantity} ${l.purchase_unit_code ?? ""}`.trim());
-  return [`Ordine ${number ?? ""} per ${supplier}`.trim(), "", ...rows].join("\n");
+  return [`Ordine ${number ?? ""} per ${supplier}`.trim(), "", ...rows, "", `Comunica la consegna da qui: ${linkUrl}`].join("\n");
 }
