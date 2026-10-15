@@ -8,15 +8,27 @@ import {
   buildDaneaOrdersXml,
   filterHasNumberRange,
   matchesDaneaFilter,
+  type DaneaExportPrice,
   type DaneaOrderCandidate,
   type DaneaRequestFilter,
 } from "@/lib/danea-orders-xml";
+import { PRICE_NOT_UPDATED_WARNING, priceListNotUpdatedToday } from "@/lib/price-info";
 
 async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+type PriceInfoRow = { usual_update_time: string | null; last_price_update_at: string | null };
+
+function attachPrices(candidates: DaneaOrderCandidate[], lines: DaneaExportPrice[]) {
+  const byItem = new Map(lines.map((l) => [l.item_id, l]));
+  return candidates.map((o) => ({
+    ...o,
+    lines: o.lines.map((line) => ({ ...line, export_price: byItem.get(line.item_id) ?? null })),
+  }));
 }
 
 export async function exportDaneaOrders(
@@ -26,14 +38,21 @@ export async function exportDaneaOrders(
   // Con un intervallo di numeri esplicito Danea può riscaricare ordini già
   // scaricati dalla stessa postazione (es. finestra chiusa senza importare):
   // è Danea a non reimportare lo stesso numero. Questi ordini non vengono
-  // registrati una seconda volta.
+  // registrati una seconda volta e riusano i prezzi già registrati.
   const includeExported = filterHasNumberRange(filter);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: company } = await supabaseAdmin
-    .from("companies")
-    .select("legal_name")
-    .eq("id", station.company_id)
-    .maybeSingle();
+  const [{ data: company }, { data: info }] = await Promise.all([
+    supabaseAdmin.from("companies").select("legal_name").eq("id", station.company_id).maybeSingle(),
+    supabaseAdmin
+      .from("seller_price_info")
+      .select("usual_update_time, last_price_update_at")
+      .eq("company_id", station.company_id)
+      .maybeSingle(),
+  ]);
+  const priceInfo = (info ?? null) as PriceInfoRow | null;
+  const warnings = priceListNotUpdatedToday(priceInfo?.last_price_update_at, priceInfo?.usual_update_time)
+    ? [PRICE_NOT_UPDATED_WARNING]
+    : [];
 
   // Due tentativi: se un'altra richiesta contemporanea ha già preso gli
   // ordini, si rilegge l'elenco aggiornato (nessun ordine esce due volte).
@@ -46,40 +65,70 @@ export async function exportDaneaOrders(
     const candidates = ((data ?? []) as unknown as DaneaOrderCandidate[]).filter((o) =>
       matchesDaneaFilter(o, filter),
     );
-    const built = buildDaneaOrdersXml(company?.legal_name ?? null, candidates);
-    const alreadyExported = new Set(candidates.filter((o) => o.already_exported).map((o) => o.order_id));
-    const newIds = built.exportedIds.filter((id) => !alreadyExported.has(id));
+    // Validazione prima di qualsiasi registrazione: gli ordini con errori restano fuori.
+    const check = buildDaneaOrdersXml(null, candidates);
+    const valid = new Set(check.exportedIds);
+    const reExportIds = candidates.filter((o) => o.already_exported && valid.has(o.order_id)).map((o) => o.order_id);
+    const newIds = check.exportedIds.filter((id) => !reExportIds.includes(id));
+
+    let stored: DaneaExportPrice[] = [];
+    if (reExportIds.length) {
+      const { data: s, error: e } = await supabaseAdmin.rpc("danea_export_stored_prices", {
+        _station_id: station.id,
+        _order_ids: reExportIds,
+      });
+      if (e) throw new Error(e.message);
+      stored = (s ?? []) as unknown as DaneaExportPrice[];
+    }
 
     if (!newIds.length) {
-      await supabaseAdmin.rpc("danea_log_order_export", {
+      const built = buildDaneaOrdersXml(company?.legal_name ?? null, attachPrices(candidates, stored));
+      await supabaseAdmin.rpc("danea_log_order_export_warn", {
         _station_id: station.id,
         _outcome: "nessun_ordine",
         _excluded: built.excluded,
         _error: null as unknown as string,
+        _warnings: warnings,
       });
       return built.xml;
     }
 
-    const bytes = new TextEncoder().encode(built.xml).byteLength;
-    const { error: markError } = await supabaseAdmin.rpc("danea_mark_orders_exported", {
+    // Prezzi del listino in vigore, calcolati e registrati con gli ordini in
+    // un'unica operazione con blocco del listino (versione coerente).
+    const { data: priced, error: markError } = await supabaseAdmin.rpc("danea_export_orders_priced", {
       _station_id: station.id,
       _order_ids: newIds,
-      _excluded: built.excluded,
+      _excluded: check.excluded,
+      _warnings: warnings,
+    });
+    if (markError) {
+      if (markError.message.includes("DANEA_CONCURRENT")) continue;
+      throw new Error(markError.message);
+    }
+    const result = priced as unknown as { export_id: string; lines: DaneaExportPrice[] };
+    const built = buildDaneaOrdersXml(
+      company?.legal_name ?? null,
+      attachPrices(candidates, [...stored, ...result.lines]),
+    );
+    const bytes = new TextEncoder().encode(built.xml).byteLength;
+    await supabaseAdmin.rpc("danea_set_export_payload", {
+      _station_id: station.id,
+      _export_id: result.export_id,
       _payload_bytes: bytes,
       _payload_hash: await sha256Hex(built.xml),
     });
-    if (!markError) return built.xml;
-    if (!markError.message.includes("DANEA_CONCURRENT")) throw new Error(markError.message);
+    return built.xml;
   }
   throw new Error("Scarico già in corso da un'altra postazione: riprovare tra qualche secondo");
 }
 
 export async function logDaneaOrderFailure(stationId: string, message: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  await supabaseAdmin.rpc("danea_log_order_export", {
+  await supabaseAdmin.rpc("danea_log_order_export_warn", {
     _station_id: stationId,
     _outcome: "fallito",
     _excluded: [],
     _error: message,
+    _warnings: [],
   });
 }
