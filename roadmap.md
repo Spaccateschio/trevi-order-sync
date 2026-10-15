@@ -225,3 +225,6 @@
 - [x] 15/10 — Finestra «Prima di generare gli ordini» adattata a 390/768/1280 px; eccedenza = «Assegnato» con avviso (stato riga nel DB); regola permanente sulle prove in AGENTS.md (solo anteprima, in attesa di controllo)
 
 - [ ] Acquisto diretto come ordine normale: incluso in «Genera ordini selezionati» (conteggio 3), stessa spunta dei fornitori, destinatario facoltativo (collaboratore / fornitore senza anagrafica) — in attesa di approvazione piano
+- [ ] AD: stampa e condividi (come ordini non B2B)
+- [ ] AD: pagina esterna da link per il collaboratore/fornitore non B2B: peso netto, lordo, prezzo, dati utili al carico
+- [ ] AD: pagina conferma ricezione con spunta prodotti ritirati/consegnati → carico merce e inventario
