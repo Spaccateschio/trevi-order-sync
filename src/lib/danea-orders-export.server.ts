@@ -4,7 +4,13 @@
  * Limite tecnico: una risposta HTTP riuscita non prova che Danea abbia
  * importato i documenti; per questo lo stato è «Scaricato da Danea».
  */
-import { buildDaneaOrdersXml, type DaneaOrderCandidate } from "@/lib/danea-orders-xml";
+import {
+  buildDaneaOrdersXml,
+  filterHasNumberRange,
+  matchesDaneaFilter,
+  type DaneaOrderCandidate,
+  type DaneaRequestFilter,
+} from "@/lib/danea-orders-xml";
 
 async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -13,7 +19,15 @@ async function sha256Hex(text: string): Promise<string> {
     .join("");
 }
 
-export async function exportDaneaOrders(station: { id: string; company_id: string }): Promise<string> {
+export async function exportDaneaOrders(
+  station: { id: string; company_id: string },
+  filter: DaneaRequestFilter,
+): Promise<string> {
+  // Con un intervallo di numeri esplicito Danea può riscaricare ordini già
+  // scaricati dalla stessa postazione (es. finestra chiusa senza importare):
+  // è Danea a non reimportare lo stesso numero. Questi ordini non vengono
+  // registrati una seconda volta.
+  const includeExported = filterHasNumberRange(filter);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: company } = await supabaseAdmin
     .from("companies")
@@ -26,12 +40,17 @@ export async function exportDaneaOrders(station: { id: string; company_id: strin
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const { data, error } = await supabaseAdmin.rpc("danea_orders_export_candidates", {
       _station_id: station.id,
+      _include_exported: includeExported,
     });
     if (error) throw new Error(error.message);
-    const candidates = (data ?? []) as unknown as DaneaOrderCandidate[];
+    const candidates = ((data ?? []) as unknown as DaneaOrderCandidate[]).filter((o) =>
+      matchesDaneaFilter(o, filter),
+    );
     const built = buildDaneaOrdersXml(company?.legal_name ?? null, candidates);
+    const alreadyExported = new Set(candidates.filter((o) => o.already_exported).map((o) => o.order_id));
+    const newIds = built.exportedIds.filter((id) => !alreadyExported.has(id));
 
-    if (!built.exportedIds.length) {
+    if (!newIds.length) {
       await supabaseAdmin.rpc("danea_log_order_export", {
         _station_id: station.id,
         _outcome: "nessun_ordine",
@@ -44,7 +63,7 @@ export async function exportDaneaOrders(station: { id: string; company_id: strin
     const bytes = new TextEncoder().encode(built.xml).byteLength;
     const { error: markError } = await supabaseAdmin.rpc("danea_mark_orders_exported", {
       _station_id: station.id,
-      _order_ids: built.exportedIds,
+      _order_ids: newIds,
       _excluded: built.excluded,
       _payload_bytes: bytes,
       _payload_hash: await sha256Hex(built.xml),

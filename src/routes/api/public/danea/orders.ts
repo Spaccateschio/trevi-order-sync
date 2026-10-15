@@ -38,8 +38,10 @@ async function handle(request: Request): Promise<Response> {
   const { exportDaneaOrders, logDaneaOrderFailure } = await import(
     "@/lib/danea-orders-export.server"
   );
+  const { parseDaneaRequestFilter } = await import("@/lib/danea-orders-xml");
   try {
-    const xml = await exportDaneaOrders(auth.station);
+    const filter = parseDaneaRequestFilter(new URL(request.url).searchParams);
+    const xml = await exportDaneaOrders(auth.station, filter);
     return new Response(xml, {
       status: 200,
       headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "no-store" },

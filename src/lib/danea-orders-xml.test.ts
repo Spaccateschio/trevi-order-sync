@@ -1,7 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { XMLParser } from "fast-xml-parser";
-import { buildDaneaOrdersXml, daneaLinePrice, type DaneaOrderCandidate } from "./danea-orders-xml";
+import {
+  buildDaneaOrdersXml,
+  daneaLinePrice,
+  daneaOrderNumber,
+  matchesDaneaFilter,
+  parseDaneaRequestFilter,
+  type DaneaOrderCandidate,
+} from "./danea-orders-xml";
 
 const customer = {
   code: "0072", name: "CLIENTE PROVA SRL", address: "VIA PROVA 1", postcode: "00100", city: "ROMA",
@@ -66,9 +73,36 @@ test("codice articolo mancante: ordine intero escluso", () => {
   assert.match(r.excluded[0]!.reasons.join(), /Codice articolo Danea mancante: BANANE/);
 });
 
-test("numerazione: Number omesso, numero Trevi Fruit in InternalComment", () => {
+test("numerazione: Number = parte numerica, numero Trevi Fruit in InternalComment", () => {
+  const doc = parse(buildDaneaOrdersXml(null, [order({ number: "ORD-2026-00004" })]).xml).Documents.Document[0];
+  assert.equal(doc.Number, 4);
+  assert.equal(doc.InternalComment, "Ordine Trevi Fruit ORD-2026-00004");
+});
+
+test("numero ordine non numerico: ordine escluso", () => {
+  assert.equal(daneaOrderNumber("ORD-2026-00004"), 4);
+  assert.equal(daneaOrderNumber("BOZZA"), null);
+  const r = buildDaneaOrdersXml(null, [order({ number: "BOZZA" })]);
+  assert.deepEqual(r.exportedIds, []);
+  assert.match(r.excluded[0]!.reasons.join(), /Numero ordine non valido/);
+});
+
+test("filtri Danea: date e intervallo numeri", () => {
+  const f = parseDaneaRequestFilter(
+    new URLSearchParams("appver=2&firstdate=2026-01-01&lastdate=2026-12-31&firstnum=4&lastnum=10"),
+  );
+  assert.deepEqual(f, { firstDate: "2026-01-01", lastDate: "2026-12-31", firstNum: 4, lastNum: 10 });
+  assert.equal(matchesDaneaFilter(order({ number: "ORD-2026-00004" }), f), true);
+  assert.equal(matchesDaneaFilter(order({ number: "ORD-2026-00003" }), f), false);
+  assert.equal(matchesDaneaFilter(order({ number: "ORD-2026-00011" }), f), false);
+  assert.equal(matchesDaneaFilter(order({ number: "ORD-2026-00004", order_date: "2025-12-31" }), f), false);
+  const none = parseDaneaRequestFilter(new URLSearchParams("firstnum=abc"));
+  assert.equal(none.firstNum, null);
+  assert.equal(matchesDaneaFilter(order(), none), true);
+});
+
+test("numerazione: numero completo in InternalComment", () => {
   const doc = parse(buildDaneaOrdersXml(null, [order()]).xml).Documents.Document[0];
-  assert.equal(doc.Number, undefined);
   assert.equal(doc.InternalComment, "Ordine Trevi Fruit ORD-2026-99999");
 });
 
