@@ -609,7 +609,7 @@ export function GenerateOrdersDialog({
                     if (!d) return null;
                     return (
                       <div key={s.supplier_record_id} className="rounded-md border border-border p-3">
-                        <label className="flex items-center gap-2 text-sm font-medium">
+                        <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
                           <Checkbox checked={d.selected} onCheckedChange={(v) => setDraft(s.supplier_record_id, (x) => ({ ...x, selected: v === true }))} />
                           {s.name}
                           {s.is_b2b ? <Badge variant="secondary">B2B</Badge> : null}
