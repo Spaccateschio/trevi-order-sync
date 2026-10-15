@@ -42,6 +42,8 @@ import {
 } from "@/lib/order-generation.functions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import { generateDirectPurchaseDraft, updateDirectPurchaseDraft } from "@/lib/direct-purchase.functions";
+import { afterCreateAction, replaceOutcome, summarize, type GenerationOutcome } from "@/components/shopping/generation-results";
+import { GenerationSummary, ShareOrderDialog } from "@/components/shopping/generation-summary";
 import { DirectPurchaseDraftDialog, STATUS_LABEL } from "@/components/purchase/direct-purchase-draft-dialog";
 import { assignShoppingListSupplier, setShoppingListItemQuantityLock } from "@/lib/shopping-list.functions";
 import { autoAssignItem } from "@/lib/shopping-auto-assign";
@@ -907,6 +909,15 @@ export function GenerateOrdersDialog({
           )}
         </DialogContent>
       </Dialog>
+
+      {shareTarget ? (
+        <ShareOrderDialog
+          target={shareTarget}
+          pending={sendOne.isPending}
+          onClose={() => setShareTarget(null)}
+          onConfirm={(channel) => sendOne.mutate({ orderId: shareTarget.orderId, channel })}
+        />
+      ) : null}
 
       {editingOrder ? (
         <DraftOrderEditor
