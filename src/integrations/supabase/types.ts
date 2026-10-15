@@ -6585,6 +6585,7 @@ export type Database = {
         Args: {
           _actor_user_id?: string
           _expires_at: string
+          _keep_existing?: boolean
           _order_id: string
           _recipient_label?: string
           _token_hash: string
