@@ -378,12 +378,6 @@ export function GenerateOrdersDialog({
     }
   };
 
-  // Quote dirette ancora da mettere in bozza (non gestite e non già in una bozza AD aperta).
-  const liveDirectDoc = (itemId: string) =>
-    directDocs.data?.find((d) => d.status === "bozza" && d.direct_purchase_items.some((i) => i.active_source_item_id === itemId));
-  const directToDraft = (preview.data?.direct ?? []).filter((x) => !x.done && !liveDirectDoc(x.item_id));
-  const directChecked = directToDraft.filter((x) => directSel[x.item_id] !== false);
-
   const generate = useMutation({
     mutationFn: async () => {
       const data = preview.data as GenerationPreview;
