@@ -1,101 +1,90 @@
-# Riepilogo prodotti per fornitori e acquisti diretti
+# Piano tecnico: Genera e invia, liste da spuntare, pagina Ordini
 
-## Intervento richiesto, solo in anteprima
-- Nella finestra «Prima di generare gli ordini», mostrare per ogni fornitore e per «Acquisti diretti» lo stesso comando espandibile «Prodotti (numero)».
-- Aprire gli elenchi inizialmente, così prodotti e quantità sono subito controllabili; resta possibile richiuderli.
-- Per acquisti diretti mostrare codice, nome completo, quantità e U.M. salvate, distinguendo prodotti da inserire in bozza, già in bozza e confermati. Nessuna quantità diretta dedotta dai fornitori.
-- Conservare i comandi esistenti dei fornitori e delle bozze AD. La generazione non invia nulla.
-- Verificare che riaprendo la finestra il riepilogo legga le quote aggiornate. Se i dati diretti risultano assenti nonostante una quota salvata, segnalare la causa: nessuna modifica al database o alle regole senza ulteriore autorizzazione.
+Solo analisi. Nessun codice, migrazione o dato modificato.
 
-## File autorizzati dal piano
-- `src/components/shopping/generate-orders-dialog.tsx`: presentazione degli elenchi e, se necessario, aggiornamento delle letture all'apertura.
-- `roadmap.md`: esito dell'intervento.
+## 1. Cosa esiste già (codice reale)
 
-## Verifica e limiti
-Controllare apertura/chiusura degli elenchi e leggibilità su schermi stretti e larghi, senza creare ordini o modificare quantità reali. Controllare gli errori dell'anteprima. Nessuna modifica a card, Inventario, database, carico merce o invio; nessuna pubblicazione.
+| File | Funzione | Chiamato da | Riuso |
+|---|---|---|---|
+| `src/routes/_authenticated/acquisti.lista-spesa.tsx` | Pagina Lista | menu | invariato |
+| `src/components/shopping/generate-orders-dialog.tsx` | Finestra «Prima di generare»: anteprima, bozze per fornitore, bozza AD | lista | da modificare |
+| `src/lib/order-generation.functions.ts` | `shopping_list_generation_preview`, `generate_supplier_order`, `update_draft_order`, `change_draft_supplier` | finestra | riuso |
+| `src/lib/purchase.functions.ts` | `manage_purchase_order` (send/cancel/close), consegne, carico, `create_order_share_link` | Ordini, finestra | riuso |
+| `src/components/purchase/send-order-dialog.tsx` | Invio: B2B = piattaforma; non B2B = canale obbligatorio | dettaglio ordine | riuso |
+| `src/components/purchase/purchase-orders-panel.tsx` | Acquisti → Ordini: gruppi Da inviare / Errore invio / Inviati / Annullati | `acquisti.ordini.tsx` | da ampliare |
+| `src/components/purchase/purchase-order-detail.tsx` | Dettaglio, link condivisi | Ordini | riuso |
+| `src/lib/direct-purchase.functions.ts` + `direct-purchase-draft-dialog.tsx` | Bozza/conferma/annullo AD | finestra | da ampliare |
+| `src/routes/consegna.$token.tsx` + `src/lib/purchase-external.functions.ts` | Pagina pubblica fornitore: dichiara quantità, peso, lotto, scadenza, note, mancanti | link | base della lista «Listonic» |
+| `delivery-comparison-panel.tsx`, `goods-receipt-panel.tsx`, `acquisti.ricezione.tsx` | Confronto, contestazioni, carico (`confirm_goods_receipt` unico punto che muove giacenza) | Ricezione | riuso |
 
----
+Backend: funzioni in `src/lib/*.functions.ts`; migrazioni in `supabase/migrations` (attive) e una cartella `drizzle/migrations` con file recenti.
 
-# Piano precedente — Acquisto diretto come documento, Fase 1
+## 2. Database coinvolto
 
-Obiettivo: in «Genera ordini» la card «Acquisti diretti» crea una BOZZA di acquisto diretto numerata AD-AAAA-NNNNN con i prodotti e le quantità dirette della Lista. La bozza si modifica liberamente. Nessuna giacenza, nessun fornitore, nessun invio, nessuna notifica. La quota diretta della Lista NON diventa gestita alla creazione della bozza (lo diventerà alla conferma, Fase 2).
+- `shopping_lists` / `shopping_list_items` / `shopping_list_item_suppliers` (quote fornitore; FK a prodotto, fornitore, U.M.).
+- `purchase_orders` (PK id; UNIQUE company+number; UNIQUE company+generation_key; `status` bozza→inviato→…; `send_status`, `send_channel`, `sent_at`, `seen_by_supplier_at`).
+- `purchase_order_items` (FK `source_assignment_id` → quota; U.M. acquisto/prezzo fotografate).
+- `purchase_order_share_links` (solo `token_hash` UNIQUE, `expires_at`, `revoked_at`, `access_count`).
+- `purchase_deliveries` / `purchase_delivery_items` (dichiarato, accettato, contestato; UNIQUE order+sequence).
+- `goods_receipts` / `goods_receipt_items` → carico e lotti.
+- `direct_purchases` (UNIQUE company+number, company+generation_key; `buyer_label`) / `direct_purchase_items` (UNIQUE `active_source_item_id`: una quota diretta in un solo AD vivo).
+- Isolamento: RLS per azienda + funzioni SECURITY DEFINER che verificano `auth.uid()`; pagina pubblica solo `external_*` via token.
 
-## 1. Nuove tabelle (migrazione A)
+Duplicati impediti da: `generation_key` riusata finché la creazione non riesce (doppio clic/riprova = stesso documento), residuo calcolato sulle quote, `FOR UPDATE` sulla Lista, indice unico sulle righe AD.
 
-`direct_purchases` (testata)
-- id, company_id (NOT NULL), shopping_list_id (NULL ammesso per usi futuri), number (NOT NULL, UNIQUE per company_id)
-- status: nuovo tipo `direct_purchase_status` = bozza | confermato | annullato (in Fase 1 solo `bozza`)
-- purchased_where text (negozio/mercato/supermercato), purchase_date date, total_paid numeric(12,2) >= 0, notes text
-- generation_key uuid, UNIQUE (company_id, generation_key)
-- created_by, created_at, updated_at, confirmed_at/by, cancelled_at/by (vuoti in Fase 1)
-- nessun supplier_record_id, nessun campo invio/notifica, nessun campo foto
+## 3. Problemi rilevati
 
-`direct_purchase_items` (righe)
-- id, company_id, direct_purchase_id (FK, nessuna cascata)
-- product_id, product_code, product_name (fotografati)
-- source_item_id (FK shopping_list_items) — UNIQUE parziale sulle righe di bozze/confermati non annullati: una quota diretta compare in un solo documento vivo
-- planned_quantity, planned_unit_id, planned_unit_code (fotografia della quota della Lista, immutabili)
-- quantity, unit_id, unit_code (effettivi, modificabili in bozza; NULL ammesso finché non compilati, mai 0)
-- unit_price, price_unit_id, price_unit_code (prezzo mai senza U.M.: controllo nella funzione), line_total, notes
-- sort_order, created_at, updated_at
+1. Generazione multi-fornitore non atomica: ciclo nel browser, successi parziali possibili (gestiti ma da mostrare meglio).
+2. Due percorsi di creazione ordini: `create_purchase_orders_from_list` (pannello Ordini, vecchio) e `generate_supplier_order` (finestra). Da decidere se dismettere il vecchio.
+3. Due cartelle migrazioni: va chiarito quale è la fonte ufficiale.
+4. Gli AD non compaiono in Acquisti → Ordini; «confermato dal fornitore» non è un gruppo.
 
-Per entrambe: GRANT SELECT a authenticated e ALL a service_role (nessuna scrittura diretta dal browser), RLS attiva, policy SELECT con `company_id = get_user_company_id()` / is_company_member. Trigger updated_at e trigger di blocco: righe e testata modificabili solo se lo stato è `bozza`, e solo con flag di sessione impostato dalle funzioni (come le U.M. di magazzino).
+## 4. Nuovo percorso «Genera e invia»
 
-## 2. Numerazione (stessa migrazione)
-Estendere `next_document_number` con il ramo `_prefix = 'AD'` sulla tabella `direct_purchases`: stesso advisory lock per azienda+prefisso, progressivo per anno, formato `AD-2026-00001`. Gli altri rami (LS, ORD, carichi) restano byte per byte identici. Il vincolo UNIQUE (company_id, number) resta la protezione definitiva. Un numero si consuma solo se la bozza viene davvero creata (la transazione annullata non lascia buchi persistenti, salvo errori successivi: accettato come per gli ordini).
+```text
+Clic → per ogni fornitore: generate_supplier_order (chiave idempotente)
+     → B2B: manage_purchase_order('send') subito (canale piattaforma)
+     → non B2B: ordine resta «da inviare», si crea il link e si apre il pannello Condividi
+               (WhatsApp/email/copia); «inviato» solo quando l'utente conferma il canale
+     → AD: generate_direct_purchase_draft + link lista d'acquisto
+     → riepilogo esiti per riga: Inviato / Da condividere / Errore (Riprova)
+```
+Riprova: rifà solo le righe fallite con la stessa chiave. Riapertura: mostra documenti già creati e il loro stato, senza ricrearli. Nessun invio di prova.
 
-## 3. Funzioni nuove (SECURITY DEFINER, search_path = public)
-- `generate_direct_purchase_draft(_list_id, _generation_key, _item_ids uuid[] DEFAULT NULL)`
-  - auth.uid() obbligatorio, appartenenza e ruolo amministratore/operatore verificati nel DB (stessi controlli di generate_supplier_order)
-  - FOR UPDATE sulla Lista; Lista `aperta`
-  - stessa chiave → restituisce la stessa bozza (`already_exists: true`), senza scrivere
-  - righe candidate: quota diretta presente (manual_purchase_quantity NOT NULL), riga non esclusa, non già registrata (manual_purchase_done_at NULL), non già in un altro documento vivo
-  - nessuna riga candidata → RAISE EXCEPTION (nessun RETURN dopo la prima scrittura)
-  - fotografa prodotto, quantità e U.M. della quota; quantità effettiva precompilata = quota; prezzo vuoto
-  - registra audit_events `direct_purchase.draft_created`
-  - NON tocca shopping_list_items, NON chiama _shopping_list_try_complete
-  - nessuna tabella temporanea; ogni DELETE con WHERE esplicita (protezione SQL dell'app)
-- `update_direct_purchase_draft(_id, _header jsonb, _lines jsonb)`
-  - solo in bozza, FOR UPDATE, stessa azienda, righe del documento stesso
-  - header: luogo, data, totale, note (chiave assente = invariato, null = svuota)
-  - righe: quantità (>0 o null), U.M. (anagrafica aziendale o codice libero), prezzo con U.M., note
-  - non modifica la quota della Lista né le quantità pianificate
-- `direct_purchase_detail(_id)` lettura (oppure SELECT diretto con RLS)
+## 5. Fasi
 
-Riuso di `register_direct_purchase`: si estraggono i suoi controlli (appartenenza, FOR UPDATE, Lista aperta, riga non esclusa, quota presente) in un aiuto interno `_direct_quota_check(item)` usato dalle nuove funzioni; la funzione attuale resta invariata e utilizzabile (nessuna rottura per Fase 2). `shopping_list_direct_purchases` resta la traccia di gestione della Lista: in Fase 2 la conferma vi scriverà la riga (con riferimento al documento) e imposterà manual_purchase_done_at, come oggi.
+**Fase A — Genera e invia (solo finestra)**
+- File: `generate-orders-dialog.tsx`, eventuale nuovo `generation-results.tsx`.
+- Funzioni: esistenti; nessuna migrazione.
+- Rischio: invii B2B reali al clic → serve conferma esplicita prima («Stai per inviare N ordini B2B»).
+- Test: unità sul calcolo esiti/riprova; prova in anteprima fermandosi prima del clic finale.
+- Vedrai: un solo clic, poi un riepilogo con stato per fornitore e pulsanti Condividi.
 
-## 4. Doppie bozze e doppia contabilizzazione
-- Chiave di generazione per la card «Acquisti diretti» nel frontend (stesso meccanismo `keys` dei fornitori): clic ripetuto = stessa bozza
-- UNIQUE (company_id, generation_key) + UNIQUE parziale su source_item_id dei documenti vivi
-- `shopping_list_generation_preview`: piccola modifica di sola lettura per esporre su ogni riga diretta `direct_draft_id/number`, così la card mostra «in bozza AD-…» invece di riproporre la riga
-- La quota resta «non gestita» finché non c'è la conferma (Fase 2): la Lista non si chiude da sola con bozze aperte; il completamento non cambia
+**Fase B — Pagina Ordini unica**
+- File: `purchase-orders-panel.tsx`, `purchase_order_overview` (migrazione per includere AD e stato «confermato/in preparazione»).
+- Vedrai: schede Da inviare / Inviati / Confermati / In preparazione / Acquisti diretti / Completati-annullati; link dalla finestra.
 
-## 5. Frontend (solo questi file)
-- `src/lib/direct-purchase.functions.ts` (nuovo): server function con requireSupabaseAuth e context.supabase
-- `src/components/shopping/generate-orders-dialog.tsx`: card «Acquisti diretti» con «Genera bozza acquisto diretto» al posto di «Registra»; righe già in bozza indicate con il numero
-- `src/components/purchase/direct-purchase-draft-dialog.tsx` (nuovo): modifica bozza (luogo, data, righe con quantità, U.M., prezzo e U.M. del prezzo, totale, note)
-- `src/lib/order-generation.functions.ts`: tipo GenerationPreview esteso (solo campi facoltativi)
-- `src/components/shopping/AGENTS.md`, `roadmap.md`
-Nessuna modifica a Ordini, Consegne, Carico merce, Inventario, giacenza.
+**Fase C — Lista da spuntare fornitore**
+- Amplia `consegna.$token.tsx`: spunta «preparato» per riga, salvataggio progressivo.
+- Migrazione: colonne `prepared_at`/`prepared` su `purchase_delivery_items` + `external_set_delivery_item` esteso (prezzo).
+- La spunta non accetta né carica nulla.
 
-## 6. Compatibilità
-Ordini fornitore, consegne, carichi, numerazioni LS/ORD/carichi, notifiche e banner invariati. Nessun dato esistente modificato (shopping_list_direct_purchases oggi ha 0 righe). La vecchia «Registra» resta nel DB ma non più nel dialogo.
+**Fase D — Link e lista AD + PDF**
+- Nuova tabella `direct_purchase_share_links` (stesso modello dei link ordine: hash, scadenza, revoca, RLS), funzioni `external_direct_*` service_role, nuova pagina pubblica `acquisto.$token.tsx`.
+- Dati proposti (quantità, U.M., prezzo, fornitore effettivo, note) in campi «dichiarati» separati, verificabili prima della conferma.
+- Stampa PDF dalla pagina (stampa del browser) e Condividi.
 
-## 7. Test
-- Unit (bun test): calcolo totale riga/documento, prezzo senza U.M. rifiutato lato client, mappatura header/righe
-- DB in transazione annullata con `set_config('request.jwt.claims')` + `SET LOCAL ROLE authenticated`:
-  1. bozza creata con numero AD-2026-00001 e righe = quote dirette; Lista e quote invariate
-  2. stessa chiave → stessa bozza; chiave diversa sulle stesse righe → rifiutata
-  3. utente di altra azienda → rifiutato; ruolo non autorizzato → rifiutato
-  4. modifica in bozza OK; prezzo senza U.M. rifiutato; quantità 0 rifiutata
-  5. Lista non aperta → rifiutata
-  6. nessuna notifica, nessun movimento, nessun ordine
-- Prova reale dalla strada dell'app (RPC con token dell'utente) con richiesta che non può creare nulla, per verificare la protezione SQL sulle cancellazioni
+**Fase E — Conferma ricezione AD con carico**
+- Collegare `confirm_direct_purchase` a carico/lotti (oggi non muove giacenza). Fase più rischiosa: tocca giacenza.
 
-## 8. Rischi
-- Numerazione: modifica a una funzione condivisa — mitigata lasciando identici i rami esistenti e provando LS/ORD/carichi nella stessa transazione
-- Lista con bozze AD aperte non si chiude: comportamento voluto, va segnalato in pagina
-- Modifica di sola lettura alla preview della generazione: provata contro il frontend attuale
+Sicurezza riusata: token 24 byte casuali, solo hash in DB, scadenza/revoca, accesso al singolo documento, `FOR UPDATE` e registro modifiche (`purchase_delivery_line_events`, `purchase_order_changes`).
 
-## Escluso dalla Fase 1
-Conferma e annullamento (Fase 2), carico merce e giacenza (Fase 3), storico/stampa (Fase 4), foto dello scontrino (nessun bucket né campo).
+## 6. Decisioni da prendere
+
+1. B2B inviati subito al clic, o prima una conferma riepilogativa?
+2. Non B2B: link creato automaticamente per tutti, o solo quando premi Condividi?
+3. Scadenza dei link (es. 7 giorni)?
+4. Dismettere il vecchio «crea ordini da lista» nel pannello Ordini?
+5. Il prezzo inserito dal fornitore va solo come informazione o anche come proposta di costo al carico?
+
+Si procede una fase alla volta, partendo dalla A dopo la tua approvazione.
