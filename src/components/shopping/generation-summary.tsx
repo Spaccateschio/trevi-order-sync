@@ -1,12 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Loader2, Mail, MessageCircle, RotateCcw, Send, ShoppingBag, XCircle } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { SendOrderDialog, type SendChannel } from "@/components/purchase/send-order-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { createOrderShareLink } from "@/lib/purchase.functions";
 import { orderShareText, summarize, type GenerationOutcome } from "@/components/shopping/generation-results";
 
 type Share = Extract<GenerationOutcome, { kind: "da_condividere" }>;
@@ -81,11 +83,16 @@ export function GenerationSummary({
 export function ShareOrderDialog({
   target,
   pending,
+  link,
+  onLink,
   onClose,
   onConfirm,
 }: {
   target: Share;
   pending: boolean;
+  /** Link già creato per questo ordine in questa sessione: riaprire non ne crea un altro. */
+  link: { url: string; expiresAt: string } | null;
+  onLink: (link: { url: string; expiresAt: string }) => void;
   onClose: () => void;
   onConfirm: (channel: SendChannel) => void;
 }) {
@@ -102,7 +109,20 @@ export function ShareOrderDialog({
       return data ?? [];
     },
   });
-  const text = lines.data ? orderShareText(target.number, target.name, lines.data as never) : "";
+  const runShare = useServerFn(createOrderShareLink);
+  // Link personale (token, scadenza 72 ore, revocabile) creato una sola volta per ordine.
+  const share = useMutation({
+    mutationFn: () => runShare({ data: { orderId: target.orderId, recipientLabel: target.name, validHours: 72 } }),
+    onSuccess: (res) => onLink({ url: `${window.location.origin}/consegna/${res.token}`, expiresAt: res.expiresAt }),
+  });
+  const requested = useRef(false);
+  useEffect(() => {
+    if (!link && !requested.current) {
+      requested.current = true;
+      share.mutate();
+    }
+  }, [link, share]);
+  const text = lines.data && link ? orderShareText(target.number, target.name, lines.data as never, link.url) : "";
   const subject = `Ordine ${target.number ?? ""}`;
 
   return (
@@ -112,7 +132,14 @@ export function ShareOrderDialog({
           <DialogTitle>Condividi {target.number ?? ""} · {target.name}</DialogTitle>
           <DialogDescription>Invia l'ordine con WhatsApp o email, poi conferma: solo allora risulta inviato.</DialogDescription>
         </DialogHeader>
-        {lines.isLoading ? (
+        {share.isError ? (
+          <div className="space-y-2 text-sm text-destructive">
+            <p>Link non creato: {(share.error as Error).message}</p>
+            <Button size="sm" variant="outline" onClick={() => share.mutate()}>Riprova</Button>
+          </div>
+        ) : null}
+        {link ? <p className="text-xs text-muted-foreground">Link valido fino al {new Date(link.expiresAt).toLocaleString("it-IT")}; si può revocare dal dettaglio ordine.</p> : null}
+        {lines.isLoading || share.isPending ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Caricamento…</p>
         ) : (
           <pre className="max-h-60 overflow-y-auto whitespace-pre-wrap rounded border border-border bg-muted p-2 text-xs">{text}</pre>

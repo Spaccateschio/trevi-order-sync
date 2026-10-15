@@ -384,6 +384,7 @@ export function GenerateOrdersDialog({
   // Esiti dell'ultima generazione: restano visibili finché la finestra è aperta.
   const [outcomes, setOutcomes] = useState<GenerationOutcome[]>([]);
   const [shareTarget, setShareTarget] = useState<Extract<GenerationOutcome, { kind: "da_condividere" }> | null>(null);
+  const [shareLinks, setShareLinks] = useState<Record<string, { url: string; expiresAt: string }>>({});
   useEffect(() => {
     if (!open) setOutcomes([]);
   }, [open]);
@@ -914,6 +915,8 @@ export function GenerateOrdersDialog({
         <ShareOrderDialog
           target={shareTarget}
           pending={sendOne.isPending}
+          link={shareLinks[shareTarget.orderId] ?? null}
+          onLink={(l) => setShareLinks((m) => ({ ...m, [shareTarget.orderId]: l }))}
           onClose={() => setShareTarget(null)}
           onConfirm={(channel) => sendOne.mutate({ orderId: shareTarget.orderId, channel })}
         />
