@@ -487,6 +487,39 @@ export function GenerateOrdersDialog({
   });
 
   const data = preview.data;
+
+  // Ogni apertura rilegge i dati attuali della Lista (niente quantità vecchie).
+  useEffect(() => {
+    if (!open) return;
+    void preview.refetch();
+    void facts.refetch();
+    void directDocs.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Eccedenza per prodotto: solo se tutte le quote (fornitori + diretto) sono nella stessa U.M.
+  // della quantità da acquistare; altrimenti nessun avviso (nessuna conversione inventata).
+  const excessByItem = (() => {
+    const map = new Map<string, { amount: number; unit: string }>();
+    if (!data) return map;
+    const norm = (u: string | null | undefined) => (u ?? "").trim().toLowerCase();
+    const quotas = new Map<string, { q: number; u: string | null; cov: boolean }[]>();
+    const push = (id: string, v: { q: number; u: string | null; cov: boolean }) => quotas.set(id, [...(quotas.get(id) ?? []), v]);
+    for (const s of data.suppliers) for (const l of s.lines) push(l.item_id, { q: Number(l.saved_quantity ?? l.quantity), u: l.unit_code, cov: l.needs_coverage });
+    for (const x of data.direct) push(x.item_id, { q: Number(x.quantity), u: x.unit_code, cov: false });
+    for (const [id, list] of quotas) {
+      const f = factsById.get(id);
+      if (!f || f.quantity === null || !f.unitCode) continue;
+      if (list.some((x) => x.cov || norm(x.u) !== norm(f.unitCode))) continue;
+      const over = list.reduce((a, x) => a + x.q, 0) - f.quantity;
+      if (over > 1e-9) map.set(id, { amount: Math.round(over * 1000) / 1000, unit: f.unitCode });
+    }
+    return map;
+  })();
+  const excessBadge = (itemId: string) => {
+    const e = excessByItem.get(itemId);
+    return e ? <p className="text-xs font-medium text-destructive">+{qty(e.amount)} {e.unit} in eccesso</p> : null;
+  };
   const selectedCount = data
     ? data.suppliers.filter((s) => drafts[s.supplier_record_id]?.selected && s.lines.some((l) => drafts[s.supplier_record_id]?.lines[l.assignment_id]?.included)).length
     : 0;
