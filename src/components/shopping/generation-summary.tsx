@@ -179,7 +179,7 @@ export function ShareOrderDialog({
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" disabled={pending} onClick={onClose}>Più tardi</Button>
-          <Button disabled={pending || !text} onClick={() => setConfirmOpen(true)}>Ho inviato l'ordine</Button>
+          <Button disabled={pending || (!text && !existing)} onClick={() => setConfirmOpen(true)}>Ho inviato l'ordine</Button>
         </DialogFooter>
         <SendOrderDialog
           open={confirmOpen}
