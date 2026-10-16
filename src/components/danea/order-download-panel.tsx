@@ -231,6 +231,9 @@ export function DaneaOrderDownloadPanel({ companyId }: { companyId: string }) {
             <li key={e.id}>
               {when(e.created_at)} — {OUTCOME[e.outcome] ?? e.outcome}
               {e.outcome === "scaricato" ? ` (${e.order_count} ordini)` : ""}
+              {Array.isArray(e.warnings) && e.warnings.length ? (
+                <span className="text-destructive"> — {(e.warnings as string[]).join("; ")}</span>
+              ) : null}
               {e.error_message ? ` — ${e.error_message}` : ""}
             </li>
           ))}
@@ -253,6 +256,26 @@ export function DaneaOrderDownloadPanel({ companyId }: { companyId: string }) {
                 <span className="font-medium">{o.number}</span>
                 <span>{o.companies?.legal_name ?? ""}</span>
                 <span className="text-muted-foreground">Scaricato da Danea il {when(o.danea_exported_at)}</span>
+                {(linesByOrder.get(o.id) ?? []).some((l) => l.reason === "rapporto_non_attivo") ? (
+                  <span className="text-destructive">Prezzo da verificare</span>
+                ) : null}
+                {linesByOrder.get(o.id)?.length ? (
+                  <Button size="sm" variant="ghost" onClick={() => setOpenPrices(openPrices === o.id ? null : o.id)}>
+                    Prezzi esportati
+                  </Button>
+                ) : null}
+                {openPrices === o.id ? (
+                  <ul className="grid w-full gap-0.5 rounded-md bg-muted p-2">
+                    {(linesByOrder.get(o.id) ?? []).map((l) => (
+                      <li key={l.item_id}>
+                        {l.purchase_order_items?.product_name ?? "Riga"}: {l.price !== null ? `${eur(l.price)}/${l.price_unit_code ?? ""}` : (REASON[l.reason ?? ""] ?? "Nessun prezzo")}
+                        {l.list_number ? ` · listino ${l.list_number}` : ""}
+                        {l.price_list_updated_at ? ` del ${formatPriceUpdate(l.price_list_updated_at)}` : ""}
+                        {l.customer_price !== null ? ` · visto dal cliente ${eur(l.customer_price)}/${l.customer_price_unit_code ?? ""}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 {modifiedAfter ? (
                   <span className="text-destructive">Ordine modificato dopo lo scarico in Danea</span>
                 ) : null}
