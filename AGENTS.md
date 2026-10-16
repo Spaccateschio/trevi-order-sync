@@ -34,4 +34,5 @@
 - Regole U.M. di vendita: vedi src/components/products/AGENTS.md.
 - Regole Inventario (zone abituali, aggiunte al conteggio, inventario completo): vedi src/components/inventory/AGENTS.md.
 - Prove: nessuna prova deve modificare dati operativi reali, nemmeno temporaneamente e nemmeno con l'intenzione di ripristinarli successivamente. Le prove che richiedono scritture devono essere eseguite esclusivamente in transazioni annullate o su dati di prova creati e cancellati nella stessa transazione. Non utilizzare dati operativi come banco di prova senza autorizzazione esplicita dell'utente. Vale per Inventario, Lista della Spesa, Ordini, Acquisti diretti, Carichi e ogni altra funzionalità.
-- Ordini B2B→Danea: solo /api/public/danea/orders, postazione uso «ordini»; selezione/registrazione/rimessa solo via danea_orders_export_candidates / danea_mark_orders_exported / danea_requeue_order; XML in src/lib/danea-orders-xml.ts: «Scaricato» non prova l'importazione, Number numerico obbligatorio, filtri firstnum/lastnum rispettati.
+
+- Regole Danea (scarico ordini, prezzi allo scarico, aggiornamento listino): vedi src/lib/AGENTS.md. Le sottocartelle hanno il proprio AGENTS.md da leggere prima di modificarle.

@@ -1,0 +1,5 @@
+# Danea: ordini e prezzi
+
+- Ordini B2B→Danea: solo /api/public/danea/orders, postazione uso «ordini»; selezione/registrazione/rimessa solo via danea_orders_export_candidates / danea_mark_orders_exported / danea_requeue_order; XML in src/lib/danea-orders-xml.ts: «Scaricato» non prova l'importazione, Number numerico obbligatorio, filtri firstnum/lastnum rispettati.
+- Prezzi allo scarico Danea: solo danea_export_orders_priced (blocco condiviso 'danea_price_list:' + listino del cliente via _danea_export_line_price, storico immutabile danea_order_export_lines); i riscarichi riusano lo storico; i prezzi dall'invio Danea si scrivono solo con danea_replace_product_prices (blocco esclusivo): listino coerente in tutto lo scarico, prezzo del cliente mai riscritto.
+- Ultimo aggiornamento listino in seller_price_info: solo invio Danea completato con prezzi cambiati (danea_record_price_list_update) o modifica reale di netto/lordo (trigger); orario abituale e testo solo informativi via set_seller_price_info.
