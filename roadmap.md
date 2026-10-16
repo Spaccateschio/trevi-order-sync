@@ -242,3 +242,7 @@
 - [x] Fase 3: prezzo del listino corrente allo scarico, storico righe esportate, coerenza con blocco
 - [x] Fase 4: pagina Danea con ultimo aggiornamento, avvisi, prezzi da verificare
 - [ ] Resoconto, schermate e istruzioni prova Danea (non pubblicare)
+
+## Danea — dopo i prezzi variabili
+- [ ] Invio prodotti Danea tutto-o-niente (oggi prodotti e U.M. si salvano prima dei prezzi).
+- [ ] Stampa dell'ordine con messaggio prezzi indicativi.

@@ -36,3 +36,8 @@
 - Prove: nessuna prova deve modificare dati operativi reali, nemmeno temporaneamente e nemmeno con l'intenzione di ripristinarli successivamente. Le prove che richiedono scritture devono essere eseguite esclusivamente in transazioni annullate o su dati di prova creati e cancellati nella stessa transazione. Non utilizzare dati operativi come banco di prova senza autorizzazione esplicita dell'utente. Vale per Inventario, Lista della Spesa, Ordini, Acquisti diretti, Carichi e ogni altra funzionalità.
 
 - Regole Danea (scarico ordini, prezzi allo scarico, aggiornamento listino): vedi src/lib/AGENTS.md. Le sottocartelle hanno il proprio AGENTS.md da leggere prima di modificarle.
+
+- Ordini: mai totali in euro; il prezzo resta indicativo fino allo scarico Danea (lo fissa il listino del cliente in quel momento): il cliente non riceve impegni di prezzo.
+- Prove valide solo con ruolo e strada reali (app: utente authenticated; Danea: indirizzo pubblico con postazione); SQL interno o privilegi superiori non contano come superate. Prove sugli indirizzi Danea reali solo con autorizzazione esplicita dell'utente.
+- Ordini già scaricati da Danea intoccabili: niente ricalcolo prezzi, storico retroattivo o cambio stato; il riscarico senza storico usa la logica precedente (test con danea-orders-xml.legacy.ts).
+- Prima di lavorare su Danea, prezzi o ordini leggere sempre src/lib/AGENTS.md.
