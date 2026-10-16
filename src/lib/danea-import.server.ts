@@ -61,6 +61,8 @@ export async function importDaneaCatalog(
     }
   }
 
+  const startedMs = Date.now();
+  let priceReplaceMs: number | null = null;
   const payloadHash = await sha256Hex(xml);
   const doc = parseDaneaProducts(xml);
 
@@ -240,7 +242,9 @@ export async function importDaneaCatalog(
       if (error) throw new Error(`Revisione U.M. Trevi Fruit: ${error.message}`);
     }
 
+    const priceStartMs = Date.now();
     const pricesChanged = await applyPrices(supabaseAdmin, companyId, doc, idByCode);
+    priceReplaceMs = Date.now() - priceStartMs;
     await applySupplierCosts(supabaseAdmin, companyId, doc, idByCode);
     // Riconciliazione fornitore Danea: abbina SOLO per archivio + codice fornitore.
     // Non tocca mai le associazioni/condizioni Trevi Fruit già presenti.
@@ -314,6 +318,8 @@ export async function importDaneaCatalog(
         unpublished_count: unpublished,
         skipped_count: issues.length,
         finished_at: new Date().toISOString(),
+        price_replace_ms: priceReplaceMs,
+        total_ms: Date.now() - startedMs,
       })
       .eq("id", runId);
 
@@ -348,7 +354,13 @@ export async function importDaneaCatalog(
     await writeIssues(supabaseAdmin, companyId, runId, issues);
     await supabaseAdmin
       .from("danea_sync_runs")
-      .update({ outcome: "fallito", error_message: message, finished_at: new Date().toISOString() })
+      .update({
+        outcome: "fallito",
+        error_message: message,
+        finished_at: new Date().toISOString(),
+        price_replace_ms: priceReplaceMs,
+        total_ms: Date.now() - startedMs,
+      })
       .eq("id", runId);
     throw error;
   }
