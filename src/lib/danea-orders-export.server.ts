@@ -57,6 +57,12 @@ export async function exportDaneaOrders(
   // Due tentativi: se un'altra richiesta contemporanea ha già preso gli
   // ordini, si rilegge l'elenco aggiornato (nessun ordine esce due volte).
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    // Numero Danea per fornitore assegnato PRIMA dei filtri: un ordine di un
+    // altro cliente con ORD più basso non viene più scartato da firstnum.
+    const { error: reserveError } = await supabaseAdmin.rpc("danea_reserve_order_numbers", {
+      _station_id: station.id,
+    });
+    if (reserveError) throw new Error(reserveError.message);
     const { data, error } = await supabaseAdmin.rpc("danea_orders_export_candidates", {
       _station_id: station.id,
       _include_exported: includeExported,

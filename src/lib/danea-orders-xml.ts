@@ -9,9 +9,10 @@
  * - Quantità e U.M. come ordinate: nessuna conversione.
  * - Price solo se U.M. della riga = U.M. del prezzo e prezzo valido (> 0);
  *   altrimenti il campo viene omesso (mai 0) e il prezzo indicativo va in nota.
- * - Number = parte numerica del numero Trevi Fruit (ORD-2026-00004 → 4):
- *   Danea lo richiede per elencare l'ordine e ricordare l'ultimo importato;
- *   il numero completo resta in InternalComment.
+ * - Number = numerazione progressiva per fornitore (danea_number), assegnata
+ *   una sola volta prima dello scarico: clienti diversi non collidono. Ordini
+ *   già scaricati senza danea_number usano la parte numerica dell'ORD
+ *   (compatibilità); il numero completo resta in InternalComment.
  * - Filtri di Danea (firstdate/lastdate/firstnum/lastnum) applicati.
  */
 
@@ -67,6 +68,8 @@ export type DaneaExportPrice = {
 export type DaneaOrderCandidate = {
   order_id: string;
   number: string | null;
+  /** Numero Danea per fornitore; null solo per ordini storici (fallback all'ORD). */
+  danea_number?: number | null;
   /** Già scaricato in precedenza dalla stessa postazione (riscarico richiesto da Danea). */
   already_exported?: boolean;
   sent_at: string | null;
@@ -100,6 +103,13 @@ export function daneaOrderNumber(number: string | null): number | null {
   return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 
+/** Numero <Number> del documento: numerazione per fornitore, fallback storico all'ORD. */
+export function daneaDocumentNumber(order: Pick<DaneaOrderCandidate, "number" | "danea_number">): number | null {
+  const n = order.danea_number;
+  if (n !== null && n !== undefined && Number.isSafeInteger(n) && n > 0) return n;
+  return daneaOrderNumber(order.number);
+}
+
 export type DaneaRequestFilter = {
   firstDate: string | null;
   lastDate: string | null;
@@ -131,7 +141,7 @@ export function matchesDaneaFilter(order: DaneaOrderCandidate, f: DaneaRequestFi
   if (f.firstDate && (!d || d < f.firstDate)) return false;
   if (f.lastDate && (!d || d > f.lastDate)) return false;
   if (filterHasNumberRange(f)) {
-    const n = daneaOrderNumber(order.number);
+    const n = daneaDocumentNumber(order);
     if (n === null) return false;
     if (f.firstNum !== null && n < f.firstNum) return false;
     if (f.lastNum !== null && n > f.lastNum) return false;
@@ -150,7 +160,7 @@ export function validateDaneaOrder(order: DaneaOrderCandidate): string[] {
       reasons.push("L'anagrafica cliente appartiene a un archivio Danea diverso da quello della postazione");
     }
   }
-  if (daneaOrderNumber(order.number) === null) reasons.push("Numero ordine non valido per Danea");
+  if (daneaDocumentNumber(order) === null) reasons.push("Numero ordine non valido per Danea");
   if (!order.lines.length) reasons.push("Ordine senza righe");
   for (const line of order.lines) {
     const label = line.description ?? "riga senza descrizione";
@@ -251,7 +261,7 @@ function documentXml(order: DaneaOrderCandidate): string {
   x += el("CustomerEInvoiceDestCode", c.sdi_code, i);
   x += el("DocumentType", "C", i);
   x += el("Date", order.order_date, i);
-  x += el("Number", daneaOrderNumber(order.number), i);
+  x += el("Number", daneaDocumentNumber(order), i);
   x += el("InternalComment", `Ordine Trevi Fruit ${order.number ?? order.order_id}`, i);
   x += el("FootNotes", footNotes(order), i);
   x += `${i}<Rows>\n`;
