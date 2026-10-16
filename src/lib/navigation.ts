@@ -87,7 +87,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "impostazioni.azienda", group: "impostazioni", to: "/amministrazione", label: "Azienda", short: "Azienda", description: "Dati aziendali, indirizzi e profilo di utilizzo.", icon: Building2, roles: ["amministratore"], menu: true, dashboard: "impostazioni" },
   { key: "impostazioni.magazzino", group: "impostazioni", to: "/amministrazione", search: { sezione: "magazzino" }, label: "Magazzino / Zone", short: "Magazzino", description: "Configura le zone usate dall’inventario.", icon: Boxes, roles: ["amministratore"], menu: true, dashboard: "impostazioni" },
   { key: "impostazioni.account", group: "impostazioni", to: "/account", label: "Account", short: "Account", description: "Dati personali e accesso.", icon: UserRound, menu: true, dashboard: "impostazioni" },
-  { key: "impostazioni.gestionale", group: "impostazioni", to: "/danea", label: "Gestionale / Danea", short: "Danea", description: "Postazioni, archivi e collegamento al gestionale.", icon: PlugZap, roles: ["amministratore"], menu: true, dashboard: "impostazioni" },
+  { key: "impostazioni.gestionale", group: "impostazioni", to: "/danea", label: "Gestionale / Danea", short: "Danea", description: "Postazioni, archivi e collegamento al gestionale.", icon: PlugZap, capability: "sells", roles: ["amministratore"], menu: true, dashboard: "impostazioni" },
   { key: "impostazioni.personalizzazione", group: "impostazioni", to: "/impostazioni/navigazione", label: "Personalizzazione", short: "Personalizza", description: "Scegli ordine e visibilità di menu e dashboard.", icon: SlidersHorizontal, menu: true, dashboard: "impostazioni", alwaysVisible: true },
 ];
 

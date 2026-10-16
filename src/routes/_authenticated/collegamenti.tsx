@@ -198,8 +198,8 @@ function Collegamenti() {
   const buys = companyBuys(identity);
 
   const relations = identity?.relations ?? [];
-  const asSeller = relations.filter((r) => r.sellerCompanyId === company?.companyId);
-  const asBuyer = relations.filter((r) => r.buyerCompanyId === company?.companyId);
+  const asSeller = sells ? relations.filter((r) => r.sellerCompanyId === company?.companyId) : [];
+  const asBuyer = buys ? relations.filter((r) => r.buyerCompanyId === company?.companyId) : [];
 
   const partnerIds = useMemo(
     () => [
