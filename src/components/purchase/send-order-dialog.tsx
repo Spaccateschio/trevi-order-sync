@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { PriceInfoNotice } from "@/components/pricing/price-info-notice";
 
 export type SendChannel = "whatsapp" | "email" | "sms" | "telefono" | "di_persona" | "altro";
 
@@ -28,6 +29,7 @@ export function SendOrderDialog({
   orderNumber,
   pending,
   onConfirm,
+  sellerCompanyId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -36,6 +38,8 @@ export function SendOrderDialog({
   orderNumber: string | null;
   pending: boolean;
   onConfirm: (channel: SendChannel | null) => void;
+  /** Fornitore B2B: mostra l'avviso sui prezzi indicativi prima dell'invio definitivo. */
+  sellerCompanyId?: string | null;
 }) {
   const [channel, setChannel] = useState<SendChannel | "">("");
   return (
@@ -49,6 +53,7 @@ export function SendOrderDialog({
               : `Conferma di aver inviato l'ordine a ${supplierName ?? "il fornitore"} e indica come. Dopo l'invio non è più una bozza.`}
           </DialogDescription>
         </DialogHeader>
+        {isB2b && sellerCompanyId ? <PriceInfoNotice sellerCompanyId={sellerCompanyId} /> : null}
         {!isB2b ? (
           <RadioGroup value={channel} onValueChange={(v) => setChannel(v as SendChannel)} className="grid grid-cols-2 gap-2">
             {SEND_CHANNELS.map((c) => (

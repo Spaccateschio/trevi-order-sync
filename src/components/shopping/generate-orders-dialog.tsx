@@ -1177,6 +1177,10 @@ function DraftOrderEditor({
           orderNumber={o?.number ?? null}
           pending={send.isPending}
           onConfirm={(channel) => send.mutate(channel)}
+          sellerCompanyId={
+            order.data?.items.find((i) => i.product_supplier_links?.supplier_company_id)
+              ?.product_supplier_links?.supplier_company_id ?? null
+          }
         />
       </DialogContent>
     </Dialog>
