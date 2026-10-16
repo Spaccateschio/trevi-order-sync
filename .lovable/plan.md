@@ -1,53 +1,33 @@
-# Prezzi variabili fino allo scarico in Danea — piano definitivo
+# Numero d'ordine univoco verso Danea, per fornitore
 
-## Decisioni confermate
-- Prezzo definitivo = listino assegnato al cliente (stesso archivio Danea) in vigore al momento dello scarico. Mai un altro listino, mai 0, mai inventato.
-- Prezzo visto dal cliente all'invio conservato e mai modificato.
-- Rapporto sospeso/revocato allo scarico → ordine scaricato comunque, righe senza prezzo con nota «Prezzo da verificare», ordine segnalato nella pagina Danea.
-- Articolo non più pubblicato dopo l'ordine → prezzo comunque preso dal listino corretto del cliente (vale solo per ordini già ricevuti).
-- «Ultimo aggiornamento listino» = solo importazioni completate che hanno scritto almeno un prezzo, o modifiche manuali effettive. Fallite, senza prezzi o di soli prodotti non contano.
-- Riscarico dello stesso ordine → stessi prezzi già registrati, nessun ricalcolo.
-- Ordini già scaricati (incluso ORD-2026-00004) non modificati né rimessi in scarico.
-- Avviso «Listino non ancora aggiornato oggi» solo nella pagina Danea di Trevi Fruit, senza bloccare lo scarico.
-- Nessun nuovo passaggio obbligatorio di preparazione o sblocco.
+## Problema confermato
+Il numero inviato a Danea (`<Number>`) è la parte numerica dell'ORD del cliente (ORD-2026-00004 → 4). Ogni cliente numera i propri ordini per conto suo, quindi due clienti dello stesso fornitore possono mandare entrambi il numero 4. Conseguenze:
+- Danea non importa due volte lo stesso numero: il secondo ordine si perde, ma Trevi Fruit lo mostra come «Scaricato».
+- Se Danea chiede «dal numero X in poi», l'ordine di un altro cliente con numero più basso viene scartato per sempre.
 
-## Fasi (nell'ordine)
+Oggi Trevi ha un solo cliente (3 EMME), quindi il problema non si è ancora verificato. Si verificherebbe al secondo cliente.
 
-**Fase 1 — Ultimo aggiornamento reale e orario abituale**
-- Migrazione A:
-  - `company_settings.price_list_updated_at` (nullable) e `price_info_text` (testo personalizzabile, nullable).
-  - Nuovo tipo `aggiornamento_listino` in `company_operational_schedules` (orario facoltativo, informativo) via `manage_company_operational_schedule`.
-  - Funzione `_touch_price_list_updated(company_id)`; chiamata a fine importazione listino Danea solo se esito completato e prezzi scritti > 0, e dalle modifiche manuali dei prezzi (trigger su `product_prices` solo se netto/lordo cambiano davvero, escluso durante l'importazione che aggiorna una sola volta alla fine).
-  - Nessun valore inventato: per i dati esistenti il campo resta vuoto fino al prossimo aggiornamento reale (oppure, se approvi, ricavato dall'ultima importazione completata con prezzi).
-- Codice: `src/lib/danea-import.server.ts` (chiamata a fine importazione), Impostazioni → Azienda (orario + testo).
+## Soluzione
+Ogni fornitore ha una sua numerazione progressiva per Danea, separata dall'ORD del cliente:
+- Il numero viene assegnato una sola volta, al primo scarico dell'ordine, e non cambia più (gli eventuali riscarichi lo riusano).
+- Parte sopra il numero più alto già usato verso Danea da quel fornitore: oggi 5, quindi il prossimo ordine sarà 6. Nessuna collisione con ORD-2026-00004 e 00005 già importati.
+- L'ORD del cliente resta visibile nell'ordine in Danea (riferimento/note), così si ritrova sempre l'ordine originale.
+- I filtri «dal numero / al numero» di Danea usano il nuovo numero.
 
-**Fase 2 — Messaggio al cliente**
-- Migrazione B: funzione `seller_price_info(seller_id)` (SECURITY DEFINER, solo clienti collegati attivi o il venditore stesso) → ultimo aggiornamento, orario, testo.
-- Codice: componente unico del messaggio in Catalogo fornitore, riepilogo prima dell'invio e stampa dell'ordine. Senza orario la parte relativa è omessa; nessuna percentuale o promessa.
+## Cosa non cambia
+- ORD-2026-00004 e 00005, già scaricati, restano intoccabili: un loro riscarico continua a usare il numero di prima (4 e 5), con la logica attuale.
+- Numerazione ORD dei clienti, prezzi allo scarico, storico prezzi, postazioni, login e password.
+- Nessun ordine viene rimesso in scarico o modificato.
 
-**Fase 3 — Prezzo definitivo allo scarico**
-- Migrazione C:
-  - Tabella `danea_order_export_lines` (export_id, order_id, item_id, prezzo scelto, U.M. prezzo id+codice, numero listino, archivio, `price_list_updated_at` usato, prezzo e U.M. visti dal cliente, motivo assenza). GRANT + RLS (lettura solo azienda venditrice), scrittura solo servizio, righe immutabili (trigger anti-modifica).
-  - Funzione `_order_line_export_price(seller, buyer, product)`: stessa regola di `applicable_b2b_price` ma senza il controllo «articolo pubblicato», con rapporto attivo obbligatorio; restituisce anche U.M. del prezzo. `applicable_b2b_price` resta invariata (usata da Lista/Ordini).
-  - Nuova funzione `danea_export_orders_priced(station, ids)`: in una sola transazione prende un lock condiviso sul listino del venditore (l'importazione listino prende lo stesso lock in esclusiva), calcola i prezzi di tutte le righe, scrive esportazione + righe, segna gli ordini e restituisce i prezzi. Così tutto lo scarico usa una sola versione del listino. Per ordini già esportati restituisce i prezzi salvati.
-  - Le funzioni attuali restano per compatibilità con l'app pubblicata.
-- Codice: `danea-orders-export.server.ts` (usa la nuova funzione, l'XML si genera dai prezzi restituiti); `danea-orders-xml.ts` (Price solo con U.M. uguale e prezzo > 0; note «Prezzo su richiesta», «U.M. prezzo diversa – da pesare», «Prezzo da verificare»; prezzo cliente in nota se diverso).
-- Ordini scaricati prima di questa fase (ORD-2026-00004): nessuna riga di storico creata a posteriori; se Danea li richiede di nuovo per numero escono con il prezzo dell'ordine come oggi.
+## Dettagli tecnici
+- Migrazione solo additiva: colonna `purchase_orders.danea_number integer NULL` + indice unico parziale per fornitore (azienda venditrice del rapporto, `danea_number`) dove non nullo.
+- Assegnazione dentro `danea_mark_orders_exported` / `danea_export_orders_priced` sotto `pg_advisory_xact_lock('danea_order_number:'||seller_company_id)`: `max(danea_number, numero legacy degli ordini già esportati) + 1`. Mai rinumerare un ordine che ha già un numero.
+- `danea_orders_export_candidates` restituisce anche `danea_number`.
+- `src/lib/danea-orders-xml.ts`: `<Number>` = `danea_number`; se nullo e l'ordine è già esportato → numero legacy (compatibilità, test `danea-orders-legacy-reexport` invariato); candidati nuovi sotto filtro numerico ricevono il numero prima del filtro (assegnazione in una fase "prenota numeri" sotto lock, poi filtro, poi XML).
+- `src/lib/danea-orders-export.server.ts`: ordine delle chiamate adeguato.
+- Test nuovi: due clienti con lo stesso ORD → numeri Danea diversi; filtro `firstnum` non scarta l'ordine di un altro cliente; riscarico conserva il numero; ordini 00004/00005 mantengono 4 e 5.
+- Aggiornare la regola in `src/lib/AGENTS.md` (Number numerico = numerazione per fornitore).
+- Prove solo in transazioni annullate; nessuna chiamata agli indirizzi Danea reali; nessuna pubblicazione.
 
-**Fase 4 — Pagina Danea**
-- Riquadro «Scarico ordini»: ultimo aggiornamento listino, orario abituale, avviso «Listino non ancora aggiornato oggi» (ultimo aggiornamento completato precedente all'orario di oggi, ora di Roma), avviso salvato nello storico scarico (campo `warnings` in `danea_order_exports`, migrazione C); elenco ordini con «Prezzo da verificare»; dettaglio prezzi esportati per ordine.
-
-## Prove
-- Test automatici (node:test): prezzo nuovo in XML; prezzo cliente invariato; mai 0; U.M. diversa → nota; rapporto sospeso → «Prezzo da verificare»; articolo nascosto → prezzo del listino corretto; nessun prezzo da altri listini; riscarico → stessi prezzi; avviso orario (prima/dopo, senza orario).
-- Prove DB solo in transazioni annullate con dati finti: importazione fallita/senza prezzi non aggiorna la data; lock: scarico e importazione contemporanei non mischiano listini; storico immutabile.
-- Compatibilità Danea: XML confrontato con il formato attuale (stessi campi, Number, filtri firstnum/lastnum, riscarico per numero); scarico senza ordini nuovi invariato.
-
-## Condizioni di arresto
-Mi fermo e ti avviso senza proseguire se: una migrazione fallisce; un test esistente o nuovo non passa; l'XML cambia oltre ai campi previsti; una prova tocca dati reali; trovo ordini già scaricati che verrebbero modificati.
-
-## Protezione dei dati esistenti
-- Solo aggiunte: nessuna colonna rimossa o cambiata, nessun dato operativo modificato, `purchase_order_items` mai riscritta.
-- Nessun ordine rimesso in scarico; nessuna pubblicazione senza tuo permesso.
-
-## File toccati
-Migrazioni A, B, C; `src/lib/danea-import.server.ts`, `src/lib/danea-orders-export.server.ts`, `src/lib/danea-orders-xml.ts` (+ test), `src/components/danea/order-download-panel.tsx`, Impostazioni → Azienda (`operational-schedules-form.tsx`), Catalogo fornitore, finestra di invio ordine, stampa ordine, nuovo componente del messaggio, `AGENTS.md`.
+## Punto da decidere
+Il numero viene prenotato quando Danea chiede gli ordini: se Danea poi non importa, il numero resta all'ordine (nessun buco problematico, il riscarico lo riusa).
