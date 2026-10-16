@@ -1006,11 +1006,7 @@ export function CustomerRecordsPanel({
               </thead>
               <tbody>
                 {filtered.map((record) => (
-                  <tr
-                    key={record.id}
-                    className="cursor-pointer odd:bg-muted/20 hover:bg-muted/50"
-                    onClick={() => openEdit(record)}
-                  >
+                  <tr key={record.id} className="odd:bg-muted/20 hover:bg-muted/50">
                     <td className="border-b border-r border-border px-1 py-1" onClick={(event) => event.stopPropagation()}>
                       <Checkbox
                         checked={selectedIds.has(record.id)}
@@ -1030,9 +1026,22 @@ export function CustomerRecordsPanel({
                               : column.value(record) || "—"
                         }
                       >
-                        <span className="block truncate">{cellContent(column, record)}</span>
+                        {column.key === "legal_name" ? (
+                          /* Solo la denominazione apre la scheda: il resto della riga serve a leggere e selezionare. */
+                          <button
+                            type="button"
+                            onClick={() => openEdit(record)}
+                            aria-label={`Apri i dettagli di ${record.legal_name}`}
+                            className="block w-full min-w-0 truncate text-left font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          >
+                            {record.legal_name || "—"}
+                          </button>
+                        ) : (
+                          <span className="block truncate">{cellContent(column, record)}</span>
+                        )}
                       </td>
                     ))}
+
                     <td className="border-b border-border px-1 py-1 text-right">
                       <RowActions record={record} />
                     </td>
