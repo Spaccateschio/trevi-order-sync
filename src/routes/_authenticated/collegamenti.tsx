@@ -203,7 +203,7 @@ function Collegamenti() {
   // Schede visibili secondo il profilo: chi solo compra vede Fornitori, chi solo vende vede Clienti.
   const visibleTabs: Tab[] = sells && buys ? ["clienti", "fornitori", "entrambi"] : sells ? ["clienti"] : ["fornitori"];
   useEffect(() => {
-    if (!visibleTabs.includes(tab)) setTab(visibleTabs[0]);
+    if (!visibleTabs.includes(tab)) setTab(visibleTabs[0] ?? "fornitori");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sells, buys, tab]);
 
