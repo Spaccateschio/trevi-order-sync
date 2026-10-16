@@ -4754,6 +4754,8 @@ export type Database = {
           danea_export_id: string | null
           danea_exported_at: string | null
           danea_exported_station_id: string | null
+          danea_number: number | null
+          danea_number_seller_id: string | null
           delivery_address_text: string | null
           delivery_date: string | null
           delivery_time_from: string | null
@@ -4789,6 +4791,8 @@ export type Database = {
           danea_export_id?: string | null
           danea_exported_at?: string | null
           danea_exported_station_id?: string | null
+          danea_number?: number | null
+          danea_number_seller_id?: string | null
           delivery_address_text?: string | null
           delivery_date?: string | null
           delivery_time_from?: string | null
@@ -4824,6 +4828,8 @@ export type Database = {
           danea_export_id?: string | null
           danea_exported_at?: string | null
           danea_exported_station_id?: string | null
+          danea_number?: number | null
+          danea_number_seller_id?: string | null
           delivery_address_text?: string | null
           delivery_date?: string | null
           delivery_time_from?: string | null
@@ -4857,6 +4863,13 @@ export type Database = {
           {
             foreignKeyName: "purchase_orders_company_id_fkey"
             columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_danea_number_seller_id_fkey"
+            columns: ["danea_number_seller_id"]
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
@@ -6955,6 +6968,10 @@ export type Database = {
       danea_requeue_order: {
         Args: { _order_id: string; _reason: string }
         Returns: undefined
+      }
+      danea_reserve_order_numbers: {
+        Args: { _station_id: string }
+        Returns: number
       }
       danea_set_export_payload: {
         Args: {
