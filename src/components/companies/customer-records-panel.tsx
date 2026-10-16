@@ -708,9 +708,14 @@ export function CustomerRecordsPanel({
         <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
           <DropdownMenuItem onSelect={() => openEdit(record)}>Dettagli</DropdownMenuItem>
           {link.key === "attivo" || link.key === "sospeso" ? null : (
-            <DropdownMenuItem disabled={!isAdmin} onSelect={() => openInvite(record)}>
+            <DropdownMenuItem
+              disabled={!isAdmin}
+              className="bg-accent/20 font-semibold text-primary"
+              onSelect={() => openInvite(record)}
+            >
               Invita
             </DropdownMenuItem>
+
           )}
           {pending ? (
             <>
