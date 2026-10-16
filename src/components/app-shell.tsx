@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { activeCompany, hasCompany, selectActiveCompany, useIdentity } from "@/hooks/use-identity";
 import { orderedKeys, useNavigationPreferences } from "@/hooks/use-navigation-preferences";
 import { supabase } from "@/integrations/supabase/client";
-import { authorizedNavItems, NAV_GROUPS, type NavGroupKey, type NavItem } from "@/lib/navigation";
+import { authorizedNavItems, isPathAllowedForProfile, NAV_GROUPS, type NavGroupKey, type NavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 function NavLink({ item, pathname, nested = false }: { item: NavItem; pathname: string; nested?: boolean }) {
@@ -46,6 +46,12 @@ export function AppShell({ title, description, actions, compact = false, wide = 
   useEffect(() => {
     if (isSuccess && identity && !hasCompany(identity)) navigate({ to: "/onboarding", replace: true });
   }, [identity, isSuccess, navigate]);
+
+  // Pagine non pertinenti al profilo aziendale: anche aperte dall'indirizzo si torna alla Panoramica.
+  const blocked = Boolean(isSuccess && company && !isPathAllowedForProfile(pathname, company.capabilities));
+  useEffect(() => {
+    if (blocked) navigate({ to: "/dashboard", replace: true });
+  }, [blocked, navigate]);
 
   const authorized = authorizedNavItems(identity);
   const byKey = new Map(authorized.map((item) => [item.key, item]));
@@ -94,7 +100,7 @@ export function AppShell({ title, description, actions, compact = false, wide = 
     </aside>
     <div className="lg:pl-60">
       <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-sidebar px-4 py-3 lg:hidden"><BrandMark tone="dark" /><div className="flex items-center gap-2">{identity && identity.memberships.length > 1 ? <Select value={company?.companyId ?? ""} onValueChange={handleCompanyChange}><SelectTrigger className="h-8 max-w-40 border-sidebar-border bg-sidebar-accent text-xs text-sidebar-accent-foreground" aria-label="Azienda attiva"><SelectValue /></SelectTrigger><SelectContent>{identity.memberships.map((membership) => <SelectItem key={membership.companyId} value={membership.companyId}>{membership.companyName}</SelectItem>)}</SelectContent></Select> : null}<NotificationBell companyId={company?.companyId} className="text-sidebar-foreground hover:bg-sidebar-accent" /><Button variant="ghost" size="icon" onClick={handleSignOut} aria-label="Esci" className="text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="h-5 w-5" /></Button></div></header>
-      <main className={cn("mx-auto w-full px-3 pb-28 pt-4 sm:px-5 lg:pb-10", wide ? "max-w-none lg:px-4" : "max-w-6xl", compact ? "lg:pt-3" : "lg:pt-7")}><div className={cn("min-w-0", compact ? "mb-2" : "mb-4 lg:mb-6")}><div className="flex flex-wrap items-start justify-between gap-2"><div className="flex min-w-0 items-start gap-1.5">{!isHome ? <Button variant="ghost" size="icon" onClick={handleBack} aria-label="Torna alla pagina precedente" className="-ml-2 mt-0.5 h-8 w-8 shrink-0 text-muted-foreground"><ArrowLeft className="h-5 w-5" /></Button> : null}<div className="min-w-0"><h1 className={cn("font-semibold", compact ? "text-xl" : "text-xl sm:text-2xl lg:text-3xl")}>{title}</h1>{description ? <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{description}</p> : null}</div></div>{actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}</div></div>{children}</main>
+      <main className={cn("mx-auto w-full px-3 pb-28 pt-4 sm:px-5 lg:pb-10", wide ? "max-w-none lg:px-4" : "max-w-6xl", compact ? "lg:pt-3" : "lg:pt-7")}><div className={cn("min-w-0", compact ? "mb-2" : "mb-4 lg:mb-6")}><div className="flex flex-wrap items-start justify-between gap-2"><div className="flex min-w-0 items-start gap-1.5">{!isHome ? <Button variant="ghost" size="icon" onClick={handleBack} aria-label="Torna alla pagina precedente" className="-ml-2 mt-0.5 h-8 w-8 shrink-0 text-muted-foreground"><ArrowLeft className="h-5 w-5" /></Button> : null}<div className="min-w-0"><h1 className={cn("font-semibold", compact ? "text-xl" : "text-xl sm:text-2xl lg:text-3xl")}>{title}</h1>{description ? <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{description}</p> : null}</div></div>{actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}</div></div>{blocked ? null : children}</main>
     </div>
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)] lg:hidden"><ul className="flex items-stretch">{mobileItems.map((item) => <li key={item.key} className="min-w-0 flex-1"><Link to={item.to ?? "/dashboard"} className={cn("flex h-16 flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium", pathname === item.to ? "text-sidebar-primary" : "text-sidebar-foreground/70")}><item.icon className="h-5 w-5" /><span className="w-full truncate text-center">{item.short}</span></Link></li>)}</ul></nav>
   </div>;

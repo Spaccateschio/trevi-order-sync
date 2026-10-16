@@ -87,7 +87,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "impostazioni.azienda", group: "impostazioni", to: "/amministrazione", label: "Azienda", short: "Azienda", description: "Dati aziendali, indirizzi e profilo di utilizzo.", icon: Building2, roles: ["amministratore"], menu: true, dashboard: "impostazioni" },
   { key: "impostazioni.magazzino", group: "impostazioni", to: "/amministrazione", search: { sezione: "magazzino" }, label: "Magazzino / Zone", short: "Magazzino", description: "Configura le zone usate dall’inventario.", icon: Boxes, roles: ["amministratore"], menu: true, dashboard: "impostazioni" },
   { key: "impostazioni.account", group: "impostazioni", to: "/account", label: "Account", short: "Account", description: "Dati personali e accesso.", icon: UserRound, menu: true, dashboard: "impostazioni" },
-  { key: "impostazioni.gestionale", group: "impostazioni", to: "/danea", label: "Gestionale / Danea", short: "Danea", description: "Postazioni, archivi e collegamento al gestionale.", icon: PlugZap, roles: ["amministratore"], menu: true, dashboard: "impostazioni" },
+  { key: "impostazioni.gestionale", group: "impostazioni", to: "/danea", label: "Gestionale / Danea", short: "Danea", description: "Postazioni, archivi e collegamento al gestionale.", icon: PlugZap, capability: "sells", roles: ["amministratore"], menu: true, dashboard: "impostazioni" },
   { key: "impostazioni.personalizzazione", group: "impostazioni", to: "/impostazioni/navigazione", label: "Personalizzazione", short: "Personalizza", description: "Scegli ordine e visibilità di menu e dashboard.", icon: SlidersHorizontal, menu: true, dashboard: "impostazioni", alwaysVisible: true },
 ];
 
@@ -107,4 +107,19 @@ export function canSeeModule(identity: Identity | null | undefined, item: NavIte
 
 export function authorizedNavItems(identity: Identity | null | undefined) {
   return NAV_ITEMS.filter((item) => canSeeModule(identity, item));
+}
+
+/** Pagine riservate per profilo aziendale (solo visibilità frontend). */
+const SELL_ONLY_PREFIXES = ["/vendite", "/operativo", "/consegne", "/danea"];
+const BUY_ONLY_PREFIXES = ["/acquisti"];
+
+function matchesPrefix(pathname: string, prefixes: string[]) {
+  return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+/** true se il profilo (compra/vende) consente di aprire l'indirizzo. */
+export function isPathAllowedForProfile(pathname: string, profile: { buys: boolean; sells: boolean }) {
+  if (!profile.sells && matchesPrefix(pathname, SELL_ONLY_PREFIXES)) return false;
+  if (!profile.buys && matchesPrefix(pathname, BUY_ONLY_PREFIXES)) return false;
+  return true;
 }
