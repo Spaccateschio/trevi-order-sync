@@ -42,7 +42,10 @@ export function SellerPriceInfoForm({ companyId, isAdmin }: { companyId: string;
       _info_text: (text.trim() || null) as string,
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Impostazioni prezzi salvate.");
     queryClient.invalidateQueries({ queryKey: key });
     queryClient.invalidateQueries({ queryKey: ["seller-price-info", companyId] });

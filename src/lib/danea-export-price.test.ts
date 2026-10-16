@@ -31,7 +31,7 @@ test("allo scarico va in Danea il prezzo del listino in vigore (2,50), non quell
 test("il prezzo visto dal cliente resta nel candidato, mai riscritto", () => {
   const o = order(ep());
   buildDaneaOrdersXml(null, [o]);
-  assert.equal(o.lines[0].price, 2.2);
+  assert.equal(o.lines[0]?.price, 2.2);
 });
 
 test("rapporto sospeso: nessun prezzo, nota «Prezzo da verificare»", () => {
