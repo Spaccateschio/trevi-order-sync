@@ -221,8 +221,8 @@
 - [ ] Acquisto diretto Fase 2: stampa e condivisione del documento AD
 - [ ] Acquisto diretto Fase 3: pagina con link per inserire peso netto/lordo, prezzo e dati di carico (non B2B)
 - [ ] Acquisto diretto Fase 4: pagina di conferma ricezione con spunta dei prodotti ritirati/consegnati
-- [ ] Fase 3: carico merce da acquisto diretto confermato (quantità, U.M., peso, prezzi effettivi)
-- [ ] Fase 4: storico, consultazione e stampa dei documenti
+- [x] Fase 3: carico merce da acquisto diretto confermato (quantità, U.M., peso, prezzi effettivi)
+- [x] Fase 4: storico, consultazione e stampa dei documenti
 - [ ] Foto dello scontrino: sviluppo successivo
 - [x] Fasi 1 e 2 acquisto diretto: documento AD, bozza, conferma e annullamento (anteprima, non pubblicato)
 - [x] 15/10 — «Prima di generare gli ordini»: elenchi «Prodotti (N)» aperti per fornitori e acquisti diretti, eccedenza solo con U.M. uguali, rilettura all'apertura; ARANCE: quota diretta non salvata (solo anteprima, in attesa di controllo)
@@ -237,8 +237,8 @@
 - [x] Scarico ordini B2B in Danea: sviluppo completato in anteprima (non pubblicato, nessuna postazione ordini creata). In attesa: prova su archivio Danea di test.
 
 ## Prezzi variabili fino allo scarico Danea (autorizzato, solo anteprima)
-- [ ] Fase 1: ultimo aggiornamento reale del listino + orario abituale e testo per azienda
-- [ ] Fase 2: messaggio prezzi al cliente (Catalogo fornitore, ordine prima dell'invio)
-- [ ] Fase 3: prezzo del listino corrente allo scarico, storico righe esportate, coerenza con blocco
-- [ ] Fase 4: pagina Danea con ultimo aggiornamento, avvisi, prezzi da verificare
+- [x] Fase 1: ultimo aggiornamento reale del listino + orario abituale e testo per azienda
+- [x] Fase 2: messaggio prezzi al cliente (Catalogo fornitore, ordine prima dell'invio)
+- [x] Fase 3: prezzo del listino corrente allo scarico, storico righe esportate, coerenza con blocco
+- [x] Fase 4: pagina Danea con ultimo aggiornamento, avvisi, prezzi da verificare
 - [ ] Resoconto, schermate e istruzioni prova Danea (non pubblicare)
