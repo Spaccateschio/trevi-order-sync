@@ -23,7 +23,7 @@ async function sha256Hex(text: string): Promise<string> {
 
 type PriceInfoRow = { usual_update_time: string | null; last_price_update_at: string | null };
 
-function attachPrices(candidates: DaneaOrderCandidate[], lines: DaneaExportPrice[]) {
+export function attachPrices(candidates: DaneaOrderCandidate[], lines: DaneaExportPrice[]) {
   const byItem = new Map(lines.map((l) => [l.item_id, l]));
   return candidates.map((o) => ({
     ...o,
