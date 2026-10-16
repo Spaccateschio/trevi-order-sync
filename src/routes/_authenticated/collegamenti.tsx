@@ -200,6 +200,12 @@ function Collegamenti() {
   const relations = identity?.relations ?? [];
   const asSeller = sells ? relations.filter((r) => r.sellerCompanyId === company?.companyId) : [];
   const asBuyer = buys ? relations.filter((r) => r.buyerCompanyId === company?.companyId) : [];
+  // Schede visibili secondo il profilo: chi solo compra vede Fornitori, chi solo vende vede Clienti.
+  const visibleTabs: Tab[] = sells && buys ? ["clienti", "fornitori", "entrambi"] : sells ? ["clienti"] : ["fornitori"];
+  useEffect(() => {
+    if (!visibleTabs.includes(tab)) setTab(visibleTabs[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sells, buys, tab]);
 
   const partnerIds = useMemo(
     () => [
