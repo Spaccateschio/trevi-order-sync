@@ -117,3 +117,24 @@ test("caratteri speciali escapati", () => {
   assert.ok(r.xml.includes("A &amp; B &lt;srl&gt;"));
   assert.equal(parse(r.xml).Documents.Document.length, 1);
 });
+
+test("numero Danea per fornitore: due clienti con lo stesso ORD escono con numeri diversi", () => {
+  const a = order({ order_id: "a", number: "ORD-2026-00004", danea_number: 6 });
+  const b = order({ order_id: "b", number: "ORD-2026-00004", danea_number: 7 });
+  const docs = parse(buildDaneaOrdersXml(null, [a, b]).xml).Documents.Document;
+  assert.deepEqual(docs.map((d: { Number: number }) => d.Number), [6, 7]);
+});
+
+test("firstnum usa il numero Danea: l'ordine di un altro cliente con ORD basso non viene scartato", () => {
+  const f = parseDaneaRequestFilter(new URLSearchParams("firstnum=6"));
+  assert.equal(matchesDaneaFilter(order({ number: "ORD-2026-00001", danea_number: 6 }), f), true);
+  assert.equal(matchesDaneaFilter(order({ number: "ORD-2026-00009", danea_number: 5 }), f), false);
+});
+
+test("ordini storici senza numero Danea mantengono il numero dell'ORD (4 e 5)", () => {
+  const docs = parse(buildDaneaOrdersXml(null, [
+    order({ order_id: "x", number: "ORD-2026-00004", already_exported: true }),
+    order({ order_id: "y", number: "ORD-2026-00005", danea_number: 5, already_exported: true }),
+  ]).xml).Documents.Document;
+  assert.deepEqual(docs.map((d: { Number: number }) => d.Number), [4, 5]);
+});
