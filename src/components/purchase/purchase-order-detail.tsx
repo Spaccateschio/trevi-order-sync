@@ -357,6 +357,10 @@ export function PurchaseOrderDetail({
               orderNumber={order.number}
               pending={action.isPending}
               onConfirm={(channel) => action.mutate({ action: "send", sendChannel: channel })}
+              sellerCompanyId={
+                (itemsQuery.data ?? []).find((i) => i.product_supplier_links?.supplier_company_id)
+                  ?.product_supplier_links?.supplier_company_id ?? null
+              }
             />
           </>
         ) : null}

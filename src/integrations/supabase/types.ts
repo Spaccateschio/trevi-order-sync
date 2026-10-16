@@ -1510,11 +1510,13 @@ export type Database = {
           outcome: Database["public"]["Enums"]["danea_sync_outcome"]
           payload_bytes: number | null
           payload_hash: string | null
+          price_replace_ms: number | null
           received_count: number
           skipped_count: number
           source: Database["public"]["Enums"]["danea_sync_source"]
           started_at: string
           station_id: string | null
+          total_ms: number | null
           unpublished_count: number
           updated_at: string
           updated_count: number
@@ -1536,11 +1538,13 @@ export type Database = {
           outcome?: Database["public"]["Enums"]["danea_sync_outcome"]
           payload_bytes?: number | null
           payload_hash?: string | null
+          price_replace_ms?: number | null
           received_count?: number
           skipped_count?: number
           source?: Database["public"]["Enums"]["danea_sync_source"]
           started_at?: string
           station_id?: string | null
+          total_ms?: number | null
           unpublished_count?: number
           updated_at?: string
           updated_count?: number
@@ -1562,11 +1566,13 @@ export type Database = {
           outcome?: Database["public"]["Enums"]["danea_sync_outcome"]
           payload_bytes?: number | null
           payload_hash?: string | null
+          price_replace_ms?: number | null
           received_count?: number
           skipped_count?: number
           source?: Database["public"]["Enums"]["danea_sync_source"]
           started_at?: string
           station_id?: string | null
+          total_ms?: number | null
           unpublished_count?: number
           updated_at?: string
           updated_count?: number

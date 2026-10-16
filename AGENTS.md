@@ -22,7 +22,6 @@
 - Customer order edits after sending go only through DB RPCs that lock the order row and re-check the supplier lock (customer_update_order_full, request/decide_order_change, supplier_cancel_order); every change is logged in purchase_order_changes: concurrency is decided by the database, not the UI.
 - Conversione U.M. acquisto fornitore → U.M. di magazzino: solo `product_supplier_link_units.stock_conversion_factor` + verified_stock_unit_id/verified_package_version, letta solo da `effective_supplier_conversion`; il vecchio `conversion_factor` resta del sistema attuale: nessuna conversione superata viene usata in silenzio.
 - U.M. di magazzino, confezioni e conversioni si scrivono solo con set_product_stock_unit / manage_product_stock_package / set_supplier_unit_conversion (flag app.unit_config_rpc nei trigger): il browser non le scrive direttamente.
-- Prima impostazione U.M. di magazzino dalla card Inventario: solo set_initial_stock_unit (admin/operatore, FOR UPDATE, solo da NULL, flag app.stock_unit_first_set accettato dal trigger solo da NULL a valore); proposta solo da initial_stock_unit_options, mai salvata senza conferma: l'operatore non può cambiare un'U.M. già impostata.
 
 - Recurring company operational schedules (e.g. shopping-list reminder) live only in company_operational_schedules, one row per company+schedule_type, written only via manage_company_operational_schedule (admin check in DB): kept separate from company_settings delivery preferences.
 - Funzioni DB che scrivono: un RETURN senza modifiche è ammesso solo prima della prima scrittura; dopo, ci si ferma solo con RAISE EXCEPTION: nessuno stato a metà.
@@ -36,3 +35,8 @@
 - Prove: nessuna prova deve modificare dati operativi reali, nemmeno temporaneamente e nemmeno con l'intenzione di ripristinarli successivamente. Le prove che richiedono scritture devono essere eseguite esclusivamente in transazioni annullate o su dati di prova creati e cancellati nella stessa transazione. Non utilizzare dati operativi come banco di prova senza autorizzazione esplicita dell'utente. Vale per Inventario, Lista della Spesa, Ordini, Acquisti diretti, Carichi e ogni altra funzionalità.
 
 - Regole Danea (scarico ordini, prezzi allo scarico, aggiornamento listino): vedi src/lib/AGENTS.md. Le sottocartelle hanno il proprio AGENTS.md da leggere prima di modificarle.
+
+- Ordini: mai totali in euro; prezzo indicativo fino allo scarico Danea (listino del cliente in quel momento).
+- Prove valide solo con ruolo e strada reali (app: utente authenticated; Danea: indirizzo pubblico con postazione); SQL interno o privilegi superiori non contano come superate. Prove sugli indirizzi Danea reali solo con autorizzazione esplicita dell'utente.
+- Ordini già scaricati da Danea intoccabili: niente ricalcolo prezzi, storico retroattivo o cambio stato; il riscarico senza storico usa la logica precedente (test con danea-orders-xml.legacy.ts).
+- Prima di lavorare su Danea, prezzi o ordini leggere sempre src/lib/AGENTS.md.
