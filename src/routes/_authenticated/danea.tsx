@@ -172,7 +172,7 @@ function DaneaPage() {
       const { data, error } = await supabase
         .from("danea_sync_runs")
         .select(
-          "id, mode, source, outcome, received_count, created_count, updated_count, unpublished_count, skipped_count, duplicate_payload, error_message, started_at",
+          "id, mode, source, outcome, received_count, created_count, updated_count, unpublished_count, skipped_count, duplicate_payload, error_message, started_at, price_replace_ms, total_ms",
         )
         .eq("company_id", companyId!)
         .order("started_at", { ascending: false })
@@ -774,7 +774,9 @@ function DaneaPage() {
                     <th className="py-1.5 pr-3">Nuovi</th>
                     <th className="py-1.5 pr-3">Aggiornati</th>
                     <th className="py-1.5 pr-3">Depubblicati</th>
-                    <th className="py-1.5">Segnalazioni</th>
+                    <th className="py-1.5 pr-3">Segnalazioni</th>
+                    <th className="py-1.5 pr-3">Durata prezzi</th>
+                    <th className="py-1.5">Durata totale</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -795,7 +797,9 @@ function DaneaPage() {
                       <td className="py-1.5 pr-3">{run.created_count}</td>
                       <td className="py-1.5 pr-3">{run.updated_count}</td>
                       <td className="py-1.5 pr-3">{run.unpublished_count}</td>
-                      <td className="py-1.5">{run.skipped_count}</td>
+                      <td className="py-1.5 pr-3">{run.skipped_count}</td>
+                      <td className="py-1.5 pr-3 whitespace-nowrap">{formatDurationMs(run.price_replace_ms)}</td>
+                      <td className="py-1.5 whitespace-nowrap">{formatDurationMs(run.total_ms)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -862,4 +866,11 @@ function DaneaPage() {
       </div>
     </AppShell>
   );
+}
+
+/** Durata leggibile di un invio: «—» se non registrata (invii precedenti alla misura). */
+function formatDurationMs(ms: number | null | undefined): string {
+  if (ms === null || ms === undefined) return "—";
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toLocaleString("it-IT", { maximumFractionDigits: 1 })} s`;
 }
