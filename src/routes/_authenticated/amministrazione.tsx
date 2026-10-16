@@ -157,7 +157,7 @@ function Amministrazione() {
           <TabsContent value="preferenze">
             <DeliveryPreferencesForm companyId={company.companyId} />
             <OperationalSchedulesForm companyId={company.companyId} isAdmin={allowed} />
-            <SellerPriceInfoForm companyId={company.companyId} isAdmin={allowed} />
+            {sells ? <SellerPriceInfoForm companyId={company.companyId} isAdmin={allowed} /> : null}
           </TabsContent>
         </Tabs>
       ) : (

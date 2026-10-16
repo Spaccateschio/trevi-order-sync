@@ -108,3 +108,18 @@ export function canSeeModule(identity: Identity | null | undefined, item: NavIte
 export function authorizedNavItems(identity: Identity | null | undefined) {
   return NAV_ITEMS.filter((item) => canSeeModule(identity, item));
 }
+
+/** Pagine riservate per profilo aziendale (solo visibilità frontend). */
+const SELL_ONLY_PREFIXES = ["/vendite", "/operativo", "/consegne", "/danea"];
+const BUY_ONLY_PREFIXES = ["/acquisti"];
+
+function matchesPrefix(pathname: string, prefixes: string[]) {
+  return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+/** true se il profilo (compra/vende) consente di aprire l'indirizzo. */
+export function isPathAllowedForProfile(pathname: string, profile: { buys: boolean; sells: boolean }) {
+  if (!profile.sells && matchesPrefix(pathname, SELL_ONLY_PREFIXES)) return false;
+  if (!profile.buys && matchesPrefix(pathname, BUY_ONLY_PREFIXES)) return false;
+  return true;
+}

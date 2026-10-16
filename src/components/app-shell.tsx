@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { activeCompany, hasCompany, selectActiveCompany, useIdentity } from "@/hooks/use-identity";
 import { orderedKeys, useNavigationPreferences } from "@/hooks/use-navigation-preferences";
 import { supabase } from "@/integrations/supabase/client";
-import { authorizedNavItems, NAV_GROUPS, type NavGroupKey, type NavItem } from "@/lib/navigation";
+import { authorizedNavItems, isPathAllowedForProfile, NAV_GROUPS, type NavGroupKey, type NavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 function NavLink({ item, pathname, nested = false }: { item: NavItem; pathname: string; nested?: boolean }) {
@@ -46,6 +46,12 @@ export function AppShell({ title, description, actions, compact = false, wide = 
   useEffect(() => {
     if (isSuccess && identity && !hasCompany(identity)) navigate({ to: "/onboarding", replace: true });
   }, [identity, isSuccess, navigate]);
+
+  // Pagine non pertinenti al profilo aziendale: anche aperte dall'indirizzo si torna alla Panoramica.
+  const blocked = Boolean(isSuccess && company && !isPathAllowedForProfile(pathname, company.capabilities));
+  useEffect(() => {
+    if (blocked) navigate({ to: "/dashboard", replace: true });
+  }, [blocked, navigate]);
 
   const authorized = authorizedNavItems(identity);
   const byKey = new Map(authorized.map((item) => [item.key, item]));
