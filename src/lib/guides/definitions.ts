@@ -22,6 +22,12 @@ export const GUIDES = {
     steps: [
       { id: "spesa.titolo", target: '[data-tour="pagina.titolo"]', introducedIn: 1, title: "Lista della Spesa", text: "Qui decidi cosa comprare. Il fabbisogno suggerito e la quantità che ordini davvero restano due numeri distinti." },
       { id: "spesa.banner-ordini", target: '[data-tour="spesa.banner-ordini"]', introducedIn: 1, title: "Ordini inviati", text: "Questo avviso ricorda gli ordini inviati di recente ai fornitori." },
+      { id: "spesa.data", target: '[data-tour="spesa.data"]', introducedIn: 1, title: "Per quando serve", text: "Il giorno in cui serve la merce. Con «Cambia» scegli un altro giorno." },
+      { id: "spesa.annulla", target: '[data-tour="spesa.annulla"]', introducedIn: 1, title: "Annulla lista", text: "Annulla la lista aperta. Prima di farlo ti viene sempre chiesta conferma." },
+      { id: "spesa.bozze", target: '[data-tour="spesa.bozze"]', introducedIn: 1, title: "Bozze", text: "Qui ritrovi gli ordini preparati e non ancora inviati." },
+      { id: "spesa.storico", target: '[data-tour="spesa.storico"]', introducedIn: 1, title: "Storico liste", text: "Le liste passate, già chiuse o annullate, da consultare e stampare." },
+      { id: "spesa.nuova-lista", target: '[data-tour="spesa.nuova-lista"]', introducedIn: 1, title: "Nuova lista", text: "Crea una lista straordinaria, non collegata all'inventario." },
+      { id: "spesa.orario", target: '[data-tour="spesa.orario"]', introducedIn: 1, title: "Giorni e orario", text: "I giorni e l'orario del promemoria per preparare la lista. «Cambia orario» lo sposta solo per oggi; i giorni si cambiano in Azienda → Preferenze." },
       { id: "spesa.ricerca", target: '[data-tour="spesa.ricerca"]', introducedIn: 1, title: "Cerca un prodotto", text: "Scrivi il nome o il codice per trovare subito un prodotto nella lista." },
       { id: "spesa.preferiti", target: '[data-tour="spesa.preferiti"]', introducedIn: 1, title: "★ Preferiti", text: "All'ingresso vedi solo i prodotti preferiti. Toccalo per vedere anche gli altri." },
       { id: "spesa.filtri", target: '[data-tour="spesa.filtri"]', introducedIn: 1, title: "Filtri", text: "Restringi l'elenco per categoria, tipo di prodotto (B2B o non B2B) e stato." },

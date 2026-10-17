@@ -1356,7 +1356,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </SelectContent>
           </Select>
           {list ? <Badge variant={editable ? "default" : "secondary"}>{LIST_STATUS_LABEL[list.status]}</Badge> : null}
-          {list ? <ListDeliveryDate companyId={companyId} list={list} editable={editable} /> : null}
+          {list ? <span data-tour="spesa.data"><ListDeliveryDate companyId={companyId} list={list} editable={editable} /></span> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {editable ? (
@@ -1365,12 +1365,13 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 type="button"
                 size="sm"
                 variant="outline"
+                data-tour="spesa.annulla"
                 disabled={listMutation.isPending}
                 onClick={() => listMutation.mutate("cancel")}
               >
                 Annulla lista
               </Button>
-              <Button type="button" size="sm" variant="outline" disabled={listMutation.isPending} onClick={() => { setGenMounted(list?.id ?? null); setGenOpen("bozze"); }}>
+              <Button type="button" size="sm" variant="outline" data-tour="spesa.bozze" disabled={listMutation.isPending} onClick={() => { setGenMounted(list?.id ?? null); setGenOpen("bozze"); }}>
                 Bozze
               </Button>
               <Button type="button" size="sm" disabled={listMutation.isPending} onClick={openGeneration}>
@@ -1403,13 +1404,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               </Button>
             </>
           ) : null}
-          <Button type="button" size="sm" variant="outline" onClick={() => setHistoryOpen(true)}>
+          <Button type="button" size="sm" variant="outline" data-tour="spesa.storico" onClick={() => setHistoryOpen(true)}>
             Storico liste
           </Button>
           <Button
             type="button"
             size="sm"
             variant="outline"
+            data-tour="spesa.nuova-lista"
             disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
             title="Lista straordinaria, non collegata all'inventario"
             onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
@@ -1420,7 +1422,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
+      <div data-tour="spesa.orario" className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
           <AlarmClock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="font-semibold">Preparazione Lista della Spesa</span>
