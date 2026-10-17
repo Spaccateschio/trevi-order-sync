@@ -4,7 +4,7 @@ DO $deferred$
 DECLARE original text; replacement text;
 BEGIN
  SELECT pg_get_functiondef('public.manage_purchase_order(uuid,text,uuid,text,uuid,text)'::regprocedure) INTO original;
- IF position('IF _action = ''send'' THEN' IN original)=0 OR position('v_b2b := v_o.relation_id IS NOT NULL;' IN original)=0 THEN
+ IF md5(original) <> '0c9a7f2698a674844d181de50ca0d22c' THEN
   RAISE EXCEPTION 'Unexpected manage_purchase_order definition; review before release';
  END IF;
  replacement := replace(original,
