@@ -31,7 +31,11 @@ export function orderShareText(
   supplier: string,
   lines: { product_name: string | null; product_code: string | null; purchase_quantity: number; purchase_unit_code: string | null }[],
   linkUrl: string,
+  delivery?: { date?: string | null; from?: string | null; to?: string | null; address?: string | null; notes?: string | null; lineNotes?: string[] },
 ) {
   const rows = lines.map((l) => `- ${l.product_code ? `${l.product_code} ` : ""}${l.product_name ?? ""}: ${l.purchase_quantity} ${l.purchase_unit_code ?? ""}`.trim());
-  return [`Ordine ${number ?? ""} per ${supplier}`.trim(), "", ...rows, "", `Comunica la consegna da qui: ${linkUrl}`].join("\n");
+  return [`Ordine ${number ?? ""} per ${supplier}`.trim(), "", ...rows,
+    ...(delivery ? ["", `Data consegna: ${delivery.date ?? "Non indicata"}`, `Orario: ${[delivery.from, delivery.to].filter(Boolean).join(" – ") || "Non indicato"}`, `Luogo: ${delivery.address ?? "Non indicato"}`, `Note per il fornitore: ${delivery.notes?.trim() || "Nessuna"}`, ...(delivery.lineNotes ?? [])] : []),
+    ...(linkUrl ? ["", `Comunica la consegna da qui: ${linkUrl}`] : []),
+  ].join("\n");
 }
