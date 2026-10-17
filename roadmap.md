@@ -1,7 +1,7 @@
 # Roadmap
 
 ## 17/10 — Rimanda ordine sulle card
-- [ ] Verifica read-only del collegamento B2B sicuro esistente e degli ordini 00004/00005; se manca una consultazione sicura, fermarsi e proporre l'adattamento minimo.
+- [x] Verifica read-only: manca il collegamento al singolo ordine B2B in sola consultazione; link consegna inadatti. RLS venditore presente; apertura card operativa registra il visto. 00004/00005 B2B già visti e scaricati, nessuna modifica. Proposto adattamento minimo della pagina Ordini clienti, in attesa di approvazione.
 - [ ] Dopo conferma del piano: pulsante sulle card inviate e riuso finestra non B2B; B2B con link autenticato e sola consultazione per scaricati. Nessuna pubblicazione, comunicazione o modifica degli ordini durante le verifiche.
 
 ## Condivisione ordini — anteprima, rilascio coordinato non autorizzato
