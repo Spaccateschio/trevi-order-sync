@@ -34,10 +34,23 @@ const Email = ({ sellerName, recipientName, customerTaxId, inviteLink, inviteCod
           <Text style={brand}>Trevi Fruit</Text>
           <Heading style={heading}>{seller} ti invita a collegarti</Heading>
           <Text style={text}>
-            {recipientName ? `Ciao ${recipientName}, ` : "Ciao, "}
+          {recipientName ? `Ciao ${recipientName}, ` : "Ciao, "}
             {seller} ti invita a collegare la tua azienda su Trevi Fruit per gestire insieme
             ordini, preparazione e consegne.
           </Text>
+
+          {recipientName ? (
+            <Section style={identityBox}>
+              <Text style={identityLabel}>Stai per collegare la tua azienda</Text>
+              <Text style={identityName}>{recipientName}</Text>
+              {customerTaxId ? (
+                <Text style={identityValue}>
+                  {isVatNumber(customerTaxId) ? "Partita IVA" : "Codice fiscale"}: {customerTaxId}
+                </Text>
+              ) : null}
+            </Section>
+          ) : null}
+
 
           {inviteLink ? (
             <Section style={{ margin: "24px 0" }}>
@@ -76,6 +89,7 @@ export const template = {
   previewData: {
     sellerName: "Trevi Fruit S.R.L.",
     recipientName: "3 EMME ROMA SRL",
+    customerTaxId: "IT01234567890",
     inviteLink: "https://trevi-order-sync.lovable.app/invito/esempio-token",
     inviteCode: "K7M2XQ4B",
     expiresAt: "30/09/2026",
