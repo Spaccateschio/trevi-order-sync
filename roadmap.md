@@ -1,7 +1,10 @@
 # Roadmap
 
-## Condivisione ordini — in attesa di approvazione
-- [ ] Anteprima con destinatario, note, prodotti e link dalla Lista e da Ordini fornitore; email precompilata e conferma esplicita, reinvio dello stesso ordine senza nuova generazione. Blocco: approvazione del piano.
+## Condivisione ordini — sviluppo approvato, database non autorizzato
+- [x] Analisi sola lettura e elenco incoerenze: ORD-2026-00003/00004/00005 di 3 EMME hanno status inviato e send_status da_inviare. Nessuna correzione operativa.
+- [ ] Funzioni per conferma non B2B, reinvio, storico audit e annullo conferma admin con motivo; permessi e compatibilità della versione pubblicata. Blocco: approvazione della migrazione e decisione sul blocco del vecchio percorso.
+- [ ] Finestra unica Lista/Ordini con sette canali, destinatari, note, link solo espliciti, conferma manuale, reinvio e storico; avviso U.M. diversa e stato unico. Integrare soltanto dopo le garanzie necessarie, senza percorsi operativi parziali.
+- [ ] Test isolati frontend e successivamente SQL con sessione authenticated reale e transazione annullata. Nessun invio, ripristino reale o pubblicazione.
 
 ## Lista della Spesa — card uniformi con Conferma
 - [x] Controlli quantità condivisi in Lista, da valutare e non ancora inserite: Conferma/Invio espliciti, matita, tasti rapidi senza autoconferma e avviso prima di cambio lista/generazione. Funzioni e database invariati. 269 test pass; build automatica OK. Browser con sessione reale e scritture bloccate: inserimento/uscita senza scrittura, errore conserva quantità, generazione bloccata con modifica pendente; 1280/390 px senza overflow. Nessuna pubblicazione o scrittura operativa.
