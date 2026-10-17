@@ -19,11 +19,11 @@
 - Shared quantity editor and non-B2B sharing rules: src/components/shopping/AGENTS.md.
 
 - Operational pages show only current work; when the purchase cycle is not red, past counts and closed lists are reachable only via history views (no data deleted).
-- Customer order edits after sending go only through DB RPCs that lock the order row and re-check the supplier lock (customer_update_order_full, request/decide_order_change, supplier_cancel_order); every change is logged in purchase_order_changes: concurrency is decided by the database, not the UI.
+- Sent order edits use customer_update_order_full, request/decide_order_change or supplier_cancel_order: DB order/supplier locks decide concurrency; every change logs purchase_order_changes.
 - Conversione U.M. acquisto fornitore → U.M. di magazzino: solo `product_supplier_link_units.stock_conversion_factor` + verified_stock_unit_id/verified_package_version, letta solo da `effective_supplier_conversion`; il vecchio `conversion_factor` resta del sistema attuale: nessuna conversione superata viene usata in silenzio.
 - U.M. di magazzino, confezioni e conversioni si scrivono solo con set_product_stock_unit / manage_product_stock_package / set_supplier_unit_conversion (flag app.unit_config_rpc nei trigger): il browser non le scrive direttamente.
 
-- Recurring company operational schedules (e.g. shopping-list reminder) live only in company_operational_schedules, one row per company+schedule_type, written only via manage_company_operational_schedule (admin check in DB): kept separate from company_settings delivery preferences.
+- Recurring schedules: company_operational_schedules, unique company+schedule_type; writes via manage_company_operational_schedule (DB admin check), separate from delivery preferences.
 - Funzioni DB che scrivono: un RETURN senza modifiche è ammesso solo prima della prima scrittura; dopo, ci si ferma solo con RAISE EXCEPTION: nessuno stato a metà.
 - Codici interni 00-xxx: generazione sotto pg_advisory_xact_lock per azienda ('internal_product_code:'||company_id) in tutte le funzioni che creano prodotti interni; il vincolo products_archive_code_unique resta la protezione definitiva.
 
@@ -42,3 +42,4 @@
 - Ordini già scaricati da Danea intoccabili: niente ricalcolo prezzi, storico retroattivo o cambio stato; il riscarico senza storico usa la logica precedente (test con danea-orders-xml.legacy.ts).
 - Prima di lavorare su Danea, prezzi o ordini leggere sempre src/lib/AGENTS.md.
 - Clarify closed-list undo errors via RLS reads after RPC rejection; SQL guards remain unchanged.
+- B2B resharing reuses customer-orders in a read-only branch independent of active-company navigation; auth retains validated order ID. is_order_supplier checks membership before RLS reads; cache is user-scoped. No seen/operational RPCs.

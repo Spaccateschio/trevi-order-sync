@@ -25,7 +25,8 @@ export const Route = createFileRoute("/_authenticated/vendite_/ordini-clienti")(
 function OrdiniClienti() {
   const { ordine } = Route.useSearch();
   const { user } = Route.useRouteContext();
-  return ordine ? <AppShell title="Consultazione ordine"><SupplierOrderConsultation orderId={ordine} userId={user.id} /></AppShell> : <OrdiniClientiOperativi />;
+  // A shared consultation must not depend on the currently selected company's navigation capabilities.
+  return ordine ? <main className="mx-auto min-h-screen w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6"><h1 className="font-display text-2xl font-semibold">Trevi Fruit — Consultazione ordine</h1><SupplierOrderConsultation orderId={ordine} userId={user.id} /></main> : <OrdiniClientiOperativi />;
 }
 
 function OrdiniClientiOperativi() {
