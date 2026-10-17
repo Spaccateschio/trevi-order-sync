@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Store } from "lucide-react";
+import { ChevronDown, Store } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -82,7 +83,7 @@ function CatalogoIndex() {
   const buyerId = company?.companyId ?? null;
   const signImages = useServerFn(getCatalogImageUrls);
 
-  const [view, setView] = useState<"vetrine" | "prodotti">("vetrine");
+  const [view, setView] = useState<"vetrine" | "prodotti">("prodotti");
   const [search, setSearch] = useState("");
   const [sellerFilter, setSellerFilter] = useState("tutti");
   const [category, setCategory] = useState("tutte");
@@ -582,9 +583,15 @@ function UnavailableFavorites({ buyerId, isAdmin }: { buyerId: string; isAdmin: 
   return (
     <>
       {articles.length ? (
-        <section className="mt-4 rounded-xl border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold">Articoli non più in catalogo</h2>
-          <p className="text-xs text-muted-foreground">Restano fra i preferiti ma non si possono acquistare.</p>
+        <Collapsible className="mt-4 rounded-xl border border-border bg-card p-4">
+          <CollapsibleTrigger className="group flex w-full items-center justify-between gap-3 text-left">
+            <span>
+              <span className="block text-sm font-semibold">Preferiti non più in catalogo ({articles.length})</span>
+              <span className="block text-xs text-muted-foreground">Restano fra i preferiti ma non si possono acquistare.</span>
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" aria-hidden="true" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
           <ul className="mt-3 space-y-2">
             {articles.map((row) => (
               <li
@@ -606,7 +613,8 @@ function UnavailableFavorites({ buyerId, isAdmin }: { buyerId: string; isAdmin: 
               </li>
             ))}
           </ul>
-        </section>
+          </CollapsibleContent>
+        </Collapsible>
       ) : null}
 
       {sellers.length ? (
