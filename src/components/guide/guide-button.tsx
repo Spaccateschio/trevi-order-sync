@@ -11,7 +11,10 @@ async function startGuide(key: GuideKey) {
     const el = document.querySelector(target);
     return Boolean(el && el.getClientRects().length);
   });
-  if (!steps.length) return toast.info("Nessun elemento da mostrare in questa pagina.");
+  if (!steps.length) {
+    toast.info("Nessun elemento da mostrare in questa pagina.");
+    return;
+  }
   const [{ driver }] = await Promise.all([import("driver.js"), import("driver.js/dist/driver.css")]);
   const tour = driver({
     showProgress: true,
