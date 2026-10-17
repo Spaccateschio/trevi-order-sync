@@ -4236,11 +4236,16 @@ export type Database = {
           created_at: string
           decided_at: string | null
           decided_by: string | null
+          declared_alt_description: string | null
           declared_expiry: string | null
+          declared_gross_weight: number | null
+          declared_net_weight: number | null
           declared_producer: string | null
           declared_producer_lot: string | null
           declared_purchase_quantity: number | null
           declared_quantity: number | null
+          declared_tare_weight: number | null
+          declared_unit_price: number | null
           declared_weight: number | null
           delivery_id: string
           id: string
@@ -4264,11 +4269,16 @@ export type Database = {
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
+          declared_alt_description?: string | null
           declared_expiry?: string | null
+          declared_gross_weight?: number | null
+          declared_net_weight?: number | null
           declared_producer?: string | null
           declared_producer_lot?: string | null
           declared_purchase_quantity?: number | null
           declared_quantity?: number | null
+          declared_tare_weight?: number | null
+          declared_unit_price?: number | null
           declared_weight?: number | null
           delivery_id: string
           id?: string
@@ -4292,11 +4302,16 @@ export type Database = {
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
+          declared_alt_description?: string | null
           declared_expiry?: string | null
+          declared_gross_weight?: number | null
+          declared_net_weight?: number | null
           declared_producer?: string | null
           declared_producer_lot?: string | null
           declared_purchase_quantity?: number | null
           declared_quantity?: number | null
+          declared_tare_weight?: number | null
+          declared_unit_price?: number | null
           declared_weight?: number | null
           delivery_id?: string
           id?: string
@@ -7079,20 +7094,40 @@ export type Database = {
       }
       external_open_delivery: { Args: { _token_hash: string }; Returns: string }
       external_order_snapshot: { Args: { _token_hash: string }; Returns: Json }
-      external_set_delivery_item: {
-        Args: {
-          _declared_expiry?: string
-          _declared_producer?: string
-          _declared_producer_lot?: string
-          _declared_purchase_quantity?: number
-          _declared_quantity?: number
-          _delivery_item_id: string
-          _line_notes?: string
-          _missing_reason?: string
-          _token_hash: string
-        }
-        Returns: string
-      }
+      external_set_delivery_item:
+        | {
+            Args: {
+              _declared_expiry?: string
+              _declared_producer?: string
+              _declared_producer_lot?: string
+              _declared_purchase_quantity?: number
+              _declared_quantity?: number
+              _delivery_item_id: string
+              _line_notes?: string
+              _missing_reason?: string
+              _token_hash: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _declared_alt_description?: string
+              _declared_expiry?: string
+              _declared_gross_weight?: number
+              _declared_net_weight?: number
+              _declared_producer?: string
+              _declared_producer_lot?: string
+              _declared_purchase_quantity?: number
+              _declared_quantity?: number
+              _declared_tare_weight?: number
+              _declared_unit_price?: number
+              _delivery_item_id: string
+              _line_notes?: string
+              _missing_reason?: string
+              _token_hash: string
+            }
+            Returns: string
+          }
       external_submit_delivery: {
         Args: {
           _actor_label?: string

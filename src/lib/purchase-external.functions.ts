@@ -61,19 +61,24 @@ export const externalDeliveryDraft = createServerFn({ method: "POST" })
     const { data: rows, error: rowsError } = await supabaseAdmin
       .from("purchase_delivery_items")
       .select(
-        "id, product_id, order_item_id, declared_quantity, unit_code, declared_purchase_quantity, purchase_unit_code, declared_producer, declared_producer_lot, declared_expiry, line_notes, missing_reason, products(code, description)",
+        "id, product_id, order_item_id, declared_quantity, unit_code, declared_purchase_quantity, purchase_unit_code, declared_producer, declared_producer_lot, declared_expiry, line_notes, missing_reason, declared_unit_price, declared_tare_weight, declared_gross_weight, declared_net_weight, declared_alt_description, products(code, description)",
       )
       .eq("delivery_id", deliveryId as string)
       .order("id");
     if (rowsError) throw new Error(rowsError.message);
     const { data: order } = await supabaseAdmin
       .from("purchase_orders")
-      .select("number")
+      .select("number, delivery_date, delivery_address_text, notes, companies!company_id(legal_name)")
       .eq("id", orderId as string)
       .maybeSingle();
+    const buyerName = (order?.companies as { legal_name: string } | null)?.legal_name ?? null;
     return {
       deliveryId: deliveryId as string,
       orderNumber: order?.number ?? "",
+      buyerName,
+      deliveryDate: (order?.delivery_date as string | null) ?? null,
+      deliveryAddress: (order?.delivery_address_text as string | null) ?? null,
+      orderNotes: (order?.notes as string | null) ?? null,
       items: (rows ?? []) as unknown as Array<{
         id: string;
         product_id: string;
@@ -87,6 +92,11 @@ export const externalDeliveryDraft = createServerFn({ method: "POST" })
         declared_expiry: string | null;
         line_notes: string | null;
         missing_reason: string | null;
+        declared_unit_price: number | null;
+        declared_tare_weight: number | null;
+        declared_gross_weight: number | null;
+        declared_net_weight: number | null;
+        declared_alt_description: string | null;
         products: { code: string; description: string | null } | null;
       }>,
     };
@@ -105,6 +115,11 @@ export const externalSetDeliveryItem = createServerFn({ method: "POST" })
         lineNotes: z.string().trim().max(500).nullable(),
         missingReason: z.string().trim().max(300).nullable(),
         declaredPurchaseQuantity: z.number().min(0).nullable().optional(),
+        declaredUnitPrice: z.number().min(0).nullable().optional(),
+        declaredTareWeight: z.number().min(0).nullable().optional(),
+        declaredGrossWeight: z.number().min(0).nullable().optional(),
+        declaredNetWeight: z.number().min(0).nullable().optional(),
+        declaredAltDescription: z.string().trim().max(300).nullable().optional(),
       })
       .parse(input),
   )
@@ -123,6 +138,13 @@ export const externalSetDeliveryItem = createServerFn({ method: "POST" })
       ...(data.lineNotes === null ? {} : { _line_notes: data.lineNotes }),
       ...(data.missingReason === null ? {} : { _missing_reason: data.missingReason }),
       ...(data.declaredPurchaseQuantity == null ? {} : { _declared_purchase_quantity: data.declaredPurchaseQuantity }),
+      ...(data.declaredUnitPrice == null ? {} : { _declared_unit_price: data.declaredUnitPrice }),
+      ...(data.declaredTareWeight == null ? {} : { _declared_tare_weight: data.declaredTareWeight }),
+      ...(data.declaredGrossWeight == null ? {} : { _declared_gross_weight: data.declaredGrossWeight }),
+      ...(data.declaredNetWeight == null ? {} : { _declared_net_weight: data.declaredNetWeight }),
+      ...(data.declaredAltDescription == null || data.declaredAltDescription === ""
+        ? {}
+        : { _declared_alt_description: data.declaredAltDescription }),
     });
     if (error) throw new Error(error.message);
     return { ok: true };

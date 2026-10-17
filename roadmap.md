@@ -269,5 +269,5 @@
 - [ ] Stampa dell'ordine con messaggio prezzi indicativi.
 
 ## Pagina fornitore esterno (link consegna) — 17/10
-- [ ] Mockup della pagina /consegna/{token} dal mockup di Andrea: intestazione con cliente/data/indirizzo/note, tabella dettaglio, modulo consegna con prezzo/tara/pesi/lotto/note, banner registrazione — in attesa di scelta mockup
-- [ ] Implementazione grafica (passo 1) e nuovi campi prezzo/tara/pesi/descrizione alternativa (passo 2, richiede colonne DB) — da approvare dopo i mockup
+- [x] Mockup pagina /consegna/{token} approvati (desktop tabella + mobile righe compatte con spunta)
+- [x] Pagina fornitore esterno rifatta: intestazione cliente/data/indirizzo/note, righe compatte con spunta obbligatoria, dettagli espandibili (prezzo, tara, lordo, netto, lotto, descrizione alternativa, note), banner registrazione → /auth; colonne DB aggiunte (migrazione 0072) — anteprima, da collaudare con link reale
