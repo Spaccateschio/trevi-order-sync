@@ -68,7 +68,7 @@ export const externalDeliveryDraft = createServerFn({ method: "POST" })
     if (rowsError) throw new Error(rowsError.message);
     const { data: order } = await supabaseAdmin
       .from("purchase_orders")
-      .select("number, delivery_date, delivery_address_text, notes, companies(legal_name)")
+      .select("number, delivery_date, delivery_address_text, notes, companies!company_id(legal_name)")
       .eq("id", orderId as string)
       .maybeSingle();
     const buyerName = (order?.companies as { legal_name: string } | null)?.legal_name ?? null;
