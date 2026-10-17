@@ -942,6 +942,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       disabled={!editable || (Boolean(extras.get(row.item_id)?.lockedAt) && !unlockedIds.has(row.item_id)) || savingIds.has(row.item_id)}
       value={edits[row.item_id] ?? (row.decided_quantity === null ? "" : String(row.decided_quantity))}
       aria-label={`Quantità decisa ${row.code}`}
+      onFocus={(event) => event.currentTarget.select()}
+      onClick={(event) => event.currentTarget.select()}
       onChange={(event) => setEdits((current) => ({ ...current, [row.item_id]: event.target.value }))}
       onKeyDown={(event) => {
         if (event.key === "Enter") { event.preventDefault(); void toggleLock(row); }
@@ -979,6 +981,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       disabled={!(editable || previewMode)}
       value={evalValues[row.product_id] ?? ""}
       aria-label={`Da acquistare ${row.code}`}
+      onFocus={(event) => event.currentTarget.select()}
+      onClick={(event) => event.currentTarget.select()}
       onChange={(event) => setEvalValues((current) => ({ ...current, [row.product_id]: event.target.value }))}
     />
     )}
@@ -1248,6 +1252,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       editable={Boolean(editable)} quantityLocked={false} lockPending={busy} saving={busy}
       quantityInput={<Input className="h-9 min-w-0 flex-1 text-right font-bold" inputMode="decimal" value={entry.pending ? evalValues[row.product_id] ?? "" : edits[id] ?? (row.decided_quantity === null ? "" : String(row.decided_quantity))}
         disabled={busy} aria-label={`Quantità da acquistare ${row.description ?? row.code}`}
+        onFocus={(event) => event.currentTarget.select()}
+        onClick={(event) => event.currentTarget.select()}
         onChange={(e) => entry.pending ? setEvalValues((current) => ({ ...current, [row.product_id]: e.target.value })) : setEdits((current) => ({ ...current, [id]: e.target.value }))}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void (entry.pending ? confirmPending(row) : confirmCompletion(row)); } }} />}
       draftQuantity={confirmationQuantity(edits[id], row.decided_quantity === null ? null : Number(row.decided_quantity))}
