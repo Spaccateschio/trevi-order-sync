@@ -10,6 +10,37 @@ import { supabase } from "@/integrations/supabase/client";
 import { orderPriceNote } from "@/lib/purchase";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { readSupplierOrder } from "@/lib/b2b-order-sharing";
+
+/** Separate from the operational panel: only SELECT and the read-only supplier check. */
+export function SupplierOrderConsultation({ orderId }: { orderId: string }) {
+  const query = useQuery({
+    queryKey: ['supplier-order-consultation', orderId],
+    retry: false,
+    queryFn: () => readSupplierOrder(orderId, async id => {
+      const { data, error } = await supabase.rpc('is_order_supplier', { _order_id: id });
+      if (error) throw new Error('Consultazione non disponibile. Riprova più tardi.');
+      return data === true;
+    }, async id => {
+      const { data: order, error } = await supabase.from('purchase_orders').select('id,number,status,delivery_date,delivery_time_from,delivery_time_to,delivery_address_text,supplier_notes,notes,danea_exported_at').eq('id', id).neq('status', 'bozza').maybeSingle();
+      if (error) throw new Error('Consultazione non disponibile. Riprova più tardi.');
+      if (!order) return null;
+      const { data: items, error: itemsError } = await supabase.from('purchase_order_items').select('id,product_name,product_code,purchase_quantity,purchase_unit_code,notes').eq('order_id', id).order('created_at');
+      if (itemsError) throw new Error('Consultazione non disponibile. Riprova più tardi.');
+      return { order, items: items ?? [] };
+    }),
+  });
+  if (query.isPending) return <p className="text-sm text-muted-foreground">Caricamento ordine…</p>;
+  if (query.isError) return <p role="alert" className="text-sm text-destructive">Consultazione non disponibile. Riprova più tardi.</p>;
+  if (!query.data) return <p role="alert" className="text-sm text-muted-foreground">Ordine non disponibile o accesso non autorizzato.</p>;
+  const { order, items } = query.data;
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-semibold">{order.number}</h2><Badge variant="outline">Sola consultazione</Badge>{order.danea_exported_at ? <Badge variant="secondary">Scaricato da Danea</Badge> : null}</div>
+    <section className="space-y-1 text-sm"><h3 className="font-semibold">Consegna richiesta</h3><p>{order.delivery_date ?? 'Data non indicata'}{order.delivery_time_from || order.delivery_time_to ? ` · ${order.delivery_time_from ?? '…'}–${order.delivery_time_to ?? '…'}` : ''}</p><p>{order.delivery_address_text ?? 'Luogo non indicato'}</p></section>
+    {order.supplier_notes || order.notes ? <section className="text-sm"><h3 className="font-semibold">Note del cliente</h3><p className="whitespace-pre-wrap break-words">{order.supplier_notes || order.notes}</p></section> : null}
+    <section><h3 className="mb-2 text-sm font-semibold">Prodotti ordinati</h3><ul className="divide-y divide-border">{items.map(item => <li key={item.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><div className="min-w-0 flex-1"><p className="break-words font-medium">{item.product_name ?? 'Prodotto'}</p>{item.product_code ? <p className="text-xs text-muted-foreground">Cod. {item.product_code}</p> : null}{item.notes ? <p className="whitespace-pre-wrap break-words text-muted-foreground">{item.notes}</p> : null}</div><p className="shrink-0">{item.purchase_quantity == null ? '—' : fmtQty.format(item.purchase_quantity)} {item.purchase_unit_code ?? ''}</p></li>)}</ul></section>
+  </div>;
+}
 
 type OrderRow = {
   id: string;

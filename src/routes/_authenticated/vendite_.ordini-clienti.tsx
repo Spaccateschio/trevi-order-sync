@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
-import { ReceivedOrdersPanel } from "@/components/sales/received-orders-panel";
+import { ReceivedOrdersPanel, SupplierOrderConsultation } from "@/components/sales/received-orders-panel";
+import { sharedOrderId } from "@/lib/b2b-order-sharing";
 import { activeCompany, companySells, useIdentity } from "@/hooks/use-identity";
 
 const description = "Ordini inviati dai tuoi clienti B2B, con prodotti, quantità e consegna richiesta.";
 
 export const Route = createFileRoute("/_authenticated/vendite_/ordini-clienti")({
+  validateSearch: (search: Record<string, unknown>): { ordine?: string } => ({ ordine: typeof search['ordine'] === 'string' ? sharedOrderId(search['ordine']) ?? 'invalid' : undefined }),
   head: () => ({
     meta: [
       { title: "Ordini clienti — Trevi Fruit" },
@@ -21,6 +23,11 @@ export const Route = createFileRoute("/_authenticated/vendite_/ordini-clienti")(
 });
 
 function OrdiniClienti() {
+  const { ordine } = Route.useSearch();
+  return ordine ? <AppShell title="Consultazione ordine"><SupplierOrderConsultation orderId={ordine} /></AppShell> : <OrdiniClientiOperativi />;
+}
+
+function OrdiniClientiOperativi() {
   const { data: identity, isLoading } = useIdentity();
   const company = activeCompany(identity);
 

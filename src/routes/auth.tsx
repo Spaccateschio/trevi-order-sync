@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { inviteUrl, readInviteToken, rememberInviteToken } from "@/lib/invite-token";
 import { validatePhone } from "@/lib/phone";
+import { sharedOrderId } from "@/lib/b2b-order-sharing";
 
 type Modo = "accesso" | "registrazione";
 
@@ -16,9 +17,10 @@ export const Route = createFileRoute("/auth")({
   ssr: false,
   validateSearch: (
     search: Record<string, unknown>,
-  ): { modo?: Modo | undefined; invito?: string | undefined } => ({
+  ): { modo?: Modo | undefined; invito?: string | undefined; ordineB2b?: string | undefined } => ({
     modo: search["modo"] === "registrazione" ? "registrazione" : undefined,
     invito: typeof search["invito"] === "string" ? search["invito"] : undefined,
+    ordineB2b: sharedOrderId(search['ordineB2b']),
   }),
   head: () => ({
     meta: [
@@ -32,13 +34,15 @@ export const Route = createFileRoute("/auth")({
         property: "og:description",
         content: "Accedi o registrati per usare il portale Trevi Fruit.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AuthPage,
 });
 
 function AuthPage() {
-  const { modo, invito } = Route.useSearch();
+  const { modo, invito, ordineB2b } = Route.useSearch();
   const navigate = useNavigate();
   const [mode, setMode] = useState<Modo>(modo === "registrazione" ? "registrazione" : "accesso");
   const [email, setEmail] = useState("");
@@ -58,6 +62,10 @@ function AuthPage() {
   }, [invito]);
 
   function afterAuth() {
+    if (ordineB2b) {
+      navigate({ to: '/vendite/ordini-clienti', search: { ordine: ordineB2b }, replace: true });
+      return;
+    }
     if (inviteToken) {
       navigate({ to: "/invito/$token", params: { token: inviteToken }, replace: true });
       return;
