@@ -128,7 +128,15 @@ export function ShoppingListCard({
   listConfirmed = false,
   draftQuantity,
   quantityLocked,
+  quantityOnly = false,
+  excluded = false,
+  onRestore,
+  onNonPurchase,
 }: {
+  quantityOnly?: boolean;
+  excluded?: boolean;
+  onRestore?: () => void;
+  onNonPurchase?: () => void;
   /** «Copia nei miei prodotti»: passato solo per card B2B e amministratori. */
   onCopyToOwnProducts?: (() => void) | undefined;
   /** Prodotto dell'inventario non ancora in Lista: stessa card, comandi della Lista non ancora attivi. */
@@ -261,7 +269,7 @@ export function ShoppingListCard({
       </span>
     );
 
-  const statusBadge = !show.status && !show.assignStatus ? null : pending ? (
+  const statusBadge = excluded ? <span className="text-xs font-semibold text-muted-foreground">Non acquistare</span> : !show.status && !show.assignStatus ? null : pending ? (
     show.status ? (
       <span
         className={cn(
@@ -348,7 +356,7 @@ export function ShoppingListCard({
   );
 
   const confirmTarget = pending ? (pendingQuantity ?? null) : draftQuantity !== undefined ? draftQuantity : target;
-  const editLocked = locked && !autoConfirm;
+  const editLocked = (locked && !autoConfirm) || excluded;
 
   const fixValue = fix ? Number(fix.value.replace(",", ".")) : NaN;
   const unitFixBlock = unitMismatch && proposal ? (
@@ -532,6 +540,13 @@ export function ShoppingListCard({
       <p className="text-[11px] font-semibold text-muted-foreground">In parte in ordine</p>
     ) : null;
 
+  const excludedBlock = <div className="flex items-center justify-between gap-2 text-xs"><span className="font-semibold text-muted-foreground">Non acquistare</span>{editable && onRestore ? <Button size="sm" variant="outline" disabled={lockPending} onClick={onRestore}>Ripristina</Button> : null}</div>;
+  if (quantityOnly) return excluded ? excludedBlock : <div className="space-y-1.5">
+    <ShoppingQuantityEditor input={quantityBlock} details={unitFixBlock} editable={editable} locked={false} busy={lockPending || saving}
+      ready={confirmTarget !== null && confirmTarget >= 0} name={name} onConfirm={onToggleLock} />
+    {onNonPurchase ? <Button size="sm" variant="ghost" className="h-7 px-1 text-xs" disabled={lockPending || saving} onClick={onNonPurchase}>Non acquistare</Button> : null}
+  </div>;
+
   if (isRow) {
     const rowMeta = [
       show.category ? extra?.category ?? "—" : null,
@@ -564,13 +579,13 @@ export function ShoppingListCard({
             {actions}
           </div>
           <div className={cn("grid min-w-0 gap-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
-            {show.toBuy ? <ShoppingQuantityEditor input={quantityBlock} details={<>{unitFixBlock}{equivalentNote}</>} editable={editable} locked={locked} busy={lockPending || saving} ready={confirmTarget !== null && confirmTarget > 0} name={name} onConfirm={onToggleLock} quick={show.quick ? quickButtons("h-8") : null} /> : null}
+            {excluded ? excludedBlock : show.toBuy ? <ShoppingQuantityEditor input={quantityBlock} details={<>{unitFixBlock}{equivalentNote}</>} editable={editable} locked={locked} busy={lockPending || saving} ready={confirmTarget !== null && confirmTarget >= 0} name={name} onConfirm={onToggleLock} quick={show.quick ? quickButtons("h-8") : null} /> : null}
             {show.lockDate ? lockNote : null}
             {memoryLine}
             {recheckNote}
           </div>
           <div className={cn("min-w-0 space-y-0.5 @min-[860px]:order-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
-            {show.suppliers ? (
+            {show.suppliers && !excluded ? (
               <>
                 {splitSummary}
                 {show.splits ? totals : null}
@@ -631,9 +646,9 @@ export function ShoppingListCard({
 
       {show.toBuy || show.quick || (show.lockDate && lockNote) ? (
         <div className="space-y-1">
-          {show.toBuy ? <ShoppingQuantityEditor input={quantityBlock} details={<>{unitFixBlock}{equivalentNote}</>}
+          {excluded ? excludedBlock : show.toBuy ? <ShoppingQuantityEditor input={quantityBlock} details={<>{unitFixBlock}{equivalentNote}</>}
             editable={editable} locked={locked} busy={lockPending || saving}
-            ready={confirmTarget !== null && confirmTarget > 0} name={name} onConfirm={onToggleLock}
+            ready={confirmTarget !== null && confirmTarget >= 0} name={name} onConfirm={onToggleLock}
             quick={show.quick ? quickButtons("h-8 @max-[260px]:h-7 @max-[260px]:text-[11px]") : null} /> : null}
           {show.lockDate ? lockNote : null}
             {memoryLine}
@@ -641,7 +656,7 @@ export function ShoppingListCard({
         </div>
       ) : null}
 
-      {show.suppliers ? (
+      {show.suppliers && !excluded ? (
         <div className="mt-auto space-y-1 border-t border-border pt-1.5">
           <p className="text-[10px] font-semibold uppercase text-muted-foreground">Fornitori</p>
           {splitSummary}
