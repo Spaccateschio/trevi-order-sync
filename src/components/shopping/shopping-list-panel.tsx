@@ -1,3 +1,4 @@
+import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -181,6 +182,10 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [sortBy, setSortBy] = useState<SortKey>("description");
   const [addOpen, setAddOpen] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [unitEdits, setUnitEdits] = useState<Record<string, { unitId: string | null; unitCode: string | null }>>({});
+  const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
+  const confirmationGuard = useRef(createConfirmationGuard());
+  const [catalogDrafts, setCatalogDrafts] = useState<Set<string>>(new Set());
   const [splitItem, setSplitItem] = useState<OverviewRow | null>(null);
   // Quantità scritte sui prodotti «Da valutare», non ancora aggiunte alla Lista.
   const [evalValues, setEvalValues] = useState<Record<string, string>>({});
@@ -928,14 +933,13 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     <Input
       className={className}
       inputMode="decimal"
-      disabled={!editable}
+      disabled={!editable || (Boolean(extras.get(row.item_id)?.lockedAt) && !unlockedIds.has(row.item_id)) || savingIds.has(row.item_id)}
       value={edits[row.item_id] ?? (row.decided_quantity === null ? "" : String(row.decided_quantity))}
       aria-label={`Quantità decisa ${row.code}`}
       onChange={(event) => setEdits((current) => ({ ...current, [row.item_id]: event.target.value }))}
       onKeyDown={(event) => {
-        if (event.key === "Enter") (event.target as HTMLInputElement).blur();
+        if (event.key === "Enter") { event.preventDefault(); void toggleLock(row); }
       }}
-      onBlur={() => void commitRaw(row, edits[row.item_id])}
     />
   );
 
@@ -962,7 +966,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     <span className="flex min-w-0 flex-1 items-center gap-1">
     {savedEvaluations.get(row.product_id)?.status === "non_acquistare" ? null : (
     <Input
-      onBlur={(event) => persistPending(row.product_id, event.target.value)}
+      onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void confirmPending(row); } }}
       className="h-9 min-w-0 flex-1 text-right text-base font-bold"
       inputMode="decimal"
       placeholder="—"
@@ -983,7 +987,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     const base = parseQuantity(evalValues[row.product_id] ?? "") ?? 0;
     const value = String(Math.round((base + step) * 1000) / 1000);
     setEvalValues((current) => ({ ...current, [row.product_id]: value }));
-    persistPending(row.product_id, value);
   };
 
   // Tasti rapidi: cambiano solo la quantità totale da acquistare, mai le ripartizioni. Nessuna conversione.
@@ -992,7 +995,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     const base = raw !== undefined ? (parseQuantity(raw) ?? 0) : Number(row.decided_quantity ?? 0);
     const next = Math.round((base + step) * 1000) / 1000;
     setEdits((current) => ({ ...current, [row.item_id]: String(next) }));
-    void commitQuantity(row.item_id, { quantity: next > 0 ? next : null });
   };
 
   const lockMutation = useMutation({
@@ -1051,7 +1053,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       const unitCode = proposed ? proposed.code : c.unitCode !== undefined ? c.unitCode : ((item.decided_unit_code as string | null) ?? null);
       const unitChanged = unitId !== item.decided_unit_id || unitCode !== item.decided_unit_code;
       const changed = prev !== c.quantity || unitChanged;
-      if (!changed && (c.quantity === null || locked)) {
+      if (!changed && (c.quantity === null || (locked && !unlockedIds.has(itemId)))) {
         // Nessuna modifica (doppio evento di uscita): nessuna scrittura.
       } else {
         // Versione delle quote letta ora: il database rifiuta se cambiano prima del salvataggio.
@@ -1127,17 +1129,34 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   };
   const commitQueue = useMemo(() => createLatestQueue<Commit>((itemId, c) => workerRef.current(itemId, c)), []);
   const commitQuantity = (itemId: string, c: Commit) => commitQueue.push(itemId, c);
-  // Conferma: salva prima un'eventuale quantità ancora in scrittura, poi blocca.
+  // Explicit confirmation uses the existing atomic quantity + confirmation + quota queue.
   const toggleLock = async (row: OverviewRow) => {
-    const locked = Boolean(extras.get(row.item_id)?.lockedAt);
-    if (!locked) {
-      const raw = edits[row.item_id];
-      const value = raw === undefined ? null : parseQuantity(raw);
-      if (value && value !== Number(row.decided_quantity)) {
-        await quantityMutation.mutateAsync({ itemId: row.item_id, quantity: value });
-      }
+    const locked = Boolean(extras.get(row.item_id)?.lockedAt) && !unlockedIds.has(row.item_id);
+    if (locked) {
+      setUnlockedIds((current) => new Set(current).add(row.item_id));
+      return;
     }
-    lockMutation.mutate({ itemId: row.item_id, locked: !locked });
+    const value = confirmationQuantity(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity));
+    if (value === null) { toast.error("Inserisci una quantità valida prima di confermare"); return; }
+    if (!confirmationGuard.current.start(row.item_id)) return;
+    try {
+      await commitQuantity(row.item_id, { quantity: value, ...unitEdits[row.item_id] });
+      setUnitEdits((current) => { const next = { ...current }; delete next[row.item_id]; return next; });
+      setUnlockedIds((current) => { const next = new Set(current); next.delete(row.item_id); return next; });
+    } catch { /* Keep the draft visible for retry. */ }
+    finally { confirmationGuard.current.finish(row.item_id); }
+  };
+  const hasUnconfirmed = allRows.some((row) => unlockedIds.has(row.item_id) || Boolean(unitEdits[row.item_id]) || quantityHasDraft(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity)))
+    || Object.values(evalValues).some((value) => value.trim() !== "") || catalogDrafts.size > 0;
+  const canLeaveDrafts = () => {
+    if (!hasUnconfirmed) return true;
+    toast.warning("Ci sono quantità non confermate. Confermale prima di cambiare lista o generare ordini.");
+    return false;
+  };
+  const openGeneration = () => {
+    if (!canLeaveDrafts()) return;
+    setGenMounted(list?.id ?? null);
+    setGenOpen("genera");
   };
 
   // «Da valutare» → Conferma: una sola operazione nel database (Lista + prodotto + quantità + blocco).
@@ -1240,7 +1259,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     <div className="space-y-4 pb-24 lg:pb-16">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={list?.id ?? ""} onValueChange={setListId}>
+          <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
             <SelectTrigger className="w-full sm:w-72" aria-label="Lista della spesa">
               <SelectValue placeholder="Storico liste" />
             </SelectTrigger>
@@ -1278,7 +1297,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               <Button type="button" size="sm" variant="outline" disabled={listMutation.isPending} onClick={() => { setGenMounted(list?.id ?? null); setGenOpen("bozze"); }}>
                 Bozze
               </Button>
-              <Button type="button" size="sm" disabled={listMutation.isPending} onClick={() => { setGenMounted(list?.id ?? null); setGenOpen("genera"); }}>
+              <Button type="button" size="sm" disabled={listMutation.isPending} onClick={openGeneration}>
                 Genera ordini
               </Button>
             </>
@@ -1317,7 +1336,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             variant="outline"
             disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
             title="Lista straordinaria, non collegata all'inventario"
-            onClick={() => setNewListOpen(true)}
+            onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
           >
             <Plus aria-hidden="true" />
             Nuova lista
@@ -1653,7 +1672,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                         value: !(entry.ownProductId && catalog.favorites.has(entry.ownProductId)),
                       })
                     }
-                    onAdd={(quantity, unitCode) => catalogActions.add.mutate({ entry, quantity, unitCode })}
+                    onDraftChange={(dirty) => setCatalogDrafts((current) => { const next = new Set(current); if (dirty) next.add(entry.key); else next.delete(entry.key); return next; })}
+                    onAdd={async (quantity, unitCode) => {
+                      const added = await catalogActions.add.mutateAsync({ entry, quantity, unitCode });
+                      setEdits((current) => ({ ...current, [added.itemId]: String(quantity) }));
+                      setUnitEdits((current) => ({ ...current, [added.itemId]: { unitId: null, unitCode } }));
+                      await commitQuantity(added.itemId, { quantity, unitId: null, unitCode });
+                      setUnitEdits((current) => { const next = { ...current }; delete next[added.itemId]; return next; });
+                    }}
                   />
                 );
               }
@@ -1688,7 +1714,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 layout={viewMode}
                 onQuickAdd={(step) => quickAdd(row, step)}
                 row={row}
-                extra={extra}
+                extra={unitEdits[row.item_id] && extra ? { ...extra, decidedUnitId: unitEdits[row.item_id]?.unitId ?? null, decidedUnitCode: unitEdits[row.item_id]?.unitCode ?? null } : extra}
                 stock={stock}
                 editable={Boolean(editable)}
                 listConfirmed={list?.status === "confermata"}
@@ -1701,13 +1727,13 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onCopyToOwnProducts={copyHandler(row.product_id)}
                 onRemove={() => removeMutation.mutate(row.item_id)}
                 onToggleLock={() => void toggleLock(row)}
-                autoConfirm
+                draftQuantity={confirmationQuantity(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity))}
+                quantityLocked={Boolean(extra?.lockedAt) && !unlockedIds.has(row.item_id)}
                 saving={savingIds.has(row.item_id)}
                 memory={memoryQuery.data?.get(row.product_id) ?? null}
                 lockPending={savingIds.has(row.item_id)}
                 onClearQuantity={() => {
                   setEdits((current) => ({ ...current, [row.item_id]: "" }));
-                  void commitQuantity(row.item_id, { quantity: null });
                 }}
                 onProposeUnit={(unit) => {
                   if (unit) proposedUnits.current.set(row.item_id, unit);
@@ -1718,9 +1744,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   void commitQuantity(row.item_id, { quantity, unitId, unitCode });
                 }}
                 onUnitChange={(unitId, unitCode) => {
-                  const raw = edits[row.item_id];
-                  const value = raw !== undefined ? parseQuantity(raw) : row.decided_quantity === null ? null : Number(row.decided_quantity);
-                  void commitQuantity(row.item_id, { quantity: value && value > 0 ? value : null, unitId, unitCode });
+                  setUnitEdits((current) => ({ ...current, [row.item_id]: { unitId, unitCode } }));
                 }}
               />
               );
@@ -1782,7 +1806,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             variant="ghost"
             className="w-full max-w-md shrink-0 justify-center bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground"
             disabled={listMutation.isPending}
-            onClick={() => { setGenMounted(list?.id ?? null); setGenOpen("genera"); }}
+            onClick={openGeneration}
           >
             <CheckCheck /> Genera ordini
           </Button>

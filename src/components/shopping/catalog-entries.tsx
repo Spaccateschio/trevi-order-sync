@@ -1,8 +1,10 @@
+import { ShoppingQuantityEditor } from "./shopping-quantity-editor";
+import { createConfirmationGuard } from "./shopping-quantity-state";
 import { defaultUnitCode } from "@/lib/supplier-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ImageOff, Plus, Star } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -308,19 +310,19 @@ export function useCatalogActions({
         productId = res.product_id ?? null;
         if (!productId) throw new Error(`Prodotto non creato per ${entry.code}`);
       }
-      return runAdd({
+      await runAdd({
         data: {
           companyId,
           listId: targetId,
           replaceExisting: false,
-          items: [{ product_id: productId, decided_quantity: quantity, decided_unit_code: unitCode, origin: "manuale" }],
+          items: [{ product_id: productId, origin: "manuale" }],
         },
       });
+      const { data: item, error: itemError } = await supabase.from("shopping_list_items").select("id").eq("list_id", targetId).eq("product_id", productId).single();
+      if (itemError || !item) throw new Error(itemError?.message ?? "Prodotto non trovato nella Lista");
+      return { itemId: item.id as string, quantity, unitCode };
     },
-    onSuccess: async () => {
-      await refresh();
-      toast.success("Aggiunto alla Lista");
-    },
+    onSuccess: () => undefined,
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -338,6 +340,7 @@ export function CatalogProductCard({
   adding,
   onToggleFavorite,
   onAdd,
+  onDraftChange,
 }: {
   entry: CatalogEntry;
   imageUrl: string | null;
@@ -347,9 +350,21 @@ export function CatalogProductCard({
   canAdd: boolean;
   adding: boolean;
   onToggleFavorite: () => void;
-  onAdd: (quantity: number, unitCode: string | null) => void;
+  onAdd: (quantity: number, unitCode: string | null) => Promise<unknown>;
+  onDraftChange?: (dirty: boolean) => void;
 }) {
   const [qty, setQty] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const guard = useRef(createConfirmationGuard());
+  useEffect(() => { onDraftChange?.(qty.trim() !== ""); }, [qty]);
+  useEffect(() => () => onDraftChange?.(false), []);
+  const confirm = async () => {
+    if (!ready || quantity === null || !guard.current.start(entry.key)) return;
+    setConfirming(true);
+    try { await onAdd(quantity, unitCode); setQty(""); onDraftChange?.(false); }
+    catch { /* Mutation reports error; keep the typed quantity for retry. */ }
+    finally { guard.current.finish(entry.key); setConfirming(false); }
+  };
   const [unit, setUnit] = useState(entry.defaultUnit ?? entry.unitCodes[0] ?? "");
   const [manual, setManual] = useState("");
   const quantity = parseQuantity(qty);
@@ -373,15 +388,15 @@ export function CatalogProductCard({
     </Button>
   );
   const image = imageUrl ? (
-    <img src={imageUrl} alt="" loading="lazy" className={cn("shrink-0 rounded object-cover", layout === "card" ? "size-14" : "size-9")} />
+    <img src={imageUrl} alt="" loading="lazy" className={cn("shrink-0 rounded object-cover", layout === "card" ? "size-11" : "size-9")} />
   ) : (
-    <div className={cn("flex shrink-0 items-center justify-center rounded bg-muted text-muted-foreground", layout === "card" ? "size-14" : "size-9")}>
+    <div className={cn("flex shrink-0 items-center justify-center rounded bg-muted text-muted-foreground", layout === "card" ? "size-11" : "size-9")}>
       <ImageOff className="size-4" aria-hidden="true" />
     </div>
   );
   const controls = canAdd ? (
-    <div className="flex items-center gap-1">
-      <Input className="h-8 w-20 text-right text-sm" inputMode="decimal" placeholder="Q.tà" value={qty} aria-label={`Quantità ${entry.code}`} onChange={(e) => setQty(e.target.value)} />
+    <ShoppingQuantityEditor editable ready={ready} busy={adding || confirming} name={name} onConfirm={() => void confirm()} input={<div className="flex min-w-0 items-center gap-1">
+      <Input className="h-9 min-w-0 flex-1 text-right text-base font-bold" inputMode="decimal" placeholder="Q.tà" value={qty} aria-label={`Quantità ${entry.code}`} onChange={(e) => setQty(e.target.value)} disabled={confirming} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void confirm(); } }} />
       <Select value={unit} onValueChange={setUnit}>
         <SelectTrigger className="h-8 w-24 text-xs" aria-label={`U.M. acquisto ${entry.code}`}>
           <SelectValue placeholder={entry.baseUm ?? "U.M."} />
@@ -396,17 +411,18 @@ export function CatalogProductCard({
       {unit === MANUAL ? (
         <Input className="h-8 w-20 text-xs uppercase" placeholder="U.M." value={manual} aria-label={`Altra U.M. ${entry.code}`} onChange={(e) => setManual(e.target.value)} />
       ) : null}
-      <Button type="button" size="sm" className="h-8 gap-1 px-2 text-xs" disabled={!ready || adding} onClick={() => quantity && onAdd(quantity, unitCode)}>
-        <Plus className="size-3.5" aria-hidden="true" />
-        Aggiungi
-      </Button>
-    </div>
+    </div>} quick={<div className="grid grid-cols-4 gap-1">{[1, 3, 5, 10].map((step) =>
+      <Button key={step} type="button" variant="outline" size="sm" className="h-8 min-w-0 px-0 text-xs font-bold"
+        disabled={confirming || adding} aria-label={`Aggiungi ${step} ${unitCode ?? ""} alla quantità da acquistare di ${name}`}
+        onClick={() => setQty(String(Math.round(((parseQuantity(qty) ?? 0) + step) * 1000) / 1000))}>
+        +{step}{unitCode ? ` ${unitCode.toLowerCase()}` : ""}
+      </Button>)}</div>} />
   ) : null;
   const meta = [entry.code, entry.category, entry.subcategory, entry.baseUm].filter(Boolean).join(" · ");
 
   if (layout === "row") {
     return (
-      <article className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border-2 border-dashed border-border bg-card px-2 py-1.5">
+      <article className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border-2 border-border bg-card px-2 py-1.5">
         {image}
         <div className="min-w-0 flex-1 text-xs">
           <p className="truncate text-sm font-semibold">{name}</p>
@@ -420,11 +436,11 @@ export function CatalogProductCard({
     );
   }
   return (
-    <article className="flex h-full min-w-0 flex-col gap-1.5 rounded-md border-2 border-dashed border-border bg-card p-2">
+    <article className="flex h-full min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2">
       <div className="flex items-start gap-2">
         {image}
         <div className="min-w-0 flex-1 text-xs">
-          <p className="line-clamp-2 text-sm font-semibold">{name}</p>
+          <p className="line-clamp-2 font-display text-sm font-bold uppercase leading-tight">{name}</p>
           <p className="truncate text-muted-foreground">{meta}</p>
           <p className="truncate text-muted-foreground">{supplier}{entry.isB2b ? " · catalogo B2B" : ""}</p>
         </div>
