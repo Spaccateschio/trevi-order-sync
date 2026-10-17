@@ -32,7 +32,8 @@
 - Prezzo riga d'ordine B2B: solo applicable_b2b_price (netto, listino assegnato, articolo pubblicato) sull'articolo del collegamento usato, letto prima di ogni scrittura in close_shopping_list / create_purchase_orders_from_list; nessun fallback: senza prezzo «Prezzo su richiesta».
 - Regole U.M. di vendita: vedi src/components/products/AGENTS.md.
 - Regole Inventario (zone abituali, aggiunte al conteggio, inventario completo): vedi src/components/inventory/AGENTS.md.
-- Prove: nessuna prova deve modificare dati operativi reali, nemmeno temporaneamente e nemmeno con l'intenzione di ripristinarli successivamente. Le prove che richiedono scritture devono essere eseguite esclusivamente in transazioni annullate o su dati di prova creati e cancellati nella stessa transazione. Non utilizzare dati operativi come banco di prova senza autorizzazione esplicita dell'utente. Vale per Inventario, Lista della Spesa, Ordini, Acquisti diretti, Carichi e ogni altra funzionalità.
+- Never alter real operational data in tests, even temporarily. Writes require rollback or explicitly authorized test data.
+- 3 EMME ROMA SRL è l'azienda di prova: Andrea può fare collaudi manuali dall'app in anteprima. Mai prove su trevi srl o su altre aziende reali. Nessun invio reale ai fornitori durante i collaudi.
 
 - Regole Danea (scarico ordini, prezzi allo scarico, aggiornamento listino): vedi src/lib/AGENTS.md. Le sottocartelle hanno il proprio AGENTS.md da leggere prima di modificarle.
 
@@ -40,3 +41,4 @@
 - Prove valide solo con ruolo e strada reali (app: utente authenticated; Danea: indirizzo pubblico con postazione); SQL interno o privilegi superiori non contano come superate. Prove sugli indirizzi Danea reali solo con autorizzazione esplicita dell'utente.
 - Ordini già scaricati da Danea intoccabili: niente ricalcolo prezzi, storico retroattivo o cambio stato; il riscarico senza storico usa la logica precedente (test con danea-orders-xml.legacy.ts).
 - Prima di lavorare su Danea, prezzi o ordini leggere sempre src/lib/AGENTS.md.
+- Clarify closed-list undo errors via RLS reads after RPC rejection; SQL guards remain unchanged.
