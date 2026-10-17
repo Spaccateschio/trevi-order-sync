@@ -6803,6 +6803,16 @@ export type Database = {
         Args: { _actor_user_id?: string; _receipt_id: string }
         Returns: string
       }
+      confirm_non_b2b_order_share: {
+        Args: {
+          _channel: string
+          _confirmation_key: string
+          _mode?: string
+          _order_id: string
+          _recipient: string
+        }
+        Returns: Json
+      }
       confirm_shopping_list_product: {
         Args: {
           _archive_id?: string
@@ -7770,6 +7780,7 @@ export type Database = {
           product_id: string
         }[]
       }
+      order_share_history: { Args: { _order_id: string }; Returns: Json }
       order_supplier_company: { Args: { _order_id: string }; Returns: string }
       owns_customer_record: {
         Args: { _customer_record_id: string }
@@ -8574,6 +8585,10 @@ export type Database = {
       }
       sync_danea_product_supplier_links: {
         Args: { _company_id: string }
+        Returns: Json
+      }
+      undo_non_b2b_order_send_confirmation: {
+        Args: { _confirmation_key: string; _order_id: string; _reason: string }
         Returns: Json
       }
       unlink_b2b_catalog_item: {
