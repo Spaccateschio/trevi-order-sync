@@ -58,6 +58,7 @@ function Inventario() {
   return (
     <AppShell
       title="Inventario"
+      guide="inventario"
       description="Conteggio fisico rapido per zona, con giacenza calcolata sempre visibile."
       wide
     >

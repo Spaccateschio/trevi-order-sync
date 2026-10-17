@@ -1548,13 +1548,14 @@ export function InventoryCountPanel({
   return (
     <Tabs value={tab} onValueChange={setTab} className="space-y-2">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-        <TabsList className="max-w-full justify-start overflow-x-auto">
+        <TabsList data-tour="inv.schede" className="max-w-full justify-start overflow-x-auto">
           <TabsTrigger value="conteggio">Conteggio</TabsTrigger>
           <TabsTrigger value="fabbisogno">Fabbisogno</TabsTrigger>
           <TabsTrigger value="zone">Zone</TabsTrigger>
         </TabsList>
         {!sessionId ? (
           <Button
+            data-tour="inv.nuovo"
             size="sm"
             onClick={() => startMutation.mutate()}
             disabled={!isAdmin || !archiveId || !activeLocations.length || startMutation.isPending || cycleColor === "rosso"}
@@ -1667,6 +1668,7 @@ export function InventoryCountPanel({
                 <DropdownMenuTrigger asChild>
                   <Button
                     type="button"
+                    data-tour="inv.stampa"
                     size="sm"
                     variant="outline"
                     className="h-8 text-[11px]"
@@ -2690,7 +2692,7 @@ function PhysicalCount({
   }, []);
 
   const filterControls = (
-          <div className="flex items-center gap-1.5 overflow-x-auto py-1 [&>*]:shrink-0">
+          <div data-tour="inv.filtri" className="flex items-center gap-1.5 overflow-x-auto py-1 [&>*]:shrink-0">
             <div className="grid grid-cols-2 rounded-md border border-border p-0.5">
               <Button size="sm" className="h-8 text-xs" variant={productView === "favorites" ? "default" : "ghost"} onClick={() => onViewChange("favorites")}>
                 <Star className="size-3.5" /> Preferiti
@@ -2857,7 +2859,7 @@ function PhysicalCount({
               <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onViewLastClosed}>
                 Visualizza
               </Button>
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onOpenInventoryHistory}>
+              <Button size="sm" variant="outline" className="h-8 text-xs" data-tour="inv.storico" onClick={onOpenInventoryHistory}>
                 Storico inventari
               </Button>
             </div>
@@ -2893,7 +2895,7 @@ function PhysicalCount({
           </>
         ) : null}
         <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-          <div className="relative min-w-0">
+          <div data-tour="inv.ricerca" className="relative min-w-0">
             <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="h-9 pl-8 text-sm" value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Cerca prodotto o codice" aria-label="Ricerca prodotto" />
           </div>
@@ -2934,6 +2936,7 @@ function PhysicalCount({
           )}
           {visibleRows.length || catalogCandidates.length ? (
             <div
+              data-tour="inv.card"
               className={layout === "rows" ? "grid grid-cols-1 gap-1 p-1" : "grid auto-rows-fr items-stretch gap-2 p-2"}
               style={layout === "cards" ? { gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${cardMinWidth}px), 1fr))` } : undefined}
             >
@@ -3037,7 +3040,7 @@ function PhysicalCount({
 
           {extraSection}
 
-          <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
+          <div data-tour="inv.conferma" className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
             {savedDraftCount ? (
               <span className="min-w-0 text-center text-[11px] text-sidebar-foreground/70">
                 Bozza salvata · {savedDraftCount} {savedDraftCount === 1 ? "quantità non confermata" : "quantità non confermate"}
