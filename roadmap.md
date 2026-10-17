@@ -1,10 +1,11 @@
 # Roadmap
 
-## Condivisione ordini — sviluppo approvato, database non autorizzato
+## Condivisione ordini — anteprima, rilascio coordinato non autorizzato
 - [x] Analisi sola lettura e elenco incoerenze: ORD-2026-00003/00004/00005 di 3 EMME hanno status inviato e send_status da_inviare. Nessuna correzione operativa.
-- [ ] Funzioni per conferma non B2B, reinvio, storico audit e annullo conferma admin con motivo; permessi e compatibilità della versione pubblicata. Blocco: approvazione della migrazione e decisione sul blocco del vecchio percorso.
-- [ ] Finestra unica Lista/Ordini con sette canali, destinatari, note, link solo espliciti, conferma manuale, reinvio e storico; avviso U.M. diversa e stato unico. Integrare soltanto dopo le garanzie necessarie, senza percorsi operativi parziali.
-- [ ] Test isolati frontend e successivamente SQL con sessione authenticated reale e transazione annullata. Nessun invio, ripristino reale o pubblicazione.
+- [x] Migrazione additiva 0070: confirm_non_b2b_order_share, undo_non_b2b_order_send_confirmation, order_share_history; ruoli nel DB, audit, idempotenza sotto lock e protezione degli eventi audit da inserimenti client. manage_purchase_order invariata; nessun backfill.
+- [x] Finestra unica Lista/Ordini con sette canali, destinatari, note, link solo espliciti, conferma manuale, reinvio e storico; avviso U.M. diversa e stato unico con incoerenza persistita visibile. 280 test pass; build OK. Browser autenticato: ordine 00003, anteprima/reinvio, selezione sette canali e chiusura senza scritture, link ancora zero e audit invariato.
+- [ ] SQL: matrice ruoli, rollback isolato, concorrenza e conferme riuscite non verificate. Blocco: strumenti disponibili non offrono esecuzione di funzioni con JWT reale e rollback; non creare un endpoint di test privilegiato né usare ordini operativi.
+- [ ] Rilascio coordinato e blocco legacy: proposta .lovable/deferred/block_legacy_non_b2b_send.sql fuori dalle migrazioni automatiche, hash della funzione corrente e diff limitato al rifiuto non B2B. Blocco: autorizzazione rilascio e collaudo SQL. Nessuna pubblicazione, invio o ripristino reale.
 
 ## Lista della Spesa — card uniformi con Conferma
 - [x] Controlli quantità condivisi in Lista, da valutare e non ancora inserite: Conferma/Invio espliciti, matita, tasti rapidi senza autoconferma e avviso prima di cambio lista/generazione. Funzioni e database invariati. 269 test pass; build automatica OK. Browser con sessione reale e scritture bloccate: inserimento/uscita senza scrittura, errore conserva quantità, generazione bloccata con modifica pendente; 1280/390 px senza overflow. Nessuna pubblicazione o scrittura operativa.

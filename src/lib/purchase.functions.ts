@@ -10,6 +10,33 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const uuid = z.string().uuid();
 
+export const confirmNonB2bOrderShare = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ orderId: uuid, channel: z.enum(["whatsapp", "email", "sms", "telefono", "di_persona", "altro", "copia_testo"]), recipient: z.string().trim().max(320).nullable(), key: uuid, mode: z.enum(["first", "resend"]) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("confirm_non_b2b_order_share", { _order_id: data.orderId, _channel: data.channel, _recipient: data.recipient ?? "", _confirmation_key: data.key, _mode: data.mode });
+    if (error) throw new Error(error.message);
+    return result as { list_closed: boolean; duplicate: boolean };
+  });
+
+export const undoNonB2bOrderSend = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ orderId: uuid, reason: z.string().trim().min(1, "Motivo obbligatorio").max(2000), key: uuid }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("undo_non_b2b_order_send_confirmation", { _order_id: data.orderId, _reason: data.reason, _confirmation_key: data.key });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const getOrderShareHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ orderId: uuid }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("order_share_history", { _order_id: data.orderId });
+    if (error) throw new Error(error.message);
+    return result as unknown as { id: string; at: string; actor: string; action: string; detail: { mode?: string; channel?: string; recipient?: string; reason?: string } | null }[];
+  });
+
 export const createPurchaseOrdersFromList = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>

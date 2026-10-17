@@ -9,6 +9,11 @@ import { DeliveryDeclarationPanel } from "./delivery-declaration-panel";
 import { GoodsReceiptPanel } from "./goods-receipt-panel";
 import { OrderDeliverySection } from "./order-delivery-section";
 import { SendOrderDialog, type SendChannel } from "./send-order-dialog";
+import { OrderShareDialog } from "./order-share-dialog";
+import { hasRole, useIdentity } from "@/hooks/use-identity";
+import { priceUnitDiffers } from "@/lib/order-sharing";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +44,8 @@ import {
   openGoodsReceipt,
   openPurchaseDelivery,
   revokeOrderShareLink,
+  getOrderShareHistory,
+  undoNonB2bOrderSend,
 } from "@/lib/purchase.functions";
 
 type ShareLink = {
@@ -66,6 +73,14 @@ export function PurchaseOrderDetail({
   const runOpenReceipt = useServerFn(openGoodsReceipt);
   const runShare = useServerFn(createOrderShareLink);
   const runRevoke = useServerFn(revokeOrderShareLink);
+  const runHistory = useServerFn(getOrderShareHistory);
+  const runUndo = useServerFn(undoNonB2bOrderSend);
+  const identity = useIdentity();
+  const [resendOpen, setResendOpen] = useState(false);
+  const [undoOpen, setUndoOpen] = useState(false);
+  const [undoReason, setUndoReason] = useState("");
+  const [undoKey, setUndoKey] = useState<string | null>(null);
+  const history = useQuery({ queryKey: ["order-share-history", order.order_id], queryFn: () => runHistory({ data: { orderId: order.order_id } }) });
 
   const [openDeliveryId, setOpenDeliveryId] = useState<string | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
@@ -149,8 +164,16 @@ export function PurchaseOrderDetail({
       queryClient.invalidateQueries({ queryKey: ["order-deliveries", order.order_id] }),
       queryClient.invalidateQueries({ queryKey: ["order-receipts", order.order_id] }),
       queryClient.invalidateQueries({ queryKey: ["order-share-links", order.order_id] }),
+      queryClient.invalidateQueries({ queryKey: ["order-share-history", order.order_id] }),
+      queryClient.invalidateQueries({ queryKey: ["order-stored-send-state", order.order_id] }),
     ]);
   };
+
+  const storedSendState = useQuery({ queryKey: ["order-stored-send-state", order.order_id], queryFn: async () => {
+    const { data, error } = await supabase.from("purchase_orders").select("send_status").eq("id", order.order_id).single();
+    if (error) throw new Error(error.message);
+    return data.send_status;
+  } });
 
   const action = useMutation({
     mutationFn: (payload: {
@@ -198,7 +221,7 @@ export function PurchaseOrderDetail({
 
   const share = useMutation({
     mutationFn: () =>
-      runShare({ data: { orderId: order.order_id, recipientLabel: null, validHours: 72 } }),
+      runShare({ data: { orderId: order.order_id, recipientLabel: null, validHours: 72, keepExisting: true } }),
     onSuccess: async (result) => {
       setToken(result.token);
       await refresh();
@@ -218,6 +241,15 @@ export function PurchaseOrderDetail({
   });
 
   const items = itemsQuery.data ?? [];
+  const undo = useMutation({
+    mutationFn: () => {
+      const key = undoKey ?? crypto.randomUUID();
+      setUndoKey(key);
+      return runUndo({ data: { orderId: order.order_id, reason: undoReason, key } });
+    },
+    onSuccess: async () => { setUndoOpen(false); setUndoReason(""); setUndoKey(null); await refresh(); toast.success("Conferma rettificata"); },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const deliveries = deliveriesQuery.data ?? [];
   const receipts = receiptsQuery.data ?? [];
   const links = linksQuery.data ?? [];
@@ -229,10 +261,8 @@ export function PurchaseOrderDetail({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-base font-semibold">{order.number}</span>
-        <Badge variant={order.send_status === "da_inviare" ? "default" : order.send_status === "errore_invio" ? "destructive" : "secondary"}>
-          {SEND_STATUS_LABEL[order.send_status]}
-        </Badge>
         <Badge variant="outline">{ORDER_STATUS_LABEL[order.status]}</Badge>
+        {storedSendState.data && storedSendState.data !== "inviato" && order.status !== "bozza" && order.status !== "annullato" ? <span className="text-xs text-destructive">Incoerenza: stato invio {storedSendState.data === "da_inviare" ? "Da inviare" : "Errore invio"}</span> : null}
         {order.shopping_list_number ? (
           <span className="text-sm text-muted-foreground">da {order.shopping_list_number}</span>
         ) : null}
@@ -315,6 +345,7 @@ export function PurchaseOrderDetail({
                 </p>
               )}
               {/* Prezzo fotografato sull'ordine, con la sua U.M. (indipendente dalla U.M. d'ordine). */}
+              {priceUnitDiffers(item.price_unit_code, item.purchase_unit_code ?? item.unit_code) ? <p className="text-xs text-muted-foreground">U.M. del prezzo diversa dall'ordine</p> : null}
               {(() => {
                 const note = orderPriceNote({
                   unitCost: item.unit_cost,
@@ -353,6 +384,8 @@ export function PurchaseOrderDetail({
               open={sendOpen}
               onOpenChange={setSendOpen}
               isB2b={relationQuery.data === true}
+              orderId={order.order_id}
+              onShared={async () => { setSendOpen(false); await refresh(); }}
               supplierName={order.supplier_name}
               orderNumber={order.number}
               pending={action.isPending}
@@ -380,6 +413,16 @@ export function PurchaseOrderDetail({
           </Button>
         ) : null}
       </div>
+
+      {relationQuery.data === false && ["inviato", "parzialmente_consegnato", "consegnato", "chiuso"].includes(order.status) ? <div className="flex flex-wrap gap-2">
+        <Button variant="outline" onClick={() => setResendOpen(true)}><Send className="size-4" /> Rimanda ordine</Button>
+        {order.status === "inviato" && hasRole(identity.data, "amministratore") ? <Button variant="outline" onClick={() => { setUndoKey(null); setUndoOpen(true); }}>Annulla conferma invio</Button> : null}
+      </div> : null}
+      {resendOpen ? <OrderShareDialog orderId={order.order_id} mode="resend" onClose={() => setResendOpen(false)} onConfirmed={async () => { await refresh(); }} /> : null}
+      <Dialog open={undoOpen} onOpenChange={next => { if (!undo.isPending) setUndoOpen(next); }}><DialogContent><DialogHeader><DialogTitle>Annulla conferma invio</DialogTitle></DialogHeader><p className="text-sm">La rettifica non annulla eventuali messaggi già spediti. Le attività successive possono impedirla.</p><Textarea aria-label="Motivo della rettifica" value={undoReason} onChange={e => setUndoReason(e.target.value)} disabled={undo.isPending} /><Button disabled={!undoReason.trim() || undo.isPending} onClick={() => undo.mutate()}>Conferma rettifica</Button></DialogContent></Dialog>
+      <section className="space-y-2"><h3 className="text-sm font-semibold">Storico condivisioni confermate</h3>
+        {history.isError ? <p className="text-xs text-destructive">{history.error.message}</p> : history.isPending ? <p className="text-xs">Caricamento…</p> : !history.data?.length ? <p className="text-xs text-muted-foreground">Nessuna condivisione confermata registrata.</p> : history.data.map(event => <div key={event.id} className="border-b border-border py-2 text-xs"><p>{dateTimeShort(event.at)} · {event.actor} · {event.action === "purchase_order.send_confirmation_undone" ? "Rettifica" : event.detail?.mode === "resend" ? "Reinvio" : "Primo invio"}</p><p>{event.detail?.channel ?? "—"} · {event.detail?.recipient ?? "Destinatario non registrato"}</p>{event.detail?.reason ? <p>{event.detail.reason}</p> : null}</div>)}
+      </section>
 
       {shareUrl ? (
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">

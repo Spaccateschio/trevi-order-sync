@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PriceInfoNotice } from "@/components/pricing/price-info-notice";
+import { OrderShareDialog } from "./order-share-dialog";
 
 export type SendChannel = "whatsapp" | "email" | "sms" | "telefono" | "di_persona" | "altro";
 
@@ -30,6 +31,8 @@ export function SendOrderDialog({
   pending,
   onConfirm,
   sellerCompanyId,
+  orderId,
+  onShared,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,8 +43,14 @@ export function SendOrderDialog({
   onConfirm: (channel: SendChannel | null) => void;
   /** Fornitore B2B: mostra l'avviso sui prezzi indicativi prima dell'invio definitivo. */
   sellerCompanyId?: string | null;
+  orderId?: string;
+  onShared?: (closed: boolean) => void | Promise<void>;
 }) {
   const [channel, setChannel] = useState<SendChannel | "">("");
+  if (!isB2b) {
+    if (!open || !orderId || !onShared) return null;
+    return <OrderShareDialog orderId={orderId} onClose={() => onOpenChange(false)} onConfirmed={onShared} />;
+  }
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!pending) { onOpenChange(next); if (!next) setChannel(""); } }}>
       <DialogContent className="max-w-sm">
