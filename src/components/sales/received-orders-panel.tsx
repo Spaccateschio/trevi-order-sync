@@ -13,9 +13,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { readSupplierOrder } from "@/lib/b2b-order-sharing";
 
 /** Separate from the operational panel: only SELECT and the read-only supplier check. */
-export function SupplierOrderConsultation({ orderId }: { orderId: string }) {
+export function SupplierOrderConsultation({ orderId, userId }: { orderId: string; userId: string }) {
   const query = useQuery({
-    queryKey: ['supplier-order-consultation', orderId],
+    queryKey: ['supplier-order-consultation', userId, orderId],
     retry: false,
     queryFn: () => readSupplierOrder(orderId, async id => {
       const { data, error } = await supabase.rpc('is_order_supplier', { _order_id: id });
