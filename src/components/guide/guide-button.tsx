@@ -11,7 +11,10 @@ async function startGuide(key: GuideKey) {
     const el = document.querySelector(target);
     return Boolean(el && el.getClientRects().length);
   });
-  if (!steps.length) return toast.info("Nessun elemento da mostrare in questa pagina.");
+  if (!steps.length) {
+    toast.info("Nessun elemento da mostrare in questa pagina.");
+    return;
+  }
   const [{ driver }] = await Promise.all([import("driver.js"), import("driver.js/dist/driver.css")]);
   const tour = driver({
     showProgress: true,
@@ -33,7 +36,11 @@ async function startGuide(key: GuideKey) {
     },
     steps: steps.map((step) => ({
       element: step.target,
-      popover: { title: step.title, description: step.text },
+      popover: {
+        title: step.title,
+        description: step.text,
+        ...(step.id === "spesa.genera" ? { side: "top" as const, align: "center" as const } : {}),
+      },
     })),
   });
   tour.drive();
