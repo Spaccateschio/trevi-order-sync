@@ -271,3 +271,7 @@
 ## Pagina fornitore esterno (link consegna) — 17/10
 - [x] Mockup pagina /consegna/{token} approvati (desktop tabella + mobile righe compatte con spunta)
 - [x] Pagina fornitore esterno rifatta: intestazione cliente/data/indirizzo/note, righe compatte con spunta obbligatoria, dettagli espandibili (prezzo, tara, lordo, netto, lotto, descrizione alternativa, note), banner registrazione → /auth; colonne DB aggiunte (migrazione 0072) — anteprima, da collaudare con link reale
+
+## Guida interattiva — 17/10
+- [x] Fase 1: ⓘ + guida Lista della Spesa (9 passaggi)
+- [ ] Fase 2: memoria per utente, Mostra le novità, proposta automatica all'ingresso (attende autorizzazione)

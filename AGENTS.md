@@ -43,3 +43,4 @@
 - Prima di lavorare su Danea, prezzi o ordini leggere sempre src/lib/AGENTS.md.
 - Clarify closed-list undo errors via RLS reads after RPC rejection; SQL guards remain unchanged.
 - B2B resharing reuses customer-orders in a read-only branch independent of active-company navigation; auth retains validated order ID. is_order_supplier checks membership before RLS reads; cache is user-scoped. No seen/operational RPCs.
+- Guide interattive: definizioni versionate in src/lib/guides/definitions.ts (id stabili + introducedIn), elementi marcati con data-tour, icona ⓘ via prop guide di AppShell; la guida non clicca mai elementi (Driver.js caricato solo all'apertura).
