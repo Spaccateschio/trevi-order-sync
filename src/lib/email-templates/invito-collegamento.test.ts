@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -19,21 +20,20 @@ function renderIdentity(customerTaxId: string): string {
   );
 }
 
-describe("invito-collegamento: riquadro azienda", () => {
-  it("etichetta Partita IVA con 11 cifre", () => {
-    expect(renderIdentity("01234567890")).toContain("Partita IVA");
-  });
+test("etichetta Partita IVA con 11 cifre", () => {
+  assert.ok(renderIdentity("01234567890").includes("Partita IVA"));
+});
 
-  it("accetta il prefisso IT davanti alla P.IVA", () => {
-    expect(renderIdentity("IT01234567890")).toContain("Partita IVA");
-  });
+test("accetta il prefisso IT davanti alla P.IVA", () => {
+  assert.ok(renderIdentity("IT01234567890").includes("Partita IVA"));
+});
 
-  it("etichetta Codice fiscale per un CF di 16 caratteri", () => {
-    expect(renderIdentity("RSSMRA85M01H501Z")).toContain("Codice fiscale");
-  });
+test("etichetta Codice fiscale per un CF di 16 caratteri", () => {
+  assert.ok(renderIdentity("RSSMRA85M01H501Z").includes("Codice fiscale"));
+});
 
-  it("nessuna etichetta quando il dato manca", () => {
-    expect(renderIdentity("")).not.toContain("Partita IVA");
-    expect(renderIdentity("")).not.toContain("Codice fiscale");
-  });
+test("nessuna etichetta quando il dato manca", () => {
+  const html = renderIdentity("");
+  assert.ok(!html.includes("Partita IVA"));
+  assert.ok(!html.includes("Codice fiscale"));
 });
