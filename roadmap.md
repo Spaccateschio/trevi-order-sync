@@ -1,5 +1,9 @@
 # Roadmap
 
+## 17/10 — Rimanda ordine sulle card
+- [x] Verifica read-only: manca il collegamento al singolo ordine B2B in sola consultazione; link consegna inadatti. RLS venditore presente; apertura card operativa registra il visto. 00004/00005 B2B già visti e scaricati, nessuna modifica. Proposto adattamento minimo della pagina Ordini clienti, in attesa di approvazione.
+- [ ] Dopo conferma del piano: pulsante sulle card inviate e riuso finestra non B2B; B2B con link autenticato e sola consultazione per scaricati. Nessuna pubblicazione, comunicazione o modifica degli ordini durante le verifiche.
+
 ## Condivisione ordini — anteprima, rilascio coordinato non autorizzato
 - [x] Correzioni autorizzate 17/10: 0071 aggiunge solo copia_testo al vincolo; messaggio distinto per Lista chiusa dopo rifiuto RPC e letture RLS, nessuna modifica alle funzioni SQL. 17 test pertinenti superati; anteprima autenticata: selezione canale/chiusura senza conferma, nessun errore; app pubblicata /auth HTTP 200, flussi pubblicati non collaudati con scritture. Tutti e cinque gli ordini invariati per impronta completa prima/dopo. Nessun invio, link o ordine creato dall'assistente.
 - [x] Analisi sola lettura e elenco incoerenze: ORD-2026-00003/00004/00005 di 3 EMME hanno status inviato e send_status da_inviare. Nessuna correzione operativa.

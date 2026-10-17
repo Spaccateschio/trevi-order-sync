@@ -1,68 +1,34 @@
-# Invio e reinvio non B2B — autorizzazione della fase database
+# Rimanda ordine — adattamento minimo da approvare
 
-## Stato della fase
-Sviluppo approvato nel documento pasted-41, ma migrazioni non autorizzate. Questa fase prepara le garanzie necessarie prima di collegare la nuova finestra a scritture reali. Nessuna migrazione applicata e nessun ordine corretto.
+## Esito della verifica
+Non esiste oggi un collegamento B2B al singolo ordine che soddisfi la richiesta di sola consultazione. Esiste la pagina autenticata **Vendite → Ordini clienti**, ma non seleziona un ordine dall'indirizzo; aprire una card chiama inoltre la registrazione «Visto dal fornitore» e può modificare l'ordine.
 
-## Incoerenze esistenti: sola lettura
-| Azienda | Ordine | Stato | Stato invio | Data italiana | Canale |
-|---|---|---|---|---|---|
-| 3 EMME ROMA SRL | ORD-2026-00003 | inviato | da_inviare | 17/10/2026 07:31:34 | email |
-| 3 EMME ROMA SRL | ORD-2026-00004 | inviato | da_inviare | 15/10/2026 08:35:20 | piattaforma |
-| 3 EMME ROMA SRL | ORD-2026-00005 | inviato | da_inviare | 15/10/2026 10:44:01 | piattaforma |
+I link `/consegna/{token}` non vanno riutilizzati: consentono l'accesso senza account e la loro apertura può creare una consegna in bozza.
 
-Nessun backfill o correzione automatica. Gli ordini 00004/00005 già scaricati da Danea restano intoccabili.
+Le protezioni attuali permettono già la lettura al fornitore tramite `is_order_supplier`, che verifica l'appartenenza aziendale. Non servono nuove tabelle, token o modifiche alle funzioni database.
 
-## Tabelle coinvolte, senza nuove tabelle
-- `purchase_orders`: soltanto i campi di conferma `status`, `send_status`, `sent_at`, `send_channel`; `updated_at` cambia tramite trigger esistente. Non cambiare righe, note, quantità, U.M., prezzi, consegna, numero o collegamenti.
-- `audit_events`: eventi append-only di primo invio, reinvio e rettifica. Dati: ordine, azienda proprietaria, autore autenticato, data server, canale, destinatario, tipo, chiave idempotente; rettifica con motivo e valori prima/dopo. Nessun token o URL segreto nell’audit.
-- `purchase_order_share_links`: riuso della creazione esistente con `_keep_existing=true`, hash soltanto, durata 72 ore. Nessuna creazione all’apertura della finestra.
-- `shopping_lists`, `purchase_deliveries`, `goods_receipts`, `danea_order_exports`, `purchase_order_changes`, `purchase_order_change_requests`: letture e blocchi necessari ai controlli, non correzioni dei loro dati. La prima conferma conserva la chiusura automatica già esistente; il reinvio non la richiama.
+## Soluzione proposta
+1. Adattare la pagina **Ordini clienti** esistente per ricevere l'identificativo dell'ordine e mostrarlo in **sola consultazione**. L'indirizzo sarà prodotto soltanto dopo aver implementato e verificato questa possibilità, non inventato ora.
+2. In questa consultazione leggere ordine e righe con le autorizzazioni esistenti e verificare che l'utente appartenga all'azienda fornitrice. Nessuna chiamata per presa in carico, nessun cambio dello stato «Visto», nessun comando di modifica, annullamento o consegna. La pagina operativa normale resta invariata. Questa modalità sarà di sola lettura per tutti gli ordini condivisi, quindi anche quelli già scaricati da Danea.
+3. Aggiungere **Rimanda ordine** accanto a **Visualizza ordine** nelle card degli ordini già inviati, compresi gli ordini in avanzamento compatibile, escludendo bozze e annullati. Non correggere gli stati storici incoerenti.
+4. Non B2B: riusare `OrderShareDialog` in modalità reinvio, con sette canali e storico soltanto alla conferma esplicita.
+5. B2B: finestra con collegamento autenticato, **Copia link**, **Condividi su WhatsApp**, **Invia tramite Email**. Nessun token esterno, invio ordine, notifica automatica o scrittura all'apertura/copia; il collegamento non concede permessi a chi lo riceve. Conservare l'ordine richiesto dopo l'accesso, senza allargare le autorizzazioni.
 
-## Funzioni proposte
-### 1. `confirm_non_b2b_order_share`
-Input: ordine, canale, destinatario, chiave UUID della conferma.
-- Utente autenticato, appartenenza attiva e ruolo amministratore/operatore dell’azienda proprietaria, verificati nel DB. Azienda mai scelta dal browser.
-- Esclusione B2B verificata tramite rapporto e collegamenti delle righe; rifiuto in caso di dati ambigui.
-- Lista prima dell’ordine sotto lock, poi controllo stato aggiornato.
-- Canali: whatsapp, email, sms, telefono, di_persona, altro, copia_testo. Destinatario obbligatorio per email/WhatsApp/SMS; conservare quello effettivamente utilizzato, senza aggiornare l’anagrafica.
-- Prima conferma soltanto da bozza: `inviato/inviato`, data server e canale, completamento Lista tramite logica esistente, evento audit nella stessa transazione.
-- Reinvio su ordine già inviato o in avanzamento compatibile: soltanto nuovo evento audit, nessuna modifica all’ordine o alla Lista. Escludere annullati.
-- Stessa chiave = stessa conferma, non nuovo evento. Una seconda chiave concorrente di primo invio viene rifiutata se lo stato è già cambiato; reinvio richiede modalità esplicita. Lock ordine protegge controllo e inserimento: nessuna tabella nuova per idempotenza.
+## File previsti
+- `src/components/purchase/purchase-orders-panel.tsx`: pulsante e apertura della finestra corretta.
+- Nuovo `src/components/purchase/b2b-order-share-dialog.tsx`: finestra B2B senza scritture.
+- `src/routes/_authenticated/vendite_.ordini-clienti.tsx`: selezione dell'ordine dalla pagina esistente e metadati pertinenti.
+- `src/components/sales/received-orders-panel.tsx`: consultazione mirata separata dalle azioni operative.
+- Nuovi `src/lib/b2b-order-sharing.ts` e `src/lib/b2b-order-sharing.test.ts`: regole del collegamento e test mirati.
+- `src/routes/auth.tsx`: solo se necessario per conservare la destinazione dopo l'accesso; nessuna modifica a fornitori di accesso o configurazione.
+- `AGENTS.md`, `roadmap.md`: decisione strutturale e avanzamento.
 
-### 2. `undo_non_b2b_order_send_confirmation`
-Input: ordine, motivo obbligatorio, chiave idempotente.
-- Solo amministratore autenticato dell’azienda proprietaria; solo ordine non B2B ancora `inviato`.
-- Rifiutare consegne/carichi di qualunque stato, scarico o storico Danea, presa in carico, richieste/modifiche successive incompatibili, chiusura/annullamento e Lista collegata non aperta. Nessuna riapertura automatica della Lista.
-- Lista poi ordine sotto lock, controlli prima delle scritture.
-- Ripristino `bozza/da_inviare`, `sent_at=NULL`, `send_channel=NULL`; audit con motivo, autore, prima/dopo. `updated_at` non torna indietro: registra la rettifica.
-- Non cancella eventi precedenti, link, documenti o messaggi esterni. Nessuna esecuzione su ORD-2026-00003.
+## Verifiche e limiti
+- Test automatici su destinazione sicura, esclusione bozze/annullati, modalità sola consultazione e distinzione B2B/non B2B; test pertinenti non B2B già esistenti.
+- Controllo degli esiti automatici di compilazione dell'anteprima, senza eseguire manualmente la build.
+- Controllo in sola lettura di ORD-2026-00004 e ORD-2026-00005: risultano B2B, già visti, con scarichi Danea presenti; nessuna modifica. La discordanza storica `status=inviato` / `send_status=da_inviare` resta intatta.
+- Nessuna prova di invio, conferma, creazione ordine/link temporaneo o comunicazione reale. Nessuna apertura operativa lato Trevi. Un controllo completo con ruolo fornitore richiederà un account e dati di prova autorizzati; non verrà dichiarato superato tramite letture privilegiate.
+- Nessuna pubblicazione né applicazione del blocco SQL rinviato. Lista della Spesa, Inventario, Fabbisogno, Consegne, Carico Merce e logica Danea invariati.
 
-### 3. `order_share_history`
-Lettura controllata degli eventi dell’ordine con data, autore, canale, destinatario, tipo e rettifiche. Stessi controlli azienda e ruolo, nessun accesso generico all’audit. Eventi legacy mostrati con destinatario «Non registrato», senza dati inventati. Il nome dell’autore viene letto dal profilo esistente.
-
-### 4. Protezione del vecchio percorso non B2B
-`manage_purchase_order`: preservare il ramo B2B esattamente e gli altri comandi; instradare/rifiutare la sola conferma non B2B priva dei dati richiesti. Non lasciare un percorso alternativo che aggiri storico e idempotenza.
-**Rischio di compatibilità:** la versione pubblicata usa ancora il vecchio popup; bloccare il vecchio percorso non B2B ne impedirà la conferma fino alla pubblicazione del nuovo frontend. Nessuna pubblicazione è autorizzata. Prima di applicare occorre approvare anche questo effetto, oppure rinviare tale blocco al rilascio coordinato. Non cambiare il ramo B2B per correggere retroattivamente incoerenze esistenti.
-
-## Permessi
-Funzioni `SECURITY DEFINER SET search_path=public`; revocare EXECUTE a PUBLIC/anon, concedere ad authenticated. Controlli sessione, appartenenza e ruoli nel corpo di ogni funzione; nessun company_id arbitrario. Le policy/grant esistenti di `audit_events` non vengono allargate. Nessun nuovo ruolo, tabella o client privilegiato per le chiamate dell’app.
-
-## Frontend dopo le garanzie
-Una finestra unica per Lista, bozze aperte dalla Lista e dettaglio ordine. Sette canali, incluso Copia testo. Destinatari correggibili solo per condivisione. Anteprima completa senza prezzi; data/orario/luogo dai documenti, senza inventare modalità ritiro non memorizzate.
-Apertura canale/copia non cambia stato; conferma manuale separata. Rimanda ordine con storico; Annulla conferma invio solo admin e con motivo, mai eseguita nelle verifiche reali.
-Link creati solo su richiesta, mai per apertura; nessuna revoca automatica. Singola etichetta di stato senza nascondere incoerenze. Nota «U.M. del prezzo diversa dall'ordine» quando i codici fotografati differiscono; nessuna conversione.
-
-## File autorizzabili per fase
-- Nuova migrazione in `supabase/migrations/` (nome definitivo assegnato dallo strumento), senza backfill operativo.
-- `src/lib/purchase.functions.ts`, `src/lib/purchase.ts` e test pertinenti.
-- `src/components/purchase/send-order-dialog.tsx`, `purchase-order-detail.tsx` e nuova finestra condivisa/test nel medesimo ambito.
-- `src/components/shopping/generation-results.ts`, `generation-results.test.ts`, `generation-summary.tsx`, `generate-orders-dialog.tsx`.
-- `src/components/shopping/AGENTS.md`, `src/lib/AGENTS.md`, `AGENTS.md` solo per le decisioni strutturali pertinenti; `roadmap.md` per le fasi.
-
-## Prove e limiti
-Frontend: messaggio senza prezzi, note e destinatario inclusi, sette canali, chiusura/selezione senza scrittura, link non creati all’apertura, reinvio senza generazione, avviso U.M., doppia conferma.
-SQL dopo approvazione: sessione authenticated e JWT reale, dati isolati in transazione annullata, admin/operatore propria azienda, altra azienda, B2B/non B2B, attività successive, motivo mancante, concorrenza e idempotenza. Mai service_role come prova di autorizzazione. Se l’ambiente non permette questo collaudo, segnalarlo come non verificato.
-Nessuna prova operativa, creazione link reale o invio email/WhatsApp/SMS. Nessun ripristino né pubblicazione.
-
-## Decisione richiesta
-Approvare le funzioni e i permessi proposti prima di applicare qualsiasi migrazione. Decidere quando bloccare il vecchio percorso non B2B: al rilascio coordinato (senza pubblicare ora) oppure subito, accettando che la versione pubblicata non possa confermare questi invii fino al nuovo rilascio.
+## Conferma richiesta
+Approvare l'adattamento della pagina Ordini clienti esistente per renderne condivisibile la consultazione del singolo ordine, e i file sopra elencati. Nessuna implementazione effettuata in questa fase.
