@@ -1,5 +1,8 @@
 # Roadmap
 
+## Condivisione ordini — in attesa di approvazione
+- [ ] Anteprima con destinatario, note, prodotti e link dalla Lista e da Ordini fornitore; email precompilata e conferma esplicita, reinvio dello stesso ordine senza nuova generazione. Blocco: approvazione del piano.
+
 ## Lista della Spesa — card uniformi con Conferma
 - [x] Controlli quantità condivisi in Lista, da valutare e non ancora inserite: Conferma/Invio espliciti, matita, tasti rapidi senza autoconferma e avviso prima di cambio lista/generazione. Funzioni e database invariati. 269 test pass; build automatica OK. Browser con sessione reale e scritture bloccate: inserimento/uscita senza scrittura, errore conserva quantità, generazione bloccata con modifica pendente; 1280/390 px senza overflow. Nessuna pubblicazione o scrittura operativa.
 - [ ] Conferma riuscita e creazione delle tre modalità da verificare integralmente su ambiente/dati di prova autorizzati: non eseguite sul database operativo condiviso.
