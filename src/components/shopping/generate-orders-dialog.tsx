@@ -155,6 +155,7 @@ export function GenerateOrdersDialog({
   onOpenChange,
   onGoToItem,
   onListClosed,
+  onCompleteQuantities,
 }: {
   companyId: string;
   listId: string;
@@ -163,6 +164,7 @@ export function GenerateOrdersDialog({
   onOpenChange: (open: boolean) => void;
   onGoToItem: (itemId: string) => void;
   onListClosed: () => void;
+  onCompleteQuantities: () => void;
 }) {
   const queryClient = useQueryClient();
   const readPreview = useServerFn(getGenerationPreview);
@@ -660,12 +662,12 @@ export function GenerateOrdersDialog({
                 {data.issues.map((i) => (
                   <li key={i.item_id} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1">
                     <span className="min-w-0 truncate">{i.code ? `${i.code} · ` : ""}{i.name} <span className="text-muted-foreground">— {reasonFor(i)}</span></span>
-                    <Button size="sm" variant="ghost" onClick={() => { onOpenChange(false); onGoToItem(i.item_id); }}>Vai</Button>
+                    <Button size="sm" variant="ghost" onClick={() => { if (reasonFor(i) === "Quantità mancante" || reasonFor(i) === "Quantità non confermata") onCompleteQuantities(); else { onOpenChange(false); onGoToItem(i.item_id); } }}>Sistema</Button>
                   </li>
                 ))}
               </ul>
               <DialogFooter className="gap-2">
-                <Button variant="outline" onClick={() => { onOpenChange(false); onGoToItem(data.issues[0]?.item_id ?? ""); }}>Sistema le quantità</Button>
+                <Button variant="outline" onClick={onCompleteQuantities}>Sistema le quantità</Button>
                 <Button onClick={() => setStep("fornitori")}>Procedi comunque</Button>
               </DialogFooter>
             </div>
