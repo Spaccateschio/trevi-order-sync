@@ -1161,6 +1161,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     return false;
   };
   const openGeneration = () => {
+    if (overviewQuery.isFetching || excludedQuery.isFetching) { toast.info("Attendi l'aggiornamento della Lista"); return; }
     if (completionEntries.length) { setMissingOpen(true); return; }
     if (!canLeaveDrafts()) return;
     setGenMounted(list?.id ?? null);
@@ -1234,7 +1235,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const completionEntries = missingQuantities([
     ...allRows.map((row) => ({ id: row.item_id, row, quantity: row.decided_quantity === null ? null : Number(row.decided_quantity), locked: Boolean(extras.get(row.item_id)?.lockedAt) && !unlockedIds.has(row.item_id), excluded: excludedQuery.data?.has(row.item_id), draft: edits[row.item_id], unitChanged: Boolean(unitEdits[row.item_id]), pending: false, stock: stockQuery.data?.get(row.product_id) })),
     ...pendingEntries.map((entry) => ({ id: entry.row.item_id, row: entry.row, quantity: null, locked: false, nonPurchase: savedEvaluations.get(entry.row.product_id)?.status === "non_acquistare", draft: evalValues[entry.row.product_id], pending: true, stock: entry.stock })),
-  ]);
+  ]).sort((a, b) => (a.row.description ?? a.row.code).localeCompare(b.row.description ?? b.row.code, "it"));
   const completionEditor = (id: string) => {
     const entry = completionEntries.find((item) => item.id === id);
     if (!entry) return null;
@@ -1774,6 +1775,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   onRemove={() => undefined}
                   pendingQuantity={parseQuantity(evalValues[row.product_id] ?? "")}
                   evaluation={savedEvaluations.get(row.product_id)}
+                  excluded={savedEvaluations.get(row.product_id)?.status === "non_acquistare"}
+                  onRestore={() => decidePending(row.product_id, "da_valutare")}
                   lockPending={confirmingIds.has(row.product_id)}
                   onToggleLock={() => void confirmPending(row)}
                 />

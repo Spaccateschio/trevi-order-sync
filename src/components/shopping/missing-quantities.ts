@@ -4,10 +4,10 @@ export type QuantityCompletionFacts = {
   id: string;
   quantity: number | null;
   locked: boolean;
-  excluded?: boolean;
-  nonPurchase?: boolean;
-  draft?: string;
-  unitChanged?: boolean;
+  excluded?: boolean | undefined;
+  nonPurchase?: boolean | undefined;
+  draft?: string | undefined;
+  unitChanged?: boolean | undefined;
 };
 
 /** Uses the entire list, never the visible/filter subset. No writes or conversions. */

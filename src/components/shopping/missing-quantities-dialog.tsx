@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { qty } from "@/lib/inventory";
 import type { StockInfo } from "./shopping-list-card";
 
-export type CompletionItem = { id: string; code: string; name: string; stock?: StockInfo };
+export type CompletionItem = { id: string; code: string; name: string; stock?: StockInfo | undefined };
 
 export function MissingQuantitiesDialog({ open, onOpenChange, items, renderEditor, busy, onContinue }: {
   open: boolean; onOpenChange: (open: boolean) => void; items: CompletionItem[];
