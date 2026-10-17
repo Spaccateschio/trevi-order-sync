@@ -914,11 +914,15 @@ export function GenerateOrdersDialog({
       {shareTarget ? (
         <ShareOrderDialog
           target={shareTarget}
-          pending={sendOne.isPending}
           link={shareLinks[shareTarget.orderId] ?? null}
           onLink={(l) => setShareLinks((m) => ({ ...m, [shareTarget.orderId]: l }))}
           onClose={() => setShareTarget(null)}
-          onConfirm={(channel) => sendOne.mutate({ orderId: shareTarget.orderId, channel })}
+          onConfirmed={async (closed) => {
+            const cur = shareTarget;
+            setOutcomes(list => replaceOutcome(list, cur.orderId, { kind: "inviato", name: cur.name, orderId: cur.orderId, number: cur.number }));
+            await refresh();
+            if (closed) toast.success("Lista completata e chiusa");
+          }}
         />
       ) : null}
 
@@ -1173,6 +1177,12 @@ function DraftOrderEditor({
           open={sendOpen}
           onOpenChange={setSendOpen}
           isB2b={isB2b}
+          orderId={orderId}
+          onShared={async (closed) => {
+            setSendOpen(false);
+            await onChanged(closed, null);
+            if (!closed) onClose();
+          }}
           supplierName={o?.supplier_records?.legal_name ?? null}
           orderNumber={o?.number ?? null}
           pending={send.isPending}
