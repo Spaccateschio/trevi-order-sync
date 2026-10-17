@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Condivisione ordini — anteprima, rilascio coordinato non autorizzato
+- [ ] Correzioni autorizzate 17/10: vincolo solo copia_testo, messaggio distinto per Lista chiusa, preparazione collaudo manuale Andrea su 3 EMME; nessun ordine creato/confermato dall'assistente, nessun invio reale.
 - [x] Analisi sola lettura e elenco incoerenze: ORD-2026-00003/00004/00005 di 3 EMME hanno status inviato e send_status da_inviare. Nessuna correzione operativa.
 - [x] Migrazione additiva 0070: confirm_non_b2b_order_share, undo_non_b2b_order_send_confirmation, order_share_history; ruoli nel DB, audit, idempotenza sotto lock e protezione degli eventi audit da inserimenti client. manage_purchase_order invariata; nessun backfill.
 - [x] Finestra unica Lista/Ordini con sette canali, destinatari, note, link solo espliciti, conferma manuale, reinvio e storico; avviso U.M. diversa e stato unico con incoerenza persistita visibile. 280 test pass; build OK. Browser autenticato: ordine 00003, anteprima/reinvio, selezione sette canali e chiusura senza scritture, link ancora zero e audit invariato.
