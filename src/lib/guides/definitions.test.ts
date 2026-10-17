@@ -17,4 +17,9 @@ describe("guide", () => {
   it("con sinceVersion mostra solo le novità", () => {
     expect(visibleSteps(guide, () => true, 1)).toHaveLength(0);
   });
+  it("ogni guida ha id unici in tutte le guide", () => {
+    const ids = Object.values(GUIDES).flatMap((g) => g.steps.map((s) => s.id));
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(GUIDES.inventario.steps).toHaveLength(10);
+  });
 });
