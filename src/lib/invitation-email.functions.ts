@@ -74,6 +74,8 @@ export const sendInvitationEmail = createServerFn({ method: "POST" })
       templateData: {
         sellerName: seller?.legal_name ?? "Il tuo fornitore",
         recipientName: customer?.data?.legal_name ?? undefined,
+        customerTaxId:
+          customer?.data?.vat_number?.trim() || customer?.data?.tax_code?.trim() || undefined,
         inviteLink: `${origin}/invito/${data.token}`,
         inviteCode: invitation.invite_code ?? undefined,
         expiresAt: new Date(invitation.expires_at).toLocaleDateString("it-IT"),
