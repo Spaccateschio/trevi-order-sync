@@ -17,12 +17,19 @@ import type { TemplateEntry } from "./registry";
 interface Props {
   sellerName?: string;
   recipientName?: string;
+  customerTaxId?: string;
   inviteLink?: string;
   inviteCode?: string;
   expiresAt?: string;
 }
 
-const Email = ({ sellerName, recipientName, inviteLink, inviteCode, expiresAt }: Props) => {
+const Email = ({ sellerName, recipientName, customerTaxId, inviteLink, inviteCode, expiresAt }: Props) => {
+  /**
+   * La P.IVA italiana ha 11 cifre (eventualmente precedute da "IT"): ogni altro
+   * valore — tipicamente 16 caratteri alfanumerici — lo trattiamo come codice
+   * fiscale, così l'etichetta corrisponde a ciò che l'azienda ha in anagrafica.
+   */
+  const isVatNumber = (value: string) => /^(?:IT)?\d{11}$/i.test(value.replace(/\s/g, ""));
   const seller = sellerName || "Il tuo fornitore";
   return (
     <Html lang="it" dir="ltr">
@@ -33,10 +40,23 @@ const Email = ({ sellerName, recipientName, inviteLink, inviteCode, expiresAt }:
           <Text style={brand}>Trevi Fruit</Text>
           <Heading style={heading}>{seller} ti invita a collegarti</Heading>
           <Text style={text}>
-            {recipientName ? `Ciao ${recipientName}, ` : "Ciao, "}
+          {recipientName ? `Ciao ${recipientName}, ` : "Ciao, "}
             {seller} ti invita a collegare la tua azienda su Trevi Fruit per gestire insieme
             ordini, preparazione e consegne.
           </Text>
+
+          {recipientName ? (
+            <Section style={identityBox}>
+              <Text style={identityLabel}>Stai per collegare la tua azienda</Text>
+              <Text style={identityName}>{recipientName}</Text>
+              {customerTaxId ? (
+                <Text style={identityValue}>
+                  {isVatNumber(customerTaxId) ? "Partita IVA" : "Codice fiscale"}: {customerTaxId}
+                </Text>
+              ) : null}
+            </Section>
+          ) : null}
+
 
           {inviteLink ? (
             <Section style={{ margin: "24px 0" }}>
@@ -75,6 +95,7 @@ export const template = {
   previewData: {
     sellerName: "Trevi Fruit S.R.L.",
     recipientName: "3 EMME ROMA SRL",
+    customerTaxId: "IT01234567890",
     inviteLink: "https://trevi-order-sync.lovable.app/invito/esempio-token",
     inviteCode: "K7M2XQ4B",
     expiresAt: "30/09/2026",
@@ -118,4 +139,15 @@ const code = {
   color: "#1f2a44",
   margin: 0,
 };
+const identityBox = {
+  border: "1px solid #e5e7eb",
+  borderLeft: "4px solid #d99b28",
+  borderRadius: "8px",
+  padding: "14px 16px",
+  margin: "16px 0",
+  backgroundColor: "#fdf9f2",
+};
+const identityLabel = { fontSize: "12px", color: "#6b7280", margin: "0 0 4px" };
+const identityName = { fontSize: "16px", fontWeight: 700, color: "#1f2a44", margin: "0 0 2px" };
+const identityValue = { fontSize: "13px", color: "#333333", margin: 0 };
 const hr = { borderColor: "#e5e7eb", margin: "24px 0 12px" };

@@ -61,7 +61,7 @@ export const sendInvitationEmail = createServerFn({ method: "POST" })
       invitation.customer_record_id
         ? supabase
             .from("customer_records")
-            .select("legal_name")
+            .select("legal_name, vat_number, tax_code")
             .eq("id", invitation.customer_record_id)
             .maybeSingle()
         : Promise.resolve({ data: null }),
@@ -74,6 +74,8 @@ export const sendInvitationEmail = createServerFn({ method: "POST" })
       templateData: {
         sellerName: seller?.legal_name ?? "Il tuo fornitore",
         recipientName: customer?.data?.legal_name ?? undefined,
+        customerTaxId:
+          customer?.data?.vat_number?.trim() || customer?.data?.tax_code?.trim() || undefined,
         inviteLink: `${origin}/invito/${data.token}`,
         inviteCode: invitation.invite_code ?? undefined,
         expiresAt: new Date(invitation.expires_at).toLocaleDateString("it-IT"),
