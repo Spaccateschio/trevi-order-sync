@@ -17,12 +17,13 @@ import type { TemplateEntry } from "./registry";
 interface Props {
   sellerName?: string;
   recipientName?: string;
+  customerTaxId?: string;
   inviteLink?: string;
   inviteCode?: string;
   expiresAt?: string;
 }
 
-const Email = ({ sellerName, recipientName, inviteLink, inviteCode, expiresAt }: Props) => {
+const Email = ({ sellerName, recipientName, customerTaxId, inviteLink, inviteCode, expiresAt }: Props) => {
   const seller = sellerName || "Il tuo fornitore";
   return (
     <Html lang="it" dir="ltr">
