@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, FilePlus2, Lock, MessageSquare, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, FilePlus2, Lock, MessageSquare, Pencil, Send, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { CallSupplierButton, ChangeRequestDialog, OrderEditDialog, OrderCancelDialog, orderLabel } from "./order-customer-actions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
@@ -22,6 +22,9 @@ import { deliveryDateLabel, localToday, timeRangeLabel, useDeliveryPreferences }
 import { dateTimeShort, qty, type LocationRow } from "@/lib/inventory";
 import { ORDER_STATUS_LABEL, SEND_STATUS_LABEL, type OrderOverviewRow } from "@/lib/purchase";
 import { createPurchaseOrdersFromList } from "@/lib/purchase.functions";
+import { canReshareOrder } from "@/lib/b2b-order-sharing";
+import { B2bOrderShareDialog } from "./b2b-order-share-dialog";
+import { OrderShareDialog } from "./order-share-dialog";
 
 type ConfirmedList = { id: string; name: string; confirmed_at: string | null };
 
@@ -30,6 +33,7 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
   const runCreate = useServerFn(createPurchaseOrdersFromList);
   const [selected, setSelected] = useState<string | null>(null);
+  const [resharing, setResharing] = useState<OrderOverviewRow | null>(null);
   const [listId, setListId] = useState("");
   const [locationId, setLocationId] = useState("");
 
@@ -197,6 +201,11 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
 
   return (
     <div className="space-y-6">
+      {resharing && seenQuery.isSuccess ? seenRelation.has(resharing.order_id) ? (
+        <B2bOrderShareDialog orderId={resharing.order_id} number={resharing.number} supplier={resharing.supplier_name} onClose={() => setResharing(null)} />
+      ) : (
+        <OrderShareDialog orderId={resharing.order_id} mode="resend" onClose={() => setResharing(null)} onConfirmed={async () => { await refreshOrders(); await queryClient.invalidateQueries({ queryKey: ['order-share-history', resharing.order_id] }); }} />
+      ) : null}
       <OrderEditDialog order={editing} onClose={() => setEditing(null)} onSaved={refreshOrders} />
       <ChangeRequestDialog order={requesting} onClose={() => setRequesting(null)} onSent={refreshOrders} />
       <OrderCancelDialog
@@ -294,6 +303,11 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
                       <Button size="sm" variant="outline" onClick={() => setSelected(order.order_id)}>
                         Visualizza ordine
                       </Button>
+                      {canReshareOrder(order.status) ? (
+                        <Button size="sm" variant="outline" disabled={!seenQuery.isSuccess} onClick={() => setResharing(order)}>
+                          <Send className="mr-1 h-4 w-4" /> Rimanda ordine
+                        </Button>
+                      ) : null}
                       {order.status === "inviato" && seenRelation.has(order.order_id) ? (
                         seenMap.get(order.order_id) ? (
                           <div className="w-full space-y-2">
