@@ -1,5 +1,8 @@
 # Roadmap
 
+## Lista della Spesa — card uniformi con Conferma
+- [ ] Uniformare card in Lista, da valutare e non ancora inserite con Conferma esplicita per prodotto; conservare fornitori, quote, U.M., preferiti e ordini. Piano proposto, in attesa di autorizzazione; nessun codice o dato operativo modificato.
+
 ## Inventario — barra fissa di conferma
 - [x] Spostare l'unico comando «Conferma inventario» in basso alla finestra, sopra la navigazione mobile; conservare bozza, comportamento e permessi. Verificati 1280/390 px, scorrimento, ultime card e finestra Storico sopra la barra; build automatica OK. Typecheck separato non disponibile nei segnali automatici. Solo anteprima, nessuna pubblicazione o modifica dati.
 - [x] Aspetto della barra: banda blu notte (token sidebar) con scritta chiara centrata a tutta larghezza, «Bozza salvata» sopra in piccolo; verificato 1280/390 px, barra fissa dopo lo scorrimento e ultima card libera; build automatica OK, non pubblicata.
