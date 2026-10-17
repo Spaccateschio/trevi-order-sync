@@ -267,3 +267,9 @@
 .trevi-guide .driver-popover-arrow-side-right { border-right-color: var(--card); }
 .trevi-guide .driver-popover-arrow-side-top { border-top-color: var(--card); }
 .trevi-guide .driver-popover-arrow-side-bottom { border-bottom-color: var(--card); }
+
+/* La barra fissa resta sopra l'oscuramento solo mentre è il passo attivo. */
+[data-tour="spesa.genera"].driver-active-element {
+  z-index: 10001;
+  box-shadow: inset 0 0 0 3px var(--ring);
+}

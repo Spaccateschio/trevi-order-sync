@@ -33,7 +33,11 @@ async function startGuide(key: GuideKey) {
     },
     steps: steps.map((step) => ({
       element: step.target,
-      popover: { title: step.title, description: step.text },
+      popover: {
+        title: step.title,
+        description: step.text,
+        ...(step.id === "spesa.genera" ? { side: "top" as const, align: "center" as const } : {}),
+      },
     })),
   });
   tour.drive();
