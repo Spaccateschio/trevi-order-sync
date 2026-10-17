@@ -86,7 +86,15 @@ function ConsegnaEsterna() {
 
   const editFor = (item: DraftItem): LineEdit => edits[item.id] ?? initialEdit(item);
   const setField = (item: DraftItem, field: keyof LineEdit, value: string) =>
-    setEdits((prev) => ({ ...prev, [item.id]: { ...editFor(item), [field]: value } }));
+    setEdits((prev) => {
+      const next = { ...editFor(item), [field]: value };
+      if (field === "tare" || field === "gross") {
+        const tare = next.tare.trim() ? parseQuantity(next.tare) : null;
+        const gross = next.gross.trim() ? parseQuantity(next.gross) : null;
+        next.net = tare !== null && gross !== null ? String(Math.round((gross - tare) * 1000) / 1000) : "";
+      }
+      return { ...prev, [item.id]: next };
+    });
   const isChecked = (item: DraftItem) => checked[item.id] ?? false;
   const checkedCount = (draft?.items ?? []).filter((item) => isChecked(item)).length;
 
