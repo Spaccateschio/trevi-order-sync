@@ -263,4 +263,7 @@
 .driver-popover.trevi-guide .driver-popover-progress-text { color: var(--muted-foreground); }
 .driver-popover.trevi-guide .driver-popover-footer button { background: var(--primary); color: var(--primary-foreground); border: 0; border-radius: 0.375rem; padding: 0.35rem 0.7rem; text-shadow: none; font-size: 0.8rem; }
 .driver-popover.trevi-guide .driver-popover-footer .driver-popover-prev-btn, .driver-popover.trevi-guide .trevi-guide-skip { background: var(--muted); color: var(--foreground); }
-.driver-popover.trevi-guide .driver-popover-arrow { border-color: var(--card); }
+.trevi-guide .driver-popover-arrow-side-left { border-left-color: var(--card); }
+.trevi-guide .driver-popover-arrow-side-right { border-right-color: var(--card); }
+.trevi-guide .driver-popover-arrow-side-top { border-top-color: var(--card); }
+.trevi-guide .driver-popover-arrow-side-bottom { border-bottom-color: var(--card); }
