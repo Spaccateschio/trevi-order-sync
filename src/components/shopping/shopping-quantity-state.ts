@@ -2,7 +2,7 @@ import { parseQuantity } from "@/lib/inventory";
 
 export function confirmationQuantity(raw: string | undefined, saved: number | null): number | null {
   const value = raw === undefined ? saved : parseQuantity(raw);
-  return value !== null && Number.isFinite(value) && value > 0 ? value : null;
+  return value !== null && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
 export function quantityHasDraft(raw: string | undefined, saved: number | null): boolean {
