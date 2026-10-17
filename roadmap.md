@@ -1,10 +1,15 @@
 # Roadmap
 
 ## Condivisione ordini — anteprima, rilascio coordinato non autorizzato
+- [x] Correzioni autorizzate 17/10: 0071 aggiunge solo copia_testo al vincolo; messaggio distinto per Lista chiusa dopo rifiuto RPC e letture RLS, nessuna modifica alle funzioni SQL. 17 test pertinenti superati; anteprima autenticata: selezione canale/chiusura senza conferma, nessun errore; app pubblicata /auth HTTP 200, flussi pubblicati non collaudati con scritture. Tutti e cinque gli ordini invariati per impronta completa prima/dopo. Nessun invio, link o ordine creato dall'assistente.
 - [x] Analisi sola lettura e elenco incoerenze: ORD-2026-00003/00004/00005 di 3 EMME hanno status inviato e send_status da_inviare. Nessuna correzione operativa.
 - [x] Migrazione additiva 0070: confirm_non_b2b_order_share, undo_non_b2b_order_send_confirmation, order_share_history; ruoli nel DB, audit, idempotenza sotto lock e protezione degli eventi audit da inserimenti client. manage_purchase_order invariata; nessun backfill.
 - [x] Finestra unica Lista/Ordini con sette canali, destinatari, note, link solo espliciti, conferma manuale, reinvio e storico; avviso U.M. diversa e stato unico con incoerenza persistita visibile. 280 test pass; build OK. Browser autenticato: ordine 00003, anteprima/reinvio, selezione sette canali e chiusura senza scritture, link ancora zero e audit invariato.
-- [ ] SQL: matrice ruoli, rollback isolato, concorrenza e conferme riuscite non verificate. Blocco: strumenti disponibili non offrono esecuzione di funzioni con JWT reale e rollback; non creare un endpoint di test privilegiato né usare ordini operativi.
+- [ ] Collaudo manuale A/B: Andrea su nuovi dati di prova 3 EMME, primo invio/reinvio/rettifica/storico e chiusura Lista ancora da verificare prima di aprire l'app ad altri clienti. Attendere il suo via, nessuna azione al suo posto.
+- [ ] Permessi admin/operatore: da verificare prima di aprire l'app ad altri clienti; servono sessioni reali di entrambi i ruoli su 3 EMME. Lettura anteprima autenticata non prova autorizzazione alle scritture.
+- [ ] Isolamento aziende e autorizzazioni storico: da verificare prima di aprire l'app ad altri clienti; servono due utenti reali in aziende di prova e ordini di prova, mai Trevi o altre aziende reali.
+- [ ] Esclusione B2B: da verificare prima di aprire l'app ad altri clienti; controlli DB/candidati letti, ma rifiuto RPC con JWT reale su fixture B2B di prova non eseguito.
+- [ ] Idempotenza UUID e concorrenza: da verificare prima di aprire l'app ad altri clienti; client di test con JWT reale e stessa/differenti chiavi, chiamate simultanee su fixture 3 EMME autorizzate. Non usare client privilegiato. Test con JWT e rollback resta non disponibile negli strumenti attuali.
 - [ ] Rilascio coordinato e blocco legacy: proposta .lovable/deferred/block_legacy_non_b2b_send.sql fuori dalle migrazioni automatiche, hash della funzione corrente e diff limitato al rifiuto non B2B. Blocco: autorizzazione rilascio e collaudo SQL. Nessuna pubblicazione, invio o ripristino reale.
 
 ## Lista della Spesa — card uniformi con Conferma

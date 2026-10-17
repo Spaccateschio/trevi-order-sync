@@ -21,3 +21,6 @@ export function shareHref(channel: ShareChannel, recipient: string, number: stri
 export function priceUnitDiffers(price: string | null, purchase: string | null) {
   return Boolean(price?.trim() && purchase?.trim() && price.trim().toLowerCase() !== purchase.trim().toLowerCase());
 }
+export function isClosedListUndoError(message: string, listStatus: string | null) {
+  return message === 'Attività successive incompatibili: conferma non annullabile' && listStatus === 'chiusa';
+}
