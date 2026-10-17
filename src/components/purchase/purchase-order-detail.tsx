@@ -242,6 +242,16 @@ export function PurchaseOrderDetail({
   });
 
   const items = itemsQuery.data ?? [];
+  const [itemFilter, setItemFilter] = useState("");
+  const visibleItems = useMemo(() => {
+    const needle = itemFilter.trim().toLowerCase();
+    if (!needle) return items;
+    return items.filter((item) =>
+      [item.products?.code, item.products?.description, item.supplier_product_code]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(needle)),
+    );
+  }, [items, itemFilter]);
   const undo = useMutation({
     mutationFn: () => {
       const key = undoKey ?? crypto.randomUUID();
