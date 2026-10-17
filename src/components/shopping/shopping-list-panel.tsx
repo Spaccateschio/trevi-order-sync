@@ -33,6 +33,9 @@ import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { CloseListDialog } from "./close-list-dialog";
 import { GenerateOrdersDialog } from "./generate-orders-dialog";
+import { MissingQuantitiesDialog } from "./missing-quantities-dialog";
+import { missingQuantities } from "./missing-quantities";
+import { manageListExclusion } from "@/lib/order-generation.functions";
 import { ListHistoryDialog } from "./list-history-dialog";
 import { ListDeliveryDate, useProposeListDate } from "./list-delivery-date";
 import { getCompanyHasFavorites, getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
@@ -158,6 +161,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runList = useServerFn(manageShoppingList);
   const proposeListDate = useProposeListDate(companyId);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [missingOpen, setMissingOpen] = useState(false);
+  const runExclusion = useServerFn(manageListExclusion);
   // «Genera ordini» sostituisce «Conferma lista»; resta montato per conservare le modifiche non salvate.
   const [genOpen, setGenOpen] = useState<null | "genera" | "bozze">(null);
   const [genMounted, setGenMounted] = useState<string | null>(null);
@@ -837,7 +842,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     queryKey: ["shopping-list-excluded", list?.id ?? null],
     enabled: Boolean(list?.id),
     queryFn: async () => {
-      const { data, error } = await supabase.from("shopping_list_items").select("id").eq("list_id", list!.id).not("excluded_at", "is", null);
+      if (!list) return new Set<string>();
+      const { data, error } = await supabase.from("shopping_list_items").select("id").eq("list_id", list.id).not("excluded_at", "is", null);
       if (error) throw new Error(error.message);
       return new Set((data ?? []).map((r) => r.id as string));
     },
@@ -1140,13 +1146,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     if (value === null) { toast.error("Inserisci una quantità valida prima di confermare"); return; }
     if (!confirmationGuard.current.start(row.item_id)) return;
     try {
-      await commitQuantity(row.item_id, { quantity: value, ...unitEdits[row.item_id] });
+      if (value === 0) await excludeItem(row.item_id, "exclude");
+      else await commitQuantity(row.item_id, { quantity: value, ...unitEdits[row.item_id] });
       setUnitEdits((current) => { const next = { ...current }; delete next[row.item_id]; return next; });
       setUnlockedIds((current) => { const next = new Set(current); next.delete(row.item_id); return next; });
     } catch { /* Keep the draft visible for retry. */ }
     finally { confirmationGuard.current.finish(row.item_id); }
   };
-  const hasUnconfirmed = allRows.some((row) => unlockedIds.has(row.item_id) || Boolean(unitEdits[row.item_id]) || quantityHasDraft(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity)))
+  const hasUnconfirmed = allRows.some((row) => !excludedQuery.data?.has(row.item_id) && (unlockedIds.has(row.item_id) || Boolean(unitEdits[row.item_id]) || quantityHasDraft(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity))))
     || Object.values(evalValues).some((value) => value.trim() !== "") || catalogDrafts.size > 0;
   const canLeaveDrafts = () => {
     if (!hasUnconfirmed) return true;
@@ -1154,6 +1161,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     return false;
   };
   const openGeneration = () => {
+    if (overviewQuery.isFetching || excludedQuery.isFetching) { toast.info("Attendi l'aggiornamento della Lista"); return; }
+    if (completionEntries.length) { setMissingOpen(true); return; }
     if (!canLeaveDrafts()) return;
     setGenMounted(list?.id ?? null);
     setGenOpen("genera");
@@ -1162,9 +1171,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   // «Da valutare» → Conferma: una sola operazione nel database (Lista + prodotto + quantità + blocco).
   const [confirmingIds, setConfirmingIds] = useState<Set<string>>(new Set());
   const confirmingRef = useRef<Set<string>>(new Set());
-  const confirmPending = async (row: OverviewRow) => {
-    const quantity = parseQuantity(evalValues[row.product_id] ?? "");
-    if (!quantity || quantity <= 0) {
+  const confirmPending = async (row: OverviewRow, explicitQuantity?: number) => {
+    const quantity = explicitQuantity ?? parseQuantity(evalValues[row.product_id] ?? "");
+    if (quantity === null || quantity < 0) {
       toast.error("Inserisci una quantità prima di confermare");
       return;
     }
@@ -1172,6 +1181,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     confirmingRef.current.add(row.product_id);
     setConfirmingIds(new Set(confirmingRef.current));
     try {
+      if (quantity === 0) {
+        await saveEvaluation.mutateAsync({ productId: row.product_id, status: "non_acquistare", quantity: null });
+        setEvalValues((current) => { const next = { ...current }; delete next[row.product_id]; return next; });
+        return;
+      }
       const result = await runConfirm({
         data: {
           companyId,
@@ -1201,6 +1215,62 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       confirmingRef.current.delete(row.product_id);
       setConfirmingIds(new Set(confirmingRef.current));
     }
+  };
+
+  const exclusionMutation = useMutation({
+    mutationFn: async ({ itemId, action }: { itemId: string; action: "exclude" | "restore" }) => {
+      if (!list) throw new Error("Lista non disponibile");
+      return runExclusion({ data: { listId: list.id, itemIds: [itemId], action, reason: action === "exclude" ? "Non acquistare" : null } });
+    },
+    onSuccess: async (result, input) => {
+      setEdits((current) => { const next = { ...current }; delete next[input.itemId]; return next; });
+      setUnitEdits((current) => { const next = { ...current }; delete next[input.itemId]; return next; });
+      setUnlockedIds((current) => { const next = new Set(current); next.delete(input.itemId); return next; });
+      await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["shopping-list-excluded"] }), queryClient.invalidateQueries({ queryKey: ["generation-facts"] }), queryClient.invalidateQueries({ queryKey: ["generation-preview"] })]);
+      if (result.list_closed) { setMissingOpen(false); setGenOpen(null); }
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const excludeItem = (itemId: string, action: "exclude" | "restore") => exclusionMutation.mutateAsync({ itemId, action });
+  const completionEntries = missingQuantities([
+    ...allRows.map((row) => ({ id: row.item_id, row, quantity: row.decided_quantity === null ? null : Number(row.decided_quantity), locked: Boolean(extras.get(row.item_id)?.lockedAt) && !unlockedIds.has(row.item_id), excluded: excludedQuery.data?.has(row.item_id), draft: edits[row.item_id], unitChanged: Boolean(unitEdits[row.item_id]), pending: false, stock: stockQuery.data?.get(row.product_id) })),
+    ...pendingEntries.map((entry) => ({ id: entry.row.item_id, row: entry.row, quantity: null, locked: false, nonPurchase: savedEvaluations.get(entry.row.product_id)?.status === "non_acquistare", draft: evalValues[entry.row.product_id], pending: true, stock: entry.stock })),
+  ]).sort((a, b) => (a.row.description ?? a.row.code).localeCompare(b.row.description ?? b.row.code, "it"));
+  const completionEditor = (id: string) => {
+    const entry = completionEntries.find((item) => item.id === id);
+    if (!entry) return null;
+    const row = entry.row;
+    const extra = extras.get(id);
+    const unitDraft = unitEdits[id];
+    const busy = entry.pending ? confirmingIds.has(row.product_id) || saveEvaluation.isPending : savingIds.has(id) || exclusionMutation.isPending;
+    return <ShoppingListCard quantityOnly companyId={companyId} row={row} stock={entry.stock} pending={entry.pending}
+      extra={unitDraft && extra ? { ...extra, decidedUnitId: unitDraft.unitId, decidedUnitCode: unitDraft.unitCode } : extra}
+      editable={Boolean(editable)} quantityLocked={false} lockPending={busy} saving={busy}
+      quantityInput={<Input className="h-9 min-w-0 flex-1 text-right font-bold" inputMode="decimal" value={entry.pending ? evalValues[row.product_id] ?? "" : edits[id] ?? (row.decided_quantity === null ? "" : String(row.decided_quantity))}
+        disabled={busy} aria-label={`Quantità da acquistare ${row.description ?? row.code}`}
+        onChange={(e) => entry.pending ? setEvalValues((current) => ({ ...current, [row.product_id]: e.target.value })) : setEdits((current) => ({ ...current, [id]: e.target.value }))}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void (entry.pending ? confirmPending(row) : confirmCompletion(row)); } }} />}
+      draftQuantity={confirmationQuantity(edits[id], row.decided_quantity === null ? null : Number(row.decided_quantity))}
+      pendingQuantity={parseQuantity(evalValues[row.product_id] ?? "")}
+      onToggleLock={() => void (entry.pending ? confirmPending(row) : confirmCompletion(row))}
+      onNonPurchase={() => { if (entry.pending) void confirmPending(row, 0); else void excludeItem(id, "exclude").catch(() => undefined); }}
+      onUnitChange={(unitId, unitCode) => setUnitEdits((current) => ({ ...current, [id]: { unitId, unitCode } }))}
+      onProposeUnit={(unit) => { if (unit) proposedUnits.current.set(id, unit); else proposedUnits.current.delete(id); }}
+      onQuickAdd={() => undefined} onToggleFavorite={() => undefined} favoritePending={false} onOpenSuppliers={() => undefined} onRemove={() => undefined} />;
+  };
+  const confirmCompletion = async (row: OverviewRow) => {
+    const value = confirmationQuantity(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity));
+    if (value === null) { toast.error("Inserisci una quantità valida"); return; }
+    if (!confirmationGuard.current.start(row.item_id)) return;
+    try {
+      if (value === 0) await excludeItem(row.item_id, "exclude");
+      else {
+        await commitQuantity(row.item_id, { quantity: value, ...unitEdits[row.item_id] });
+        setUnitEdits((current) => { const next = { ...current }; delete next[row.item_id]; return next; });
+        setUnlockedIds((current) => { const next = new Set(current); next.delete(row.item_id); return next; });
+      }
+    } catch { /* Draft stays available for retry. */ }
+    finally { confirmationGuard.current.finish(row.item_id); }
   };
 
   const statusBadge = (row: OverviewRow) => (
@@ -1705,6 +1775,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   onRemove={() => undefined}
                   pendingQuantity={parseQuantity(evalValues[row.product_id] ?? "")}
                   evaluation={savedEvaluations.get(row.product_id)}
+                  excluded={savedEvaluations.get(row.product_id)?.status === "non_acquistare"}
+                  onRestore={() => decidePending(row.product_id, "da_valutare")}
                   lockPending={confirmingIds.has(row.product_id)}
                   onToggleLock={() => void confirmPending(row)}
                 />
@@ -1731,6 +1803,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onToggleLock={() => void toggleLock(row)}
                 draftQuantity={confirmationQuantity(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity))}
                 quantityLocked={Boolean(extra?.lockedAt) && !unlockedIds.has(row.item_id)}
+                excluded={excludedQuery.data?.has(row.item_id) ?? false}
+                onRestore={() => void excludeItem(row.item_id, "restore").catch(() => undefined)}
                 saving={savingIds.has(row.item_id)}
                 memory={memoryQuery.data?.get(row.product_id) ?? null}
                 lockPending={savingIds.has(row.item_id)}
@@ -1827,6 +1901,10 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         />
       ) : null}
 
+      {list && editable ? <MissingQuantitiesDialog open={missingOpen} onOpenChange={setMissingOpen}
+        items={completionEntries.map((entry) => ({ id: entry.id, code: entry.row.code, name: entry.row.description ?? entry.row.code, stock: entry.stock }))}
+        renderEditor={completionEditor} busy={savingIds.size > 0 || confirmingIds.size > 0 || exclusionMutation.isPending}
+        onContinue={() => { setMissingOpen(false); openGeneration(); }} /> : null}
       {list && editable && genMounted === list.id ? (
         <GenerateOrdersDialog
           companyId={companyId}
@@ -1834,6 +1912,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           open={genOpen !== null}
           mode={genOpen ?? "genera"}
           onOpenChange={(next) => { if (!next) setGenOpen(null); }}
+          onCompleteQuantities={() => { setGenOpen(null); setMissingOpen(true); }}
           onGoToItem={(itemId) => {
             setGenOpen(null);
             window.setTimeout(() => document.getElementById(`item-${itemId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);

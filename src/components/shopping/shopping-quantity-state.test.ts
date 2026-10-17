@@ -9,6 +9,11 @@ describe("conferma esplicita quantità Lista", () => {
   it("senza modifica conferma la quantità salvata", () => assert.equal(confirmationQuantity(undefined, 3), 3));
   it("quantità vuota non può essere confermata", () => assert.equal(confirmationQuantity("", 3), null));
   it("quantità negativa non può essere confermata", () => assert.equal(confirmationQuantity("-1", 3), null));
+  it("zero esplicito è una decisione valida di non acquistare", () => assert.equal(confirmationQuantity("0", 3), 0));
+  it("zero non equivale al campo vuoto", () => {
+    assert.equal(confirmationQuantity("", null), null);
+    assert.equal(confirmationQuantity("0", null), 0);
+  });
   it("una modifica resta non confermata finché differisce dal salvato", () => assert.equal(quantityHasDraft("8", 3), true));
   it("valore uguale al salvato non è una modifica pendente", () => assert.equal(quantityHasDraft("3,0", 3), false));
   it("cancellare una quantità salvata è una modifica pendente", () => assert.equal(quantityHasDraft("", 3), true));
