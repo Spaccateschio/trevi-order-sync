@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Copy, Link2, PackagePlus, Send, Truck } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { DeliveryComparisonPanel } from "./delivery-comparison-panel";
@@ -14,6 +14,7 @@ import { hasRole, useIdentity } from "@/hooks/use-identity";
 import { priceUnitDiffers } from "@/lib/order-sharing";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
