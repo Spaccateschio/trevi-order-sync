@@ -1,3 +1,4 @@
+import { ShoppingQuantityEditor } from "./shopping-quantity-editor";
 import { Check, Copy, Lock, MoreVertical, Package, Plus, Star, Trash2, TriangleAlert, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { readCardBundle } from "@/lib/shopping-card-reads";
@@ -125,6 +126,8 @@ export function ShoppingListCard({
   show = ALL_VISIBLE,
   onCopyToOwnProducts,
   listConfirmed = false,
+  draftQuantity,
+  quantityLocked,
 }: {
   /** «Copia nei miei prodotti»: passato solo per card B2B e amministratori. */
   onCopyToOwnProducts?: (() => void) | undefined;
@@ -152,6 +155,8 @@ export function ShoppingListCard({
   lockPending?: boolean;
   /** Conferma automatica (uscita dal campo, Invio, tasti rapidi): niente pulsante «Conferma». */
   autoConfirm?: boolean;
+  draftQuantity?: number | null;
+  quantityLocked?: boolean;
   saving?: boolean;
   /** «Come l'ultima volta» quando fornitori/quote vengono dalla memoria. */
   memoryNote?: string | null;
@@ -223,7 +228,7 @@ export function ShoppingListCard({
   const savedQuantity = row.decided_quantity === null ? null : Number(row.decided_quantity);
   // Prima quantità: la card parte nell'U.M. predefinita del fornitore se quella attuale non è sua.
   const proposeUnit = Boolean(proposal && !proposal.compatible && !otherUnit && savedQuantity === null && !proposalDeclined);
-  const proposedKey = proposeUnit ? proposal!.defaultUnit.unit_id : null;
+  const proposedKey = proposeUnit && proposal ? proposal.defaultUnit.unit_id : null;
   useEffect(() => {
     onProposeUnit?.(proposeUnit && proposal ? { unitId: proposal.defaultUnit.unit_id, code: proposal.defaultUnit.code } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -236,7 +241,7 @@ export function ShoppingListCard({
   const isFavorite = Boolean(extra?.isFavorite);
   const isRow = layout === "row";
   // Quantità confermata: bloccata finché non si sblocca (fornitori restano modificabili).
-  const locked = Boolean(extra?.lockedAt);
+  const locked = quantityLocked ?? Boolean(extra?.lockedAt);
   // Inventario modificato dopo la conferma: card da ricontrollare (mai se la riga è già in un ordine).
   const recheck = Boolean(extra?.inventoryChangedAt) && extra?.orderState !== "ordinato";
 
@@ -342,23 +347,8 @@ export function ShoppingListCard({
     </>
   );
 
-  const confirmTarget = pending ? (pendingQuantity ?? null) : target;
+  const confirmTarget = pending ? (pendingQuantity ?? null) : draftQuantity !== undefined ? draftQuantity : target;
   const editLocked = locked && !autoConfirm;
-  const lockButton = editable && !(autoConfirm && !pending) ? (
-    <Button
-      type="button"
-      size="sm"
-      variant={locked ? "secondary" : "default"}
-      className="h-9 shrink-0 gap-1 px-2 text-xs"
-      disabled={lockPending || (!locked && (confirmTarget === null || confirmTarget <= 0))}
-      aria-label={locked ? `Sblocca quantità di ${name}` : `Conferma quantità di ${name}`}
-      title={locked ? "Sblocca per modificare" : confirmTarget === null ? "Inserisci una quantità" : "Conferma e blocca"}
-      onClick={onToggleLock}
-    >
-      {locked ? <Lock className="size-3.5" aria-hidden="true" /> : <Check className="size-3.5" aria-hidden="true" />}
-      <span className="hidden min-[360px]:inline">{locked ? "Sblocca" : "Conferma"}</span>
-    </Button>
-  ) : null;
 
   const fixValue = fix ? Number(fix.value.replace(",", ".")) : NaN;
   const unitFixBlock = unitMismatch && proposal ? (
@@ -443,7 +433,6 @@ export function ShoppingListCard({
       ) : (
         <span className="shrink-0 text-xs font-semibold text-muted-foreground">{decidedCode || "—"}</span>
       )}
-      {lockButton}
       {saving ? <span className="shrink-0 text-[10px] font-semibold text-muted-foreground" role="status">Salvataggio in corso…</span> : null}
       {unitNotOffered && !unitMismatch ? (
         <span
@@ -473,7 +462,7 @@ export function ShoppingListCard({
             size="sm"
             className={cn("min-w-0 gap-0.5 overflow-hidden px-0 text-xs font-bold", cls)}
             aria-label={`Aggiungi ${step} ${unitLabel} alla quantità da acquistare di ${name}`}
-            disabled={editLocked}
+            disabled={editLocked || lockPending}
             onClick={() => onQuickAdd(step)}
           >
             +{step}
@@ -575,9 +564,7 @@ export function ShoppingListCard({
             {actions}
           </div>
           <div className={cn("grid min-w-0 gap-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
-            {show.toBuy ? <>{quantityBlock}{unitFixBlock}</> : null}
-            {show.toBuy ? equivalentNote : null}
-            {show.quick ? quickButtons("h-8") : null}
+            {show.toBuy ? <ShoppingQuantityEditor input={quantityBlock} details={<>{unitFixBlock}{equivalentNote}</>} editable={editable} locked={locked} busy={lockPending || saving} ready={confirmTarget !== null && confirmTarget > 0} name={name} onConfirm={onToggleLock} quick={show.quick ? quickButtons("h-8") : null} /> : null}
             {show.lockDate ? lockNote : null}
             {memoryLine}
             {recheckNote}
@@ -644,15 +631,10 @@ export function ShoppingListCard({
 
       {show.toBuy || show.quick || (show.lockDate && lockNote) ? (
         <div className="space-y-1">
-          {show.toBuy ? (
-            <>
-              <p className="text-[10px] font-semibold uppercase text-muted-foreground">Da acquistare</p>
-              {quantityBlock}
-              {unitFixBlock}
-              {equivalentNote}
-            </>
-          ) : null}
-          {show.quick ? quickButtons("h-8 @max-[260px]:h-7 @max-[260px]:text-[11px]") : null}
+          {show.toBuy ? <ShoppingQuantityEditor input={quantityBlock} details={<>{unitFixBlock}{equivalentNote}</>}
+            editable={editable} locked={locked} busy={lockPending || saving}
+            ready={confirmTarget !== null && confirmTarget > 0} name={name} onConfirm={onToggleLock}
+            quick={show.quick ? quickButtons("h-8 @max-[260px]:h-7 @max-[260px]:text-[11px]") : null} /> : null}
           {show.lockDate ? lockNote : null}
             {memoryLine}
           {recheckNote}
