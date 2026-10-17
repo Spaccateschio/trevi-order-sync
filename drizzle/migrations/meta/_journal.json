@@ -498,6 +498,13 @@
       "when": 1792216503403,
       "tag": "0070_non_b2b_order_share_confirmation",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1792218234574,
+      "tag": "0071_allow_copy_text_order_send_channel",
+      "breakpoints": true
     }
   ]
 }

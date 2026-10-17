@@ -1,0 +1,2 @@
+ALTER TABLE public.purchase_orders DROP CONSTRAINT purchase_orders_send_channel_check;
+ALTER TABLE public.purchase_orders ADD CONSTRAINT purchase_orders_send_channel_check CHECK (send_channel IS NULL OR send_channel IN ('piattaforma','whatsapp','email','sms','telefono','di_persona','altro','copia_testo'));
