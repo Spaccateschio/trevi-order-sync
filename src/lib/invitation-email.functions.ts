@@ -61,7 +61,7 @@ export const sendInvitationEmail = createServerFn({ method: "POST" })
       invitation.customer_record_id
         ? supabase
             .from("customer_records")
-            .select("legal_name")
+            .select("legal_name, vat_number, tax_code")
             .eq("id", invitation.customer_record_id)
             .maybeSingle()
         : Promise.resolve({ data: null }),
