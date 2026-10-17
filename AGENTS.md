@@ -35,11 +35,9 @@
 - Never alter real operational data in tests, even temporarily. Writes require rollback or explicitly authorized test data.
 - 3 EMME ROMA SRL è l'azienda di prova: Andrea può fare collaudi manuali dall'app in anteprima. Mai prove su trevi srl o su altre aziende reali. Nessun invio reale ai fornitori durante i collaudi.
 
-- Regole Danea (scarico ordini, prezzi allo scarico, aggiornamento listino): vedi src/lib/AGENTS.md. Le sottocartelle hanno il proprio AGENTS.md da leggere prima di modificarle.
+- Prima di lavorare su Danea, prezzi, ordini o B2B resharing leggere src/lib/AGENTS.md. Le sottocartelle hanno il proprio AGENTS.md da leggere prima di modificarle.
 
 - Ordini: mai totali in euro; prezzo indicativo fino allo scarico Danea (listino del cliente in quel momento).
 - Prove valide solo con ruolo e strada reali (app: utente authenticated; Danea: indirizzo pubblico con postazione); SQL interno o privilegi superiori non contano come superate. Prove sugli indirizzi Danea reali solo con autorizzazione esplicita dell'utente.
 - Ordini già scaricati da Danea intoccabili: niente ricalcolo prezzi, storico retroattivo o cambio stato; il riscarico senza storico usa la logica precedente (test con danea-orders-xml.legacy.ts).
-- Prima di lavorare su Danea, prezzi o ordini leggere sempre src/lib/AGENTS.md.
 - Clarify closed-list undo errors via RLS reads after RPC rejection; SQL guards remain unchanged.
-- B2B resharing reuses customer-orders in a read-only branch independent of active-company navigation; auth retains validated order ID. is_order_supplier checks membership before RLS reads; cache is user-scoped. No seen/operational RPCs.
