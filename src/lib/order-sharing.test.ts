@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SHARE_CHANNELS, shareHref, shareRecipientError, priceUnitDiffers } from './order-sharing';
+import { SHARE_CHANNELS, shareHref, shareRecipientError, priceUnitDiffers, isClosedListUndoError } from './order-sharing';
 import { orderShareText } from '../components/shopping/generation-results';
 
 test('sette canali autorizzati, senza canali inventati',()=>assert.deepEqual(SHARE_CHANNELS.map(c=>c.value),['whatsapp','email','sms','telefono','di_persona','altro','copia_testo']));
@@ -17,3 +17,11 @@ test('messaggio conserva 2 kg e note, senza prezzo 1.85 né conversione in casse
 });
 test('U.M. prezzo cs diversa da quantità kg, senza equivalenza',()=>assert.equal(priceUnitDiffers('cs','kg'),true));
 test('U.M. uguali e mancanti non sono dichiarate differenti',()=>{assert.equal(priceUnitDiffers('KG','kg'),false);assert.equal(priceUnitDiffers(null,'kg'),false);});
+
+
+test('rettifica: Lista chiusa distingue soltanto il blocco delle attività successive',()=>{
+ assert.equal(isClosedListUndoError('Attività successive incompatibili: conferma non annullabile','chiusa'),true);
+ for (const status of ['aperta','annullata',null]) assert.equal(isClosedListUndoError('Attività successive incompatibili: conferma non annullabile',status),false);
+ assert.equal(isClosedListUndoError('Solo amministratore dell’azienda proprietaria','chiusa'),false);
+ assert.equal(isClosedListUndoError('Conferma non annullabile','chiusa'),false);
+});

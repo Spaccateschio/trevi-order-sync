@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { isClosedListUndoError } from "@/lib/order-sharing";
 
 /**
  * Tutte le scritture degli acquisti passano dal server.
@@ -24,7 +25,19 @@ export const undoNonB2bOrderSend = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ orderId: uuid, reason: z.string().trim().min(1, "Motivo obbligatorio").max(2000), key: uuid }).parse(input))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.rpc("undo_non_b2b_order_send_confirmation", { _order_id: data.orderId, _reason: data.reason, _confirmation_key: data.key });
-    if (error) throw new Error(error.message);
+    if (error) {
+      // SQL remains the authority; reads only clarify an already rejected request.
+      if (error.message === 'Attività successive incompatibili: conferma non annullabile') {
+        const { data: order } = await context.supabase.from('purchase_orders').select('shopping_list_id').eq('id', data.orderId).maybeSingle();
+        if (order?.shopping_list_id) {
+          const { data: list } = await context.supabase.from('shopping_lists').select('status').eq('id', order.shopping_list_id).maybeSingle();
+          if (isClosedListUndoError(error.message, list?.status ?? null)) {
+            throw new Error('La Lista della Spesa è già chiusa. Non è possibile annullare questa conferma di invio.');
+          }
+        }
+      }
+      throw new Error(error.message);
+    }
     return { ok: true };
   });
 
