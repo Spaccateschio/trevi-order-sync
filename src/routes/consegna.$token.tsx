@@ -88,11 +88,15 @@ function ConsegnaEsterna() {
   const setField = (item: DraftItem, field: keyof LineEdit, value: string) =>
     setEdits((prev) => {
       const next = { ...editFor(item), [field]: value };
+      const unit = (item.purchase_unit_code ?? item.unit_code ?? "").toLowerCase();
+      const isWeight = unit === "kg" || unit === "g" || unit.startsWith("chilogramm") || unit.startsWith("gramm");
       if (field === "tare" || field === "gross") {
         const tare = next.tare.trim() ? parseQuantity(next.tare) : null;
         const gross = next.gross.trim() ? parseQuantity(next.gross) : null;
         next.net = tare !== null && gross !== null ? String(Math.round((gross - tare) * 1000) / 1000) : "";
+        if (isWeight && next.net) next.quantity = next.net;
       }
+      if (field === "net" && isWeight) next.quantity = value;
       return { ...prev, [item.id]: next };
     });
   const isChecked = (item: DraftItem) => checked[item.id] ?? false;
