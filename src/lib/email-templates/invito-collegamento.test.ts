@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { Email } from "./invito-collegamento";
+import { template } from "./invito-collegamento";
 
 /**
  * Nell'email di invito il riquadro d'identità mostra «Partita IVA» quando
@@ -11,7 +11,7 @@ import { Email } from "./invito-collegamento";
  */
 function renderIdentity(customerTaxId: string): string {
   return renderToStaticMarkup(
-    createElement(Email, {
+    createElement(template.component, {
       sellerName: "Trevi Fruit S.R.L.",
       recipientName: "Azienda di prova",
       customerTaxId,
