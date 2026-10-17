@@ -165,8 +165,15 @@ export function PurchaseOrderDetail({
       queryClient.invalidateQueries({ queryKey: ["order-receipts", order.order_id] }),
       queryClient.invalidateQueries({ queryKey: ["order-share-links", order.order_id] }),
       queryClient.invalidateQueries({ queryKey: ["order-share-history", order.order_id] }),
+      queryClient.invalidateQueries({ queryKey: ["order-stored-send-state", order.order_id] }),
     ]);
   };
+
+  const storedSendState = useQuery({ queryKey: ["order-stored-send-state", order.order_id], queryFn: async () => {
+    const { data, error } = await supabase.from("purchase_orders").select("send_status").eq("id", order.order_id).single();
+    if (error) throw new Error(error.message);
+    return data.send_status;
+  } });
 
   const action = useMutation({
     mutationFn: (payload: {
@@ -255,7 +262,7 @@ export function PurchaseOrderDetail({
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-base font-semibold">{order.number}</span>
         <Badge variant="outline">{ORDER_STATUS_LABEL[order.status]}</Badge>
-        {order.send_status !== "inviato" && order.status !== "bozza" ? <span className="text-xs text-destructive">Stato invio: {SEND_STATUS_LABEL[order.send_status]}</span> : null}
+        {storedSendState.data && storedSendState.data !== "inviato" && order.status !== "bozza" && order.status !== "annullato" ? <span className="text-xs text-destructive">Incoerenza: stato invio {storedSendState.data === "da_inviare" ? "Da inviare" : "Errore invio"}</span> : null}
         {order.shopping_list_number ? (
           <span className="text-sm text-muted-foreground">da {order.shopping_list_number}</span>
         ) : null}
