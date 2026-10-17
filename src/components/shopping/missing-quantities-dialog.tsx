@@ -20,7 +20,7 @@ export function MissingQuantitiesDialog({ open, onOpenChange, items, renderEdito
     <DialogContent className="flex max-h-[90dvh] min-w-0 flex-col gap-3 overflow-hidden sm:max-w-3xl">
       <DialogHeader>
         <DialogTitle>Completa le quantità</DialogTitle>
-        <DialogDescription>{items.length ? `${items.length} prodotti da completare` : "Quantità completate"}</DialogDescription>
+        <DialogDescription>{items.length ? `${items.length} ${items.length === 1 ? "prodotto" : "prodotti"} da completare` : "Quantità completate"}</DialogDescription>
       </DialogHeader>
       <div className="relative shrink-0">
         <Search className="absolute left-3 top-3 size-4 text-muted-foreground" aria-hidden="true" />

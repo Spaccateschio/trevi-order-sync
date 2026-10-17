@@ -1153,7 +1153,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     } catch { /* Keep the draft visible for retry. */ }
     finally { confirmationGuard.current.finish(row.item_id); }
   };
-  const hasUnconfirmed = allRows.some((row) => unlockedIds.has(row.item_id) || Boolean(unitEdits[row.item_id]) || quantityHasDraft(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity)))
+  const hasUnconfirmed = allRows.some((row) => !excludedQuery.data?.has(row.item_id) && (unlockedIds.has(row.item_id) || Boolean(unitEdits[row.item_id]) || quantityHasDraft(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity))))
     || Object.values(evalValues).some((value) => value.trim() !== "") || catalogDrafts.size > 0;
   const canLeaveDrafts = () => {
     if (!hasUnconfirmed) return true;
@@ -1171,8 +1171,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   // «Da valutare» → Conferma: una sola operazione nel database (Lista + prodotto + quantità + blocco).
   const [confirmingIds, setConfirmingIds] = useState<Set<string>>(new Set());
   const confirmingRef = useRef<Set<string>>(new Set());
-  const confirmPending = async (row: OverviewRow) => {
-    const quantity = parseQuantity(evalValues[row.product_id] ?? "");
+  const confirmPending = async (row: OverviewRow, explicitQuantity?: number) => {
+    const quantity = explicitQuantity ?? parseQuantity(evalValues[row.product_id] ?? "");
     if (quantity === null || quantity < 0) {
       toast.error("Inserisci una quantità prima di confermare");
       return;
@@ -1253,7 +1253,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       draftQuantity={confirmationQuantity(edits[id], row.decided_quantity === null ? null : Number(row.decided_quantity))}
       pendingQuantity={parseQuantity(evalValues[row.product_id] ?? "")}
       onToggleLock={() => void (entry.pending ? confirmPending(row) : confirmCompletion(row))}
-      onNonPurchase={() => { if (entry.pending) { setEvalValues((current) => ({ ...current, [row.product_id]: "0" })); void saveEvaluation.mutateAsync({ productId: row.product_id, status: "non_acquistare", quantity: null }).then(() => setEvalValues((current) => { const next = { ...current }; delete next[row.product_id]; return next; })).catch(() => undefined); } else void excludeItem(id, "exclude").catch(() => undefined); }}
+      onNonPurchase={() => { if (entry.pending) void confirmPending(row, 0); else void excludeItem(id, "exclude").catch(() => undefined); }}
       onUnitChange={(unitId, unitCode) => setUnitEdits((current) => ({ ...current, [id]: { unitId, unitCode } }))}
       onProposeUnit={(unit) => { if (unit) proposedUnits.current.set(id, unit); else proposedUnits.current.delete(id); }}
       onQuickAdd={() => undefined} onToggleFavorite={() => undefined} favoritePending={false} onOpenSuppliers={() => undefined} onRemove={() => undefined} />;
