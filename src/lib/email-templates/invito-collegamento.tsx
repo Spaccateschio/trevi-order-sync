@@ -24,6 +24,12 @@ interface Props {
 }
 
 const Email = ({ sellerName, recipientName, customerTaxId, inviteLink, inviteCode, expiresAt }: Props) => {
+  /**
+   * La P.IVA italiana ha 11 cifre (eventualmente precedute da "IT"): ogni altro
+   * valore — tipicamente 16 caratteri alfanumerici — lo trattiamo come codice
+   * fiscale, così l'etichetta corrisponde a ciò che l'azienda ha in anagrafica.
+   */
+  const isVatNumber = (value: string) => /^(?:IT)?\d{11}$/i.test(value.replace(/\s/g, ""));
   const seller = sellerName || "Il tuo fornitore";
   return (
     <Html lang="it" dir="ltr">
@@ -133,4 +139,15 @@ const code = {
   color: "#1f2a44",
   margin: 0,
 };
+const identityBox = {
+  border: "1px solid #e5e7eb",
+  borderLeft: "4px solid #d99b28",
+  borderRadius: "8px",
+  padding: "14px 16px",
+  margin: "16px 0",
+  backgroundColor: "#fdf9f2",
+};
+const identityLabel = { fontSize: "12px", color: "#6b7280", margin: "0 0 4px" };
+const identityName = { fontSize: "16px", fontWeight: 700, color: "#1f2a44", margin: "0 0 2px" };
+const identityValue = { fontSize: "13px", color: "#333333", margin: 0 };
 const hr = { borderColor: "#e5e7eb", margin: "24px 0 12px" };
