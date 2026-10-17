@@ -1,7 +1,8 @@
 # Roadmap
 
 ## Lista della Spesa — card uniformi con Conferma
-- [ ] Uniformare card in Lista, da valutare e non ancora inserite con Conferma esplicita per prodotto; conservare fornitori, quote, U.M., preferiti e ordini. Piano proposto, in attesa di autorizzazione; nessun codice o dato operativo modificato.
+- [x] Controlli quantità condivisi in Lista, da valutare e non ancora inserite: Conferma/Invio espliciti, matita, tasti rapidi senza autoconferma e avviso prima di cambio lista/generazione. Funzioni e database invariati. 269 test pass; build automatica OK. Browser con sessione reale e scritture bloccate: inserimento/uscita senza scrittura, errore conserva quantità, generazione bloccata con modifica pendente; 1280/390 px senza overflow. Nessuna pubblicazione o scrittura operativa.
+- [ ] Conferma riuscita e creazione delle tre modalità da verificare integralmente su ambiente/dati di prova autorizzati: non eseguite sul database operativo condiviso.
 
 ## Inventario — barra fissa di conferma
 - [x] Spostare l'unico comando «Conferma inventario» in basso alla finestra, sopra la navigazione mobile; conservare bozza, comportamento e permessi. Verificati 1280/390 px, scorrimento, ultime card e finestra Storico sopra la barra; build automatica OK. Typecheck separato non disponibile nei segnali automatici. Solo anteprima, nessuna pubblicazione o modifica dati.
