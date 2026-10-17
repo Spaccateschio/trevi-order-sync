@@ -79,7 +79,7 @@ export function SentOrdersBanner({ companyId, measuredScroll = false }: { compan
   };
 
   return (
-    <div className="rounded-md border border-success/50 bg-success/10 text-foreground" role="status">
+    <div data-tour="spesa.banner-ordini" className="rounded-md border border-success/50 bg-success/10 text-foreground" role="status">
       <div className="flex items-center gap-1 px-2 py-1.5">
         <Send className="size-4 shrink-0 text-success" aria-hidden="true" />
         {measuredScroll ? <MeasuredOrderText text={label(first)} /> : <div className="relative min-w-0 flex-1 overflow-hidden">

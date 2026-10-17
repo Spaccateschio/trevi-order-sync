@@ -1488,8 +1488,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           ) : null}
 
           {/* Barra operativa */}
-          <div className="sticky top-14 z-10 min-w-0 space-y-1.5 rounded-md border border-border bg-card p-1.5 lg:top-0">
-            <div className="relative min-w-0">
+          <div data-tour="spesa.barra" className="sticky top-14 z-10 min-w-0 space-y-1.5 rounded-md border border-border bg-card p-1.5 lg:top-0">
+            <div data-tour="spesa.ricerca" className="relative min-w-0">
               <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
                 className={`h-8 pl-7 text-xs${search ? " border-primary bg-primary/10 font-medium text-primary" : ""}`}
@@ -1499,13 +1499,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onChange={(event) => setSearch(event.target.value)}
               />
             </div>
-            <div aria-label="Filtri prodotti" className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible [&>*]:shrink-0">
+            <div data-tour="spesa.filtri" aria-label="Filtri prodotti" className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible [&>*]:shrink-0">
             {/* Il filtro Preferiti resta sempre visibile: un tocco lo accende, un altro lo spegne. */}
             <Button
               type="button"
               size="sm"
               variant={flags.has("preferiti") ? "default" : "outline"}
               className="h-8 px-2 text-xs"
+              data-tour="spesa.preferiti"
               aria-pressed={flags.has("preferiti")}
               onClick={() => toggleFlag("preferiti", !flags.has("preferiti"))}
             >
@@ -1575,7 +1576,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </div>
             <div aria-label="Comandi prodotti" className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible [&>*]:shrink-0">
             {editable || (!list && previewMode) ? (
-              <Button type="button" size="sm" className="h-8 px-2 text-xs" onClick={() => setAddOpen(true)}>
+              <Button type="button" size="sm" className="h-8 px-2 text-xs" data-tour="spesa.aggiungi" onClick={() => setAddOpen(true)}>
                 <Plus aria-hidden="true" />
                 Aggiungi prodotti
               </Button>
@@ -1631,7 +1632,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           </div>
 
           {list ? (
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-xs" aria-label="Contatori della Lista">
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-xs" data-tour="spesa.contatori" aria-label="Contatori della Lista">
               <span>
                 Prodotti <strong>{counters.products}</strong> · Preferiti <strong>{counters.favorites}</strong> · In Lista <strong>{counters.inList}</strong> ·
                 Con quantità <strong>{counters.withQuantity}</strong> · Da inserire <strong className={counters.toFill ? "text-warning-foreground" : undefined}>{counters.toFill}</strong>
@@ -1646,6 +1647,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
           <div className="@container">
           <div
+            data-tour="spesa.card"
             className={
               viewMode === "card"
                 ? // Colonne decise dallo spazio reale, massimo 4: card compatta (172px) solo su spazi stretti, altrimenti almeno 232px.
@@ -1793,7 +1795,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
       {/* Barra fissa: il comando resta sempre raggiungibile senza scorrere l'elenco */}
       {list && editable && allRows.length ? (
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
+        <div data-tour="spesa.genera" className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
           <span className="min-w-0 text-center text-[11px] text-sidebar-foreground/70">
             {summary.total} {summary.total === 1 ? "prodotto" : "prodotti"} · {summary.assigned}{" "}
             {summary.assigned === 1 ? "assegnato" : "assegnati"}
