@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Copy, Link2, PackagePlus, Send, Truck } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { DeliveryComparisonPanel } from "./delivery-comparison-panel";
@@ -14,6 +14,7 @@ import { hasRole, useIdentity } from "@/hooks/use-identity";
 import { priceUnitDiffers } from "@/lib/order-sharing";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -241,6 +242,16 @@ export function PurchaseOrderDetail({
   });
 
   const items = itemsQuery.data ?? [];
+  const [itemFilter, setItemFilter] = useState("");
+  const visibleItems = useMemo(() => {
+    const needle = itemFilter.trim().toLowerCase();
+    if (!needle) return items;
+    return items.filter((item) =>
+      [item.products?.code, item.products?.description, item.supplier_product_code]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(needle)),
+    );
+  }, [items, itemFilter]);
   const undo = useMutation({
     mutationFn: () => {
       const key = undoKey ?? crypto.randomUUID();
@@ -270,99 +281,123 @@ export function PurchaseOrderDetail({
 
       <OrderDeliverySection order={order} companyId={companyId} />
 
-      <div className="grid gap-2 sm:grid-cols-2">
+      {draft ? (
         <div className="rounded-lg border border-border p-3 text-sm">
           <p className="text-xs text-muted-foreground">Destinazione di ricezione</p>
-          {draft ? (
-            <Select
-              value={order.destination_location_id}
-              onValueChange={(value) =>
-                action.mutate({ action: "set_destination", destinationLocationId: value })
-              }
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {locations.map((location) => (
-                  <SelectItem key={location.id} value={location.id}>
-                    {location.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <p className="mt-1 font-medium">{order.destination_name}</p>
-          )}
+          <Select
+            value={order.destination_location_id}
+            onValueChange={(value) =>
+              action.mutate({ action: "set_destination", destinationLocationId: value })
+            }
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {locations.map((location) => (
+                <SelectItem key={location.id} value={location.id}>
+                  {location.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <p className="mt-2 text-xs text-muted-foreground">
             Tutta la merce di questo ordine arriva qui.
           </p>
         </div>
-        <div className="rounded-lg border border-border p-3 text-sm">
-          <p className="text-xs text-muted-foreground">Quantità</p>
-          <p className="mt-1">Ordinato: {qty(order.ordered_total)}</p>
-          <p>Dichiarato: {qty(order.declared_total)}</p>
-          <p>Caricato in magazzino: {qty(order.received_total)}</p>
-        </div>
+      ) : null}
+
+      <div className="rounded-lg border border-border p-3 text-sm">
+        <p className="text-xs text-muted-foreground">Quantità</p>
+        <p className="mt-1">Ordinato: {qty(order.ordered_total)}</p>
+        <p>Dichiarato: {qty(order.declared_total)}</p>
+        <p>Caricato in magazzino: {qty(order.received_total)}</p>
       </div>
 
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold">
-          Righe ordinate {draft ? "" : "(congelate all'invio)"}
-        </h3>
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-border p-3 text-sm"
-          >
-            <div>
-              <p className="font-medium">{item.products?.code}</p>
-              <p className="text-xs text-muted-foreground">{item.products?.description}</p>
-              {item.supplier_product_code ? (
-                <p className="text-xs text-muted-foreground">
-                  Codice fornitore: {item.supplier_product_code}
-                </p>
-              ) : null}
-            </div>
-            <div className="text-right">
-              {item.purchase_quantity !== null ? (
-                <>
-                  {/* Dato dell'ordine: quantità nella U.M. d'acquisto. */}
-                  <p>
-                    {qty(item.purchase_quantity)} {item.purchase_unit_code}
-                  </p>
-                  {item.purchase_unit_code !== item.unit_code ? (
-                    <p className="text-xs text-muted-foreground">
-                      {item.ordered_quantity !== null
-                        ? `≈ ${qty(item.ordered_quantity)} ${item.unit_code ?? ""}`
-                        : "senza equivalente: peso al Carico Merce"}
-                    </p>
-                  ) : null}
-                </>
-              ) : (
-                <p>
-                  {qty(item.ordered_quantity)} {item.unit_code}
-                </p>
-              )}
-              {/* Prezzo fotografato sull'ordine, con la sua U.M. (indipendente dalla U.M. d'ordine). */}
-              {priceUnitDiffers(item.price_unit_code, item.purchase_unit_code ?? item.unit_code) ? <p className="text-xs text-muted-foreground">U.M. del prezzo diversa dall'ordine</p> : null}
-              {(() => {
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold">
+            Righe ordinate ({visibleItems.length}{itemFilter ? ` di ${items.length}` : ""}) {draft ? "" : "(congelate all'invio)"}
+          </h3>
+          {items.length > 5 ? (
+            <Input
+              value={itemFilter}
+              onChange={(e) => setItemFilter(e.target.value)}
+              placeholder="Cerca codice o descrizione…"
+              aria-label="Cerca nelle righe ordinate"
+              className="h-8 w-full sm:w-64"
+            />
+          ) : null}
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
+                <th className="px-3 py-2 font-medium">Codice</th>
+                <th className="px-3 py-2 font-medium">Descrizione</th>
+                <th className="px-3 py-2 text-right font-medium">Quantità</th>
+                <th className="px-3 py-2 text-right font-medium">Prezzo indicativo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleItems.map((item) => {
                 const note = orderPriceNote({
                   unitCost: item.unit_cost,
                   priceUnitCode: item.price_unit_code,
                   purchaseUnitCode: item.purchase_unit_code ?? item.unit_code,
                   isB2b: Boolean(item.product_supplier_links?.supplier_company_id),
                 });
-                return note ? (
-                  <p className="text-xs text-muted-foreground">
-                    {note.price}
-                    {note.weigh ? <span className="ml-1 font-medium text-foreground">· Da pesare al carico</span> : null}
-                  </p>
-                ) : null;
-              })()}
-            </div>
-          </div>
-        ))}
+                return (
+                  <tr key={item.id} className="border-b border-border last:border-0 odd:bg-muted/20">
+                    <td className="px-3 py-2 align-top whitespace-nowrap text-muted-foreground">
+                      {item.products?.code}
+                      {item.supplier_product_code ? (
+                        <span className="block text-xs">Forn.: {item.supplier_product_code}</span>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 align-top font-semibold">
+                      {item.products?.description}
+                    </td>
+                    <td className="px-3 py-2 align-top text-right whitespace-nowrap">
+                      {/* Dato dell'ordine: quantità nella U.M. d'acquisto. */}
+                      <span className="font-semibold">
+                        {item.purchase_quantity !== null
+                          ? `${qty(item.purchase_quantity)} ${item.purchase_unit_code}`
+                          : `${qty(item.ordered_quantity)} ${item.unit_code}`}
+                      </span>
+                      {item.purchase_quantity !== null && item.purchase_unit_code !== item.unit_code ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {item.ordered_quantity !== null
+                            ? `≈ ${qty(item.ordered_quantity)} ${item.unit_code ?? ""}`
+                            : "senza equivalente: peso al Carico Merce"}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 align-top text-right whitespace-nowrap text-muted-foreground">
+                      {/* Prezzo fotografato sull'ordine, con la sua U.M. (indipendente dalla U.M. d'ordine). */}
+                      {note ? (
+                        <>
+                          {note.price}
+                          {note.weigh ? <span className="block text-xs font-medium text-foreground">Da pesare al carico</span> : null}
+                        </>
+                      ) : "—"}
+                      {priceUnitDiffers(item.price_unit_code, item.purchase_unit_code ?? item.unit_code) ? (
+                        <span className="block text-xs">U.M. prezzo diversa</span>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+              {visibleItems.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-4 text-center text-sm text-muted-foreground">
+                    Nessuna riga corrisponde alla ricerca.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {relationQuery.data === true ? (
