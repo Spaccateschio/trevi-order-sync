@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
-import { PreparationMockup, PreparationGuideButton } from "@/components/preparation/preparation-mockup";
+import {
+  PreparationMockup,
+  PreparationGuideButton,
+} from "@/components/preparation/preparation-mockup";
 import { hasRole, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/operativo")({
@@ -10,12 +13,14 @@ export const Route = createFileRoute("/_authenticated/operativo")({
       { title: "Preparazione — Trevi Fruit" },
       {
         name: "description",
-        content: "Preparazione Trevi Fruit: mockup con quantità, pesi confermati e avanzamento degli ordini.",
+        content:
+          "Preparazione Trevi Fruit: mockup con quantità, pesi confermati e avanzamento degli ordini.",
       },
       { property: "og:title", content: "Preparazione — Trevi Fruit" },
       {
         property: "og:description",
-        content: "Preparazione Trevi Fruit: mockup con quantità, pesi confermati e avanzamento degli ordini.",
+        content:
+          "Preparazione Trevi Fruit: mockup con quantità, pesi confermati e avanzamento degli ordini.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
