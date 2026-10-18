@@ -24,9 +24,23 @@ export function printPreparation(
   members: PreparationBundle["members"],
 ) {
   if (!orders.length) return;
+  const html = preparationPrintHtml(orders, members);
+  const isTouch = window.matchMedia?.("(pointer: coarse)").matches;
+  // Su telefoni/tablet la stampa da iframe nascosto spesso non parte: si apre una finestra.
+  if (isTouch) {
+    const popup = window.open("", "_blank");
+    if (popup) {
+      popup.document.open();
+      popup.document.write(
+        html.replace("</body>", "<script>window.onload=()=>setTimeout(()=>window.print(),300)</script></body>"),
+      );
+      popup.document.close();
+      return;
+    }
+  }
   const frame = document.createElement("iframe");
-  frame.hidden = true;
   frame.setAttribute("aria-hidden", "true");
+  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;";
   document.body.appendChild(frame);
   const doc = frame.contentDocument;
   if (!doc) {
@@ -34,11 +48,13 @@ export function printPreparation(
     return;
   }
   doc.open();
-  doc.write(preparationPrintHtml(orders, members));
+  doc.write(html);
   doc.close();
   const cleanup = () => frame.remove();
   frame.contentWindow?.addEventListener("afterprint", cleanup);
   window.setTimeout(cleanup, 60000);
-  frame.contentWindow?.focus();
-  frame.contentWindow?.print();
+  window.setTimeout(() => {
+    frame.contentWindow?.focus();
+    frame.contentWindow?.print();
+  }, 300);
 }
