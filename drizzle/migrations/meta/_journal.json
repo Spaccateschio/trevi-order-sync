@@ -512,6 +512,13 @@
       "when": 1792222948039,
       "tag": "0072_external_delivery_extra_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1792341374958,
+      "tag": "0073_platform_team_and_audit",
+      "breakpoints": true
     }
   ]
 }
