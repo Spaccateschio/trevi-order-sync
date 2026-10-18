@@ -1,30 +1,76 @@
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
   ClipboardList,
   LayoutDashboard,
   LifeBuoy,
+  Loader2,
+  LogOut,
   Settings,
   Users,
   UsersRound,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { getPlatformAccess, type PlatformSection } from "@/lib/platform.functions";
 import { cn } from "@/lib/utils";
 
-const NAV_ITEMS = [
-  { to: "/piattaforma", label: "Pannello", icon: LayoutDashboard, exact: true },
-  { to: "/piattaforma/aziende", label: "Aziende", icon: Building2, exact: false },
-  { to: "/piattaforma/utenti", label: "Utenti", icon: Users, exact: false },
-  { to: "/piattaforma/registro", label: "Registro", icon: ClipboardList, exact: false },
-  { to: "/piattaforma/assistenza", label: "Assistenza", icon: LifeBuoy, exact: false },
-  { to: "/piattaforma/team", label: "Team interno", icon: UsersRound, exact: false },
-  { to: "/piattaforma/impostazioni", label: "Impostazioni", icon: Settings, exact: false },
-] as const;
+const NAV_ITEMS: {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact: boolean;
+  section: PlatformSection | null;
+}[] = [
+  { to: "/piattaforma", label: "Pannello", icon: LayoutDashboard, exact: true, section: null },
+  { to: "/piattaforma/aziende", label: "Aziende", icon: Building2, exact: false, section: "aziende" },
+  { to: "/piattaforma/utenti", label: "Utenti", icon: Users, exact: false, section: "utenti" },
+  { to: "/piattaforma/registro", label: "Registro", icon: ClipboardList, exact: false, section: "registro" },
+  { to: "/piattaforma/assistenza", label: "Assistenza", icon: LifeBuoy, exact: false, section: "assistenza" },
+  { to: "/piattaforma/team", label: "Team interno", icon: UsersRound, exact: false, section: null },
+  { to: "/piattaforma/impostazioni", label: "Impostazioni", icon: Settings, exact: false, section: "impostazioni" },
+];
 
 export function PlatformShell({ children }: { children?: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const { data: access, isLoading, isError } = useQuery({
+    queryKey: ["platform-access"],
+    queryFn: () => getPlatformAccess(),
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (isError || (!isLoading && access && !access.isAdmin)) {
+      navigate({ to: "/piattaforma-accesso", replace: true });
+    }
+  }, [isError, isLoading, access, navigate]);
+
+  if (isLoading || !access) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Caricamento" />
+      </div>
+    );
+  }
+
+  if (!access.isAdmin) return null;
+
+  const visibleItems = NAV_ITEMS.filter(
+    (item) =>
+      item.section === null ||
+      item.to === "/piattaforma/team" ||
+      access.permissions[item.section] !== "nessuno",
+  );
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    navigate({ to: "/piattaforma-accesso", replace: true });
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,12 +82,23 @@ export function PlatformShell({ children }: { children?: ReactNode }) {
             </p>
             <p className="text-xs opacity-80">Trevi Fruit — area riservata</p>
           </div>
-          <Badge variant="secondary" className="shrink-0">
-            MOCKUP — dati di esempio
-          </Badge>
+          {access.isSuper && (
+            <Badge variant="secondary" className="shrink-0">
+              Super amministratore
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSignOut}
+            aria-label="Esci dall'area riservata"
+            className="shrink-0 text-primary-foreground hover:bg-primary-foreground/10"
+          >
+            <LogOut className="h-4 w-4" aria-hidden />
+          </Button>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-2 pb-2">
-          {NAV_ITEMS.map((item) => {
+          {visibleItems.map((item) => {
             const active = item.exact
               ? pathname === item.to
               : pathname.startsWith(item.to);

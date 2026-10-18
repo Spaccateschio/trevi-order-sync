@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -11,20 +13,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MOCK_EVENTS, type MockEvent } from "@/lib/platform-mock-data";
+import { listPlatformEvents } from "@/lib/platform.functions";
 
 export const Route = createFileRoute("/piattaforma/registro")({
   head: () => ({
     meta: [
-      { title: "Registro eventi — Amministrazione piattaforma (mockup)" },
+      { title: "Registro eventi — Amministrazione piattaforma" },
       {
         name: "description",
-        content: "Registro di tutte le azioni sulla piattaforma, con filtri per azienda, utente e tipo.",
+        content: "Registro delle azioni compiute nell'area di amministrazione della piattaforma.",
       },
-      { property: "og:title", content: "Registro eventi — Amministrazione piattaforma (mockup)" },
+      { property: "og:title", content: "Registro eventi — Amministrazione piattaforma" },
       {
         property: "og:description",
-        content: "Registro di tutte le azioni sulla piattaforma, con filtri per azienda, utente e tipo.",
+        content: "Registro delle azioni compiute nell'area di amministrazione della piattaforma.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -33,26 +35,30 @@ export const Route = createFileRoute("/piattaforma/registro")({
   component: PlatformEvents,
 });
 
-const KIND_LABELS: Record<MockEvent["kind"], string> = {
-  ordine: "Ordine",
-  consegna: "Consegna",
-  accesso: "Accesso",
-  anagrafica: "Anagrafica",
-  sistema: "Sistema",
-};
-
 function PlatformEvents() {
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<string>("tutti");
+  const [section, setSection] = useState<string>("tutti");
+  const { data: events, isLoading } = useQuery({
+    queryKey: ["platform-events"],
+    queryFn: () => listPlatformEvents(),
+  });
 
-  const filtered = MOCK_EVENTS.filter((event) => {
-    if (kind !== "tutti" && event.kind !== kind) return false;
+  if (isLoading || !events) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Caricamento" />
+      </div>
+    );
+  }
+
+  const sections = [...new Set(events.map((e) => e.section))];
+  const filtered = events.filter((event) => {
+    if (section !== "tutti" && event.section !== section) return false;
     const q = query.toLowerCase();
     return (
-      event.company.toLowerCase().includes(q) ||
-      event.user.toLowerCase().includes(q) ||
       event.action.toLowerCase().includes(q) ||
-      event.detail.toLowerCase().includes(q)
+      event.section.toLowerCase().includes(q) ||
+      JSON.stringify(event.details ?? {}).toLowerCase().includes(q)
     );
   });
 
@@ -63,19 +69,19 @@ function PlatformEvents() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Cerca per azienda, utente o azione…"
+          placeholder="Cerca per azione o dettaglio…"
           aria-label="Cerca nel registro"
           className="flex-1"
         />
-        <Select value={kind} onValueChange={setKind}>
-          <SelectTrigger className="sm:w-48" aria-label="Filtra per tipo">
+        <Select value={section} onValueChange={setSection}>
+          <SelectTrigger className="sm:w-48" aria-label="Filtra per sezione">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="tutti">Tutti i tipi</SelectItem>
-            {Object.entries(KIND_LABELS).map(([key, label]) => (
-              <SelectItem key={key} value={key}>
-                {label}
+            <SelectItem value="tutti">Tutte le sezioni</SelectItem>
+            {sections.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
               </SelectItem>
             ))}
           </SelectContent>
@@ -89,14 +95,17 @@ function PlatformEvents() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-medium">{event.action}</p>
-                    <Badge variant="outline">{KIND_LABELS[event.kind]}</Badge>
+                    <Badge variant="outline">{event.section}</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">{event.detail}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {event.company} · {event.user}
-                  </p>
+                  {event.details != null && (
+                    <p className="truncate text-sm text-muted-foreground">
+                      {JSON.stringify(event.details)}
+                    </p>
+                  )}
                 </div>
-                <p className="shrink-0 text-xs text-muted-foreground">{event.at}</p>
+                <p className="shrink-0 text-xs text-muted-foreground">
+                  {new Date(event.created_at).toLocaleString("it-IT")}
+                </p>
               </CardContent>
             </Card>
           </li>

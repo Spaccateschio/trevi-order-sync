@@ -38,6 +38,7 @@
 - Prima di lavorare su Danea, prezzi, ordini o B2B resharing leggere src/lib/AGENTS.md. Le sottocartelle hanno il proprio AGENTS.md da leggere prima di modificarle.
 
 - Ordini: mai totali in euro; prezzo indicativo fino allo scarico Danea (listino del cliente in quel momento).
+- Area piattaforma (/piattaforma): team interno in platform_team_members con permessi per sezione; super admin gestisce il team via manage_platform_team_member; letture cross-azienda solo in sola lettura via supabaseAdmin dopo is_platform_admin; ogni azione va in platform_audit_log; mai modificare dati delle aziende clienti.
 - Prove valide solo con ruolo e strada reali (app: utente authenticated; Danea: indirizzo pubblico con postazione); SQL interno o privilegi superiori non contano come superate. Prove sugli indirizzi Danea reali solo con autorizzazione esplicita dell'utente.
 - Ordini già scaricati da Danea intoccabili: niente ricalcolo prezzi, storico retroattivo o cambio stato; il riscarico senza storico usa la logica precedente (test con danea-orders-xml.legacy.ts).
 - Clarify closed-list undo errors via RLS reads after RPC rejection; SQL guards remain unchanged.

@@ -2917,6 +2917,78 @@ export type Database = {
           },
         ]
       }
+      platform_audit_log: {
+        Row: {
+          action: string
+          actor_user_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          section: string
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          section: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          section?: string
+        }
+        Relationships: []
+      }
+      platform_team_members: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_super: boolean
+          perm_assistenza: string
+          perm_aziende: string
+          perm_impostazioni: string
+          perm_registro: string
+          perm_utenti: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_super?: boolean
+          perm_assistenza?: string
+          perm_aziende?: string
+          perm_impostazioni?: string
+          perm_registro?: string
+          perm_utenti?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_super?: boolean
+          perm_assistenza?: string
+          perm_aziende?: string
+          perm_impostazioni?: string
+          perm_registro?: string
+          perm_utenti?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       product_danea_supplier_matches: {
         Row: {
           company_id: string
@@ -7368,6 +7440,7 @@ export type Database = {
       is_company_admin: { Args: { _company_id: string }; Returns: boolean }
       is_company_member: { Args: { _company_id: string }; Returns: boolean }
       is_order_supplier: { Args: { _order_id: string }; Returns: boolean }
+      is_platform_admin: { Args: never; Returns: boolean }
       link_customer_record_to_relation: {
         Args: { _customer_record_id: string; _relation_id: string }
         Returns: undefined
@@ -7578,6 +7651,19 @@ export type Database = {
           _notes?: string
           _scope?: Database["public"]["Enums"]["inventory_session_scope"]
           _session_id?: string
+        }
+        Returns: string
+      }
+      manage_platform_team_member: {
+        Args: {
+          _action: string
+          _member_id?: string
+          _perm_assistenza?: string
+          _perm_aziende?: string
+          _perm_impostazioni?: string
+          _perm_registro?: string
+          _perm_utenti?: string
+          _user_id?: string
         }
         Returns: string
       }
@@ -7825,6 +7911,7 @@ export type Database = {
         Args: { _supplier_record_id: string }
         Returns: boolean
       }
+      platform_permission: { Args: { _section: string }; Returns: string }
       price_series_key: {
         Args: {
           _company_id: string
@@ -8654,7 +8741,7 @@ export type Database = {
         | "consegna"
         | "ritiro"
         | "magazzino"
-      app_role: "amministratore" | "operatore" | "trasportatore"
+      app_role: "amministratore" | "operatore" | "trasportatore" | "piattaforma"
       danea_connection_status: "attivo" | "revocato"
       danea_supplier_match_status: "da_associare" | "associato" | "ignorato"
       danea_sync_mode: "full" | "incremental"
@@ -8892,7 +8979,7 @@ export const Constants = {
         "ritiro",
         "magazzino",
       ],
-      app_role: ["amministratore", "operatore", "trasportatore"],
+      app_role: ["amministratore", "operatore", "trasportatore", "piattaforma"],
       danea_connection_status: ["attivo", "revocato"],
       danea_supplier_match_status: ["da_associare", "associato", "ignorato"],
       danea_sync_mode: ["full", "incremental"],
