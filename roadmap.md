@@ -1,8 +1,8 @@
 # Roadmap
 
 ## 18/10 — Completare Preparazione
-- [ ] Analisi dello stato attuale e piano limitato alla Preparazione, da approvare prima dell'implementazione.
-- [ ] Implementazione e verifiche: in attesa dell'approvazione del piano; nessuna pubblicazione o modifica di dati operativi reali.
+- [ ] Analisi dello stato attuale e piano del solo mockup Preparazione, da approvare prima dell'implementazione.
+- [ ] Mockup interattivo con dati inventati e verifiche: in attesa dell'approvazione del piano; nessun collegamento ai dati operativi, nessuna pubblicazione.
 
 ## 17/10 — Rimanda ordine sulle card
 - [x] Verifica read-only: mancava il collegamento al singolo ordine B2B in sola consultazione; link consegna inadatti. RLS venditore presente; apertura card operativa registra il visto. 00004/00005 B2B già visti e scaricati, nessuna modifica; adattamento approvato 17/10 06:41 UTC.
