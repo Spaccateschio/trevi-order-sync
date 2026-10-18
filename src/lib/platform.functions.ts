@@ -25,10 +25,12 @@ const SECTIONS: PlatformSection[] = [
   "impostazioni",
 ];
 
-async function requirePlatformAdmin(
-  supabase: { rpc: (fn: string) => Promise<{ data: unknown }> },
-) {
-  const { data } = await supabase.rpc("is_platform_admin");
+type RpcClient = {
+  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown }>;
+};
+
+async function requirePlatformAdmin(supabase: unknown) {
+  const { data } = await (supabase as RpcClient).rpc("is_platform_admin");
   if (data !== true) throw new Error("Accesso riservato al team interno");
 }
 
@@ -287,18 +289,19 @@ export const managePlatformTeamMember = createServerFn({ method: "POST" })
     }) => input,
   )
   .handler(async ({ data, context }) => {
+    const args = {
+      _action: data.action as string,
+      ...(data.memberId ? { _member_id: data.memberId } : {}),
+      ...(data.userId ? { _user_id: data.userId } : {}),
+      ...(data.permAziende ? { _perm_aziende: data.permAziende } : {}),
+      ...(data.permUtenti ? { _perm_utenti: data.permUtenti } : {}),
+      ...(data.permRegistro ? { _perm_registro: data.permRegistro } : {}),
+      ...(data.permAssistenza ? { _perm_assistenza: data.permAssistenza } : {}),
+      ...(data.permImpostazioni ? { _perm_impostazioni: data.permImpostazioni } : {}),
+    };
     const { data: id, error } = await context.supabase.rpc(
       "manage_platform_team_member",
-      {
-        _action: data.action,
-        _member_id: data.memberId ?? undefined,
-        _user_id: data.userId ?? undefined,
-        _perm_aziende: data.permAziende ?? undefined,
-        _perm_utenti: data.permUtenti ?? undefined,
-        _perm_registro: data.permRegistro ?? undefined,
-        _perm_assistenza: data.permAssistenza ?? undefined,
-        _perm_impostazioni: data.permImpostazioni ?? undefined,
-      },
+      args,
     );
     if (error) throw new Error(error.message);
     return { id };
