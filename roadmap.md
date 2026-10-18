@@ -1,5 +1,10 @@
 # Roadmap
 
+## 18/10 — Ruoli aziendali e reparti
+- [x] Fase 1 mockup: Azienda → Collaboratori (anteprima): invito, 6 profili combinabili, permessi per pagina/azione, prezzi, fornitori, eccezioni per fornitore, reparti, liste per reparto con cambio rapido e ordine consolidato. Solo dati inventati.
+- [ ] Fase 2 (database e permessi reali): attende approvazione mockup e verifica dipendenze con Inventario, Lista, Ordini.
+
+
 ## 18/10 — Preparazione con dati reali
 - [x] Fase 1 approvata: Preparazione reale e stampa; mantenere mockup e test originali.
 - [x] Sviluppo Fase 1: Preparazione separata, conferme, storico, preparatore, versioni e firme sorgente, stampa singola/multipla; mockup e test originali conservati. Migrazioni 0074/0075 applicate; grant client sola lettura verificati. 22 test nuovi + 6 mockup + 17 Danea superati; build OK. Nessuna scrittura operativa: preparazioni/righe/eventi tutti a zero.

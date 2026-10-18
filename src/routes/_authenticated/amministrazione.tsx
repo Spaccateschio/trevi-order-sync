@@ -11,6 +11,7 @@ import { SellerPriceInfoForm } from "@/components/company/seller-price-info-form
 import { CompanyPhoneForm } from "@/components/company/company-phone-form";
 import { UnitCatalogue } from "@/components/company/unit-catalogue";
 import { InventoryLocationsManager } from "@/components/inventory/inventory-locations-manager";
+import { TeamMockup } from "@/components/team-mockup/team-mockup";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -87,7 +88,12 @@ function Amministrazione() {
             <TabsTrigger value="generali">Dati generali</TabsTrigger>
             <TabsTrigger value="magazzino">Magazzino</TabsTrigger>
             <TabsTrigger value="preferenze">Preferenze</TabsTrigger>
+            <TabsTrigger value="collaboratori">Collaboratori (anteprima)</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="collaboratori">
+            <TeamMockup />
+          </TabsContent>
 
           <TabsContent value="generali">
             <div className="grid gap-4 sm:grid-cols-2">
