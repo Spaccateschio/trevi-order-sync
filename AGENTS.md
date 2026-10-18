@@ -35,7 +35,7 @@
 - Never alter real operational data in tests, even temporarily. Writes require rollback or explicitly authorized test data.
 - 3 EMME ROMA SRL è l'azienda di prova: Andrea può fare collaudi manuali dall'app in anteprima. Mai prove su trevi srl o su altre aziende reali. Nessun invio reale ai fornitori durante i collaudi.
 
-- Prima di lavorare su Danea, prezzi, ordini o B2B resharing leggere src/lib/AGENTS.md. Le sottocartelle hanno il proprio AGENTS.md da leggere prima di modificarle.
+- Read src/lib/AGENTS.md before Danea, prices, orders, resharing or preparation; read nested AGENTS.md before edits.
 
 - Ordini: mai totali in euro; prezzo indicativo fino allo scarico Danea (listino del cliente in quel momento).
 - Area piattaforma (/piattaforma): team interno in platform_team_members con permessi per sezione; super admin gestisce il team via manage_platform_team_member; letture cross-azienda solo in sola lettura via supabaseAdmin dopo is_platform_admin; ogni azione va in platform_audit_log; mai modificare dati delle aziende clienti.

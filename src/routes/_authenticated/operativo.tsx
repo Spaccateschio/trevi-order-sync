@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
 import {
-  PreparationMockup,
-  PreparationGuideButton,
-} from "@/components/preparation/preparation-mockup";
-import { hasRole, useIdentity } from "@/hooks/use-identity";
+  PreparationPanel,
+  RealPreparationGuideButton,
+} from "@/components/preparation/preparation-panel";
+import { activeCompany, hasRole, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/operativo")({
   head: () => ({
@@ -14,13 +14,13 @@ export const Route = createFileRoute("/_authenticated/operativo")({
       {
         name: "description",
         content:
-          "Preparazione Trevi Fruit: mockup con quantità, pesi confermati e avanzamento degli ordini.",
+          "Preparazione degli ordini ricevuti: quantità e pesi confermati, preparatori, storico e stampa.",
       },
       { property: "og:title", content: "Preparazione — Trevi Fruit" },
       {
         property: "og:description",
         content:
-          "Preparazione Trevi Fruit: mockup con quantità, pesi confermati e avanzamento degli ordini.",
+          "Preparazione degli ordini ricevuti: quantità e pesi confermati, preparatori, storico e stampa.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -31,12 +31,17 @@ export const Route = createFileRoute("/_authenticated/operativo")({
 
 function Operativo() {
   const { data: identity } = useIdentity();
+  const company = activeCompany(identity);
   const allowed = hasRole(identity, "operatore") || hasRole(identity, "amministratore");
 
   return (
-    <AppShell title="Preparazione" actions={allowed ? <PreparationGuideButton /> : undefined}>
-      {allowed ? (
-        <PreparationMockup />
+    <AppShell title="Preparazione" actions={allowed ? <RealPreparationGuideButton /> : undefined}>
+      {allowed && company && identity ? (
+        <PreparationPanel
+          key={`${identity.userId}:${company.memberId}`}
+          memberId={company.memberId}
+          userId={identity.userId}
+        />
       ) : (
         <p className="text-sm text-muted-foreground">
           Questa area è riservata al personale operativo dell'azienda.

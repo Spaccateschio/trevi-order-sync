@@ -1,8 +1,9 @@
 # Roadmap
 
 ## 18/10 — Preparazione con dati reali
-- [ ] Approvare il piano: ordini ricevuti per cliente, dettaglio, conferme quantità/pesi, preparatori, stampa e collegamento allo scarico Danea senza modificare gli ordini già scaricati.
-- [ ] Implementare una fase alla volta dopo approvazione; nessuna pubblicazione o prova con scritture sui dati operativi reali.
+- [x] Fase 1 approvata: Preparazione reale e stampa; mantenere mockup e test originali.
+- [ ] Implementare e verificare Fase 1 senza scritture sui dati operativi; consegnare file/migrazioni, esiti e limiti dei test, rischi U.M./pesi/concorrenza e impatto futuro Danea.
+- [ ] Fase 2 bloccata: attende verifica della Fase 1 e nuova autorizzazione esplicita. Non modificare export Danea, non chiamare endpoint reali, non alterare scarichi/storici/numerazione. Voce AI esclusa, nessuna pubblicazione.
 
 ## 18/10 — Completare Preparazione
 - [x] Analisi e piano del solo mockup Preparazione approvati.

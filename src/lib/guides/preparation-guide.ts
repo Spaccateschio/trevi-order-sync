@@ -48,7 +48,7 @@ export const preparationGuide: Guide = {
     },
   ],
 };
-export async function startPreparationGuide() {
+export async function startPreparationGuide(real = false) {
   const { driver } = await import("driver.js");
   await import("driver.js/dist/driver.css");
   const tour = driver({
@@ -66,9 +66,66 @@ export async function startPreparationGuide() {
       skip.onclick = () => tour.destroy();
       p.footerButtons.prepend(skip);
     },
-    steps: preparationGuide.steps
+    steps: (real ? realPreparationGuide.steps : preparationGuide.steps)
       .filter((s) => document.querySelector(s.target)?.getClientRects().length)
       .map((s) => ({ element: s.target, popover: { title: s.title, description: s.text } })),
   });
   tour.drive();
 }
+
+export const realPreparationGuide: Guide = {
+  key: "preparazione-reale",
+  title: "Preparazione",
+  version: 1,
+  steps: [
+    {
+      id: "prep.elenco",
+      target: '[data-tour="prep.elenco"]',
+      title: "Ordini per cliente",
+      text: "Apri una card per entrare nell'ordine ricevuto. Le caselle selezionano gli ordini da stampare.",
+      introducedIn: 1,
+    },
+    {
+      id: "prep.filtri",
+      target: '[data-tour="prep.filtri"]',
+      title: "Ricerca e stati",
+      text: "Cerca per cliente o numero e filtra per avanzamento della preparazione.",
+      introducedIn: 1,
+    },
+    {
+      id: "prep.preparatore",
+      target: '[data-tour="prep.preparatore"]',
+      title: "Preparatore",
+      text: "Assegna un amministratore o operatore attivo. Ogni operazione registra anche chi la esegue.",
+      introducedIn: 1,
+    },
+    {
+      id: "prep.righe",
+      target: '[data-tour="prep.righe"]',
+      title: "Conferma le righe",
+      text: "Richiesto, preparato e peso in kg restano separati. Conferma ogni riga, usa la matita per correggere o segnala Mancante. I dati non confermati non sono salvati.",
+      introducedIn: 1,
+    },
+    {
+      id: "prep.stampa",
+      target: '[data-tour="prep.stampa"]',
+      title: "Stampa",
+      text: "Stampa l'ordine aperto o gli ordini selezionati nell'elenco. Il foglio usa soltanto i valori salvati.",
+      introducedIn: 1,
+    },
+    {
+      id: "prep.storico",
+      target: '[data-tour="prep.storico"]',
+      title: "Storico",
+      text: "Consulta conferme, correzioni, mancanti e assegnazioni con autore e orario.",
+      introducedIn: 1,
+    },
+    {
+      id: "prep.pronto",
+      target: '[data-tour="prep.pronto"]',
+      title: "Ordine pronto",
+      text: "Verifica il riepilogo e conferma quando tutte le righe sono verificate. Gli ordini pronti o già scaricati sono bloccati. In questa fase i pesi non sono collegati allo scarico Danea.",
+      introducedIn: 1,
+    },
+  ],
+};

@@ -2917,6 +2917,199 @@ export type Database = {
           },
         ]
       }
+      order_preparation_events: {
+        Row: {
+          action: string
+          actor_user_id: string
+          after_data: Json
+          assigned_member_id: string | null
+          before_data: Json | null
+          company_id: string
+          created_at: string
+          id: string
+          item_id: string | null
+          order_id: string
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          after_data: Json
+          assigned_member_id?: string | null
+          before_data?: Json | null
+          company_id: string
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          order_id: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          after_data?: Json
+          assigned_member_id?: string | null
+          before_data?: Json | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_preparation_events_assigned_member_id_fkey"
+            columns: ["assigned_member_id"]
+            isOneToOne: false
+            referencedRelation: "company_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_preparation_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_preparation_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_preparation_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_preparations"
+            referencedColumns: ["order_id"]
+          },
+        ]
+      }
+      order_preparation_lines: {
+        Row: {
+          company_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          effective_weight_kg: number | null
+          item_id: string
+          order_id: string
+          prepared_quantity: number | null
+          requested_quantity: number | null
+          source_signature: string
+          state: string
+          unit_code: string | null
+          unit_id: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          company_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          effective_weight_kg?: number | null
+          item_id: string
+          order_id: string
+          prepared_quantity?: number | null
+          requested_quantity?: number | null
+          source_signature: string
+          state?: string
+          unit_code?: string | null
+          unit_id?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          company_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          effective_weight_kg?: number | null
+          item_id?: string
+          order_id?: string
+          prepared_quantity?: number | null
+          requested_quantity?: number | null
+          source_signature?: string
+          state?: string
+          unit_code?: string | null
+          unit_id?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_preparation_lines_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_preparation_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: true
+            referencedRelation: "purchase_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_preparation_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_preparations"
+            referencedColumns: ["order_id"]
+          },
+        ]
+      }
+      order_preparations: {
+        Row: {
+          assigned_member_id: string | null
+          company_id: string
+          order_id: string
+          ready_at: string | null
+          ready_by: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          assigned_member_id?: string | null
+          company_id: string
+          order_id: string
+          ready_at?: string | null
+          ready_by?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          assigned_member_id?: string | null
+          company_id?: string
+          order_id?: string
+          ready_at?: string | null
+          ready_by?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_preparations_assigned_member_id_fkey"
+            columns: ["assigned_member_id"]
+            isOneToOne: false
+            referencedRelation: "company_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_preparations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_preparations_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_audit_log: {
         Row: {
           action: string
@@ -7654,6 +7847,20 @@ export type Database = {
         }
         Returns: string
       }
+      manage_order_preparation: {
+        Args: {
+          _action: string
+          _assigned_member_id?: string
+          _item_id?: string
+          _line_version?: number
+          _order_id: string
+          _quantity?: number
+          _source_signature: string
+          _version: number
+          _weight_kg?: number
+        }
+        Returns: Json
+      }
       manage_platform_team_member: {
         Args: {
           _action: string
@@ -7912,6 +8119,15 @@ export type Database = {
         Returns: boolean
       }
       platform_permission: { Args: { _section: string }; Returns: string }
+      preparation_actor_allowed: {
+        Args: { _company_id: string }
+        Returns: boolean
+      }
+      preparation_bundle: { Args: { _member_id: string }; Returns: Json }
+      preparation_order_signature: {
+        Args: { _order_id: string }
+        Returns: string
+      }
       price_series_key: {
         Args: {
           _company_id: string
