@@ -100,10 +100,11 @@ export function PreparationPanel({ memberId, userId }: { memberId: string; userI
   const [filter, setFilter] = useState("Tutti");
   const [printIds, setPrintIds] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<
-    Record<string, { quantity: string; weight: string; version: number }>
+    Record<string, { quantity: string; weight: string; version: number; sourceSignature: string }>
   >({});
   const [review, setReview] = useState(false),
     [history, setHistory] = useState(false);
+  const [reviewSnapshot, setReviewSnapshot] = useState<{ version: number; sourceSignature: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const orders = query.data?.orders ?? [];
   const members = query.data?.members ?? [];
@@ -156,6 +157,7 @@ export function PreparationPanel({ memberId, userId }: { memberId: string; userI
       quantity: line.prepared === null ? "" : String(line.prepared),
       weight: line.weight === null ? "" : String(line.weight),
       version: line.version,
+      sourceSignature: order?.sourceSignature ?? "",
     };
   const changeDraft = (line: PreparationLine, field: "quantity" | "weight", value: string) =>
     setDrafts((all) => ({ ...all, [line.id]: { ...draftFor(line), [field]: value } }));
@@ -417,7 +419,7 @@ export function PreparationPanel({ memberId, userId }: { memberId: string; userI
           <div data-tour="prep.righe" className="space-y-3">
             {order.lines.map((l) => {
               const draft = draftFor(l),
-                stale = drafts[l.id] !== undefined && drafts[l.id]?.version !== l.version;
+                stale = drafts[l.id] !== undefined && (drafts[l.id]?.version !== l.version || drafts[l.id]?.sourceSignature !== order.sourceSignature);
               const photo = images.data?.find((p) => p.productId === l.sellerProductId);
               return (
                 <article
@@ -595,7 +597,7 @@ export function PreparationPanel({ memberId, userId }: { memberId: string; userI
             </p>
             <Button
               disabled={locked || busy || dirty || !canCompletePreparation(order, members)}
-              onClick={() => setReview(true)}
+              onClick={() => { setReviewSnapshot({version: order.version, sourceSignature: order.sourceSignature}); setReview(true); }}
             >
               <CheckCheck className="size-4" />
               {order.readyAt ? "Ordine pronto" : "Controlla e completa"}
@@ -638,9 +640,9 @@ export function PreparationPanel({ memberId, userId }: { memberId: string; userI
               Torna alle righe
             </Button>
             <Button
-              disabled={busy || !order || !canCompletePreparation(order, members)}
+              disabled={busy || !order || !canCompletePreparation(order, members) || reviewSnapshot?.version !== order.version || reviewSnapshot?.sourceSignature !== order.sourceSignature}
               onClick={() => {
-                if (order) command(order, "ready");
+                if (order && reviewSnapshot) command(order, "ready", reviewSnapshot);
               }}
             >
               Conferma ordine pronto
