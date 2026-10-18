@@ -1,21 +1,24 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { getPlatformAccess } from "@/lib/platform.functions";
 
 export const Route = createFileRoute("/piattaforma-accesso")({
   head: () => ({
     meta: [
-      { title: "Accesso amministrazione — Trevi Fruit (mockup)" },
+      { title: "Accesso amministrazione — Trevi Fruit" },
       {
         name: "description",
         content: "Accesso riservato all'area di amministrazione della piattaforma.",
       },
-      { property: "og:title", content: "Accesso amministrazione — Trevi Fruit (mockup)" },
+      { property: "og:title", content: "Accesso amministrazione — Trevi Fruit" },
       {
         property: "og:description",
         content: "Accesso riservato all'area di amministrazione della piattaforma.",
@@ -28,8 +31,32 @@ export const Route = createFileRoute("/piattaforma-accesso")({
 });
 
 function PlatformLogin() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        toast.error("Email o password non corretti");
+        return;
+      }
+      const access = await getPlatformAccess();
+      if (!access.isAdmin) {
+        await supabase.auth.signOut();
+        toast.error("Questo account non fa parte del team interno");
+        return;
+      }
+      navigate({ to: "/piattaforma", replace: true });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -41,33 +68,36 @@ function PlatformLogin() {
             Accesso riservato al team interno di Trevi Fruit
           </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="admin-email">Email</Label>
-            <Input
-              id="admin-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="nome@piattaforma.it"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="admin-password">Password</Label>
-            <Input
-              id="admin-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-            />
-          </div>
-          <Button className="w-full" asChild>
-            <Link to="/piattaforma">Entra (mockup)</Link>
-          </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            Pagina dimostrativa: l'accesso non è ancora controllato.
-          </p>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1">
+              <Label htmlFor="admin-email">Email</Label>
+              <Input
+                id="admin-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nome@piattaforma.it"
+                autoComplete="email"
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="admin-password">Password</Label>
+              <Input
+                id="admin-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={busy}>
+              {busy ? "Accesso in corso…" : "Entra"}
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </div>
