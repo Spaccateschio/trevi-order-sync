@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { Database } from "@/integrations/supabase/types";
 
 /**
  * Pagina del fornitore senza account: l'accesso è consentito solo dal codice ricevuto
@@ -138,14 +139,14 @@ export const externalSetDeliveryItem = createServerFn({ method: "POST" })
       ...(data.lineNotes === null ? {} : { _line_notes: data.lineNotes }),
       ...(data.missingReason === null ? {} : { _missing_reason: data.missingReason }),
       ...(data.declaredPurchaseQuantity == null ? {} : { _declared_purchase_quantity: data.declaredPurchaseQuantity }),
-      ...(data.declaredUnitPrice == null ? {} : { _declared_unit_price: data.declaredUnitPrice }),
-      ...(data.declaredTareWeight == null ? {} : { _declared_tare_weight: data.declaredTareWeight }),
-      ...(data.declaredGrossWeight == null ? {} : { _declared_gross_weight: data.declaredGrossWeight }),
-      ...(data.declaredNetWeight == null ? {} : { _declared_net_weight: data.declaredNetWeight }),
-      ...(data.declaredAltDescription == null || data.declaredAltDescription === ""
-        ? {}
-        : { _declared_alt_description: data.declaredAltDescription }),
-    });
+      // Keep the new keys even when blank so PostgREST selects the 14-argument
+      // overload. SQL accepts NULL; generated optional Args omit that possibility.
+      _declared_unit_price: data.declaredUnitPrice ?? null,
+      _declared_tare_weight: data.declaredTareWeight ?? null,
+      _declared_gross_weight: data.declaredGrossWeight ?? null,
+      _declared_net_weight: data.declaredNetWeight ?? null,
+      _declared_alt_description: data.declaredAltDescription || null,
+    } as Database["public"]["Functions"]["external_set_delivery_item"]["Args"]);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
