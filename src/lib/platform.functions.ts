@@ -65,7 +65,7 @@ export const getPlatformAccess = createServerFn({ method: "GET" })
       SECTIONS.map((section) => {
         if (isSuper) return [section, "modifica"];
         const key = `perm_${section}` as keyof typeof member;
-        return [section, (member?.[key] as PlatformPermission) ?? "nessuno"];
+        return [section, ((member?.[key] as unknown) as PlatformPermission) ?? "nessuno"];
       }),
     ) as Record<PlatformSection, PlatformPermission>;
     return { isAdmin: true, isSuper, permissions };
@@ -127,7 +127,7 @@ export const listPlatformCompanies = createServerFn({ method: "GET" })
       .select("company_id");
     const { data: orders } = await supabaseAdmin
       .from("purchase_orders")
-      .select("buyer_company_id, created_at")
+      .select("company_id, created_at")
       .gte("created_at", monthStart.toISOString());
 
     const usersByCompany = new Map<string, number>();
@@ -137,10 +137,10 @@ export const listPlatformCompanies = createServerFn({ method: "GET" })
     const ordersByCompany = new Map<string, number>();
     let lastActivity: string | null = null;
     for (const o of orders ?? []) {
-      if (o.buyer_company_id) {
+      if (o.company_id) {
         ordersByCompany.set(
-          o.buyer_company_id,
-          (ordersByCompany.get(o.buyer_company_id) ?? 0) + 1,
+          o.company_id,
+          (ordersByCompany.get(o.company_id) ?? 0) + 1,
         );
       }
       if (!lastActivity || o.created_at > lastActivity) lastActivity = o.created_at;
