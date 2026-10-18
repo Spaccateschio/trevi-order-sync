@@ -249,6 +249,29 @@ export const listPlatformTeam = createServerFn({ method: "GET" })
     }));
   });
 
+export const findPlatformUserByEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { email: string }) => input)
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.supabase);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: users } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+    const found = (users?.users ?? []).find(
+      (u) => u.email?.toLowerCase() === data.email.trim().toLowerCase(),
+    );
+    if (!found) return null;
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("first_name, last_name")
+      .eq("user_id", found.id)
+      .maybeSingle();
+    return {
+      userId: found.id,
+      email: found.email ?? "",
+      name: [profile?.first_name, profile?.last_name].filter(Boolean).join(" "),
+    };
+  });
+
 export const managePlatformTeamMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
