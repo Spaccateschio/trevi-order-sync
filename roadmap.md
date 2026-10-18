@@ -1,8 +1,9 @@
 # Roadmap
 
 ## 18/10 — Completare Preparazione
-- [ ] Analisi dello stato attuale e piano del solo mockup Preparazione, da approvare prima dell'implementazione.
-- [ ] Mockup interattivo con dati inventati e verifiche: in attesa dell'approvazione del piano; nessun collegamento ai dati operativi, nessuna pubblicazione.
+- [x] Analisi e piano del solo mockup Preparazione approvati.
+- [x] Mockup /operativo: ordini inventati, filtri, preparatore, quantità e pesi separati, conferma/correzione righe, mancanti, riepilogo, pronto, dialogo simulato e guida. Sei test superati; build OK; percorso completo verificato in anteprima autenticata, immagini e layout 1280/390 px. Nessun collegamento ai dati operativi, nessuna pubblicazione.
+- File: operativo.tsx (47 righe finali); nuovi preparation-demo-data.ts (120), preparation-demo-data.test.ts (64), preparation-mockup.tsx (542), preparation-guide.ts (74); AGENTS.md (+1 regola); roadmap.md (+6 righe rispetto all'inizio del lavoro).
 
 ## 17/10 — Rimanda ordine sulle card
 - [x] Verifica read-only: mancava il collegamento al singolo ordine B2B in sola consultazione; link consegna inadatti. RLS venditore presente; apertura card operativa registra il visto. 00004/00005 B2B già visti e scaricati, nessuna modifica; adattamento approvato 17/10 06:41 UTC.
