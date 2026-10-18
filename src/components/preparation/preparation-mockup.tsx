@@ -424,7 +424,6 @@ export function PreparationMockup() {
           </div>
         </section>
       )}
-    </div>
       <Dialog open={review} onOpenChange={setReview}>
         <DialogContent className="max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
