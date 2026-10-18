@@ -1,5 +1,9 @@
 # Roadmap
 
+## 18/10 — Preparazione con dati reali
+- [ ] Approvare il piano: ordini ricevuti per cliente, dettaglio, conferme quantità/pesi, preparatori, stampa e collegamento allo scarico Danea senza modificare gli ordini già scaricati.
+- [ ] Implementare una fase alla volta dopo approvazione; nessuna pubblicazione o prova con scritture sui dati operativi reali.
+
 ## 18/10 — Completare Preparazione
 - [x] Analisi e piano del solo mockup Preparazione approvati.
 - [x] Mockup /operativo: ordini inventati, filtri, preparatore, quantità e pesi separati, conferma/correzione righe, mancanti, riepilogo, pronto, dialogo simulato e guida. Sei test superati; build OK; percorso completo verificato in anteprima autenticata, immagini e layout 1280/390 px. Nessun collegamento ai dati operativi, nessuna pubblicazione.
