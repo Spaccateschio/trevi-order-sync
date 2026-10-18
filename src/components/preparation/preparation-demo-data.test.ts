@@ -1,0 +1,10 @@
+import { describe, it, expect } from "vitest";
+import { createDemoOrders, updateLine, confirmLine, canComplete, canConfirm } from "./preparation-demo-data";
+describe("Preparazione dimostrativa", () => {
+  it("il peso proposto resta non confermato", () => { const l = createDemoOrders()[0].lines[0]; expect(updateLine(l, "weight", "11.8").confirmed).toBe(false); });
+  it("solo la conferma esplicita blocca la riga", () => { const l = { ...createDemoOrders()[0].lines[0], prepared: "2", weight: "11.8" }; expect(l.confirmed).toBe(false); expect(confirmLine(l).confirmed).toBe(true); expect(updateLine(confirmLine(l), "weight", "12").confirmed).toBe(false); });
+  it("2 casse e 11.8 kg rimangono distinti", () => { const l = confirmLine({ ...createDemoOrders()[0].lines[0], prepared: "2", weight: "11.8" }); expect(l.unit).toBe("cs"); expect(l.prepared).toBe("2"); expect(l.weight).toBe("11.8"); expect(l.requested).toBe(2); });
+  it("peso facoltativo e quantità positiva", () => { const l = createDemoOrders()[0].lines[0]; expect(canConfirm({ ...l, prepared: "2" })).toBe(true); expect(canConfirm({ ...l, prepared: "0" })).toBe(false); expect(canConfirm({ ...l, prepared: "-1" })).toBe(false); expect(canConfirm({ ...l, prepared: "2", weight: "-1" })).toBe(false); });
+  it("pronto solo con preparatore e tutte le righe verificate", () => { const o = createDemoOrders()[0]; expect(canComplete(o)).toBe(false); const done = { ...o, assignee: "Sara", lines: o.lines.map(l => confirmLine({ ...l, prepared: String(l.requested) })) }; expect(canComplete(done)).toBe(true); expect(canComplete({ ...done, assignee: "" })).toBe(false); expect(canComplete({ ...done, lines: [] })).toBe(false); expect(canComplete({ ...done, lines: [o.lines[0]] })).toBe(false); });
+  it("mancante risolto ma non inventa quantità o peso", () => { const o = createDemoOrders()[0]; const lines = o.lines.map(l => ({ ...l, missing: true })); expect(canComplete({ ...o, assignee: "Luca", lines })).toBe(true); expect(lines[0].prepared).toBe(""); expect(lines[0].weight).toBe(""); });
+});
