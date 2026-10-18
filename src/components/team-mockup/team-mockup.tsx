@@ -140,11 +140,11 @@ function InviteDialog({ departments, onClose, onInvite }: { departments: Departm
     setPresets((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] overflow-y-auto">
         <DialogHeader><DialogTitle>Invita collaboratore</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-          <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div><Label htmlFor="invite-name">Nome</Label><Input id="invite-name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+          <div><Label htmlFor="invite-email">Email</Label><Input id="invite-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           <div>
             <Label>Profili di partenza (combinabili)</Label>
             <div className="mt-2 space-y-2">
@@ -201,7 +201,7 @@ function PermissionsDialog({ person, departments, onClose, onSave }: { person: C
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-3xl overflow-y-auto overflow-x-hidden">
         <DialogHeader><DialogTitle>Permessi di {draft.name}</DialogTitle></DialogHeader>
 
         <section>
@@ -216,9 +216,9 @@ function PermissionsDialog({ person, departments, onClose, onSave }: { person: C
           </div>
         </section>
 
-        <section>
+        <section className="min-w-0">
           <h3 className="text-sm font-semibold">Pagine e azioni</h3>
-          <div className="mt-2 overflow-x-auto rounded-md border border-border">
+          <div className="mt-2 max-w-full overflow-x-auto rounded-md border border-border">
             <table className="w-full text-xs">
               <thead className="bg-muted">
                 <tr>
@@ -339,7 +339,8 @@ function DepartmentLists({ departments, people }: { departments: Department[]; p
   const [viewer, setViewer] = useState<string>(people.find((p) => p.presets.includes("compratore"))?.id ?? people[0]!.id);
   const person = people.find((p) => p.id === viewer) ?? people[0]!;
   const isAdmin = person.presets.includes("super") || person.presets.includes("amministratore");
-  const allowed = departments.filter((d) => d.active && (isAdmin || person.departments.includes(d.id)));
+  const seesLists = isAdmin || person.permissions.lista.includes("vedere");
+  const allowed = seesLists ? departments.filter((d) => d.active && (isAdmin || person.departments.includes(d.id))) : [];
   const [current, setCurrent] = useState<string>("tutti");
   const active = isAdmin && current === "tutti" ? "tutti" : allowed.some((d) => d.id === current) ? current : allowed[0]?.id;
 
@@ -364,7 +365,7 @@ function DepartmentLists({ departments, people }: { departments: Department[]; p
       <p className="text-xs text-muted-foreground">Ciclo acquisti aziendale unico: Inventario → Liste di reparto → Ordini.</p>
 
       {allowed.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Questo collaboratore non ha reparti: non vede nessuna lista.</p>
+        <p className="text-sm text-muted-foreground">{seesLists ? "Questo collaboratore non ha reparti: non vede nessuna lista." : "Questo collaboratore non ha il permesso di vedere la Lista della Spesa."}</p>
       ) : (
         <div className="flex gap-1 overflow-x-auto">
           {isAdmin ? <Button size="sm" variant={active === "tutti" ? "default" : "outline"} onClick={() => setCurrent("tutti")}>Vista generale</Button> : null}
