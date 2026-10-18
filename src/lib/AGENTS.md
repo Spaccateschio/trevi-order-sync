@@ -5,3 +5,4 @@
 - Ultimo aggiornamento listino in seller_price_info: solo invio Danea completato con prezzi cambiati (danea_record_price_list_update) o modifica reale di netto/lordo (trigger); orario abituale e testo solo informativi via set_seller_price_info.
 
 - B2B resharing reuses customer-orders in a read-only branch independent of active-company navigation; auth retains validated order ID. is_order_supplier checks membership before RLS reads; cache is user-scoped. No seen/operational RPCs.
+- Preparation uses separate tables via preparation_bundle / manage_order_preparation. Membership selectors and order IDs are authorized in DB as seller admin/operator; order/item locks, source signatures and versions prevent lost updates. Audit is append-only for authenticated users. Phase 1 never writes original orders, inventory or deliveries and leaves export functions unchanged; only shares the export lock to reject already exported orders.

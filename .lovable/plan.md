@@ -15,7 +15,7 @@ La pagina Preparazione conserva il mockup approvato: prima le card per nome clie
 - Immagini reali dove disponibili; nessuna foto dimostrativa attribuita a un prodotto reale. Stati espliciti per elenco vuoto, caricamento, errore e salvataggio.
 
 ## Fase 2 — Pesi nello scarico Danea
-Realizzare questa fase dopo i controlli della Fase 1, nello stesso intervento approvato, senza pubblicazione.
+Obiettivo approvato, esecuzione NON autorizzata. Fermarsi alla fine della Fase 1 e attendere una nuova autorizzazione esplicita dopo la verifica dell'utente; nessuna modifica alle funzioni di esportazione Danea in Fase 1.
 
 - Preparazione modificabile solo prima dello scarico: blocco nel database, non solo nei pulsanti. Ordini già scaricati in sola consultazione, senza nuovi dati retroattivi o cambi di stato.
 - Per un ordine pronto e non ancora scaricato, usare le quantità preparate confermate; se la riga è richiesta in kg, usare il peso effettivo confermato quando presente.
@@ -39,7 +39,7 @@ Il dialogo AI reale con microfono sarà una fase separata, con un proprio piano 
 
 ## File previsti
 **Nuovi:**
-- `drizzle/migrations/0074_order_preparation.sql` — tabelle, storico e funzioni di preparazione; integrazione atomica delle funzioni di scarico interessate.
+- Migrazione generata dagli strumenti in `drizzle/migrations/` — sole tabelle, storico e funzioni di preparazione in Fase 1; integrazione dello scarico esclusivamente nella futura Fase 2.
 - `src/lib/preparation.ts` — tipi e regole condivise.
 - `src/lib/preparation.functions.ts` — letture e comandi autenticati.
 - `src/lib/preparation.test.ts`, `src/lib/preparation.functions.test.ts` — test delle regole e degli accessi.
@@ -49,12 +49,12 @@ Il dialogo AI reale con microfono sarà una fase separata, con un proprio piano 
 
 **Esistenti:**
 - `src/routes/_authenticated/operativo.tsx` — collegamento alla pagina reale e metadati aggiornati.
-- `src/lib/danea-orders-export.server.ts`, `src/lib/danea-orders-xml.ts` — applicazione dello snapshot di preparazione ai soli nuovi scarichi.
-- `src/lib/danea-orders-xml.test.ts`, `src/lib/danea-orders-legacy-reexport.test.ts` — regressioni mirate.
+- Solo nella futura Fase 2: `src/lib/danea-orders-export.server.ts`, `src/lib/danea-orders-xml.ts` — applicazione dello snapshot di preparazione ai soli nuovi scarichi.
+- Solo nella futura Fase 2: `src/lib/danea-orders-xml.test.ts`, `src/lib/danea-orders-legacy-reexport.test.ts`, `src/lib/preparation-export.test.ts` — regressioni mirate dell'esportazione.
 - `src/lib/guides/preparation-guide.ts` — guida allineata ai comandi reali.
 - `src/lib/AGENTS.md`, `AGENTS.md`, `roadmap.md` — regole tecniche e stato del lavoro.
 
 Tipi e metadati delle migrazioni generati dagli strumenti, senza modifiche manuali ai file gestiti. `src/start.ts` già collega la sessione alle chiamate: non occorre modificarlo. Il mockup e i suoi dati/test restano intatti.
 
-## Conferma richiesta
-Approvare Fase 1 e Fase 2 nell'ordine indicato; voce AI reale esclusa e pubblicazione non autorizzata.
+## Punto di controllo obbligatorio approvato
+Eseguire solo Fase 1. Al termine mostrare risultato, file e migrazioni effettivamente modificati, test superati e mancanti, problemi di pesi/U.M./concorrenza e impatto previsto sullo scarico Danea. Attendere conferma prima della Fase 2. Voce AI reale esclusa e pubblicazione non autorizzata.
