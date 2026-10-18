@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as PiattaformaRouteImport } from './routes/piattaforma'
+import { Route as PiattaformaAccessoRouteImport } from './routes/piattaforma-accesso'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedAmministrazioneRouteImport } from './routes/_authenticated/amministrazione'
@@ -28,7 +29,9 @@ import { Route as AuthenticatedVenditeRouteImport } from './routes/_authenticate
 import { Route as ConsegnaTokenRouteImport } from './routes/consegna.$token'
 import { Route as InvitoTokenRouteImport } from './routes/invito.$token'
 import { Route as PiattaformaIndexRouteImport } from './routes/piattaforma.index'
+import { Route as PiattaformaAssistenzaRouteImport } from './routes/piattaforma.assistenza'
 import { Route as PiattaformaAziendeRouteImport } from './routes/piattaforma.aziende'
+import { Route as PiattaformaImpostazioniRouteImport } from './routes/piattaforma.impostazioni'
 import { Route as PiattaformaRegistroRouteImport } from './routes/piattaforma.registro'
 import { Route as PiattaformaTeamRouteImport } from './routes/piattaforma.team'
 import { Route as PiattaformaUtentiRouteImport } from './routes/piattaforma.utenti'
@@ -69,6 +72,11 @@ const AuthRoute = AuthRouteImport.update({
 const PiattaformaRoute = PiattaformaRouteImport.update({
   id: '/piattaforma',
   path: '/piattaforma',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PiattaformaAccessoRoute = PiattaformaAccessoRouteImport.update({
+  id: '/piattaforma-accesso',
+  path: '/piattaforma-accesso',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -149,9 +157,19 @@ const PiattaformaIndexRoute = PiattaformaIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PiattaformaRoute,
 } as any)
+const PiattaformaAssistenzaRoute = PiattaformaAssistenzaRouteImport.update({
+  id: '/assistenza',
+  path: '/assistenza',
+  getParentRoute: () => PiattaformaRoute,
+} as any)
 const PiattaformaAziendeRoute = PiattaformaAziendeRouteImport.update({
   id: '/aziende',
   path: '/aziende',
+  getParentRoute: () => PiattaformaRoute,
+} as any)
+const PiattaformaImpostazioniRoute = PiattaformaImpostazioniRouteImport.update({
+  id: '/impostazioni',
+  path: '/impostazioni',
   getParentRoute: () => PiattaformaRoute,
 } as any)
 const PiattaformaRegistroRoute = PiattaformaRegistroRouteImport.update({
@@ -286,6 +304,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/piattaforma': typeof PiattaformaRouteWithChildren
+  '/piattaforma-accesso': typeof PiattaformaAccessoRoute
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
@@ -300,7 +319,9 @@ export interface FileRoutesByFullPath {
   '/vendite': typeof AuthenticatedVenditeRoute
   '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
+  '/piattaforma/assistenza': typeof PiattaformaAssistenzaRoute
   '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
+  '/piattaforma/impostazioni': typeof PiattaformaImpostazioniRoute
   '/piattaforma/registro': typeof PiattaformaRegistroRoute
   '/piattaforma/team': typeof PiattaformaTeamRoute
   '/piattaforma/utenti': typeof PiattaformaUtentiRoute
@@ -328,6 +349,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/piattaforma-accesso': typeof PiattaformaAccessoRoute
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
@@ -342,7 +364,9 @@ export interface FileRoutesByTo {
   '/vendite': typeof AuthenticatedVenditeRoute
   '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
+  '/piattaforma/assistenza': typeof PiattaformaAssistenzaRoute
   '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
+  '/piattaforma/impostazioni': typeof PiattaformaImpostazioniRoute
   '/piattaforma/registro': typeof PiattaformaRegistroRoute
   '/piattaforma/team': typeof PiattaformaTeamRoute
   '/piattaforma/utenti': typeof PiattaformaUtentiRoute
@@ -373,6 +397,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/piattaforma': typeof PiattaformaRouteWithChildren
+  '/piattaforma-accesso': typeof PiattaformaAccessoRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/amministrazione': typeof AuthenticatedAmministrazioneRoute
@@ -387,7 +412,9 @@ export interface FileRoutesById {
   '/_authenticated/vendite': typeof AuthenticatedVenditeRoute
   '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
+  '/piattaforma/assistenza': typeof PiattaformaAssistenzaRoute
   '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
+  '/piattaforma/impostazioni': typeof PiattaformaImpostazioniRoute
   '/piattaforma/registro': typeof PiattaformaRegistroRoute
   '/piattaforma/team': typeof PiattaformaTeamRoute
   '/piattaforma/utenti': typeof PiattaformaUtentiRoute
@@ -418,6 +445,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/piattaforma'
+    | '/piattaforma-accesso'
     | '/reset-password'
     | '/account'
     | '/amministrazione'
@@ -432,7 +460,9 @@ export interface FileRouteTypes {
     | '/vendite'
     | '/consegna/$token'
     | '/invito/$token'
+    | '/piattaforma/assistenza'
     | '/piattaforma/aziende'
+    | '/piattaforma/impostazioni'
     | '/piattaforma/registro'
     | '/piattaforma/team'
     | '/piattaforma/utenti'
@@ -460,6 +490,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/piattaforma-accesso'
     | '/reset-password'
     | '/account'
     | '/amministrazione'
@@ -474,7 +505,9 @@ export interface FileRouteTypes {
     | '/vendite'
     | '/consegna/$token'
     | '/invito/$token'
+    | '/piattaforma/assistenza'
     | '/piattaforma/aziende'
+    | '/piattaforma/impostazioni'
     | '/piattaforma/registro'
     | '/piattaforma/team'
     | '/piattaforma/utenti'
@@ -504,6 +537,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/piattaforma'
+    | '/piattaforma-accesso'
     | '/reset-password'
     | '/_authenticated/account'
     | '/_authenticated/amministrazione'
@@ -518,7 +552,9 @@ export interface FileRouteTypes {
     | '/_authenticated/vendite'
     | '/consegna/$token'
     | '/invito/$token'
+    | '/piattaforma/assistenza'
     | '/piattaforma/aziende'
+    | '/piattaforma/impostazioni'
     | '/piattaforma/registro'
     | '/piattaforma/team'
     | '/piattaforma/utenti'
@@ -549,6 +585,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   PiattaformaRoute: typeof PiattaformaRouteWithChildren
+  PiattaformaAccessoRoute: typeof PiattaformaAccessoRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ConsegnaTokenRoute: typeof ConsegnaTokenRoute
   InvitoTokenRoute: typeof InvitoTokenRoute
@@ -585,6 +622,13 @@ declare module '@tanstack/react-router' {
       path: '/piattaforma'
       fullPath: '/piattaforma'
       preLoaderRoute: typeof PiattaformaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/piattaforma-accesso': {
+      id: '/piattaforma-accesso'
+      path: '/piattaforma-accesso'
+      fullPath: '/piattaforma-accesso'
+      preLoaderRoute: typeof PiattaformaAccessoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -692,11 +736,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PiattaformaIndexRouteImport
       parentRoute: typeof PiattaformaRoute
     }
+    '/piattaforma/assistenza': {
+      id: '/piattaforma/assistenza'
+      path: '/assistenza'
+      fullPath: '/piattaforma/assistenza'
+      preLoaderRoute: typeof PiattaformaAssistenzaRouteImport
+      parentRoute: typeof PiattaformaRoute
+    }
     '/piattaforma/aziende': {
       id: '/piattaforma/aziende'
       path: '/aziende'
       fullPath: '/piattaforma/aziende'
       preLoaderRoute: typeof PiattaformaAziendeRouteImport
+      parentRoute: typeof PiattaformaRoute
+    }
+    '/piattaforma/impostazioni': {
+      id: '/piattaforma/impostazioni'
+      path: '/impostazioni'
+      fullPath: '/piattaforma/impostazioni'
+      preLoaderRoute: typeof PiattaformaImpostazioniRouteImport
       parentRoute: typeof PiattaformaRoute
     }
     '/piattaforma/registro': {
@@ -935,7 +993,9 @@ const PiattaformaAziendeRouteWithChildren =
   PiattaformaAziendeRoute._addFileChildren(PiattaformaAziendeRouteChildren)
 
 interface PiattaformaRouteChildren {
+  PiattaformaAssistenzaRoute: typeof PiattaformaAssistenzaRoute
   PiattaformaAziendeRoute: typeof PiattaformaAziendeRouteWithChildren
+  PiattaformaImpostazioniRoute: typeof PiattaformaImpostazioniRoute
   PiattaformaRegistroRoute: typeof PiattaformaRegistroRoute
   PiattaformaTeamRoute: typeof PiattaformaTeamRoute
   PiattaformaUtentiRoute: typeof PiattaformaUtentiRoute
@@ -943,7 +1003,9 @@ interface PiattaformaRouteChildren {
 }
 
 const PiattaformaRouteChildren: PiattaformaRouteChildren = {
+  PiattaformaAssistenzaRoute: PiattaformaAssistenzaRoute,
   PiattaformaAziendeRoute: PiattaformaAziendeRouteWithChildren,
+  PiattaformaImpostazioniRoute: PiattaformaImpostazioniRoute,
   PiattaformaRegistroRoute: PiattaformaRegistroRoute,
   PiattaformaTeamRoute: PiattaformaTeamRoute,
   PiattaformaUtentiRoute: PiattaformaUtentiRoute,
@@ -959,6 +1021,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   PiattaformaRoute: PiattaformaRouteWithChildren,
+  PiattaformaAccessoRoute: PiattaformaAccessoRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ConsegnaTokenRoute: ConsegnaTokenRoute,
   InvitoTokenRoute: InvitoTokenRoute,
