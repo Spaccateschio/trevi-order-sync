@@ -2,7 +2,9 @@
 
 ## 18/10 — Preparazione con dati reali
 - [x] Fase 1 approvata: Preparazione reale e stampa; mantenere mockup e test originali.
-- [ ] Implementare e verificare Fase 1 senza scritture sui dati operativi; consegnare file/migrazioni, esiti e limiti dei test, rischi U.M./pesi/concorrenza e impatto futuro Danea.
+- [x] Sviluppo Fase 1: Preparazione separata, conferme, storico, preparatore, versioni e firme sorgente, stampa singola/multipla; mockup e test originali conservati. Migrazioni 0074/0075 applicate; grant client sola lettura verificati. 22 test nuovi + 6 mockup + 17 Danea superati; build OK. Nessuna scrittura operativa: preparazioni/righe/eventi tutti a zero.
+- [ ] Collaudo completo Fase 1 bloccato: 3 EMME solo acquisti, /operativo torna alla Panoramica e non esistono ordini ricevuti di prova. Lettura RPC con vero utente 3 EMME riuscita e membership estranea respinta; salvataggio/rilettura, concorrenza reale, dettaglio e stampa visiva richiedono un'azienda venditrice di prova autorizzata. Non modificare la configurazione aziendale senza nuovo via.
+- File Fase 1: nuovi preparation-panel.tsx (737), preparation-print.ts (44), preparation.ts (133), preparation.functions.ts (36), preparation.test.ts (127), preparation.functions.test.ts (71); operativo.tsx (52), preparation-guide.ts (131), AGENTS.md, src/lib/AGENTS.md, roadmap.md. Migrazioni generate 0074 (103) e 0075 (3), tipi e metadati generati; piano aggiornato al punto di controllo. Nessun file di esportazione Danea modificato.
 - [ ] Fase 2 bloccata: attende verifica della Fase 1 e nuova autorizzazione esplicita. Non modificare export Danea, non chiamare endpoint reali, non alterare scarichi/storici/numerazione. Voce AI esclusa, nessuna pubblicazione.
 
 ## 18/10 — Completare Preparazione
