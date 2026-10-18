@@ -38,16 +38,17 @@ const NAV_ITEMS: {
 export function PlatformShell({ children }: { children?: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const { data: access, isLoading } = useQuery({
+  const { data: access, isLoading, isError } = useQuery({
     queryKey: ["platform-access"],
     queryFn: () => getPlatformAccess(),
+    retry: false,
   });
 
   useEffect(() => {
-    if (!isLoading && access && !access.isAdmin) {
+    if (isError || (!isLoading && access && !access.isAdmin)) {
       navigate({ to: "/piattaforma-accesso", replace: true });
     }
-  }, [isLoading, access, navigate]);
+  }, [isError, isLoading, access, navigate]);
 
   if (isLoading || !access) {
     return (
