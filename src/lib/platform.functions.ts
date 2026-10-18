@@ -291,13 +291,13 @@ export const managePlatformTeamMember = createServerFn({ method: "POST" })
       "manage_platform_team_member",
       {
         _action: data.action,
-        _member_id: data.memberId ?? null,
-        _user_id: data.userId ?? null,
-        _perm_aziende: data.permAziende ?? null,
-        _perm_utenti: data.permUtenti ?? null,
-        _perm_registro: data.permRegistro ?? null,
-        _perm_assistenza: data.permAssistenza ?? null,
-        _perm_impostazioni: data.permImpostazioni ?? null,
+        _member_id: data.memberId ?? undefined,
+        _user_id: data.userId ?? undefined,
+        _perm_aziende: data.permAziende ?? undefined,
+        _perm_utenti: data.permUtenti ?? undefined,
+        _perm_registro: data.permRegistro ?? undefined,
+        _perm_assistenza: data.permAssistenza ?? undefined,
+        _perm_impostazioni: data.permImpostazioni ?? undefined,
       },
     );
     if (error) throw new Error(error.message);
