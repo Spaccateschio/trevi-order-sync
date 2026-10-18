@@ -118,7 +118,16 @@ function PlatformLogin() {
               {busy ? "Accesso in corso…" : "Entra"}
             </Button>
           </form>
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            disabled={sendingReset}
+            className="mt-4 w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-70"
+          >
+            {sendingReset ? "Invio in corso…" : "Password dimenticata?"}
+          </button>
         </CardContent>
+
       </Card>
     </div>
   );
