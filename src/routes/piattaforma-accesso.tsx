@@ -35,6 +35,26 @@ function PlatformLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+
+  async function handleForgotPassword() {
+    if (sendingReset) return;
+    if (!email) {
+      toast.error("Inserisci la tua email, poi riprova");
+      return;
+    }
+    setSendingReset(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setSendingReset(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Ti abbiamo inviato il link per reimpostare la password");
+  }
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -98,7 +118,16 @@ function PlatformLogin() {
               {busy ? "Accesso in corso…" : "Entra"}
             </Button>
           </form>
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            disabled={sendingReset}
+            className="mt-4 w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-70"
+          >
+            {sendingReset ? "Invio in corso…" : "Password dimenticata?"}
+          </button>
         </CardContent>
+
       </Card>
     </div>
   );
