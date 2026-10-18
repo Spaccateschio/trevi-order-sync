@@ -1,6 +1,8 @@
 import { useState } from "react";
 import {
+  ArrowLeft,
   Check,
+
   CheckCheck,
   ChevronRight,
   Clock3,
@@ -74,6 +76,7 @@ export function PreparationMockup() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("Tutti");
   const [review, setReview] = useState(false);
+  const [view, setView] = useState<"list" | "detail">("list");
   const [voice, setVoice] = useState(false);
   const [voiceLine, setVoiceLine] = useState("");
   const [voiceWeight, setVoiceWeight] = useState("11,8");
@@ -132,7 +135,7 @@ export function PreparationMockup() {
           </div>
         ))}
       </div>
-      <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+      {view === "list" && (
         <section data-tour="prep.elenco" className="min-w-0 space-y-3">
           <h2 className="font-semibold">
             Ordini <span className="ml-1 text-muted-foreground">{orders.length}</span>
@@ -161,12 +164,15 @@ export function PreparationMockup() {
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {visible.map((o) => (
               <Button
                 key={o.id}
                 variant="outline"
-                onClick={() => setSelected(o.id)}
+                onClick={() => {
+                  setSelected(o.id);
+                  setView("detail");
+                }}
                 aria-pressed={selected === o.id}
                 className={cn(
                   "h-auto min-h-32 w-full items-start justify-start whitespace-normal p-4 text-left",
@@ -201,7 +207,13 @@ export function PreparationMockup() {
             <p className="py-6 text-sm text-muted-foreground">Nessun ordine trovato.</p>
           )}
         </section>
-        <section className="min-w-0">
+      )}
+      {view === "detail" && order && (
+        <section className="min-w-0 space-y-4">
+          <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setView("list")}>
+            <ArrowLeft className="h-4 w-4" />
+            Torna agli ordini
+          </Button>
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
             <div>
               <p className="text-xs font-medium text-muted-foreground">
@@ -411,7 +423,7 @@ export function PreparationMockup() {
             </Button>
           </div>
         </section>
-      </div>
+      )}
       <Dialog open={review} onOpenChange={setReview}>
         <DialogContent className="max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
