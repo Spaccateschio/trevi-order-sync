@@ -29,6 +29,9 @@ import { Route as ConsegnaTokenRouteImport } from './routes/consegna.$token'
 import { Route as InvitoTokenRouteImport } from './routes/invito.$token'
 import { Route as PiattaformaIndexRouteImport } from './routes/piattaforma.index'
 import { Route as PiattaformaAziendeRouteImport } from './routes/piattaforma.aziende'
+import { Route as PiattaformaRegistroRouteImport } from './routes/piattaforma.registro'
+import { Route as PiattaformaTeamRouteImport } from './routes/piattaforma.team'
+import { Route as PiattaformaUtentiRouteImport } from './routes/piattaforma.utenti'
 import { Route as AuthenticatedAcquistiIndexRouteImport } from './routes/_authenticated/acquisti.index'
 import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_authenticated/acquisti.fornitori'
 import { Route as AuthenticatedAcquistiInventarioRouteImport } from './routes/_authenticated/acquisti.inventario'
@@ -149,6 +152,21 @@ const PiattaformaIndexRoute = PiattaformaIndexRouteImport.update({
 const PiattaformaAziendeRoute = PiattaformaAziendeRouteImport.update({
   id: '/aziende',
   path: '/aziende',
+  getParentRoute: () => PiattaformaRoute,
+} as any)
+const PiattaformaRegistroRoute = PiattaformaRegistroRouteImport.update({
+  id: '/registro',
+  path: '/registro',
+  getParentRoute: () => PiattaformaRoute,
+} as any)
+const PiattaformaTeamRoute = PiattaformaTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => PiattaformaRoute,
+} as any)
+const PiattaformaUtentiRoute = PiattaformaUtentiRouteImport.update({
+  id: '/utenti',
+  path: '/utenti',
   getParentRoute: () => PiattaformaRoute,
 } as any)
 const AuthenticatedAcquistiIndexRoute =
@@ -283,6 +301,9 @@ export interface FileRoutesByFullPath {
   '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
   '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
+  '/piattaforma/registro': typeof PiattaformaRegistroRoute
+  '/piattaforma/team': typeof PiattaformaTeamRoute
+  '/piattaforma/utenti': typeof PiattaformaUtentiRoute
   '/piattaforma/': typeof PiattaformaIndexRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
@@ -322,6 +343,9 @@ export interface FileRoutesByTo {
   '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
   '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
+  '/piattaforma/registro': typeof PiattaformaRegistroRoute
+  '/piattaforma/team': typeof PiattaformaTeamRoute
+  '/piattaforma/utenti': typeof PiattaformaUtentiRoute
   '/piattaforma': typeof PiattaformaIndexRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
@@ -364,6 +388,9 @@ export interface FileRoutesById {
   '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
   '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
+  '/piattaforma/registro': typeof PiattaformaRegistroRoute
+  '/piattaforma/team': typeof PiattaformaTeamRoute
+  '/piattaforma/utenti': typeof PiattaformaUtentiRoute
   '/piattaforma/': typeof PiattaformaIndexRoute
   '/_authenticated/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/_authenticated/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
@@ -406,6 +433,9 @@ export interface FileRouteTypes {
     | '/consegna/$token'
     | '/invito/$token'
     | '/piattaforma/aziende'
+    | '/piattaforma/registro'
+    | '/piattaforma/team'
+    | '/piattaforma/utenti'
     | '/piattaforma/'
     | '/acquisti/fornitori'
     | '/acquisti/inventario'
@@ -445,6 +475,9 @@ export interface FileRouteTypes {
     | '/consegna/$token'
     | '/invito/$token'
     | '/piattaforma/aziende'
+    | '/piattaforma/registro'
+    | '/piattaforma/team'
+    | '/piattaforma/utenti'
     | '/piattaforma'
     | '/acquisti/fornitori'
     | '/acquisti/inventario'
@@ -486,6 +519,9 @@ export interface FileRouteTypes {
     | '/consegna/$token'
     | '/invito/$token'
     | '/piattaforma/aziende'
+    | '/piattaforma/registro'
+    | '/piattaforma/team'
+    | '/piattaforma/utenti'
     | '/piattaforma/'
     | '/_authenticated/acquisti/fornitori'
     | '/_authenticated/acquisti/inventario'
@@ -661,6 +697,27 @@ declare module '@tanstack/react-router' {
       path: '/aziende'
       fullPath: '/piattaforma/aziende'
       preLoaderRoute: typeof PiattaformaAziendeRouteImport
+      parentRoute: typeof PiattaformaRoute
+    }
+    '/piattaforma/registro': {
+      id: '/piattaforma/registro'
+      path: '/registro'
+      fullPath: '/piattaforma/registro'
+      preLoaderRoute: typeof PiattaformaRegistroRouteImport
+      parentRoute: typeof PiattaformaRoute
+    }
+    '/piattaforma/team': {
+      id: '/piattaforma/team'
+      path: '/team'
+      fullPath: '/piattaforma/team'
+      preLoaderRoute: typeof PiattaformaTeamRouteImport
+      parentRoute: typeof PiattaformaRoute
+    }
+    '/piattaforma/utenti': {
+      id: '/piattaforma/utenti'
+      path: '/utenti'
+      fullPath: '/piattaforma/utenti'
+      preLoaderRoute: typeof PiattaformaUtentiRouteImport
       parentRoute: typeof PiattaformaRoute
     }
     '/_authenticated/acquisti/': {
@@ -879,11 +936,17 @@ const PiattaformaAziendeRouteWithChildren =
 
 interface PiattaformaRouteChildren {
   PiattaformaAziendeRoute: typeof PiattaformaAziendeRouteWithChildren
+  PiattaformaRegistroRoute: typeof PiattaformaRegistroRoute
+  PiattaformaTeamRoute: typeof PiattaformaTeamRoute
+  PiattaformaUtentiRoute: typeof PiattaformaUtentiRoute
   PiattaformaIndexRoute: typeof PiattaformaIndexRoute
 }
 
 const PiattaformaRouteChildren: PiattaformaRouteChildren = {
   PiattaformaAziendeRoute: PiattaformaAziendeRouteWithChildren,
+  PiattaformaRegistroRoute: PiattaformaRegistroRoute,
+  PiattaformaTeamRoute: PiattaformaTeamRoute,
+  PiattaformaUtentiRoute: PiattaformaUtentiRoute,
   PiattaformaIndexRoute: PiattaformaIndexRoute,
 }
 
