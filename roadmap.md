@@ -1,5 +1,9 @@
 # Roadmap
 
+## 18/10 — Completare Preparazione
+- [ ] Analisi dello stato attuale e piano limitato alla Preparazione, da approvare prima dell'implementazione.
+- [ ] Implementazione e verifiche: in attesa dell'approvazione del piano; nessuna pubblicazione o modifica di dati operativi reali.
+
 ## 17/10 — Rimanda ordine sulle card
 - [x] Verifica read-only: mancava il collegamento al singolo ordine B2B in sola consultazione; link consegna inadatti. RLS venditore presente; apertura card operativa registra il visto. 00004/00005 B2B già visti e scaricati, nessuna modifica; adattamento approvato 17/10 06:41 UTC.
 - [x] Pulsante sulle card inviate e riuso finestra non B2B; B2B nella pagina Ordini clienti, consultazione specifica separata dalla navigazione aziendale, ingresso auth con ordineB2b validato e ritorno alla destinazione; controllo is_order_supplier prima delle letture RLS, cache per utente, messaggio neutro assente/non autorizzato. 24 test pass; compilazione automatica OK. Anteprima autenticata 3 EMME: 3 pulsanti, copia link, sette canali, acquirente escluso, ordine inesistente, ingresso senza sessione conserva ID; 390 px senza overflow o errori. Zero scritture operative tentate; impronte ordine/righe/scarichi 00003/00004/00005 identiche prima/dopo. Nessuna pubblicazione, comunicazione o blocco SQL.
