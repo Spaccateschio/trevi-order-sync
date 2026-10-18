@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as PiattaformaRouteImport } from './routes/piattaforma'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedAmministrazioneRouteImport } from './routes/_authenticated/amministrazione'
@@ -26,6 +27,8 @@ import { Route as AuthenticatedOperativoRouteImport } from './routes/_authentica
 import { Route as AuthenticatedVenditeRouteImport } from './routes/_authenticated/vendite'
 import { Route as ConsegnaTokenRouteImport } from './routes/consegna.$token'
 import { Route as InvitoTokenRouteImport } from './routes/invito.$token'
+import { Route as PiattaformaIndexRouteImport } from './routes/piattaforma.index'
+import { Route as PiattaformaAziendeRouteImport } from './routes/piattaforma.aziende'
 import { Route as AuthenticatedAcquistiIndexRouteImport } from './routes/_authenticated/acquisti.index'
 import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_authenticated/acquisti.fornitori'
 import { Route as AuthenticatedAcquistiInventarioRouteImport } from './routes/_authenticated/acquisti.inventario'
@@ -37,6 +40,7 @@ import { Route as AuthenticatedImpostazioniNavigazioneRouteImport } from './rout
 import { Route as AuthenticatedVenditeClientiRouteImport } from './routes/_authenticated/vendite_.clienti'
 import { Route as AuthenticatedVenditeOrdiniClientiRouteImport } from './routes/_authenticated/vendite_.ordini-clienti'
 import { Route as AuthenticatedVenditeProdottiRouteImport } from './routes/_authenticated/vendite_.prodotti'
+import { Route as PiattaformaAziendeAziendaIdRouteImport } from './routes/piattaforma.aziende.$aziendaId'
 import { Route as AuthenticatedAcquistiCatalogoIndexRouteImport } from './routes/_authenticated/acquisti.catalogo.index'
 import { Route as ApiPublicDaneaOrdersRouteImport } from './routes/api/public/danea/orders'
 import { Route as ApiPublicDaneaProductsRouteImport } from './routes/api/public/danea/products'
@@ -57,6 +61,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PiattaformaRoute = PiattaformaRouteImport.update({
+  id: '/piattaforma',
+  path: '/piattaforma',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -132,6 +141,16 @@ const InvitoTokenRoute = InvitoTokenRouteImport.update({
   path: '/invito/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PiattaformaIndexRoute = PiattaformaIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PiattaformaRoute,
+} as any)
+const PiattaformaAziendeRoute = PiattaformaAziendeRouteImport.update({
+  id: '/aziende',
+  path: '/aziende',
+  getParentRoute: () => PiattaformaRoute,
+} as any)
 const AuthenticatedAcquistiIndexRoute =
   AuthenticatedAcquistiIndexRouteImport.update({
     id: '/acquisti/',
@@ -198,6 +217,12 @@ const AuthenticatedVenditeProdottiRoute =
     path: '/vendite/prodotti',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const PiattaformaAziendeAziendaIdRoute =
+  PiattaformaAziendeAziendaIdRouteImport.update({
+    id: '/$aziendaId',
+    path: '/$aziendaId',
+    getParentRoute: () => PiattaformaAziendeRoute,
+  } as any)
 const AuthenticatedAcquistiCatalogoIndexRoute =
   AuthenticatedAcquistiCatalogoIndexRouteImport.update({
     id: '/acquisti/catalogo/',
@@ -242,6 +267,7 @@ const AuthenticatedAcquistiListaSpesaStampaListIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/piattaforma': typeof PiattaformaRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
   '/account': typeof AuthenticatedAccountRoute
   '/amministrazione': typeof AuthenticatedAmministrazioneRoute
@@ -256,6 +282,8 @@ export interface FileRoutesByFullPath {
   '/vendite': typeof AuthenticatedVenditeRoute
   '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
+  '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
+  '/piattaforma/': typeof PiattaformaIndexRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
@@ -266,6 +294,7 @@ export interface FileRoutesByFullPath {
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/ordini-clienti': typeof AuthenticatedVenditeOrdiniClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
+  '/piattaforma/aziende/$aziendaId': typeof PiattaformaAziendeAziendaIdRoute
   '/acquisti/': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/orders': typeof ApiPublicDaneaOrdersRoute
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
@@ -292,6 +321,8 @@ export interface FileRoutesByTo {
   '/vendite': typeof AuthenticatedVenditeRoute
   '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
+  '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
+  '/piattaforma': typeof PiattaformaIndexRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
@@ -302,6 +333,7 @@ export interface FileRoutesByTo {
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
   '/vendite/ordini-clienti': typeof AuthenticatedVenditeOrdiniClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
+  '/piattaforma/aziende/$aziendaId': typeof PiattaformaAziendeAziendaIdRoute
   '/acquisti': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/orders': typeof ApiPublicDaneaOrdersRoute
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
@@ -316,6 +348,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/piattaforma': typeof PiattaformaRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/amministrazione': typeof AuthenticatedAmministrazioneRoute
@@ -330,6 +363,8 @@ export interface FileRoutesById {
   '/_authenticated/vendite': typeof AuthenticatedVenditeRoute
   '/consegna/$token': typeof ConsegnaTokenRoute
   '/invito/$token': typeof InvitoTokenRoute
+  '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
+  '/piattaforma/': typeof PiattaformaIndexRoute
   '/_authenticated/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/_authenticated/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/_authenticated/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
@@ -340,6 +375,7 @@ export interface FileRoutesById {
   '/_authenticated/vendite_/clienti': typeof AuthenticatedVenditeClientiRoute
   '/_authenticated/vendite_/ordini-clienti': typeof AuthenticatedVenditeOrdiniClientiRoute
   '/_authenticated/vendite_/prodotti': typeof AuthenticatedVenditeProdottiRoute
+  '/piattaforma/aziende/$aziendaId': typeof PiattaformaAziendeAziendaIdRoute
   '/_authenticated/acquisti/': typeof AuthenticatedAcquistiIndexRoute
   '/api/public/danea/orders': typeof ApiPublicDaneaOrdersRoute
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
@@ -354,6 +390,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/piattaforma'
     | '/reset-password'
     | '/account'
     | '/amministrazione'
@@ -368,6 +405,8 @@ export interface FileRouteTypes {
     | '/vendite'
     | '/consegna/$token'
     | '/invito/$token'
+    | '/piattaforma/aziende'
+    | '/piattaforma/'
     | '/acquisti/fornitori'
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
@@ -378,6 +417,7 @@ export interface FileRouteTypes {
     | '/vendite/clienti'
     | '/vendite/ordini-clienti'
     | '/vendite/prodotti'
+    | '/piattaforma/aziende/$aziendaId'
     | '/acquisti/'
     | '/api/public/danea/orders'
     | '/api/public/danea/products'
@@ -404,6 +444,8 @@ export interface FileRouteTypes {
     | '/vendite'
     | '/consegna/$token'
     | '/invito/$token'
+    | '/piattaforma/aziende'
+    | '/piattaforma'
     | '/acquisti/fornitori'
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
@@ -414,6 +456,7 @@ export interface FileRouteTypes {
     | '/vendite/clienti'
     | '/vendite/ordini-clienti'
     | '/vendite/prodotti'
+    | '/piattaforma/aziende/$aziendaId'
     | '/acquisti'
     | '/api/public/danea/orders'
     | '/api/public/danea/products'
@@ -427,6 +470,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/piattaforma'
     | '/reset-password'
     | '/_authenticated/account'
     | '/_authenticated/amministrazione'
@@ -441,6 +485,8 @@ export interface FileRouteTypes {
     | '/_authenticated/vendite'
     | '/consegna/$token'
     | '/invito/$token'
+    | '/piattaforma/aziende'
+    | '/piattaforma/'
     | '/_authenticated/acquisti/fornitori'
     | '/_authenticated/acquisti/inventario'
     | '/_authenticated/acquisti/lista-spesa'
@@ -451,6 +497,7 @@ export interface FileRouteTypes {
     | '/_authenticated/vendite_/clienti'
     | '/_authenticated/vendite_/ordini-clienti'
     | '/_authenticated/vendite_/prodotti'
+    | '/piattaforma/aziende/$aziendaId'
     | '/_authenticated/acquisti/'
     | '/api/public/danea/orders'
     | '/api/public/danea/products'
@@ -465,6 +512,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  PiattaformaRoute: typeof PiattaformaRouteWithChildren
   ResetPasswordRoute: typeof ResetPasswordRoute
   ConsegnaTokenRoute: typeof ConsegnaTokenRoute
   InvitoTokenRoute: typeof InvitoTokenRoute
@@ -494,6 +542,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/piattaforma': {
+      id: '/piattaforma'
+      path: '/piattaforma'
+      fullPath: '/piattaforma'
+      preLoaderRoute: typeof PiattaformaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -594,6 +649,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvitoTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/piattaforma/': {
+      id: '/piattaforma/'
+      path: '/'
+      fullPath: '/piattaforma/'
+      preLoaderRoute: typeof PiattaformaIndexRouteImport
+      parentRoute: typeof PiattaformaRoute
+    }
+    '/piattaforma/aziende': {
+      id: '/piattaforma/aziende'
+      path: '/aziende'
+      fullPath: '/piattaforma/aziende'
+      preLoaderRoute: typeof PiattaformaAziendeRouteImport
+      parentRoute: typeof PiattaformaRoute
+    }
     '/_authenticated/acquisti/': {
       id: '/_authenticated/acquisti/'
       path: '/acquisti'
@@ -670,6 +739,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/vendite/prodotti'
       preLoaderRoute: typeof AuthenticatedVenditeProdottiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/piattaforma/aziende/$aziendaId': {
+      id: '/piattaforma/aziende/$aziendaId'
+      path: '/$aziendaId'
+      fullPath: '/piattaforma/aziende/$aziendaId'
+      preLoaderRoute: typeof PiattaformaAziendeAziendaIdRouteImport
+      parentRoute: typeof PiattaformaAziendeRoute
     }
     '/_authenticated/acquisti/catalogo/': {
       id: '/_authenticated/acquisti/catalogo/'
@@ -790,10 +866,36 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface PiattaformaAziendeRouteChildren {
+  PiattaformaAziendeAziendaIdRoute: typeof PiattaformaAziendeAziendaIdRoute
+}
+
+const PiattaformaAziendeRouteChildren: PiattaformaAziendeRouteChildren = {
+  PiattaformaAziendeAziendaIdRoute: PiattaformaAziendeAziendaIdRoute,
+}
+
+const PiattaformaAziendeRouteWithChildren =
+  PiattaformaAziendeRoute._addFileChildren(PiattaformaAziendeRouteChildren)
+
+interface PiattaformaRouteChildren {
+  PiattaformaAziendeRoute: typeof PiattaformaAziendeRouteWithChildren
+  PiattaformaIndexRoute: typeof PiattaformaIndexRoute
+}
+
+const PiattaformaRouteChildren: PiattaformaRouteChildren = {
+  PiattaformaAziendeRoute: PiattaformaAziendeRouteWithChildren,
+  PiattaformaIndexRoute: PiattaformaIndexRoute,
+}
+
+const PiattaformaRouteWithChildren = PiattaformaRoute._addFileChildren(
+  PiattaformaRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  PiattaformaRoute: PiattaformaRouteWithChildren,
   ResetPasswordRoute: ResetPasswordRoute,
   ConsegnaTokenRoute: ConsegnaTokenRoute,
   InvitoTokenRoute: InvitoTokenRoute,
