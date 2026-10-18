@@ -9,12 +9,14 @@ import {
   Info,
   Mic,
   Pencil,
+  Printer,
   Search,
   TriangleAlert,
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -47,12 +49,88 @@ import {
   createDemoOrders,
   status,
   updateLine,
+  type DemoOrder,
   type Line,
 } from "./preparation-demo-data";
 import pomodori from "@/assets/inventory-mock/pomodori.jpg";
 import carote from "@/assets/inventory-mock/carote.jpg";
 import basilico from "@/assets/inventory-mock/basilico.jpg";
 const images = { pomodori, carote, basilico };
+
+// Stampa di prova: costruisce un foglio in bianco e nero per ogni ordine,
+// uno dopo l'altro con interruzione di pagina, e apre la finestra di stampa.
+const printHtml = (list: DemoOrder[]) => {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const sheets = list
+    .map((o) => {
+      const rows = o.lines
+        .map((l) => {
+          const note = l.missing ? "MANCANTE" : l.confirmed ? "Confermato" : "Da verificare";
+          return `<tr${l.missing ? ' class="missing"' : ""}>
+            <td>${esc(l.name)}</td>
+            <td>${l.requested} ${esc(l.unit)}</td>
+            <td>${esc(l.prepared || "—")}${l.prepared ? ` ${esc(l.unit)}` : ""}</td>
+            <td>${esc(l.weight || "—")}${l.weight ? " kg" : ""}</td>
+            <td>${note}</td>
+          </tr>`;
+        })
+        .join("");
+      return `<section class="order">
+        <h1>Ordine ${esc(o.id)} — ${esc(o.customer)}</h1>
+        <p class="meta">Consegna ore ${esc(o.time)} · ${status(o)} · Preparatore: ${esc(o.assignee || "non assegnato")}</p>
+        ${o.note ? `<p class="meta">Note: ${esc(o.note)}</p>` : ""}
+        <table>
+          <thead><tr><th>Articolo</th><th>Richiesto</th><th>Preparato</th><th>Peso</th><th>Stato</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </section>`;
+    })
+    .join("");
+  return `<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Ordini da preparare</title>
+<style>
+  @page { margin: 14mm; }
+  body { font-family: system-ui, sans-serif; color: #000; margin: 0; }
+  .order { page-break-after: always; }
+  .order:last-child { page-break-after: auto; }
+  h1 { font-size: 16pt; margin: 0 0 6px; }
+  .meta { font-size: 11pt; margin: 2px 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border: 1px solid #000; padding: 8px 10px; text-align: left; font-size: 12pt; }
+  th { background: #eee; text-transform: uppercase; font-size: 10pt; }
+  .missing td { font-weight: 700; }
+  .fine { margin-top: 16px; font-size: 9pt; color: #555; }
+</style></head><body>
+${sheets}
+<p class="fine">Stampa di prova · mockup Preparazione Trevi Fruit · dati inventati</p>
+</body></html>`;
+};
+
+function printOrders(list: DemoOrder[]) {
+  const frame = document.createElement("iframe");
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.position = "fixed";
+  frame.style.right = "0";
+  frame.style.bottom = "0";
+  frame.style.width = "0";
+  frame.style.height = "0";
+  frame.style.border = "0";
+  document.body.appendChild(frame);
+  const doc = frame.contentDocument;
+  if (!doc) {
+    frame.remove();
+    return;
+  }
+  doc.open();
+  doc.write(printHtml(list));
+  doc.close();
+  const cleanup = () => frame.remove();
+  frame.contentWindow?.addEventListener("afterprint", cleanup);
+  window.setTimeout(cleanup, 60000);
+  frame.contentWindow?.focus();
+  frame.contentWindow?.print();
+}
+
 export function PreparationGuideButton() {
   return (
     <DropdownMenu>
@@ -76,6 +154,7 @@ export function PreparationMockup() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("Tutti");
   const [review, setReview] = useState(false);
+  const [printSel, setPrintSel] = useState<string[]>([]);
   const [view, setView] = useState<"list" | "detail">("list");
   const [voice, setVoice] = useState(false);
   const [voiceLine, setVoiceLine] = useState("");
@@ -164,22 +243,54 @@ export function PreparationMockup() {
               </SelectContent>
             </Select>
           </div>
+          {printSel.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+              <span className="text-sm">
+                {printSel.length}{" "}
+                {printSel.length === 1 ? "ordine selezionato" : "ordini selezionati"}
+              </span>
+              <Button
+                size="sm"
+                onClick={() => {
+                  printOrders(orders.filter((o) => printSel.includes(o.id)));
+                  setPrintSel([]);
+                }}
+              >
+                <Printer className="h-4 w-4" />
+                Stampa selezionati
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setPrintSel([])}>
+                Annulla selezione
+              </Button>
+            </div>
+          )}
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {visible.map((o) => (
-              <Button
-                key={o.id}
-                variant="outline"
-                onClick={() => {
-                  setSelected(o.id);
-                  setView("detail");
-                }}
-                aria-pressed={selected === o.id}
-                className={cn(
-                  "h-auto min-h-32 w-full items-start justify-start whitespace-normal p-4 text-left",
-                  selected === o.id && "border-primary bg-primary/5",
-                  o.ready && "border-success/40 bg-success/5",
-                )}
-              >
+              <div key={o.id} className="relative">
+                <Checkbox
+                  aria-label={`Seleziona ${o.id} per la stampa`}
+                  className="absolute left-3 top-3 z-10 bg-background"
+                  checked={printSel.includes(o.id)}
+                  onCheckedChange={() =>
+                    setPrintSel((cur) =>
+                      cur.includes(o.id) ? cur.filter((x) => x !== o.id) : [...cur, o.id],
+                    )
+                  }
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelected(o.id);
+                    setView("detail");
+                  }}
+                  aria-pressed={selected === o.id}
+                  className={cn(
+                    "h-auto min-h-32 w-full items-start justify-start whitespace-normal p-4 pl-10 text-left",
+                    selected === o.id && "border-primary bg-primary/5",
+                    o.ready && "border-success/40 bg-success/5",
+                  )}
+                >
                 <div className="w-full min-w-0 space-y-2">
                   <div className="flex justify-between gap-2 text-xs text-muted-foreground">
                     <span>{o.id}</span>
@@ -200,7 +311,8 @@ export function PreparationMockup() {
                     articoli · {o.assignee || "Non assegnato"}
                   </p>
                 </div>
-              </Button>
+                </Button>
+              </div>
             ))}
           </div>
           {!visible.length && (
@@ -210,10 +322,16 @@ export function PreparationMockup() {
       )}
       {view === "detail" && order && (
         <section className="min-w-0 space-y-4">
-          <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setView("list")}>
-            <ArrowLeft className="h-4 w-4" />
-            Torna agli ordini
-          </Button>
+          <div className="flex items-center justify-between gap-2">
+            <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setView("list")}>
+              <ArrowLeft className="h-4 w-4" />
+              Torna agli ordini
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => printOrders([order])}>
+              <Printer className="h-4 w-4" />
+              Stampa ordine
+            </Button>
+          </div>
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
             <div>
               <p className="text-xs font-medium text-muted-foreground">
