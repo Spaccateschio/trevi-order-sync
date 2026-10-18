@@ -1,18 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Building2, ShoppingCart, Users } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowRight, Building2, Loader2, ShoppingCart, Users } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MOCK_EVENTS, MOCK_STATS } from "@/lib/platform-mock-data";
+import { getPlatformStats, listPlatformEvents } from "@/lib/platform.functions";
 
 export const Route = createFileRoute("/piattaforma/")({
   head: () => ({
     meta: [
-      { title: "Pannello piattaforma — Trevi Fruit (mockup)" },
+      { title: "Pannello piattaforma — Trevi Fruit" },
       {
         name: "description",
         content: "Pannello principale dell'amministrazione piattaforma: numeri chiave ed eventi recenti.",
       },
-      { property: "og:title", content: "Pannello piattaforma — Trevi Fruit (mockup)" },
+      { property: "og:title", content: "Pannello piattaforma — Trevi Fruit" },
       {
         property: "og:description",
         content: "Pannello principale dell'amministrazione piattaforma: numeri chiave ed eventi recenti.",
@@ -25,25 +26,42 @@ export const Route = createFileRoute("/piattaforma/")({
 });
 
 function PlatformDashboard() {
-  const stats = [
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["platform-stats"],
+    queryFn: () => getPlatformStats(),
+  });
+  const { data: events } = useQuery({
+    queryKey: ["platform-events"],
+    queryFn: () => listPlatformEvents(),
+  });
+
+  if (isLoading || !stats) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Caricamento" />
+      </div>
+    );
+  }
+
+  const cards = [
     {
       label: "Aziende registrate",
-      value: MOCK_STATS.companies,
-      sub: `${MOCK_STATS.activeCompanies} attive`,
+      value: stats.companies,
+      sub: `${stats.activeCompanies} attive`,
       icon: Building2,
       to: "/piattaforma/aziende",
     },
     {
       label: "Utenti registrati",
-      value: MOCK_STATS.users,
+      value: stats.users,
       sub: "tutte le aziende",
       icon: Users,
       to: "/piattaforma/utenti",
     },
     {
       label: "Ordini oggi",
-      value: MOCK_STATS.ordersToday,
-      sub: `${MOCK_STATS.ordersMonth} questo mese`,
+      value: stats.ordersToday,
+      sub: `${stats.ordersMonth} questo mese`,
       icon: ShoppingCart,
       to: "/piattaforma/registro",
     },
@@ -52,7 +70,7 @@ function PlatformDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
-        {stats.map((stat) => {
+        {cards.map((stat) => {
           const Icon = stat.icon;
           return (
             <Link key={stat.label} to={stat.to}>
@@ -85,20 +103,27 @@ function PlatformDashboard() {
           </Link>
         </CardHeader>
         <CardContent>
-          <ul className="divide-y divide-border">
-            {MOCK_EVENTS.slice(0, 5).map((event) => (
-              <li key={event.id} className="flex items-start justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{event.action}</p>
-                  <p className="truncate text-sm text-muted-foreground">{event.detail}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {event.company} · {event.user}
+          {(events ?? []).length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Nessun evento registrato finora.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {(events ?? []).slice(0, 5).map((event) => (
+                <li key={event.id} className="flex items-start justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{event.action}</p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {event.section}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-xs text-muted-foreground">
+                    {new Date(event.created_at).toLocaleString("it-IT")}
                   </p>
-                </div>
-                <p className="shrink-0 text-xs text-muted-foreground">{event.at}</p>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

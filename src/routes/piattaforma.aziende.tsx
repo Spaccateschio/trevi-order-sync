@@ -1,21 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronRight, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MOCK_COMPANIES, type MockCompany } from "@/lib/platform-mock-data";
+import { listPlatformCompanies } from "@/lib/platform.functions";
 
 export const Route = createFileRoute("/piattaforma/aziende")({
   head: () => ({
     meta: [
-      { title: "Aziende — Amministrazione piattaforma (mockup)" },
+      { title: "Aziende — Amministrazione piattaforma" },
       {
         name: "description",
         content: "Elenco di tutte le aziende registrate sulla piattaforma, con stato e attività.",
       },
-      { property: "og:title", content: "Aziende — Amministrazione piattaforma (mockup)" },
+      { property: "og:title", content: "Aziende — Amministrazione piattaforma" },
       {
         property: "og:description",
         content: "Elenco di tutte le aziende registrate sulla piattaforma, con stato e attività.",
@@ -27,28 +28,46 @@ export const Route = createFileRoute("/piattaforma/aziende")({
   component: PlatformCompanies,
 });
 
-const STATUS_LABELS: Record<MockCompany["status"], string> = {
-  attiva: "Attiva",
-  in_prova: "In prova",
-  sospesa: "Sospesa",
+const STATUS_LABELS: Record<string, string> = {
+  attivo: "Attiva",
+  disattivato: "Disattivata",
+  revocato: "Revocata",
 };
 
-const STATUS_VARIANTS: Record<MockCompany["status"], "default" | "secondary" | "destructive"> = {
-  attiva: "default",
-  in_prova: "secondary",
-  sospesa: "destructive",
+const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive"> = {
+  attivo: "default",
+  disattivato: "secondary",
+  revocato: "destructive",
 };
+
+function formatDate(value: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("it-IT");
+}
 
 function PlatformCompanies() {
   const [query, setQuery] = useState("");
-  const filtered = MOCK_COMPANIES.filter((c) =>
+  const { data: companies, isLoading } = useQuery({
+    queryKey: ["platform-companies"],
+    queryFn: () => listPlatformCompanies(),
+  });
+
+  if (isLoading || !companies) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Caricamento" />
+      </div>
+    );
+  }
+
+  const filtered = companies.filter((c) =>
     c.name.toLowerCase().includes(query.toLowerCase()),
   );
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="font-display text-xl font-semibold">Aziende ({MOCK_COMPANIES.length})</h1>
+        <h1 className="font-display text-xl font-semibold">Aziende ({companies.length})</h1>
       </div>
       <Input
         value={query}
@@ -65,8 +84,8 @@ function PlatformCompanies() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">{company.name}</p>
-                      <Badge variant={STATUS_VARIANTS[company.status]}>
-                        {STATUS_LABELS[company.status]}
+                      <Badge variant={STATUS_VARIANTS[company.status] ?? "secondary"}>
+                        {STATUS_LABELS[company.status] ?? company.status}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
@@ -74,7 +93,7 @@ function PlatformCompanies() {
                       {company.ordersMonth} ordini/mese
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Registrata il {company.registeredAt} · ultima attività {company.lastActivity}
+                      Registrata il {formatDate(company.registeredAt)}
                     </p>
                   </div>
                   <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />

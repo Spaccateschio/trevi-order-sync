@@ -1,20 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MOCK_USERS } from "@/lib/platform-mock-data";
+import { listPlatformUsers } from "@/lib/platform.functions";
 
 export const Route = createFileRoute("/piattaforma/utenti")({
   head: () => ({
     meta: [
-      { title: "Utenti — Amministrazione piattaforma (mockup)" },
+      { title: "Utenti — Amministrazione piattaforma" },
       {
         name: "description",
         content: "Elenco di tutti gli utenti registrati sulla piattaforma, con azienda e ultimo accesso.",
       },
-      { property: "og:title", content: "Utenti — Amministrazione piattaforma (mockup)" },
+      { property: "og:title", content: "Utenti — Amministrazione piattaforma" },
       {
         property: "og:description",
         content: "Elenco di tutti gli utenti registrati sulla piattaforma, con azienda e ultimo accesso.",
@@ -28,7 +30,20 @@ export const Route = createFileRoute("/piattaforma/utenti")({
 
 function PlatformUsers() {
   const [query, setQuery] = useState("");
-  const filtered = MOCK_USERS.filter(
+  const { data: users, isLoading } = useQuery({
+    queryKey: ["platform-users"],
+    queryFn: () => listPlatformUsers(),
+  });
+
+  if (isLoading || !users) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Caricamento" />
+      </div>
+    );
+  }
+
+  const filtered = users.filter(
     (u) =>
       u.name.toLowerCase().includes(query.toLowerCase()) ||
       u.company.toLowerCase().includes(query.toLowerCase()) ||
@@ -37,7 +52,7 @@ function PlatformUsers() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-xl font-semibold">Utenti ({MOCK_USERS.length})</h1>
+      <h1 className="font-display text-xl font-semibold">Utenti ({users.length})</h1>
       <Input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -55,11 +70,14 @@ function PlatformUsers() {
                     <Badge variant={user.status === "attivo" ? "default" : "secondary"}>
                       {user.status === "attivo" ? "Attivo" : "Disattivato"}
                     </Badge>
-                    <Badge variant="outline">{user.role}</Badge>
+                    {user.role && <Badge variant="outline">{user.role}</Badge>}
                   </div>
                   <p className="truncate text-sm text-muted-foreground">{user.email}</p>
                   <p className="text-xs text-muted-foreground">
-                    {user.company} · ultimo accesso {user.lastAccess}
+                    {user.company || "Nessuna azienda"} · ultimo accesso{" "}
+                    {user.lastAccess
+                      ? new Date(user.lastAccess).toLocaleString("it-IT")
+                      : "mai"}
                   </p>
                 </div>
               </CardContent>
