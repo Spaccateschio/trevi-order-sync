@@ -41,9 +41,9 @@ function reloadOnceForChunkError(): boolean {
 
 function isBrowserReloadSafe(): boolean {
   try {
-    // Skip while the document is still loading (initial boot) or unloading,
-    // and inside iframes used for printing.
-    if (document.readyState === "loading" || document.visibilityState === "unloaded") return false;
+    // Skip while the document is still loading (initial boot), and inside
+    // iframes used for printing.
+    if (document.readyState === "loading") return false;
     if (window.self !== window.top) return false;
     return true;
   } catch {
