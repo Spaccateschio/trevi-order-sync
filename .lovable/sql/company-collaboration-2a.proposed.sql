@@ -4,7 +4,7 @@
 CREATE TABLE public.company_ownerships (
   company_id uuid PRIMARY KEY REFERENCES public.companies(id) ON DELETE RESTRICT,
   owner_member_id uuid NOT NULL UNIQUE REFERENCES public.company_members(id) ON DELETE RESTRICT,
-  assigned_by uuid NOT NULL,
+  assigned_by uuid,
   assigned_at timestamptz NOT NULL DEFAULT now()
 );
 GRANT SELECT ON public.company_ownerships TO authenticated;
@@ -14,7 +14,8 @@ ALTER TABLE public.company_ownerships ENABLE ROW LEVEL SECURITY;
 CREATE TABLE public.company_collaboration_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
-  actor_user_id uuid NOT NULL,
+  actor_user_id uuid,
+  actor_kind text NOT NULL,
   subject_member_id uuid REFERENCES public.company_members(id) ON DELETE RESTRICT,
   action text NOT NULL,
   before_state jsonb,
@@ -92,7 +93,7 @@ BEGIN
          AND company_id=_company AND role='amministratore') THEN
       RAISE EXCEPTION 'COLLAB_INVALID_OWNER';
     END IF;
-    IF NEW.assigned_by<>_member.user_id THEN RAISE EXCEPTION 'COLLAB_INVALID_ASSIGNMENT_ACTOR'; END IF;
+    IF NEW.assigned_by IS DISTINCT FROM auth.uid() THEN RAISE EXCEPTION 'COLLAB_INVALID_ASSIGNMENT_ACTOR'; END IF;
     RETURN NEW;
   END IF;
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'COLLAB_AUTH_REQUIRED'; END IF;
@@ -180,9 +181,10 @@ BEGIN
   END IF;
   IF TG_TABLE_NAME='company_ownerships' THEN _actor:=(_after->>'assigned_by')::uuid;
   ELSE _actor:=auth.uid(); END IF;
-  IF _actor IS NULL THEN RAISE EXCEPTION 'COLLAB_AUDIT_ACTOR_REQUIRED'; END IF;
-  INSERT INTO public.company_collaboration_events(company_id,actor_user_id,subject_member_id,action,before_state,after_state)
-  VALUES(_company,_actor,_member,TG_TABLE_NAME||'.'||lower(TG_OP),_before,_after);
+  IF _actor IS NULL AND TG_TABLE_NAME<>'company_ownerships' THEN RAISE EXCEPTION 'COLLAB_AUDIT_ACTOR_REQUIRED'; END IF;
+  INSERT INTO public.company_collaboration_events(company_id,actor_user_id,actor_kind,subject_member_id,action,before_state,after_state)
+  VALUES(_company,_actor,CASE WHEN _actor IS NULL THEN 'privileged_initialization' ELSE 'authenticated_user' END,
+    _member,TG_TABLE_NAME||'.'||lower(TG_OP),_before,_after);
   IF TG_OP='DELETE' THEN RETURN OLD; END IF;
   RETURN NEW;
 END;
@@ -352,7 +354,7 @@ BEGIN
   PERFORM set_config('app.collaboration_company',_company::text,true);
   PERFORM set_config('app.collaboration_mode','initialize',true);
   INSERT INTO public.company_ownerships(company_id,owner_member_id,assigned_by)
-  VALUES(_company,_member_id,_expected_user_id);
+  VALUES(_company,_member_id,auth.uid());
   PERFORM set_config('app.collaboration_mode',_previous_mode,true);
   PERFORM set_config('app.collaboration_company',_previous_company,true);
 END;
