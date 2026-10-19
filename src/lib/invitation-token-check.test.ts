@@ -46,3 +46,16 @@ describe("invio invito commerciale", () => {
     expect(r).toEqual({ ok: true });
   });
 });
+
+import { classifySendError } from "./invitation-token-check";
+
+describe("esito dell'invio", () => {
+  it("rifiuto certo del servizio = fallito", () => {
+    expect(classifySendError({ status: 400 })).toBe("fallito");
+    expect(classifySendError({ status: 429 })).toBe("fallito");
+  });
+  it("rete o errore del servizio = sconosciuto, non libera il limite", () => {
+    expect(classifySendError(new Error("network"))).toBe("sconosciuto");
+    expect(classifySendError({ status: 503 })).toBe("sconosciuto");
+  });
+});

@@ -536,13 +536,18 @@ function Collegamenti() {
   async function useInviteCode() {
     if (!company) return;
     setBusy(true);
-    const { error } = await supabase.rpc("accept_invitation_code", {
+    const { data: relationId, error } = await supabase.rpc("accept_invitation_code", {
       _code: code.trim(),
       _buyer_company_id: company.companyId,
     });
     setBusy(false);
     if (error) {
       toast.error(error.message);
+      return;
+    }
+    // Dopo la correzione di sicurezza un codice inesistente risponde vuoto, senza errore.
+    if (!relationId) {
+      toast.error("Codice invito non valido o già utilizzato");
       return;
     }
     setCode("");

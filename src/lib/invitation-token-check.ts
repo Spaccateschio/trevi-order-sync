@@ -44,3 +44,14 @@ export async function checkInvitationSend(input: {
   if (!(await tokenMatchesHash(input.token, input.tokenHash))) return { ok: false, reason: "invalid_token" };
   return { ok: true };
 }
+
+/**
+ * Esito di un invio fallito: «fallito» solo quando il servizio email ha
+ * rifiutato con certezza (errore 4xx dichiarato); tutto il resto (rete,
+ * tempo scaduto, 5xx) è «sconosciuto» e continua a contare nel limite.
+ */
+export function classifySendError(err: unknown): "fallito" | "sconosciuto" {
+  const status = (err as { status?: unknown } | null)?.status;
+  if (typeof status === "number" && status >= 400 && status < 500) return "fallito";
+  return "sconosciuto";
+}
