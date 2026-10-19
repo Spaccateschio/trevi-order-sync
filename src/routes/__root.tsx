@@ -15,6 +15,63 @@ import { supabase } from "@/integrations/supabase/client";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
+// ===== Auto-reload once on stale chunk load failures =====
+// After a new deployment the open browser tab may request an old JS chunk that
+// no longer exists ("Failed to fetch dynamically imported module"), showing a
+// blank screen. Reload the page once, with a guard against reload loops.
+const CHUNK_RELOAD_FLAG = "trevi-chunk-reload-attempt";
+
+function isChunkLoadError(message: string): boolean {
+  return /failed to fetch dynamically imported module|importing a module script failed|error loading dynamically imported module|vite:preloadError/i.test(
+    message,
+  );
+}
+
+function reloadOnceForChunkError(): boolean {
+  if (typeof window === "undefined" || !isBrowserReloadSafe()) return false;
+  try {
+    if (window.sessionStorage.getItem(CHUNK_RELOAD_FLAG)) return false;
+    window.sessionStorage.setItem(CHUNK_RELOAD_FLAG, "1");
+  } catch {
+    return false;
+  }
+  window.location.reload();
+  return true;
+}
+
+function isBrowserReloadSafe(): boolean {
+  try {
+    // Skip while the document is still loading (initial boot) or unloading,
+    // and inside iframes used for printing.
+    if (document.readyState === "loading" || document.visibilityState === "unloaded") return false;
+    if (window.self !== window.top) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener(
+    "error",
+    (event) => {
+      const message =
+        (event.target instanceof HTMLScriptElement && `failed to fetch dynamically imported module: ${event.target.src}`) ||
+        (event instanceof ErrorEvent && event.message) ||
+        "";
+      if (message && isChunkLoadError(message)) {
+        event.preventDefault();
+        reloadOnceForChunkError();
+      }
+    },
+    true,
+  );
+  window.addEventListener("vite:preloadError", (event) => {
+    event.preventDefault();
+    reloadOnceForChunkError();
+  });
+}
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
