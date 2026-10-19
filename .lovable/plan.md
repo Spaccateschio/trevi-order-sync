@@ -17,41 +17,33 @@ Nessuna modifica applicativa, migrazione, assegnazione, utente di prova, email o
 
 I due account sono distinti. Nessuna appartenenza incrociata rilevata. Per Trevi manca la verifica della sua sessione autenticata, concordata separatamente: nome/email non bastano. Nessuna proprietà assegnata; anche 3 EMME richiede conferma esplicita dell'assegnazione.
 
-## 2. A — Titolare, gestione e storico
+## 2. A/B — Struttura tecnica proposta
 
-### Strutture proposte
-- `company_ownerships`: `company_id uuid` PK/FK companies RESTRICT; `member_id uuid NOT NULL UNIQUE`; `assigned_by uuid NOT NULL`, `assigned_at timestamptz NOT NULL DEFAULT now()`, `reason text NOT NULL`. FK composta azienda+appartenenza; indice univoco aggiuntivo su company_members(company_id,id). Un titolare corrente; nessun inserimento automatico.
-- `company_collaboration_events`: `id uuid` PK default gen_random_uuid(), `company_id uuid NOT NULL`, `actor_user_id uuid NOT NULL`, `target_member_id uuid NULL`, `invitation_id uuid NULL`, `action text NOT NULL`, `before_data/after_data jsonb NULL`, `request_id uuid NOT NULL`, `created_at timestamptz NOT NULL DEFAULT now()`. FK RESTRICT coerenti; unicità azienda+request_id; eventi minimizzati senza token.
-- `company_members`: aggiunta facoltativa `collaborator_name text NULL` e versione non nulla con default; nome aziendale distinto dal profilo personale globale. Nessuna modifica di identificativi o cancellazione.
+Tutte le nuove tabelle: CREATE → GRANT minimo → ENABLE RLS → POLICY nella stessa migrazione. Letture della stessa azienda autorizzata; scritture solo procedure; service_role privilegi necessari; niente anon, FK auth.users nuove, INSERT di colonne generate o cancellazioni appartenenze.
 
-Ogni tabella pubblica: CREATE → GRANT minimo → ENABLE RLS → POLICY nella stessa migrazione. authenticated legge soltanto la propria azienda con autorizzazione pertinente; nessuna scrittura diretta delle nuove tabelle; service_role ha privilegi necessari; niente anon. Nessuna FK nuova verso auth.users e nessuna colonna generata negli INSERT/UPDATE.
+| Tabella | Campi e vincoli |
+|---|---|
+| company_ownerships | company_id uuid PK/FK RESTRICT, member_id uuid NOT NULL UNIQUE; FK composta verso membership azienda+id; assigned_by uuid, assigned_at timestamptz default now(), reason text obbligatori. Nessun inserimento automatico. |
+| company_collaboration_events | id uuid PK default gen_random_uuid(), company_id/actor_user_id/request_id uuid obbligatori, target_member_id/invitation_id uuid nullable, action text, before_data/after_data jsonb, created_at timestamptz default now(); unicità azienda+request_id; append-only, niente token. |
+| company_collaborator_invitations | id/company_id uuid, email_normalized text, collaborator_name text nullable, token_hash text UNIQUE SHA-256/64 caratteri, proposed_roles app_role[], status text default in_attesa, expires_at timestamptz, invited_by uuid, accepted_by uuid nullable, date e revision bigint default 1. Ruoli non vuoti/senza duplicati/mai piattaforma; unicità parziale azienda+email in attesa. |
 
-### Funzioni e invarianti
-- `is_company_owner`: auth.uid(), appartenenza attiva, proprietà della stessa azienda e amministratore; mai ownership ricavata da created_by.
-- `get_company_collaborators`, `manage_company_collaborator`, `assign_verified_company_owner` (bootstrap controllato, non libero dal browser).
-- Solo titolare può nominare, cambiare ruoli/stato o riattivare un amministratore, anche multiprofilo. Amministratore non titolare gestisce soltanto non-amministratori, senza elevarli.
-- Titolare sempre attivo e amministratore; impossibili declassamento, rimozione, cambio identità/azienda e disattivazione ordinari. Almeno un amministratore attivo a fine transazione.
-- Guardie database anche contro REST diretto: company_members_insert_admin/update_admin e company_member_roles_insert_admin/delete_admin non devono aggirare la procedura. Conservare il contratto operativo precedente, tranne l'eccezione titolare approvata.
-- Tutte le mutazioni collaboratori condividono lock aziendale, rilegge autorizzazioni dopo il lock, versioni e idempotenza. Vincoli differibili per gli stati finali; modifiche+audit atomici, errore implica rollback.
-- DELETE appartenenze vietato: la FK ruoli→appartenenza CASCADE resta inutilizzata; disattivazione tramite stato.
+company_members: nome aziendale nullable e versione con default; nessun cambio identificativi. Ruoli restano in company_member_roles. Indici azienda+stato, azienda+appartenenza, hash; FK RESTRICT; scadenze in procedure, non CHECK con now().
 
-**Aziende senza titolare verificato:** non assegnarne uno e non bloccare silenziosamente amministratori esistenti. Le nuove protezioni di gestione vanno abilitate soltanto con assegnazione approvata e rollout esplicito; su aziende non inizializzate resta il comportamento precedente. Nessuna modalità generale di permessi.
+Funzioni SECURITY DEFINER/search_path public: is_company_owner, get_company_collaborators, manage_company_collaborator, bootstrap assign_verified_company_owner controllato, create/accept/revoke/resend_collaborator_invitation. Autore da auth.uid(), azienda dalle risorse autorizzate; EXECUTE minimo, niente PUBLIC/anon alle scritture.
 
-## 3. B — Collaboratori e inviti reali
+### Protezioni titolare
+- Titolare sempre appartenenza attiva e amministratore; impossibili declassamento, disattivazione, cambio identità/azienda o rimozione ordinari.
+- Solo titolare gestisce ruoli/stato di altri amministratori, anche multiprofilo; amministratori non titolari gestiscono soltanto non-admin, senza elevarli.
+- Ultimo amministratore attivo protetto; lock aziendale comune, autorizzazione riletta dopo lock, versioni/idempotenza, vincoli finali differibili. Audit atomico: errore implica rollback.
+- Proteggere anche policy company_members_insert_admin/update_admin e company_member_roles_insert_admin/delete_admin: nessun bypass REST. DELETE membership vietato; CASCADE ruoli non usato.
+- Aziende senza titolare verificato: niente assegnazione/blocco silenzioso. Nuove regole gestione entrano soltanto con inizializzazione esplicitamente approvata; altre aziende conservano il precedente comportamento, senza motore di permessi.
 
-`company_collaborator_invitations`: id uuid PK; company_id uuid NOT NULL; email_normalized text NOT NULL; collaborator_name text NULL; token_hash text NOT NULL UNIQUE (SHA-256, 64 caratteri); proposed_roles app_role[] NOT NULL; status text NOT NULL DEFAULT 'in_attesa'; expires_at timestamptz NOT NULL; invited_by uuid NOT NULL; accepted_by uuid NULL; created_at timestamptz default now(), accepted_at/revoked_at timestamptz NULL; revision bigint default 1.
-
-Vincoli: ruoli aziendali ammessi/non vuoti/senza duplicati, mai piattaforma; stati e date coerenti; FK RESTRICT; unicità parziale azienda+email per invito in attesa. Scadenza valutata in procedura, non CHECK con now(). Indici azienda+stato e hash.
-
-Funzioni: create/accept/revoke/resend_collaborator_invitation, gestione stato/ruoli e lettura elenco. Tutte SECURITY DEFINER/search_path public; EXECUTE solo ruoli necessari, niente PUBLIC/anon alle scritture.
-
-- Invito distinto dai clienti. Token casuale almeno 256 bit, server-side: persistita solo impronta, segreto transitorio solo per email, niente URL/token nei log.
-- Email e ruoli dal record verificato, mai scelti all'accettazione dal browser. Email autenticata e confermata confrontata con invito.
-- Sotto lock: hash, stato, scadenza, revisione e autorità corrente dell'invitante ricontrollati. Invito admin richiede titolare ancora autorizzato; invitante revocato non concede ruoli.
-- Membership già attiva: niente downgrade o sostituzione automatica. Membership inattiva: invito non riattiva; serve riattivazione esplicita autorizzata. Revoca invalida inviti pendenti incompatibili.
-- Reinvio ruota token; invio email e commit non sono atomici: fallimento invio lascia invito pendente, nessuna appartenenza attivata. Nessuna coda persistente con token in chiaro.
-- Pagina reale `/collaboratori`, elenco, nome, email, ruoli combinabili, stato, invito e storico. Gestione amministratori riservata al titolare. Anteprima separata e invariata.
-- Ingresso pubblico `/collaboratore-invito/$token`: informazioni minime; accettazione soltanto autenticata e con email verificata.
+### Inviti e pagina reale
+- Token server casuale ≥256 bit; soltanto hash persistito, segreto transitorio per email, niente token/URL nei log o code in chiaro. Email e ruoli dal record verificato.
+- Accettazione autenticata, email confermata confrontata con invito. Sotto lock rilegge hash/stato/scadenza/revisione/autorità invitante; invito admin solo titolare ancora autorizzato.
+- Membership attiva: niente downgrade/sostituzione implicita. Inattiva: invito non riattiva. Disattivazione invalida inviti incompatibili; riattivazione solo esplicita. Reinvio ruota token.
+- Email e commit non atomici: fallimento lascia invito pendente, mai membro attivato.
+- /collaboratori reale: nome/email, ruoli combinabili, stato, invito, storico; anteprima invariata. /collaboratore-invito/$token pubblico con informazioni minime; azione solo autenticata.
 
 ## 4. C — Ruoli fissi proposti
 
@@ -67,55 +59,52 @@ Account, azienda selezionabile fra appartenenze attive, navigazione e home con s
 
 **Acquisti diretti:** nel perimetro iniziale il Compratore può preparare quote, ma non generare/confermare AD né registrare acquisto reale; il flusso corrente ha gate admin/operatore. Decisione aggiuntiva necessaria per abilitare AD al Compratore, senza estendere l'helper comune. Non concedere annullamento ordine/Lista né eliminazione documento; rimozione riga/assegnazione è modifica della Lista, con vincoli attuali.
 
-## 5. D — Protezioni mirate e compatibilità
+## 5. D — Controlli mirati
 
-Inventario live: 94 funzioni contengono is_company_member, inclusi helper, trigger e funzioni con controlli ulteriori. Non sono 94 accessi incondizionati. L'elenco nominativo con restrizioni e le policy sono riportati nel rapporto in chat.
+Inventario live: 94 funzioni contengono is_company_member (inclusi helper, trigger e gate ulteriori), 140 policy/82 tabelle. Rapporto in chat: elenco nominativo e restrizione proposta; non è certificazione end-to-end.
 
-Nessuna modifica a is_company_member, is_company_admin, has_company_role, is_order_supplier, can_declare_on_order, can_view_seller_catalogue, owns_customer_record/owns_supplier_record, shares_company_with/shares_relation_with. Predicati fissi aggiuntivi, non motore: riconoscimento soli nuovi ruoli, acquisti, inventario/carico, preparazione e letture correlate.
+Non cambiare is_company_member/is_company_admin/has_company_role né significato globale di is_order_supplier, can_declare_on_order, can_view_seller_catalogue e helper proprietari/relazioni. Pochi predicati fissi aggiuntivi per acquisti, inventario/carico, preparazione e letture; nessuna matrice personalizzabile.
 
-Ogni ingresso applica il ramo precedente senza variazioni agli utenti con vecchi ruoli, OR diritto espresso nuovo. Ai soli ruoli nuovi non si applica la membership permissiva indiscriminata. Grant esistenti di helper non riaperti: has_company_role non è eseguibile da authenticated; usare lettura dedicata dei ruoli propri autorizzata.
+Ogni ingresso mantiene il risultato precedente per vecchi ruoli OR il diritto espresso nuovo. Ai soli nuovi non si applica membership indiscriminata. Aggiornare policy permissive originali (nuova policy permissiva non restringe OR) e vecchie RPC ancora chiamabili. SECURITY DEFINER, server privilegiato, immagini e stampa diretta richiedono copertura. Non riaprire grant helper: has_company_role non è client-callable.
 
-Le policy permissive originali vanno aggiornate puntualmente: aggiungerne un'altra più stretta non chiude il precedente OR. SECURITY DEFINER deve controllare esplicitamente anche dove RLS è aggirata. Route/menu non sostituiscono database; proteggere anche vecchie RPC ancora eseguibili, immagini firmate e stampa tramite URL diretto.
+Preparazione: predicato nuovo nelle 2 RPC/3 policy, controlli assegnatario coerenti; preparation_actor_allowed invariato. Vecchi utenti vedono anche i nuovi assegnatari, espansione dati necessaria alla collaborazione.
 
-Preparazione: nuovi predicati nelle 2 RPC e 3 policy; selettori/controlli assegnatario aggiungono preparatore coerentemente. Non cambiare preparation_actor_allowed globalmente. Utenti vecchi conservano azioni, ma vedono i nuovi assegnatari necessari alla collaborazione: espansione dati intenzionale da documentare.
+### Blocchi da decidere prima
+- inventory_location_stock(uuid,uuid): EXECUTE authenticated, SECURITY DEFINER, nessun controllo identità/azienda. Correzione completa richiede eccezione di sicurezza alla compatibilità; alternativa guardia solo sui nuovi lascia rischio vecchio esplicito. Nessuna assegnazione nuova finché coperta.
+- RLS tabelle tecniche Danea devono negare letture ai soli nuovi; postazioni/service/export invariati. Richiede approvazione esplicita dei soli controlli di lettura. Archivio Liste tramite proiezione operativa dedicata, niente log/configurazioni.
+- Fallback immagini privilegiato, notifiche e operazioni service coperti prima rilascio. Senza classificazione notifiche affidabile, soli nuovi non ricevono notifiche aziendali generiche.
 
-### Blocchi prima dell'assegnazione
-- `inventory_location_stock(uuid,uuid)` è EXECUTE authenticated, SECURITY DEFINER e senza controllo identità/azienda: può bypassare le nuove restrizioni. Consigliata correzione separata autorizzata; cambia un accesso indebito esistente e quindi è un'eccezione da approvare, non nascosta nella compatibilità. Alternativa limitata: guardia solo per utenti esclusivamente nuovi, lasciando il rischio precedente esplicitamente irrisolto. Nessuna assegnazione nuova finché scelta e copertura non validate.
-- Le RLS su danea_archives/price_lists/sync_runs/sync_issues/product_danea_supplier_matches devono negare letture tecniche ai soli nuovi, lasciando postazioni/service e vecchi ruoli invariati. Sono controlli di lettura, non modifiche all'integrazione Danea; richiedono approvazione esplicita di quel perimetro. Archivio necessario alle Liste: sola lettura dei campi operativi tramite funzione dedicata, nessun log/configurazione.
-- Fallback foto privilegiato, notifiche senza area riconoscibile e operazioni service vanno coperti prima del rilascio; senza classificazione affidabile, nuovi ruoli non ricevono notifiche aziendali generiche.
-
-| Combinazione | Esito previsto |
+| Combinazione | Esito |
 |---|---|
-| operatore + preparatore | Accessi operatore invariati + Preparazione (già normalmente consentita). |
-| operatore + magazziniere | Accessi operatore + avvio/chiusura inventario e operazioni M mancanti. |
-| amministratore + compratore | Accessi amministratore invariati, tranne eccezione gestione admin; C non conferisce proprietà. |
-| preparatore solo | Solo Preparazione e bootstrap. |
-| magazziniere solo | Solo Inventario/Carico e letture correlate. |
-| compratore solo | Solo acquisti e letture correlate, non Carico. |
+| operatore+preparatore | Accessi operatore + Preparazione, già normalmente consentita. |
+| operatore+magazziniere | Accessi operatore + operazioni M mancanti, inclusi avvio/chiusura inventario. |
+| amministratore+compratore | Accessi admin, eccezione titolare; C non dà proprietà. |
+| preparatore solo | Preparazione e bootstrap. |
+| magazziniere solo | Inventario/Carico e letture correlate. |
+| compratore solo | Acquisti e letture correlate, non Carico. |
 
-## 6. File e migrazioni previste
+## 6. File e migrazioni
 
-Migrazioni nuove, nomi logici (sequenza assegnata dallo strumento): ownership+audit+guardie; inviti; enum ruoli (commit separato); restrizioni RPC/policy per area. Applicazione soltanto via migration, mai vecchie migrazioni riscritte; rigenerazione tipi ufficiale dopo schema.
+Nuove migrazioni: ownership/audit/guardie; inviti; enum (commit separato); restrizioni per area. Nomi/sequenza dallo strumento ufficiale migration; tipi rigenerati dopo schema, vecchie migrazioni non riscritte.
 
-Nuovi: src/lib/company-collaborators.ts, company-collaborators.functions.ts, company-collaborator-email.functions.ts; src/components/company-collaborators/collaborators-page.tsx; src/routes/_authenticated/collaboratori.tsx; src/routes/collaboratore-invito.$token.tsx; src/lib/email-templates/invito-collaboratore.tsx; test regole adiacenti e tests/security/company-collaborators.integration.test.ts.
+Nuovi: src/lib/company-collaborators.ts, company-collaborators.functions.ts, company-collaborator-email.functions.ts; src/components/company-collaborators/collaborators-page.tsx; src/routes/_authenticated/collaboratori.tsx; src/routes/collaboratore-invito.$token.tsx; src/lib/email-templates/invito-collaboratore.tsx; test adiacenti e tests/security/company-collaborators.integration.test.ts.
 
-Esistenti candidati: src/lib/email-templates/registry.ts, src/hooks/use-identity.ts, src/lib/navigation.ts, src/components/app-shell.tsx; route acquisti delle aree autorizzate e operativo.tsx; componenti preparazione/inventario/shopping soltanto controlli azioni autorizzati; src/lib/inventory.functions.ts, inventory-count.functions.ts, inventory-cycle.functions.ts, inventory-evaluation.functions.ts, shopping-list.functions.ts, order-generation.functions.ts, purchase.functions.ts, preparation.functions.ts, catalog.functions.ts, product-images.functions.ts.
+Esistenti candidati: email-templates/registry.ts, use-identity.ts, navigation.ts, app-shell.tsx; leaf acquisti/operativo e componenti preparazione/inventario/shopping per azioni; inventory.functions.ts, inventory-count.functions.ts, inventory-cycle.functions.ts, inventory-evaluation.functions.ts, shopping-list.functions.ts, order-generation.functions.ts, purchase.functions.ts, preparation.functions.ts, catalog.functions.ts, product-images.functions.ts.
 
-Nessuna modifica al mockup, layout autenticato gestito, client auth generati, esportazione Danea o dati operativi. Lista esecutiva di file/punti/componenti/test per ciascuna fase prima della sua approvazione; nessuna autorizzazione implicita su tutti i candidati.
+Prima di ogni fase: elenco esecutivo esatto dei file/componenti/test per approvazione. Non toccare mockup, layout autenticato gestito, client generati, export Danea o dati operativi. Metadati propri delle nuove pagine.
 
 ## 7. Test e collaudo successivo
 
-Nessun test operativo eseguito oggi. Dopo autorizzazione, utenti dedicati soltanto 3 EMME, email verificate, sessioni reali authenticated, nessuna prova Trevi o invio fornitori. Preparazione venditore non verificabile se 3 EMME resta solo acquirente: dataset e capacità di prova venditore richiedono approvazione distinta.
+Nessun test operativo oggi. Dopo autorizzazione: utenti dedicati 3 EMME, email verificate/sessioni vere authenticated; nessuna prova Trevi o invio fornitori. Preparazione venditore richiede capacità/dataset venditore di prova approvati separatamente se 3 EMME resta solo acquirente.
 
-Baseline vecchi ruoli da soli: menu, URL, righe lette, RPC e effetti; uguaglianza prima/dopo anche per dinieghi, salvo titolare. Test separati di tutte le 6 combinazioni, 3 nuovi insieme, vecchi misti, inattivi e cross-azienda. Non contare SQL privilegiato come prova reale.
+Baseline vecchi da soli: uguaglianza prima/dopo di menu, URL, righe, RPC/dinieghi/effetti, salvo titolare. Tutte le 6 combinazioni, nuovi insieme, vecchi misti/inattivi/cross-azienda. Test owner/ultimo admin/REST; inviti hash/scadenza/replay/email/invitante revocato/destinatario inattivo/ruoli manomessi. Concorrenza revoca/accettazione, audit fallito rollback, nessun DELETE. Vecchia sessione/secondo dispositivo: nuove chiamate dopo revoca negate; foto già firmate scadono dopo 600s, dati già consegnati non ritirati. SQL privilegiato non conta come collaudo reale.
 
-Owner/admin non owner: protezione owner, ultimo admin, promozione/declassamento/stato/REST. Inviti: hash errato, scaduto, revocato, replay, email diversa/non verificata, invitante revocato, destinatario inattivo, ruoli manomessi. Concorrenza doppia revoca/accettazione; audit fallito rollback; nessun DELETE e ruoli conservati. Revoca con vecchia sessione e secondo dispositivo: nuove chiamate negate; URL immagine già firmati restano validi fino alla loro scadenza (600s), dato già consegnato.
+## 8. Quattro rischi — sola analisi
 
-## 8. Quattro rischi esistenti — non correggere ora
-- Email invito: membro venditore non admin può chiamare invio di invito leggibile al destinatario registrato. Minimo: admin verificato sull'azienda della riga, stato/scadenza, limiti/idempotenza server. Nessun invio abusivo provato.
-- Token email: caller può inviare link diverso dall'impronta e variare chiave invio; non significa accettazione di token inventato (accettazione verifica hash). Minimo: SHA-256/formato/confronto prima invio, nessun token nella chiave registrata.
-- Piattaforma: team con permesso sezione nessuno può tentare letture privilegiate. Minimo: aziende/utenti/registro verificati nei rispettivi handler e RLS; team/ricerca membri super-only; statistiche segmentate. Gestione team DB già super-only. Nessuna esposizione dinamica dimostrata.
-- Audit: correzione del precedente rapporto: audit_share_events_rpc_only è RESTRICTIVE (AND), non seconda permissiva. authenticated e anon oggi NON hanno INSERT: nessuna falsificazione REST dimostrata/consentita da quei grant. Policy audit_insert_actor resta larga se il grant fosse riaperto. Minimo: mantenere INSERT client revocato, eventi fidati da RPC; eventuali eventi client separati e autorizzati. Nessun fix necessario da applicare in questa fase.
+- Invio email: membro venditore non admin può tentare invio al destinatario registrato. Minimo admin sull'azienda riga, stato/scadenza e idempotenza server; nessun abuso provato.
+- Token email: link non confrontato con hash; non equivale ad accettazione di token inventato. Minimo SHA-256/formato/confronto prima invio, niente token nelle chiavi registrate.
+- Piattaforma: team con sezione nessuno può tentare letture privilegiate. Minimo permessi aziende/utenti/registro in handler e RLS, team/ricerca super-only, statistiche segmentate. Gestione team DB già super-only.
+- Audit: precedente rapporto rettificato: audit_share_events_rpc_only è RESTRICTIVE/AND, non permissiva/OR. authenticated/anon oggi NON hanno INSERT; nessuna falsificazione REST permessa da quei grant. Mantenere grant revocato ed eventi fidati da RPC; policy larga pericolosa se riaperta. Non correggere ora.
 
 ## 9. Trasferimento proprietà — proposta, non sviluppo
 
