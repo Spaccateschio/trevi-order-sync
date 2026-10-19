@@ -1,3 +1,4 @@
+-- DEFERRED: NOT APPLIED. Da applicare solo insieme alla pubblicazione coordinata (il vecchio codice online non e compatibile).
 -- =====================================================================
 -- SICUREZZA INVITI COMMERCIALI — MIGRAZIONE UNICA (PROPOSTA, NON APPLICATA)
 -- Sostituisce .lovable/sql/commercial-invitation-send-limit.proposed.sql
