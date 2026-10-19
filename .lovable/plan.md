@@ -51,15 +51,36 @@ Regole:
 - Si aggiunge una scheda reale «Collaboratori» con persone reali, inviti divisi per stato, «Invita», «Reinvia» e «Revoca».
 - Si toglie l'anteprima solo dopo il tuo collaudo e una tua conferma separata.
 
+## Testo SQL della migrazione (non applicato)
+
+Il testo completo è nel file di proposta `.lovable/sql/company-collaboration-2b.proposed.sql` (520 righe). Contiene:
+- **Controlli iniziali:** chi esegue deve essere il ruolo principale e devono essere presenti le funzioni di cifratura.
+- **Due tabelle nuove:** gli inviti, visibili solo agli amministratori dell'azienda, e i segreti, che contengono solo l'impronta del link e non sono leggibili da nessuno.
+- **Protezioni sulle scritture e storico:** le stesse della 2A, riusate per le tabelle nuove.
+- **Modifica alla 2A, unica e limitata:** alle protezioni delle appartenenze si aggiunge solo la modalità «accettazione invito», con due rami. Il resto è copiato identico dal testo applicato con la 0077.
+- **Sette funzioni:** crea, reinvia, revoca, elenco, anteprima del link, accetta, più un controllo interno del titolare.
+- **Controlli finali:** proprietari impostati su postgres e verifica finale che annulla tutto se qualcosa non torna.
+
+Valori già scritti nel testo, da confermare con le decisioni qui sotto:
+- inviti solo dal titolare;
+- scadenza di 72 ore;
+- solo l'email esatta;
+- persona disattivata rifiutata;
+- reinvio non prima di 60 secondi e al massimo 10 reinvii per invito.
+
+Il testo non è stato provato sul database, nemmeno in una prova annullata. Un errore di scrittura emergerebbe solo al momento dell'applicazione, che è comunque atomica: o va tutto o non va niente.
+
 ## Decisioni da approvare
 1. **Chi invita:** solo il titolare, oppure anche gli amministratori? La mia proposta è solo il titolare per ora.
 2. **Ruolo amministratore via invito:** permesso, visto che nella 2A solo il titolare gestisce gli amministratori? Proposta: sì, ma solo se invita il titolare.
 3. **Scadenza:** 72 ore, come i link esterni già esistenti?
 4. **Email non corrispondente:** l'invito vale solo per l'email esatta oppure si accetta con qualsiasi account? Proposta: solo l'email esatta.
 5. **Persona già membro disattivato:** l'invito la riattiva oppure si usa il comando «Riattiva»? Proposta: si usa «Riattiva», l'invito viene rifiutato.
-6. **Limite reinvii:** per esempio al massimo 5 al giorno per invito?
+6. **Limite reinvii:** nel testo ho messo 60 secondi tra un reinvio e l'altro e al massimo 10 reinvii per invito. Vanno bene?
 
 ## Rischi
+- **Modifica alla 2A:** la migrazione sostituisce le due protezioni della 2A. Le aggiunte sono minime, ma è comunque una modifica a una parte già collaudata.
+- **Il link passa dal browser del titolare se chiama le funzioni direttamente:** in teoria il titolare può ottenere il link del proprio invito. Non è un problema, perché il link è suo, e la schermata lo passerà solo al server.
 - **Email sbagliata:** chi riceve il link non può usarlo con un altro account, grazie al punto 4.
 - **Prove:** la prova reale richiede una email vera. La faccio solo su 3 EMME, con un indirizzo che indichi tu e dopo una tua autorizzazione esplicita.
 - **Rischi già noti, che non correggo qui:** gli inviti commerciali che partono senza controllo dell'amministratore e il codice che non viene confrontato con l'impronta. Restano separati e da trattare a parte.
