@@ -12,10 +12,6 @@ DO $$ BEGIN
   IF to_regprocedure('public._company_sell_guard()') IS NULL THEN
     RAISE EXCEPTION 'SELL_REQ_PHASE0_MISSING';
   END IF;
-  IF md5(pg_get_functiondef('public.register_company(text,boolean,boolean,text,text,text,text,text,text,text,text,text,text,text,text,text)'::regprocedure))
-     IS DISTINCT FROM (SELECT md5(pg_get_functiondef('public.register_company(text,boolean,boolean,text,text,text,text,text,text,text,text,text,text,text,text,text)'::regprocedure))) THEN
-    RAISE EXCEPTION 'unreachable';
-  END IF;
 END $$;
 
 -- ---------- Tabella richieste ----------
