@@ -1,47 +1,98 @@
-# Ruoli aziendali, reparti e collaboratori
+# Collaboratori — Fase 2 ridotta, solo piano
 
-## Situazione attuale (analisi)
-- Oggi ogni persona ha solo 3 ruoli fissi: amministratore, operatore, trasportatore. Nessun permesso per pagina o per azione.
-- Gli inviti esistenti servono solo per i **clienti**, non per i collaboratori.
-- I prodotti non hanno un reparto.
-- La Lista della Spesa ammette **un solo ciclo aperto** per azienda (regola del semaforo Inventario → Lista → Ordini). Liste separate per reparto cambiano questa regola: va decisa con te (vedi Rischi).
-- Gli ordini fornitore nascono da una lista sola; non sanno da quale reparto arriva una riga.
+Solo piano; niente modifiche applicative/database, assegnazioni, prove, email o pubblicazione. Anteprima invariata; fasi approvate separatamente.
 
-## Cosa vedrà l'amministratore
-1. **Azienda → Collaboratori**: elenco persone, stato (attivo/disattivato), reparti, profilo.
-2. **Invita collaboratore**: email, nome, profilo pronto da cui partire, reparti.
-3. **Scheda permessi**: per ogni pagina una riga con le caselle
-   Visualizzare · Creare · Modificare · Confermare · Inviare · Annullare · Eliminare · Stampare,
-   più due interruttori: «Vede prezzi e costi», «Gestisce fornitori».
-   Eccezioni per singolo fornitore (es. «può inviare ordini solo a Ortofrutta Rossi»).
-4. **Azienda → Reparti**: crea, rinomina, disattiva (mai cancellare).
-5. **Prodotti**: colonna e filtro «Reparto», assegnazione anche multipla.
-6. Filtri per reparto, collaboratore e fornitore nelle pagine dell'amministratore.
+## 1. Decisioni e verifiche
+- Nessun motore generale dei permessi; rinviati personalizzazioni, divieti individuali, reparti, eccezioni fornitore, consolidamento, prezzi nascosti, modalità legacy/shadow/enforced.
+- Vecchi ruoli da soli: accessi operativi identici, consentiti e negati. Eccezione espressamente confermata: solo titolare gestisce amministratori; titolare e ultimo amministratore protetti.
+- Vecchio + nuovo: unione dei diritti; è consentito aggiungere diritti del nuovo ruolo, mai sottrarre quelli precedenti.
+- Revoche persistenti nelle appartenenze/ruoli correnti; nuove operazioni dopo commit della revoca negate. Nessuna riattivazione tramite inviti vecchi, cache o onboarding; operazioni completate e informazioni già viste non ritirate.
 
-## Profili pronti (modificabili dopo)
-- **Super amministratore**: tutto, compresi permessi degli altri amministratori. Uno per azienda.
-- **Amministratore**: tutto, gestisce collaboratori, non tocca il super amministratore.
-- **Preparatore**: Preparazione e stampa.
-- **Magazziniere**: Inventario, giacenze, Carico merce.
-- **Compratore**: Lista della Spesa e Ordini fornitori dei suoi reparti.
-- **Trasportatore**: Consegne e giri.
+**Identità verificata in sola lettura:** la sessione disponibile è stata validata dal servizio di autenticazione, senza aprire pagine che aggiornano il profilo.
 
-## Fasi (una alla volta, con conferma tra una e l'altra)
-1. **Mockup** (solo schermate, dati inventati): Collaboratori, invito, scheda permessi, Reparti, filtro reparto. Nessun dato reale.
-2. **Fondamenta**: reparti, prodotti↔reparti, profili e permessi salvati, invito collaboratori via email, registro di chi fa cosa. Gli utenti attuali restano con i permessi di oggi (nessuno perde accesso).
-3. **Menu e pagine**: ogni collaboratore vede solo le pagine e i pulsanti permessi.
-4. **Controllo nel database** sulle azioni già esistenti (Inventario, Lista, Ordini, Preparazione, Consegne): oltre al ruolo attuale, verifica permesso e reparto.
-5. **Liste per reparto e ordine unico per fornitore**: richiede la tua decisione sul semaforo; ogni riga d'ordine conserva il reparto d'origine.
+| Azienda | Account e appartenenza | Riscontro |
+|---|---|---|
+| 3 EMME ROMA SRL | auth.users.id `b9db9303-4b9d-4135-a8d5-94bfb6fa5758`; appartenenza `49458c28-fb71-4875-ab7b-0ee74e25bb9c` | Sessione verificata, email verificata, azienda/appartenenza attive, solo amministratore. |
+| trevi srl | Account candidato `0f00ea59-a549-4bcd-8dde-9bfc1a9a2781`; appartenenza `46dea20a-e1f4-473e-bf2a-a4663fc43b1d` | Azienda/appartenenza attive, solo amministratore; non è la sessione attuale. |
 
-## Rischi da decidere prima
-- **Super amministratore «riservato a te»**: intendi il titolare di ogni azienda cliente, oppure tu come gestore della piattaforma (già esistente in /piattaforma)?
-- **Una lista o una per reparto**: oggi un solo ciclo aperto. Con i reparti: un ciclo per reparto, oppure un ciclo unico con liste interne per reparto (meno rischi, consigliato).
-- **Prodotto in più reparti**: chi lo conta in Inventario? Proposta: un reparto «principale» per l'inventario.
-- **Ordini già esistenti**: restano senza reparto, visibili solo agli amministratori.
-- Fase 4 tocca funzioni di Inventario, Lista, Ordini, Consegne: le aggiungo solo controlli, senza cambiare calcoli, e la eseguo solo con tua autorizzazione esplicita per ciascuna area.
+Account distinti, senza appartenenze incrociate. Trevi: verifica sessione separata ancora necessaria. Nessuna proprietà assegnata; conferma obbligatoria anche per 3 EMME.
 
-## Dettagli tecnici
-- Nuove tabelle: `departments`, `product_departments`, `member_departments`, `member_permissions` (member, area, azione, reparto/fornitore opzionali), `permission_presets`, `member_invitations`; tutte con RLS sull'azienda dell'utente autenticato, scrittura solo via RPC SECURITY DEFINER (`search_path=public`) con controllo amministratore.
-- Funzione unica `has_permission(company, area, action, department?, supplier?)` usata da RPC e policy; `company_member_roles` resta per compatibilità.
-- `shopping_list_items` e `purchase_order_items` ricevono `department_id` facoltativo (aggiunta, nessuna rimozione).
-- Ogni scrittura registra autore e ora in un registro append-only.
+## 2. A/B — Titolare e collaboratori reali
+
+### Tabelle (dettagli tecnici)
+| Tabella | Campi principali e vincoli |
+|---|---|
+| company_ownerships | company_id uuid PK/FK RESTRICT; member_id uuid NOT NULL UNIQUE/FK composta azienda+membership; assigned_by uuid, assigned_at timestamptz default now(), reason text obbligatori. Nessun inserimento automatico. |
+| company_collaboration_events | id uuid PK, company_id/actor_user_id/request_id uuid, action text, created_at timestamptz; target_member_id/invitation_id uuid e before_data/after_data jsonb nullable. Unicità azienda+request_id, append-only, niente token. |
+| company_collaborator_invitations | id/company_id uuid, email_normalized text, nome nullable, token_hash SHA-256 UNIQUE, proposed_roles app_role[], status text default in_attesa, expires_at timestamptz, invited_by uuid, accepted_by nullable, date, revision bigint default 1. Ruoli non vuoti/senza duplicati/mai piattaforma; unica email+azienda pendente. |
+
+Nome aziendale nullable/versione con default su company_members; nessun cambio identificativi. Indici azienda+stato/appartenenza e hash, FK RESTRICT, nessun INSERT generato. CREATE→GRANT→RLS→POLICY nella stessa migrazione: letture aziendali autorizzate, scritture solo RPC, niente anon; privilegi service necessari. Scadenze in procedure, non CHECK temporali.
+
+Funzioni SECURITY DEFINER/search_path public: is_company_owner, get_company_collaborators, manage_company_collaborator; bootstrap proprietà controllato; create/accept/revoke/resend_collaborator_invitation. Auth.uid e risorse autorizzate, EXECUTE minimo.
+
+### Regole
+- Titolare attivo+admin intoccabile dalla gestione ordinaria. Solo titolare cambia ruoli/stato di amministratori, anche multiprofilo; admin non titolare gestisce soltanto non-admin. Ultimo admin protetto.
+- Lock aziendale, autorizzazione riletta, versioni/idempotenza, vincoli finali e audit atomico. Proteggere anche policy scrittura membership/ruoli contro REST; DELETE membership vietato, CASCADE non usato.
+- Aziende non inizializzate mantengono gestione precedente: nessun blocco o titolare automatico; nuove protezioni solo dopo assegnazione/rollout approvati.
+- Token server ≥256 bit, solo hash persistito; email/ruoli dal record. Accettazione autenticata/email confermata; rilegge stato/scadenza/hash/autorità invitante. Invito admin solo titolare ancora autorizzato.
+- Niente downgrade membership attiva né riattivazione di inattiva mediante invito. Revoca invalida inviti incompatibili; riattivazione esplicita. Reinvio ruota token.
+- Invio email non atomico col commit: fallimento lascia invito pendente, nessun membro attivato; token mai nei log/code in chiaro.
+- /collaboratori reale (nome/email/ruoli/stato/invito/storico), distinto da anteprima; /collaboratore-invito/$token pubblico minimo, accettazione solo autenticata.
+
+## 4. C — Trevi Fruit, ruoli fissi proposti
+
+Enum app_role: aggiungere compratore/magazziniere/preparatore in commit separato; assegnare solo dopo protezioni D complete. Titolare non è un ruolo enum.
+
+| Ruolo | Pagine | Operazioni |
+|---|---|---|
+| Compratore | Lista, Ordini fornitori, Fornitori/Catalogo; Inventario/Fabbisogno/Prodotti in lettura | Quantità/U.M./assegnazioni, conferma Lista, bozze/modifiche/invio B2B e non-B2B, stampa. Nessuna eccezione fornitore, annullamento documento o Carico. |
+| Magazziniere | Inventario, Ricezione/Carico, Prodotti in lettura | Avvio ordinario/completo, conteggio/correzione/riapertura/chiusura/stampa; ricezione/contestazione/risoluzione/carico/conferma. Nessuna configurazione U.M./confezioni/zone, rettifica manuale o riconciliazione autonoma. |
+| Preparatore | Preparazione | Assegnazione, quantità/pesi/conferma/mancante/correzione consentita, pronto/storico/stampa; vincoli Danea invariati. Nessuna presa visione commerciale, annullamento o dichiarazione consegna. |
+
+Bootstrap comune; niente amministrazione/Danea/trasporti ai nuovi soli. Prezzi nascosti rinviati. Quota diretta preparabile da Compratore, AD riservato admin/operatore; estensione da approvare.
+
+## 5. D — Protezioni mirate
+
+94 funzioni live richiamano direttamente membership, inclusi helper/trigger; indirette aggiuntive elencate in chat.
+
+Helper comuni invariati; nuovi controlli fissi per acquisti/inventario/preparazione. Vecchi: risultato precedente OR diritto nuovo. Soli nuovi: niente membership indiscriminata. Proteggere policy originali, vecchie RPC, server privilegiati, immagini e stampa; grant helper invariati.
+
+Preparazione: nuove condizioni in 2 RPC/3 policy e controlli assegnatario; predicato attuale invariato. Vecchi utenti vedono i nuovi assegnatari necessari alla collaborazione.
+
+**Blocchi:** inventory_location_stock è authenticated/definer senza controllo aziendale; fix completo richiede eccezione di sicurezza approvata, alternativa solo nuovi lascia rischio vecchio. RLS tecniche Danea devono negare nuovi senza cambiare postazioni/export; autorizzazione dei soli controlli lettura necessaria. Archivio Lista via dati operativi minimi. Fallback foto/service/notifiche coperti; nuovi senza notifiche generiche se non classificabili.
+
+| Combinazione | Esito |
+|---|---|
+| operatore+preparatore | Vecchi accessi + Preparazione già normalmente ammessa. |
+| operatore+magazziniere | Vecchi accessi + operazioni M mancanti, avvio/chiusura inventario inclusi. |
+| amministratore+compratore | Admin invariato salvo titolare; nessuna proprietà da C. |
+| P / M / C soli | Soltanto rispettivamente Preparazione / Inventario-Carico / Acquisti, più bootstrap. |
+
+## 6. File e migrazioni
+
+Nuove migrazioni via strumento ufficiale: ownership/audit; inviti; enum separato; restrizioni per area. Tipi rigenerati, nessuna vecchia migrazione riscritta.
+Nuovi moduli src/lib/company-collaborators*, pagina src/routes/_authenticated/collaboratori.tsx, invito src/routes/collaboratore-invito.$token.tsx, componenti company-collaborators, template email e test adiacenti/integrativi.
+Candidati esistenti: registro email, identità/navigazione/app-shell; pagine e funzioni acquisti/inventario/preparazione e immagini. Elenco esecutivo esatto prima di ogni fase; mockup, layout auth gestito, export Danea e dati invariati.
+
+## 7. Test e collaudo
+
+Non eseguiti oggi. Solo utenti dedicati 3 EMME e sessioni reali, dopo autorizzazione; niente Trevi/invio fornitori. Preparazione richiede dataset/capacità venditore autorizzati separatamente.
+Baseline vecchi: uguaglianza menu/URL/righe/RPC/dinieghi/effetti salvo titolare; sei combinazioni, nuovi insieme, vecchi misti, inattivi/cross-azienda. Owner/ultimo admin/REST, inviti e revoche/concorrenza/replay, rollback audit, nessun DELETE. Dopo revoca nuove operazioni negate anche con sessione aperta; foto già firmate durano 600s. SQL privilegiato non è collaudo reale.
+
+## 8. Sicurezza esistente — non correggere
+
+Email: controllo admin/stato/scadenza/idempotenza necessario. Token email: hash non confrontato prima invio, non significa token inventato accettabile; minimo SHA-256/confronto, no token in log/chiavi. Piattaforma: membership non sezione, minimo diritti handler/RLS e super per team/ricerca. Audit: rettifica precedente rapporto, seconda policy RESTRICTIVE/AND; authenticated/anon senza INSERT, oggi rischio REST bloccato. Mantenere grant revocato e audit fidato da RPC. Nessun abuso dinamico provato.
+
+## 9. Trasferimento proprietà — solo proposta
+
+Riautenticazione/consenso titolare, destinatario autenticato per UUID e membro attivo stessa azienda; richiesta monouso/scadenza e accettazione. Lock/transazione unica: autorizzazioni ricontrollate, nuovo admin, ownership, audit; mai stato finale senza titolare attivo. Vecchio resta admin salvo decisione distinta. Recupero indisponibilità separato, non da normale admin. Non sviluppare ora.
+
+## 10. Fasi autorizzabili
+
+1. Verifica Trevi e decisione blocco giacenza, senza assegnazioni.
+2. A proprietà/storico/protezioni; inserimento proprietà solo con conferma.
+3. B inviti/collaboratori, inizialmente ruoli esistenti.
+4. C enum + D controlli per area, senza assegnazioni anticipate.
+5. Collaudo 3 EMME e rapporto prove; assegnazioni soltanto confermate.
+
+Fermarsi ora: nessuna implementazione o pubblicazione.
