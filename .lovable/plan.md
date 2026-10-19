@@ -1,6 +1,6 @@
 # Collaboratori — Fase 2 ridotta, solo piano
 
-Nessuna modifica applicativa, migrazione, assegnazione, utente di prova, email o pubblicazione è autorizzata da questo documento. Anteprima Collaboratori invariata. Le singole fasi richiedono autorizzazione separata.
+Solo piano; niente modifiche applicative/database, assegnazioni, prove, email o pubblicazione. Anteprima invariata; fasi approvate separatamente.
 
 ## 1. Decisioni e verifiche
 - Nessun motore generale dei permessi; rinviati personalizzazioni, divieti individuali, reparti, eccezioni fornitore, consolidamento, prezzi nascosti, modalità legacy/shadow/enforced.
@@ -39,19 +39,17 @@ Funzioni SECURITY DEFINER/search_path public: is_company_owner, get_company_coll
 - Invio email non atomico col commit: fallimento lascia invito pendente, nessun membro attivato; token mai nei log/code in chiaro.
 - /collaboratori reale (nome/email/ruoli/stato/invito/storico), distinto da anteprima; /collaboratore-invito/$token pubblico minimo, accettazione solo autenticata.
 
-## 4. C — Ruoli fissi proposti
+## 4. C — Trevi Fruit, ruoli fissi proposti
 
-Aggiungere `compratore`, `magazziniere`, `preparatore` a app_role, in migrazione separata; assegnabili soltanto dopo protezioni D complete. Non aggiungere un ruolo enum titolare.
+Enum app_role: aggiungere compratore/magazziniere/preparatore in commit separato; assegnare solo dopo protezioni D complete. Titolare non è un ruolo enum.
 
-| Ruolo | Pagine | Operazioni nuove consentite |
+| Ruolo | Pagine | Operazioni |
 |---|---|---|
-| Compratore | Lista, Ordini fornitori, Fornitori e Catalogo; Inventario/Fabbisogno e Prodotti in lettura | Quantità/U.M./assegnazioni, conferma Lista, bozze ordine e modifiche, invio B2B/non-B2B, stampa. Tutti i fornitori operativamente acquistabili, nessuna eccezione fornitore. |
-| Magazziniere | Inventario, Ricezione/Carico, Prodotti in lettura | Avvio inventario ordinario/completo, conteggio, correzione/riapertura conteggio, chiusura inventario e stampa; verifica ricezione, contestazione/risoluzione, carico e conferma. Non configura zone, U.M., confezioni o conversioni; niente rettifiche manuali/riconciliazioni autonome. |
-| Preparatore | Preparazione | Assegnazione, quantità/pesi, conferma/mancante/correzione consentita, pronto, storico e stampa; vincoli Danea/preparazione invariati. Niente presa visione commerciale, annullamento ordine o dichiarazione consegna. |
+| Compratore | Lista, Ordini fornitori, Fornitori/Catalogo; Inventario/Fabbisogno/Prodotti in lettura | Quantità/U.M./assegnazioni, conferma Lista, bozze/modifiche/invio B2B e non-B2B, stampa. Nessuna eccezione fornitore, annullamento documento o Carico. |
+| Magazziniere | Inventario, Ricezione/Carico, Prodotti in lettura | Avvio ordinario/completo, conteggio/correzione/riapertura/chiusura/stampa; ricezione/contestazione/risoluzione/carico/conferma. Nessuna configurazione U.M./confezioni/zone, rettifica manuale o riconciliazione autonoma. |
+| Preparatore | Preparazione | Assegnazione, quantità/pesi/conferma/mancante/correzione consentita, pronto/storico/stampa; vincoli Danea invariati. Nessuna presa visione commerciale, annullamento o dichiarazione consegna. |
 
-Account, azienda selezionabile fra appartenenze attive, navigazione e home con soli collegamenti consentiti sono bootstrap comune. Nessuna amministrazione, Danea, Collegamenti commerciali o trasporti dai tre nuovi ruoli da soli. Prezzi nascosti non progettati: documenti autorizzati mantengono i campi esistenti, senza promessa di occultamento.
-
-**Acquisti diretti:** nel perimetro iniziale il Compratore può preparare quote, ma non generare/confermare AD né registrare acquisto reale; il flusso corrente ha gate admin/operatore. Decisione aggiuntiva necessaria per abilitare AD al Compratore, senza estendere l'helper comune. Non concedere annullamento ordine/Lista né eliminazione documento; rimozione riga/assegnazione è modifica della Lista, con vincoli attuali.
+Account/home/navigazione limitata alle appartenenze attive comuni; niente amministrazione, Danea o trasporti ai nuovi soli. Prezzi nascosti rinviati: documenti mantengono campi attuali. Compratore può preparare quota diretta ma AD resta admin/operatore: concessione aggiuntiva da approvare senza allargare helper comune.
 
 ## 5. D — Protezioni mirate
 
@@ -88,16 +86,16 @@ Baseline vecchi da soli: uguaglianza menu/URL/righe/RPC/dinieghi/effetti, salvo 
 
 Invio email: admin/stato/scadenza mancanti, rischio reinvii da membri; minimo controllo sull'azienda riga/idempotenza. Token email: hash non confrontato prima invio, non significa token inventato accettabile; minimo SHA-256/confronto, no token in log/chiavi. Piattaforma: membership non sezione, minimo diritti handler/RLS e super per team/ricerca. Audit: rettifica precedente rapporto, seconda policy RESTRICTIVE/AND; authenticated/anon senza INSERT, oggi rischio REST bloccato. Mantenere grant revocato e audit fidato da RPC. Nessun abuso dinamico provato.
 
-## 9. Trasferimento proprietà — proposta, non sviluppo
+## 9. Trasferimento proprietà — solo proposta
 
-Riautenticazione titolare attuale, consenso espresso, destinatario autenticato per UUID e già membro attivo della stessa azienda; richiesta monouso/scadenza e accettazione destinatario. Unica transazione con lock: ricontrollo autorità, ruolo admin del nuovo, cambio ownership, storico atomico; vecchio resta amministratore salvo decisione distinta. Mai stato finale senza owner attivo; richieste pendenti incompatibili invalidate. Recupero per indisponibilità separato e documentato, mai da normale admin. Nessun trasferimento sviluppato ora.
+Riautenticazione/consenso titolare, destinatario autenticato per UUID e membro attivo stessa azienda; richiesta monouso/scadenza e accettazione. Lock/transazione unica: autorizzazioni ricontrollate, nuovo admin, ownership, audit; mai stato finale senza titolare attivo. Vecchio resta admin salvo decisione distinta. Recupero indisponibilità separato, non da normale admin. Non sviluppare ora.
 
-## 10. Ordine autorizzabile
+## 10. Fasi autorizzabili
 
-1. Verifica sessione Trevi separata e decisione sul blocco giacenza; nessuna assegnazione.
-2. A ownership/storico/protezioni, senza inserire proprietà senza conferma.
-3. B collaboratori e inviti, inizialmente soli ruoli esistenti autorizzati.
-4. C enum + D controlli mirati per area, nessuna assegnazione anticipata.
-5. Collaudo dedicato 3 EMME e rapporto prove; attivazione/assegnazioni solo con conferma.
+1. Verifica Trevi e decisione blocco giacenza, senza assegnazioni.
+2. A proprietà/storico/protezioni; inserimento proprietà solo con conferma.
+3. B inviti/collaboratori, inizialmente ruoli esistenti.
+4. C enum + D controlli per area, senza assegnazioni anticipate.
+5. Collaudo 3 EMME e rapporto prove; assegnazioni soltanto confermate.
 
-Fermarsi ora e attendere autorizzazione; nessuna pubblicazione.
+Fermarsi ora: nessuna implementazione o pubblicazione.
