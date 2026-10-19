@@ -1,96 +1,115 @@
-# Fase 2B — Inviti reali ai collaboratori (solo progettazione)
+# Fase 2B — Inviti reali ai collaboratori (revisione 2, solo progettazione)
 
-Obiettivo: il titolare invita una persona, che riceve un'email, accetta con un account nuovo o già esistente ed entra nell'azienda con i ruoli esistenti (amministratore, operatore, trasportatore). In questa fase non si aggiungono ruoli nuovi né permessi avanzati.
+Il testo SQL completo è nel file di proposta `.lovable/sql/company-collaboration-2b.proposed.sql` (660 righe) e non è stato applicato. Non ho inviato email, creato utenti, modificato schermate o permessi, toccato roadmap.md o pubblicato nulla.
 
-## Situazione attuale (verificata in sola lettura)
+## Decisioni confermate (già nel testo)
+1. Solo il titolare invita, anche amministratori.
+2. Scadenza: 72 ore.
+3. Accettazione solo con email identica e verificata.
+4. Persona già disattivata: invito rifiutato. La riattivazione resta quella della 2A.
+5. Reinvii: al massimo 5 nelle 24 ore per invito, a non meno di 60 secondi l'uno dall'altro. I tentativi che il servizio di posta rifiuta non contano.
 
-- Servizio email attivo e verificato sul dominio `notify.suitefficio.com`. È già usato per gli inviti commerciali ai clienti tramite un invio solo dal server, quindi senza credenziali nel browser.
-- Gli inviti commerciali esistenti servono per i clienti, non per i collaboratori. Prevedono già lo stato, la scadenza, un codice salvato solo come impronta e il conteggio dei reinvii. Non vanno riusati: mescolerebbero clienti e collaboratori.
-- La Fase 2A fornisce già il titolare, le protezioni sulle appartenenze e sui ruoli, il blocco per azienda e lo storico non modificabile.
-- La pagina «Collaboratori (anteprima)» è solo dimostrativa e non invia nulla.
+## A. Protezioni Fase 2A
+- **Confronto con il database:** le due protezioni oggi attive sono identiche, carattere per carattere, al testo della 0077.
+- **Differenze esatte:**
+  - **Protezione di appartenenze e ruoli** (`_collaboration_guard`):
+    - la modalità `invite_accept` si aggiunge all'elenco delle modalità ammesse;
+    - nuovo ramo sulle appartenenze: è ammesso solo l'inserimento della propria appartenenza, attiva, con un invito valido e nessuna appartenenza già esistente;
+    - nuovo ramo sui ruoli: è ammesso solo l'inserimento, sulla propria appartenenza attiva, di ruoli contenuti nell'invito.
+  - **Protezione dello storico** (`_collaboration_history_guard`): si aggiungono le modalità `invite` e `invite_accept` all'elenco ammesso.
+  - **Tutto il resto:** identico alla 0077.
+- **Perché la modalità di accettazione non si può attivare a piacere:**
+  1. il browser non ha permessi di scrittura diretta su appartenenze e ruoli (tolti nella 0077);
+  2. la protezione accetta solo scritture fatte dal proprietario delle tabelle, cioè da dentro una funzione protetta, e il browser non può impostare il contesto se non attraverso una di esse;
+  3. l'unica funzione che attiva questa modalità è «accetta invito»;
+  4. anche con la modalità attiva serve un invito della stessa azienda, in attesa, non scaduto, con l'email verificata della persona collegata.
+- **Titolare e amministratori restano protetti:**
+  - la modalità di accettazione non permette modifiche né cancellazioni;
+  - il ramo del titolare resta invariato e accetta solo l'inizializzazione;
+  - le regole sull'ultimo amministratore e sul titolare restano identiche;
+  - il ruolo amministratore entra solo se l'invito lo contiene, e solo il titolare può crearlo;
+  - all'accettazione si ricontrolla che chi ha invitato sia ancora il titolare attivo.
 
-## Cosa costruire
+## B. Codici e invio email
+- **Chi può creare e reinviare:** solo la funzione server autenticata. Le funzioni del database per creare e reinviare sono eseguibili solo dal server, mai dal browser.
+- **Come funziona:**
+  1. il server verifica la sessione e passa al database l'utente verificato;
+  2. il database imposta per quella sola operazione l'identità dell'invitante, così le protezioni e lo storico della 2A registrano la persona reale;
+  3. il codice torna solo al server, che spedisce l'email e restituisce al browser solo l'esito.
+- **Il codice:**
+  - è generato dal database con 32 byte casuali crittograficamente sicuri;
+  - si salva solo la sua impronta, in una tabella che nessuno può leggere;
+  - all'accettazione si confronta l'impronta, anche una seconda volta dopo il blocco;
+  - è a uso singolo: l'impronta viene cancellata quando l'invito viene accettato o revocato;
+  - il reinvio la sostituisce, quindi il link precedente smette subito di funzionare.
+- **Stato dell'invio:** ogni invio viene registrato e il server ne scrive l'esito:
+  - **in invio**, **inviato**, **fallito** oppure **destinatario bloccato**;
+  - se dopo 10 minuti l'esito non è arrivato, l'elenco mostra «esito sconosciuto».
+- **Recupero:** se l'invio fallisce, il titolare preme «Reinvia». Viene generato un codice nuovo e il fallimento non conta nel limite dei 5 reinvii.
 
-### 1. Archivio inviti collaboratori (database)
-Una tabella nuova e separata con:
-- azienda, nome, cognome, email normalizzata e ruoli proposti (solo quelli esistenti);
-- impronta del link (mai il link in chiaro) e stato: in attesa, accettato, scaduto, revocato;
-- scadenza di 72 ore, numero di reinvii, chi ha invitato, chi ha accettato e quando.
+## C. Matrice delle autorizzazioni
 
-Regole:
-- al massimo un invito aperto per la stessa coppia azienda + email;
-- nessuna scrittura diretta dal browser: lettura solo per il titolare e gli amministratori dell'azienda, tramite funzione;
-- lo stato «scaduto» si ricava dalla data e viene registrato alla prima operazione successiva.
+| Oggetto | Browser senza accesso | Persona con accesso | Server (chiave privilegiata) |
+|---|---|---|---|
+| Inviti / Invii | niente | lettura solo se amministratore dell'azienda | completo, ma ogni scrittura passa dalle protezioni |
+| Segreti dei codici | niente | niente | niente (solo le funzioni) |
+| crea / reinvia / esito invio | no | no | sì |
+| revoca | no | sì, il database controlla che sia il titolare | — |
+| elenco inviti | no | sì, il database controlla che sia amministratore | — |
+| accetta | no | sì, email verificata e identica | — |
+| anteprima del link | sì: solo azienda, nome, ruoli ed email mascherata | sì | — |
 
-### 2. Funzioni del database (proprietario postgres, controlli su chi chiama)
-- **Crea invito:** solo il titolare. Rifiuta se la persona è già membro attivo o se esiste già un invito aperto. Genera il codice sul server e salva solo l'impronta. Registra l'operazione nello storico.
-- **Reinvia:** stesso invito, quindi nessun duplicato. Crea un nuovo codice, così il vecchio link smette di funzionare, rinnova la scadenza e aumenta il contatore. Funziona sia su un invito in attesa sia su uno scaduto.
-- **Revoca:** solo il titolare e solo su un invito in attesa o scaduto. Registrata nello storico.
-- **Anteprima del link:** dal codice mostra solo il nome dell'azienda e i ruoli. Non mostra mai l'email completa né altri dati.
-- **Accetta:** richiede una persona collegata con email verificata, uguale all'email dell'invito. In una sola operazione:
-  - blocca l'invito e l'azienda;
-  - verifica che l'invito sia in attesa, non scaduto e non revocato;
-  - crea l'appartenenza, oppure riattiva un'appartenenza disattivata secondo le regole della 2A;
-  - assegna i ruoli usando i passaggi autorizzati della 2A;
-  - segna l'invito come accettato (uso singolo) e scrive nello storico.
-- **Elenco inviti:** per il titolare e gli amministratori, con gli stati richiesti.
+Il controllo finale della migrazione verifica i privilegi effettivi e annulla tutto se il browser può scrivere o leggere i segreti. Questo vale anche per i privilegi aggiunti automaticamente, che erano emersi con la 0078.
 
-### 3. Invio email (server)
-- Nuovo modello di email «Invito collaboratore» nello stile Trevi Fruit.
-- Funzione server con accesso obbligatorio. Il database prima conferma che chi chiama è il titolare, poi genera il codice e restituisce il link una sola volta al server, mai al browser. Il server spedisce l'email.
-- Il link punta sempre all'indirizzo pubblico del sito. La chiave di invio resta solo sul server.
-- Il reinvio usa una chiave diversa per ogni reinvio, così non partono doppioni.
+I ruoli assegnati all'accettazione sono solo quelli dell'invito, controllati due volte: la funzione inserisce solo quelli dell'invito e la protezione rifiuta qualsiasi altro ruolo.
 
-### 4. Pagina di accettazione `/invito-collaboratore/$codice`
-- Se la persona non ha fatto l'accesso: «Accedi» oppure «Registrati», con la verifica email obbligatoria, e poi ritorno al link.
-- Se ha fatto l'accesso con un'email diversa: messaggio chiaro, nessuna accettazione.
-- Messaggi chiari per link scaduto, revocato o già usato.
+## D. Oggetti creati o modificati
+- **Tabelle nuove:**
+  - `collaborator_invitations` (inviti);
+  - `collaborator_invitation_secrets` (impronte dei codici);
+  - `collaborator_invitation_sends` (invii ed esiti).
+- **Protezioni nuove:**
+  - `_collaborator_invitation_guard` su tutte e tre le tabelle;
+  - riuso dello storico 2A sugli inviti;
+  - blocco dello svuotamento sulle tre tabelle.
+- **Funzioni interne:**
+  - `_collaborator_invite_context_ok`;
+  - `_collaborator_owner_company`;
+  - `_collaborator_server_actor` e `_collaborator_server_actor_end`.
+- **Funzioni pubbliche:**
+  - `create_collaborator_invitation`, `resend_collaborator_invitation`, `record_collaborator_invitation_send` (solo server);
+  - `revoke_collaborator_invitation`, `get_collaborator_invitations`, `accept_collaborator_invitation`, `preview_collaborator_invitation`.
+- **Funzioni 2A modificate:** `_collaboration_guard` e `_collaboration_history_guard`, con le differenze descritte al punto A.
+- **Controlli della migrazione:**
+  - all'inizio: ruolo di esecuzione, proprietario delle appartenenze, presenza delle funzioni di cifratura;
+  - alla fine: proprietari postgres e privilegi effettivi, con annullamento totale se qualcosa non torna.
 
-### 5. Schermata Collaboratori
-- La scheda dimostrativa resta invariata in questa fase.
-- Si aggiunge una scheda reale «Collaboratori» con persone reali, inviti divisi per stato, «Invita», «Reinvia» e «Revoca».
-- Si toglie l'anteprima solo dopo il tuo collaudo e una tua conferma separata.
+## Piano delle prove innocue (dopo l'applicazione, sessione 3 EMME)
+1. Dal browser, «crea» e «reinvia» vengono rifiutate per permesso negato.
+2. Lettura diretta dei segreti: rifiutata.
+3. Scrittura diretta su inviti e invii: rifiutata.
+4. Accettazione con un codice inventato: «non valido».
+5. Anteprima con un codice inventato: «non valido».
+6. Revoca di un invito inesistente: «non trovato».
+7. L'elenco inviti risponde vuoto.
+8. Inserimento diretto nello storico: rifiutato.
+9. Dopo ogni prova, appartenenze, ruoli, titolare e storico risultano invariati.
 
-## Testo SQL della migrazione (non applicato)
+La prova completa con email reale verrà dopo, solo con il tuo permesso e un indirizzo che indichi tu.
 
-Il testo completo è nel file di proposta `.lovable/sql/company-collaboration-2b.proposed.sql` (520 righe). Contiene:
-- **Controlli iniziali:** chi esegue deve essere il ruolo principale e devono essere presenti le funzioni di cifratura.
-- **Due tabelle nuove:** gli inviti, visibili solo agli amministratori dell'azienda, e i segreti, che contengono solo l'impronta del link e non sono leggibili da nessuno.
-- **Protezioni sulle scritture e storico:** le stesse della 2A, riusate per le tabelle nuove.
-- **Modifica alla 2A, unica e limitata:** alle protezioni delle appartenenze si aggiunge solo la modalità «accettazione invito», con due rami. Il resto è copiato identico dal testo applicato con la 0077.
-- **Sette funzioni:** crea, reinvia, revoca, elenco, anteprima del link, accetta, più un controllo interno del titolare.
-- **Controlli finali:** proprietari impostati su postgres e verifica finale che annulla tutto se qualcosa non torna.
+## Problemi ancora aperti
+- **Testo non provato sul database:** il testo non è stato eseguito nemmeno in una prova annullata. Un errore di scrittura uscirebbe solo all'applicazione, che è atomica.
+- **Accesso con la chiave privilegiata:** il server può agire a nome di una persona solo dopo averne verificato la sessione. Chi possiede la chiave privilegiata del server potrebbe usarla impropriamente. È un rischio accettato, come per gli altri usi esistenti di quella chiave.
+- **Anteprima del link:** chi possiede un link valido vede il nome dell'azienda e il nome dell'invitato. È inevitabile perché serve a capire l'invito.
+- **Invii senza esito:** un invio rimasto senza esito conta nel limite dei 5 finché non arriva un esito «fallito».
 
-Valori già scritti nel testo, da confermare con le decisioni qui sotto:
-- inviti solo dal titolare;
-- scadenza di 72 ore;
-- solo l'email esatta;
-- persona disattivata rifiutata;
-- reinvio non prima di 60 secondi e al massimo 10 reinvii per invito.
+## E. Inviti commerciali (separati, non modificati)
+- **Invio senza controllo amministrativo:** gravità media. Qualsiasi persona che può leggere un invito può farlo rispedire più volte dal dominio di Trevi Fruit. Può servire per inviare email indesiderate al cliente, ma non dà accesso a nessun dato.
+- **Codice non confrontato con l'impronta:** gravità medio-alta. Il codice usato nel link dell'email arriva dal browser e non viene confrontato con quello salvato. Si può spedire un link sbagliato o modificato, che resta comunque sul sito di Trevi Fruit, con la grafica ufficiale: è un rischio di confusione o di inganno.
+- **Proposta:** correggere entrambi in un intervento dedicato, dopo la 2B, solo con la tua autorizzazione.
 
-Il testo non è stato provato sul database, nemmeno in una prova annullata. Un errore di scrittura emergerebbe solo al momento dell'applicazione, che è comunque atomica: o va tutto o non va niente.
-
-## Decisioni da approvare
-1. **Chi invita:** solo il titolare, oppure anche gli amministratori? La mia proposta è solo il titolare per ora.
-2. **Ruolo amministratore via invito:** permesso, visto che nella 2A solo il titolare gestisce gli amministratori? Proposta: sì, ma solo se invita il titolare.
-3. **Scadenza:** 72 ore, come i link esterni già esistenti?
-4. **Email non corrispondente:** l'invito vale solo per l'email esatta oppure si accetta con qualsiasi account? Proposta: solo l'email esatta.
-5. **Persona già membro disattivato:** l'invito la riattiva oppure si usa il comando «Riattiva»? Proposta: si usa «Riattiva», l'invito viene rifiutato.
-6. **Limite reinvii:** nel testo ho messo 60 secondi tra un reinvio e l'altro e al massimo 10 reinvii per invito. Vanno bene?
-
-## Rischi
-- **Modifica alla 2A:** la migrazione sostituisce le due protezioni della 2A. Le aggiunte sono minime, ma è comunque una modifica a una parte già collaudata.
-- **Il link passa dal browser del titolare se chiama le funzioni direttamente:** in teoria il titolare può ottenere il link del proprio invito. Non è un problema, perché il link è suo, e la schermata lo passerà solo al server.
-- **Email sbagliata:** chi riceve il link non può usarlo con un altro account, grazie al punto 4.
-- **Prove:** la prova reale richiede una email vera. La faccio solo su 3 EMME, con un indirizzo che indichi tu e dopo una tua autorizzazione esplicita.
-- **Rischi già noti, che non correggo qui:** gli inviti commerciali che partono senza controllo dell'amministratore e il codice che non viene confrontato con l'impronta. Restano separati e da trattare a parte.
-- **Email in spam:** il dominio è nuovo, quindi le prime email possono finire nello spam.
-
-## Sequenza (una cosa alla volta, ognuna con approvazione)
-1. Testo completo della migrazione da rileggere (nessuna applicazione).
-2. Applicazione e prove di rifiuto con la sessione 3 EMME.
-3. Modello email e funzione di invio, senza spedire nulla.
-4. Pagina di accettazione e scheda reale.
-5. Collaudo con email reale autorizzata.
-
-Escluso: nuovi ruoli, reparti, permessi avanzati, la tabella roadmap, la pubblicazione e le modifiche agli inviti commerciali.
+## Sequenza successiva (ogni passo con approvazione)
+1. Applicazione della migrazione e prove innocue.
+2. Modello email e funzione server di invio, senza spedire nulla.
+3. Pagina di accettazione e scheda reale «Collaboratori».
+4. Collaudo con email reale autorizzata.
