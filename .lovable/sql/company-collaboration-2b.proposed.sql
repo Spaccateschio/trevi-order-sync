@@ -1,4 +1,4 @@
--- PROPOSTA FASE 2B: NON APPLICATA. Inviti reali ai collaboratori.
+-- PROPOSTA FASE 2B (revisione 2): NON APPLICATA. Inviti reali ai collaboratori.
 -- Nessun INSERT di dati, nessun invito, nessun utente. Ruoli invariati.
 
 DO $collaboration_2b_preflight$
@@ -58,6 +58,26 @@ REVOKE ALL ON public.collaborator_invitation_secrets FROM PUBLIC, anon, authenti
 ALTER TABLE public.collaborator_invitation_secrets ENABLE ROW LEVEL SECURITY;
 -- Nessuna policy: leggibile e scrivibile solo dalle funzioni 2B.
 
+
+CREATE TABLE public.collaborator_invitation_sends (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  invitation_id uuid NOT NULL REFERENCES public.collaborator_invitations(id) ON DELETE RESTRICT,
+  company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+  kind text NOT NULL CHECK (kind IN ('primo_invio','reinvio')),
+  requested_by uuid NOT NULL,
+  requested_at timestamptz NOT NULL DEFAULT now(),
+  email_status text NOT NULL DEFAULT 'in_invio' CHECK (email_status IN ('in_invio','inviato','fallito','destinatario_bloccato')),
+  error_code text,
+  completed_at timestamptz
+);
+CREATE INDEX collaborator_invitation_sends_inv ON public.collaborator_invitation_sends(invitation_id,requested_at);
+REVOKE ALL ON public.collaborator_invitation_sends FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.collaborator_invitation_sends TO authenticated;
+GRANT ALL ON public.collaborator_invitation_sends TO service_role;
+ALTER TABLE public.collaborator_invitation_sends ENABLE ROW LEVEL SECURITY;
+CREATE POLICY collaborator_invitation_sends_read_admin ON public.collaborator_invitation_sends
+FOR SELECT TO authenticated USING (public.is_company_admin(company_id));
+
 -- 2. Protezione scritture: solo dentro le funzioni 2B (stesso schema della 2A).
 CREATE FUNCTION public._collaborator_invitation_guard()
 RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = public
@@ -76,6 +96,16 @@ BEGIN
     END IF;
     _company:=NEW.company_id;
     IF TG_OP='UPDATE' THEN NEW.updated_at:=now(); END IF;
+  ELSIF TG_TABLE_NAME='collaborator_invitation_sends' THEN
+    IF TG_OP='DELETE' THEN RAISE EXCEPTION 'COLLAB_SEND_DELETE_FORBIDDEN'; END IF;
+    IF TG_OP='UPDATE' AND (NEW.id<>OLD.id OR NEW.invitation_id<>OLD.invitation_id OR NEW.company_id<>OLD.company_id
+       OR NEW.kind<>OLD.kind OR NEW.requested_at<>OLD.requested_at OR OLD.email_status<>'in_invio') THEN
+      RAISE EXCEPTION 'COLLAB_SEND_IMMUTABLE';
+    END IF;
+    IF NOT EXISTS(SELECT 1 FROM public.collaborator_invitations WHERE id=NEW.invitation_id AND company_id=NEW.company_id) THEN
+      RAISE EXCEPTION 'COLLAB_CONTEXT_MISMATCH';
+    END IF;
+    _company:=NEW.company_id;
   ELSE
     SELECT company_id INTO _company FROM public.collaborator_invitations
     WHERE id=CASE WHEN TG_OP='DELETE' THEN OLD.invitation_id ELSE NEW.invitation_id END;
@@ -97,6 +127,10 @@ FOR EACH ROW EXECUTE FUNCTION public._collaborator_invitation_guard();
 -- Storico: riuso dell'audit 2A (il segreto non è mai registrato).
 CREATE TRIGGER collaborator_invitations_audit AFTER INSERT OR UPDATE OR DELETE ON public.collaborator_invitations
 FOR EACH ROW EXECUTE FUNCTION public._collaboration_audit();
+CREATE TRIGGER collaborator_invitation_sends_guard BEFORE INSERT OR UPDATE OR DELETE ON public.collaborator_invitation_sends
+FOR EACH ROW EXECUTE FUNCTION public._collaborator_invitation_guard();
+CREATE TRIGGER collaborator_invitation_sends_no_truncate BEFORE TRUNCATE ON public.collaborator_invitation_sends
+FOR EACH STATEMENT EXECUTE FUNCTION public._collaboration_no_truncate();
 CREATE TRIGGER collaborator_invitations_no_truncate BEFORE TRUNCATE ON public.collaborator_invitations
 FOR EACH STATEMENT EXECUTE FUNCTION public._collaboration_no_truncate();
 CREATE TRIGGER collaborator_invitation_secrets_no_truncate BEFORE TRUNCATE ON public.collaborator_invitation_secrets
@@ -267,14 +301,44 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public._collaborator_owner_company(uuid) FROM PUBLIC, anon, authenticated, service_role;
 
+-- Solo server: create/reinvio sono eseguibili SOLO da service_role (funzione server
+-- autenticata che ha già verificato la sessione). Il codice torna solo al server.
+-- L'identità dell'invitante viene impostata localmente così che auth.uid(), i guard
+-- e lo storico 2A registrino la persona reale, non il server.
+CREATE FUNCTION public._collaborator_server_actor(_actor_user_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  IF coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role','')<>'service_role' THEN
+    RAISE EXCEPTION 'COLLAB_SERVER_ONLY';
+  END IF;
+  IF _actor_user_id IS NULL THEN RAISE EXCEPTION 'COLLAB_AUTH_REQUIRED'; END IF;
+  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',_actor_user_id,'role','authenticated')::text,true);
+  PERFORM set_config('request.jwt.claim.sub',_actor_user_id::text,true);
+  IF auth.uid() IS DISTINCT FROM _actor_user_id THEN RAISE EXCEPTION 'COLLAB_ACTOR_CONTEXT_FAILED'; END IF;
+END;
+$$;
+REVOKE ALL ON FUNCTION public._collaborator_server_actor(uuid) FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE FUNCTION public._collaborator_server_actor_end()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  PERFORM set_config('request.jwt.claims',jsonb_build_object('role','service_role')::text,true);
+  PERFORM set_config('request.jwt.claim.sub','',true);
+END;
+$$;
+REVOKE ALL ON FUNCTION public._collaborator_server_actor_end() FROM PUBLIC, anon, authenticated, service_role;
+
 CREATE FUNCTION public.create_collaborator_invitation(
-  _actor_member_id uuid, _first_name text, _last_name text, _email text, _roles public.app_role[])
+  _actor_user_id uuid, _actor_member_id uuid, _first_name text, _last_name text, _email text, _roles public.app_role[])
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
-  _company uuid; _norm text; _desired public.app_role[]; _token text; _id uuid; _expires timestamptz;
-  _prev_mode text; _prev_company text;
+  _company uuid; _norm text; _desired public.app_role[]; _token text; _id uuid; _send uuid; _expires timestamptz;
+  _prev_mode text; _prev_company text; _company_name text;
 BEGIN
+  PERFORM public._collaborator_server_actor(_actor_user_id);
   _company:=public._collaborator_owner_company(_actor_member_id);
   PERFORM public._collaboration_lock(_company);
   IF NOT public.is_company_owner(_company) THEN RAISE EXCEPTION 'COLLAB_OWNER_REQUIRED'; END IF;
@@ -309,19 +373,25 @@ BEGIN
   RETURNING id INTO _id;
   INSERT INTO public.collaborator_invitation_secrets(invitation_id,token_hash)
   VALUES(_id,encode(extensions.digest(_token,'sha256'),'hex'));
+  INSERT INTO public.collaborator_invitation_sends(invitation_id,company_id,kind,requested_by)
+  VALUES(_id,_company,'primo_invio',auth.uid()) RETURNING id INTO _send;
   PERFORM set_config('app.collaboration_mode',_prev_mode,true);
   PERFORM set_config('app.collaboration_company',_prev_company,true);
-  RETURN jsonb_build_object('invitation_id',_id,'token',_token,'expires_at',_expires,'send_number',0);
+  SELECT legal_name INTO _company_name FROM public.companies WHERE id=_company;
+  PERFORM public._collaborator_server_actor_end();
+  RETURN jsonb_build_object('invitation_id',_id,'send_id',_send,'token',_token,'expires_at',_expires,
+    'email',_norm,'first_name',_first_name,'company_name',_company_name,'roles',to_jsonb(_desired));
 END;
 $$;
 
-CREATE FUNCTION public.resend_collaborator_invitation(_actor_member_id uuid, _invitation_id uuid)
+CREATE FUNCTION public.resend_collaborator_invitation(_actor_user_id uuid, _actor_member_id uuid, _invitation_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
-  _company uuid; _inv public.collaborator_invitations; _token text; _expires timestamptz;
-  _prev_mode text; _prev_company text;
+  _company uuid; _inv public.collaborator_invitations; _token text; _expires timestamptz; _send uuid;
+  _prev_mode text; _prev_company text; _company_name text;
 BEGIN
+  PERFORM public._collaborator_server_actor(_actor_user_id);
   _company:=public._collaborator_owner_company(_actor_member_id);
   PERFORM public._collaboration_lock(_company);
   IF NOT public.is_company_owner(_company) THEN RAISE EXCEPTION 'COLLAB_OWNER_REQUIRED'; END IF;
@@ -329,15 +399,24 @@ BEGIN
   WHERE id=_invitation_id AND company_id=_company FOR UPDATE;
   IF _inv.id IS NULL THEN RAISE EXCEPTION 'COLLAB_INVITE_NOT_FOUND'; END IF;
   IF _inv.status<>'in_attesa' THEN RAISE EXCEPTION 'COLLAB_INVITE_NOT_PENDING'; END IF;
-  IF _inv.last_sent_at>now()-interval '60 seconds' THEN RAISE EXCEPTION 'COLLAB_INVITE_RESEND_TOO_SOON'; END IF;
-  IF _inv.resend_count>=10 THEN RAISE EXCEPTION 'COLLAB_INVITE_RESEND_LIMIT'; END IF;
+  IF EXISTS(SELECT 1 FROM public.collaborator_invitation_sends
+            WHERE invitation_id=_inv.id AND requested_at>now()-interval '60 seconds') THEN
+    RAISE EXCEPTION 'COLLAB_INVITE_RESEND_TOO_SOON';
+  END IF;
+  -- Massimo 5 reinvii nelle 24 ore; i tentativi rifiutati dal servizio di posta
+  -- non contano, così si può recuperare un invio fallito.
+  IF (SELECT count(*) FROM public.collaborator_invitation_sends
+      WHERE invitation_id=_inv.id AND kind='reinvio' AND requested_at>now()-interval '24 hours'
+        AND email_status<>'fallito')>=5 THEN
+    RAISE EXCEPTION 'COLLAB_INVITE_RESEND_LIMIT';
+  END IF;
   _token:=encode(extensions.gen_random_bytes(32),'hex');
   _expires:=now()+interval '72 hours';
   _prev_mode:=coalesce(current_setting('app.collaboration_mode',true),'');
   _prev_company:=coalesce(current_setting('app.collaboration_company',true),'');
   PERFORM set_config('app.collaboration_company',_company::text,true);
   PERFORM set_config('app.collaboration_mode','invite',true);
-  -- Nuovo link: il precedente smette subito di funzionare.
+  -- Nuovo codice: il link precedente smette subito di funzionare.
   UPDATE public.collaborator_invitation_secrets
   SET token_hash=encode(extensions.digest(_token,'sha256'),'hex'), created_at=now()
   WHERE invitation_id=_inv.id;
@@ -345,9 +424,38 @@ BEGIN
   UPDATE public.collaborator_invitations
   SET expires_at=_expires, resend_count=resend_count+1, last_sent_at=now()
   WHERE id=_inv.id;
+  INSERT INTO public.collaborator_invitation_sends(invitation_id,company_id,kind,requested_by)
+  VALUES(_inv.id,_company,'reinvio',auth.uid()) RETURNING id INTO _send;
   PERFORM set_config('app.collaboration_mode',_prev_mode,true);
   PERFORM set_config('app.collaboration_company',_prev_company,true);
-  RETURN jsonb_build_object('invitation_id',_inv.id,'token',_token,'expires_at',_expires,'send_number',_inv.resend_count+1);
+  SELECT legal_name INTO _company_name FROM public.companies WHERE id=_company;
+  PERFORM public._collaborator_server_actor_end();
+  RETURN jsonb_build_object('invitation_id',_inv.id,'send_id',_send,'token',_token,'expires_at',_expires,
+    'email',_inv.email_normalized,'first_name',_inv.first_name,'company_name',_company_name,'roles',to_jsonb(_inv.roles));
+END;
+$$;
+
+-- Esito dell'invio registrato dal server dopo la risposta del servizio di posta.
+CREATE FUNCTION public.record_collaborator_invitation_send(_send_id uuid, _outcome text, _error_code text DEFAULT NULL)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE _send public.collaborator_invitation_sends; _prev_mode text; _prev_company text;
+BEGIN
+  IF coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role','')<>'service_role' THEN
+    RAISE EXCEPTION 'COLLAB_SERVER_ONLY';
+  END IF;
+  IF _outcome NOT IN ('inviato','fallito','destinatario_bloccato') THEN RAISE EXCEPTION 'COLLAB_INVALID_SEND_OUTCOME'; END IF;
+  SELECT * INTO _send FROM public.collaborator_invitation_sends WHERE id=_send_id FOR UPDATE;
+  IF _send.id IS NULL THEN RAISE EXCEPTION 'COLLAB_SEND_NOT_FOUND'; END IF;
+  IF _send.email_status<>'in_invio' THEN RAISE EXCEPTION 'COLLAB_SEND_ALREADY_RECORDED'; END IF;
+  _prev_mode:=coalesce(current_setting('app.collaboration_mode',true),'');
+  _prev_company:=coalesce(current_setting('app.collaboration_company',true),'');
+  PERFORM set_config('app.collaboration_company',_send.company_id::text,true);
+  PERFORM set_config('app.collaboration_mode','invite',true);
+  UPDATE public.collaborator_invitation_sends
+  SET email_status=_outcome, error_code=left(_error_code,80), completed_at=now() WHERE id=_send_id;
+  PERFORM set_config('app.collaboration_mode',_prev_mode,true);
+  PERFORM set_config('app.collaboration_company',_prev_company,true);
 END;
 $$;
 
@@ -388,7 +496,12 @@ BEGIN
     'id',i.id,'first_name',i.first_name,'last_name',i.last_name,'email',i.email,'roles',to_jsonb(i.roles),
     'status',CASE WHEN i.status='in_attesa' AND i.expires_at<=now() THEN 'scaduto' ELSE i.status END,
     'expires_at',i.expires_at,'resend_count',i.resend_count,'last_sent_at',i.last_sent_at,
-    'created_at',i.created_at,'accepted_at',i.accepted_at,'revoked_at',i.revoked_at)
+    'created_at',i.created_at,'accepted_at',i.accepted_at,'revoked_at',i.revoked_at,
+    'last_email_status',(SELECT CASE WHEN s.email_status='in_invio' AND s.requested_at<now()-interval '10 minutes'
+        THEN 'esito_sconosciuto' ELSE s.email_status END FROM public.collaborator_invitation_sends s
+      WHERE s.invitation_id=i.id ORDER BY s.requested_at DESC,s.id DESC LIMIT 1),
+    'resends_last_24h',(SELECT count(*) FROM public.collaborator_invitation_sends s
+      WHERE s.invitation_id=i.id AND s.kind='reinvio' AND s.requested_at>now()-interval '24 hours' AND s.email_status<>'fallito'))
     ORDER BY i.created_at DESC,i.id),'[]'::jsonb)
   INTO _result FROM public.collaborator_invitations i WHERE i.company_id=_company;
   RETURN jsonb_build_object('company_id',_company,'invitations',_result);
@@ -473,14 +586,16 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.create_collaborator_invitation(uuid,text,text,text,public.app_role[]) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.resend_collaborator_invitation(uuid,uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.create_collaborator_invitation(uuid,uuid,text,text,text,public.app_role[]) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.resend_collaborator_invitation(uuid,uuid,uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.record_collaborator_invitation_send(uuid,text,text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.revoke_collaborator_invitation(uuid,uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.get_collaborator_invitations(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.accept_collaborator_invitation(text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.preview_collaborator_invitation(text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.create_collaborator_invitation(uuid,text,text,text,public.app_role[]) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.resend_collaborator_invitation(uuid,uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_collaborator_invitation(uuid,uuid,text,text,text,public.app_role[]) TO service_role;
+GRANT EXECUTE ON FUNCTION public.resend_collaborator_invitation(uuid,uuid,uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.record_collaborator_invitation_send(uuid,text,text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.revoke_collaborator_invitation(uuid,uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_collaborator_invitations(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.accept_collaborator_invitation(text) TO authenticated;
@@ -494,8 +609,12 @@ ALTER FUNCTION public._collaborator_invite_context_ok(uuid) OWNER TO postgres;
 ALTER FUNCTION public._collaboration_guard() OWNER TO postgres;
 ALTER FUNCTION public._collaboration_history_guard() OWNER TO postgres;
 ALTER FUNCTION public._collaborator_owner_company(uuid) OWNER TO postgres;
-ALTER FUNCTION public.create_collaborator_invitation(uuid,text,text,text,public.app_role[]) OWNER TO postgres;
-ALTER FUNCTION public.resend_collaborator_invitation(uuid,uuid) OWNER TO postgres;
+ALTER TABLE public.collaborator_invitation_sends OWNER TO postgres;
+ALTER FUNCTION public._collaborator_server_actor(uuid) OWNER TO postgres;
+ALTER FUNCTION public._collaborator_server_actor_end() OWNER TO postgres;
+ALTER FUNCTION public.create_collaborator_invitation(uuid,uuid,text,text,text,public.app_role[]) OWNER TO postgres;
+ALTER FUNCTION public.resend_collaborator_invitation(uuid,uuid,uuid) OWNER TO postgres;
+ALTER FUNCTION public.record_collaborator_invitation_send(uuid,text,text) OWNER TO postgres;
 ALTER FUNCTION public.revoke_collaborator_invitation(uuid,uuid) OWNER TO postgres;
 ALTER FUNCTION public.get_collaborator_invitations(uuid) OWNER TO postgres;
 ALTER FUNCTION public.preview_collaborator_invitation(text) OWNER TO postgres;
@@ -509,12 +628,33 @@ BEGIN
     '_collaborator_invitation_guard','_collaborator_invite_context_ok','_collaboration_guard',
     '_collaboration_history_guard','_collaborator_owner_company','create_collaborator_invitation',
     'resend_collaborator_invitation','revoke_collaborator_invitation','get_collaborator_invitations',
-    'preview_collaborator_invitation','accept_collaborator_invitation')
+    'preview_collaborator_invitation','accept_collaborator_invitation','_collaborator_server_actor',
+    '_collaborator_server_actor_end','record_collaborator_invitation_send')
     AND pg_get_userbyid(p.proowner)<>'postgres';
   IF _bad IS NOT NULL THEN RAISE EXCEPTION 'COLLAB_2B_FUNCTION_OWNER: %',_bad; END IF;
   SELECT string_agg(c.relname,', ') INTO _bad FROM pg_class c
-  WHERE c.oid IN ('public.collaborator_invitations'::regclass,'public.collaborator_invitation_secrets'::regclass)
+  WHERE c.oid IN ('public.collaborator_invitations'::regclass,'public.collaborator_invitation_secrets'::regclass,
+                  'public.collaborator_invitation_sends'::regclass)
     AND pg_get_userbyid(c.relowner)<>'postgres';
   IF _bad IS NOT NULL THEN RAISE EXCEPTION 'COLLAB_2B_TABLE_OWNER: %',_bad; END IF;
+  -- Privilegi effettivi: nessuna scrittura dal browser, segreti mai accessibili.
+  IF has_table_privilege('anon','public.collaborator_invitations','SELECT,INSERT,UPDATE,DELETE')
+     OR has_table_privilege('authenticated','public.collaborator_invitations','INSERT,UPDATE,DELETE,TRUNCATE')
+     OR has_table_privilege('anon','public.collaborator_invitation_sends','SELECT,INSERT,UPDATE,DELETE')
+     OR has_table_privilege('authenticated','public.collaborator_invitation_sends','INSERT,UPDATE,DELETE,TRUNCATE')
+     OR has_table_privilege('anon','public.collaborator_invitation_secrets','SELECT,INSERT,UPDATE,DELETE')
+     OR has_table_privilege('authenticated','public.collaborator_invitation_secrets','SELECT,INSERT,UPDATE,DELETE')
+     OR has_table_privilege('service_role','public.collaborator_invitation_secrets','SELECT,INSERT,UPDATE,DELETE') THEN
+    RAISE EXCEPTION 'COLLAB_2B_TABLE_GRANTS';
+  END IF;
+  IF has_function_privilege('authenticated','public.create_collaborator_invitation(uuid,uuid,text,text,text,public.app_role[])','EXECUTE')
+     OR has_function_privilege('authenticated','public.resend_collaborator_invitation(uuid,uuid,uuid)','EXECUTE')
+     OR has_function_privilege('authenticated','public.record_collaborator_invitation_send(uuid,text,text)','EXECUTE')
+     OR has_function_privilege('anon','public.accept_collaborator_invitation(text)','EXECUTE')
+     OR has_function_privilege('authenticated','public._collaborator_server_actor(uuid)','EXECUTE')
+     OR has_function_privilege('service_role','public._collaborator_server_actor(uuid)','EXECUTE')
+     OR has_function_privilege('authenticated','public._collaborator_invite_context_ok(uuid)','EXECUTE') THEN
+    RAISE EXCEPTION 'COLLAB_2B_FUNCTION_GRANTS';
+  END IF;
 END;
 $collaboration_2b_verify$;
