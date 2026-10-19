@@ -547,6 +547,13 @@
       "when": 1792423071688,
       "tag": "0077_company_collaboration_foundations",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1792428998958,
+      "tag": "0078_company_collaboration_direct_grants",
+      "breakpoints": true
     }
   ]
 }
