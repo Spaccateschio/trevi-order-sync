@@ -39,13 +39,37 @@ export const sendInvitationEmail = createServerFn({ method: "POST" })
 
     const { data: invitation, error } = await supabase
       .from("company_invitations")
-      .select("id, email, invite_code, expires_at, status, seller_company_id, customer_record_id")
+      .select("id, email, invite_code, expires_at, status, seller_company_id, customer_record_id, token_hash")
       .eq("id", data.invitationId)
       .maybeSingle();
 
     if (error) throw new Error(error.message);
     if (!invitation) throw new Error("Invito non trovato");
-    if (invitation.status !== "in_attesa") throw new Error("L'invito non è più in attesa");
+
+    // Controlli nel database con la sessione di chi chiede l'invio:
+    // amministratore attivo dell'azienda proprietaria dell'invito.
+    const { data: isAdmin, error: adminError } = await supabase.rpc("is_company_admin", {
+      _company_id: invitation.seller_company_id,
+    });
+    if (adminError) throw new Error(adminError.message);
+
+    const { checkInvitationSend } = await import("./invitation-token-check");
+    const check = await checkInvitationSend({
+      isAdmin: isAdmin === true,
+      status: invitation.status,
+      expiresAt: invitation.expires_at,
+      tokenHash: invitation.token_hash,
+      token: data.token,
+    });
+    if (!check.ok) {
+      const messages = {
+        not_admin: "Operazione riservata agli amministratori dell'azienda",
+        not_pending: "L'invito non è più in attesa",
+        expired: "Invito scaduto: usa Reinvia",
+        invalid_token: "Codice dell'invito non valido",
+      } as const;
+      throw new Error(messages[check.reason]);
+    }
 
     const recipient = (invitation.email ?? "").trim();
     if (!recipient) {
