@@ -99,6 +99,11 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    // A stale chunk after a deployment lands here as a router-level error too:
+    // reload once instead of leaving a broken page on screen.
+    if (error instanceof Error && isChunkLoadError(error.message)) {
+      reloadOnceForChunkError();
+    }
   }, [error]);
 
   return (
