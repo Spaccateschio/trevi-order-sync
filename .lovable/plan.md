@@ -15,7 +15,7 @@ Solo piano; niente modifiche applicative/database, assegnazioni, prove, email o 
 | 3 EMME ROMA SRL | auth.users.id `b9db9303-4b9d-4135-a8d5-94bfb6fa5758`; appartenenza `49458c28-fb71-4875-ab7b-0ee74e25bb9c` | Sessione verificata, email verificata, azienda/appartenenza attive, solo amministratore. |
 | trevi srl | Account candidato `0f00ea59-a549-4bcd-8dde-9bfc1a9a2781`; appartenenza `46dea20a-e1f4-473e-bf2a-a4663fc43b1d` | Azienda/appartenenza attive, solo amministratore; non è la sessione attuale. |
 
-I due account sono distinti. Nessuna appartenenza incrociata rilevata. Per Trevi manca la verifica della sua sessione autenticata, concordata separatamente: nome/email non bastano. Nessuna proprietà assegnata; anche 3 EMME richiede conferma esplicita dell'assegnazione.
+Account distinti, senza appartenenze incrociate. Trevi: verifica sessione separata ancora necessaria. Nessuna proprietà assegnata; conferma obbligatoria anche per 3 EMME.
 
 ## 2. A/B — Titolare e collaboratori reali
 
@@ -49,11 +49,11 @@ Enum app_role: aggiungere compratore/magazziniere/preparatore in commit separato
 | Magazziniere | Inventario, Ricezione/Carico, Prodotti in lettura | Avvio ordinario/completo, conteggio/correzione/riapertura/chiusura/stampa; ricezione/contestazione/risoluzione/carico/conferma. Nessuna configurazione U.M./confezioni/zone, rettifica manuale o riconciliazione autonoma. |
 | Preparatore | Preparazione | Assegnazione, quantità/pesi/conferma/mancante/correzione consentita, pronto/storico/stampa; vincoli Danea invariati. Nessuna presa visione commerciale, annullamento o dichiarazione consegna. |
 
-Account/home/navigazione limitata alle appartenenze attive comuni; niente amministrazione, Danea o trasporti ai nuovi soli. Prezzi nascosti rinviati: documenti mantengono campi attuali. Compratore può preparare quota diretta ma AD resta admin/operatore: concessione aggiuntiva da approvare senza allargare helper comune.
+Bootstrap comune; niente amministrazione/Danea/trasporti ai nuovi soli. Prezzi nascosti rinviati. Quota diretta preparabile da Compratore, AD riservato admin/operatore; estensione da approvare.
 
 ## 5. D — Protezioni mirate
 
-94 funzioni live richiamano membership, incluse indirette/trigger; inventario dettagliato in chat. Nessuna certificazione end-to-end.
+94 funzioni live richiamano direttamente membership, inclusi helper/trigger; indirette aggiuntive elencate in chat.
 
 Helper comuni invariati; nuovi controlli fissi per acquisti/inventario/preparazione. Vecchi: risultato precedente OR diritto nuovo. Soli nuovi: niente membership indiscriminata. Proteggere policy originali, vecchie RPC, server privilegiati, immagini e stampa; grant helper invariati.
 
@@ -81,7 +81,7 @@ Baseline vecchi: uguaglianza menu/URL/righe/RPC/dinieghi/effetti salvo titolare;
 
 ## 8. Sicurezza esistente — non correggere
 
-Invio email: admin/stato/scadenza mancanti, rischio reinvii da membri; minimo controllo sull'azienda riga/idempotenza. Token email: hash non confrontato prima invio, non significa token inventato accettabile; minimo SHA-256/confronto, no token in log/chiavi. Piattaforma: membership non sezione, minimo diritti handler/RLS e super per team/ricerca. Audit: rettifica precedente rapporto, seconda policy RESTRICTIVE/AND; authenticated/anon senza INSERT, oggi rischio REST bloccato. Mantenere grant revocato e audit fidato da RPC. Nessun abuso dinamico provato.
+Email: controllo admin/stato/scadenza/idempotenza necessario. Token email: hash non confrontato prima invio, non significa token inventato accettabile; minimo SHA-256/confronto, no token in log/chiavi. Piattaforma: membership non sezione, minimo diritti handler/RLS e super per team/ricerca. Audit: rettifica precedente rapporto, seconda policy RESTRICTIVE/AND; authenticated/anon senza INSERT, oggi rischio REST bloccato. Mantenere grant revocato e audit fidato da RPC. Nessun abuso dinamico provato.
 
 ## 9. Trasferimento proprietà — solo proposta
 
