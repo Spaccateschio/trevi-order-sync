@@ -483,7 +483,7 @@ BEGIN
     'status',CASE WHEN i.status='in_attesa' AND i.expires_at<=now() THEN 'scaduto' ELSE i.status END,
     'expires_at',i.expires_at,'resend_count',i.resend_count,'last_sent_at',i.last_sent_at,
     'created_at',i.created_at,'accepted_at',i.accepted_at,'revoked_at',i.revoked_at,
-    'last_email_status',(SELECT CASE WHEN s.email_status='in_invio' AND s.requested_at<now()-interval '10 minutes'
+    'last_email_status',(SELECT CASE WHEN s.email_status='in_invio' AND s.requested_at<now()-interval '30 minutes'
         THEN 'esito_sconosciuto' ELSE s.email_status END FROM public.collaborator_invitation_sends s
       WHERE s.invitation_id=i.id ORDER BY s.requested_at DESC,s.id DESC LIMIT 1),
     'resends_last_24h',(SELECT count(*) FROM public.collaborator_invitation_sends s
@@ -629,6 +629,10 @@ BEGIN
      OR has_table_privilege('authenticated','public.collaborator_invitation_secrets','SELECT,INSERT,UPDATE,DELETE')
      OR has_table_privilege('service_role','public.collaborator_invitation_secrets','SELECT,INSERT,UPDATE,DELETE') THEN
     RAISE EXCEPTION 'COLLAB_2B_TABLE_GRANTS';
+  END IF;
+  IF has_column_privilege('authenticated','public.collaborator_invitation_sends','send_token_hash','SELECT')
+     OR has_column_privilege('anon','public.collaborator_invitation_sends','send_token_hash','SELECT') THEN
+    RAISE EXCEPTION 'COLLAB_2B_SEND_TOKEN_READABLE';
   END IF;
   IF NOT has_function_privilege('authenticated','public.create_collaborator_invitation(uuid,text,text,text,public.app_role[])','EXECUTE')
      OR has_function_privilege('anon','public.create_collaborator_invitation(uuid,text,text,text,public.app_role[])','EXECUTE')
