@@ -1,5 +1,9 @@
 # Roadmap
 
+## 19/10 — Progettazione esecutiva collaboratori 2A
+- [ ] Preparare SQL integrale di protezioni, gestione e storico e inventario live di funzioni/policy che scrivono appartenenze e ruoli. Solo progettazione autorizzata; nessuna migrazione, assegnazione, prova con scritture o pubblicazione.
+- Requisiti futuri: Magazziniere avvia/conteggia ma non chiude/riapre inventario generale; Compratore crea/modifica/conferma AD ma non annulla; Preparatore invariato.
+
 ## 18/10 — Ruoli aziendali e reparti
 - [x] Fase 1 mockup: Azienda → Collaboratori (anteprima): invito, 6 profili combinabili, permessi per pagina/azione, prezzi, fornitori, eccezioni per fornitore, reparti, liste per reparto con cambio rapido e ordine consolidato. Solo dati inventati.
 - [ ] Fase 2 (database e permessi reali): attende approvazione mockup e verifica dipendenze con Inventario, Lista, Ordini.
