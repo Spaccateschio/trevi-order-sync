@@ -254,6 +254,177 @@ export type Database = {
           },
         ]
       }
+      collaborator_invitation_secrets: {
+        Row: {
+          created_at: string
+          invitation_id: string
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          invitation_id: string
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          invitation_id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborator_invitation_secrets_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: true
+            referencedRelation: "collaborator_invitations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collaborator_invitation_sends: {
+        Row: {
+          company_id: string
+          completed_at: string | null
+          email_status: string
+          error_code: string | null
+          id: string
+          invitation_id: string
+          kind: string
+          requested_at: string
+          requested_by: string
+          send_token_hash: string | null
+        }
+        Insert: {
+          company_id: string
+          completed_at?: string | null
+          email_status?: string
+          error_code?: string | null
+          id?: string
+          invitation_id: string
+          kind: string
+          requested_at?: string
+          requested_by: string
+          send_token_hash?: string | null
+        }
+        Update: {
+          company_id?: string
+          completed_at?: string | null
+          email_status?: string
+          error_code?: string | null
+          id?: string
+          invitation_id?: string
+          kind?: string
+          requested_at?: string
+          requested_by?: string
+          send_token_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborator_invitation_sends_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collaborator_invitation_sends_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "collaborator_invitations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collaborator_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          accepted_member_id: string | null
+          company_id: string
+          created_at: string
+          email: string
+          email_normalized: string
+          expires_at: string
+          first_name: string
+          id: string
+          invited_by: string
+          invited_by_member_id: string
+          last_name: string
+          last_sent_at: string
+          resend_count: number
+          revoked_at: string | null
+          revoked_by: string | null
+          roles: Database["public"]["Enums"]["app_role"][]
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          accepted_member_id?: string | null
+          company_id: string
+          created_at?: string
+          email: string
+          email_normalized: string
+          expires_at: string
+          first_name: string
+          id?: string
+          invited_by: string
+          invited_by_member_id: string
+          last_name: string
+          last_sent_at?: string
+          resend_count?: number
+          revoked_at?: string | null
+          revoked_by?: string | null
+          roles: Database["public"]["Enums"]["app_role"][]
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          accepted_member_id?: string | null
+          company_id?: string
+          created_at?: string
+          email?: string
+          email_normalized?: string
+          expires_at?: string
+          first_name?: string
+          id?: string
+          invited_by?: string
+          invited_by_member_id?: string
+          last_name?: string
+          last_sent_at?: string
+          resend_count?: number
+          revoked_at?: string | null
+          revoked_by?: string | null
+          roles?: Database["public"]["Enums"]["app_role"][]
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborator_invitations_accepted_member_id_fkey"
+            columns: ["accepted_member_id"]
+            isOneToOne: false
+            referencedRelation: "company_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collaborator_invitations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collaborator_invitations_invited_by_member_id_fkey"
+            columns: ["invited_by_member_id"]
+            isOneToOne: false
+            referencedRelation: "company_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address_line: string | null
@@ -6728,6 +6899,14 @@ export type Database = {
         Returns: number
       }
       _collaboration_lock: { Args: { _company_id: string }; Returns: undefined }
+      _collaborator_invite_context_ok: {
+        Args: { _company_id: string }
+        Returns: boolean
+      }
+      _collaborator_owner_company: {
+        Args: { _actor_member_id: string }
+        Returns: string
+      }
       _company_unit_active: {
         Args: { _company_id: string; _unit_id: string }
         Returns: boolean
@@ -6875,6 +7054,10 @@ export type Database = {
           _item_id: string
         }
         Returns: boolean
+      }
+      accept_collaborator_invitation: {
+        Args: { _token: string }
+        Returns: Json
       }
       accept_customer_invitation: {
         Args: { _buyer_company_id: string; _token: string }
@@ -7210,6 +7393,16 @@ export type Database = {
         }
         Returns: Json
       }
+      create_collaborator_invitation: {
+        Args: {
+          _actor_member_id: string
+          _email: string
+          _first_name: string
+          _last_name: string
+          _roles: Database["public"]["Enums"]["app_role"][]
+        }
+        Returns: Json
+      }
       create_customer_invitation: {
         Args: {
           _customer_record_id: string
@@ -7507,6 +7700,10 @@ export type Database = {
           _list_id: string
           _supplier_record_id: string
         }
+        Returns: Json
+      }
+      get_collaborator_invitations: {
+        Args: { _actor_member_id: string }
         Returns: Json
       }
       get_company_collaboration_history: {
@@ -8237,6 +8434,10 @@ export type Database = {
         Args: { _order_id: string }
         Returns: string
       }
+      preview_collaborator_invitation: {
+        Args: { _token: string }
+        Returns: Json
+      }
       price_series_key: {
         Args: {
           _company_id: string
@@ -8418,6 +8619,15 @@ export type Database = {
         }
         Returns: string
       }
+      record_collaborator_invitation_send: {
+        Args: {
+          _error_code?: string
+          _outcome: string
+          _send_id: string
+          _send_token: string
+        }
+        Returns: undefined
+      }
       record_inventory_adjustment: {
         Args: {
           _actor_user_id?: string
@@ -8561,6 +8771,10 @@ export type Database = {
         Args: { _buyer_company_id: string; _seller_company_id: string }
         Returns: string
       }
+      resend_collaborator_invitation: {
+        Args: { _actor_member_id: string; _invitation_id: string }
+        Returns: Json
+      }
       resend_customer_invitation: {
         Args: { _invitation_id: string; _valid_days?: number }
         Returns: {
@@ -8610,6 +8824,10 @@ export type Database = {
       resolve_relation_records: {
         Args: { _relation_id: string }
         Returns: undefined
+      }
+      revoke_collaborator_invitation: {
+        Args: { _actor_member_id: string; _invitation_id: string }
+        Returns: Json
       }
       revoke_company_relation: {
         Args: { _relation_id: string }
