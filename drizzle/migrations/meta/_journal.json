@@ -533,6 +533,13 @@
       "when": 1792346191197,
       "tag": "0075_preparation_explicit_read_only_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1792390200131,
+      "tag": "0076_inventory_location_stock_access_guard",
+      "breakpoints": true
     }
   ]
 }
