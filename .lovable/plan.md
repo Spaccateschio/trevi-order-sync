@@ -53,9 +53,9 @@ Account/home/navigazione limitata alle appartenenze attive comuni; niente ammini
 
 ## 5. D — Protezioni mirate
 
-Live: 94 funzioni con is_company_member inclusi helper/trigger/gate ulteriori; elenco nominativo e policy nel rapporto in chat. Non certificazione end-to-end.
+94 funzioni live richiamano membership, incluse indirette/trigger; inventario dettagliato in chat. Nessuna certificazione end-to-end.
 
-Non cambiare is_company_member/is_company_admin/has_company_role o significato globale dei predicati ordine/catalogo/proprietari. Pochi helper fissi nuovi per acquisti, inventario/carico e preparazione. Ogni ingresso conserva risultato precedente per vecchi ruoli OR diritto nuovo; soli nuovi non ereditano membership indiscriminata. Modifiche puntuali a policy permissive originali e vecchie RPC; coprire SECURITY DEFINER/server privilegiati/immagini/stampa diretta. Non riaprire grant helper.
+Helper comuni invariati; nuovi controlli fissi per acquisti/inventario/preparazione. Vecchi: risultato precedente OR diritto nuovo. Soli nuovi: niente membership indiscriminata. Proteggere policy originali, vecchie RPC, server privilegiati, immagini e stampa; grant helper invariati.
 
 Preparazione: nuove condizioni in 2 RPC/3 policy e controlli assegnatario; predicato attuale invariato. Vecchi utenti vedono i nuovi assegnatari necessari alla collaborazione.
 
@@ -70,17 +70,14 @@ Preparazione: nuove condizioni in 2 RPC/3 policy e controlli assegnatario; predi
 
 ## 6. File e migrazioni
 
-Migrazioni nuove via strumento ufficiale: ownership/audit/guardie; inviti; enum in commit separato; restrizioni per area. Tipi rigenerati, vecchie migrazioni non riscritte.
-
-Nuovi: src/lib/company-collaborators.ts, company-collaborators.functions.ts, company-collaborator-email.functions.ts; src/components/company-collaborators/collaborators-page.tsx; src/routes/_authenticated/collaboratori.tsx; src/routes/collaboratore-invito.$token.tsx; src/lib/email-templates/invito-collaboratore.tsx; test regole adiacenti/integrativi.
-
-Candidati esistenti: registry email, use-identity, navigation, app-shell; leaf acquisti/operativo e componenti per controlli azioni; funzioni inventory/count/cycle/evaluation, shopping-list/order-generation/purchase/preparation/catalog/product-images. Elenco esecutivo esatto prima di ogni fase; niente mockup, layout auth gestito, client generati, export Danea o dati operativi. Metadati propri per nuove pagine.
+Nuove migrazioni via strumento ufficiale: ownership/audit; inviti; enum separato; restrizioni per area. Tipi rigenerati, nessuna vecchia migrazione riscritta.
+Nuovi moduli src/lib/company-collaborators*, pagina src/routes/_authenticated/collaboratori.tsx, invito src/routes/collaboratore-invito.$token.tsx, componenti company-collaborators, template email e test adiacenti/integrativi.
+Candidati esistenti: registro email, identità/navigazione/app-shell; pagine e funzioni acquisti/inventario/preparazione e immagini. Elenco esecutivo esatto prima di ogni fase; mockup, layout auth gestito, export Danea e dati invariati.
 
 ## 7. Test e collaudo
 
-Non eseguiti oggi. Solo utenti dedicati 3 EMME, email verificate/sessioni reali authenticated, dopo autorizzazione; nessuna prova Trevi/invio fornitori. Preparazione richiede capacità/dataset venditore di prova separatamente approvati se 3 EMME resta acquirente.
-
-Baseline vecchi da soli: uguaglianza menu/URL/righe/RPC/dinieghi/effetti, salvo titolare. Sei combinazioni, nuovi insieme, vecchi misti/inattivi/cross-azienda. Owner/ultimo admin/REST; inviti hash/scadenza/replay/email/invitante revocato/destinatario inattivo/ruoli manomessi; concorrenza, audit fallito rollback, nessun DELETE. Nuove operazioni dopo revoca negate con sessione aperta; foto già firmate scadono in 600s e dati già consegnati non ritirati. SQL privilegiato non conta come collaudo.
+Non eseguiti oggi. Solo utenti dedicati 3 EMME e sessioni reali, dopo autorizzazione; niente Trevi/invio fornitori. Preparazione richiede dataset/capacità venditore autorizzati separatamente.
+Baseline vecchi: uguaglianza menu/URL/righe/RPC/dinieghi/effetti salvo titolare; sei combinazioni, nuovi insieme, vecchi misti, inattivi/cross-azienda. Owner/ultimo admin/REST, inviti e revoche/concorrenza/replay, rollback audit, nessun DELETE. Dopo revoca nuove operazioni negate anche con sessione aperta; foto già firmate durano 600s. SQL privilegiato non è collaudo reale.
 
 ## 8. Sicurezza esistente — non correggere
 
