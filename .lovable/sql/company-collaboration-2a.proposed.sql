@@ -349,3 +349,96 @@ GRANT EXECUTE ON FUNCTION public.initialize_company_owner(uuid,uuid) TO service_
 
 -- Segue il CREATE OR REPLACE integrale di register_company: stesso comportamento
 -- commerciale, aggiunta del lock e contesto bootstrap soltanto intorno ai due INSERT.
+CREATE OR REPLACE FUNCTION public.register_company(
+  _legal_name text, _can_buy boolean, _can_sell boolean,
+  _vat_number text DEFAULT NULL, _tax_code text DEFAULT NULL, _email text DEFAULT NULL,
+  _phone text DEFAULT NULL, _address_line text DEFAULT NULL, _postal_code text DEFAULT NULL,
+  _city text DEFAULT NULL, _province text DEFAULT NULL,
+  _delivery_address_line text DEFAULT NULL, _delivery_postal_code text DEFAULT NULL,
+  _delivery_city text DEFAULT NULL, _delivery_province text DEFAULT NULL,
+  _delivery_notes text DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _uid uuid := auth.uid();
+  _company_id uuid;
+  _member_id uuid;
+  _address_id uuid;
+  _previous_mode text;
+  _previous_company text;
+BEGIN
+  IF _uid IS NULL THEN RAISE EXCEPTION 'Autenticazione richiesta'; END IF;
+  IF NOT (_can_buy OR _can_sell) THEN RAISE EXCEPTION 'Indica come userai la piattaforma'; END IF;
+  IF coalesce(btrim(_legal_name), '') = '' THEN RAISE EXCEPTION 'La ragione sociale è obbligatoria'; END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended('company_registration:'||_uid::text,0));
+
+  IF EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = _uid AND m.status = 'attivo') THEN
+    RAISE EXCEPTION 'Utente già collegato a un''azienda';
+  END IF;
+
+  IF public.normalize_vat(_vat_number) IS NOT NULL
+     AND public.company_exists_for_vat(_vat_number) THEN
+    RAISE EXCEPTION 'Esiste già un''azienda registrata con questa partita IVA: chiedi al suo amministratore di aggiungerti, oppure verifica il dato inserito';
+  END IF;
+
+  INSERT INTO public.companies (
+    legal_name, vat_number, tax_code, email, phone,
+    address_line, postal_code, city, province,
+    delivery_address_line, delivery_postal_code, delivery_city, delivery_province, delivery_notes,
+    can_buy, can_sell, created_by
+  ) VALUES (
+    btrim(_legal_name), NULLIF(_vat_number, ''), NULLIF(_tax_code, ''), NULLIF(_email, ''), NULLIF(_phone, ''),
+    NULLIF(_address_line, ''), NULLIF(_postal_code, ''), NULLIF(_city, ''), NULLIF(_province, ''),
+    NULLIF(_delivery_address_line, ''), NULLIF(_delivery_postal_code, ''), NULLIF(_delivery_city, ''),
+    NULLIF(_delivery_province, ''), NULLIF(_delivery_notes, ''),
+    _can_buy, _can_sell, _uid
+  ) RETURNING id INTO _company_id;
+
+  PERFORM public._collaboration_lock(_company_id);
+  _previous_mode:=coalesce(current_setting('app.collaboration_mode',true),'');
+  _previous_company:=coalesce(current_setting('app.collaboration_company',true),'');
+  PERFORM set_config('app.collaboration_company',_company_id::text,true);
+  PERFORM set_config('app.collaboration_mode','bootstrap',true);
+
+  INSERT INTO public.company_members (company_id, user_id, status)
+  VALUES (_company_id, _uid, 'attivo') RETURNING id INTO _member_id;
+
+  INSERT INTO public.company_member_roles (member_id, company_id, role)
+  VALUES (_member_id, _company_id, 'amministratore'::public.app_role);
+
+  PERFORM set_config('app.collaboration_mode',_previous_mode,true);
+  PERFORM set_config('app.collaboration_company',_previous_company,true);
+
+  INSERT INTO public.company_settings (company_id, display_name)
+  VALUES (_company_id, btrim(_legal_name));
+
+  IF coalesce(NULLIF(_address_line, ''), NULLIF(_city, '')) IS NOT NULL THEN
+    INSERT INTO public.addresses (company_id, label, address_line, postal_code, city, province, phone, created_by)
+    VALUES (_company_id, 'Sede legale', NULLIF(_address_line, ''), NULLIF(_postal_code, ''),
+            NULLIF(_city, ''), NULLIF(_province, ''), NULLIF(_phone, ''), _uid)
+    RETURNING id INTO _address_id;
+    INSERT INTO public.address_functions (address_id, function, is_default)
+    VALUES (_address_id, 'sede_legale', true);
+  END IF;
+
+  IF coalesce(NULLIF(_delivery_address_line, ''), NULLIF(_delivery_city, '')) IS NOT NULL THEN
+    INSERT INTO public.addresses (company_id, label, address_line, postal_code, city, province, notes, created_by)
+    VALUES (_company_id, 'Consegna', NULLIF(_delivery_address_line, ''), NULLIF(_delivery_postal_code, ''),
+            NULLIF(_delivery_city, ''), NULLIF(_delivery_province, ''), NULLIF(_delivery_notes, ''), _uid)
+    RETURNING id INTO _address_id;
+    INSERT INTO public.address_functions (address_id, function, is_default)
+    VALUES (_address_id, 'consegna', true);
+  END IF;
+
+  INSERT INTO public.audit_events (company_id, actor_user_id, action, entity_type, entity_id, detail)
+  VALUES (_company_id, _uid, 'company.registered', 'company', _company_id,
+          jsonb_build_object('can_buy', _can_buy, 'can_sell', _can_sell));
+
+  RETURN _company_id;
+END;
+$$;
