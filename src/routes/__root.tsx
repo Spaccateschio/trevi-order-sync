@@ -15,6 +15,63 @@ import { supabase } from "@/integrations/supabase/client";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
+// ===== Auto-reload once on stale chunk load failures =====
+// After a new deployment the open browser tab may request an old JS chunk that
+// no longer exists ("Failed to fetch dynamically imported module"), showing a
+// blank screen. Reload the page once, with a guard against reload loops.
+const CHUNK_RELOAD_FLAG = "trevi-chunk-reload-attempt";
+
+function isChunkLoadError(message: string): boolean {
+  return /failed to fetch dynamically imported module|importing a module script failed|error loading dynamically imported module|vite:preloadError/i.test(
+    message,
+  );
+}
+
+function reloadOnceForChunkError(): boolean {
+  if (typeof window === "undefined" || !isBrowserReloadSafe()) return false;
+  try {
+    if (window.sessionStorage.getItem(CHUNK_RELOAD_FLAG)) return false;
+    window.sessionStorage.setItem(CHUNK_RELOAD_FLAG, "1");
+  } catch {
+    return false;
+  }
+  window.location.reload();
+  return true;
+}
+
+function isBrowserReloadSafe(): boolean {
+  try {
+    // Skip while the document is still loading (initial boot), and inside
+    // iframes used for printing.
+    if (document.readyState === "loading") return false;
+    if (window.self !== window.top) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener(
+    "error",
+    (event) => {
+      const message =
+        (event.target instanceof HTMLScriptElement && `failed to fetch dynamically imported module: ${event.target.src}`) ||
+        (event instanceof ErrorEvent && event.message) ||
+        "";
+      if (message && isChunkLoadError(message)) {
+        event.preventDefault();
+        reloadOnceForChunkError();
+      }
+    },
+    true,
+  );
+  window.addEventListener("vite:preloadError", (event) => {
+    event.preventDefault();
+    reloadOnceForChunkError();
+  });
+}
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -42,6 +99,11 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    // A stale chunk after a deployment lands here as a router-level error too:
+    // reload once instead of leaving a broken page on screen.
+    if (error instanceof Error && isChunkLoadError(error.message)) {
+      reloadOnceForChunkError();
+    }
   }, [error]);
 
   return (
@@ -131,6 +193,13 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
+    // A successful render clears the once-only reload guard, so a future
+    // stale-chunk failure can still trigger exactly one reload.
+    try {
+      window.sessionStorage.removeItem(CHUNK_RELOAD_FLAG);
+    } catch {
+      // storage unavailable: guard disabled, ignore
+    }
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
