@@ -1,11 +1,14 @@
--- CORREZIONE URGENTE — PROPOSTA, NON APPLICATA.
--- «Vendo» non si attiva più da solo: can_sell da falso a vero rifiutato
--- (sia da set_company_capabilities sia dalla registrazione), salvo super admin attivo.
--- Spegnere Vendo/Compro resta libero per l'amministratore (almeno uno attivo).
--- Compatibile con l'app pubblicata: il pulsante «Vendo» mostrerà il messaggio d'errore.
+-- FASE 0 — BLOCCO URGENTE «VENDO»
+-- can_sell può passare da falso a vero (o nascere vero) solo dentro una funzione
+-- fidata del proprietario postgres che ha impostato il contesto di approvazione.
+-- Stesso meccanismo della 2A: contesto di sessione + current_user = postgres.
+-- Spegnere «Vendo»/«Compro» resta libero (almeno uno attivo). Aziende già venditrici invariate.
 
 DO $$ BEGIN
   IF current_user <> 'postgres' THEN RAISE EXCEPTION 'SELL_GUARD_ROLE: %', current_user; END IF;
+  IF (SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid = 'public.companies'::regclass) <> 'postgres' THEN
+    RAISE EXCEPTION 'SELL_GUARD_OWNER: companies';
+  END IF;
 END $$;
 
 CREATE OR REPLACE FUNCTION public.set_company_capabilities(_company_id uuid, _can_buy boolean, _can_sell boolean)
@@ -41,22 +44,20 @@ BEGIN
 END;
 $function$;
 
--- Protezione definitiva su qualsiasi strada (registrazione, chiamate dirette, funzioni future):
--- un'azienda può nascere o diventare venditrice solo con il flag di approvazione
--- impostato da una funzione fidata (in futuro: approve_sell_request del super admin).
--- Le funzioni SECURITY DEFINER girano come postgres: il controllo usa auth.uid()
--- (chiamata di un utente) + flag di approvazione; operazioni di sistema senza utente non toccate.
+-- SECURITY INVOKER (come i guard 2A): current_user è chi scrive davvero.
+-- Browser (authenticated/anon) → current_user ≠ postgres → sempre rifiutato,
+-- qualunque contesto provi a impostare. Solo una funzione SECURITY DEFINER
+-- di postgres che imposta app.sell_approval = 'approved' può accendere «Vendo».
 CREATE OR REPLACE FUNCTION public._company_sell_guard()
  RETURNS trigger
  LANGUAGE plpgsql
- SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
 BEGIN
   IF NEW.can_sell
      AND (TG_OP = 'INSERT' OR NOT coalesce(OLD.can_sell, false))
-     AND auth.uid() IS NOT NULL
-     AND coalesce(current_setting('app.sell_approval', true), '') <> 'approved' THEN
+     AND NOT (current_user = 'postgres'
+              AND coalesce(current_setting('app.sell_approval', true), '') = 'approved') THEN
     RAISE EXCEPTION 'L''attivazione di «Vendo» richiede l''approvazione della piattaforma';
   END IF;
   RETURN NEW;
@@ -69,12 +70,19 @@ CREATE TRIGGER companies_sell_guard
 
 ALTER FUNCTION public.set_company_capabilities(uuid, boolean, boolean) OWNER TO postgres;
 ALTER FUNCTION public._company_sell_guard() OWNER TO postgres;
-REVOKE ALL ON FUNCTION public._company_sell_guard() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public._company_sell_guard() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.set_company_capabilities(uuid, boolean, boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.set_company_capabilities(uuid, boolean, boolean) TO authenticated, service_role;
 
 DO $$ BEGIN
   IF (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid = 'public._company_sell_guard()'::regprocedure) <> 'postgres'
      OR (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid = 'public.set_company_capabilities(uuid,boolean,boolean)'::regprocedure) <> 'postgres'
-     OR has_function_privilege('anon', 'public.set_company_capabilities(uuid,boolean,boolean)', 'EXECUTE') THEN
+     OR NOT (SELECT prosecdef FROM pg_proc WHERE oid = 'public.set_company_capabilities(uuid,boolean,boolean)'::regprocedure)
+     OR (SELECT prosecdef FROM pg_proc WHERE oid = 'public._company_sell_guard()'::regprocedure)
+     OR has_function_privilege('anon', 'public.set_company_capabilities(uuid,boolean,boolean)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public._company_sell_guard()', 'EXECUTE')
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'companies_sell_guard'
+                    AND tgrelid = 'public.companies'::regclass AND tgenabled = 'O') THEN
     RAISE EXCEPTION 'SELL_GUARD_FINAL_CHECK';
   END IF;
 END $$;
