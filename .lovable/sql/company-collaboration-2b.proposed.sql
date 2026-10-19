@@ -13,6 +13,12 @@ BEGIN
      OR to_regprocedure('extensions.gen_random_bytes(integer)') IS NULL THEN
     RAISE EXCEPTION 'COLLAB_PGCRYPTO_MISSING';
   END IF;
+  -- Email verificata letta dall'archivio di accesso: il proprietario deve poterla leggere.
+  IF NOT has_schema_privilege('postgres','auth','USAGE')
+     OR NOT has_column_privilege('postgres','auth.users','email','SELECT')
+     OR NOT has_column_privilege('postgres','auth.users','email_confirmed_at','SELECT') THEN
+    RAISE EXCEPTION 'COLLAB_AUTH_USERS_NOT_READABLE';
+  END IF;
 END;
 $collaboration_2b_preflight$;
 
