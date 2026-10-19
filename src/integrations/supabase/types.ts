@@ -341,6 +341,57 @@ export type Database = {
         }
         Relationships: []
       }
+      company_collaboration_events: {
+        Row: {
+          action: string
+          actor_kind: string
+          actor_user_id: string | null
+          after_state: Json | null
+          before_state: Json | null
+          company_id: string
+          created_at: string
+          id: string
+          subject_member_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_kind: string
+          actor_user_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          company_id: string
+          created_at?: string
+          id?: string
+          subject_member_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_kind?: string
+          actor_user_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          subject_member_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_collaboration_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_collaboration_events_subject_member_id_fkey"
+            columns: ["subject_member_id"]
+            isOneToOne: false
+            referencedRelation: "company_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_invitations: {
         Row: {
           created_at: string
@@ -567,6 +618,42 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_ownerships: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          company_id: string
+          owner_member_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          company_id: string
+          owner_member_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          company_id?: string
+          owner_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_ownerships_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_ownerships_owner_member_id_fkey"
+            columns: ["owner_member_id"]
+            isOneToOne: true
+            referencedRelation: "company_members"
             referencedColumns: ["id"]
           },
         ]
@@ -6640,6 +6727,7 @@ export type Database = {
         Args: { _assignment_id: string; _exclude_line_id?: string }
         Returns: number
       }
+      _collaboration_lock: { Args: { _company_id: string }; Returns: undefined }
       _company_unit_active: {
         Args: { _company_id: string; _unit_id: string }
         Returns: boolean
@@ -7421,6 +7509,14 @@ export type Database = {
         }
         Returns: Json
       }
+      get_company_collaboration_history: {
+        Args: { _actor_member_id: string; _before_id?: string; _limit?: number }
+        Returns: Json
+      }
+      get_company_collaborators: {
+        Args: { _actor_member_id: string }
+        Returns: Json
+      }
       goods_receipt_history: {
         Args: { _product_id: string }
         Returns: {
@@ -7453,6 +7549,10 @@ export type Database = {
       initial_stock_unit_options: {
         Args: { _link_id: string; _product_id: string }
         Returns: Json
+      }
+      initialize_company_owner: {
+        Args: { _expected_user_id: string; _member_id: string }
+        Returns: undefined
       }
       inventory_card_stock: {
         Args: { _link_id: string; _location_id: string; _product_id: string }
@@ -7632,6 +7732,7 @@ export type Database = {
       }
       is_company_admin: { Args: { _company_id: string }; Returns: boolean }
       is_company_member: { Args: { _company_id: string }; Returns: boolean }
+      is_company_owner: { Args: { _company_id: string }; Returns: boolean }
       is_order_supplier: { Args: { _order_id: string }; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
       link_customer_record_to_relation: {
@@ -7655,6 +7756,14 @@ export type Database = {
       manage_card_favorite: {
         Args: { _company_id: string; _favorite: boolean; _link_id: string }
         Returns: boolean
+      }
+      manage_company_collaborator: {
+        Args: {
+          _action: string
+          _member_id: string
+          _roles?: Database["public"]["Enums"]["app_role"][]
+        }
+        Returns: Json
       }
       manage_company_delivery_preferences: {
         Args: {

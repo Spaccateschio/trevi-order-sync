@@ -1,6 +1,17 @@
 -- PROPOSTA 2A: NON APPLICATA. Nessun INSERT di titolari o dati operativi.
 -- Eseguire solo dopo approvazione integrale; non collocare nelle migrazioni ora.
 
+DO $collaboration_preflight$
+BEGIN
+  IF current_user <> 'postgres' THEN
+    RAISE EXCEPTION 'COLLAB_MIGRATION_ROLE_NOT_POSTGRES: %', current_user;
+  END IF;
+  IF pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='public.company_members'::regclass)) IS DISTINCT FROM 'postgres' THEN
+    RAISE EXCEPTION 'COLLAB_MEMBERS_OWNER_NOT_POSTGRES';
+  END IF;
+END;
+$collaboration_preflight$;
+
 CREATE TABLE public.company_ownerships (
   company_id uuid PRIMARY KEY REFERENCES public.companies(id) ON DELETE RESTRICT,
   owner_member_id uuid NOT NULL UNIQUE REFERENCES public.company_members(id) ON DELETE RESTRICT,
@@ -460,3 +471,48 @@ BEGIN
   RETURN _company_id;
 END;
 $$;
+
+ALTER FUNCTION public.is_company_owner(uuid) OWNER TO postgres;
+ALTER FUNCTION public._collaboration_lock(uuid) OWNER TO postgres;
+ALTER FUNCTION public._collaboration_guard() OWNER TO postgres;
+ALTER FUNCTION public._collaboration_audit() OWNER TO postgres;
+ALTER FUNCTION public._collaboration_history_guard() OWNER TO postgres;
+ALTER FUNCTION public._collaboration_no_truncate() OWNER TO postgres;
+ALTER FUNCTION public.manage_company_collaborator(uuid,text,public.app_role[]) OWNER TO postgres;
+ALTER FUNCTION public.get_company_collaborators(uuid) OWNER TO postgres;
+ALTER FUNCTION public.get_company_collaboration_history(uuid,uuid,integer) OWNER TO postgres;
+ALTER FUNCTION public.initialize_company_owner(uuid,uuid) OWNER TO postgres;
+ALTER FUNCTION public.register_company(text,boolean,boolean,text,text,text,text,text,text,text,text,text,text,text,text,text) OWNER TO postgres;
+
+DO $collaboration_postflight$
+DECLARE _object text; _owner text;
+BEGIN
+  FOREACH _object IN ARRAY ARRAY[
+    'public.is_company_owner(uuid)',
+    'public._collaboration_lock(uuid)',
+    'public._collaboration_guard()',
+    'public._collaboration_audit()',
+    'public._collaboration_history_guard()',
+    'public._collaboration_no_truncate()',
+    'public.manage_company_collaborator(uuid,text,public.app_role[])',
+    'public.get_company_collaborators(uuid)',
+    'public.get_company_collaboration_history(uuid,uuid,integer)',
+    'public.initialize_company_owner(uuid,uuid)',
+    'public.register_company(text,boolean,boolean,text,text,text,text,text,text,text,text,text,text,text,text,text)'
+  ] LOOP
+    SELECT pg_get_userbyid(proowner) INTO _owner FROM pg_proc WHERE oid=_object::regprocedure;
+    IF _owner IS DISTINCT FROM 'postgres' THEN
+      RAISE EXCEPTION 'COLLAB_FUNCTION_OWNER_NOT_POSTGRES: %', _object;
+    END IF;
+  END LOOP;
+  FOREACH _object IN ARRAY ARRAY[
+    'public.company_members','public.company_member_roles',
+    'public.company_ownerships','public.company_collaboration_events'
+  ] LOOP
+    SELECT pg_get_userbyid(relowner) INTO _owner FROM pg_class WHERE oid=_object::regclass;
+    IF _owner IS DISTINCT FROM 'postgres' THEN
+      RAISE EXCEPTION 'COLLAB_TABLE_OWNER_NOT_POSTGRES: %', _object;
+    END IF;
+  END LOOP;
+END;
+$collaboration_postflight$;
