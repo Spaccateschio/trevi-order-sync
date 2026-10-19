@@ -276,7 +276,10 @@ BEGIN
   IF _action='set_roles' THEN
     DELETE FROM public.company_member_roles WHERE member_id=_member_id AND company_id=_company AND NOT role=ANY(_desired);
     INSERT INTO public.company_member_roles(member_id,company_id,role)
-    SELECT _member_id,_company,r FROM unnest(_desired) r ON CONFLICT(member_id,role) DO NOTHING;
+    SELECT _member_id,_company,r FROM unnest(_desired) r
+    WHERE NOT EXISTS(SELECT 1 FROM public.company_member_roles existing
+      WHERE existing.member_id=_member_id AND existing.role=r)
+    ON CONFLICT(member_id,role) DO NOTHING;
   ELSE
     UPDATE public.company_members SET status=CASE WHEN _action='deactivate' THEN 'disattivato'::public.entity_status
       ELSE 'attivo'::public.entity_status END WHERE id=_member_id AND status IS DISTINCT FROM
