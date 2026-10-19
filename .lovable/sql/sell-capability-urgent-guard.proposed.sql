@@ -44,26 +44,8 @@ $function$;
 -- Protezione definitiva su qualsiasi strada (registrazione, chiamate dirette, funzioni future):
 -- un'azienda può nascere o diventare venditrice solo con il flag di approvazione
 -- impostato da una funzione fidata (in futuro: approve_sell_request del super admin).
-CREATE OR REPLACE FUNCTION public._company_sell_guard()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-BEGIN
-  IF NEW.can_sell
-     AND (TG_OP = 'INSERT' OR NOT coalesce(OLD.can_sell, false))
-     AND coalesce(current_setting('app.sell_approval', true), '') <> 'approved'
-     AND current_user NOT IN ('postgres', 'service_role', 'supabase_admin') IS NOT FALSE
-     AND auth.uid() IS NOT NULL THEN
-    RAISE EXCEPTION 'L''attivazione di «Vendo» richiede l''approvazione della piattaforma';
-  END IF;
-  RETURN NEW;
-END;
-$function$;
--- Nota: le funzioni SECURITY DEFINER girano come postgres, quindi il controllo
--- si basa su auth.uid() (chiamata da un utente) + flag di approvazione.
--- Versione semplificata e corretta della condizione:
+-- Le funzioni SECURITY DEFINER girano come postgres: il controllo usa auth.uid()
+-- (chiamata di un utente) + flag di approvazione; operazioni di sistema senza utente non toccate.
 CREATE OR REPLACE FUNCTION public._company_sell_guard()
  RETURNS trigger
  LANGUAGE plpgsql
