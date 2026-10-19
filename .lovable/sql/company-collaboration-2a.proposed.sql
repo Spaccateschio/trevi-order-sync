@@ -218,6 +218,19 @@ FOR EACH ROW EXECUTE FUNCTION public._collaboration_audit();
 CREATE TRIGGER collaboration_history_guard BEFORE INSERT OR UPDATE OR DELETE ON public.company_collaboration_events
 FOR EACH ROW EXECUTE FUNCTION public._collaboration_history_guard();
 
+CREATE FUNCTION public._collaboration_no_truncate()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$ BEGIN RAISE EXCEPTION 'COLLAB_TRUNCATE_FORBIDDEN'; END; $$;
+REVOKE ALL ON FUNCTION public._collaboration_no_truncate() FROM PUBLIC, anon, authenticated, service_role;
+CREATE TRIGGER collaboration_members_no_truncate BEFORE TRUNCATE ON public.company_members
+FOR EACH STATEMENT EXECUTE FUNCTION public._collaboration_no_truncate();
+CREATE TRIGGER collaboration_roles_no_truncate BEFORE TRUNCATE ON public.company_member_roles
+FOR EACH STATEMENT EXECUTE FUNCTION public._collaboration_no_truncate();
+CREATE TRIGGER collaboration_owner_no_truncate BEFORE TRUNCATE ON public.company_ownerships
+FOR EACH STATEMENT EXECUTE FUNCTION public._collaboration_no_truncate();
+CREATE TRIGGER collaboration_history_no_truncate BEFORE TRUNCATE ON public.company_collaboration_events
+FOR EACH STATEMENT EXECUTE FUNCTION public._collaboration_no_truncate();
+
 CREATE FUNCTION public.manage_company_collaborator(
   _member_id uuid, _action text, _roles public.app_role[] DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -230,7 +243,7 @@ BEGIN
   SELECT company_id INTO _company FROM public.company_members WHERE id=_member_id;
   IF _company IS NULL OR NOT public.is_company_admin(_company) THEN RAISE EXCEPTION 'COLLAB_NOT_AUTHORIZED'; END IF;
   PERFORM public._collaboration_lock(_company);
-  -- Revalidation après attente du lock: révocation concurrente effective.
+  -- Ricontrollare i permessi dopo l'attesa: una revoca concorrente è efficace.
   IF NOT public.is_company_admin(_company) THEN RAISE EXCEPTION 'COLLAB_NOT_AUTHORIZED'; END IF;
   SELECT * INTO _member FROM public.company_members WHERE id=_member_id AND company_id=_company FOR UPDATE;
   IF _member.id IS NULL THEN RAISE EXCEPTION 'COLLAB_NOT_AUTHORIZED'; END IF;
