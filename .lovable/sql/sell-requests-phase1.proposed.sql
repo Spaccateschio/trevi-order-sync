@@ -140,9 +140,9 @@ BEGIN
       decided_by = _uid, decided_at = now(), updated_at = now()
   WHERE id = _request_id;
 
-  INSERT INTO public.platform_audit_log (actor_user_id, action, target_company_id, detail)
-  VALUES (_uid, CASE WHEN _approve THEN 'sell_request.approved' ELSE 'sell_request.rejected' END,
-          _r.company_id, jsonb_build_object('request_id', _request_id, 'reason', _reason));
+  INSERT INTO public.platform_audit_log (actor_user_id, section, action, details)
+  VALUES (_uid, 'aziende', CASE WHEN _approve THEN 'sell_request.approved' ELSE 'sell_request.rejected' END,
+          jsonb_build_object('request_id', _request_id, 'company_id', _r.company_id, 'reason', _reason));
   INSERT INTO public.audit_events (company_id, actor_user_id, action, entity_type, entity_id, detail)
   VALUES (_r.company_id, _uid,
           CASE WHEN _approve THEN 'company.sell_approved' ELSE 'company.sell_rejected' END,
