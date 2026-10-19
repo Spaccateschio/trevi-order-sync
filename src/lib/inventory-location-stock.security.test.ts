@@ -7,10 +7,10 @@ type Case = { name: string; args: Record<string, unknown>; label: string; result
 type Baseline = { products: { id: string }[]; locations: { id: string }[]; cases: Case[] };
 
 // Opt-in integration tests: only authenticated read-only RPCs, never fixtures written to DB.
-const fixturePath = process.env.STOCK_SECURITY_BASELINE;
-const sessionJson = process.env.LOVABLE_BROWSER_SUPABASE_SESSION_JSON;
-const url = process.env.STOCK_SECURITY_URL;
-const key = process.env.STOCK_SECURITY_KEY;
+const fixturePath = process.env['STOCK_SECURITY_BASELINE'];
+const sessionJson = process.env['LOVABLE_BROWSER_SUPABASE_SESSION_JSON'];
+const url = process.env['STOCK_SECURITY_URL'];
+const key = process.env['STOCK_SECURITY_KEY'];
 const configured = Boolean(fixturePath && sessionJson && url && key);
 
 describe("inventory_location_stock: authenticated read-only security", { skip: !configured }, () => {
