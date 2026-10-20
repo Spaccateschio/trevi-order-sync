@@ -234,6 +234,24 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     },
   });
 
+  // Ordine inviato in attesa di ritiro merce: finché c'è, non offriamo «Nuova lista»
+  // e il riquadro «Da inventario» resta nascosto (riapribile su richiesta).
+  const pendingPickupQuery = useQuery({
+    queryKey: ["purchase-orders-pending-pickup", companyId],
+    queryFn: async (): Promise<boolean> => {
+      const { data, error } = await supabase
+        .from("purchase_orders")
+        .select("id")
+        .eq("company_id", companyId)
+        .in("status", ["inviato", "parzialmente_consegnato"])
+        .limit(1);
+      if (error) throw new Error(error.message);
+      return (data?.length ?? 0) > 0;
+    },
+  });
+  const pendingPickup = pendingPickupQuery.data ?? false;
+  const [showInventoryEvaluation, setShowInventoryEvaluation] = useState(false);
+
   const lists = listsQuery.data ?? [];
   const cycleQuery = useQuery({
     queryKey: [CYCLE_QUERY_KEY, companyId],
@@ -649,7 +667,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   }, [recheckCount]);
   // Raccolta unica: i prodotti contati non ancora in Lista compaiono una sola volta, con la stessa card.
   const showPending = Boolean(
-    evaluating && cycle && !cycle.evaluated_at && (!list || list.id === linkedList?.id),
+    evaluating && cycle && !cycle.evaluated_at && (!list || list.id === linkedList?.id) &&
+      (!pendingPickup || showInventoryEvaluation),
   );
   const { allCounted, images: countedImages } = useInventoryCountedRows(companyId, showPending ? (cycle?.session_id ?? null) : null);
   const savedEvaluations = useEvaluationRows(showPending ? (cycle?.session_id ?? null) : null);
@@ -1371,16 +1390,18 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 flex-1 space-y-0.5">
             <div className="flex min-w-0 items-center gap-1.5">
-              <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
-                <SelectTrigger className="h-7 min-w-0 flex-1 border-none bg-transparent px-0 text-sm font-bold shadow-none" aria-label="Lista della spesa">
-                  <SelectValue placeholder="Nessuna lista in corso" />
-                </SelectTrigger>
-                <SelectContent>
-                  {lists.map((row) => (
-                    <SelectItem key={row.id} value={row.id}>{listLabel(row)} · {LIST_STATUS_LABEL[row.status]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {list || !pendingPickup ? (
+                <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
+                  <SelectTrigger className="h-7 min-w-0 flex-1 border-none bg-transparent px-0 text-sm font-bold shadow-none" aria-label="Lista della spesa">
+                    <SelectValue placeholder="Nessuna lista in corso" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {lists.map((row) => (
+                      <SelectItem key={row.id} value={row.id}>{listLabel(row)} · {LIST_STATUS_LABEL[row.status]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
                           </div>
             {list ? <div className="text-xs"><ListDeliveryDate companyId={companyId} list={list} editable={editable} /></div> : null}
           </div>
@@ -1424,16 +1445,18 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setHistoryOpen(true)}>
             Storico liste
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
-            onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
-          >
-            <Plus aria-hidden="true" />Nuova lista
-          </Button>
+          {!pendingPickup ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
+              onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
+            >
+              <Plus aria-hidden="true" />Nuova lista
+            </Button>
+          ) : null}
           {editable ? (
             <Button type="button" size="sm" variant="outline" className="h-7 text-xs text-destructive" disabled={listMutation.isPending} onClick={() => listMutation.mutate("cancel")}>
               Annulla lista
@@ -1515,18 +1538,20 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           <Button type="button" size="sm" variant="outline" data-tour="spesa.storico" onClick={() => setHistoryOpen(true)}>
             Storico liste
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            data-tour="spesa.nuova-lista"
-            disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
-            title="Lista straordinaria, non collegata all'inventario"
-            onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
-          >
-            <Plus aria-hidden="true" />
-            Nuova lista
-          </Button>
+          {!pendingPickup ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              data-tour="spesa.nuova-lista"
+              disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
+              title="Lista straordinaria, non collegata all'inventario"
+              onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
+            >
+              <Plus aria-hidden="true" />
+              Nuova lista
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -1586,7 +1611,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      {!list && !previewMode && !listsQuery.isLoading ? (() => {
+      {!list && !previewMode && !listsQuery.isLoading && !pendingPickup ? (() => {
         // Ciclo concluso: la zona operativa è vuota, il passato vive nello Storico.
         const lastClosed = lists
           .filter((row) => row.status === "chiusa" && row.number)
@@ -1638,17 +1663,27 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       ) : null}
 
       {evaluating && cycle && (!list || list.id === linkedList?.id) ? (
-        <InventoryEvaluation
-          companyId={companyId}
-          cycle={cycle}
-          linkedList={linkedList}
-          existingProductIds={listProductIds}
-          onEnsureList={ensureInventoryList}
-          layout={viewMode}
-          values={evalValues}
-          onValuesChange={setEvalValues}
-          hideItems
-        />
+        pendingPickup && !showInventoryEvaluation ? (
+          <button
+            type="button"
+            className="self-start text-xs text-muted-foreground underline"
+            onClick={() => setShowInventoryEvaluation(true)}
+          >
+            Da inventario — mostra il riquadro
+          </button>
+        ) : (
+          <InventoryEvaluation
+            companyId={companyId}
+            cycle={cycle}
+            linkedList={linkedList}
+            existingProductIds={listProductIds}
+            onEnsureList={ensureInventoryList}
+            layout={viewMode}
+            values={evalValues}
+            onValuesChange={setEvalValues}
+            hideItems
+          />
+        )
       ) : cycle?.color === "rosso" && cycle.evaluated_at && (!list || list.id === cycle.list_id) ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
           <span className="font-semibold">Ciclo acquisti da completare:</span> valutazione terminata,{" "}
@@ -1660,9 +1695,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       ) : null}
 
       {!list && !showPending ? (
-        <p className="text-sm text-muted-foreground">
-          Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure consulta lo Storico dal menu delle liste.
-        </p>
+        pendingPickup ? null : (
+          <p className="text-sm text-muted-foreground">
+            Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure consulta lo Storico dal menu delle liste.
+          </p>
+        )
       ) : (
         <>
           {list ? (
