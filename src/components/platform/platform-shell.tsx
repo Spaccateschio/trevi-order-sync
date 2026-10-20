@@ -28,6 +28,7 @@ const NAV_ITEMS: {
 }[] = [
   { to: "/piattaforma", label: "Pannello", icon: LayoutDashboard, exact: true, section: null },
   { to: "/piattaforma/aziende", label: "Aziende", icon: Building2, exact: false, section: "aziende" },
+  { to: "/piattaforma/richieste-vendo", label: "Richieste Vendo", icon: ClipboardList, exact: false, section: "aziende" },
   { to: "/piattaforma/utenti", label: "Utenti", icon: Users, exact: false, section: "utenti" },
   { to: "/piattaforma/registro", label: "Registro", icon: ClipboardList, exact: false, section: "registro" },
   { to: "/piattaforma/assistenza", label: "Assistenza", icon: LifeBuoy, exact: false, section: "assistenza" },
@@ -61,10 +62,10 @@ export function PlatformShell({ children }: { children?: ReactNode }) {
   if (!access.isAdmin) return null;
 
   const visibleItems = NAV_ITEMS.filter(
-    (item) =>
+    (item) => (item.to !== "/piattaforma/richieste-vendo" || access.isSuper) && (
       item.section === null ||
       item.to === "/piattaforma/team" ||
-      access.permissions[item.section] !== "nessuno",
+      access.permissions[item.section] !== "nessuno"),
   );
 
   async function handleSignOut() {

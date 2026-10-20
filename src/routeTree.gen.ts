@@ -33,6 +33,7 @@ import { Route as PiattaformaAssistenzaRouteImport } from './routes/piattaforma.
 import { Route as PiattaformaAziendeRouteImport } from './routes/piattaforma.aziende'
 import { Route as PiattaformaImpostazioniRouteImport } from './routes/piattaforma.impostazioni'
 import { Route as PiattaformaRegistroRouteImport } from './routes/piattaforma.registro'
+import { Route as PiattaformaRichiesteVendoRouteImport } from './routes/piattaforma.richieste-vendo'
 import { Route as PiattaformaTeamRouteImport } from './routes/piattaforma.team'
 import { Route as PiattaformaUtentiRouteImport } from './routes/piattaforma.utenti'
 import { Route as AuthenticatedAcquistiIndexRouteImport } from './routes/_authenticated/acquisti.index'
@@ -177,6 +178,12 @@ const PiattaformaRegistroRoute = PiattaformaRegistroRouteImport.update({
   path: '/registro',
   getParentRoute: () => PiattaformaRoute,
 } as any)
+const PiattaformaRichiesteVendoRoute =
+  PiattaformaRichiesteVendoRouteImport.update({
+    id: '/richieste-vendo',
+    path: '/richieste-vendo',
+    getParentRoute: () => PiattaformaRoute,
+  } as any)
 const PiattaformaTeamRoute = PiattaformaTeamRouteImport.update({
   id: '/team',
   path: '/team',
@@ -323,6 +330,7 @@ export interface FileRoutesByFullPath {
   '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
   '/piattaforma/impostazioni': typeof PiattaformaImpostazioniRoute
   '/piattaforma/registro': typeof PiattaformaRegistroRoute
+  '/piattaforma/richieste-vendo': typeof PiattaformaRichiesteVendoRoute
   '/piattaforma/team': typeof PiattaformaTeamRoute
   '/piattaforma/utenti': typeof PiattaformaUtentiRoute
   '/piattaforma/': typeof PiattaformaIndexRoute
@@ -368,6 +376,7 @@ export interface FileRoutesByTo {
   '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
   '/piattaforma/impostazioni': typeof PiattaformaImpostazioniRoute
   '/piattaforma/registro': typeof PiattaformaRegistroRoute
+  '/piattaforma/richieste-vendo': typeof PiattaformaRichiesteVendoRoute
   '/piattaforma/team': typeof PiattaformaTeamRoute
   '/piattaforma/utenti': typeof PiattaformaUtentiRoute
   '/piattaforma': typeof PiattaformaIndexRoute
@@ -416,6 +425,7 @@ export interface FileRoutesById {
   '/piattaforma/aziende': typeof PiattaformaAziendeRouteWithChildren
   '/piattaforma/impostazioni': typeof PiattaformaImpostazioniRoute
   '/piattaforma/registro': typeof PiattaformaRegistroRoute
+  '/piattaforma/richieste-vendo': typeof PiattaformaRichiesteVendoRoute
   '/piattaforma/team': typeof PiattaformaTeamRoute
   '/piattaforma/utenti': typeof PiattaformaUtentiRoute
   '/piattaforma/': typeof PiattaformaIndexRoute
@@ -464,6 +474,7 @@ export interface FileRouteTypes {
     | '/piattaforma/aziende'
     | '/piattaforma/impostazioni'
     | '/piattaforma/registro'
+    | '/piattaforma/richieste-vendo'
     | '/piattaforma/team'
     | '/piattaforma/utenti'
     | '/piattaforma/'
@@ -509,6 +520,7 @@ export interface FileRouteTypes {
     | '/piattaforma/aziende'
     | '/piattaforma/impostazioni'
     | '/piattaforma/registro'
+    | '/piattaforma/richieste-vendo'
     | '/piattaforma/team'
     | '/piattaforma/utenti'
     | '/piattaforma'
@@ -556,6 +568,7 @@ export interface FileRouteTypes {
     | '/piattaforma/aziende'
     | '/piattaforma/impostazioni'
     | '/piattaforma/registro'
+    | '/piattaforma/richieste-vendo'
     | '/piattaforma/team'
     | '/piattaforma/utenti'
     | '/piattaforma/'
@@ -762,6 +775,13 @@ declare module '@tanstack/react-router' {
       path: '/registro'
       fullPath: '/piattaforma/registro'
       preLoaderRoute: typeof PiattaformaRegistroRouteImport
+      parentRoute: typeof PiattaformaRoute
+    }
+    '/piattaforma/richieste-vendo': {
+      id: '/piattaforma/richieste-vendo'
+      path: '/richieste-vendo'
+      fullPath: '/piattaforma/richieste-vendo'
+      preLoaderRoute: typeof PiattaformaRichiesteVendoRouteImport
       parentRoute: typeof PiattaformaRoute
     }
     '/piattaforma/team': {
@@ -997,6 +1017,7 @@ interface PiattaformaRouteChildren {
   PiattaformaAziendeRoute: typeof PiattaformaAziendeRouteWithChildren
   PiattaformaImpostazioniRoute: typeof PiattaformaImpostazioniRoute
   PiattaformaRegistroRoute: typeof PiattaformaRegistroRoute
+  PiattaformaRichiesteVendoRoute: typeof PiattaformaRichiesteVendoRoute
   PiattaformaTeamRoute: typeof PiattaformaTeamRoute
   PiattaformaUtentiRoute: typeof PiattaformaUtentiRoute
   PiattaformaIndexRoute: typeof PiattaformaIndexRoute
@@ -1007,6 +1028,7 @@ const PiattaformaRouteChildren: PiattaformaRouteChildren = {
   PiattaformaAziendeRoute: PiattaformaAziendeRouteWithChildren,
   PiattaformaImpostazioniRoute: PiattaformaImpostazioniRoute,
   PiattaformaRegistroRoute: PiattaformaRegistroRoute,
+  PiattaformaRichiesteVendoRoute: PiattaformaRichiesteVendoRoute,
   PiattaformaTeamRoute: PiattaformaTeamRoute,
   PiattaformaUtentiRoute: PiattaformaUtentiRoute,
   PiattaformaIndexRoute: PiattaformaIndexRoute,

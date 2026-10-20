@@ -1,6 +1,9 @@
 import type { ComponentType } from 'react'
 
 import { template as invitoCollegamento } from './invito-collegamento'
+import { template as nuovaRichiestaVendo } from './nuova-richiesta-vendo'
+import { template as richiestaVendoApprovata } from './richiesta-vendo-approvata'
+import { template as richiestaVendoRifiutata } from './richiesta-vendo-rifiutata'
 
 export interface TemplateEntry {
   component: ComponentType<any>
@@ -17,4 +20,7 @@ export interface TemplateEntry {
  */
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'invito-collegamento': invitoCollegamento,
+  'nuova-richiesta-vendo': nuovaRichiestaVendo,
+  'richiesta-vendo-approvata': richiestaVendoApprovata,
+  'richiesta-vendo-rifiutata': richiestaVendoRifiutata,
 }

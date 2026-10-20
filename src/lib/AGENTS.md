@@ -1,5 +1,7 @@
 # Danea: ordini e prezzi
 
+- Sell requests use authenticated RPCs. Resolve company from the user's active membership ID; no browser company ID. Feature-specific server email helper is blocked until send authorization, with event-based idempotency and no replay of test events.
+
 - Ordini B2B→Danea: solo /api/public/danea/orders, postazione uso «ordini»; selezione/registrazione/rimessa solo via danea_orders_export_candidates / danea_mark_orders_exported / danea_requeue_order; XML in src/lib/danea-orders-xml.ts: «Scaricato» non prova l'importazione; Number = purchase_orders.danea_number, progressivo per fornitore assegnato una sola volta da danea_reserve_order_numbers prima dei filtri (mai la cifra dell'ORD del cliente, salvo ordini storici già scaricati); filtri firstnum/lastnum su quel numero.
 - Prezzi allo scarico Danea: solo danea_export_orders_priced (blocco condiviso 'danea_price_list:' + listino del cliente via _danea_export_line_price, storico immutabile danea_order_export_lines); i riscarichi riusano lo storico; i prezzi dall'invio Danea si scrivono solo con danea_replace_product_prices (blocco esclusivo): listino coerente in tutto lo scarico, prezzo del cliente mai riscritto.
 - Ultimo aggiornamento listino in seller_price_info: solo invio Danea completato con prezzi cambiati (danea_record_price_list_update) o modifica reale di netto/lordo (trigger); orario abituale e testo solo informativi via set_seller_price_info.

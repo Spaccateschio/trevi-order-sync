@@ -917,6 +917,59 @@ export type Database = {
           },
         ]
       }
+      company_sell_requests: {
+        Row: {
+          admin_notified_at: string | null
+          company_id: string
+          company_notified_at: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          origin: string
+          requested_by: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notified_at?: string | null
+          company_id: string
+          company_notified_at?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          id?: string
+          origin?: string
+          requested_by: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notified_at?: string | null
+          company_id?: string
+          company_notified_at?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          id?: string
+          origin?: string
+          requested_by?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_sell_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           company_id: string
@@ -7006,6 +7059,7 @@ export type Database = {
           quantity: number
         }[]
       }
+      _is_active_platform_super: { Args: never; Returns: boolean }
       _link_active_list_usage: {
         Args: { _company_id: string; _link_id: string }
         Returns: Json
@@ -7275,6 +7329,10 @@ export type Database = {
       can_write_supplier_record: {
         Args: { _supplier_record_id: string }
         Returns: boolean
+      }
+      cancel_company_sell_request: {
+        Args: { _request_id: string }
+        Returns: undefined
       }
       cancel_customer_invitation: {
         Args: { _invitation_id: string }
@@ -7555,6 +7613,10 @@ export type Database = {
       }
       decide_company_relation: {
         Args: { _accept: boolean; _relation_id: string }
+        Returns: undefined
+      }
+      decide_company_sell_request: {
+        Args: { _approve: boolean; _reason?: string; _request_id: string }
         Returns: undefined
       }
       decide_order_change: {
@@ -8364,6 +8426,10 @@ export type Database = {
         Args: { _order_id: string }
         Returns: undefined
       }
+      mark_sell_request_notified: {
+        Args: { _request_id: string; _target: string }
+        Returns: undefined
+      }
       next_document_number: {
         Args: { _company_id: string; _prefix: string }
         Returns: string
@@ -8425,6 +8491,21 @@ export type Database = {
         Returns: boolean
       }
       platform_permission: { Args: { _section: string }; Returns: string }
+      platform_sell_requests: {
+        Args: never
+        Returns: {
+          company_id: string
+          company_name: string
+          created_at: string
+          decided_at: string
+          decision_reason: string
+          id: string
+          origin: string
+          requested_by_email: string
+          status: string
+          vat_number: string
+        }[]
+      }
       preparation_actor_allowed: {
         Args: { _company_id: string }
         Returns: boolean
@@ -8763,6 +8844,7 @@ export type Database = {
         Args: { _company_id: string; _reset?: boolean; _session_id: string }
         Returns: Json
       }
+      request_company_sell: { Args: { _company_id: string }; Returns: string }
       request_order_change: {
         Args: { _note: string; _order_id: string }
         Returns: string
