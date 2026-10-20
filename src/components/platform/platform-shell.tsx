@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { getPlatformAccess, type PlatformSection } from "@/lib/platform.functions";
 import { cn } from "@/lib/utils";
+import { PlatformNotificationBellMockup } from "./platform-notification-bell-mockup";
 
 const NAV_ITEMS: {
   to: string;
@@ -88,6 +89,7 @@ export function PlatformShell({ children }: { children?: ReactNode }) {
               Super amministratore
             </Badge>
           )}
+          <PlatformNotificationBellMockup showSellRequests={access.isSuper} />
           <Button
             variant="ghost"
             size="icon"
