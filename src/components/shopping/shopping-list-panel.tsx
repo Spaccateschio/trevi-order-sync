@@ -234,6 +234,24 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     },
   });
 
+  // Ordine inviato in attesa di ritiro merce: finché c'è, non offriamo «Nuova lista»
+  // e il riquadro «Da inventario» resta nascosto (riapribile su richiesta).
+  const pendingPickupQuery = useQuery({
+    queryKey: ["purchase-orders-pending-pickup", companyId],
+    queryFn: async (): Promise<boolean> => {
+      const { data, error } = await supabase
+        .from("purchase_orders")
+        .select("id")
+        .eq("company_id", companyId)
+        .in("status", ["inviato", "parzialmente_consegnato"])
+        .limit(1);
+      if (error) throw new Error(error.message);
+      return (data?.length ?? 0) > 0;
+    },
+  });
+  const pendingPickup = pendingPickupQuery.data ?? false;
+  const [showInventoryEvaluation, setShowInventoryEvaluation] = useState(false);
+
   const lists = listsQuery.data ?? [];
   const cycleQuery = useQuery({
     queryKey: [CYCLE_QUERY_KEY, companyId],
@@ -1424,16 +1442,18 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setHistoryOpen(true)}>
             Storico liste
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
-            onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
-          >
-            <Plus aria-hidden="true" />Nuova lista
-          </Button>
+          {!pendingPickup ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
+              onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
+            >
+              <Plus aria-hidden="true" />Nuova lista
+            </Button>
+          ) : null}
           {editable ? (
             <Button type="button" size="sm" variant="outline" className="h-7 text-xs text-destructive" disabled={listMutation.isPending} onClick={() => listMutation.mutate("cancel")}>
               Annulla lista
@@ -1515,18 +1535,20 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           <Button type="button" size="sm" variant="outline" data-tour="spesa.storico" onClick={() => setHistoryOpen(true)}>
             Storico liste
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            data-tour="spesa.nuova-lista"
-            disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
-            title="Lista straordinaria, non collegata all'inventario"
-            onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
-          >
-            <Plus aria-hidden="true" />
-            Nuova lista
-          </Button>
+          {!pendingPickup ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              data-tour="spesa.nuova-lista"
+              disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
+              title="Lista straordinaria, non collegata all'inventario"
+              onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
+            >
+              <Plus aria-hidden="true" />
+              Nuova lista
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -1586,7 +1608,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      {!list && !previewMode && !listsQuery.isLoading ? (() => {
+      {!list && !previewMode && !listsQuery.isLoading && !pendingPickup ? (() => {
         // Ciclo concluso: la zona operativa è vuota, il passato vive nello Storico.
         const lastClosed = lists
           .filter((row) => row.status === "chiusa" && row.number)
@@ -1659,7 +1681,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </p>
       ) : null}
 
-      {!list && !showPending ? (
+      {!list && !showPending && !pendingPickup ? (
         <p className="text-sm text-muted-foreground">
           Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure consulta lo Storico dal menu delle liste.
         </p>
