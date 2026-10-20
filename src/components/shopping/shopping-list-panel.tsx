@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   ArrowDownAZ,
   CheckCheck,
+  MoreHorizontal,
   MoreVertical,
   Plus,
   LayoutGrid,
@@ -1337,8 +1338,84 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   );
 
   return (
-    <div className="space-y-4 pb-24 lg:pb-16">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="space-y-4 pb-24 max-md:space-y-2 lg:pb-16">
+      {/* Cellulare (<768 px): testata compatta con gli stessi comandi. */}
+      <div className="space-y-1.5 md:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
+                <SelectTrigger className="h-7 min-w-0 flex-1 border-none bg-transparent px-0 text-sm font-bold shadow-none" aria-label="Lista della spesa">
+                  <SelectValue placeholder="Storico liste" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lists.map((row) => (
+                    <SelectItem key={row.id} value={row.id}>{listLabel(row)} · {LIST_STATUS_LABEL[row.status]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {list ? <Badge variant={editable ? "default" : "secondary"} className="h-4 shrink-0 px-1 text-[9px]">{LIST_STATUS_LABEL[list.status]}</Badge> : null}
+            </div>
+            {list ? <div className="text-xs"><ListDeliveryDate companyId={companyId} list={list} editable={editable} /></div> : null}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" aria-label="Viste e opzioni lista">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => changeViewMode("card")}>
+                <LayoutGrid className="mr-2 h-4 w-4" />Vista Card{viewMode === "card" ? " ✓" : ""}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => changeViewMode("row")}>
+                <Rows3 className="mr-2 h-4 w-4" />Vista Righe{viewMode === "row" ? " ✓" : ""}
+              </DropdownMenuItem>
+              {list?.number ? (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link to="/acquisti/lista-spesa/stampa/$listId" params={{ listId: list.id }} search={{ tipo: "completa" }}>Visualizza / Stampa</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/acquisti/lista-spesa/stampa/$listId" params={{ listId: list.id }} search={{ tipo: "diretti" }}>Stampa acquisti diretti</Link>
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [&>*]:shrink-0">
+          {editable ? (
+            <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={listMutation.isPending} onClick={() => { setGenMounted(list?.id ?? null); setGenOpen("bozze"); }}>
+              Bozze
+            </Button>
+          ) : null}
+          {list && list.status === "confermata" ? (
+            <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={listMutation.isPending} onClick={() => listMutation.mutate("close")}>
+              Chiudi lista
+            </Button>
+          ) : null}
+          <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setHistoryOpen(true)}>
+            Storico liste
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
+            onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
+          >
+            <Plus aria-hidden="true" />Nuova lista
+          </Button>
+          {editable ? (
+            <Button type="button" size="sm" variant="outline" className="h-7 text-xs text-destructive" disabled={listMutation.isPending} onClick={() => listMutation.mutate("cancel")}>
+              Annulla lista
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      <div className="hidden flex-wrap items-center justify-between gap-2 md:flex">
         <div className="flex flex-wrap items-center gap-2">
           <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
             <SelectTrigger className="w-full sm:w-72" aria-label="Lista della spesa">
@@ -1427,7 +1504,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      <div data-tour="spesa.orario" className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
+      <div data-tour="spesa.orario" className="hidden flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs md:flex">
         <div className="flex flex-wrap items-center gap-2">
           <AlarmClock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="font-semibold">Preparazione Lista della Spesa</span>
@@ -1521,7 +1598,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
       {/* Unica scelta Card/Righe: vale sia per «Da inventario» sia per la Lista. */}
       {(evaluating && cycle) || list ? (
-        <div className="flex items-center justify-end gap-2">
+        <div className="hidden items-center justify-end gap-2 md:flex">
         <span className="text-xs text-muted-foreground">Vista prodotti</span>
           <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
             <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => changeViewMode("card")}>
@@ -1595,8 +1672,59 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             >
               ★ Preferiti
             </Button>
+            {/* Cellulare: «Tutti» spegne Preferiti; i 3 puntini gialli raccolgono tutti i filtri. */}
+            <Button
+              type="button"
+              size="sm"
+              variant={flags.has("preferiti") ? "outline" : "default"}
+              className="h-8 px-3 text-xs md:hidden"
+              aria-pressed={!flags.has("preferiti")}
+              onClick={() => toggleFlag("preferiti", false)}
+            >
+              Tutti
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button type="button" size="icon" className="relative ml-auto h-8 w-8 bg-accent text-accent-foreground hover:bg-accent/90 md:hidden" aria-label="Tutti i filtri">
+                  <MoreHorizontal className="size-5" aria-hidden="true" />
+                  {activeFilters ? (
+                    <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] text-primary-foreground">{activeFilters}</span>
+                  ) : null}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="max-h-[70vh] w-72 space-y-2 overflow-y-auto p-2">
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="h-8 w-full text-xs" aria-label="Categoria"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutte le categorie</SelectItem>
+                    {categories.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                  <SelectTrigger className="h-8 w-full text-xs" aria-label="Fornitore"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tutti i fornitori</SelectItem>
+                    {supplierOptions.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {FILTER_GROUPS.map(([title, group]) => (
+                  <div key={title}>
+                    <p className="px-1 text-[10px] font-semibold uppercase text-muted-foreground">{title}</p>
+                    {group.filter(([flag]) => flag !== "preferiti").map(([flag, label]) => (
+                      <label key={flag} className="flex items-center gap-2 rounded px-1 py-1 text-xs hover:bg-muted">
+                        <Checkbox checked={flags.has(flag)} onCheckedChange={(checked) => toggleFlag(flag, checked === true)} />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                ))}
+                {activeFilters || search ? (
+                  <Button type="button" size="sm" variant="ghost" className="h-7 w-full text-xs" onClick={resetFilters}>Azzera filtri</Button>
+                ) : null}
+              </PopoverContent>
+            </Popover>
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className={`h-8 w-36 text-xs${category !== "all" ? " border-primary bg-primary font-medium text-primary-foreground" : ""}`} aria-label="Categoria">
+              <SelectTrigger className={`hidden h-8 w-36 text-xs md:flex${category !== "all" ? " border-primary bg-primary font-medium text-primary-foreground" : ""}`} aria-label="Categoria">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1607,7 +1735,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               </SelectContent>
             </Select>
             <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-              <SelectTrigger className={`h-8 w-36 text-xs${supplierFilter !== "all" ? " border-primary bg-primary font-medium text-primary-foreground" : ""}`} aria-label="Fornitore">
+              <SelectTrigger className={`hidden h-8 w-36 text-xs md:flex${supplierFilter !== "all" ? " border-primary bg-primary font-medium text-primary-foreground" : ""}`} aria-label="Fornitore">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1619,7 +1747,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </Select>
             <Popover>
               <PopoverTrigger asChild>
-                <Button type="button" size="sm" variant={flags.size ? "default" : "outline"} className="h-8 px-2 text-xs">
+                <Button type="button" size="sm" variant={flags.size ? "default" : "outline"} className="hidden h-8 px-2 text-xs md:inline-flex">
                   <SlidersHorizontal aria-hidden="true" />
                   Filtra card{flags.size ? ` (${flags.size})` : ""}
                 </Button>
@@ -1715,13 +1843,13 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           </div>
 
           {list ? (
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-xs" data-tour="spesa.contatori" aria-label="Contatori della Lista">
-              <span>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-xs max-md:flex-nowrap max-md:px-2 max-md:py-1 max-md:text-[11px]" data-tour="spesa.contatori" aria-label="Contatori della Lista">
+              <span className="max-md:min-w-0 max-md:truncate">
                 Prodotti <strong>{counters.products}</strong> · Preferiti <strong>{counters.favorites}</strong> · In Lista <strong>{counters.inList}</strong> ·
                 Con quantità <strong>{counters.withQuantity}</strong> · Da inserire <strong className={counters.toFill ? "text-warning-foreground" : undefined}>{counters.toFill}</strong>
                 {counters.excluded ? ` · ${counters.excluded} esclusi` : ""}
               </span>
-              <span className="text-muted-foreground">
+              <span className="text-muted-foreground max-md:hidden">
                 ★ Preferiti in Lista <strong className="text-foreground">{counters.favInList}</strong> · Compilati <strong className="text-foreground">{counters.favFilled}</strong> · Mancanti{" "}
                 <strong className="text-foreground">{counters.favMissing}</strong>
               </span>
@@ -1894,6 +2022,34 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             {summary.toFix ? ` · ${summary.toFix} da sistemare` : ""}
             {summary.excluded ? ` · ${summary.excluded} esclusi` : ""}
           </span>
+          {/* Cellulare: l'orario di preparazione vive accanto a «Genera ordini». */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button type="button" className="inline-flex items-center gap-1 text-[11px] text-sidebar-foreground/80 underline md:hidden">
+                <AlarmClock className="size-3" aria-hidden="true" />
+                Preparazione: {scheduleQuery.isLoading ? "…" : describeOperationalSchedule(scheduleQuery.data)}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="center" side="top" className="w-64 space-y-3">
+              <p className="text-xs font-medium">Preparazione Lista della Spesa</p>
+              {isAdmin && scheduleQuery.data ? (
+                <>
+                  <TimeWheelPicker value={overrideTime} onChange={setOverrideTime} />
+                  <Button type="button" size="sm" className="w-full" disabled={overrideMutation.isPending} onClick={() => overrideMutation.mutate(overrideTime)}>
+                    Solo oggi
+                  </Button>
+                  {hasTodayOverride(scheduleQuery.data) ? (
+                    <Button type="button" size="sm" variant="ghost" className="w-full" disabled={overrideMutation.isPending} onClick={() => overrideMutation.mutate(null)}>
+                      Annulla l'eccezione di oggi
+                    </Button>
+                  ) : null}
+                </>
+              ) : null}
+              <Button asChild size="sm" variant="outline" className="w-full">
+                <Link to="/amministrazione" search={{ sezione: "preferenze" }}>Sempre (in Azienda → Preferenze)</Link>
+              </Button>
+            </PopoverContent>
+          </Popover>
           <Button
             size="sm"
             variant="ghost"
