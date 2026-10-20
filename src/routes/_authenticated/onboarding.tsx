@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { hasCompany, identityQueryKey, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useServerFn } from "@tanstack/react-start";
+import { notifyRegistrationSellRequest } from "@/lib/sell-request.functions";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
@@ -45,16 +47,17 @@ const PROFILI: { value: Profilo; title: string; description: string }[] = [
   {
     value: "vendo",
     title: "VENDO",
-    description: "Vendo prodotti ai miei clienti.",
+    description: "Richiedo di vendere ai miei clienti. Vendo sarà attivo solo dopo l'approvazione del super amministratore.",
   },
   {
     value: "entrambi",
     title: "COMPRO E VENDO",
-    description: "Acquisto dai miei fornitori e vendo ai miei clienti.",
+    description: "Acquisto dai miei fornitori e richiedo l'attivazione di Vendo, soggetta ad approvazione.",
   },
 ];
 
 function Onboarding() {
+  const notifySell = useServerFn(notifyRegistrationSellRequest);
   const { data: identity, isLoading } = useIdentity();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -126,8 +129,11 @@ function Onboarding() {
       return;
     }
     await queryClient.invalidateQueries({ queryKey: identityQueryKey });
-    toast.success("Azienda registrata.");
-    navigate({ to: buys ? "/acquisti/fornitori" : "/vendite", replace: true });
+    if (sells) {
+      try { await notifySell(); } catch { /* Registration succeeded; notification must not block navigation. */ }
+    }
+    toast.success(sells ? "Azienda registrata. Vendo in attesa di approvazione." : "Azienda registrata.");
+    navigate({ to: "/acquisti/fornitori", replace: true });
   }
 
   return (
@@ -142,12 +148,13 @@ function Onboarding() {
             </p>
             <div className="mt-6 grid gap-3">
               {PROFILI.map((option) => (
-                <button
+                <Button
                   key={option.value}
                   type="button"
+                  variant="outline"
                   onClick={() => setProfilo(option.value)}
                   className={cn(
-                    "rounded-xl border p-4 text-left transition-colors",
+                    "h-auto whitespace-normal flex-col items-start rounded-lg border p-4 text-left transition-colors",
                     profilo === option.value
                       ? "border-primary bg-primary/10"
                       : "border-border hover:bg-muted",
@@ -157,7 +164,7 @@ function Onboarding() {
                   <span className="mt-1 block text-sm text-muted-foreground">
                     {option.description}
                   </span>
-                </button>
+                </Button>
               ))}
             </div>
             <Button
