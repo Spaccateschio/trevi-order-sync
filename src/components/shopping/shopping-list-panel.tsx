@@ -1,4 +1,5 @@
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
+import { finishMobileCard, toggleMobileCard } from "./shopping-mobile-card-state";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -189,6 +190,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [unitEdits, setUnitEdits] = useState<Record<string, { unitId: string | null; unitCode: string | null }>>({});
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
+  const [mobileOpenId, setMobileOpenId] = useState<string | null>(null);
   const confirmationGuard = useRef(createConfirmationGuard());
   const [catalogDrafts, setCatalogDrafts] = useState<Set<string>>(new Set());
   const [splitItem, setSplitItem] = useState<OverviewRow | null>(null);
@@ -1154,6 +1156,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       else await commitQuantity(row.item_id, { quantity: value, ...unitEdits[row.item_id] });
       setUnitEdits((current) => { const next = { ...current }; delete next[row.item_id]; return next; });
       setUnlockedIds((current) => { const next = new Set(current); next.delete(row.item_id); return next; });
+      setMobileOpenId((current) => finishMobileCard(current, row.item_id, true));
     } catch { /* Keep the draft visible for retry. */ }
     finally { confirmationGuard.current.finish(row.item_id); }
   };
@@ -1188,6 +1191,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       if (quantity === 0) {
         await saveEvaluation.mutateAsync({ productId: row.product_id, status: "non_acquistare", quantity: null });
         setEvalValues((current) => { const next = { ...current }; delete next[row.product_id]; return next; });
+        setMobileOpenId((current) => finishMobileCard(current, row.item_id, true));
         return;
       }
       const result = await runConfirm({
@@ -1213,6 +1217,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         queryClient.invalidateQueries({ queryKey: ["shopping-list-origins", companyId] }),
       ]);
       toast.success("Quantità confermata");
+      setMobileOpenId((current) => finishMobileCard(current, row.item_id, true));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Conferma non riuscita");
     } finally {
@@ -1767,6 +1772,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               return kind === "pending" ? (
                 <ShoppingListCard
                   key={row.item_id}
+                  mobileOpen={mobileOpenId === row.item_id}
+                  onToggleMobile={() => setMobileOpenId((current) => toggleMobileCard(current, row.item_id))}
                   show={display.prefs}
                   pending
                   layout={viewMode}
@@ -1791,6 +1798,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               ) : (
               <ShoppingListCard
                 key={row.item_id}
+                mobileOpen={mobileOpenId === row.item_id}
+                onToggleMobile={() => setMobileOpenId((current) => toggleMobileCard(current, row.item_id))}
                 show={display.prefs}
                 companyId={companyId}
                 layout={viewMode}
