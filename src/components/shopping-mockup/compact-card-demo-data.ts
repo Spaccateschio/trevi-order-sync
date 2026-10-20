@@ -22,7 +22,7 @@ export function createDemoCards(): DemoCard[] {
     { id: "a", name: "AGLIO SPAGNA", code: "00-013", image: "verdura", favorite: true, status: "assegnato", stock: 2, lastCount: 2, suggested: 0, quantity: 2, unit: "kg", units: ["kg", "cassa"], suppliers: [{ name: "Garbaglia", quantity: 2 }] },
     { id: "b", name: "POMODORO CILIEGINO", code: "00-041", image: "pomodori", favorite: true, status: "da_inserire", stock: 1, lastCount: 3, suggested: 0, quantity: null, unit: "cassa", units: ["cassa", "kg"], suppliers: [{ name: "Ortofrutta Roma", quantity: 0 }] },
     { id: "c", name: "CAROTE", code: "00-022", image: "carote", favorite: false, status: "assegnato", stock: 3, lastCount: 5, suggested: 8, quantity: 8, unit: "kg", units: ["kg"], suppliers: [{ name: "Garbaglia", quantity: 8 }] },
-    { id: "d", name: "BASILICO", code: "00-077", image: "basilico", favorite: true, status: "da_sistemare", stock: 0, lastCount: 0, suggested: 0, quantity: 4, unit: "mazzo", units: ["mazzo", "kg"], suppliers: [{ name: "Verde Lazio", quantity: 4 }], warning: "U.M. «mazzo» non compatibile con il fornitore: da verificare" },
+    { id: "d", name: "BASILICO", code: "00-077", image: "basilico", favorite: true, status: "da_sistemare", stock: 0, lastCount: 0, suggested: 0, quantity: 4, unit: "mazzo", units: ["mazzo", "kg"], suppliers: [{ name: "Verde Lazio", quantity: 4 }], warning: "U.M. «mazzo» da verificare col fornitore" },
     { id: "e", name: "PATATE E CIPOLLE", code: "00-005", image: "patate-cipolle", favorite: false, status: "assegnato", stock: 10, lastCount: 12, suggested: 0, quantity: 30, unit: "kg", units: ["kg", "sacco"], suppliers: [{ name: "Garbaglia", quantity: 20 }, { name: "Ortofrutta Roma", quantity: 10 }] },
   ];
 }
