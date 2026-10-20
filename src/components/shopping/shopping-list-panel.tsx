@@ -667,7 +667,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   }, [recheckCount]);
   // Raccolta unica: i prodotti contati non ancora in Lista compaiono una sola volta, con la stessa card.
   const showPending = Boolean(
-    evaluating && cycle && !cycle.evaluated_at && (!list || list.id === linkedList?.id),
+    evaluating && cycle && !cycle.evaluated_at && (!list || list.id === linkedList?.id) &&
+      (!pendingPickup || showInventoryEvaluation),
   );
   const { allCounted, images: countedImages } = useInventoryCountedRows(companyId, showPending ? (cycle?.session_id ?? null) : null);
   const savedEvaluations = useEvaluationRows(showPending ? (cycle?.session_id ?? null) : null);
@@ -1693,10 +1694,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </p>
       ) : null}
 
-      {!list && !showPending && !pendingPickup ? (
-        <p className="text-sm text-muted-foreground">
-          Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure consulta lo Storico dal menu delle liste.
-        </p>
+      {!list && !showPending ? (
+        pendingPickup ? null : (
+          <p className="text-sm text-muted-foreground">
+            Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure consulta lo Storico dal menu delle liste.
+          </p>
+        )
       ) : (
         <>
           {list ? (
