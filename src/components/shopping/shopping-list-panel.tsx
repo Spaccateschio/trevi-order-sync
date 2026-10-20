@@ -1389,16 +1389,18 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 flex-1 space-y-0.5">
             <div className="flex min-w-0 items-center gap-1.5">
-              <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
-                <SelectTrigger className="h-7 min-w-0 flex-1 border-none bg-transparent px-0 text-sm font-bold shadow-none" aria-label="Lista della spesa">
-                  <SelectValue placeholder="Nessuna lista in corso" />
-                </SelectTrigger>
-                <SelectContent>
-                  {lists.map((row) => (
-                    <SelectItem key={row.id} value={row.id}>{listLabel(row)} · {LIST_STATUS_LABEL[row.status]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {list || !pendingPickup ? (
+                <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
+                  <SelectTrigger className="h-7 min-w-0 flex-1 border-none bg-transparent px-0 text-sm font-bold shadow-none" aria-label="Lista della spesa">
+                    <SelectValue placeholder="Nessuna lista in corso" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {lists.map((row) => (
+                      <SelectItem key={row.id} value={row.id}>{listLabel(row)} · {LIST_STATUS_LABEL[row.status]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
                           </div>
             {list ? <div className="text-xs"><ListDeliveryDate companyId={companyId} list={list} editable={editable} /></div> : null}
           </div>
