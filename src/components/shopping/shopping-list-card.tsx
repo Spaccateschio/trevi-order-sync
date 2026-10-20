@@ -1,4 +1,6 @@
 import { ShoppingQuantityEditor } from "./shopping-quantity-editor";
+import { ShoppingMobileCard } from "./shopping-mobile-card";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Check, Copy, Lock, MoreVertical, Package, Plus, Star, Trash2, TriangleAlert, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { readCardBundle } from "@/lib/shopping-card-reads";
@@ -132,7 +134,11 @@ export function ShoppingListCard({
   excluded = false,
   onRestore,
   onNonPurchase,
+  mobileOpen = false,
+  onToggleMobile,
 }: {
+  mobileOpen?: boolean;
+  onToggleMobile?: () => void;
   quantityOnly?: boolean;
   excluded?: boolean;
   onRestore?: () => void;
@@ -180,6 +186,7 @@ export function ShoppingListCard({
   /** Lista confermata: le ripartizioni sono bloccate (solo informazione mostrata nella card). */
   listConfirmed?: boolean;
 }) {
+  const isMobile = useIsMobile();
   const name = row.description ?? row.code;
   const unit = row.unit_code ?? "";
   const suppliers = extra?.suppliers ?? [];
@@ -546,6 +553,45 @@ export function ShoppingListCard({
       ready={confirmTarget !== null && confirmTarget >= 0} name={name} onConfirm={onToggleLock} />
     {onNonPurchase ? <Button size="sm" variant="ghost" className="h-7 px-1 text-xs" disabled={lockPending || saving} onClick={onNonPurchase}>Non acquistare</Button> : null}
   </div>;
+
+  if (isMobile && !isRow && onToggleMobile) {
+    const displayedQuantity = pending ? (pendingQuantity ?? evaluation?.decided_quantity ?? null) : confirmTarget;
+    const warning = unitMismatch && proposal ? unitsSoldText(supplierName, proposal.units)
+      : unitNotOffered ? "U.M. non più offerta: da verificare"
+      : row.status === "da_verificare" ? "Assegnazione da verificare"
+      : row.untranslatable > 0 ? "Ripartizioni senza conversione: da verificare"
+      : row.under_minimum > 0 ? "Quantità sotto il minimo del fornitore"
+      : gap !== null && gap < 0 ? `Ripartizioni: +${qty(-gap)} ${unit} in eccesso` : null;
+    return <ShoppingMobileCard id={row.item_id} name={name} open={mobileOpen} onToggle={onToggleMobile}
+      locked={locked} recheck={recheck} busy={lockPending || saving}
+      header={<div className="flex min-w-0 items-start gap-2">
+        {show.photo ? image("size-11") : null}
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-base font-bold uppercase leading-tight break-words">{name}</p>
+          <div className="mt-0.5">{statusBadge}</div>
+        </div>
+        <div className="shrink-0">{actions}</div>
+      </div>}
+      warnings={<>
+        {warning ? <p role="alert" className="mt-1.5 flex items-start gap-1 rounded-sm bg-warning/15 px-2 py-1 text-xs text-warning-foreground"><TriangleAlert className="mt-0.5 size-3 shrink-0" />{warning}</p> : null}
+        {recheck ? <div className="mt-1">{recheckNote}</div> : null}
+      </>}
+      summary={<span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+        {show.stock ? <span className="text-xs font-normal text-muted-foreground">Giacenza {stock?.stock != null ? `${qty(stock.stock)} ${stock.stockUnit ?? unit}` : "—"}{show.toBuy ? " ·" : ""}</span> : null}
+        {show.toBuy ? <span className="text-base font-bold text-foreground">{excluded ? "Non acquistare" : `Da acquistare ${displayedQuantity === null ? "—" : `${qty(displayedQuantity)} ${decidedCode}`}`}</span> : null}
+      </span>}
+      supplier={show.suppliers && !excluded ? <span className="min-w-0 break-words">Fornitore: <span className="font-medium text-foreground">{suppliers[0]?.name ?? "—"}{suppliers.length > 1 ? ` + ${suppliers.length - 1}` : ""}</span></span> : null}
+      suggested={show.suggested && suggested != null && suggested > 0 ? <span>Suggerita {qty(suggested)} {unit}</span> : null}>
+      {show.code || show.category ? <p className="text-xs text-muted-foreground">{[show.code ? row.code : null, show.category ? extra?.category : null].filter(Boolean).join(" · ")}</p> : null}
+      {show.lastCount ? <p className="text-xs text-muted-foreground">Ult. conteggio {stock?.lastQuantity != null ? `${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}` : "—"}</p> : null}
+      {excluded ? excludedBlock : show.toBuy ? <ShoppingQuantityEditor input={quantityBlock} details={<>{unitFixBlock}{equivalentNote}</>}
+        editable={editable} locked={locked} busy={lockPending || saving} ready={confirmTarget !== null && confirmTarget >= 0}
+        name={name} onConfirm={onToggleLock} quick={show.quick ? quickButtons("h-8") : null} /> : null}
+      {show.lockDate ? lockNote : null}
+      {memoryLine}
+      {show.suppliers && !excluded ? <div className="space-y-1 border-t border-border pt-1.5">{splitSummary}{show.splits ? totals : null}{orderState}</div> : null}
+    </ShoppingMobileCard>;
+  }
 
   if (isRow) {
     const rowMeta = [
