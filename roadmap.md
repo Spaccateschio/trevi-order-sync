@@ -1,5 +1,8 @@
 # Roadmap
 
+## 20/10 — Campanella piattaforma
+- [ ] Realizzare e verificare la sola anteprima approvata su computer, tablet e smartphone; dati dimostrativi e nessun collegamento reale.
+
 ## 19/10 — Progettazione esecutiva collaboratori 2A
 - [x] Preparare SQL integrale di protezioni, gestione e storico e inventario live di funzioni/policy che scrivono appartenenze e ruoli. Proposta completa: 1 writer diretto, 1 indiretto, 6 policy (4 di scrittura), verifica tecnica locale isolata; nessuna migrazione, assegnazione o scrittura operativa.
 - [ ] Applicazione 2A bloccata: attende approvazione SQL completo ed eccezione SECURITY INVOKER per i trigger antifalsificazione. Assegnazione titolare, collaudi reali e pubblicazione richiedono autorizzazioni separate.

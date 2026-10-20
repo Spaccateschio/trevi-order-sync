@@ -42,4 +42,4 @@
 - Prove valide solo con ruolo e strada reali (app: utente authenticated; Danea: indirizzo pubblico con postazione); SQL interno o privilegi superiori non contano come superate. Prove sugli indirizzi Danea reali solo con autorizzazione esplicita dell'utente.
 - Ordini già scaricati da Danea intoccabili: niente ricalcolo prezzi, storico retroattivo o cambio stato; il riscarico senza storico usa la logica precedente (test con danea-orders-xml.legacy.ts).
 - Clarify closed-list undo errors via RLS reads after RPC rejection; SQL guards remain unchanged.
-- Mockups: isolated demo modules; React state only.
+- Mockups: isolated React state only. Platform bell uses caller-owned items/actions; read state never changes request status.
