@@ -1660,17 +1660,27 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       ) : null}
 
       {evaluating && cycle && (!list || list.id === linkedList?.id) ? (
-        <InventoryEvaluation
-          companyId={companyId}
-          cycle={cycle}
-          linkedList={linkedList}
-          existingProductIds={listProductIds}
-          onEnsureList={ensureInventoryList}
-          layout={viewMode}
-          values={evalValues}
-          onValuesChange={setEvalValues}
-          hideItems
-        />
+        pendingPickup && !showInventoryEvaluation ? (
+          <button
+            type="button"
+            className="self-start text-xs text-muted-foreground underline"
+            onClick={() => setShowInventoryEvaluation(true)}
+          >
+            Da inventario — mostra il riquadro
+          </button>
+        ) : (
+          <InventoryEvaluation
+            companyId={companyId}
+            cycle={cycle}
+            linkedList={linkedList}
+            existingProductIds={listProductIds}
+            onEnsureList={ensureInventoryList}
+            layout={viewMode}
+            values={evalValues}
+            onValuesChange={setEvalValues}
+            hideItems
+          />
+        )
       ) : cycle?.color === "rosso" && cycle.evaluated_at && (!list || list.id === cycle.list_id) ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
           <span className="font-semibold">Ciclo acquisti da completare:</span> valutazione terminata,{" "}
