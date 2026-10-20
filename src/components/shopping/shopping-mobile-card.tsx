@@ -19,10 +19,11 @@ export function ShoppingMobileCard({ id, name, open, onToggle, header, summary, 
       const active = document.activeElement;
       const input = active instanceof HTMLElement && card.contains(active) ? active : card.querySelector<HTMLElement>("input:not(:disabled)");
       const box = (input ?? card).getBoundingClientRect();
-      const top = (viewport?.offsetTop ?? 0) + 76;
+      const toolbar = document.querySelector('[data-tour="spesa.barra"]')?.getBoundingClientRect();
+      const top = Math.max((viewport?.offsetTop ?? 0) + 76, (toolbar?.bottom ?? 0) + 8);
       // Leave space for the existing fixed navigation and the inline Confirm control.
       const bottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight) - 160;
-      const delta = box.top < top ? box.top - top : box.bottom > bottom ? box.bottom - bottom : 0;
+      const delta = !input || box.top < top ? box.top - top : box.bottom > bottom ? box.bottom - bottom : 0;
       if (delta) window.scrollBy({ top: delta, behavior: "instant" });
     };
     const frame = requestAnimationFrame(() => {
