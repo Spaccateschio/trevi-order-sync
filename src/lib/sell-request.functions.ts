@@ -42,7 +42,7 @@ export const getPlatformSellRequests = createServerFn({ method: "GET" }).middlew
   return result.data;
 });
 export const decideCompanySellRequest = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: unknown) => z.object({ requestId: z.string().uuid(), approve: z.boolean(), reason: z.string().max(500).optional() }).parse(input)).handler(async ({ data, context }) => {
-  const result = await context.supabase.rpc("decide_company_sell_request", { _request_id: data.requestId, _approve: data.approve, _reason: data.reason });
+  const result = await context.supabase.rpc("decide_company_sell_request", { _request_id: data.requestId, _approve: data.approve, ...(data.reason !== undefined ? { _reason: data.reason } : {}) });
   if (result.error) throw new Error(result.error.message);
   return { ok: true, ...await notifySellRequest(data.requestId, "company") };
 });
