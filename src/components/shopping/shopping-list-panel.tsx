@@ -1338,7 +1338,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   );
 
   return (
-    <div className="space-y-4 pb-24 max-md:space-y-2 lg:pb-16">
+    <div className="space-y-4 pb-24 max-md:-mt-2 max-md:space-y-2 lg:pb-16">
       {/* Cellulare (<768 px): testata compatta con gli stessi comandi. */}
       <div className="space-y-1.5 md:hidden">
         <div className="flex min-w-0 items-center gap-2">
@@ -1354,8 +1354,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   ))}
                 </SelectContent>
               </Select>
-              {list ? <Badge variant={editable ? "default" : "secondary"} className="h-4 shrink-0 px-1 text-[9px]">{LIST_STATUS_LABEL[list.status]}</Badge> : null}
-            </div>
+                          </div>
             {list ? <div className="text-xs"><ListDeliveryDate companyId={companyId} list={list} editable={editable} /></div> : null}
           </div>
           <DropdownMenu>
@@ -1384,7 +1383,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [&>*]:shrink-0">
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
           {editable ? (
             <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={listMutation.isPending} onClick={() => { setGenMounted(list?.id ?? null); setGenOpen("bozze"); }}>
               Bozze
@@ -1640,7 +1639,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       ) : (
         <>
           {list ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground max-md:hidden">
             Creata {dateTimeShort(list.created_at)}
             {list.confirmed_at ? ` · confermata ${dateTimeShort(list.confirmed_at)}` : ""}
             {list.closed_at ? ` · chiusa ${dateTimeShort(list.closed_at)}` : ""}
@@ -1648,7 +1647,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           ) : null}
 
           {/* Barra operativa */}
-          <div data-tour="spesa.barra" className="sticky top-14 z-10 min-w-0 space-y-1.5 rounded-md border border-border bg-card p-1.5 lg:top-0">
+          <div data-tour="spesa.barra" className="sticky top-14 z-10 min-w-0 space-y-1.5 rounded-md border border-border bg-card p-1.5 max-md:-mx-1 max-md:rounded-none max-md:border-0 max-md:bg-background max-md:px-1 max-md:py-1.5 lg:top-0">
             <div data-tour="spesa.ricerca" className="relative min-w-0">
               <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
@@ -1693,6 +1692,20 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="max-h-[70vh] w-72 space-y-2 overflow-y-auto p-2">
+                {editable || (!list && previewMode) ? (
+                  <Button type="button" size="sm" className="h-8 w-full text-xs" onClick={() => setAddOpen(true)}>
+                    <Plus aria-hidden="true" />Aggiungi prodotti
+                  </Button>
+                ) : null}
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortKey)}>
+                  <SelectTrigger className="h-8 w-full text-xs" aria-label="Ordina"><ArrowDownAZ className="size-3.5" aria-hidden="true" /><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="description">Descrizione</SelectItem>
+                    <SelectItem value="code">Codice</SelectItem>
+                    <SelectItem value="category">Categoria</SelectItem>
+                    <SelectItem value="supplier">Fornitore</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger className="h-8 w-full text-xs" aria-label="Categoria"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -1718,6 +1731,15 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                     ))}
                   </div>
                 ))}
+                <div>
+                  <p className="px-1 text-[10px] font-semibold uppercase text-muted-foreground">Cosa vedere nelle card</p>
+                  {DISPLAY_FIELDS.map(([field, label]) => (
+                    <label key={field} className="flex items-center gap-2 rounded px-1 py-1 text-xs hover:bg-muted">
+                      <Checkbox checked={display.prefs[field]} onCheckedChange={(checked) => display.setField(field, checked === true)} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
                 {activeFilters || search ? (
                   <Button type="button" size="sm" variant="ghost" className="h-7 w-full text-xs" onClick={resetFilters}>Azzera filtri</Button>
                 ) : null}
@@ -1785,7 +1807,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 </button>
               ))}
             </div>
-            <div aria-label="Comandi prodotti" className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible [&>*]:shrink-0">
+            <div aria-label="Comandi prodotti" className="max-md:hidden flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible [&>*]:shrink-0">
             {editable || (!list && previewMode) ? (
               <Button type="button" size="sm" className="h-8 px-2 text-xs" data-tour="spesa.aggiungi" onClick={() => setAddOpen(true)}>
                 <Plus aria-hidden="true" />
@@ -1843,7 +1865,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           </div>
 
           {list ? (
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-xs max-md:flex-nowrap max-md:px-2 max-md:py-1 max-md:text-[11px]" data-tour="spesa.contatori" aria-label="Contatori della Lista">
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-xs max-md:hidden" data-tour="spesa.contatori" aria-label="Contatori della Lista">
               <span className="max-md:min-w-0 max-md:truncate">
                 Prodotti <strong>{counters.products}</strong> · Preferiti <strong>{counters.favorites}</strong> · In Lista <strong>{counters.inList}</strong> ·
                 Con quantità <strong>{counters.withQuantity}</strong> · Da inserire <strong className={counters.toFill ? "text-warning-foreground" : undefined}>{counters.toFill}</strong>

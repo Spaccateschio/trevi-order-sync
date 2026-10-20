@@ -321,29 +321,29 @@ export function InventoryEvaluation({
   const leftEmpty = counts.daValutare;
 
   return (
-    <div className="space-y-2 rounded-md border border-primary/50 bg-primary/5 p-2">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <p className="text-sm font-semibold">
+    <div className="space-y-2 rounded-md border border-primary/50 bg-primary/5 p-2 max-md:p-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 max-md:flex-nowrap">
+        <p className="text-sm font-semibold max-md:min-w-0 max-md:truncate max-md:text-xs">
           Da {inventoryLabel.replace("Inventario", "inventario")}
           {linkedList ? "" : " — non ancora preso in carico"} ·{" "}
-          <span className="font-normal text-muted-foreground">
+          <span className="font-normal text-muted-foreground max-md:hidden">
             ({allCounted.length} contati · {counts.daValutare} da valutare · {counts.daAcquistare} da acquistare ·{" "}
             {counts.nonAcquistare} non acquistare)
           </span>
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 max-md:shrink-0 max-md:flex-nowrap max-md:gap-1 max-md:[&_button]:h-7 max-md:[&_button]:px-2 max-md:[&_button]:text-xs">
           {editable ? (
             <Button
               size="sm"
               disabled={!typed.length || invalid.length > 0 || addMutation.isPending}
               onClick={() => addMutation.mutate(typed)}
             >
-              Aggiungi alla Lista ({typed.length})
+              <span className="max-md:hidden">Aggiungi alla Lista</span><span className="md:hidden">Aggiungi</span> ({typed.length})
             </Button>
           ) : null}
 {linkedList ? (
           <Button size="sm" variant="outline" onClick={() => setFinishOpen(true)}>
-            Termina valutazione
+            <span className="max-md:hidden">Termina valutazione</span><span className="md:hidden">Termina</span>
           </Button>
           ) : null}
         </div>
