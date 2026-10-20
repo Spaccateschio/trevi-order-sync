@@ -1,36 +1,21 @@
-# Lista della Spesa: card compatte sul cellulare
+# Testata compatta della Lista della Spesa — solo cellulare
 
-## Risultato
-Applicare alla Lista reale l'aspetto dell'anteprima approvata, **solo in vista Card sul cellulare** (larghezza inferiore a 768 px). Vista Righe, tablet e computer restano invariati.
+## Cosa cambia (solo sotto 768 px)
+Testata della Lista vera, sul modello dell'anteprima approvata:
+1. **Da inventario + stato + data** in due righe: «Serve Lun 19/10 · contati · non acquistare». Accanto ci sono i **3 puntini**, con le viste Card/Righe e «Cambia per quando serve».
+2. **Riga che scorre di lato** con Bozze, Storico liste, Nuova lista e Annulla lista. Sono gli stessi tasti di oggi, cambia solo dove stanno.
+3. **Cerca prodotto**, poi **Preferiti / Tutti** e il tasto **giallo oro con i 3 puntini**, che apre gli stessi filtri di oggi. Questo blocco resta fisso in alto.
+4. Il riquadro «Preparazione Lista della Spesa» e il selettore «Vista prodotti» non compaiono più sul cellulare. Le viste passano nei 3 puntini. L'orario di preparazione resta raggiungibile da «Genera ordini» nella barra in basso, che già esiste: si apre la stessa finestra di oggi, senza nuove regole.
+5. Il riepilogo «Prodotti · Preferiti · In Lista…» diventa una riga piccola.
 
-- Card chiusa: foto, nome ben leggibile, stella preferito, piccoli badge di stato, «Giacenza X · Da acquistare Y» con matita e riepilogo fornitore. Più fornitori: primo nome e «+ N».
-- La giacenza conserva la propria U.M. di magazzino; la quantità da acquistare conserva la propria U.M. d'acquisto: nessuna conversione nuova.
-- «Suggerita» compare soltanto se maggiore di zero. Avvisi effettivi su U.M., inventario da ricontrollare o problemi di assegnazione restano visibili anche a card chiusa.
-- Toccando la riga quantità si espande una sola card alla volta. Appaiono i controlli già esistenti: quantità, U.M., Conferma/Modifica, tasti rapidi, fornitori e azioni avanzate.
-- Dopo una conferma **riuscita** la card torna compatta; in caso di errore resta aperta. Aprire una quantità confermata non la sblocca automaticamente: resta necessario il comando Modifica.
-- Aprire un'altra card non salva né cancella le modifiche preparate nella precedente.
-- I campi quantità continuano a selezionare il numero esistente quando si entra nel campo.
-- Apertura e messa a fuoco portano il campo e Conferma nell'area visibile, adeguandosi alla tastiera quando il telefono comunica lo spazio disponibile.
+## Cosa non cambia
+- Tablet e computer: tutto come oggi.
+- Gli stessi comandi, filtri, dati e salvataggi. Nessuna modifica al database, nessuna pubblicazione.
+- Card, ricerca e finestra «Completa le quantità» restano invariate.
 
-## Perimetro e attenzione ai dati
-- Riutilizzare gli stessi dati, permessi, salvataggi e comandi: nessun collegamento nuovo al database, nessuna migrazione.
-- Rispettare «Visualizza dati»: le informazioni opzionali nascoste dall'utente non vengono forzate; gli avvisi di problema restano visibili.
-- Applicare il medesimo involucro mobile alle card dei prodotti in Lista e ai prodotti dell'inventario «Da valutare» che già usano `ShoppingListCard`, conservando i rispettivi stati e comandi.
-- Le card del catalogo fornitori, la finestra «Completa le quantità», ricerca, testata e filtri non cambiano in questo passo.
-- **Attenzione:** il mockup usa quantità e fornitori finti; nella Lista reale chiudere una card e confermare una quantità sono operazioni diverse. Il nuovo aspetto non deve introdurre conferme automatiche né cambiare quote fornitore.
-
-## File autorizzati per l'implementazione
-1. `src/components/shopping/shopping-list-card.tsx`: variante compatta mobile, riepilogo e riuso dei controlli/avvisi esistenti.
-2. `src/components/shopping/shopping-list-panel.tsx`: identificativo della sola card aperta e chiusura dopo l'esito positivo dei comandi già presenti, senza cambiare la logica di salvataggio.
-3. `src/components/shopping/shopping-mobile-card.tsx` (nuovo): involucro di presentazione e adattamento allo spazio visibile della tastiera; nessuna lettura o scrittura di dati.
-4. `src/components/shopping/shopping-mobile-card-state.ts` e `src/components/shopping/shopping-mobile-card-state.test.ts` (nuovi): piccole regole verificabili di apertura singola e chiusura soltanto dopo conferma riuscita.
-5. `src/components/shopping/AGENTS.md`: registrare il confine tra presentazione mobile e salvataggi esistenti.
-
-## Verifiche
-- Test delle regole di apertura/chiusura e test quantità già presenti.
-- Controllo in formato iPhone 402 × 725 e su computer: card chiuse, apertura singola, avvisi, nomi lunghi, più fornitori, U.M. distinte e assenza di sovrapposizioni.
-- Controllo sulla Lista di 3 EMME in sola lettura, se la sessione consente l'accesso: nessuna conferma o altra scrittura operativa da parte dell'assistente.
-- Le conferme con dati reali e la tastiera fisica iPhone saranno collaudate manualmente da Andrea; una simulazione non certifica tutti i comportamenti di Safari.
-- Nessuna modifica a Inventario, Fabbisogno, Ordini, Consegne, Carico Merce, Danea, numerazioni, email o roadmap; nessuna pubblicazione.
-
-**Attendo la conferma di questo piano prima di modificare la Lista reale.**
+## Dettagli tecnici
+- `src/components/shopping/shopping-list-panel.tsx` (zona righe ~1340–1730): ramo `isMobile` (<768) che rende le parti mobili riusando gli stessi gestori e lo stesso stato. Il ramo desktop resta identico.
+- Nuovo `src/components/shopping/shopping-mobile-header.tsx`: solo presentazione, riceve i comandi esistenti come proprietà.
+- Orario di preparazione: si apre dal comando esistente usato oggi dal riquadro, raggiunto dalla barra «Genera ordini».
+- Prova in Playwright: iPhone 393 px, tablet 768 px e computer 1280 px, con confronto prima/dopo. Durante la prova non si fanno scritture.
+- Aggiornare la nota in `src/components/shopping/AGENTS.md`.
