@@ -70,15 +70,16 @@ export function ListDeliveryDate({
   const selected = list.delivery_date ? new Date(`${list.delivery_date}T00:00:00`) : undefined;
 
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">Per quando serve:</span>
+    <div className="flex items-center gap-2 text-sm max-md:gap-1 max-md:whitespace-nowrap max-md:text-xs">
+      <span className="text-muted-foreground max-md:hidden">Per quando serve:</span>
+      <span className="text-muted-foreground md:hidden">Serve</span>
       <span className="font-semibold">{listDateLabel(list.delivery_date)}</span>
       {editable ? (
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <Button type="button" size="sm" variant="outline" className="h-7 gap-1 px-2">
+            <Button type="button" size="sm" variant="outline" className="h-7 gap-1 px-2 max-md:h-6 max-md:px-1.5" aria-label="Cambia per quando serve">
               <CalendarIcon className="h-3.5 w-3.5" />
-              {list.delivery_date ? "Cambia" : "Imposta"}
+              <span className="max-md:hidden">{list.delivery_date ? "Cambia" : "Imposta"}</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
