@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { createDemoCards, showSuggested, supplierSummary, toggleOpen, type DemoCard } from "./compact-card-demo-data";
+import { GenerateBarMockup, ListHeaderMockup } from "./list-header-mockup";
 
 const IMAGES = { basilico, carote, frutta, "patate-cipolle": patate, pomodori, verdura };
 const STATUS = {
@@ -36,9 +37,8 @@ export function CompactCardMockup() {
       <div className="rounded-md border border-warning/40 bg-warning/10 p-2 text-xs">
         Anteprima di prova con prodotti finti: nulla viene salvato e la Lista reale non è toccata.
       </div>
-      <div className="sticky top-0 z-10 bg-background py-2">
-        <Input placeholder="Cerca prodotto" value={query} onChange={(e) => setQuery(e.target.value)} />
-      </div>
+      <ListHeaderMockup query={query} onQuery={setQuery} />
+      <GenerateBarMockup />
       {shown.map((card) => (
         <CompactCard
           key={card.id}
