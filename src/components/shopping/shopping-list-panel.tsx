@@ -1161,11 +1161,33 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     } catch { /* Keep the draft visible for retry. */ }
     finally { confirmationGuard.current.finish(row.item_id); }
   };
-  const hasUnconfirmed = allRows.some((row) => !excludedQuery.data?.has(row.item_id) && (unlockedIds.has(row.item_id) || Boolean(unitEdits[row.item_id]) || quantityHasDraft(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity))))
+  const isDraftRow = (row: OverviewRow) => !excludedQuery.data?.has(row.item_id) && (unlockedIds.has(row.item_id) || Boolean(unitEdits[row.item_id]) || quantityHasDraft(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity)));
+  const hasUnconfirmed = allRows.some(isDraftRow)
     || Object.values(evalValues).some((value) => value.trim() !== "") || catalogDrafts.size > 0;
+  // Porta l'utente alla card da confermare: la apre (cellulare), la scorre al centro e la evidenzia.
+  const revealItem = (itemId: string, retry = true) => {
+    window.setTimeout(() => {
+      const el = document.getElementById(`item-${itemId}`);
+      if (!el) { if (retry) { resetFilters(); revealItem(itemId, false); } return; }
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-4", "ring-destructive", "rounded-lg");
+      window.setTimeout(() => el.classList.remove("ring-4", "ring-destructive", "rounded-lg"), 3000);
+    }, 150);
+  };
   const canLeaveDrafts = () => {
     if (!hasUnconfirmed) return true;
-    toast.warning("Ci sono quantità non confermate. Confermale prima di cambiare lista o generare ordini.");
+    const draft = allRows.find(isDraftRow);
+    if (draft) {
+      const others = allRows.filter(isDraftRow).length - 1;
+      toast.warning(`Quantità non confermata: ${draft.description ?? draft.code}${others > 0 ? ` (e altre ${others})` : ""}. Premi «Conferma» sulla card evidenziata.`);
+      setMobileOpenId(draft.item_id);
+      revealItem(draft.item_id);
+    } else if (Object.values(evalValues).some((value) => value.trim() !== "")) {
+      toast.warning("Ci sono quantità scritte in «Da inventario» non ancora aggiunte: premi «Aggiungi» nel riquadro in alto.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      toast.warning("Ci sono quantità scritte su prodotti del catalogo non ancora confermate.");
+    }
     return false;
   };
   const openGeneration = () => {
