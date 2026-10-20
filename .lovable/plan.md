@@ -1,53 +1,42 @@
-# «Vendo» solo con approvazione del super admin
+# Campanella nell’area piattaforma
 
-## Situazione verificata (sola lettura)
-- 3 EMME aveva «Vendo» attivo dalle 21:14 del 19/10 (attivato dalla pagina Azienda). Nessun dato da venditore creato nel frattempo (prodotti, clienti, inviti, collegamenti, U.M. di vendita, listini: zero). Ripristinato a solo «Compro» con la sessione 3 EMME e la funzione dell'app, con traccia nello storico.
-- `set_company_capabilities`: basta essere amministratore dell'azienda; controlla solo che resti almeno un profilo. Nessun controllo su chi attiva «Vendo».
-- `register_company`: chi si registra spuntando «Vendo» nasce subito venditore.
-- La pagina Azienda permette solo di accendere un profilo, non di spegnerlo.
-- Super admin: amato3380@gmail.com (attivo). andreatrevisrl2012@gmail.com (3 EMME) era super admin ma è disattivato.
-- Email: il servizio di invio è attivo (inviti commerciali). Non esiste ancora nessuna email verso il gestore della piattaforma.
+## Situazione verificata
+La schermata mostrata non contiene una campanella. Quella già presente nell’app serve le singole aziende: non è inserita nell’area piattaforma e non va riutilizzata per leggere indiscriminatamente le notifiche dei clienti.
 
-## Fase 0 — Blocco urgente (SQL pronto, non applicato)
-File `.lovable/sql/sell-capability-urgent-guard.proposed.sql`:
-- `set_company_capabilities` rifiuta l'accensione di «Vendo»; spegnere resta libero (almeno un profilo).
-- Protezione sulla tabella aziende: nessun utente può far nascere o diventare un'azienda venditrice senza il flag di approvazione della funzione del super admin (copre registrazione e chiamate dirette).
-- Compatibile con l'app online: «Vendo» e la registrazione come venditore mostreranno il messaggio «richiede l'approvazione della piattaforma». Le aziende già venditrici (Trevi) non cambiano.
+## Primo passo — Anteprima da approvare
+- Una **campanella in alto**, accanto all’account, presente in tutte le pagine dell’area piattaforma, anche su telefono.
+- **Numero rosso delle non lette**.
+- Apertura di un elenco con **Nuove / Storico**, titolo, breve testo e data/ora.
+- Esempio dimostrativo: «Nuova richiesta Vendo — Azienda dimostrativa»; selezionandolo si apre «Richieste Vendo», senza approvare o rifiutare nulla.
+- Comandi **Segna come letta** e **Segna tutte come lette**. Leggere una notifica non risolve la richiesta corrispondente.
+- Dati solo dimostrativi, chiaramente indicati come anteprima; nessuna richiesta reale, email o scrittura nel database.
 
-## Fase 1 — Database (SQL da mostrare prima di applicare)
-- Tabella `company_sell_requests`: azienda, richiedente, stato (in_attesa / approvata / rifiutata / annullata), motivo, deciso da/quando, esito email. Una sola richiesta in attesa per azienda. RLS: lettura amministratori dell'azienda; scrittura solo da funzioni.
-- `request_company_sell(_company_id)`: solo amministratore dell'azienda, crea la richiesta in attesa.
-- `cancel_company_sell_request`: l'amministratore ritira la richiesta.
-- `decide_company_sell_request(_request_id, _approve, _reason)`: solo super admin attivo (`platform_team_members.is_super`); approvazione → «Vendo» acceso con il flag fidato; ogni decisione va in `platform_audit_log` e nello storico azienda.
-- `set_company_capabilities`: spegnere Vendo/Compro libero, accendere «Compro» libero, accendere «Vendo» mai.
-- `register_company`: «Vendo» mai attivo alla nascita; se spuntato, l'azienda nasce acquirente e la richiesta parte in attesa.
-- Nessun dato cancellato: prodotti, listini, ordini, clienti e storico restano e tornano visibili alla riattivazione (le pagine si nascondono già in base al profilo).
+## Secondo passo — Solo dopo approvazione separata
+Collegare la campanella agli eventi reali, iniziando dalle **richieste Vendo**:
+- nuova richiesta al super admin;
+- annullamento della richiesta, per evitare avvisi non più attuali;
+- le richieste ancora in attesa al momento dell’attivazione devono essere rintracciabili senza duplicare gli avvisi;
+- aggiornamento senza ricaricare la pagina e stato letta/non letta personale;
+- navigazione alla pagina competente e gestione esplicita di caricamento/errori.
 
-## Fase 2 — Email (servizio già configurato, solo dal server)
-- «Nuova richiesta Vendo» al super admin (indirizzo fisso del team piattaforma).
-- «Richiesta approvata» / «Richiesta rifiutata» (con motivo) all'email dell'azienda o del richiedente.
-- Invio dopo l'operazione nel database, un invio per richiesta e per decisione (nessun doppione).
+Gli altri eventi saranno collegati successivamente, concordando quali interessano al team piattaforma. La campanella non sostituisce né abilita gli invii email, che restano bloccati.
 
-## Fase 3 — Pagine
-- Azienda → Profilo: tre stati per ciascun profilo. «Compro»: attiva/disattiva. «Vendo»: «Richiedi attivazione», «In attesa di approvazione» (con annulla), «Attivo» (con disattiva), «Rifiutata: motivo».
-- Registrazione (onboarding): scelta «Vendo» spiegata come richiesta da approvare.
-- Area piattaforma: nuova sezione «Richieste Vendo» con Approva / Rifiuta (motivo facoltativo) e storico.
+## Permessi e limiti
+- Richieste Vendo visibili solo al super admin attivo; gli altri avvisi solo a chi può accedere alla relativa sezione.
+- Nessuna modifica ai permessi aziendali o alle regole di approvazione.
+- Nessuna modifica a Ordini, Preparazione, Danea, Lista della Spesa, Inventario, Consegne o Carico Merce.
+- Nessuna pubblicazione e nessuna modifica a `roadmap.md`.
 
-## File coinvolti
-- Nuova migrazione (Fase 0 e poi Fase 1).
-- `src/routes/_authenticated/amministrazione.tsx` (pulsanti profilo).
-- `src/routes/_authenticated/onboarding.tsx` (testo e richiesta).
-- `src/lib/platform.functions.ts` + nuova pagina `src/routes/piattaforma.richieste-vendo.tsx` e voce in `src/components/platform/platform-shell.tsx`.
-- Nuovo `src/lib/sell-request.functions.ts` (invio email dal server) e tre modelli email in `src/lib/email-templates/`.
+## File del primo passo
+- Nuovo `src/components/platform/platform-notification-demo-data.ts`: esempi dimostrativi.
+- Nuovo `src/components/platform/platform-notification-bell-mockup.tsx`: campanella e lista con componenti shadcn e token esistenti.
+- `src/components/platform/platform-shell.tsx`: inserimento nell’intestazione comune.
+- `AGENTS.md`: regola strutturale del modulo dimostrativo isolato, senza accessi ai dati reali.
 
-## Prove (solo 3 EMME, nessuna email reale senza autorizzazione)
-- 3 EMME prova ad accendere «Vendo» direttamente: rifiutato.
-- Richiesta creata e annullata: «Vendo» resta spento.
-- Spegnere e riaccendere «Compro» non tocca i dati.
-- Approvazione/rifiuto solo con super admin; da 3 EMME rifiutato.
+Il secondo passo avrà un piano distinto con l’elenco preciso dei file e l’eventuale SQL completo prima dell’applicazione.
 
-## Ordine proposto
-1. Tua conferma → applico la Fase 0 (blocco urgente).
-2. SQL della Fase 1 da approvare.
-3. Email e pagine, poi collaudo in anteprima.
-4. Pubblicazione coordinata con le altre modifiche.
+## Verifica del primo passo
+Controllare apertura, lettura, passaggio allo storico e collegamento a «Richieste Vendo»; verificare che la campanella non copra account o navigazione su telefono e computer. Nessuna prova deve creare o decidere richieste reali.
+
+## Conferma richiesta
+Approvare il **primo passo: sola anteprima della campanella**. Per ricevere avvisi reali servirà poi approvare il secondo passo.
