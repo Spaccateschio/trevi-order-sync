@@ -1687,8 +1687,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               <PopoverTrigger asChild>
                 <Button type="button" size="icon" className="relative ml-auto h-8 w-8 bg-accent text-accent-foreground hover:bg-accent/90 md:hidden" aria-label="Tutti i filtri">
                   <MoreHorizontal className="size-5" aria-hidden="true" />
-                  {activeFilters ? (
-                    <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] text-primary-foreground">{activeFilters}</span>
+                  {activeFilters - (flags.has("preferiti") ? 1 : 0) > 0 ? (
+                    <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] text-primary-foreground">{activeFilters - (flags.has("preferiti") ? 1 : 0)}</span>
                   ) : null}
                 </Button>
               </PopoverTrigger>
