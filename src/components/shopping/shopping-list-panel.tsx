@@ -1373,7 +1373,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             <div className="flex min-w-0 items-center gap-1.5">
               <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
                 <SelectTrigger className="h-7 min-w-0 flex-1 border-none bg-transparent px-0 text-sm font-bold shadow-none" aria-label="Lista della spesa">
-                  <SelectValue placeholder="Storico liste" />
+                  <SelectValue placeholder="Nessuna lista in corso" />
                 </SelectTrigger>
                 <SelectContent>
                   {lists.map((row) => (
@@ -1445,7 +1445,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
             <SelectTrigger className="w-full sm:w-72" aria-label="Lista della spesa">
-              <SelectValue placeholder="Storico liste" />
+              <SelectValue placeholder="Nessuna lista in corso" />
             </SelectTrigger>
             <SelectContent>
               {lists.filter((row) => row.status === "aperta" || row.status === "confermata").map((row) => (

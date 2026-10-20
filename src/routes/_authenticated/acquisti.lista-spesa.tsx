@@ -45,7 +45,6 @@ function ListaSpesa() {
     <AppShell
       title="Lista della Spesa"
       guide="lista-spesa"
-      description="Quello che serve e quello che compriamo davvero restano due numeri distinti."
     >
       {company ? <SentOrdersBanner companyId={company.companyId} measuredScroll /> : null}
       {company ? <ShoppingListPanel companyId={company.companyId} /> : null}
