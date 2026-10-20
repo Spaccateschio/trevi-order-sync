@@ -1162,8 +1162,13 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     finally { confirmationGuard.current.finish(row.item_id); }
   };
   const isDraftRow = (row: OverviewRow) => !excludedQuery.data?.has(row.item_id) && (unlockedIds.has(row.item_id) || Boolean(unitEdits[row.item_id]) || quantityHasDraft(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity)));
+  // Solo quantità valide di prodotti contati non ancora in Lista: valori rimasti di prodotti già aggiunti non bloccano.
+  const evalPending = evaluating && Object.entries(evalValues).some(([productId, value]) => {
+    const quantity = value.trim() ? parseQuantity(value) : null;
+    return quantity !== null && quantity > 0 && !listProductIds.has(productId);
+  });
   const hasUnconfirmed = allRows.some(isDraftRow)
-    || Object.values(evalValues).some((value) => value.trim() !== "") || catalogDrafts.size > 0;
+    || evalPending || catalogDrafts.size > 0;
   // Porta l'utente alla card da confermare: la apre (cellulare), la scorre al centro e la evidenzia.
   const revealItem = (itemId: string, retry = true) => {
     window.setTimeout(() => {
@@ -1182,7 +1187,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       toast.warning(`Quantità non confermata: ${draft.description ?? draft.code}${others > 0 ? ` (e altre ${others})` : ""}. Premi «Conferma» sulla card evidenziata.`);
       setMobileOpenId(draft.item_id);
       revealItem(draft.item_id);
-    } else if (Object.values(evalValues).some((value) => value.trim() !== "")) {
+    } else if (evalPending) {
       toast.warning("Ci sono quantità scritte in «Da inventario» non ancora aggiunte: premi «Aggiungi» nel riquadro in alto.");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
