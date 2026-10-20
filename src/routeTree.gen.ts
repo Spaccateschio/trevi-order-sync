@@ -40,6 +40,7 @@ import { Route as AuthenticatedAcquistiIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_authenticated/acquisti.fornitori'
 import { Route as AuthenticatedAcquistiInventarioRouteImport } from './routes/_authenticated/acquisti.inventario'
 import { Route as AuthenticatedAcquistiListaSpesaRouteImport } from './routes/_authenticated/acquisti.lista-spesa'
+import { Route as AuthenticatedAcquistiListaSpesaAnteprimaRouteImport } from './routes/_authenticated/acquisti.lista-spesa-anteprima'
 import { Route as AuthenticatedAcquistiOrdiniRouteImport } from './routes/_authenticated/acquisti.ordini'
 import { Route as AuthenticatedAcquistiRicezioneRouteImport } from './routes/_authenticated/acquisti.ricezione'
 import { Route as AuthenticatedAcquistiProdottiRouteImport } from './routes/_authenticated/acquisti_.prodotti'
@@ -218,6 +219,12 @@ const AuthenticatedAcquistiListaSpesaRoute =
     path: '/acquisti/lista-spesa',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAcquistiListaSpesaAnteprimaRoute =
+  AuthenticatedAcquistiListaSpesaAnteprimaRouteImport.update({
+    id: '/acquisti/lista-spesa-anteprima',
+    path: '/acquisti/lista-spesa-anteprima',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAcquistiOrdiniRoute =
   AuthenticatedAcquistiOrdiniRouteImport.update({
     id: '/acquisti/ordini',
@@ -337,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
+  '/acquisti/lista-spesa-anteprima': typeof AuthenticatedAcquistiListaSpesaAnteprimaRoute
   '/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
   '/acquisti/ricezione': typeof AuthenticatedAcquistiRicezioneRoute
   '/acquisti/prodotti': typeof AuthenticatedAcquistiProdottiRoute
@@ -383,6 +391,7 @@ export interface FileRoutesByTo {
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
+  '/acquisti/lista-spesa-anteprima': typeof AuthenticatedAcquistiListaSpesaAnteprimaRoute
   '/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
   '/acquisti/ricezione': typeof AuthenticatedAcquistiRicezioneRoute
   '/acquisti/prodotti': typeof AuthenticatedAcquistiProdottiRoute
@@ -432,6 +441,7 @@ export interface FileRoutesById {
   '/_authenticated/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/_authenticated/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/_authenticated/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
+  '/_authenticated/acquisti/lista-spesa-anteprima': typeof AuthenticatedAcquistiListaSpesaAnteprimaRoute
   '/_authenticated/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
   '/_authenticated/acquisti/ricezione': typeof AuthenticatedAcquistiRicezioneRoute
   '/_authenticated/acquisti_/prodotti': typeof AuthenticatedAcquistiProdottiRoute
@@ -481,6 +491,7 @@ export interface FileRouteTypes {
     | '/acquisti/fornitori'
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
+    | '/acquisti/lista-spesa-anteprima'
     | '/acquisti/ordini'
     | '/acquisti/ricezione'
     | '/acquisti/prodotti'
@@ -527,6 +538,7 @@ export interface FileRouteTypes {
     | '/acquisti/fornitori'
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
+    | '/acquisti/lista-spesa-anteprima'
     | '/acquisti/ordini'
     | '/acquisti/ricezione'
     | '/acquisti/prodotti'
@@ -575,6 +587,7 @@ export interface FileRouteTypes {
     | '/_authenticated/acquisti/fornitori'
     | '/_authenticated/acquisti/inventario'
     | '/_authenticated/acquisti/lista-spesa'
+    | '/_authenticated/acquisti/lista-spesa-anteprima'
     | '/_authenticated/acquisti/ordini'
     | '/_authenticated/acquisti/ricezione'
     | '/_authenticated/acquisti_/prodotti'
@@ -826,6 +839,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAcquistiListaSpesaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/acquisti/lista-spesa-anteprima': {
+      id: '/_authenticated/acquisti/lista-spesa-anteprima'
+      path: '/acquisti/lista-spesa-anteprima'
+      fullPath: '/acquisti/lista-spesa-anteprima'
+      preLoaderRoute: typeof AuthenticatedAcquistiListaSpesaAnteprimaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/acquisti/ordini': {
       id: '/_authenticated/acquisti/ordini'
       path: '/acquisti/ordini'
@@ -949,6 +969,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAcquistiFornitoriRoute: typeof AuthenticatedAcquistiFornitoriRoute
   AuthenticatedAcquistiInventarioRoute: typeof AuthenticatedAcquistiInventarioRoute
   AuthenticatedAcquistiListaSpesaRoute: typeof AuthenticatedAcquistiListaSpesaRoute
+  AuthenticatedAcquistiListaSpesaAnteprimaRoute: typeof AuthenticatedAcquistiListaSpesaAnteprimaRoute
   AuthenticatedAcquistiOrdiniRoute: typeof AuthenticatedAcquistiOrdiniRoute
   AuthenticatedAcquistiRicezioneRoute: typeof AuthenticatedAcquistiRicezioneRoute
   AuthenticatedAcquistiProdottiRoute: typeof AuthenticatedAcquistiProdottiRoute
@@ -978,6 +999,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAcquistiFornitoriRoute: AuthenticatedAcquistiFornitoriRoute,
   AuthenticatedAcquistiInventarioRoute: AuthenticatedAcquistiInventarioRoute,
   AuthenticatedAcquistiListaSpesaRoute: AuthenticatedAcquistiListaSpesaRoute,
+  AuthenticatedAcquistiListaSpesaAnteprimaRoute:
+    AuthenticatedAcquistiListaSpesaAnteprimaRoute,
   AuthenticatedAcquistiOrdiniRoute: AuthenticatedAcquistiOrdiniRoute,
   AuthenticatedAcquistiRicezioneRoute: AuthenticatedAcquistiRicezioneRoute,
   AuthenticatedAcquistiProdottiRoute: AuthenticatedAcquistiProdottiRoute,
