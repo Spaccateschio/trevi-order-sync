@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, ChevronDown, FileText, Loader2, Send, ShoppingBag, Truck } from "lucide-react";
+import { AlertTriangle, ChevronDown, FileText, Info, Loader2, MapPin, Send, ShoppingBag, Truck } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -88,56 +89,56 @@ function DeliveryFields({
   const known = value.addressId ? addresses.find((a) => a.id === value.addressId) : undefined;
   const selected = known ? known.id : OTHER_ADDRESS;
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-4 [&>*]:min-w-0">
-      <div className="space-y-1">
-        <Label className="text-xs">Data</Label>
-        <Input type="date" value={value.date} disabled={disabled} onChange={(e) => onChange({ ...value, date: e.target.value })} />
+    // Compatto: data e «dalle» sulla stessa riga, luogo dietro un'icona, note su una riga. «Alle» resta invariato.
+    <div className="min-w-0 space-y-1.5">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <Input type="date" aria-label="Data" className="h-8 min-w-0 flex-1 px-2 text-xs" value={value.date} disabled={disabled} onChange={(e) => onChange({ ...value, date: e.target.value })} />
+        <span className="shrink-0 text-xs text-muted-foreground">dalle</span>
+        <Input type="time" aria-label="Dalle" className="h-8 w-24 shrink-0 px-2 text-xs" value={value.from} disabled={disabled} onChange={(e) => onChange({ ...value, from: e.target.value })} />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button type="button" size="icon" variant="outline" className="h-8 w-8 shrink-0" disabled={disabled} aria-label="Luogo di consegna" title={known?.text || value.address || "Luogo"}>
+              <MapPin className="size-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-72 space-y-2 p-2">
+            <p className="text-xs font-medium">Luogo di consegna</p>
+            <p className="text-xs text-muted-foreground">{known?.text || value.address || "Nessun indirizzo"}</p>
+            <Select
+              value={selected}
+              disabled={Boolean(disabled)}
+              onValueChange={(v) => {
+                if (v === OTHER_ADDRESS) onChange({ ...value, addressId: null, address: known ? "" : value.address });
+                else onChange({ ...value, addressId: v, address: addresses.find((a) => a.id === v)?.text ?? "" });
+              }}
+            >
+              <SelectTrigger aria-label="Luogo" className="h-8 w-full min-w-0 text-xs [&>span]:truncate">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {addresses.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.text || "Indirizzo senza descrizione"}
+                  </SelectItem>
+                ))}
+                <SelectItem value={OTHER_ADDRESS}>Altro indirizzo…</SelectItem>
+              </SelectContent>
+            </Select>
+            {selected === OTHER_ADDRESS ? (
+              <Input
+                aria-label="Altro indirizzo"
+                placeholder="Scrivi l'indirizzo"
+                className="h-8 text-xs"
+                value={value.address}
+                disabled={disabled}
+                maxLength={300}
+                onChange={(e) => onChange({ ...value, addressId: null, address: e.target.value })}
+              />
+            ) : null}
+          </PopoverContent>
+        </Popover>
       </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Dalle</Label>
-        <Input type="time" value={value.from} disabled={disabled} onChange={(e) => onChange({ ...value, from: e.target.value })} />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Alle</Label>
-        <Input type="time" value={value.to} disabled={disabled} onChange={(e) => onChange({ ...value, to: e.target.value })} />
-      </div>
-      <div className="space-y-1 sm:col-span-1">
-        <Label className="text-xs">Luogo</Label>
-        <Select
-          value={selected}
-          disabled={Boolean(disabled)}
-          onValueChange={(v) => {
-            if (v === OTHER_ADDRESS) onChange({ ...value, addressId: null, address: known ? "" : value.address });
-            else onChange({ ...value, addressId: v, address: addresses.find((a) => a.id === v)?.text ?? "" });
-          }}
-        >
-          <SelectTrigger aria-label="Luogo" className="w-full min-w-0 [&>span]:truncate">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {addresses.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                {a.text || "Indirizzo senza descrizione"}
-              </SelectItem>
-            ))}
-            <SelectItem value={OTHER_ADDRESS}>Altro indirizzo…</SelectItem>
-          </SelectContent>
-        </Select>
-        {selected === OTHER_ADDRESS ? (
-          <Input
-            aria-label="Altro indirizzo"
-            placeholder="Scrivi l'indirizzo"
-            value={value.address}
-            disabled={disabled}
-            maxLength={300}
-            onChange={(e) => onChange({ ...value, addressId: null, address: e.target.value })}
-          />
-        ) : null}
-      </div>
-      <div className="space-y-1 sm:col-span-4">
-        <Label className="text-xs">Note per il fornitore</Label>
-        <Textarea rows={2} value={value.notes} disabled={disabled} maxLength={1000} onChange={(e) => onChange({ ...value, notes: e.target.value })} />
-      </div>
+      <Textarea rows={1} aria-label="Note per il fornitore" placeholder="Note per il fornitore" className="min-h-8 py-1.5 text-xs" value={value.notes} disabled={disabled} maxLength={1000} onChange={(e) => onChange({ ...value, notes: e.target.value })} />
     </div>
   );
 }
@@ -625,8 +626,18 @@ export function GenerateOrdersDialog({
       <Dialog open={open && !editingOrder} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-3xl overflow-x-hidden overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>{step === "avviso" ? "Prima di generare gli ordini" : "Genera ordini per fornitore"}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="flex items-center justify-center gap-1.5 sm:justify-start">
+              {step === "avviso" ? "Prima di generare gli ordini" : "Genera ordini per fornitore"}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label="Come funziona"><Info className="size-4" /></Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 text-xs font-normal">
+                  Gli ordini B2B partono subito tramite la piattaforma; gli altri si condividono e risultano inviati solo quando lo confermi. La Lista si chiude da sola quando tutto è stato gestito.
+                </PopoverContent>
+              </Popover>
+            </DialogTitle>
+            <DialogDescription className="sr-only">
               Gli ordini B2B partono subito tramite la piattaforma; gli altri si condividono e risultano inviati solo quando lo confermi. La Lista si chiude da sola quando tutto è stato gestito.
             </DialogDescription>
           </DialogHeader>
@@ -696,34 +707,33 @@ export function GenerateOrdersDialog({
                     const d = drafts[s.supplier_record_id];
                     if (!d) return null;
                     return (
-                      <div key={s.supplier_record_id} className="rounded-md border border-border p-3">
+                      <div key={s.supplier_record_id} className="rounded-md border border-border p-2">
                         <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
                           <Checkbox checked={d.selected} onCheckedChange={(v) => setDraft(s.supplier_record_id, (x) => ({ ...x, selected: v === true }))} />
                           {s.name}
                           {s.is_b2b ? <Badge variant="secondary">B2B</Badge> : null}
                           <span className="font-normal text-muted-foreground">· {s.lines.length} {s.lines.length === 1 ? "prodotto" : "prodotti"}</span>
                         </label>
-                        <div className="mt-2">
+                        <div className="mt-1.5">
                           <DeliveryFields addresses={prefs.data?.addresses ?? []} value={d.delivery} disabled={!d.selected} onChange={(delivery) => setDraft(s.supplier_record_id, (x) => ({ ...x, delivery }))} />
                         </div>
-                        <Collapsible defaultOpen>
+                        <Collapsible>
                           <CollapsibleTrigger asChild>
-                            <Button size="sm" variant="ghost" className="mt-2 px-1"><ChevronDown className="size-4" /> Prodotti ({s.lines.length})</Button>
+                            <Button size="sm" variant="ghost" className="mt-1 h-7 px-1 text-xs"><ChevronDown className="size-4" /> Prodotti ({s.lines.length})</Button>
                           </CollapsibleTrigger>
                           <CollapsibleContent className="max-h-[50vh] space-y-1 overflow-y-auto">
                             {s.lines.map((l: GenerationLine) => {
                               const ln = d.lines[l.assignment_id];
                               return (
-                                <div key={l.assignment_id} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded border border-border/60 p-2 text-sm sm:grid-cols-[auto_minmax(0,1fr)_8rem_auto]">
+                                <div key={l.assignment_id} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1.5 border-b border-border/60 py-1 text-xs last:border-b-0">
                                   <Checkbox
-                                    className="mt-1"
                                     checked={ln?.included ?? false}
                                     disabled={!d.selected}
                                     onCheckedChange={(v) => setDraft(s.supplier_record_id, (x) => ({ ...x, lines: { ...x.lines, [l.assignment_id]: { quantity: x.lines[l.assignment_id]?.quantity ?? "", included: v === true } } }))}
                                   />
                                   <div className="min-w-0">
-                                    <p className="break-words font-medium">{l.code ? `${l.code} · ` : ""}{l.name}</p>
-                                    <p className="text-xs text-muted-foreground">Assegnati: {qty(Number(l.saved_quantity ?? l.quantity))} {l.unit_code ?? ""}{linePrice(l) ? ` · ${linePrice(l)}` : ""}{l.notes ? ` · ${l.notes}` : ""}</p>
+                                    <p className="truncate font-medium" title={`${l.code ? `${l.code} · ` : ""}${l.name}`}>{l.name}</p>
+                                    <p className="hidden text-xs text-muted-foreground">Assegnati: {qty(Number(l.saved_quantity ?? l.quantity))} {l.unit_code ?? ""}{linePrice(l) ? ` · ${linePrice(l)}` : ""}{l.notes ? ` · ${l.notes}` : ""}</p>
                                     {excessBadge(l.item_id)}
                                     {l.needs_coverage ? (
                                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
@@ -739,15 +749,16 @@ export function GenerateOrdersDialog({
                                       </div>
                                     ) : null}
                                   </div>
-                                  <div className="col-span-2 flex items-center gap-1 sm:col-span-1">
+                                  <div className="flex items-center gap-1">
                                     <Input
                                       inputMode="decimal"
-                                      className="h-8 text-right"
+                                      aria-label={`Quantità ${l.name}`}
+                                      className="h-7 w-14 px-1.5 text-right text-xs"
                                       value={ln?.quantity ?? ""}
                                       disabled={!d.selected || !ln?.included}
                                       onChange={(e) => setDraft(s.supplier_record_id, (x) => ({ ...x, lines: { ...x.lines, [l.assignment_id]: { included: x.lines[l.assignment_id]?.included ?? true, quantity: e.target.value } } }))}
                                     />
-                                    <span className="w-10 text-xs text-muted-foreground">{l.unit_code ?? ""}</span>
+                                    <span className="w-7 truncate text-[11px] text-muted-foreground">{l.unit_code ?? ""}</span>
                                   </div>
                                   <OrderLineEdit
                                     companyId={companyId}
