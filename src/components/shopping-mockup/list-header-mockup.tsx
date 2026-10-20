@@ -119,7 +119,7 @@ export function GenerateBarMockup() {
   const [slot, setSlot] = useState("06:00");
   return (
     <>
-      <div className="fixed inset-x-0 bottom-16 z-20 border-t bg-background/95 p-2 md:bottom-0">
+      <div className="fixed inset-x-0 bottom-16 z-20 border-t bg-background p-2 shadow-lg md:bottom-0">
         <div className="mx-auto flex max-w-md items-center gap-2">
           <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">3 assegnati · 1 da sistemare</p>
           <Button className="shrink-0" onClick={() => setOpen(true)}>Genera ordini</Button>
