@@ -26,3 +26,9 @@ describe("conferma esplicita quantità Lista", () => {
     assert.equal(guard.start("p1"), true);
   });
 });
+
+describe("card di catalogo: 0 + Conferma", () => {
+  it("zero + Conferma decide «Non acquistare» senza scrivere righe", () => assert.equal(catalogConfirmAction(0), "non_acquistare"));
+  it("quantità positiva aggiunge il prodotto alla Lista", () => assert.equal(catalogConfirmAction(2), "add"));
+  it("campo vuoto o testo non valido non decide nulla", () => assert.equal(catalogConfirmAction(null), null));
+});
