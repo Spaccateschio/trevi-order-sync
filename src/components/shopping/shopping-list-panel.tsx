@@ -4,6 +4,7 @@ import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { finishMobileCard, toggleMobileCard } from "./shopping-mobile-card-state";
 import { resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
+import { selectShoppingList } from "./shopping-list-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -327,13 +328,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   // Anteprima: inventario da valutare senza Lista collegata. Aprire la pagina non crea nulla.
   const previewMode = evaluating && !linkedList;
   const list = useMemo(
-    // Priorità: scelta esplicita → Lista dell'inventario → (fuori anteprima) Lista in lavorazione.
-    () =>
-      lists.find((row) => row.id === listId) ??
-      linkedList ??
-      (previewMode
-        ? null
-        : (lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null)),
+    // Un inventario precedente pendente non nasconde gli acquisti già in lavorazione.
+    () => selectShoppingList(lists, listId, linkedList, previewMode),
     [lists, listId, linkedList, previewMode],
   );
   // Le decisioni «Non acquistare» valgono per la lista corrente: cambiando lista ripartono da zero.
