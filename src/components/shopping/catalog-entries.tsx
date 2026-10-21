@@ -1,7 +1,7 @@
 import { ShoppingQuantityEditor } from "./shopping-quantity-editor";
 import { ShoppingMobileCard } from "./shopping-mobile-card";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { createConfirmationGuard } from "./shopping-quantity-state";
+import { catalogConfirmAction, createConfirmationGuard } from "./shopping-quantity-state";
 import { defaultUnitCode } from "@/lib/supplier-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -375,7 +375,8 @@ export function CatalogProductCard({
   const confirm = async () => {
     if (quantity === null || !guard.current.start(entry.key)) return;
     try {
-      if (quantity === 0) {
+      const action = catalogConfirmAction(quantity);
+      if (action === "non_acquistare") {
         // 0 + Conferma = «Non acquistare»: nessuna riga scritta, la card resta fuori dalla Lista.
         onNonPurchase?.();
         setQty("");
