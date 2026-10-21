@@ -1,5 +1,6 @@
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { finishMobileCard, toggleMobileCard } from "./shopping-mobile-card-state";
+import { resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -234,8 +235,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     },
   });
 
-  // Ordine inviato in attesa di ritiro merce: finché c'è, non offriamo «Nuova lista»
-  // e il riquadro «Da inventario» resta nascosto (riapribile su richiesta).
+  // Pending receipts affect only the optional inventory panel, never new purchases.
   const pendingPickupQuery = useQuery({
     queryKey: ["purchase-orders-pending-pickup", companyId],
     queryFn: async (): Promise<boolean> => {
@@ -341,6 +341,10 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const editable = list?.status === "aperta";
   const currentList =
     linkedList ?? lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null;
+  const ready = shoppingReadyState(list, list?.archive_id ?? archivesQuery.data?.[0]?.id ?? "");
+  const ordinaryCreatingRef = useRef<Promise<string | null> | null>(null);
+  const ordinaryIdRef = useRef<string | null>(null);
+  useEffect(() => { ordinaryIdRef.current = currentList?.status === "aperta" ? currentList.id : null; }, [currentList?.id, currentList?.status]);
 
   const overviewQuery = useQuery({
     queryKey: ["shopping-list-overview", list?.id],
@@ -397,6 +401,23 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     }
     return creatingRef.current;
   };
+
+  // Ordinary purchases never take ownership of an inventory session.
+  const ensureOrdinaryList = () => resolveOrdinaryList(
+    list?.status === "aperta" ? list.id : ordinaryIdRef.current,
+    ordinaryCreatingRef,
+    async () => {
+      const archiveId = archivesQuery.data?.[0]?.id;
+      if (!archiveId) throw new Error("Nessun archivio attivo");
+      const opened = await runList({ data: { companyId, action: "open", listId: null, archiveId, name: null, notes: null } });
+      ordinaryIdRef.current = opened.id;
+      setListId(opened.id);
+      await proposeListDate(opened.id);
+      await refresh();
+      return opened.id;
+    },
+  );
+  const resolvePurchaseList = () => ready.ordinaryPreview ? ensureOrdinaryList() : ensureInventoryList();
 
   const listMutation = useMutation({
     mutationFn: (action: "open" | "confirm" | "close" | "cancel") =>
@@ -811,10 +832,10 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   // ★ Preferiti spento: stessa vista, alimentata anche dai prodotti propri e dai cataloghi B2B (sola lettura).
   const catalogArchiveId = list?.archive_id ?? archivesQuery.data?.[0]?.id ?? "";
-  const showCatalog = !flags.has("preferiti") && Boolean(list || (previewMode && catalogArchiveId));
+  const showCatalog = ready.showProducts;
   // Caricato anche con ★ Preferiti attivo: serve al contatore «Prodotti» (le card restano nascoste).
-  const catalog = useCatalogEntries({ companyId, archiveId: catalogArchiveId, enabled: Boolean(list || (previewMode && catalogArchiveId)) });
-  const catalogActions = useCatalogActions({ companyId, listId: list?.id ?? null, resolveListId: ensureInventoryList });
+  const catalog = useCatalogEntries({ companyId, archiveId: catalogArchiveId, enabled: ready.showProducts });
+  const catalogActions = useCatalogActions({ companyId, listId: list?.id ?? null, resolveListId: resolvePurchaseList });
   const [catalogLimit, setCatalogLimit] = useState(60);
   const catalogFiltered = useMemo<CatalogEntry[]>(() => {
     if (!showCatalog) return [];
@@ -824,6 +845,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     const term = search.trim().toLowerCase();
     return catalog.entries.filter((e) => {
       if (e.ownProductId && shown.has(e.ownProductId)) return false;
+      if (flags.has("preferiti") && !(e.ownProductId && catalog.favorites.has(e.ownProductId))) return false;
       if (term && !e.code.toLowerCase().includes(term) && !(e.description ?? "").toLowerCase().includes(term)) return false;
       if (category !== "all" && e.category !== category) return false;
       if (supplierFilter !== "all" && !e.supplierRecordIds.includes(supplierFilter)) return false;
@@ -832,7 +854,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       if (flags.has("non_b2b") && e.isB2b) return false;
       return true;
     });
-  }, [showCatalog, catalog.entries, allRows, pendingEntries, search, category, supplierFilter, flags]);
+  }, [showCatalog, catalog.entries, catalog.favorites, allRows, pendingEntries, search, category, supplierFilter, flags]);
   // Un solo ordinamento per card della Lista e prodotti non in lista: la stella non sposta nulla.
   const merged = useMemo(() => {
     type Item = { kind: "entry"; value: Entry; sortKey: string } | { kind: "catalog"; value: CatalogEntry; sortKey: string };
@@ -1391,7 +1413,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 flex-1 space-y-0.5">
             <div className="flex min-w-0 items-center gap-1.5">
-              {list || !pendingPickup ? (
+              {list ? (
                 <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
                   <SelectTrigger className="h-7 min-w-0 flex-1 border-none bg-transparent px-0 text-sm font-bold shadow-none" aria-label="Lista della spesa">
                     <SelectValue placeholder="" />
@@ -1446,7 +1468,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setHistoryOpen(true)}>
             Storico liste
           </Button>
-          {!pendingPickup ? (
+          {list ? (
             <Button
               type="button"
               size="sm"
@@ -1539,7 +1561,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           <Button type="button" size="sm" variant="outline" data-tour="spesa.storico" onClick={() => setHistoryOpen(true)}>
             Storico liste
           </Button>
-          {!pendingPickup ? (
+          {list ? (
             <Button
               type="button"
               size="sm"
@@ -1612,7 +1634,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      {!list && !previewMode && !listsQuery.isLoading && !pendingPickup ? (() => {
+      {!ready.showProducts && !previewMode && !listsQuery.isLoading && !pendingPickup ? (() => {
         // Ciclo concluso: la zona operativa è vuota, il passato vive nello Storico.
         const lastClosed = lists
           .filter((row) => row.status === "chiusa" && row.number)
@@ -1649,7 +1671,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       ) : null}
 
       {/* Unica scelta Card/Righe: vale sia per «Da inventario» sia per la Lista. */}
-      {(evaluating && cycle) || list ? (
+      {(evaluating && cycle) || ready.showProducts ? (
         <div className="hidden items-center justify-end gap-2 md:flex">
         <span className="text-xs text-muted-foreground">Vista prodotti</span>
           <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
@@ -1695,7 +1717,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </p>
       ) : null}
 
-      {!list && !showPending ? (
+      {!ready.showProducts && !showPending ? (
         pendingPickup ? null : (
           <p className="text-sm text-muted-foreground">
             Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure consulta lo Storico dal menu delle liste.
@@ -1757,7 +1779,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="max-h-[70vh] w-72 space-y-2 overflow-y-auto p-2">
-                {editable || (!list && previewMode) ? (
+                {ready.canPrepare || (!list && previewMode) ? (
                   <Button type="button" size="sm" className="h-8 w-full text-xs" onClick={() => setAddOpen(true)}>
                     <Plus aria-hidden="true" />Aggiungi prodotti
                   </Button>
@@ -1873,7 +1895,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               ))}
             </div>
             <div aria-label="Comandi prodotti" className="max-md:hidden flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible [&>*]:shrink-0">
-            {editable || (!list && previewMode) ? (
+            {ready.canPrepare || (!list && previewMode) ? (
               <Button type="button" size="sm" className="h-8 px-2 text-xs" data-tour="spesa.aggiungi" onClick={() => setAddOpen(true)}>
                 <Plus aria-hidden="true" />
                 Aggiungi prodotti
@@ -1958,13 +1980,15 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 const entry = item.value;
                 return (
                   <CatalogProductCard
-                    key={entry.key}
+                    key={`${list?.id ?? "next-purchase"}:${entry.key}`}
+                    mobileOpen={mobileOpenId === entry.key}
+                    onToggleMobile={() => setMobileOpenId((current) => toggleMobileCard(current, entry.key))}
                     entry={entry}
                     layout={viewMode}
                     imageUrl={catalogImages.get(entry.key) ?? null}
                     isFavorite={Boolean(entry.ownProductId && catalog.favorites.has(entry.ownProductId))}
                     favoriteDisabled={catalogActions.favorite.isPending || (Boolean(entry.ownProductId) && !catalog.favoritesReady)}
-                    canAdd={Boolean(editable || previewMode)}
+                    canAdd={ready.canPrepare || previewMode}
                     adding={catalogActions.add.isPending}
                     onToggleFavorite={() =>
                       catalogActions.favorite.mutate({
@@ -2149,11 +2173,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       ) : null}
 
-      {addOpen && (list || (previewMode && archivesQuery.data?.[0])) ? (
+      {addOpen && ready.showProducts ? (
         <AddProductsDialog
           companyId={companyId}
           listId={list?.id ?? null}
-          resolveListId={ensureInventoryList}
+          resolveListId={resolvePurchaseList}
           archiveId={list?.archive_id ?? archivesQuery.data?.[0]?.id ?? ""}
           existingProductIds={new Set(allRows.map((row) => row.product_id))}
           open={addOpen}

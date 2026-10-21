@@ -1,4 +1,6 @@
 import { ShoppingQuantityEditor } from "./shopping-quantity-editor";
+import { ShoppingMobileCard } from "./shopping-mobile-card";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { createConfirmationGuard } from "./shopping-quantity-state";
 import { defaultUnitCode } from "@/lib/supplier-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -341,6 +343,8 @@ export function CatalogProductCard({
   onToggleFavorite,
   onAdd,
   onDraftChange,
+  mobileOpen = false,
+  onToggleMobile,
 }: {
   entry: CatalogEntry;
   imageUrl: string | null;
@@ -352,7 +356,10 @@ export function CatalogProductCard({
   onToggleFavorite: () => void;
   onAdd: (quantity: number, unitCode: string | null) => Promise<unknown>;
   onDraftChange?: (dirty: boolean) => void;
+  mobileOpen?: boolean;
+  onToggleMobile?: () => void;
 }) {
+  const isMobile = useIsMobile();
   const [qty, setQty] = useState("");
   const [confirming, setConfirming] = useState(false);
   const guard = useRef(createConfirmationGuard());
@@ -361,7 +368,7 @@ export function CatalogProductCard({
   const confirm = async () => {
     if (!ready || quantity === null || !guard.current.start(entry.key)) return;
     setConfirming(true);
-    try { await onAdd(quantity, unitCode); setQty(""); onDraftChange?.(false); }
+    try { await onAdd(quantity, unitCode); setQty(""); onDraftChange?.(false); if (mobileOpen) onToggleMobile?.(); }
     catch { /* Mutation reports error; keep the typed quantity for retry. */ }
     finally { guard.current.finish(entry.key); setConfirming(false); }
   };
@@ -419,6 +426,16 @@ export function CatalogProductCard({
       </Button>)}</div>} />
   ) : null;
   const meta = [entry.code, entry.category, entry.subcategory, entry.baseUm].filter(Boolean).join(" · ");
+
+  if (isMobile && layout === "card" && onToggleMobile) {
+    return <ShoppingMobileCard id={entry.key} name={name} open={mobileOpen} onToggle={onToggleMobile}
+      locked={false} recheck={false} busy={adding || confirming}
+      header={<div className="flex min-w-0 items-start gap-2">{image}<div className="min-w-0 flex-1"><p className="break-words font-display text-base font-bold uppercase leading-tight">{name}</p><Badge variant="outline" className="mt-0.5 text-[10px]">Non in lista</Badge></div>{star}</div>}
+      summary={<span className="text-base font-bold">Da acquistare {quantity === null ? "—" : `${quantity} ${unitCode ?? ""}`}</span>}
+      supplier={<span>Fornitore: {supplier}</span>} suggested={null} warnings={null}>
+      <p className="text-xs text-muted-foreground">{meta}</p>{controls}
+    </ShoppingMobileCard>;
+  }
 
   if (layout === "row") {
     return (
