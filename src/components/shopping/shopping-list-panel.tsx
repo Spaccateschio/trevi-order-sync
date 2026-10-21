@@ -791,9 +791,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     const draft = kind === "pending" ? Boolean(evalValues[row.product_id]?.trim()) : unlockedIds.has(row.item_id) || Boolean(unitEdits[row.item_id]) || quantityHasDraft(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity));
     return {
       id: row.item_id, code: row.code, description: row.description, category: extra?.category ?? linked?.category ?? null,
-      supplierIds: [...new Set([...suppliers.map((p) => p.supplierRecordId), ...(linked?.supplierRecordIds ?? []), ...productLinksQuery.data?.get(row.product_id) ?? []])],
+      supplierIds: [...new Set([...suppliers.map((p) => p.supplierRecordId), ...(linked?.supplierRecordIds ?? []), ...(productLinksQuery.data?.get(row.product_id) ?? [])])],
       supplierNames: [...new Set([...suppliers.map((p) => p.name), ...(linked?.supplierNames ?? [])])],
-      favorite: Boolean(extra?.isFavorite), b2b: Boolean(linked?.isB2b || suppliers.some((p) => p.isB2B)),
+      favorite: Boolean(extra?.isFavorite), b2b: Boolean(linked?.hasB2b || suppliers.some((p) => p.isB2B)),
       nonB2b: Boolean(linked?.hasNonB2b || suppliers.some((p) => !p.isB2B)),
       assignment: kind === "list" && !nonPurchase ? row.status : null,
       ordered: extra?.orderState === "ordinato", confirmed: Boolean(extra?.lockedAt) && !draft,
@@ -804,7 +804,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     id: p.key, code: p.code, description: p.description, category: p.category,
     supplierIds: p.supplierRecordIds, supplierNames: p.supplierNames,
     favorite: Boolean(p.ownProductId && catalog.favorites.has(p.ownProductId)),
-    b2b: p.isB2b, nonB2b: p.hasNonB2b, assignment: null, ordered: false,
+    b2b: p.hasB2b, nonB2b: p.hasNonB2b, assignment: null, ordered: false,
     confirmed: false, needsCheck: false, nonPurchase: catalogNotBuying.has(p.key),
   });
   // ★ Preferiti spento: stessa vista, alimentata anche dai prodotti propri e dai cataloghi B2B (sola lettura).
@@ -844,7 +844,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       return { ...f, stock: e.stock?.stock ?? null, stockUnit: e.stock?.stockUnit ?? null,
         quantity: raw !== undefined ? parseQuantity(raw) : e.row.decided_quantity === null ? null : Number(e.row.decided_quantity),
         quantityUnit: unitEdits[e.row.item_id]?.unitCode ?? e.extra?.decidedUnitCode ?? e.row.unit_code,
-        draft: !f.nonPurchase && (raw !== undefined || unlockedIds.has(e.row.item_id) || Boolean(unitEdits[e.row.item_id])),
+        draft: !f.nonPurchase && (e.kind === "pending" ? Boolean(raw?.trim()) : quantityHasDraft(raw, e.row.decided_quantity === null ? null : Number(e.row.decided_quantity)) || unlockedIds.has(e.row.item_id) || Boolean(unitEdits[e.row.item_id])),
         state: f.nonPurchase ? "Non acquistare" : e.kind === "pending" ? "Da valutare" : `${ITEM_STATUS_LABEL[e.row.status]}${f.ordered ? " · Già in ordine" : ""}`,
         splits: (e.extra?.suppliers ?? []).map((p) => `${p.name} · ${p.purchaseQuantity === null ? "—" : qty(p.purchaseQuantity)} ${p.purchaseUnitCode ?? ""}`),
       };
@@ -1179,7 +1179,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     return quantity !== null && quantity > 0 && !listProductIds.has(productId);
   });
   const hasUnconfirmed = allRows.some(isDraftRow)
-    || evalPending || catalogDrafts.size > 0;
+    || evalPending || catalogDrafts.size > 0 || Object.values(catalogValues).some((v) => v.raw.trim() !== "");
   // Porta l'utente alla card da confermare: la apre (cellulare), la scorre al centro e la evidenzia.
   const revealItem = (itemId: string, retry = true) => {
     window.setTimeout(() => {
@@ -1968,6 +1968,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                       })
                     }
                     draftValue={catalogValues[entry.key]?.raw ?? ""}
+                    draftUnit={catalogValues[entry.key]?.unit}
                     onQuantityChange={(raw, unit) => setCatalogValues((current) => ({ ...current, [entry.key]: { raw, unit } }))}
                     onDraftChange={(dirty) => setCatalogDrafts((current) => { const next = new Set(current); if (dirty) next.add(entry.key); else next.delete(entry.key); return next; })}
                     nonPurchase={catalogNotBuying.has(entry.key)}

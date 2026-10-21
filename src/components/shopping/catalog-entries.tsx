@@ -56,6 +56,7 @@ export type CatalogEntry = {
   unitsLocked: boolean;
   isB2b: boolean;
   hasNonB2b: boolean;
+  hasB2b: boolean;
 };
 
 export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId: string; archiveId: string; enabled: boolean }) {
@@ -172,7 +173,8 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
         unitCodes: codes,
         defaultUnit: pub && pub.codes.length ? pub.def || null : null,
         unitsLocked: Boolean(pub && pub.codes.length),
-        isB2b: b2bOf.has(p.id),
+        isB2b: false,
+        hasB2b: b2bOf.has(p.id),
         hasNonB2b: (linksQuery.data ?? []).some((l) => l.is_active && l.product_id === p.id && !l.b2b_item_id && Boolean(l.supplier_record_id)),
       };
     });
@@ -197,6 +199,7 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
           defaultUnit: published.get(p.id)?.def || null,
           unitsLocked: true,
           isB2b: true,
+          hasB2b: true,
           hasNonB2b: false,
         });
       }
@@ -361,6 +364,7 @@ export function CatalogProductCard({
   onNonPurchase,
   onRestoreNonPurchase,
   draftValue,
+  draftUnit,
   onQuantityChange,
 }: {
   entry: CatalogEntry;
@@ -379,6 +383,7 @@ export function CatalogProductCard({
   onNonPurchase?: () => void;
   onRestoreNonPurchase?: () => void;
   draftValue?: string;
+  draftUnit?: string | null;
   onQuantityChange?: (raw: string, unit: string | null) => void;
 }) {
   const isMobile = useIsMobile();
@@ -407,8 +412,8 @@ export function CatalogProductCard({
       finally { setConfirming(false); }
     } finally { guard.current.finish(entry.key); }
   };
-  const [unit, setUnit] = useState(entry.defaultUnit ?? entry.unitCodes[0] ?? "");
-  const [manual, setManual] = useState("");
+  const [unit, setUnit] = useState(draftUnit ? entry.unitCodes.includes(draftUnit) ? draftUnit : MANUAL : entry.defaultUnit ?? entry.unitCodes[0] ?? "");
+  const [manual, setManual] = useState(draftUnit && !entry.unitCodes.includes(draftUnit) ? draftUnit : "");
   const quantity = parseQuantity(qty);
   const unitCode = unit === MANUAL ? manual.trim().toUpperCase() || null : unit || null;
   useEffect(() => { onQuantityChange?.(qty, unitCode); }, [unitCode]);

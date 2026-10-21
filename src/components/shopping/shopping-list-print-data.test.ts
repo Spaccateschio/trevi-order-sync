@@ -16,9 +16,11 @@ describe("stampa risultati filtrati", () => {
   it("dato mancante non diventa zero", () => assert.equal(printQuantity(null, "kg"), "—"));
   it("quantità e U.M. mantenute", () => assert.equal(printQuantity(2.5, "casse"), "2,5 casse"));
   it("bozza mantenuta senza conferma o mutazione", () => {
-    const draft = { ...rows[0], draft: true, quantity: 3, quantityUnit: "casse" };
+    const first = rows[0];
+    assert.ok(first);
+    const draft = { ...first, draft: true, quantity: 3, quantityUnit: "casse" };
     const before = JSON.stringify(draft);
     const output = selectShoppingPrintRows([draft], all, "code");
-    assert.equal(output[0].draft, true); assert.equal(output[0].quantity, 3); assert.equal(JSON.stringify(draft), before);
+    assert.equal(output[0]?.draft, true); assert.equal(output[0]?.quantity, 3); assert.equal(JSON.stringify(draft), before);
   });
 });
