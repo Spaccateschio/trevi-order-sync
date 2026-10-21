@@ -453,8 +453,8 @@ export function CatalogProductCard({
   if (isMobile && layout === "card" && onToggleMobile) {
     return <ShoppingMobileCard id={entry.key} name={name} open={mobileOpen} onToggle={onToggleMobile}
       locked={false} recheck={false} busy={adding || confirming}
-      header={<div className="flex min-w-0 items-start gap-2">{image}<div className="min-w-0 flex-1"><p className="break-words font-display text-base font-bold uppercase leading-tight">{name}</p><Badge variant="outline" className="mt-0.5 text-[10px]">Non in lista</Badge></div>{star}</div>}
-      summary={<span className="text-base font-bold">Da acquistare {quantity === null ? "—" : `${quantity} ${unitCode ?? ""}`}</span>}
+      header={<div className="flex min-w-0 items-start gap-2">{image}<div className="min-w-0 flex-1"><p className="break-words font-display text-base font-bold uppercase leading-tight">{name}</p><Badge variant="outline" className="mt-0.5 text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge></div>{star}</div>}
+      summary={<span className="text-base font-bold">{nonPurchase ? "Non acquistare" : `Da acquistare ${quantity === null ? "—" : `${quantity} ${unitCode ?? ""}`}`}</span>}
       supplier={<span>Fornitore: {supplier}</span>} suggested={null} warnings={null}>
       <p className="text-xs text-muted-foreground">{meta}</p>{controls}
     </ShoppingMobileCard>;
@@ -469,7 +469,7 @@ export function CatalogProductCard({
           <p className="truncate text-muted-foreground">{meta}</p>
           <p className="truncate text-muted-foreground">{supplier}{entry.isB2b ? " · catalogo B2B" : ""}</p>
         </div>
-        <Badge variant="outline" className="text-[10px]">Non in lista</Badge>
+        <Badge variant="outline" className="text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge>
         {star}
         {controls}
       </article>
@@ -486,7 +486,7 @@ export function CatalogProductCard({
         </div>
         {star}
       </div>
-      <Badge variant="outline" className="w-fit text-[10px]">Non in lista</Badge>
+      <Badge variant="outline" className="w-fit text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge>
       {controls}
     </article>
   );
