@@ -1,3 +1,6 @@
+import { matchesShoppingFilters, shoppingSortKey, type FilterFlag, type ProductFilterFacts, type SortKey } from "./shopping-list-filters";
+import { selectShoppingPrintRows, type ShoppingPrintRow } from "./shopping-list-print-data";
+import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { finishMobileCard, toggleMobileCard } from "./shopping-mobile-card-state";
 import { resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
@@ -123,20 +126,6 @@ function pendingOverviewRow(row: CountedRow): OverviewRow {
 type Entry = { kind: "list" | "pending"; row: OverviewRow; extra: RowExtras | undefined; stock: StockInfo | undefined };
 
 type Archive = { id: string; name: string; is_default: boolean };
-type SortKey = "description" | "code" | "category" | "supplier";
-type FilterFlag =
-  | "senza_fornitore"
-  | "b2b"
-  | "non_b2b"
-  | "preferiti"
-  | "da_assegnare"
-  | "parziale"
-  | "assegnata"
-  | "in_ordine"
-  | "da_ordinare"
-  | "da_confermare"
-  | "confermati"
-  | "da_controllare";
 /** «Filtra card»: decide quali prodotti si vedono. */
 const FILTER_GROUPS: [string, [FilterFlag, string][]][] = [
   ["Prodotto", [["preferiti", "★ Preferiti"], ["b2b", "B2B"], ["non_b2b", "Non B2B"]]],
@@ -188,6 +177,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   const [listId, setListId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [printOpen, setPrintOpen] = useState(false);
+  const [catalogValues, setCatalogValues] = useState<Record<string, { raw: string; unit: string | null }>>({});
   const [category, setCategory] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [flags, setFlags] = useState<Set<FilterFlag>>(new Set());
@@ -346,7 +337,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     [lists, listId, linkedList, previewMode],
   );
   // Le decisioni «Non acquistare» valgono per la lista corrente: cambiando lista ripartono da zero.
-  useEffect(() => { setCatalogNotBuying(new Set()); }, [list?.id]);
+  useEffect(() => { setCatalogNotBuying(new Set()); setCatalogValues({}); }, [list?.id]);
   const editable = list?.status === "aperta";
   const currentList =
     linkedList ?? lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null;
@@ -775,17 +766,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         : [],
     [showPending, allCounted, listProductIds, countedImages, pendingFavorites],
   );
-  const categories = useMemo(
-    () =>
-      [
-        ...new Set(
-          [...[...extras.values()].map((row) => row.category), ...pendingEntries.map((entry) => entry.extra?.category)].filter(
-            Boolean,
-          ) as string[],
-        ),
-      ].sort(),
-    [extras, pendingEntries],
-  );
   const supplierOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const record of supplierRecordsQuery.data ?? []) map.set(record.id, record.legal_name);
@@ -793,105 +773,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     return [...map.entries()].sort((left, right) => left[1].localeCompare(right[1], "it"));
   }, [extras, supplierRecordsQuery.data]);
 
-  // Filtri e ordinamento solo in vista: nessuna scrittura.
-  const entries = useMemo<Entry[]>(() => {
-    const term = search.trim().toLowerCase();
-    const all: Entry[] = [
-      ...allRows.map((row) => ({
-        kind: "list" as const,
-        row,
-        extra: extras.get(row.item_id),
-        stock: stockQuery.data?.get(row.product_id),
-      })),
-      ...pendingEntries,
-    ];
-    const filtered = all.filter(({ row, kind, extra }) => {
-      if (term && !row.code.toLowerCase().includes(term) && !(row.description ?? "").toLowerCase().includes(term)) return false;
-      if (category !== "all" && extra?.category !== category) return false;
-      if (
-        supplierFilter !== "all" &&
-        !extra?.suppliers.some((s) => s.supplierRecordId === supplierFilter) &&
-        !productLinksQuery.data?.get(row.product_id)?.has(supplierFilter)
-      )
-        return false;
-      if (flags.size) {
-        const suppliers = extra?.suppliers ?? [];
-        if (flags.has("senza_fornitore") && suppliers.length > 0) return false;
-        if (flags.has("b2b") && !suppliers.some((s) => s.isB2B)) return false;
-        if (flags.has("non_b2b") && !suppliers.some((s) => !s.isB2B)) return false;
-        if (flags.has("preferiti") && !extra?.isFavorite) return false;
-        const statusFlags = (["da_assegnare", "parziale", "assegnata"] as const).filter((f) => flags.has(f));
-        if (statusFlags.length && (kind === "pending" || !(statusFlags as readonly string[]).includes(row.status))) return false;
-        if (flags.has("in_ordine") && extra?.orderState !== "ordinato") return false;
-        if (flags.has("da_ordinare") && extra?.orderState === "ordinato") return false;
-        if (flags.has("da_confermare") && extra?.lockedAt) return false;
-        if (flags.has("confermati") && !extra?.lockedAt) return false;
-        if (flags.has("da_controllare") && !(extra?.inventoryChangedAt && extra?.orderState !== "ordinato")) return false;
-      }
-      return true;
-    });
-    const key = ({ row, extra }: Entry) => {
-      if (sortBy === "code") return row.code;
-      if (sortBy === "category") return `${extra?.category ?? "\uffff"} ${row.description ?? ""}`;
-      if (sortBy === "supplier") return `${extra?.suppliers[0]?.name ?? "\uffff"} ${row.description ?? ""}`;
-      return row.description ?? row.code;
-    };
-    return [...filtered].sort((left, right) => key(left).localeCompare(key(right), "it", { numeric: true }));
-  }, [allRows, extras, stockQuery.data, pendingEntries, search, category, supplierFilter, flags, sortBy, productLinksQuery.data]);
-
-  // ★ Preferiti spento: stessa vista, alimentata anche dai prodotti propri e dai cataloghi B2B (sola lettura).
-  const catalogArchiveId = list?.archive_id ?? archivesQuery.data?.[0]?.id ?? "";
-  const showCatalog = ready.showProducts;
-  // Caricato anche con ★ Preferiti attivo: serve al contatore «Prodotti» (le card restano nascoste).
-  const catalog = useCatalogEntries({ companyId, archiveId: catalogArchiveId, enabled: ready.showProducts });
-  const catalogActions = useCatalogActions({ companyId, listId: list?.id ?? null, resolveListId: resolvePurchaseList });
-  const [catalogLimit, setCatalogLimit] = useState(60);
-  const catalogFiltered = useMemo<CatalogEntry[]>(() => {
-    if (!showCatalog) return [];
-    const blocking = ["da_assegnare", "parziale", "assegnata", "in_ordine", "da_ordinare", "da_confermare", "confermati", "da_controllare"] as const;
-    if (blocking.some((f) => flags.has(f as FilterFlag))) return [];
-    const shown = new Set<string>([...allRows.map((r) => r.product_id), ...pendingEntries.map((e) => e.row.product_id)]);
-    const term = search.trim().toLowerCase();
-    return catalog.entries.filter((e) => {
-      if (e.ownProductId && shown.has(e.ownProductId)) return false;
-      if (flags.has("preferiti") && !(e.ownProductId && catalog.favorites.has(e.ownProductId))) return false;
-      if (term && !e.code.toLowerCase().includes(term) && !(e.description ?? "").toLowerCase().includes(term)) return false;
-      if (category !== "all" && e.category !== category) return false;
-      if (supplierFilter !== "all" && !e.supplierRecordIds.includes(supplierFilter)) return false;
-      if (flags.has("senza_fornitore") && e.supplierRecordIds.length > 0) return false;
-      if (flags.has("b2b") && !e.isB2b) return false;
-      if (flags.has("non_b2b") && e.isB2b) return false;
-      return true;
-    });
-  }, [showCatalog, catalog.entries, catalog.favorites, allRows, pendingEntries, search, category, supplierFilter, flags]);
-  // Un solo ordinamento per card della Lista e prodotti non in lista: la stella non sposta nulla.
-  const merged = useMemo(() => {
-    type Item = { kind: "entry"; value: Entry; sortKey: string } | { kind: "catalog"; value: CatalogEntry; sortKey: string };
-    const entryKey = ({ row, extra }: Entry) => {
-      if (sortBy === "code") return row.code;
-      if (sortBy === "category") return `${extra?.category ?? "\uffff"} ${row.description ?? ""}`;
-      if (sortBy === "supplier") return `${extra?.suppliers[0]?.name ?? "\uffff"} ${row.description ?? ""}`;
-      return row.description ?? row.code;
-    };
-    const catKey = (e: CatalogEntry) => {
-      if (sortBy === "code") return e.code;
-      if (sortBy === "category") return `${e.category ?? "\uffff"} ${e.description ?? ""}`;
-      if (sortBy === "supplier") return `${e.supplierNames[0] ?? "\uffff"} ${e.description ?? ""}`;
-      return e.description ?? e.code;
-    };
-    const items: Item[] = [
-      ...entries.map((value) => ({ kind: "entry" as const, value, sortKey: entryKey(value) })),
-      ...catalogFiltered.map((value) => ({ kind: "catalog" as const, value, sortKey: catKey(value) })),
-    ];
-    items.sort((l, r) => l.sortKey.localeCompare(r.sortKey, "it", { numeric: true }) || (l.kind === "entry" ? l.value.row.code : l.value.code).localeCompare(r.kind === "entry" ? r.value.row.code : r.value.code, "it"));
-    // Limite solo sui prodotti non in lista: le card della Lista si vedono sempre tutte.
-    let count = 0;
-    return items.filter((item) => item.kind === "entry" || ++count <= catalogLimit);
-  }, [entries, catalogFiltered, sortBy, catalogLimit]);
-  const catalogHidden = Math.max(0, catalogFiltered.length - catalogLimit);
-  const catalogImages = useCatalogImages(merged.filter((i) => i.kind === "catalog").map((i) => i.value as CatalogEntry));
-
-  // Riepilogo sull'intera Lista (mai sui filtri): ogni prodotto in un solo stato; esclusi a parte.
   const excludedQuery = useQuery({
     queryKey: ["shopping-list-excluded", list?.id ?? null],
     enabled: Boolean(list?.id),
@@ -902,6 +783,85 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       return new Set((data ?? []).map((r) => r.id as string));
     },
   });
+  const filters = { search, category, supplier: supplierFilter, flags };
+  const entryFacts = ({ row, kind, extra }: Entry): ProductFilterFacts => {
+    const linked = catalog.entries.find((p) => p.ownProductId === row.product_id);
+    const suppliers = extra?.suppliers ?? [];
+    const nonPurchase = kind === "pending" ? savedEvaluations.get(row.product_id)?.status === "non_acquistare" : excludedQuery.data?.has(row.item_id) ?? false;
+    const draft = kind === "pending" ? Boolean(evalValues[row.product_id]?.trim()) : unlockedIds.has(row.item_id) || Boolean(unitEdits[row.item_id]) || quantityHasDraft(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity));
+    return {
+      id: row.item_id, code: row.code, description: row.description, category: extra?.category ?? linked?.category ?? null,
+      supplierIds: [...new Set([...suppliers.map((p) => p.supplierRecordId), ...(linked?.supplierRecordIds ?? []), ...productLinksQuery.data?.get(row.product_id) ?? []])],
+      supplierNames: [...new Set([...suppliers.map((p) => p.name), ...(linked?.supplierNames ?? [])])],
+      favorite: Boolean(extra?.isFavorite), b2b: Boolean(linked?.isB2b || suppliers.some((p) => p.isB2B)),
+      nonB2b: Boolean(linked?.hasNonB2b || suppliers.some((p) => !p.isB2B)),
+      assignment: kind === "list" && !nonPurchase ? row.status : null,
+      ordered: extra?.orderState === "ordinato", confirmed: Boolean(extra?.lockedAt) && !draft,
+      needsCheck: Boolean(extra?.inventoryChangedAt), nonPurchase,
+    };
+  };
+  const catalogFacts = (p: CatalogEntry): ProductFilterFacts => ({
+    id: p.key, code: p.code, description: p.description, category: p.category,
+    supplierIds: p.supplierRecordIds, supplierNames: p.supplierNames,
+    favorite: Boolean(p.ownProductId && catalog.favorites.has(p.ownProductId)),
+    b2b: p.isB2b, nonB2b: p.hasNonB2b, assignment: null, ordered: false,
+    confirmed: false, needsCheck: false, nonPurchase: catalogNotBuying.has(p.key),
+  });
+  // ★ Preferiti spento: stessa vista, alimentata anche dai prodotti propri e dai cataloghi B2B (sola lettura).
+  const catalogArchiveId = list?.archive_id ?? archivesQuery.data?.[0]?.id ?? "";
+  const showCatalog = ready.showProducts;
+  // Caricato anche con ★ Preferiti attivo: serve al contatore «Prodotti» (le card restano nascoste).
+  const catalog = useCatalogEntries({ companyId, archiveId: catalogArchiveId, enabled: ready.showProducts });
+  const catalogActions = useCatalogActions({ companyId, listId: list?.id ?? null, resolveListId: resolvePurchaseList });
+  const [catalogLimit, setCatalogLimit] = useState(60);
+  const categories = [...new Set([...extras.values()].map((r) => r.category).concat(pendingEntries.map((p) => p.extra?.category ?? null), catalog.entries.map((p) => p.category)).filter((c): c is string => Boolean(c)))].sort((a, b) => a.localeCompare(b, "it"));
+  const allEntries: Entry[] = [...allRows.map((row) => ({ kind: "list" as const, row, extra: extras.get(row.item_id), stock: stockQuery.data?.get(row.product_id) })), ...pendingEntries];
+  const entries = allEntries.filter((e) => matchesShoppingFilters(entryFacts(e), filters));
+  const shown = new Set([...allRows.map((r) => r.product_id), ...pendingEntries.map((p) => p.row.product_id)]);
+  const availableCatalog = showCatalog ? catalog.entries.filter((p) => !p.ownProductId || !shown.has(p.ownProductId)) : [];
+  const catalogFiltered = availableCatalog.filter((p) => matchesShoppingFilters(catalogFacts(p), filters));
+  // Exclusions must be read before filtering (also used by print); no writes.
+  // Un solo ordinamento per card della Lista e prodotti non in lista: la stella non sposta nulla.
+  const merged = (() => {
+    type Item = { kind: "entry"; value: Entry; sortKey: string } | { kind: "catalog"; value: CatalogEntry; sortKey: string };
+    const entryKey = (e: Entry) => shoppingSortKey(entryFacts(e), sortBy);
+    const catKey = (p: CatalogEntry) => shoppingSortKey(catalogFacts(p), sortBy);
+    const items: Item[] = [
+      ...entries.map((value) => ({ kind: "entry" as const, value, sortKey: entryKey(value) })),
+      ...catalogFiltered.map((value) => ({ kind: "catalog" as const, value, sortKey: catKey(value) })),
+    ];
+    items.sort((l, r) => l.sortKey.localeCompare(r.sortKey, "it", { numeric: true }) || (l.kind === "entry" ? l.value.row.code : l.value.code).localeCompare(r.kind === "entry" ? r.value.row.code : r.value.code, "it"));
+    // Limite solo sui prodotti non in lista: le card della Lista si vedono sempre tutte.
+    let count = 0;
+    return items.filter((item) => item.kind === "entry" || ++count <= catalogLimit);
+  })();
+  const catalogHidden = Math.max(0, catalogFiltered.length - catalogLimit);
+  const catalogImages = useCatalogImages(merged.filter((i) => i.kind === "catalog").map((i) => i.value as CatalogEntry));
+
+  const printRows = selectShoppingPrintRows([
+    ...allEntries.map((e): ShoppingPrintRow => {
+      const f = entryFacts(e); const raw = e.kind === "pending" ? evalValues[e.row.product_id] : edits[e.row.item_id];
+      return { ...f, stock: e.stock?.stock ?? null, stockUnit: e.stock?.stockUnit ?? null,
+        quantity: raw !== undefined ? parseQuantity(raw) : e.row.decided_quantity === null ? null : Number(e.row.decided_quantity),
+        quantityUnit: unitEdits[e.row.item_id]?.unitCode ?? e.extra?.decidedUnitCode ?? e.row.unit_code,
+        draft: !f.nonPurchase && (raw !== undefined || unlockedIds.has(e.row.item_id) || Boolean(unitEdits[e.row.item_id])),
+        state: f.nonPurchase ? "Non acquistare" : e.kind === "pending" ? "Da valutare" : `${ITEM_STATUS_LABEL[e.row.status]}${f.ordered ? " · Già in ordine" : ""}`,
+        splits: (e.extra?.suppliers ?? []).map((p) => `${p.name} · ${p.purchaseQuantity === null ? "—" : qty(p.purchaseQuantity)} ${p.purchaseUnitCode ?? ""}`),
+      };
+    }),
+    ...availableCatalog.map((p): ShoppingPrintRow => ({ ...catalogFacts(p), stock: null, stockUnit: null,
+      quantity: parseQuantity(catalogValues[p.key]?.raw ?? ""), quantityUnit: catalogValues[p.key]?.unit ?? p.defaultUnit ?? p.unitCodes[0] ?? null,
+      draft: Boolean(catalogValues[p.key]?.raw.trim()) && !catalogNotBuying.has(p.key),
+      state: catalogNotBuying.has(p.key) ? "Non acquistare" : "Non in lista", splits: [],
+    })),
+  ], filters, sortBy);
+  const printFilterLabels = [
+    ...FILTER_GROUPS.flatMap(([, group]) => group).filter(([flag]) => flags.has(flag)).map(([, label]) => label),
+    ...(search.trim() ? [`Ricerca: ${search.trim()}`] : []), ...(category !== "all" ? [`Categoria: ${category}`] : []),
+    ...(supplierFilter !== "all" ? [`Fornitore: ${supplierOptions.find(([id]) => id === supplierFilter)?.[1] ?? "—"}`] : []),
+  ];
+
+  // Riepilogo sull'intera Lista (mai sui filtri): ogni prodotto in un solo stato; esclusi a parte.
   const summary = useMemo(() => {
     const s = summarizeRows(
       allRows.map((row) => factsFromRow(row, Boolean(extras.get(row.item_id)?.lockedAt), excludedQuery.data?.has(row.item_id) ?? false)),
@@ -1417,6 +1377,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   return (
     <div className="space-y-4 pb-24 max-md:-mt-2 max-md:space-y-2 lg:pb-16">
+      <ShoppingListPrintPreview open={printOpen} onOpenChange={setPrintOpen} rows={printRows} filters={printFilterLabels} title={list?.number ? `Lista della Spesa · ${list.number}` : "Lista della Spesa"} />
       {/* Cellulare (<768 px): testata compatta con gli stessi comandi. */}
       <div className="space-y-1.5 md:hidden">
         <div className="flex min-w-0 items-center gap-2">
@@ -1450,6 +1411,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               <DropdownMenuItem onSelect={() => changeViewMode("row")}>
                 <Rows3 className="mr-2 h-4 w-4" />Vista Righe{viewMode === "row" ? " ✓" : ""}
               </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setPrintOpen(true)}><Printer className="mr-2 h-4 w-4" />Stampa risultati</DropdownMenuItem>
               {list?.number ? (
                 <>
                   <DropdownMenuItem asChild>
@@ -1754,6 +1716,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               />
             </div>
             <div data-tour="spesa.filtri" aria-label="Filtri prodotti" className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible [&>*]:shrink-0">
+            <Button type="button" size="sm" variant="outline" className="hidden h-8 px-2 text-xs md:inline-flex" onClick={() => setPrintOpen(true)} disabled={catalog.loading}><Printer aria-hidden="true" />Stampa risultati</Button>
             {/* Il filtro Preferiti resta sempre visibile: un tocco lo accende, un altro lo spegne. */}
             <Button
               type="button"
@@ -2004,6 +1967,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                         value: !(entry.ownProductId && catalog.favorites.has(entry.ownProductId)),
                       })
                     }
+                    draftValue={catalogValues[entry.key]?.raw ?? ""}
+                    onQuantityChange={(raw, unit) => setCatalogValues((current) => ({ ...current, [entry.key]: { raw, unit } }))}
                     onDraftChange={(dirty) => setCatalogDrafts((current) => { const next = new Set(current); if (dirty) next.add(entry.key); else next.delete(entry.key); return next; })}
                     nonPurchase={catalogNotBuying.has(entry.key)}
                     onNonPurchase={() => setCatalogNotBuying((current) => new Set(current).add(entry.key))}
