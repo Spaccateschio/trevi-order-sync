@@ -9,7 +9,7 @@ describe("Avviso ORD della Lista", () => {
   it("include gli ordini inviati e parziali, ma non quelli completamente ricevuti o chiusi", () => {
     assert.deepEqual(bannerRules(true).statuses, ["inviato", "parzialmente_consegnato"]);
     for (const status of ["consegnato", "chiuso", "annullato", "bozza"]) {
-      assert.equal(bannerRules(true).statuses.includes(status), false);
+      assert.equal(bannerRules(true).statuses.some((pending) => pending === status), false);
     }
   });
   it("non permette di chiudere l'avviso pendente", () => {
