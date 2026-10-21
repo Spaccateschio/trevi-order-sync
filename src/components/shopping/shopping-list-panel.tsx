@@ -345,6 +345,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         : (lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null)),
     [lists, listId, linkedList, previewMode],
   );
+  // Le decisioni «Non acquistare» valgono per la lista corrente: cambiando lista ripartono da zero.
+  useEffect(() => { setCatalogNotBuying(new Set()); }, [list?.id]);
   const editable = list?.status === "aperta";
   const currentList =
     linkedList ?? lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null;
