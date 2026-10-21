@@ -1,20 +1,20 @@
-# Ripristinare il riferimento all’ordine nella Lista della Spesa
+# Articoli sempre visibili e nuovi acquisti senza attendere il ritiro
 
-## Diagnosi verificata
-La pagina si apre senza errori, ma appare vuota: i controlli e il riquadro inventario sono stati nascosti mentre c’è un ordine in attesa di ritiro. L’avviso ORD, invece, mostra soltanto gli ordini inviati nelle ultime 12 ore: trascorso quel tempo scompare anche lui. Le due condizioni non sono coerenti.
+## Risultato richiesto
+- Le card restano visibili anche senza una lista aperta e mentre altri ordini attendono il ritiro, rispettando Preferiti/Tutti e ricerca.
+- Non occorre premere «Nuova lista» solo per vedere gli articoli: si possono inserire le quantità del prossimo acquisto direttamente dalle card.
+- Dopo l'invio, gli articoli restano disponibili con quantità nuove da inserire: quelle dell'ordine precedente non vengono copiate né modificate.
+- L'avviso ORD resta visibile fino al ritiro, ma è soltanto un riferimento agli ordini precedenti, non un blocco per nuovi acquisti.
+- L'inventario resta facoltativo; il suo riquadro resta riapribile. Nessun ritorno dei testi rimossi.
 
-## Correzione proposta
-- Nella sola Lista della Spesa, mantenere visibile l’avviso degli ordini inviati o parzialmente consegnati fino alla conferma del ritiro, senza scadenza di 12 ore.
-- In questa modalità l’avviso non sarà chiudibile, per non lasciare nuovamente la pagina senza il riferimento ORD.
-- Conservare il comportamento attuale dell’avviso nelle altre pagine.
-- Lasciare nascosti il testo già rimosso e il riquadro inventario, che resta riapribile; non creare liste né modificare prodotti o ordini.
+## Integrità dei dati
+La lista già inviata resta immutabile. La visualizzazione delle card non crea liste automaticamente; al primo salvataggio esplicito del nuovo acquisto si utilizza la creazione della lista tramite i comandi già autorizzati. Nessuna nuova regola per ordini, ricezioni o conversioni.
 
-## File autorizzati per l’intervento
-- `src/components/purchase/sent-orders-banner.tsx`: modalità di visualizzazione fino al ritiro.
-- `src/routes/_authenticated/acquisti.lista-spesa.tsx`: attivazione della modalità soltanto nella Lista della Spesa.
-- `src/components/purchase/sent-orders-banner-state.ts`: regole condivise della modalità.
-- `src/components/purchase/sent-orders-banner-state.test.ts`: test degli ordini pendenti senza scadenza e del comportamento precedente nelle altre pagine.
-- `AGENTS.md`: documentazione della modalità condivisa.
+## File previsti
+- `src/components/shopping/shopping-list-panel.tsx`: togliere il blocco legato al ritiro e mostrare le card anche senza lista attiva, mantenendo i comandi esistenti.
+- `src/components/shopping/shopping-list-ready-state.ts`: stato condiviso degli articoli disponibili per un nuovo acquisto, separato dallo storico.
+- `src/components/shopping/shopping-list-ready-state.test.ts`: verificare disponibilità con ordini pendenti, quantità nuove senza copia delle precedenti e nessuna creazione alla sola apertura.
+- `src/components/shopping/AGENTS.md`: documentare la separazione tra card disponibili, nuova lista e ordini pendenti.
 
-## Verifica e limiti
-Verifica in sola lettura nell’anteprima sul cellulare e sul computer; nessuna conferma di ritiro, creazione lista, invio o modifica di dati reali. Nessuna migrazione, pubblicazione o modifica di roadmap.md.
+## Verifiche e limiti
+Test delle regole e controllo su cellulare e computer, con letture reali e simulazioni locali per le transizioni. Nessuna creazione di liste o ordini durante i controlli, nessun invio, ritiro o modifica di dati reali. Nessuna migrazione, pubblicazione o modifica di roadmap.md. Se i comandi esistenti richiedono interventi fuori dai file elencati, fermarsi e presentare l'integrazione prima di modificarli.
