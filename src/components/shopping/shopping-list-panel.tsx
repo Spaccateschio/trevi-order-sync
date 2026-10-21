@@ -200,6 +200,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [mobileOpenId, setMobileOpenId] = useState<string | null>(null);
   const confirmationGuard = useRef(createConfirmationGuard());
   const [catalogDrafts, setCatalogDrafts] = useState<Set<string>>(new Set());
+  // «Non acquistare» deciso con 0 + Conferma sulle card di catalogo: solo di pagina, riparte con ogni lista.
+  const [catalogNotBuying, setCatalogNotBuying] = useState<Set<string>>(new Set());
   const [splitItem, setSplitItem] = useState<OverviewRow | null>(null);
   // Quantità scritte sui prodotti «Da valutare», non ancora aggiunte alla Lista.
   const [evalValues, setEvalValues] = useState<Record<string, string>>({});
@@ -343,6 +345,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         : (lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null)),
     [lists, listId, linkedList, previewMode],
   );
+  // Le decisioni «Non acquistare» valgono per la lista corrente: cambiando lista ripartono da zero.
+  useEffect(() => { setCatalogNotBuying(new Set()); }, [list?.id]);
   const editable = list?.status === "aperta";
   const currentList =
     linkedList ?? lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null;
@@ -2001,6 +2005,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                       })
                     }
                     onDraftChange={(dirty) => setCatalogDrafts((current) => { const next = new Set(current); if (dirty) next.add(entry.key); else next.delete(entry.key); return next; })}
+                    nonPurchase={catalogNotBuying.has(entry.key)}
+                    onNonPurchase={() => setCatalogNotBuying((current) => new Set(current).add(entry.key))}
+                    onRestoreNonPurchase={() => setCatalogNotBuying((current) => { const next = new Set(current); next.delete(entry.key); return next; })}
                     onAdd={async (quantity, unitCode) => {
                       const added = await catalogActions.add.mutateAsync({ entry, quantity, unitCode });
                       setEdits((current) => ({ ...current, [added.itemId]: String(quantity) }));

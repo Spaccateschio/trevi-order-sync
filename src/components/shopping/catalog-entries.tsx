@@ -1,7 +1,7 @@
 import { ShoppingQuantityEditor } from "./shopping-quantity-editor";
 import { ShoppingMobileCard } from "./shopping-mobile-card";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { createConfirmationGuard } from "./shopping-quantity-state";
+import { catalogConfirmAction, createConfirmationGuard } from "./shopping-quantity-state";
 import { defaultUnitCode } from "@/lib/supplier-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -345,6 +345,10 @@ export function CatalogProductCard({
   onDraftChange,
   mobileOpen = false,
   onToggleMobile,
+  /** «Non acquistare» deciso con 0 + Conferma: solo di pagina, il prodotto resta fuori dalla Lista. */
+  nonPurchase = false,
+  onNonPurchase,
+  onRestoreNonPurchase,
 }: {
   entry: CatalogEntry;
   imageUrl: string | null;
@@ -358,6 +362,9 @@ export function CatalogProductCard({
   onDraftChange?: (dirty: boolean) => void;
   mobileOpen?: boolean;
   onToggleMobile?: () => void;
+  nonPurchase?: boolean;
+  onNonPurchase?: () => void;
+  onRestoreNonPurchase?: () => void;
 }) {
   const isMobile = useIsMobile();
   const [qty, setQty] = useState("");
@@ -366,11 +373,22 @@ export function CatalogProductCard({
   useEffect(() => { onDraftChange?.(qty.trim() !== ""); }, [qty]);
   useEffect(() => () => onDraftChange?.(false), []);
   const confirm = async () => {
-    if (!ready || quantity === null || !guard.current.start(entry.key)) return;
-    setConfirming(true);
-    try { await onAdd(quantity, unitCode); setQty(""); onDraftChange?.(false); if (mobileOpen) onToggleMobile?.(); }
-    catch { /* Mutation reports error; keep the typed quantity for retry. */ }
-    finally { guard.current.finish(entry.key); setConfirming(false); }
+    if (quantity === null || !guard.current.start(entry.key)) return;
+    try {
+      const action = catalogConfirmAction(quantity);
+      if (action === "non_acquistare") {
+        // 0 + Conferma = «Non acquistare»: nessuna riga scritta, la card resta fuori dalla Lista.
+        onNonPurchase?.();
+        setQty("");
+        if (mobileOpen) onToggleMobile?.();
+        return;
+      }
+      if (!ready) return;
+      setConfirming(true);
+      try { await onAdd(quantity, unitCode); setQty(""); onDraftChange?.(false); if (mobileOpen) onToggleMobile?.(); }
+      catch { /* Mutation reports error; keep the typed quantity for retry. */ }
+      finally { setConfirming(false); }
+    } finally { guard.current.finish(entry.key); }
   };
   const [unit, setUnit] = useState(entry.defaultUnit ?? entry.unitCodes[0] ?? "");
   const [manual, setManual] = useState("");
@@ -401,8 +419,14 @@ export function CatalogProductCard({
       <ImageOff className="size-4" aria-hidden="true" />
     </div>
   );
-  const controls = canAdd ? (
-    <ShoppingQuantityEditor editable ready={ready} busy={adding || confirming} name={name} onConfirm={() => void confirm()} input={<div className="flex min-w-0 items-center gap-1">
+  // 0 abilita «Conferma» solo per la decisione «Non acquistare»: l'aggiunta richiede sempre una quantità > 0.
+  const nonPurchaseBlock = nonPurchase ? (
+    <div className="flex items-center justify-between gap-2 text-xs"><span className="font-semibold text-muted-foreground">Non acquistare</span>
+      {onRestoreNonPurchase ? <Button size="sm" variant="outline" onClick={onRestoreNonPurchase}>Ripristina</Button> : null}
+    </div>
+  ) : null;
+  const controls = nonPurchase ? nonPurchaseBlock : canAdd ? (
+    <ShoppingQuantityEditor editable ready={ready || quantity === 0} busy={adding || confirming} name={name} onConfirm={() => void confirm()} input={<div className="flex min-w-0 items-center gap-1">
       <Input className="h-9 min-w-0 flex-1 text-right text-base font-bold" inputMode="decimal" placeholder="Q.tà" value={qty} aria-label={`Quantità ${entry.code}`} onChange={(e) => setQty(e.target.value)} disabled={confirming} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void confirm(); } }} />
       <Select value={unit} onValueChange={setUnit}>
         <SelectTrigger className="h-8 w-24 text-xs" aria-label={`U.M. acquisto ${entry.code}`}>
@@ -430,8 +454,8 @@ export function CatalogProductCard({
   if (isMobile && layout === "card" && onToggleMobile) {
     return <ShoppingMobileCard id={entry.key} name={name} open={mobileOpen} onToggle={onToggleMobile}
       locked={false} recheck={false} busy={adding || confirming}
-      header={<div className="flex min-w-0 items-start gap-2">{image}<div className="min-w-0 flex-1"><p className="break-words font-display text-base font-bold uppercase leading-tight">{name}</p><Badge variant="outline" className="mt-0.5 text-[10px]">Non in lista</Badge></div>{star}</div>}
-      summary={<span className="text-base font-bold">Da acquistare {quantity === null ? "—" : `${quantity} ${unitCode ?? ""}`}</span>}
+      header={<div className="flex min-w-0 items-start gap-2">{image}<div className="min-w-0 flex-1"><p className="break-words font-display text-base font-bold uppercase leading-tight">{name}</p><Badge variant="outline" className="mt-0.5 text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge></div>{star}</div>}
+      summary={<span className="text-base font-bold">{nonPurchase ? "Non acquistare" : `Da acquistare ${quantity === null ? "—" : `${quantity} ${unitCode ?? ""}`}`}</span>}
       supplier={<span>Fornitore: {supplier}</span>} suggested={null} warnings={null}>
       <p className="text-xs text-muted-foreground">{meta}</p>{controls}
     </ShoppingMobileCard>;
@@ -446,7 +470,7 @@ export function CatalogProductCard({
           <p className="truncate text-muted-foreground">{meta}</p>
           <p className="truncate text-muted-foreground">{supplier}{entry.isB2b ? " · catalogo B2B" : ""}</p>
         </div>
-        <Badge variant="outline" className="text-[10px]">Non in lista</Badge>
+        <Badge variant="outline" className="text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge>
         {star}
         {controls}
       </article>
@@ -463,7 +487,7 @@ export function CatalogProductCard({
         </div>
         {star}
       </div>
-      <Badge variant="outline" className="w-fit text-[10px]">Non in lista</Badge>
+      <Badge variant="outline" className="w-fit text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge>
       {controls}
     </article>
   );

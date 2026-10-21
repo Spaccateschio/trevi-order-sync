@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
+import { catalogConfirmAction, confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 
 describe("conferma esplicita quantità Lista", () => {
   it("usa l'ultimo valore scritto anziché la quantità salvata", () => {
@@ -25,4 +25,10 @@ describe("conferma esplicita quantità Lista", () => {
     guard.finish("p1");
     assert.equal(guard.start("p1"), true);
   });
+});
+
+describe("card di catalogo: 0 + Conferma", () => {
+  it("zero + Conferma decide «Non acquistare» senza scrivere righe", () => assert.equal(catalogConfirmAction(0), "non_acquistare"));
+  it("quantità positiva aggiunge il prodotto alla Lista", () => assert.equal(catalogConfirmAction(2), "add"));
+  it("campo vuoto o testo non valido non decide nulla", () => assert.equal(catalogConfirmAction(null), null));
 });

@@ -11,6 +11,13 @@ export function quantityHasDraft(raw: string | undefined, saved: number | null):
   return parseQuantity(raw) !== saved;
 }
 
+/** Card di catalogo non ancora in Lista: cosa fa «Conferma» con la quantità scritta.
+ *  0 = «Non acquistare» (nessuna riga scritta), > 0 = aggiunta alla Lista, vuoto = nessuna decisione. */
+export function catalogConfirmAction(quantity: number | null): "add" | "non_acquistare" | null {
+  if (quantity === null) return null;
+  return quantity > 0 ? "add" : "non_acquistare";
+}
+
 /** Synchronous guard: a second click cannot start a second write before React updates. */
 export function createConfirmationGuard() {
   const running = new Set<string>();
