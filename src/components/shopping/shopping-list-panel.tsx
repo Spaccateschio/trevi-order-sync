@@ -159,6 +159,11 @@ function B2BBadge() {
 /** Lista della Spesa operativa: suggerito e deciso separati, residuo sempre visibile. */
 const EMPTY_SET = new Set<string>();
 
+// «Storico liste» non compare più nelle barre azioni (né cellulare né computer), così
+// ricerca e card salgono subito. Le liste non sono cancellate: la finestra resta montata
+// e si apre ancora dallo stato «Nessuna lista in corso», e le stampe sono invariate.
+const SHOW_HISTORY_IN_ACTION_BARS = false;
+
 export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
   const runList = useServerFn(manageShoppingList);
@@ -1465,9 +1470,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               Chiudi lista
             </Button>
           ) : null}
-          <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setHistoryOpen(true)}>
-            Storico liste
-          </Button>
+          {SHOW_HISTORY_IN_ACTION_BARS ? (
+            <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setHistoryOpen(true)}>
+              Storico liste
+            </Button>
+          ) : null}
           {list ? (
             <Button
               type="button"
@@ -1558,9 +1565,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               </Button>
             </>
           ) : null}
-          <Button type="button" size="sm" variant="outline" data-tour="spesa.storico" onClick={() => setHistoryOpen(true)}>
-            Storico liste
-          </Button>
+          {SHOW_HISTORY_IN_ACTION_BARS ? (
+            <Button type="button" size="sm" variant="outline" data-tour="spesa.storico" onClick={() => setHistoryOpen(true)}>
+              Storico liste
+            </Button>
+          ) : null}
           {list ? (
             <Button
               type="button"
