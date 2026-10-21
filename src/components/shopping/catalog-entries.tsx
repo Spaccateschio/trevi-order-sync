@@ -345,6 +345,10 @@ export function CatalogProductCard({
   onDraftChange,
   mobileOpen = false,
   onToggleMobile,
+  /** «Non acquistare» deciso con 0 + Conferma: solo di pagina, il prodotto resta fuori dalla Lista. */
+  nonPurchase = false,
+  onNonPurchase,
+  onRestoreNonPurchase,
 }: {
   entry: CatalogEntry;
   imageUrl: string | null;
@@ -358,6 +362,9 @@ export function CatalogProductCard({
   onDraftChange?: (dirty: boolean) => void;
   mobileOpen?: boolean;
   onToggleMobile?: () => void;
+  nonPurchase?: boolean;
+  onNonPurchase?: () => void;
+  onRestoreNonPurchase?: () => void;
 }) {
   const isMobile = useIsMobile();
   const [qty, setQty] = useState("");
