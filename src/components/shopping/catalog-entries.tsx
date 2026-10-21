@@ -418,8 +418,14 @@ export function CatalogProductCard({
       <ImageOff className="size-4" aria-hidden="true" />
     </div>
   );
-  const controls = canAdd ? (
-    <ShoppingQuantityEditor editable ready={ready} busy={adding || confirming} name={name} onConfirm={() => void confirm()} input={<div className="flex min-w-0 items-center gap-1">
+  // 0 abilita «Conferma» solo per la decisione «Non acquistare»: l'aggiunta richiede sempre una quantità > 0.
+  const nonPurchaseBlock = nonPurchase ? (
+    <div className="flex items-center justify-between gap-2 text-xs"><span className="font-semibold text-muted-foreground">Non acquistare</span>
+      {onRestoreNonPurchase ? <Button size="sm" variant="outline" onClick={onRestoreNonPurchase}>Ripristina</Button> : null}
+    </div>
+  ) : null;
+  const controls = nonPurchase ? nonPurchaseBlock : canAdd ? (
+    <ShoppingQuantityEditor editable ready={ready || quantity === 0} busy={adding || confirming} name={name} onConfirm={() => void confirm()} input={<div className="flex min-w-0 items-center gap-1">
       <Input className="h-9 min-w-0 flex-1 text-right text-base font-bold" inputMode="decimal" placeholder="Q.tà" value={qty} aria-label={`Quantità ${entry.code}`} onChange={(e) => setQty(e.target.value)} disabled={confirming} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void confirm(); } }} />
       <Select value={unit} onValueChange={setUnit}>
         <SelectTrigger className="h-8 w-24 text-xs" aria-label={`U.M. acquisto ${entry.code}`}>
