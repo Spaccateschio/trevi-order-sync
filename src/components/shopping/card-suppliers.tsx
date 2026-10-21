@@ -740,7 +740,7 @@ export function CardSuppliers({
       canWrite && !mutation.isPending && !b2bBlocked && (packs ?? 0) > 0 && (isManual ? code.length > 0 : Boolean(chosen)) && (!belowMin || draft.accepted);
 
     return (
-      <li key={s.linkId} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
+      <li key={s.linkId} className="space-y-1 rounded-sm border border-border px-1.5 max-md:py-0.5 py-1">
         <div className="flex min-w-0 items-center gap-1 text-xs">
           {!pending ? (
             <Checkbox
@@ -920,7 +920,7 @@ export function CardSuppliers({
     const editingAssignment = orphanEditing && orphanEditing.id === a.id ? orphanEditing : null;
     const editPacks = editingAssignment ? parseQuantity(editingAssignment.quantity) : null;
     return (
-      <li key={a.id} className="space-y-1 rounded-sm border border-border px-1.5 py-1">
+      <li key={a.id} className="space-y-1 rounded-sm border border-border px-1.5 max-md:py-0.5 py-1">
         <div className="flex min-w-0 items-center gap-1 text-xs">
           <span className="min-w-0 flex-1 truncate font-semibold">{a.name}</span>
           {show.b2b && a.isB2B ? <B2BBadge /> : null}
