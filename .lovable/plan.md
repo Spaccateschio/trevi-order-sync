@@ -1,28 +1,36 @@
-# Articoli sempre visibili e nuovi acquisti senza attendere il ritiro
+# Lista della Spesa: filtri coerenti e stampa dei risultati
 
-## Risultato richiesto
-- Le card restano visibili anche senza una lista aperta e mentre altri ordini attendono il ritiro, rispettando Preferiti/Tutti e ricerca.
-- Non occorre premere «Nuova lista» solo per vedere gli articoli: si possono inserire le quantità del prossimo acquisto direttamente dalle card.
-- Dopo l'invio, gli articoli restano disponibili con quantità nuove da inserire: quelle dell'ordine precedente non vengono copiate né modificate.
-- L'avviso ORD resta visibile fino al ritiro, ma è soltanto un riferimento agli ordini precedenti, non un blocco per nuovi acquisti.
-- L'inventario resta facoltativo; il suo riquadro resta riapribile. Nessun ritorno dei testi rimossi.
+## Problemi verificati
+- Alcuni filtri nascondono automaticamente tutti i prodotti non ancora in Lista, anziché verificarne le condizioni.
+- «Senza fornitore» e B2B/Non B2B non usano criteri uniformi tra prodotti in Lista e prodotti disponibili.
+- Le categorie selezionabili non includono quelle presenti solo nei prodotti disponibili fuori Lista.
+- Selezionare insieme alcuni stati opposti richiede entrambe le condizioni, producendo risultati vuoti.
+- La stampa attuale è una fotografia storica di ordini e acquisti diretti: non riceve i filtri della pagina ed è disponibile solo per liste numerate.
 
-## Integrità dei dati
-La lista già inviata resta immutabile. La visualizzazione delle card non crea liste automaticamente; al primo salvataggio esplicito del nuovo acquisto si utilizza la creazione della lista tramite i comandi già autorizzati. Nessuna nuova regola per ordini, ricezioni o conversioni.
+## Correzione proposta, solo in anteprima
+1. Uniformare ricerca, categoria, fornitore, Preferiti, B2B/Non B2B e gli stati delle card. Nessun prodotto escluso soltanto perché fuori Lista: ogni filtro verifica condizioni effettivamente disponibili. Gli stati di assegnazione e ordine continuano a provenire dai dati esistenti, senza inventare quote o ordini per i prodotti fuori Lista.
+2. Nello stesso insieme di stati alternativi, selezionare più opzioni significa mostrarne l'unione; gruppi diversi, categoria, fornitore e ricerca si combinano restringendo i risultati. Preferiti rimane attivo all'ingresso come ora.
+3. Includere nelle categorie anche quelle dei prodotti disponibili fuori Lista; mantenere azzeramento filtri e ordinamento.
+4. Rendere disponibile «Stampa risultati» anche senza una lista aperta o numerata, su cellulare e computer, senza far ricomparire Storico liste o i collegamenti rimossi.
+5. Aprire un'anteprima di stampa con tutti i prodotti corrispondenti ai filtri attuali, nello stesso ordine della pagina, anche oltre il limite di caricamento iniziale di 60 card. Mostrare filtri applicati, numero risultati e dati pertinenti: prodotto, codice, categoria, giacenza e U.M., quantità da acquistare e U.M., stato, fornitori e ripartizioni ove disponibili. Dati mancanti restano «—», mai zero inventato; quantità locali non confermate restano distinguibili dalle quantità salvate. Nessun totale economico.
+6. Conservare la stampa storica delle liste e degli acquisti diretti: non modificarne fotografie, ordini o dati.
 
-## File previsti
-- `src/components/shopping/shopping-list-panel.tsx`: togliere il blocco legato al ritiro e mostrare le card anche senza lista attiva, mantenendo i comandi esistenti.
-- `src/components/shopping/catalog-entries.tsx` (integrazione da approvare): le card dei prodotti non ancora in lista usano questo file; mantenere anche per loro la vista compatta sul cellulare, l'apertura singola e la conferma esplicita. Gli articoli B2B continuano a usare il percorso esistente di aggiunta, senza copie alla sola visualizzazione.
-- `src/components/shopping/shopping-list-ready-state.ts`: stato condiviso degli articoli disponibili per un nuovo acquisto, separato dallo storico.
-- `src/components/shopping/shopping-list-ready-state.test.ts`: verificare disponibilità con ordini pendenti, quantità nuove senza copia delle precedenti e nessuna creazione alla sola apertura.
-- `src/components/shopping/AGENTS.md`: documentare la separazione tra card disponibili, nuova lista e ordini pendenti.
+## File autorizzabili
+- `src/components/shopping/shopping-list-panel.tsx`: collegamento dei filtri condivisi, categorie complete e comando/anteprima stampa.
+- `src/components/shopping/catalog-entries.tsx`: dati di presentazione necessari a filtri e stampa, senza modificare i percorsi di conferma o acquisto.
+- `src/components/shopping/shopping-list-filters.ts` (nuovo): regole pure di selezione e ordinamento comuni.
+- `src/components/shopping/shopping-list-filters.test.ts` (nuovo): test concreti dei filtri singoli e combinati, inclusi prodotti fuori Lista.
+- `src/components/shopping/shopping-list-print-preview.tsx` (nuovo): anteprima e stampa dei risultati filtrati, separata dalla stampa storica.
+- `src/components/shopping/shopping-list-print-data.ts` e `.test.ts` (nuovi): preparazione e verifica del contenuto completo stampabile, senza limite delle card.
+- `src/components/shopping/AGENTS.md`: documentare l'uso della stessa selezione per pagina e stampa.
 
-## Verifiche e limiti
-Test delle regole e controllo su cellulare e computer, con letture reali e simulazioni locali per le transizioni. Nessuna creazione di liste o ordini durante i controlli, nessun invio, ritiro o modifica di dati reali. Nessuna migrazione, pubblicazione o modifica di roadmap.md. Se i comandi esistenti richiedono interventi fuori dai file elencati, fermarsi e presentare l'integrazione prima di modificarli.
+## Verifiche
+- Test di ogni filtro e delle combinazioni significative, risultati vuoti e azzeramento; confronto degli identificativi dei prodotti filtrati e stampati.
+- Verifica con oltre 60 prodotti di prova locali: nessun risultato omesso dalla stampa.
+- Controllo della pagina e anteprima stampabile su cellulare e computer, con letture autorizzate e dati di prova locali, senza salvare quantità o inviare ordini.
+- Controllo che stampa e filtri non creino liste, non confermino quantità e non cambino l'avviso ORD.
 
-## Analisi effettuata prima dell'intervento
-- Il pannello nasconde l'area prodotti quando non esiste una lista e il riquadro inventario non è aperto; inoltre disattiva il caricamento dei prodotti disponibili fuori da lista/inventario. Non basta rimettere il pulsante «Nuova lista».
-- La creazione al salvataggio deve distinguere la nuova lista ordinaria dalla lista collegata all'inventario: il percorso attuale `ensureInventoryList` richiede una sessione d'inventario e non è adatto a un nuovo acquisto indipendente.
-- Le definizioni effettive di `manage_shopping_list` e `generate_supplier_order` non impongono l'attesa di ricezione degli ordini precedenti; la generazione blocca e verifica la lista corrente e usa una chiave per evitare duplicati, non il fornitore globalmente.
-- La chiusura automatica della lista verifica la copertura degli acquisti e l'assenza di bozze; non richiede che gli ordini inviati siano ricevuti. Nessuna modifica SQL proposta.
-- Le quantità nuove sono inizialmente vuote, equivalenti a nessun acquisto: nessun INSERT/UPDATE con quantità zero, nessun azzeramento delle righe precedenti.
+## Limiti
+Nessuna modifica a database, dati reali, permessi, regole di acquisto, ordini, ritiri, numerazioni o stampa storica. Nessuna migrazione, pubblicazione o modifica a `roadmap.md`. Se servono file ulteriori, fermarsi e proporre l'integrazione.
+
+Attendere approvazione prima di implementare.
