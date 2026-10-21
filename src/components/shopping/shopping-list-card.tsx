@@ -409,7 +409,7 @@ export function ShoppingListCard({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-9 w-7 shrink-0 px-0 text-muted-foreground"
+          className="h-9 max-md:h-8 w-7 shrink-0 px-0 text-muted-foreground"
           aria-label={`Cancella la quantità da acquistare di ${name}`}
           title="Cancella la quantità"
           disabled={editLocked || lockPending}
@@ -430,7 +430,7 @@ export function ShoppingListCard({
             if (option) onUnitChange(option.unitId, option.code);
           }}
         >
-          <SelectTrigger className="h-9 w-auto min-w-16 max-w-28 shrink-0 px-2 text-xs font-semibold" aria-label={`U.M. da acquistare ${name}`}>
+          <SelectTrigger className="h-9 max-md:h-8 w-auto min-w-16 max-w-28 shrink-0 px-2 text-xs font-semibold" aria-label={`U.M. da acquistare ${name}`}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-60 overflow-y-auto">
@@ -582,14 +582,14 @@ export function ShoppingListCard({
       </span>}
       supplier={show.suppliers && !excluded ? <span className="min-w-0 break-words">Fornitore: <span className="font-medium text-foreground">{suppliers[0]?.name ?? "—"}{suppliers.length > 1 ? ` + ${suppliers.length - 1}` : ""}</span></span> : null}
       suggested={show.suggested && suggested != null && suggested > 0 ? <span>Suggerita {qty(suggested)} {unit}</span> : null}>
-      {show.code || show.category ? <p className="text-xs text-muted-foreground">{[show.code ? row.code : null, show.category ? extra?.category : null].filter(Boolean).join(" · ")}</p> : null}
-      {show.lastCount ? <p className="text-xs text-muted-foreground">Ult. conteggio {stock?.lastQuantity != null ? `${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}` : "—"}</p> : null}
+      {show.code || show.category ? <p className="max-md:text-[10px] text-xs text-muted-foreground">{[show.code ? row.code : null, show.category ? extra?.category : null].filter(Boolean).join(" · ")}</p> : null}
+      {show.lastCount ? <p className="max-md:text-[10px] text-xs text-muted-foreground">Ult. conteggio {stock?.lastQuantity != null ? `${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}` : "—"}</p> : null}
       {excluded ? excludedBlock : show.toBuy ? <ShoppingQuantityEditor input={quantityBlock} details={<>{unitFixBlock}{equivalentNote}</>}
         editable={editable} locked={locked} busy={lockPending || saving} ready={confirmTarget !== null && confirmTarget >= 0}
-        name={name} onConfirm={onToggleLock} quick={show.quick ? quickButtons("h-8") : null} /> : null}
+        name={name} onConfirm={onToggleLock} quick={show.quick ? quickButtons("h-8 max-md:h-7") : null} /> : null}
       {show.lockDate ? lockNote : null}
       {memoryLine}
-      {show.suppliers && !excluded ? <div className="space-y-1 border-t border-border pt-1.5">{splitSummary}{show.splits ? totals : null}{orderState}</div> : null}
+      {show.suppliers && !excluded ? <div className="space-y-1 border-t border-border pt-1.5 max-md:pt-1">{splitSummary}{show.splits ? totals : null}{orderState}</div> : null}
     </ShoppingMobileCard>;
   }
 

@@ -985,7 +985,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     {savedEvaluations.get(row.product_id)?.status === "non_acquistare" ? null : (
     <Input
       onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void confirmPending(row); } }}
-      className="h-9 min-w-0 flex-1 text-right text-base font-bold"
+      className="h-9 max-md:h-8 min-w-0 flex-1 text-right text-base max-md:text-sm font-bold"
       inputMode="decimal"
       placeholder="—"
       disabled={!(editable || previewMode)}
@@ -2021,7 +2021,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 stock={stock}
                 editable={Boolean(editable)}
                 listConfirmed={list?.status === "confermata"}
-                quantityInput={quantityInput(row, "h-9 min-w-0 flex-1 text-right text-base font-bold")}
+                quantityInput={quantityInput(row, "h-9 max-md:h-8 min-w-0 flex-1 text-right text-base max-md:text-sm font-bold")}
                 favoritePending={favoriteMutation.isPending}
                 onToggleFavorite={() =>
                   favoriteMutation.mutate({ productId: row.product_id, favorite: !extras.get(row.item_id)?.isFavorite })

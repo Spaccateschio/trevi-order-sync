@@ -150,7 +150,7 @@ export function AddSupplierInline({
 
   if (!open) {
     return (
-      <Button type="button" size="sm" variant="outline" className="h-8 w-full px-2 text-xs" onClick={() => setOpen(true)}>
+      <Button type="button" size="sm" variant="outline" className="h-8 max-md:h-7 w-full px-2 text-xs" onClick={() => setOpen(true)}>
         <Plus aria-hidden="true" /> Aggiungi fornitore
       </Button>
     );
