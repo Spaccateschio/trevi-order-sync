@@ -249,7 +249,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       return (data?.length ?? 0) > 0;
     },
   });
-  const pendingPickup = pendingPickupQuery.data ?? false;
+  // Finché la lettura non è conclusa trattiamo l'ordine come pendente: niente lampeggi di «Nuova lista».
+  const pendingPickup = pendingPickupQuery.isPending ? true : (pendingPickupQuery.data ?? false);
   const [showInventoryEvaluation, setShowInventoryEvaluation] = useState(false);
 
   const lists = listsQuery.data ?? [];
