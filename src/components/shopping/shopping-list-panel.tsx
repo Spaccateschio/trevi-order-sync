@@ -1686,15 +1686,10 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       ) : null}
 
       {evaluating && cycle && (!list || list.id === linkedList?.id) ? (
-        pendingPickup && !showInventoryEvaluation ? (
-          <button
-            type="button"
-            className="self-start text-xs text-muted-foreground underline"
-            onClick={() => setShowInventoryEvaluation(true)}
-          >
-            Da inventario — mostra il riquadro
-          </button>
-        ) : (
+        // Il collegamento «Da inventario — mostra il riquadro» non è più mostrato, né su
+        // cellulare né su computer: il riquadro compare da solo quando non restano ordini
+        // in attesa di ritiro. L'interruttore showInventoryEvaluation resta al suo posto.
+        pendingPickup && !showInventoryEvaluation ? null : (
           <InventoryEvaluation
             companyId={companyId}
             cycle={cycle}
