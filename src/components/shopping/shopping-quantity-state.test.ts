@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
+import { catalogConfirmAction, confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 
 describe("conferma esplicita quantità Lista", () => {
   it("usa l'ultimo valore scritto anziché la quantità salvata", () => {
