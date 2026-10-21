@@ -35,11 +35,11 @@
 - Never alter real operational data in tests, even temporarily. Writes require rollback or explicitly authorized test data.
 - 3 EMME ROMA SRL è l'azienda di prova: Andrea può fare collaudi manuali dall'app in anteprima. Mai prove su trevi srl o su altre aziende reali. Nessun invio reale ai fornitori durante i collaudi.
 
-- Read nested AGENTS.md before edits, including src/lib/AGENTS.md for server logic.
+- Read nested AGENTS.md before edits, including src/lib/AGENTS.md for server logic. Shopping banner untilPickup polls receipt-open orders and syncs panel cache; other pages stay recent/dismissible.
 
 - Ordini: mai totali in euro; prezzo indicativo fino allo scarico Danea (listino del cliente in quel momento).
 - Area piattaforma (/piattaforma): team interno in platform_team_members con permessi per sezione; super admin gestisce il team via manage_platform_team_member; letture cross-azienda solo in sola lettura via supabaseAdmin dopo is_platform_admin; ogni azione va in platform_audit_log; mai modificare dati delle aziende clienti.
-- Prove valide solo con ruolo e strada reali (app: utente authenticated; Danea: indirizzo pubblico con postazione); SQL interno o privilegi superiori non contano come superate. Prove sugli indirizzi Danea reali solo con autorizzazione esplicita dell'utente.
+- Tests require real roles/paths (app authenticated; Danea public endpoint/station), never privileged SQL. Real Danea calls require explicit authorization.
 - Ordini già scaricati da Danea intoccabili: niente ricalcolo prezzi, storico retroattivo o cambio stato; il riscarico senza storico usa la logica precedente (test con danea-orders-xml.legacy.ts).
 - Clarify closed-list undo errors via RLS reads after RPC rejection; SQL guards remain unchanged.
 - Mockups: isolated React state only. Platform bell uses caller-owned items/actions; read state never changes request status.

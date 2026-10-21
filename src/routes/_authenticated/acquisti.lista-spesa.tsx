@@ -46,7 +46,7 @@ function ListaSpesa() {
       title="Lista della Spesa"
       guide="lista-spesa"
     >
-      {company ? <SentOrdersBanner companyId={company.companyId} measuredScroll /> : null}
+      {company ? <SentOrdersBanner companyId={company.companyId} measuredScroll untilPickup /> : null}
       {company ? <ShoppingListPanel companyId={company.companyId} /> : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
     </AppShell>
