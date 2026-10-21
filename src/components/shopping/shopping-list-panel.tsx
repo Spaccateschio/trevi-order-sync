@@ -200,6 +200,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [mobileOpenId, setMobileOpenId] = useState<string | null>(null);
   const confirmationGuard = useRef(createConfirmationGuard());
   const [catalogDrafts, setCatalogDrafts] = useState<Set<string>>(new Set());
+  // «Non acquistare» deciso con 0 + Conferma sulle card di catalogo: solo di pagina, riparte con ogni lista.
+  const [catalogNotBuying, setCatalogNotBuying] = useState<Set<string>>(new Set());
   const [splitItem, setSplitItem] = useState<OverviewRow | null>(null);
   // Quantità scritte sui prodotti «Da valutare», non ancora aggiunte alla Lista.
   const [evalValues, setEvalValues] = useState<Record<string, string>>({});
