@@ -373,11 +373,21 @@ export function CatalogProductCard({
   useEffect(() => { onDraftChange?.(qty.trim() !== ""); }, [qty]);
   useEffect(() => () => onDraftChange?.(false), []);
   const confirm = async () => {
-    if (!ready || quantity === null || !guard.current.start(entry.key)) return;
-    setConfirming(true);
-    try { await onAdd(quantity, unitCode); setQty(""); onDraftChange?.(false); if (mobileOpen) onToggleMobile?.(); }
-    catch { /* Mutation reports error; keep the typed quantity for retry. */ }
-    finally { guard.current.finish(entry.key); setConfirming(false); }
+    if (quantity === null || !guard.current.start(entry.key)) return;
+    try {
+      if (quantity === 0) {
+        // 0 + Conferma = «Non acquistare»: nessuna riga scritta, la card resta fuori dalla Lista.
+        onNonPurchase?.();
+        setQty("");
+        if (mobileOpen) onToggleMobile?.();
+        return;
+      }
+      if (!ready) return;
+      setConfirming(true);
+      try { await onAdd(quantity, unitCode); setQty(""); onDraftChange?.(false); if (mobileOpen) onToggleMobile?.(); }
+      catch { /* Mutation reports error; keep the typed quantity for retry. */ }
+      finally { setConfirming(false); }
+    } finally { guard.current.finish(entry.key); }
   };
   const [unit, setUnit] = useState(entry.defaultUnit ?? entry.unitCodes[0] ?? "");
   const [manual, setManual] = useState("");
