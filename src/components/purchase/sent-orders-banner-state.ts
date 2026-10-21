@@ -1,5 +1,5 @@
 export const SENT_ORDER_WINDOW_HOURS = 12;
-export const PENDING_RECEIPT_STATUSES = ["inviato", "parzialmente_consegnato"];
+export const PENDING_RECEIPT_STATUSES: Array<"inviato" | "parzialmente_consegnato"> = ["inviato", "parzialmente_consegnato"];
 export const PENDING_RECEIPT_REFRESH_MS = 15_000;
 
 export function pendingPickupKey(companyId: string) {
@@ -8,7 +8,7 @@ export function pendingPickupKey(companyId: string) {
 
 export function bannerRules(untilPickup: boolean, now = Date.now()) {
   return {
-    statuses: untilPickup ? PENDING_RECEIPT_STATUSES : ["inviato"],
+    statuses: untilPickup ? PENDING_RECEIPT_STATUSES : (["inviato"] as Array<"inviato" | "parzialmente_consegnato">),
     since: untilPickup ? null : new Date(now - SENT_ORDER_WINDOW_HOURS * 3_600_000).toISOString(),
     dismissible: !untilPickup,
     refreshMs: untilPickup ? PENDING_RECEIPT_REFRESH_MS : 60_000,
