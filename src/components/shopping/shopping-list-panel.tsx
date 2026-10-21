@@ -1968,7 +1968,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                       })
                     }
                     draftValue={catalogValues[entry.key]?.raw ?? ""}
-                    draftUnit={catalogValues[entry.key]?.unit}
+                    draftUnit={catalogValues[entry.key]?.unit ?? null}
                     onQuantityChange={(raw, unit) => setCatalogValues((current) => ({ ...current, [entry.key]: { raw, unit } }))}
                     onDraftChange={(dirty) => setCatalogDrafts((current) => { const next = new Set(current); if (dirty) next.add(entry.key); else next.delete(entry.key); return next; })}
                     nonPurchase={catalogNotBuying.has(entry.key)}
