@@ -55,6 +55,8 @@ export type CatalogEntry = {
   /** Solo U.M. pubblicate dal venditore: niente «Altra U.M.». */
   unitsLocked: boolean;
   isB2b: boolean;
+  hasNonB2b: boolean;
+  hasB2b: boolean;
 };
 
 export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId: string; archiveId: string; enabled: boolean }) {
@@ -140,6 +142,7 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
     for (const link of linksQuery.data ?? []) if (link.is_active && link.b2b_item_id) b2bOf.set(link.product_id, link.b2b_item_id);
     const byProduct = new Map<string, { ids: Set<string>; names: Set<string>; units: Set<string> }>();
     for (const link of linksQuery.data ?? []) {
+      if (!link.is_active) continue;
       const e = byProduct.get(link.product_id) ?? { ids: new Set<string>(), names: new Set<string>(), units: new Set<string>() };
       if (link.supplier_record_id) e.ids.add(link.supplier_record_id);
       if (link.supplier_records?.legal_name) e.names.add(link.supplier_records.legal_name);
@@ -152,7 +155,8 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
       if (p.danea_um) units.add(p.danea_um);
       for (const c of l?.units ?? []) units.add(c);
       // Prodotto proprio collegato a un articolo B2B: valgono solo le U.M. pubblicate dal venditore.
-      const pub = b2bOf.has(p.id) ? published.get(b2bOf.get(p.id)!) : undefined;
+      const b2bId = b2bOf.get(p.id);
+      const pub = b2bId ? published.get(b2bId) : undefined;
       const codes = pub && pub.codes.length ? pub.codes : [...units];
       return {
         key: `own:${p.id}`,
@@ -170,6 +174,8 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
         defaultUnit: pub && pub.codes.length ? pub.def || null : null,
         unitsLocked: Boolean(pub && pub.codes.length),
         isB2b: false,
+        hasB2b: b2bOf.has(p.id),
+        hasNonB2b: (linksQuery.data ?? []).some((l) => l.is_active && l.product_id === p.id && !l.b2b_item_id && Boolean(l.supplier_record_id)),
       };
     });
     const owned = new Set((productsQuery.data ?? []).map((p) => p.created_from_product_id).filter(Boolean));
@@ -193,17 +199,25 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
           defaultUnit: published.get(p.id)?.def || null,
           unitsLocked: true,
           isB2b: true,
+          hasB2b: true,
+          hasNonB2b: false,
         });
       }
     }
     return [...own, ...b2b];
   }, [productsQuery.data, linksQuery.data, cataloguesQuery.data]);
 
-  const favoriteIds = useMemo(() => (productsQuery.data ?? []).map((p) => p.id).sort().slice(0, 500), [productsQuery.data]);
+  const favoriteIds = useMemo(() => (productsQuery.data ?? []).map((p) => p.id).sort(), [productsQuery.data]);
   const favoritesQuery = useQuery({
     queryKey: ["shopping-extras-favorites", companyId, "add", favoriteIds],
     enabled: enabled && favoriteIds.length > 0,
-    queryFn: async () => new Set(await readFavorites({ data: { companyId, productIds: favoriteIds } })),
+    queryFn: async () => {
+      const ids = new Set<string>();
+      for (let i = 0; i < favoriteIds.length; i += 500) {
+        for (const id of await readFavorites({ data: { companyId, productIds: favoriteIds.slice(i, i + 500) } })) ids.add(id);
+      }
+      return ids;
+    },
   });
 
   return {
@@ -349,6 +363,9 @@ export function CatalogProductCard({
   nonPurchase = false,
   onNonPurchase,
   onRestoreNonPurchase,
+  draftValue,
+  draftUnit,
+  onQuantityChange,
 }: {
   entry: CatalogEntry;
   imageUrl: string | null;
@@ -365,9 +382,14 @@ export function CatalogProductCard({
   nonPurchase?: boolean;
   onNonPurchase?: () => void;
   onRestoreNonPurchase?: () => void;
+  draftValue?: string;
+  draftUnit?: string | null;
+  onQuantityChange?: (raw: string, unit: string | null) => void;
 }) {
   const isMobile = useIsMobile();
-  const [qty, setQty] = useState("");
+  const [localQty, setLocalQty] = useState(draftValue ?? "");
+  const qty = draftValue ?? localQty;
+  const setQty = (value: string) => { setLocalQty(value); onQuantityChange?.(value, unitCode); };
   const [confirming, setConfirming] = useState(false);
   const guard = useRef(createConfirmationGuard());
   useEffect(() => { onDraftChange?.(qty.trim() !== ""); }, [qty]);
@@ -390,10 +412,11 @@ export function CatalogProductCard({
       finally { setConfirming(false); }
     } finally { guard.current.finish(entry.key); }
   };
-  const [unit, setUnit] = useState(entry.defaultUnit ?? entry.unitCodes[0] ?? "");
-  const [manual, setManual] = useState("");
+  const [unit, setUnit] = useState(draftUnit ? entry.unitCodes.includes(draftUnit) ? draftUnit : MANUAL : entry.defaultUnit ?? entry.unitCodes[0] ?? "");
+  const [manual, setManual] = useState(draftUnit && !entry.unitCodes.includes(draftUnit) ? draftUnit : "");
   const quantity = parseQuantity(qty);
   const unitCode = unit === MANUAL ? manual.trim().toUpperCase() || null : unit || null;
+  useEffect(() => { onQuantityChange?.(qty, unitCode); }, [unitCode]);
   const ready = canAdd && Boolean(quantity && quantity > 0) && (unit !== MANUAL || Boolean(unitCode));
   const name = entry.description ?? entry.code;
   const supplier = catalogSupplierLabel(entry);
