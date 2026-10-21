@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { bannerRules, pendingPickupKey, SENT_ORDER_WINDOW_HOURS, visibleSentOrders } from "./sent-orders-banner-state";
 
-type SentOrder = { id: string; number: string | null; sent_at: string; supplier: string | null };
+type SentOrder = { id: string; number: string | null; sent_at: string | null; supplier: string | null };
 
 const DISMISS_KEY = "sent-orders-banner-dismissed";
-const WINDOW_HOURS = 12;
+const WINDOW_HOURS = SENT_ORDER_WINDOW_HOURS;
 
 function readDismissed(): Set<string> {
   try {
@@ -28,35 +29,51 @@ function readDismissed(): Set<string> {
  * Un solo banner sottile che scorre con l'ultimo ordine inviato dalla Lista della Spesa.
  * La freccia apre l'elenco degli altri ordini; la ✕ lo chiude (scelta salvata sul dispositivo).
  */
-export function SentOrdersBanner({ companyId, measuredScroll = false }: { companyId: string; measuredScroll?: boolean }) {
+export function SentOrdersBanner({ companyId, measuredScroll = false, untilPickup = false }: { companyId: string; measuredScroll?: boolean; untilPickup?: boolean }) {
+  const queryClient = useQueryClient();
+  const rules = bannerRules(untilPickup);
   const [dismissed, setDismissed] = useState<Set<string>>(() => (typeof window === "undefined" ? new Set() : readDismissed()));
   const [open, setOpen] = useState(false);
 
   const ordersQuery = useQuery({
-    queryKey: ["sent-orders-banner", companyId],
-    refetchInterval: 60 * 1000,
+    queryKey: untilPickup ? ["sent-orders-banner", companyId, "until-pickup"] : ["sent-orders-banner", companyId],
+    refetchInterval: rules.refreshMs,
+    refetchIntervalInBackground: untilPickup,
     queryFn: async () => {
-      const since = new Date(Date.now() - WINDOW_HOURS * 3600 * 1000).toISOString();
-      const { data, error } = await supabase
-        .from("purchase_orders")
-        .select("id, number, sent_at, supplier_records(legal_name)")
-        .eq("company_id", companyId)
-        .eq("status", "inviato")
-        .not("sent_at", "is", null)
-        .gte("sent_at", since)
-        .order("sent_at", { ascending: false })
-        .limit(20);
-      if (error) throw new Error(error.message);
-      return (data ?? []).map((row) => ({
-        id: row.id as string,
-        number: (row.number as string | null) ?? null,
-        sent_at: row.sent_at as string,
-        supplier: (row.supplier_records as { legal_name: string } | null)?.legal_name ?? null,
-      })) as SentOrder[];
+      const currentRules = bannerRules(untilPickup);
+      const orders: SentOrder[] = [];
+      const pageSize = 500;
+      for (let offset = 0; ; offset += pageSize) {
+        let query = supabase.from("purchase_orders")
+          .select("id, number, sent_at, supplier_records(legal_name)")
+          .eq("company_id", companyId)
+          .in("status", currentRules.statuses)
+          .order("sent_at", { ascending: false })
+          .order("id", { ascending: false });
+        if (currentRules.since) query = query.not("sent_at", "is", null).gte("sent_at", currentRules.since);
+        query = untilPickup ? query.range(offset, offset + pageSize - 1) : query.limit(20);
+        const { data, error } = await query;
+        if (error) throw new Error(error.message);
+        orders.push(...(data ?? []).map((row) => ({
+          id: row.id,
+          number: row.number,
+          sent_at: row.sent_at,
+          supplier: (row.supplier_records as { legal_name: string } | null)?.legal_name ?? null,
+        })));
+        if (!untilPickup || (data?.length ?? 0) < pageSize) break;
+      }
+      return orders;
     },
   });
 
-  const orders = useMemo(() => (ordersQuery.data ?? []).filter((order) => !dismissed.has(order.id)), [ordersQuery.data, dismissed]);
+  // Keep the panel's existing boolean query in sync; no panel changes or data writes.
+  useEffect(() => {
+    if (untilPickup && ordersQuery.isSuccess) {
+      queryClient.setQueryData(pendingPickupKey(companyId), (ordersQuery.data?.length ?? 0) > 0);
+    }
+  }, [companyId, untilPickup, ordersQuery.isSuccess, ordersQuery.data, ordersQuery.dataUpdatedAt, queryClient]);
+
+  const orders = useMemo(() => visibleSentOrders(ordersQuery.data ?? [], dismissed, untilPickup), [ordersQuery.data, dismissed, untilPickup]);
 
   useEffect(() => {
     if (!orders.length) setOpen(false);
@@ -107,7 +124,7 @@ export function SentOrdersBanner({ companyId, measuredScroll = false }: { compan
             </CollapsibleTrigger>
           </Collapsible>
         ) : null}
-        <Button
+        {rules.dismissible ? <Button
           type="button"
           variant="ghost"
           size="sm"
@@ -116,7 +133,7 @@ export function SentOrdersBanner({ companyId, measuredScroll = false }: { compan
           onClick={dismissAll}
         >
           <X className="size-3.5" aria-hidden="true" />
-        </Button>
+        </Button> : null}
       </div>
       {rest.length > 0 ? (
         <Collapsible open={open} onOpenChange={setOpen}>
