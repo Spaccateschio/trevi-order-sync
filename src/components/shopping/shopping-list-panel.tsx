@@ -1428,8 +1428,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       <div className="space-y-1.5">
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 flex-1 space-y-0.5 md:hidden">
-            <div className="flex min-w-0 items-center gap-1.5">
-                          </div>
             {list ? <div className="text-xs"><ListDeliveryDate companyId={companyId} list={list} editable={editable} /></div> : null}
           </div>
           <DropdownMenu>
@@ -2196,11 +2194,13 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           onCompleteQuantities={() => { setGenOpen(null); setMissingOpen(true); }}
           onGoToItem={(itemId) => {
             setGenOpen(null);
+            setListId(genMounted);
             setUnlockedIds((current) => unlockSelectedProduct(current, itemId));
             setMobileOpenId(itemId);
             revealItem(itemId);
           }}
           onGenerated={() => {
+            if (listId === NEXT_PURCHASE) return;
             ordinaryIdRef.current = null;
             setListId(NEXT_PURCHASE);
             setEdits({}); setUnitEdits({}); setUnlockedIds(new Set());

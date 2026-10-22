@@ -60,4 +60,14 @@ describe("nuovo acquisto indipendente dagli ordini precedenti", () => {
     const id = await resolveOrdinaryList("corrente", flight, async () => { throw new Error("non deve creare"); });
     assert.equal(id, "corrente");
   });
+  it("due acquisti consecutivi allo stesso fornitore hanno liste distinte e conservano 5 kg precedenti", async () => {
+    const previous = Object.freeze({ listId: "first", supplier: "supplier", quantity: 5 });
+    const flight = { current: null as Promise<string | null> | null };
+    const next = await resolveOrdinaryList(null, flight, async () => "second");
+    const repeated = await resolveOrdinaryList(next, flight, async () => { throw new Error("duplicate"); });
+    assert.equal(repeated, "second");
+    assert.notEqual(next, previous.listId);
+    assert.equal(previous.quantity, 5);
+    assert.equal(previous.supplier, "supplier");
+  });
 });

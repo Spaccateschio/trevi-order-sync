@@ -18,6 +18,9 @@ describe("lista mostrata e quantità salvate", () => {
     assert.notEqual(purchaseSelectionKey("a", "company"), purchaseSelectionKey("b", "company"));
     assert.notEqual(purchaseSelectionKey("a", "company"), purchaseSelectionKey("a", "other"));
   });
+  it("attende la nuova lista senza ricadere sui vecchi 5 kg durante l'aggiornamento", () => {
+    assert.equal(selectShoppingList([open, linked], "not-yet-refreshed", linked, true), null);
+  });
   it("inventario precedente pendente non nasconde la lista aperta con quantità 5", () => {
     const selected = selectShoppingList([closed, open], null, null, true);
     assert.equal(selected?.id, "new-purchase");
