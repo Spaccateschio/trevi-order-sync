@@ -1207,7 +1207,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   };
   const openGeneration = () => {
     if (overviewQuery.isFetching || excludedQuery.isFetching) { toast.info("Attendi l'aggiornamento della Lista"); return; }
-    // TEMP-VERIFY-GATE: if (completionEntries.length) { setMissingOpen(true); return; }
+    if (completionEntries.length) { setMissingOpen(true); return; }
     if (!canLeaveDrafts()) return;
     setGenMounted(list?.id ?? null);
     setGenOpen("genera");
