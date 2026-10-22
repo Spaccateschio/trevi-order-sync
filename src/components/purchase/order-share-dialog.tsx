@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { confirmNonB2bOrderShare, createOrderShareLink } from '@/lib/purchase.functions';
 import { SHARE_CHANNELS, shareHref, shareRecipientError, type ShareChannel } from '@/lib/order-sharing';
 import { orderShareText } from '@/components/shopping/generation-results';
+import { normalizeOrderShareLink, orderShareUrl } from '@/lib/order-share-url';
 
 type Link = { url: string; expiresAt: string };
 export function OrderShareDialog({ orderId, mode = 'first', onClose, onConfirmed, initialLink = null, onLink }: { orderId: string; mode?: 'first' | 'resend'; onClose: () => void; onConfirmed: (closed: boolean) => void | Promise<void>; initialLink?: Link | null; onLink?: (link: Link) => void }) {
@@ -40,9 +41,9 @@ export function OrderShareDialog({ orderId, mode = 'first', onClose, onConfirmed
   const email = emailEdit ?? d?.supplier.email ?? '';
   const phone = phoneEdit ?? d?.supplier.phone ?? '';
   const recipient = channel === 'email' ? email : ['whatsapp','sms','telefono'].includes(channel) ? phone : '';
-  const validLink = link && new Date(link.expiresAt).getTime() > Date.now() ? link : null;
+  const validLink = link && new Date(link.expiresAt).getTime() > Date.now() ? normalizeOrderShareLink(link) : null;
   const text = d ? orderShareText(d.order.number, d.supplier.legal_name, d.lines, validLink?.url ?? '', { date: d.order.delivery_date, from: d.order.delivery_time_from, to: d.order.delivery_time_to, address: d.order.delivery_address_text, notes: d.order.supplier_notes, lineNotes: d.lines.filter(l => l.notes?.trim()).map(l => `${l.product_name ?? ''}: ${l.notes}`) }) : '';
-  const share = useMutation({ mutationFn: () => makeLink({ data: { orderId, recipientLabel: d?.supplier.legal_name ?? null, validHours: 72, keepExisting: true } }), onSuccess: result => { const next = { url: `${window.location.origin}/consegna/${result.token}`, expiresAt: result.expiresAt }; setLink(next); onLink?.(next); setPerformed(false); }, onError: (e: Error) => toast.error(e.message) });
+  const share = useMutation({ mutationFn: () => makeLink({ data: { orderId, recipientLabel: d?.supplier.legal_name ?? null, validHours: 72, keepExisting: true } }), onSuccess: result => { const next = { url: orderShareUrl(result.token), expiresAt: result.expiresAt }; setLink(next); onLink?.(next); setPerformed(false); }, onError: (e: Error) => toast.error(e.message) });
   const save = useMutation({ mutationFn: () => { const error = shareRecipientError(channel,recipient); if(error) throw new Error(error); key.current ??= crypto.randomUUID(); return confirm({ data: { orderId, mode, channel, recipient: recipient.trim() || null, key: key.current } }); }, onSuccess: async result => { await onConfirmed(result.list_closed); onClose(); toast.success(mode==='resend' ? 'Reinvio confermato' : 'Ordine confermato come inviato'); }, onError: (e: Error) => toast.error(e.message) });
   const launch = async () => {
     const error = shareRecipientError(channel,recipient); if (error) { toast.error(error); return; }
