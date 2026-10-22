@@ -1,5 +1,9 @@
 # Roadmap
 
+## 22/10 — Lista: nuovi acquisti dopo invio (solo anteprima)
+- [ ] Nascondere intestazione e freccia su cellulare e computer; piano in preparazione.
+- [ ] Separare quantità nuove da ordini inviati, residui e bozze conservati; verificare fattibilità prima dell’intervento e attendere approvazione delle modifiche strutturali. Nessuna migrazione, scrittura operativa o pubblicazione.
+
 ## 19/10 — Progettazione esecutiva collaboratori 2A
 - [x] Preparare SQL integrale di protezioni, gestione e storico e inventario live di funzioni/policy che scrivono appartenenze e ruoli. Proposta completa: 1 writer diretto, 1 indiretto, 6 policy (4 di scrittura), verifica tecnica locale isolata; nessuna migrazione, assegnazione o scrittura operativa.
 - [ ] Applicazione 2A bloccata: attende approvazione SQL completo ed eccezione SECURITY INVOKER per i trigger antifalsificazione. Assegnazione titolare, collaudi reali e pubblicazione richiedono autorizzazioni separate.
