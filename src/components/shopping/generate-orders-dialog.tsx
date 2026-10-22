@@ -632,8 +632,20 @@ export function GenerateOrdersDialog({
                 <PopoverTrigger asChild>
                   <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label="Come funziona"><Info className="size-4" /></Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-72 text-xs font-normal">
-                  Gli ordini B2B partono subito tramite la piattaforma; gli altri si condividono e risultano inviati solo quando lo confermi. La Lista si chiude da sola quando tutto è stato gestito.
+                <PopoverContent className="w-80 max-w-[calc(100vw-2rem)] space-y-2 text-xs font-normal">
+                  <div className="space-y-0.5">
+                    <p className="font-semibold">Fornitori — ordini ORD</p>
+                    <p className="text-muted-foreground">Una card per ogni fornitore con le righe confermate: togli le righe che non vuoi o riduci le quantità, poi premi Genera. Il luogo e l'orario di consegna si impostano su ogni card.</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="font-semibold">Invio</p>
+                    <p className="text-muted-foreground">Gli ordini B2B partono subito tramite la piattaforma; gli altri si condividono e risultano inviati solo quando lo confermi.</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="font-semibold">Acquisto diretto — AD</p>
+                    <p className="text-muted-foreground">Non è un ordine al fornitore: crea solo una bozza da completare in Acquisti, senza invio. «Chi acquista», data e luogo valgono per la bozza dell'acquisto diretto; per gli ordini ai fornitori usa l'icona del luogo sulla card.</p>
+                  </div>
+                  <p className="text-muted-foreground">La Lista si chiude da sola quando tutto è stato gestito.</p>
                 </PopoverContent>
               </Popover>
             </DialogTitle>
