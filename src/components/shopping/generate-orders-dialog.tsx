@@ -531,9 +531,13 @@ export function GenerateOrdersDialog({
   const exclusion = useMutation({
     mutationFn: (p: { itemId: string; action: "exclude" | "restore" }) =>
       runExclusion({ data: { listId, itemIds: [p.itemId], action: p.action, reason: p.action === "exclude" ? "Procedi comunque" : null } }),
-    onSuccess: async (res) => {
+    onSuccess: async (res, variables) => {
       await refresh();
       afterClose(res.list_closed);
+      if (variables.action === "restore" && !res.list_closed) {
+        onOpenChange(false);
+        onGoToItem(variables.itemId);
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -624,13 +628,13 @@ export function GenerateOrdersDialog({
   return (
     <>
       <Dialog open={open && !editingOrder} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-3xl overflow-x-hidden overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-center gap-1.5 sm:justify-start">
-              {step === "avviso" ? "Prima di generare gli ordini" : "Genera ordini per fornitore"}
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-3xl overflow-x-hidden overflow-y-auto p-4 sm:p-6 max-md:max-h-[calc(100dvh-2rem)] max-md:min-w-0 max-md:grid-cols-[minmax(0,1fr)]">
+          <DialogHeader className="max-md:min-w-0 max-md:pr-6">
+            <DialogTitle className="flex items-center justify-center gap-1.5 sm:justify-start max-md:grid max-md:grid-cols-[minmax(0,1fr)_auto] max-md:text-left max-md:text-base max-md:leading-snug">
+              <span className="min-w-0">{step === "avviso" ? "Prima di generare gli ordini" : "Genera ordini per fornitore"}</span>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label="Come funziona"><Info className="size-4" /></Button>
+                  <Button type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0" aria-label="Come funziona"><Info className="size-4" /></Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 max-w-[calc(100vw-2rem)] space-y-2 text-xs font-normal">
                   <div className="space-y-0.5">
@@ -657,7 +661,7 @@ export function GenerateOrdersDialog({
           {preview.isLoading || !data ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Caricamento…</p>
           ) : step === "avviso" && data.issues.length ? (
-            <div className="space-y-3">
+            <div className="space-y-3 max-md:min-w-0">
               {unconfirmed.length ? (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/40 bg-primary/10 p-3 text-sm">
                   <p className="font-medium">
@@ -679,19 +683,19 @@ export function GenerateOrdersDialog({
               ) : null}
               <div className="flex gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                <p>Alcuni prodotti hanno quantità da sistemare. Puoi sistemarle ora oppure procedere con i prodotti pronti: quelli da sistemare restano nella Lista.</p>
+                <p className="min-w-0"><span className="md:hidden">Sistema il prodotto indicato oppure continua con quelli pronti. Gli altri restano nella Lista.</span><span className="hidden md:inline">Alcuni prodotti hanno quantità da sistemare. Puoi sistemarle ora oppure procedere con i prodotti pronti: quelli da sistemare restano nella Lista.</span></p>
               </div>
               <ul className="space-y-1 text-sm">
                 {data.issues.map((i) => (
-                  <li key={i.item_id} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1">
-                    <span className="min-w-0 truncate">{i.code ? `${i.code} · ` : ""}{i.name} <span className="text-muted-foreground">— {reasonFor(i)}</span></span>
-                    <Button size="sm" variant="ghost" onClick={() => { if (reasonFor(i) === "Quantità mancante" || reasonFor(i) === "Quantità non confermata") onCompleteQuantities(); else { onOpenChange(false); onGoToItem(i.item_id); } }}>Sistema</Button>
+                  <li key={i.item_id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded border border-border px-2 py-1 md:flex md:justify-between">
+                    <span className="min-w-0 break-words md:truncate">{i.code ? `${i.code} · ` : ""}{i.name} <span className="block text-muted-foreground md:inline"><span className="hidden md:inline">— </span>{reasonFor(i)}</span></span>
+                    <Button size="sm" variant="ghost" className="shrink-0" onClick={() => { onOpenChange(false); onGoToItem(i.item_id); }}>Sistema</Button>
                   </li>
                 ))}
               </ul>
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={onCompleteQuantities}>Sistema le quantità</Button>
-                <Button onClick={() => setStep("fornitori")}>Procedi comunque</Button>
+                <Button className="max-md:h-auto max-md:min-h-9 max-md:whitespace-normal max-md:py-2" onClick={() => setStep("fornitori")}><span className="md:hidden">Continua con i prodotti pronti</span><span className="hidden md:inline">Procedi comunque</span></Button>
               </DialogFooter>
             </div>
           ) : (

@@ -2211,7 +2211,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           onCompleteQuantities={() => { setGenOpen(null); setMissingOpen(true); }}
           onGoToItem={(itemId) => {
             setGenOpen(null);
-            window.setTimeout(() => document.getElementById(`item-${itemId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
+            setMobileOpenId(itemId);
+            revealItem(itemId);
           }}
           onListClosed={() => {
             setGenOpen(null);
