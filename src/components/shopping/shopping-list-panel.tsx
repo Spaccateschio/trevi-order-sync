@@ -4,7 +4,7 @@ import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { finishMobileCard, toggleMobileCard, unlockSelectedProduct } from "./shopping-mobile-card-state";
 import { generationEntryState, resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
-import { selectShoppingList } from "./shopping-list-selection";
+import { NEXT_PURCHASE, purchaseSelectionKey, selectShoppingList } from "./shopping-list-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -179,7 +179,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runEvaluation = useServerFn(manageInventoryEvaluation);
   const creatingRef = useRef<Promise<string | null> | null>(null);
 
-  const [listId, setListId] = useState<string | null>(null);
+  const [listId, setSelectedListId] = useState<string | null>(null);
+  const [selectionReady, setSelectionReady] = useState(false);
+  const setListId = (id: string | null) => {
+    setSelectedListId(id);
+    if (identity?.userId) {
+      try { window.localStorage.setItem(purchaseSelectionKey(identity.userId, companyId), id ?? NEXT_PURCHASE); } catch { /* Storage may be unavailable. */ }
+    }
+  };
   const [search, setSearch] = useState("");
   const [printOpen, setPrintOpen] = useState(false);
   const [catalogValues, setCatalogValues] = useState<Record<string, { raw: string; unit: string | null }>>({});
@@ -281,6 +288,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   // Eccezione «solo oggi»: solo gli amministratori, la regola standard resta in Azienda → Preferenze.
   const { data: identity } = useIdentity();
   const isAdmin = hasRole(identity, "amministratore");
+  useEffect(() => {
+    if (!identity?.userId) return;
+    try { setSelectedListId(window.localStorage.getItem(purchaseSelectionKey(identity.userId, companyId))); } catch { setSelectedListId(null); }
+    setSelectionReady(true);
+  }, [identity?.userId, companyId]);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideTime, setOverrideTime] = useState("09:30");
   const overrideMutation = useMutation({
@@ -332,18 +344,22 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const previewMode = evaluating && !linkedList;
   const list = useMemo(
     // Un inventario precedente pendente non nasconde gli acquisti già in lavorazione.
-    () => selectShoppingList(lists, listId, linkedList, previewMode),
-    [lists, listId, linkedList, previewMode],
+    () => selectionReady ? selectShoppingList(lists, listId, linkedList, previewMode) : null,
+    [lists, listId, linkedList, previewMode, selectionReady],
   );
   // Le decisioni «Non acquistare» valgono per la lista corrente: cambiando lista ripartono da zero.
   useEffect(() => { setCatalogNotBuying(new Set()); setCatalogValues({}); }, [list?.id]);
   const editable = list?.status === "aperta";
   const currentList =
     linkedList ?? lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null;
-  const ready = shoppingReadyState(list, list?.archive_id ?? archivesQuery.data?.[0]?.id ?? "");
+  const ready = shoppingReadyState(list, selectionReady ? list?.archive_id ?? archivesQuery.data?.[0]?.id ?? "" : "");
   const ordinaryCreatingRef = useRef<Promise<string | null> | null>(null);
   const ordinaryIdRef = useRef<string | null>(null);
-  useEffect(() => { ordinaryIdRef.current = currentList?.status === "aperta" ? currentList.id : null; }, [currentList?.id, currentList?.status]);
+  useEffect(() => {
+    if (listId === NEXT_PURCHASE) ordinaryIdRef.current = null;
+    else if (list) ordinaryIdRef.current = list.status === "aperta" ? list.id : null;
+    // Keep an explicitly created id while the lists query is refreshing.
+  }, [listId, list?.id, list?.status]);
 
   const overviewQuery = useQuery({
     queryKey: ["shopping-list-overview", list?.id],
@@ -544,7 +560,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const allRows = overviewQuery.data ?? [];
+  const allRows = list ? overviewQuery.data ?? [] : [];
 
   // Memoria «Come l'ultima volta»: ultima Lista chiusa della stessa azienda, sola lettura (mai quantità).
   const memoryProductIds = useMemo(() => [...new Set(allRows.map((r) => r.product_id))].sort(), [allRows]);
@@ -688,7 +704,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   }, [recheckCount]);
   // Raccolta unica: i prodotti contati non ancora in Lista compaiono una sola volta, con la stessa card.
   const showPending = Boolean(
-    evaluating && cycle && !cycle.evaluated_at && (!list || list.id === linkedList?.id) &&
+    selectionReady && listId !== NEXT_PURCHASE && evaluating && cycle && !cycle.evaluated_at && (!list || list.id === linkedList?.id) &&
       (!pendingPickup || showInventoryEvaluation),
   );
   const { allCounted, images: countedImages } = useInventoryCountedRows(companyId, showPending ? (cycle?.session_id ?? null) : null);
@@ -1413,23 +1429,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     <div className="space-y-4 pb-24 max-md:-mt-2 max-md:space-y-2 lg:pb-16">
       <ShoppingListPrintPreview open={printOpen} onOpenChange={setPrintOpen} rows={printRows} filters={printFilterLabels} title={list?.number ? `Lista della Spesa · ${list.number}` : "Lista della Spesa"} />
       {/* Cellulare (<768 px): testata compatta con gli stessi comandi. */}
-      <div className="space-y-1.5 md:hidden">
+      <div className="space-y-1.5">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <div className="flex min-w-0 items-center gap-1.5">
-              {list ? (
-                <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
-                  <SelectTrigger className="h-7 min-w-0 flex-1 border-none bg-transparent px-0 text-sm font-bold shadow-none" aria-label="Lista della spesa">
-                    <SelectValue placeholder="" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {lists.map((row) => (
-                      <SelectItem key={row.id} value={row.id}>{listLabel(row)} · {LIST_STATUS_LABEL[row.status]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : null}
-                          </div>
+          <div className="min-w-0 flex-1 space-y-0.5 md:hidden">
             {list ? <div className="text-xs"><ListDeliveryDate companyId={companyId} list={list} editable={editable} /></div> : null}
           </div>
           <DropdownMenu>
@@ -1438,8 +1440,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="max-h-[70vh] overflow-y-auto">
+              <DropdownMenuItem onSelect={() => { if (canLeaveDrafts()) { ordinaryIdRef.current = null; setListId(NEXT_PURCHASE); } }}>Nuovo acquisto</DropdownMenuItem>
+              {lists.length ? <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Acquisti precedenti</div> : null}
+              {lists.map((row) => <DropdownMenuItem key={row.id} onSelect={() => { if (canLeaveDrafts()) setListId(row.id); }}>
+                {listLabel(row)} · {row.status === "aperta" ? "Da completare / bozze" : LIST_STATUS_LABEL[row.status]}
+              </DropdownMenuItem>)}
               <DropdownMenuItem onSelect={() => changeViewMode("card")}>
+
                 <LayoutGrid className="mr-2 h-4 w-4" />Vista Card{viewMode === "card" ? " ✓" : ""}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => changeViewMode("row")}>
@@ -1459,7 +1467,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto md:hidden px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
           {editable ? (
             <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={listMutation.isPending} onClick={() => { setGenMounted(list?.id ?? null); setGenOpen("bozze"); }}>
               Bozze
@@ -1496,27 +1504,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       </div>
       <div className="hidden flex-wrap items-center justify-between gap-2 md:flex">
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={list?.id ?? ""} onValueChange={(id) => { if (canLeaveDrafts()) setListId(id); }}>
-            <SelectTrigger className="w-full sm:w-72" aria-label="Lista della spesa">
-              <SelectValue placeholder="" />
-            </SelectTrigger>
-            <SelectContent>
-              {lists.filter((row) => row.status === "aperta" || row.status === "confermata").map((row) => (
-                <SelectItem key={row.id} value={row.id}>
-                  {listLabel(row)} · {LIST_STATUS_LABEL[row.status]}
-                </SelectItem>
-              ))}
-              {lists.some((row) => row.status === "chiusa" || row.status === "annullata") ? (
-                <div className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase text-muted-foreground">Storico</div>
-              ) : null}
-              {lists.filter((row) => row.status === "chiusa" || row.status === "annullata").map((row) => (
-                <SelectItem key={row.id} value={row.id}>
-                  {listLabel(row)} · {LIST_STATUS_LABEL[row.status]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {list ? <Badge variant={editable ? "default" : "secondary"}>{LIST_STATUS_LABEL[list.status]}</Badge> : null}
           {list ? <span data-tour="spesa.data"><ListDeliveryDate companyId={companyId} list={list} editable={editable} /></span> : null}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1694,7 +1681,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </div>
       ) : null}
 
-      {evaluating && cycle && (!list || list.id === linkedList?.id) ? (
+      {listId !== NEXT_PURCHASE && evaluating && cycle && (!list || list.id === linkedList?.id) ? (
         // Il collegamento «Da inventario — mostra il riquadro» non è più mostrato, né su
         // cellulare né su computer: il riquadro compare da solo quando non restano ordini
         // in attesa di ritiro. L'interruttore showInventoryEvaluation resta al suo posto.
@@ -1711,7 +1698,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             hideItems
           />
         )
-      ) : cycle?.color === "rosso" && cycle.evaluated_at && (!list || list.id === cycle.list_id) ? (
+      ) : listId !== NEXT_PURCHASE && cycle?.color === "rosso" && cycle.evaluated_at && (!list || list.id === cycle.list_id) ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
           <span className="font-semibold">Ciclo acquisti da completare:</span> valutazione terminata,{" "}
           {cycle.cycle_outcome === "da_verificare"
@@ -2201,24 +2188,34 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         renderEditor={completionEditor} busy={bulkCompletionBusy || savingIds.size > 0 || confirmingIds.size > 0 || exclusionMutation.isPending || saveEvaluation.isPending || overviewQuery.isFetching || excludedQuery.isFetching}
         onExcludeEmpty={excludeEmptyCompletion}
         onContinue={() => { setMissingOpen(false); openGeneration(); }} /> : null}
-      {list && editable && genMounted === list.id ? (
+      {genMounted && lists.some((row) => row.id === genMounted) ? (
         <GenerateOrdersDialog
           companyId={companyId}
-          listId={list.id}
+          listId={genMounted}
           open={genOpen !== null}
           mode={genOpen ?? "genera"}
           onOpenChange={(next) => { if (!next) setGenOpen(null); }}
-          onCompleteQuantities={() => { setGenOpen(null); setMissingOpen(true); }}
+          onCompleteQuantities={() => { setListId(genMounted); setGenOpen(null); setMissingOpen(true); }}
           onGoToItem={(itemId) => {
             setGenOpen(null);
+            setListId(genMounted);
             setUnlockedIds((current) => unlockSelectedProduct(current, itemId));
             setMobileOpenId(itemId);
             revealItem(itemId);
           }}
+          onGenerated={() => {
+            if (listId === NEXT_PURCHASE) return;
+            ordinaryIdRef.current = null;
+            setListId(NEXT_PURCHASE);
+            setEdits({}); setUnitEdits({}); setUnlockedIds(new Set());
+            setCatalogValues({}); setCatalogDrafts(new Set()); setCatalogNotBuying(new Set());
+            setEvalValues({}); setMobileOpenId(null); setMissingOpen(false);
+          }}
           onListClosed={() => {
             setGenOpen(null);
             setGenMounted(null);
-            setListId(null);
+            ordinaryIdRef.current = null;
+            setListId(NEXT_PURCHASE);
           }}
         />
       ) : null}

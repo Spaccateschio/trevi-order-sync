@@ -336,7 +336,8 @@ export function useCatalogActions({
       });
       const { data: item, error: itemError } = await supabase.from("shopping_list_items").select("id").eq("list_id", targetId).eq("product_id", productId).single();
       if (itemError || !item) throw new Error(itemError?.message ?? "Prodotto non trovato nella Lista");
-      return { itemId: item.id as string, quantity, unitCode };
+      // Carry the resolved cycle through the confirmation; never rediscover an old open list.
+      return { itemId: item.id as string, listId: targetId, quantity, unitCode };
     },
     onSuccess: () => undefined,
     onError: (e: Error) => toast.error(e.message),

@@ -14,6 +14,13 @@ export function initialGenerationStep(_mode: "genera" | "bozze"): "fornitori" {
   return "fornitori";
 }
 
+/** Generation and delivery are separate: even an unsent order is preserved work. */
+export function generationCompleted(outcomes: readonly { kind: string }[]): boolean {
+  return outcomes.length > 0 && outcomes.every((outcome) =>
+    ["inviato", "da_condividere", "errore_invio", "acquisto_diretto"].includes(outcome.kind),
+  );
+}
+
 export function shoppingReadyState(list: { status: string } | null, archiveId: string) {
   return {
     showProducts: Boolean(list || archiveId),

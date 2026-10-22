@@ -1,11 +1,26 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { selectShoppingList } from "./shopping-list-selection";
+import { NEXT_PURCHASE, purchaseSelectionKey, selectShoppingList } from "./shopping-list-selection";
 
 const open = { id: "new-purchase", status: "aperta", quantity: 5 };
 const closed = { id: "sent-purchase", status: "chiusa", quantity: 19 };
 const linked = { id: "linked-inventory", status: "aperta", quantity: 3 };
 describe("lista mostrata e quantità salvate", () => {
+  it("5 kg precedenti e bozza AD restano recuperabili, mai nel nuovo ciclo vuoto", () => {
+    const previous = Object.freeze({ id: "previous", status: "aperta", quantity: 5, directDraft: "AD-2026-00003", residual: 2 });
+    assert.equal(selectShoppingList([previous], NEXT_PURCHASE, previous, true), null);
+    assert.equal(selectShoppingList([previous], previous.id, null, false), previous);
+    assert.equal(previous.quantity, 5);
+    assert.equal(previous.residual, 2);
+    assert.equal(previous.directDraft, "AD-2026-00003");
+  });
+  it("il ciclo ricordato è separato per utente e azienda", () => {
+    assert.notEqual(purchaseSelectionKey("a", "company"), purchaseSelectionKey("b", "company"));
+    assert.notEqual(purchaseSelectionKey("a", "company"), purchaseSelectionKey("a", "other"));
+  });
+  it("attende la nuova lista senza ricadere sui vecchi 5 kg durante l'aggiornamento", () => {
+    assert.equal(selectShoppingList([open, linked], "not-yet-refreshed", linked, true), null);
+  });
   it("inventario precedente pendente non nasconde la lista aperta con quantità 5", () => {
     const selected = selectShoppingList([closed, open], null, null, true);
     assert.equal(selected?.id, "new-purchase");
