@@ -28,6 +28,12 @@ describe("nuovo acquisto indipendente dagli ordini precedenti", () => {
     assert.equal(generationCompleted([{ kind: "da_condividere" }, { kind: "errore_generazione" }]), false);
     assert.equal(generationCompleted([]), false);
   });
+  it("3 fornitori selezionati: basta 1 generazione fallita per mantenere lista e quantità", () => {
+    assert.equal(generationCompleted([{ kind: "inviato" }, { kind: "da_condividere" }, { kind: "errore_generazione" }]), false);
+  });
+  it("3 fornitori creati: un invio fallito non impedisce il nuovo acquisto vuoto", () => {
+    assert.equal(generationCompleted([{ kind: "inviato" }, { kind: "da_condividere" }, { kind: "errore_invio" }]), true);
+  });
   it("mostra gli articoli e permette quantità senza lista aperta", () => {
     assert.deepEqual(shoppingReadyState(null, "archivio"), { showProducts: true, canPrepare: true, ordinaryPreview: true });
   });
