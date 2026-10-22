@@ -158,12 +158,23 @@ function ConsegnaEsterna() {
   });
 
   if (draftQuery.isError) {
+    const msg = String((draftQuery.error as Error)?.message ?? "");
+    const reason = msg.includes("scaduto")
+      ? { title: "Link scaduto", text: "Il periodo di validità di questo link è terminato." }
+      : msg.includes("revocato")
+        ? { title: "Link annullato", text: "Questo link è stato sostituito o annullato." }
+        : msg.includes("deve essere inviato")
+          ? {
+              title: "Ordine non ancora inviato",
+              text: "Chi ti ha mandato il link non ha ancora confermato l'invio dell'ordine. Il link funzionerà appena l'invio sarà confermato.",
+            }
+          : { title: "Link non valido", text: "Questo indirizzo non corrisponde a nessun ordine." };
     return (
       <main className="mx-auto max-w-lg space-y-4 p-6 text-center">
         <BrandMark />
-        <h1 className="text-lg font-semibold">Link non valido</h1>
+        <h1 className="text-lg font-semibold">{reason.title}</h1>
         <p className="text-sm text-muted-foreground">
-          Questo indirizzo è scaduto oppure è stato annullato. Contatta chi ti ha inviato l'ordine.
+          {reason.text} Contatta chi ti ha inviato l'ordine.
         </p>
       </main>
     );
