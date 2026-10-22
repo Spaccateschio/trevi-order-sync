@@ -1,4 +1,19 @@
 /** Readiness belongs to the current purchase, never to previous orders or receipts. */
+export function generationEntryState(input: {
+  fetching: boolean;
+  hasUnconfirmedDrafts: boolean;
+  missingQuantityCount: number;
+}): "wait" | "drafts" | "review" {
+  if (input.fetching) return "wait";
+  if (input.hasUnconfirmedDrafts) return "drafts";
+  // Missing quantities are handled only by an explicit action in the review.
+  return "review";
+}
+
+export function initialGenerationStep(_mode: "genera" | "bozze"): "fornitori" {
+  return "fornitori";
+}
+
 export function shoppingReadyState(list: { status: string } | null, archiveId: string) {
   return {
     showProducts: Boolean(list || archiveId),

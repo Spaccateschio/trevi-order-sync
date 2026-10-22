@@ -1,6 +1,22 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
+import { generationEntryState, initialGenerationStep, resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
+
+describe("Genera ordini: prima il riepilogo", () => {
+  it("una quantità mancante non apre il completamento automaticamente", () => {
+    assert.equal(generationEntryState({ fetching: false, hasUnconfirmedDrafts: false, missingQuantityCount: 1 }), "review");
+  });
+  it("i numeri scritti non confermati restano protetti anche con quantità mancanti", () => {
+    assert.equal(generationEntryState({ fetching: false, hasUnconfirmedDrafts: true, missingQuantityCount: 1 }), "drafts");
+  });
+  it("attende i dati aggiornati prima del riepilogo", () => {
+    assert.equal(generationEntryState({ fetching: true, hasUnconfirmedDrafts: false, missingQuantityCount: 0 }), "wait");
+  });
+  it("la finestra parte dal riepilogo sia per generazione sia per bozze", () => {
+    assert.equal(initialGenerationStep("genera"), "fornitori");
+    assert.equal(initialGenerationStep("bozze"), "fornitori");
+  });
+});
 
 describe("nuovo acquisto indipendente dagli ordini precedenti", () => {
   it("mostra gli articoli e permette quantità senza lista aperta", () => {

@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, ChevronDown, FileText, Info, Loader2, Lock, MapPin, Send, ShoppingBag, Truck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEffect, useRef, useState } from "react";
+import { initialGenerationStep } from "./shopping-list-ready-state";
 import { toast } from "sonner";
 
 import { SendOrderDialog, type SendChannel } from "@/components/purchase/send-order-dialog";
@@ -284,7 +285,7 @@ export function GenerateOrdersDialog({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const [step, setStep] = useState<"avviso" | "fornitori">("avviso");
+  const [step, setStep] = useState<"avviso" | "fornitori">(initialGenerationStep(mode));
   const [drafts, setDrafts] = useState<Record<string, SupplierDraft>>({});
   const [rebuild, setRebuild] = useState(0);
   const [editingOrder, setEditingOrder] = useState<string | null>(null);
@@ -292,7 +293,7 @@ export function GenerateOrdersDialog({
   const keys = useRef<Record<string, string>>({});
 
   useEffect(() => {
-    if (open) setStep(mode === "bozze" ? "fornitori" : "avviso");
+    if (open) setStep(initialGenerationStep(mode));
   }, [open, mode]);
 
   const prefs = useDeliveryPreferences(open ? companyId : null);
@@ -911,12 +912,21 @@ export function GenerateOrdersDialog({
               {data.issues.length || data.excluded.length ? (
                 <section className="space-y-2 rounded-md border border-dashed border-border p-3">
                   <h3 className="text-sm font-semibold">Prodotti non pronti</h3>
+                  {data.issues.length ? <Button variant="outline" className="max-md:h-auto max-md:min-h-9 max-md:whitespace-normal max-md:py-2" onClick={onCompleteQuantities}>Sistema tutte le quantità mancanti</Button> : null}
+                  <TooltipProvider delayDuration={150}>
                   {data.issues.map((i) => (
-                    <div key={i.item_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span>{i.code ? `${i.code} · ` : ""}{i.name} <span className="text-muted-foreground">— {reasonFor(i)}</span></span>
-                      <Button size="sm" variant="ghost" disabled={exclusion.isPending} onClick={() => exclusion.mutate({ itemId: i.item_id, action: "exclude" })}>Non acquistare in questo ciclo</Button>
+                    <div key={i.item_id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-sm md:flex md:flex-wrap md:justify-between">
+                      <span className="min-w-0 break-words md:flex-1">{i.code ? `${i.code} · ` : ""}{i.name} <span className="block text-muted-foreground md:inline">— {reasonFor(i)}</span></span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="icon" variant="ghost" className="size-8 shrink-0" aria-label={`Sistema ${i.name}`} onClick={() => { onOpenChange(false); onGoToItem(i.item_id); }}><Lock className="size-4" /></Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left">Sistema questo prodotto</TooltipContent>
+                      </Tooltip>
+                      <Button size="sm" variant="ghost" className="max-md:col-span-2 max-md:justify-self-start" disabled={exclusion.isPending} onClick={() => exclusion.mutate({ itemId: i.item_id, action: "exclude" })}>Non acquistare in questo ciclo</Button>
                     </div>
                   ))}
+                  </TooltipProvider>
                   {data.excluded.map((i) => (
                     <div key={i.item_id} className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                       <span className="line-through">{i.code ? `${i.code} · ` : ""}{i.name}</span>
