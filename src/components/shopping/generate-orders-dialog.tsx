@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, ChevronDown, FileText, Info, Loader2, Lock, MapPin, Send, ShoppingBag, Truck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEffect, useRef, useState } from "react";
-import { initialGenerationStep } from "./shopping-list-ready-state";
+import { generationCompleted, initialGenerationStep } from "./shopping-list-ready-state";
 import { toast } from "sonner";
 
 import { SendOrderDialog, type SendChannel } from "@/components/purchase/send-order-dialog";
@@ -159,6 +159,7 @@ export function GenerateOrdersDialog({
   onGoToItem,
   onListClosed,
   onCompleteQuantities,
+  onGenerated,
 }: {
   companyId: string;
   listId: string;
@@ -168,6 +169,7 @@ export function GenerateOrdersDialog({
   onGoToItem: (itemId: string) => void;
   onListClosed: () => void;
   onCompleteQuantities: () => void;
+  onGenerated?: () => void;
 }) {
   const queryClient = useQueryClient();
   const readPreview = useServerFn(getGenerationPreview);
@@ -403,6 +405,8 @@ export function GenerateOrdersDialog({
     mutationFn: async () => {
       const data = preview.data as GenerationPreview;
       const out: GenerationOutcome[] = [];
+      const selectedSuppliers = data.suppliers.filter((s) => drafts[s.supplier_record_id]?.selected && s.lines.some((l) => drafts[s.supplier_record_id]?.lines[l.assignment_id]?.included));
+      let generatedSuppliers = 0;
       for (const s of data.suppliers) {
         const d = drafts[s.supplier_record_id];
         if (!d?.selected) continue;
@@ -444,6 +448,8 @@ export function GenerateOrdersDialog({
           }
           delete keys.current[s.supplier_record_id];
           created = { order_id: res.order_id, number: res.number };
+          generatedSuppliers++;
+          if (generatedSuppliers === selectedSuppliers.length && !(directSelected && directChecked.length) && !out.some((o) => o.kind === "errore_generazione")) onGenerated?.();
         } catch (error) {
           out.push({ kind: "errore_generazione", name: s.name, message: (error as Error).message });
           continue;
@@ -484,6 +490,7 @@ export function GenerateOrdersDialog({
           directKey.current = null;
           await queryClient.invalidateQueries({ queryKey: ["direct-purchases-list", listId] });
           out.push({ kind: "acquisto_diretto", name: "Acquisto diretto", id: res.id, number: res.number });
+          if (generationCompleted(out)) onGenerated?.();
         } catch (error) {
           out.push({ kind: "errore_generazione", name: "Acquisto diretto", message: (error as Error).message });
         }
