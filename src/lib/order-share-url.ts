@@ -16,8 +16,9 @@ export function normalizeOrderShareLink(link: OrderShareLink | null): OrderShare
     const url = new URL(link.url);
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) return null;
     const match = /^\/consegna\/([A-Za-z0-9_-]{10,200})$/.exec(url.pathname);
-    if (!match) return null;
-    return { ...link, url: orderShareUrl(match[1]) };
+    const token = match?.[1];
+    if (!token) return null;
+    return { ...link, url: orderShareUrl(token) };
   } catch {
     return null;
   }
