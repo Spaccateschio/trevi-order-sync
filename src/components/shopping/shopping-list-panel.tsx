@@ -1346,6 +1346,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   useEffect(() => {
     if (!completionContinueRequested || bulkCompletionBusy || overviewQuery.isFetching || excludedQuery.isFetching) return;
     setCompletionContinueRequested(false);
+    if (!list || list.status !== "aperta") { setMissingOpen(false); return; }
     if (completionEntries.length) {
       toast.info("Conferma le quantità già inserite prima di continuare.");
       return;
