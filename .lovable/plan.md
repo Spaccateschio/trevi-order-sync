@@ -35,4 +35,4 @@ Prima di implementare, leggere integralmente i file indicati e affinare i punti 
 - Eseguire i test esistenti pertinenti e controllare gli errori dell’anteprima.
 - Aggiungere test con valori concreti: 5 kg inviati → nuovo campo vuoto, vecchi 5 kg conservati; nuova Conferma → lista distinta; bozza AD e residuo recuperabili; secondo ordine allo stesso fornitore senza toccare il primo; invio fallito non azzera la vista; nessuna scrittura prima della Conferma.
 - Provare il percorso completo con dati isolati simulati e controllare la pagina reale solo in lettura. La creazione e l’invio sul database operativo rimangono un collaudo manuale dell’utente, non eseguito dall’assistente.
-- Nessuna modifica ai dati, nessun ordine o lista creati, nessuna migrazione, pubblicazione o modifica a roadmap.md.
+- Durante il lavoro dell’assistente: nessuna modifica ai dati reali, nessun ordine o lista creati, nessuna migrazione o pubblicazione. Roadmap aggiornata solo con le due attività richieste; nessuna modifica alle altre attività.
