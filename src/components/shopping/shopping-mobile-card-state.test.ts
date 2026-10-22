@@ -1,6 +1,19 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { finishMobileCard, toggleMobileCard, useCompactCard } from "./shopping-mobile-card-state";
+import { finishMobileCard, toggleMobileCard, unlockSelectedProduct, useCompactCard } from "./shopping-mobile-card-state";
+
+describe("accesso individuale alla modifica dal riepilogo", () => {
+  it("sblocca solo il prodotto scelto senza cambiare lo stato precedente", () => {
+    const current = new Set(["aglio"]);
+    const next = unlockSelectedProduct(current, "patate");
+    assert.deepEqual([...next], ["aglio", "patate"]);
+    assert.equal(next.has("carote-non-acquistare"), false);
+    assert.deepEqual([...current], ["aglio"]);
+  });
+  it("rientrare nello stesso prodotto non aggiunge altri sblocchi", () => {
+    assert.deepEqual([...unlockSelectedProduct(new Set(["patate"]), "patate")], ["patate"]);
+  });
+});
 
 describe("card compatte mobile: solo presentazione", () => {
   it("vista Card compatta sotto 768 px, non a 768 px", () => {

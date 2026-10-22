@@ -2,7 +2,7 @@ import { matchesShoppingFilters, shoppingSortKey, type FilterFlag, type ProductF
 import { selectShoppingPrintRows, type ShoppingPrintRow } from "./shopping-list-print-data";
 import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
-import { finishMobileCard, toggleMobileCard } from "./shopping-mobile-card-state";
+import { finishMobileCard, toggleMobileCard, unlockSelectedProduct } from "./shopping-mobile-card-state";
 import { resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
 import { selectShoppingList } from "./shopping-list-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -2211,6 +2211,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           onCompleteQuantities={() => { setGenOpen(null); setMissingOpen(true); }}
           onGoToItem={(itemId) => {
             setGenOpen(null);
+            setUnlockedIds((current) => unlockSelectedProduct(current, itemId));
             setMobileOpenId(itemId);
             revealItem(itemId);
           }}

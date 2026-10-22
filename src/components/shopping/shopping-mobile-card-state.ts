@@ -1,4 +1,8 @@
-/** Presentation only: no quantities, persistence or permission decisions. */
+/** Local editing state only: no quantity writes or permission decisions. */
+export function unlockSelectedProduct(current: ReadonlySet<string>, id: string): Set<string> {
+  return new Set(current).add(id);
+}
+
 export function toggleMobileCard(current: string | null, id: string): string | null {
   return current === id ? null : id;
 }
