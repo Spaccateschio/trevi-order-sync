@@ -41,7 +41,7 @@ import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { CloseListDialog } from "./close-list-dialog";
 import { GenerateOrdersDialog } from "./generate-orders-dialog";
 import { MissingQuantitiesDialog } from "./missing-quantities-dialog";
-import { missingQuantities } from "./missing-quantities";
+import { missingQuantities, hasEmptyCompletionQuantity } from "./missing-quantities";
 import { manageListExclusion } from "@/lib/order-generation.functions";
 import { ListHistoryDialog } from "./list-history-dialog";
 import { ListDeliveryDate, useProposeListDate } from "./list-delivery-date";
@@ -160,6 +160,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const proposeListDate = useProposeListDate(companyId);
   const [closeOpen, setCloseOpen] = useState(false);
   const [missingOpen, setMissingOpen] = useState(false);
+  const [bulkCompletionBusy, setBulkCompletionBusy] = useState(false);
+  const bulkCompletionRunning = useRef(false);
+  const [completionContinueRequested, setCompletionContinueRequested] = useState(false);
   const runExclusion = useServerFn(manageListExclusion);
   // «Genera ordini» sostituisce «Conferma lista»; resta montato per conservare le modifiche non salvate.
   const [genOpen, setGenOpen] = useState<null | "genera" | "bozze">(null);
@@ -1286,7 +1289,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     const row = entry.row;
     const extra = extras.get(id);
     const unitDraft = unitEdits[id];
-    const busy = entry.pending ? confirmingIds.has(row.product_id) || saveEvaluation.isPending : savingIds.has(id) || exclusionMutation.isPending;
+    const busy = bulkCompletionBusy || (entry.pending ? confirmingIds.has(row.product_id) || saveEvaluation.isPending : savingIds.has(id) || exclusionMutation.isPending);
     return <ShoppingListCard quantityOnly companyId={companyId} row={row} stock={entry.stock} pending={entry.pending}
       extra={unitDraft && extra ? { ...extra, decidedUnitId: unitDraft.unitId, decidedUnitCode: unitDraft.unitCode } : extra}
       editable={Boolean(editable)} quantityLocked={false} lockPending={busy} saving={busy}
@@ -1318,6 +1321,40 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     } catch { /* Draft stays available for retry. */ }
     finally { confirmationGuard.current.finish(row.item_id); }
   };
+
+  const excludeEmptyCompletion = async (ids: string[]) => {
+    if (bulkCompletionRunning.current) throw new Error("Operazione già in corso");
+    const selectedIds = new Set(ids);
+    const emptyEntries = completionEntries.filter((entry) => selectedIds.has(entry.id) && hasEmptyCompletionQuantity(entry));
+    bulkCompletionRunning.current = true;
+    setBulkCompletionBusy(true);
+    try {
+      for (const entry of emptyEntries) {
+        if (entry.pending) {
+          // Existing evaluation command, awaited directly so failures cannot be swallowed.
+          await saveEvaluation.mutateAsync({ productId: entry.row.product_id, status: "non_acquistare", quantity: null });
+          setEvalValues((current) => { const next = { ...current }; delete next[entry.row.product_id]; return next; });
+        } else await excludeItem(entry.id, "exclude");
+      }
+      setCompletionContinueRequested(true);
+    } finally {
+      bulkCompletionRunning.current = false;
+      setBulkCompletionBusy(false);
+    }
+  };
+  // Continue only from the refreshed rows, never from the pre-save closure.
+  useEffect(() => {
+    if (!completionContinueRequested || bulkCompletionBusy || overviewQuery.isFetching || excludedQuery.isFetching) return;
+    setCompletionContinueRequested(false);
+    if (completionEntries.length) {
+      toast.info("Conferma le quantità già inserite prima di continuare.");
+      return;
+    }
+    if (!canLeaveDrafts()) return;
+    setMissingOpen(false);
+    setGenMounted(list?.id ?? null);
+    setGenOpen("genera");
+  }, [completionContinueRequested, bulkCompletionBusy, overviewQuery.isFetching, excludedQuery.isFetching, completionEntries, list?.id]);
 
   const statusBadge = (row: OverviewRow) => (
     <Badge
@@ -2159,8 +2196,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       ) : null}
 
       {list && editable ? <MissingQuantitiesDialog open={missingOpen} onOpenChange={setMissingOpen}
-        items={completionEntries.map((entry) => ({ id: entry.id, code: entry.row.code, name: entry.row.description ?? entry.row.code, stock: entry.stock }))}
-        renderEditor={completionEditor} busy={savingIds.size > 0 || confirmingIds.size > 0 || exclusionMutation.isPending}
+        items={completionEntries.map((entry) => ({ id: entry.id, code: entry.row.code, name: entry.row.description ?? entry.row.code, stock: entry.stock, empty: hasEmptyCompletionQuantity(entry) }))}
+        renderEditor={completionEditor} busy={bulkCompletionBusy || savingIds.size > 0 || confirmingIds.size > 0 || exclusionMutation.isPending || saveEvaluation.isPending || overviewQuery.isFetching || excludedQuery.isFetching}
+        onExcludeEmpty={excludeEmptyCompletion}
         onContinue={() => { setMissingOpen(false); openGeneration(); }} /> : null}
       {list && editable && genMounted === list.id ? (
         <GenerateOrdersDialog

@@ -17,6 +17,7 @@
 - Acquisti: dato d'ordine = quantità + U.M. d'acquisto + fornitore; *_quantity in U.M. magazzino solo equivalente (NULL senza conversione, mai 0): non confondere cassette e kg.
 - U.M. prezzo: config FK (links.price_unit_id non B2B; B2B dal prodotto venditore), documenti fotografano id+codice (+price_quantity sul carico); stock_lots.unit_cost NULL senza base: prezzo mai senza U.M.
 - Shared quantity editor and non-B2B sharing rules: src/components/shopping/AGENTS.md.
+- Missing-quantity bulk completion selects visibly empty fields through the shared pure predicate and reuses existing exclusion/evaluation commands; generation waits for refreshed rows so pending numeric drafts are never silently excluded or confirmed.
 
 - Operational pages show only current work; when the purchase cycle is not red, past counts and closed lists are reachable only via history views (no data deleted).
 - Sent order edits use customer_update_order_full, request/decide_order_change or supplier_cancel_order: DB order/supplier locks decide concurrency; every change logs purchase_order_changes.

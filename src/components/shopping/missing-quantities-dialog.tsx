@@ -3,20 +3,45 @@ import { Search, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { qty } from "@/lib/inventory";
 import type { StockInfo } from "./shopping-list-card";
 
-export type CompletionItem = { id: string; code: string; name: string; stock?: StockInfo | undefined };
+export type CompletionItem = { id: string; code: string; name: string; stock?: StockInfo | undefined; empty: boolean };
 
-export function MissingQuantitiesDialog({ open, onOpenChange, items, renderEditor, busy, onContinue }: {
+export function MissingQuantitiesDialog({ open, onOpenChange, items, renderEditor, busy, onContinue, onExcludeEmpty }: {
   open: boolean; onOpenChange: (open: boolean) => void; items: CompletionItem[];
   renderEditor: (id: string) => ReactNode; busy: boolean; onContinue: () => void;
+  onExcludeEmpty: (ids: string[]) => Promise<void>;
 }) {
   const [search, setSearch] = useState("");
+  const [confirmationIds, setConfirmationIds] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const disabled = busy || submitting;
+  const continueOrAsk = () => {
+    setError(null);
+    const emptyIds = items.filter((item) => item.empty).map((item) => item.id);
+    if (emptyIds.length) setConfirmationIds(emptyIds);
+    else if (items.length) setError("Conferma le quantità già inserite prima di continuare.");
+    else onContinue();
+  };
+  const confirmEmpty = async () => {
+    if (disabled || !confirmationIds) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onExcludeEmpty(confirmationIds);
+      setConfirmationIds(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Operazione non riuscita. Le quantità inserite restano disponibili.");
+      setConfirmationIds(null);
+    } finally { setSubmitting(false); }
+  };
   const term = search.trim().toLocaleLowerCase("it");
   const visible = items.filter((item) => `${item.name} ${item.code}`.toLocaleLowerCase("it").includes(term));
   const amount = (value: number | null | undefined, unit: string | null | undefined) => value == null ? "—" : `${qty(value)} ${unit ?? ""}`;
-  return <Dialog open={open} onOpenChange={onOpenChange}>
+  return <><Dialog open={open} onOpenChange={(next) => { if (!disabled) { setConfirmationIds(null); setError(null); onOpenChange(next); } }}>
     <DialogContent className="flex max-h-[90dvh] min-w-0 flex-col gap-3 overflow-hidden sm:max-w-3xl">
       <DialogHeader>
         <DialogTitle>Completa le quantità</DialogTitle>
@@ -41,9 +66,23 @@ export function MissingQuantitiesDialog({ open, onOpenChange, items, renderEdito
         {!visible.length ? <p className="py-6 text-center text-sm text-muted-foreground">{items.length ? "Nessun prodotto con questa ricerca." : "Tutte le quantità sono confermate."}</p> : null}
       </div>
       <DialogFooter className="shrink-0 gap-2">
-        <Button variant="outline" onClick={() => onOpenChange(false)}>Chiudi</Button>
-        <Button disabled={items.length > 0 || busy} onClick={onContinue}><ArrowRight className="size-4" /> Continua</Button>
+        <Button variant="outline" disabled={disabled} onClick={() => onOpenChange(false)}>Chiudi</Button>
+        <Button disabled={disabled} onClick={continueOrAsk}><ArrowRight className="size-4" /> Continua</Button>
       </DialogFooter>
+      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     </DialogContent>
-  </Dialog>;
+  </Dialog>
+    <AlertDialog open={open && confirmationIds !== null} onOpenChange={(next) => { if (!next && !disabled) setConfirmationIds(null); }}>
+      <AlertDialogContent className="max-w-[calc(100%-2rem)] sm:max-w-lg">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Quantità non inserite</AlertDialogTitle>
+          <AlertDialogDescription>{confirmationIds?.length} {confirmationIds?.length === 1 ? "prodotto senza quantità. Lo segno" : "prodotti senza quantità. Li segno"} come «Non acquistare»? Le quantità già inserite e i fornitori impostati restano invariati.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="gap-2">
+          <Button variant="outline" disabled={disabled} onClick={() => setConfirmationIds(null)}>No, torno alle quantità</Button>
+          <Button disabled={disabled} onClick={() => void confirmEmpty()}>{submitting ? "Salvataggio…" : "Sì, non acquistare"}</Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>;
 }
