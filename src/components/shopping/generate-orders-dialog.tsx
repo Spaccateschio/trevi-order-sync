@@ -694,7 +694,7 @@ export function GenerateOrdersDialog({
                 ))}
               </ul>
               <DialogFooter className="gap-2">
-                <Button variant="outline" onClick={onCompleteQuantities}>Sistema le quantità</Button>
+                <Button variant="outline" onClick={onCompleteQuantities}>Sistema tutte le quantità mancanti</Button>
                 <Button className="max-md:h-auto max-md:min-h-9 max-md:whitespace-normal max-md:py-2" onClick={() => setStep("fornitori")}><span className="md:hidden">Continua con i prodotti pronti</span><span className="hidden md:inline">Procedi comunque</span></Button>
               </DialogFooter>
             </div>
