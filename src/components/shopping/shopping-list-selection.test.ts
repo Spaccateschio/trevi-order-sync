@@ -1,11 +1,32 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { NEXT_PURCHASE, purchaseSelectionKey, selectShoppingList } from "./shopping-list-selection";
+import { NEXT_PURCHASE, purchaseSelectionKey, restorePurchaseSelection, selectShoppingList } from "./shopping-list-selection";
 
 const open = { id: "new-purchase", status: "aperta", quantity: 5 };
 const closed = { id: "sent-purchase", status: "chiusa", quantity: 19 };
 const linked = { id: "linked-inventory", status: "aperta", quantity: 3 };
 describe("lista mostrata e quantità salvate", () => {
+  it("al primo ingresso parte vuoto anche con vecchi 5 kg, residui e AD-2026-00003 senza chiuderli", () => {
+    const previous = Object.freeze({ id: "previous", status: "aperta", quantity: 5, directDraft: "AD-2026-00003", residual: 2 });
+    const selected = restorePurchaseSelection(null);
+    assert.equal(selected, NEXT_PURCHASE);
+    assert.equal(selectShoppingList([previous], selected, previous, true), null);
+    assert.equal(previous.status, "aperta");
+    assert.equal(previous.quantity, 5);
+    assert.equal(previous.directDraft, "AD-2026-00003");
+    assert.equal(previous.residual, 2);
+    assert.equal(selectShoppingList([previous], previous.id, null, false), previous);
+  });
+  it("non riutilizza la selezione precedente alla separazione autorizzata", () => {
+    assert.notEqual(purchaseSelectionKey("a", "company"), "shopping-purchase-cycle:a:company");
+  });
+  it("rientrando resta vuoto senza premere Nuovo acquisto", () => {
+    assert.equal(restorePurchaseSelection(NEXT_PURCHASE), NEXT_PURCHASE);
+  });
+  it("conserva al rientro le nuove quantità confermate e il recupero esplicito", () => {
+    assert.equal(selectShoppingList([open], restorePurchaseSelection(open.id), null, false)?.quantity, 5);
+    assert.equal(selectShoppingList([closed], restorePurchaseSelection(closed.id), null, false), closed);
+  });
   it("5 kg precedenti e bozza AD restano recuperabili, mai nel nuovo ciclo vuoto", () => {
     const previous = Object.freeze({ id: "previous", status: "aperta", quantity: 5, directDraft: "AD-2026-00003", residual: 2 });
     assert.equal(selectShoppingList([previous], NEXT_PURCHASE, previous, true), null);
