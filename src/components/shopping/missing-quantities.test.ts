@@ -1,8 +1,28 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { missingQuantities, hasEmptyCompletionQuantity } from "./missing-quantities";
+import { missingQuantities, hasEmptyCompletionQuantity, catalogQuantityReview } from "./missing-quantities";
 
 describe("completamento quantità sull'intera Lista", () => {
+  it("il riepilogo comprende tutti i prodotti vuoti, anche non preferiti e oltre 60 card", () => {
+    const products = Array.from({ length: 75 }, (_, i) => ({ key: `p${i}`, code: `${i}`, description: `Prodotto ${i}`, favorite: false }));
+    assert.equal(catalogQuantityReview(products, {}, new Set()).length, 75);
+    assert.equal(catalogQuantityReview(products, {}, new Set()).every((p) => !p.nonPurchase), true);
+  });
+  it("solo zero confermato è Non acquistare; numeri scritti non diventano vuoti o esclusi", () => {
+    const products = ["blank", "confirmed-zero", "positive", "unconfirmed-zero"].map((key) => ({ key, code: key, description: key }));
+    const drafts = Object.freeze({ positive: Object.freeze({ raw: "5" }), "unconfirmed-zero": Object.freeze({ raw: "0" }) });
+    const rows = catalogQuantityReview(products, drafts, new Set(["confirmed-zero"]));
+    assert.deepEqual(rows.map((p) => [p.key, p.nonPurchase]), [["blank", false], ["confirmed-zero", true]]);
+    assert.equal(drafts.positive.raw, "5");
+    assert.equal(drafts["unconfirmed-zero"].raw, "0");
+  });
+  it("aggiungere il prodotto dimenticato lo toglie dal riepilogo senza toccare gli altri", () => {
+    const initial = Object.freeze({ id: "already", quantity: 5 });
+    const products = ["forgotten", "other"].map((key) => ({ key, code: key, description: key }));
+    assert.equal(catalogQuantityReview(products, {}, new Set()).length, 2);
+    assert.deepEqual(catalogQuantityReview(products.filter((p) => p.key !== "forgotten"), {}, new Set()).map((p) => p.key), ["other"]);
+    assert.equal(initial.quantity, 5);
+  });
   it("include quantità mancanti anche su prodotti non preferiti", () => {
     const rows = [{ id: "visibile", quantity: 3, locked: true, favorite: true }, { id: "nascosto", quantity: null, locked: false, favorite: false }];
     assert.deepEqual(missingQuantities(rows).map((r) => r.id), ["nascosto"]);

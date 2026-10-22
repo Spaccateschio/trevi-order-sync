@@ -41,7 +41,7 @@ import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { CloseListDialog } from "./close-list-dialog";
 import { GenerateOrdersDialog } from "./generate-orders-dialog";
 import { MissingQuantitiesDialog } from "./missing-quantities-dialog";
-import { missingQuantities, hasEmptyCompletionQuantity } from "./missing-quantities";
+import { missingQuantities, hasEmptyCompletionQuantity, catalogQuantityReview, type CatalogReviewProduct } from "./missing-quantities";
 import { manageListExclusion } from "@/lib/order-generation.functions";
 import { ListHistoryDialog } from "./list-history-dialog";
 import { ListDeliveryDate, useProposeListDate } from "./list-delivery-date";
@@ -167,6 +167,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   // «Genera ordini» sostituisce «Conferma lista»; resta montato per conservare le modifiche non salvate.
   const [genOpen, setGenOpen] = useState<null | "genera" | "bozze">(null);
   const [genMounted, setGenMounted] = useState<string | null>(null);
+  const [reviewCatalog, setReviewCatalog] = useState<CatalogReviewProduct[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [newListOpen, setNewListOpen] = useState(false);
   const runQuantity = useServerFn(setShoppingListItemQuantity);
@@ -1232,6 +1233,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     const entry = generationEntryState({ fetching: overviewQuery.isFetching || excludedQuery.isFetching, hasUnconfirmedDrafts: hasUnconfirmed, missingQuantityCount: completionEntries.length });
     if (entry === "wait") { toast.info("Attendi l'aggiornamento della Lista"); return; }
     if (entry === "drafts" && !canLeaveDrafts()) return;
+    setReviewCatalog(catalogQuantityReview(availableCatalog, catalogValues, catalogNotBuying));
     setGenMounted(list?.id ?? null);
     setGenOpen("genera");
   };
@@ -1978,6 +1980,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               if (item.kind === "catalog") {
                 const entry = item.value;
                 return (
+                  <div key={`${list?.id ?? "next-purchase"}:${entry.key}`} id={`review-catalog-${entry.key}`} className="min-w-0">
                   <CatalogProductCard
                     key={`${list?.id ?? "next-purchase"}:${entry.key}`}
                     mobileOpen={mobileOpenId === entry.key}
@@ -2010,6 +2013,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                       setUnitEdits((current) => { const next = { ...current }; delete next[added.itemId]; return next; });
                     }}
                   />
+                  </div>
                 );
               }
               const { kind, row, extra, stock } = item.value;
@@ -2201,6 +2205,22 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           listId={genMounted}
           open={genOpen !== null}
           mode={genOpen ?? "genera"}
+          catalogProducts={reviewCatalog}
+          onGoToCatalog={(key) => {
+            setGenOpen(null);
+            setListId(genMounted);
+            resetFilters();
+            setViewMode("card");
+            setCatalogLimit(Math.max(60, catalog.entries.length));
+            setCatalogNotBuying((current) => { const next = new Set(current); next.delete(key); return next; });
+            setMobileOpenId(key);
+            window.setTimeout(() => {
+              const target = document.getElementById(`review-catalog-${key}`);
+              target?.scrollIntoView({ behavior: "smooth", block: "center" });
+              target?.classList.add("ring-2", "ring-primary", "rounded-md");
+              window.setTimeout(() => target?.classList.remove("ring-2", "ring-primary", "rounded-md"), 3000);
+            }, 250);
+          }}
           onOpenChange={(next) => { if (!next) setGenOpen(null); }}
           onCompleteQuantities={() => { setListId(genMounted); setGenOpen(null); setMissingOpen(true); }}
           onGoToItem={(itemId) => {

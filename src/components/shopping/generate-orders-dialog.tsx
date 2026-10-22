@@ -4,6 +4,7 @@ import { AlertTriangle, ChevronDown, FileText, Info, Loader2, Lock, MapPin, Send
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEffect, useRef, useState } from "react";
 import { generationCompleted, initialGenerationStep } from "./shopping-list-ready-state";
+import type { CatalogReviewProduct } from "./missing-quantities";
 import { toast } from "sonner";
 
 import { SendOrderDialog, type SendChannel } from "@/components/purchase/send-order-dialog";
@@ -160,6 +161,8 @@ export function GenerateOrdersDialog({
   onListClosed,
   onCompleteQuantities,
   onGenerated,
+  catalogProducts = [],
+  onGoToCatalog,
 }: {
   companyId: string;
   listId: string;
@@ -170,6 +173,8 @@ export function GenerateOrdersDialog({
   onListClosed: () => void;
   onCompleteQuantities: () => void;
   onGenerated?: () => void;
+  catalogProducts?: readonly CatalogReviewProduct[];
+  onGoToCatalog?: (key: string) => void;
 }) {
   const queryClient = useQueryClient();
   const readPreview = useServerFn(getGenerationPreview);
@@ -940,6 +945,40 @@ export function GenerateOrdersDialog({
                       <Button size="sm" variant="outline" disabled={exclusion.isPending} onClick={() => exclusion.mutate({ itemId: i.item_id, action: "restore" })}>Riprendi</Button>
                     </div>
                   ))}
+                </section>
+              ) : null}
+
+              {catalogProducts.length ? (
+                <section className="min-w-0 space-y-1">
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" className="h-auto min-h-9 w-full justify-between whitespace-normal text-left text-sm">
+                        Prodotti senza quantità / non acquistare ({catalogProducts.length}) <ChevronDown className="size-4 shrink-0" />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 max-h-[40dvh] space-y-1 overflow-y-auto">
+                      <TooltipProvider delayDuration={150}>
+                        {catalogProducts.map((product) => (
+                          <div key={product.key} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border py-2 text-xs">
+                            <div className="min-w-0">
+                              <p className="break-words font-medium">{product.name}</p>
+                              <p className="text-muted-foreground">{product.code} · {product.nonPurchase ? "Non acquistare" : "Quantità non inserita"}</p>
+                            </div>
+                            {onGoToCatalog ? product.nonPurchase ? (
+                              <Button size="sm" variant="outline" onClick={() => onGoToCatalog(product.key)}>Riprendi</Button>
+                            ) : (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button size="icon" variant="ghost" className="size-8" aria-label={`Inserisci quantità ${product.name}`} onClick={() => onGoToCatalog(product.key)}><Lock className="size-4" /></Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Modifica solo questo prodotto</TooltipContent>
+                              </Tooltip>
+                            ) : null}
+                          </div>
+                        ))}
+                      </TooltipProvider>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </section>
               ) : null}
 

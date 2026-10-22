@@ -1,5 +1,18 @@
 import { quantityHasDraft } from "./shopping-quantity-state";
 
+export type CatalogReviewProduct = { key: string; code: string; name: string; nonPurchase: boolean };
+
+/** Presentation only: use the full available catalog, not filtered/paginated cards or bulk inputs. */
+export function catalogQuantityReview(
+  products: readonly { key: string; code: string; description: string | null }[],
+  drafts: Readonly<Record<string, { raw: string }>>,
+  notBuying: ReadonlySet<string>,
+): CatalogReviewProduct[] {
+  return products.filter((product) => notBuying.has(product.key) || !(drafts[product.key]?.raw ?? "").trim())
+    .map((product) => ({ key: product.key, code: product.code, name: product.description ?? product.code, nonPurchase: notBuying.has(product.key) }))
+    .sort((a, b) => a.name.localeCompare(b.name, "it"));
+}
+
 export type QuantityCompletionFacts = {
   id: string;
   quantity: number | null;
