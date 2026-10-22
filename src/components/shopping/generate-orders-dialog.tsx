@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, ChevronDown, FileText, Info, Loader2, MapPin, Send, ShoppingBag, Truck } from "lucide-react";
+import { AlertTriangle, ChevronDown, FileText, Info, Loader2, Lock, MapPin, Send, ShoppingBag, Truck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -685,14 +686,21 @@ export function GenerateOrdersDialog({
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                 <p className="min-w-0"><span className="md:hidden">Sistema il prodotto indicato oppure continua con quelli pronti. Gli altri restano nella Lista.</span><span className="hidden md:inline">Alcuni prodotti hanno quantità da sistemare. Puoi sistemarle ora oppure procedere con i prodotti pronti: quelli da sistemare restano nella Lista.</span></p>
               </div>
-              <ul className="space-y-1 text-sm">
-                {data.issues.map((i) => (
-                  <li key={i.item_id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded border border-border px-2 py-1 md:flex md:justify-between">
-                    <span className="min-w-0 break-words md:truncate">{i.code ? `${i.code} · ` : ""}{i.name} <span className="block text-muted-foreground md:inline"><span className="hidden md:inline">— </span>{reasonFor(i)}</span></span>
-                    <Button size="sm" variant="ghost" className="shrink-0" onClick={() => { onOpenChange(false); onGoToItem(i.item_id); }}>Sistema</Button>
-                  </li>
-                ))}
-              </ul>
+              <TooltipProvider delayDuration={150}>
+                <ul className="space-y-1 text-sm">
+                  {data.issues.map((i) => (
+                    <li key={i.item_id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded border border-border px-2 py-1 md:flex md:justify-between">
+                      <span className="min-w-0 break-words md:truncate">{i.code ? `${i.code} · ` : ""}{i.name} <span className="block text-muted-foreground md:inline"><span className="hidden md:inline">— </span>{reasonFor(i)}</span></span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="icon" variant="ghost" className="size-8 shrink-0" aria-label={`Sistema ${i.name}`} onClick={() => { onOpenChange(false); onGoToItem(i.item_id); }}><Lock className="size-4" /></Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left">Sistema questo prodotto</TooltipContent>
+                      </Tooltip>
+                    </li>
+                  ))}
+                </ul>
+              </TooltipProvider>
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={onCompleteQuantities}>Sistema tutte le quantità mancanti</Button>
                 <Button className="max-md:h-auto max-md:min-h-9 max-md:whitespace-normal max-md:py-2" onClick={() => setStep("fornitori")}><span className="md:hidden">Continua con i prodotti pronti</span><span className="hidden md:inline">Procedi comunque</span></Button>
