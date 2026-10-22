@@ -4,7 +4,7 @@ import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { finishMobileCard, toggleMobileCard, unlockSelectedProduct } from "./shopping-mobile-card-state";
 import { generationEntryState, resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
-import { NEXT_PURCHASE, purchaseSelectionKey, selectShoppingList } from "./shopping-list-selection";
+import { NEXT_PURCHASE, purchaseSelectionKey, restorePurchaseSelection, selectShoppingList } from "./shopping-list-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -290,7 +290,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const isAdmin = hasRole(identity, "amministratore");
   useEffect(() => {
     if (!identity?.userId) return;
-    try { setSelectedListId(window.localStorage.getItem(purchaseSelectionKey(identity.userId, companyId))); } catch { setSelectedListId(null); }
+    // Versioned device selection starts empty without changing or completing previous lists.
+    // Explicit new confirmations/recovery keep using the current selection on later visits.
+    try {
+      const key = purchaseSelectionKey(identity.userId, companyId);
+      const selected = restorePurchaseSelection(window.localStorage.getItem(key));
+      setSelectedListId(selected);
+      window.localStorage.setItem(key, selected);
+    } catch { setSelectedListId(NEXT_PURCHASE); }
     setSelectionReady(true);
   }, [identity?.userId, companyId]);
   const [overrideOpen, setOverrideOpen] = useState(false);

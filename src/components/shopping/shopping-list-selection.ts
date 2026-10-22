@@ -4,7 +4,12 @@ type SelectableList = { id: string; status: string };
 export const NEXT_PURCHASE = "__next_purchase__";
 
 export function purchaseSelectionKey(userId: string, companyId: string): string {
-  return `shopping-purchase-cycle:${userId}:${companyId}`;
+  return `shopping-purchase-cycle:v2:${userId}:${companyId}`;
+}
+
+/** Start the authorized presentation once; afterwards retain explicit current work/recovery. */
+export function restorePurchaseSelection(storedId: string | null): string {
+  return storedId || NEXT_PURCHASE;
 }
 
 /** A pending old inventory must not hide an existing open purchase list. */
