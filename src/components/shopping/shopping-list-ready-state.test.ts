@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { generationEntryState, initialGenerationStep, resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
+import { generationCompleted, generationEntryState, initialGenerationStep, resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
 
 describe("Genera ordini: prima il riepilogo", () => {
   it("una quantità mancante non apre il completamento automaticamente", () => {
@@ -19,6 +19,15 @@ describe("Genera ordini: prima il riepilogo", () => {
 });
 
 describe("nuovo acquisto indipendente dagli ordini precedenti", () => {
+  it("generazione riuscita apre il nuovo ciclo anche prima dell'invio o con invio fallito", () => {
+    assert.equal(generationCompleted([{ kind: "da_condividere" }]), true);
+    assert.equal(generationCompleted([{ kind: "errore_invio" }, { kind: "acquisto_diretto" }]), true);
+  });
+  it("generazione fallita, parziale o non effettuata non svuota la vista", () => {
+    assert.equal(generationCompleted([{ kind: "errore_generazione" }]), false);
+    assert.equal(generationCompleted([{ kind: "da_condividere" }, { kind: "errore_generazione" }]), false);
+    assert.equal(generationCompleted([]), false);
+  });
   it("mostra gli articoli e permette quantità senza lista aperta", () => {
     assert.deepEqual(shoppingReadyState(null, "archivio"), { showProducts: true, canPrepare: true, ordinaryPreview: true });
   });
