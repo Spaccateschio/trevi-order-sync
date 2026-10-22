@@ -3,7 +3,7 @@ import { selectShoppingPrintRows, type ShoppingPrintRow } from "./shopping-list-
 import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { finishMobileCard, toggleMobileCard, unlockSelectedProduct } from "./shopping-mobile-card-state";
-import { resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
+import { generationEntryState, resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
 import { selectShoppingList } from "./shopping-list-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -1206,9 +1206,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     return false;
   };
   const openGeneration = () => {
-    if (overviewQuery.isFetching || excludedQuery.isFetching) { toast.info("Attendi l'aggiornamento della Lista"); return; }
-    if (completionEntries.length) { setMissingOpen(true); return; }
-    if (!canLeaveDrafts()) return;
+    const entry = generationEntryState({ fetching: overviewQuery.isFetching || excludedQuery.isFetching, hasUnconfirmedDrafts: hasUnconfirmed, missingQuantityCount: completionEntries.length });
+    if (entry === "wait") { toast.info("Attendi l'aggiornamento della Lista"); return; }
+    if (entry === "drafts" && !canLeaveDrafts()) return;
     setGenMounted(list?.id ?? null);
     setGenOpen("genera");
   };
