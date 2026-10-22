@@ -915,15 +915,15 @@ export function GenerateOrdersDialog({
                   {data.issues.length ? <Button variant="outline" className="max-md:h-auto max-md:min-h-9 max-md:whitespace-normal max-md:py-2" onClick={onCompleteQuantities}>Sistema tutte le quantità mancanti</Button> : null}
                   <TooltipProvider delayDuration={150}>
                   {data.issues.map((i) => (
-                    <div key={i.item_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span className="min-w-0 flex-1 break-words">{i.code ? `${i.code} · ` : ""}{i.name} <span className="block text-muted-foreground md:inline">— {reasonFor(i)}</span></span>
+                    <div key={i.item_id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-sm md:flex md:flex-wrap md:justify-between">
+                      <span className="min-w-0 break-words md:flex-1">{i.code ? `${i.code} · ` : ""}{i.name} <span className="block text-muted-foreground md:inline">— {reasonFor(i)}</span></span>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button size="icon" variant="ghost" className="size-8 shrink-0" aria-label={`Sistema ${i.name}`} onClick={() => { onOpenChange(false); onGoToItem(i.item_id); }}><Lock className="size-4" /></Button>
                         </TooltipTrigger>
                         <TooltipContent side="left">Sistema questo prodotto</TooltipContent>
                       </Tooltip>
-                      <Button size="sm" variant="ghost" disabled={exclusion.isPending} onClick={() => exclusion.mutate({ itemId: i.item_id, action: "exclude" })}>Non acquistare in questo ciclo</Button>
+                      <Button size="sm" variant="ghost" className="max-md:col-span-2 max-md:justify-self-start" disabled={exclusion.isPending} onClick={() => exclusion.mutate({ itemId: i.item_id, action: "exclude" })}>Non acquistare in questo ciclo</Button>
                     </div>
                   ))}
                   </TooltipProvider>
