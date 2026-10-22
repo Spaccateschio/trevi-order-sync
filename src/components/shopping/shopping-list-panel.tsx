@@ -355,7 +355,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const ready = shoppingReadyState(list, selectionReady ? list?.archive_id ?? archivesQuery.data?.[0]?.id ?? "" : "");
   const ordinaryCreatingRef = useRef<Promise<string | null> | null>(null);
   const ordinaryIdRef = useRef<string | null>(null);
-  useEffect(() => { ordinaryIdRef.current = listId === NEXT_PURCHASE ? null : list?.status === "aperta" ? list.id : null; }, [listId, list?.id, list?.status]);
+  useEffect(() => {
+    if (listId === NEXT_PURCHASE) ordinaryIdRef.current = null;
+    else if (list) ordinaryIdRef.current = list.status === "aperta" ? list.id : null;
+    // Keep an explicitly created id while the lists query is refreshing.
+  }, [listId, list?.id, list?.status]);
 
   const overviewQuery = useQuery({
     queryKey: ["shopping-list-overview", list?.id],
@@ -2191,7 +2195,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           open={genOpen !== null}
           mode={genOpen ?? "genera"}
           onOpenChange={(next) => { if (!next) setGenOpen(null); }}
-          onCompleteQuantities={() => { setGenOpen(null); setMissingOpen(true); }}
+          onCompleteQuantities={() => { setListId(genMounted); setGenOpen(null); setMissingOpen(true); }}
           onGoToItem={(itemId) => {
             setGenOpen(null);
             setListId(genMounted);
