@@ -132,7 +132,8 @@ export function linksInTime(links: LinkTiming[], from: Date, needed: Date): Set<
 export const formatDeliveryDay = (x: Date) => x.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "numeric" });
 
 /** Riepilogo del calendario effettivo, senza cambiare la configurazione salvata. */
-export function deliveryScheduleSummary(timing: { schedule: DeliverySchedule; leadDays: number | null; isOverride?: boolean }): string {
+export function deliveryScheduleSummary(timing: { schedule: DeliverySchedule; leadDays: number | null; isOverride?: boolean } | undefined): string {
+  if (!timing) return "Consegna: caricamento giorni…";
   const days = isScheduleEmpty(timing.schedule) ? "Tutti i giorni" : scheduleSummary(timing.schedule);
   const lead = Math.max(0, Math.floor(timing.leadDays ?? 0));
   return `Consegna: ${days} · ${lead ? `preavviso ${lead} gg` : "nessun preavviso"} · ${timing.isOverride ? "eccezione prodotto" : "giorni del fornitore"}`;
