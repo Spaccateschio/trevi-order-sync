@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { Link2, Plus, ShoppingBag, Star, Trash2, Truck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -105,6 +104,7 @@ export function ProductSuppliersManager({
 }) {
   const queryClient = useQueryClient();
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
+  const [directOpen, setDirectOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [matchChoice, setMatchChoice] = useState<Record<string, string>>({});
@@ -405,12 +405,27 @@ export function ProductSuppliersManager({
         <Badge variant="secondary" className="shrink-0">{editable ? "Modificabili" : "Sola lettura"}</Badge>
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="outline">
-          <Link to="/acquisti/acquisto-diretto-anteprima">
-            <ShoppingBag aria-hidden="true" />Acquisto diretto — anteprima
-          </Link>
+        <Button type="button" size="sm" variant="outline" disabled={directOpen} onClick={() => setDirectOpen(true)}>
+          <ShoppingBag aria-hidden="true" />Acquisto diretto
         </Button>
       </div>
+
+      {directOpen ? (
+        <article className="mt-2 rounded-md border border-accent bg-accent/10 p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 space-y-2">
+              <h4 className="flex items-start gap-2 text-sm font-semibold"><ShoppingBag className="mt-0.5 size-4 shrink-0" />Acquisto diretto — compro io</h4>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">Acquisto personale</Badge>
+                <Badge variant="outline">Anteprima — nessun salvataggio</Badge>
+              </div>
+            </div>
+            <Button type="button" size="icon" variant="ghost" title="Togli acquisto diretto" aria-label="Togli acquisto diretto" onClick={() => setDirectOpen(false)}>
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        </article>
+      ) : null}
 
       {editable && pending.length ? (
         <div className="mt-2 space-y-3 rounded-md border border-dashed border-border bg-muted/30 p-3">
