@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
@@ -57,6 +58,8 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [newUnitOpen, setNewUnitOpen] = useState(false);
+  const [newUnitDraft, setNewUnitDraft] = useState<{ code: string; description: string; usage: "acquisto" | "vendita" | "entrambi" }>({ code: "", description: "", usage: "entrambi" });
   const [removeTarget, setRemoveTarget] = useState<ProductSaleUnit | null>(null);
   const [offerDeactivation, setOfferDeactivation] = useState(false);
   const [draft, setDraft] = useState<{ active: boolean; visible: boolean; isDefault: boolean; factor: string; conversionType: "esatta" | "indicativa" }>({ active: true, visible: true, isDefault: false, factor: "", conversionType: "indicativa" });
@@ -155,12 +158,15 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
           {code}{row.is_default ? <Star className="fill-current" aria-hidden="true" /> : null}{row.needs_review ? <AlertTriangle aria-hidden="true" /> : null}
         </Button>;
       })}
-      {editable && available.length ? <Popover open={addOpen} onOpenChange={setAddOpen}>
+      {editable ? <Popover modal open={addOpen} onOpenChange={setAddOpen}>
         <PopoverTrigger asChild><Button type="button" size="icon" variant="outline" aria-label="Aggiungi U.M. vendita"><Plus /></Button></PopoverTrigger>
-        <PopoverContent align="start" className="w-64 p-2">
+        <PopoverContent align="start" className="w-64 max-w-[calc(100vw-2rem)] p-2">
           <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">Aggiungi U.M. vendita</p>
-          <div className="max-h-64 space-y-1 overflow-y-auto">
+          <div role="region" aria-label="Elenco U.M. disponibili" tabIndex={0} className="max-h-[min(16rem,50dvh)] touch-pan-y space-y-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
             {available.map((unit) => <Button key={unit.id} type="button" variant="ghost" className="h-auto w-full justify-start py-2 text-left" disabled={busy} onClick={async () => { await mutation.mutateAsync({ unitId: unit.id, operation: "add" }); setAddOpen(false); }}><span><strong>{unit.code}</strong><span className="ml-2 text-muted-foreground">{unit.description}</span></span></Button>)}
+            <div className="border-t border-border pt-1">
+              <Button type="button" variant="ghost" className="w-full justify-start" disabled={busy} onClick={() => { setAddOpen(false); setNewUnitDraft({ code: "", description: "", usage: "entrambi" }); setNewUnitOpen(true); }}><Plus aria-hidden="true" />Nuova U.M.</Button>
+            </div>
           </div>
         </PopoverContent>
       </Popover> : null}
@@ -193,6 +199,19 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
         <Button type="button" size="sm" disabled={busy} onClick={() => saveMutation.mutate()}>Salva</Button>
       </div> : null}
     </div> : null}
+
+    <Dialog open={newUnitOpen} onOpenChange={setNewUnitOpen}>
+      <DialogContent className="max-h-[85dvh] overflow-y-auto" aria-describedby={undefined}>
+        <DialogHeader><DialogTitle>Nuova U.M.</DialogTitle></DialogHeader>
+        <Badge variant="secondary" className="w-fit">Anteprima — nessun salvataggio</Badge>
+        <div className="space-y-4">
+          <label className="block space-y-1 text-sm font-medium"><span>Sigla</span><Input aria-label="Sigla U.M." value={newUnitDraft.code} onChange={(event) => setNewUnitDraft((current) => ({ ...current, code: event.target.value }))} /></label>
+          <label className="block space-y-1 text-sm font-medium"><span>Descrizione</span><Input aria-label="Descrizione U.M." value={newUnitDraft.description} onChange={(event) => setNewUnitDraft((current) => ({ ...current, description: event.target.value }))} /></label>
+          <fieldset><legend className="text-sm font-medium">Uso</legend><div className="mt-2 flex flex-wrap gap-2">{([{ value: "acquisto", label: "Acquisto" }, { value: "vendita", label: "Vendita" }, { value: "entrambi", label: "Entrambi" }] as const).map((option) => <Button key={option.value} type="button" size="sm" variant={newUnitDraft.usage === option.value ? "default" : "outline"} aria-pressed={newUnitDraft.usage === option.value} onClick={() => setNewUnitDraft((current) => ({ ...current, usage: option.value }))}>{option.label}</Button>)}</div></fieldset>
+        </div>
+        <DialogFooter><Button type="button" variant="outline" onClick={() => setNewUnitOpen(false)}>Annulla</Button><Button type="button" disabled>Salva</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <AlertDialog open={Boolean(removeTarget)} onOpenChange={(open) => { if (!open) { setRemoveTarget(null); setOfferDeactivation(false); } }}>
       <AlertDialogContent>
