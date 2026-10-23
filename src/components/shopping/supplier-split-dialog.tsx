@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { DeliveryHintBadge } from "@/components/suppliers/delivery-days-picker";
 import { supabase } from "@/integrations/supabase/client";
 import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
+import { firstValidDelivery, parseLocalDate } from "@/lib/delivery-schedule";
 import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
 import { sharePercent, type AssignmentRow, type OverviewRow } from "@/lib/shopping-list";
@@ -108,6 +109,25 @@ export function SupplierSplitDialog({
   });
 
   const deliveries = useDeliverySchedules(item.product_id, open).data ?? {};
+  // «Per quando serve» della Lista: solo per l'avviso informativo, nessun blocco.
+  const neededQuery = useQuery({
+    queryKey: ["shopping-item-needed-date", item.item_id],
+    enabled: open,
+    queryFn: async (): Promise<string | null> => {
+      const { data } = await supabase.from("shopping_list_items").select("shopping_lists(delivery_date)").eq("id", item.item_id).maybeSingle();
+      return ((data?.shopping_lists as unknown as { delivery_date: string | null } | null)?.delivery_date) ?? null;
+    },
+  });
+  const needed = neededQuery.data ? parseLocalDate(neededQuery.data) : null;
+  const lateNote = (linkId: string, lead: number | null): string | null => {
+    const d = deliveries[linkId];
+    if (!needed || !d) return null;
+    const now = new Date();
+    const first = firstValidDelivery(new Date(now.getFullYear(), now.getMonth(), now.getDate()), d.schedule, lead);
+    if (first && first.getTime() <= needed.getTime()) return null;
+    const fmt = (x: Date) => x.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "numeric" });
+    return `Non consegna entro ${fmt(needed)}${first ? ` — prima consegna: ${fmt(first)}` : ""}. Puoi scegliere un altro fornitore o l'acquisto diretto.`;
+  };
 
   const assignmentsQuery = useQuery({
     queryKey: ["shopping-list-assignments", item.item_id],
@@ -284,6 +304,11 @@ export function SupplierSplitDialog({
                   {supplier.manual_cost !== null ? ` · costo Trevi Fruit ${euro(supplier.manual_cost)}` : ""}
                 </p>
 
+                {rows.length && lateNote(supplier.link_id, supplier.lead_time_days) ? (
+                  <p className="rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive" role="status">
+                    {lateNote(supplier.link_id, supplier.lead_time_days)}
+                  </p>
+                ) : null}
                 {rows.length ? (
                   <ul className="space-y-1">
                     {rows.map((row) => (
