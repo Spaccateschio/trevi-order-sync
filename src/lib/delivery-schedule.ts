@@ -106,7 +106,8 @@ export function parseLocalDate(value: string): Date | null {
  * dopo `from` (0/null = anche lo stesso giorno). Cerca fino a 400 giorni (copre il giorno mensile).
  */
 export function firstValidDelivery(from: Date, schedule: DeliverySchedule, leadDays: number | null | undefined): Date | null {
-  if (isScheduleEmpty(schedule)) return null;
+  // Nessun giorno impostato = consegna sempre: conta solo il preavviso.
+  if (isScheduleEmpty(schedule)) schedule = DEFAULT_SCHEDULE;
   const lead = Math.max(0, Math.floor(leadDays ?? 0));
   for (let offset = lead; offset <= lead + 400; offset += 1) {
     const candidate = new Date(from.getFullYear(), from.getMonth(), from.getDate() + offset);
