@@ -1,72 +1,38 @@
-# Stelle su più destinazioni (fornitori + acquisto diretto) — analisi e piano
+# Correzioni dopo il collaudo — consegne e acquisto diretto
 
-Solo analisi: nessuna modifica a codice, database, dati reali, pubblicazione o roadmap.md.
+## Risultato previsto
 
-## 1. Dove sta oggi la stella (sola lettura)
+1. **Avviso rosso comprensibile.** Spiegare se il fornitore arriva dopo la data richiesta per il preavviso, per un giorno non servito oppure per entrambi, mantenendo la prima consegna possibile e senza bloccare gli acquisti.
+   - Caso Barone: Lista per venerdì 23/10/2026, tutti i giorni attivi, preavviso 2 giorni → «preavviso 2 giorni: prima consegna domenica 25/10».
+2. **Giorni sempre visibili.** Nella scheda Prodotto → Acquisto mostrare, anche a fornitore chiuso, «Consegna: [giorni] · preavviso N gg» e l’origine del calendario: fornitore oppure eccezione del prodotto. Senza preavviso indicare «nessun preavviso»; nessun calendario significa «tutti i giorni». Un tocco sul riepilogo apre la modifica esistente, senza salvare. Aggiungere lo stesso riepilogo compatto sotto ogni fornitore nella card della Lista.
+3. **Acquisto diretto con stella.** Rendere la stella piena e dello stesso colore/dimensione delle stelle fornitore. Usare la proposta già calcolata per mostrarlo spuntato, come le altre destinazioni con stella, senza creare quote, inserire quantità o avviare un salvataggio. Conservare la possibilità di modificare esplicitamente la scelta senza confondere una proposta con una quota salvata.
+4. **Nessun calendario.** Conservare la regola già presente e verificata: tutti i giorni disponibili, conta solo il preavviso. Nessuna riscrittura dei calendari.
 
-- Campo: `product_supplier_links.is_preferred` (boolean), con `preferred_set_at` / `preferred_set_by` (stella manuale vs automatica).
-- **Nessun vincolo né indice** limita a una stella per prodotto. L'unicità la impone solo la funzione `set_preferred_product_supplier(_company_id, _product_id, _supplier_record_id)`: prima toglie la stella a tutti gli altri collegamenti del prodotto, poi la mette su quello scelto, segna `preferred_set_by` su tutti e scrive `audit_events`.
-- Stella automatica: trigger `product_supplier_links_sole_preferred` (AFTER INSERT/UPDATE di is_active, supplier_record_id, b2b_item_id, product_id) → `_ensure_sole_supplier_preferred`: mette la stella da sola solo se il prodotto ha un unico fornitore attivo e nessuno l'ha mai scelta a mano.
-- `unlink_product_supplier` / `unlink_b2b_catalog_item` tolgono la stella quando si scollega.
-- Controllo sui dati attuali: 0 prodotti con più di una stella attiva.
-- Dove si mette oggi: solo nella card della Lista (`card-suppliers.tsx`, icona stella e voce del menu ⋮). Nella scheda Prodotto → Acquisto la stellina visibile è la **Priorità** (`sourcing_priority`), non la stella preferito.
+## Ambiguità e rischi rilevati
 
-## 2. Stella sull'acquisto diretto
+- La proposta dell’acquisto diretto arriva già alla card, ma la spunta considera solo una quota salvata o la modifica in corso: correggere la presentazione, non le assegnazioni.
+- Il messaggio deve distinguere due casi indipendenti: il preavviso minimo supera la data richiesta; la data richiesta non è servita dal calendario effettivo. Mostrare entrambi quando entrambi valgono.
+- Per AZ.AGR.FUSCO TOMMASO verificare soltanto le U.M. acquistabili già presenti su 3 EMME: se mancano, segnalarlo separatamente. Nessuna U.M. inventata né configurazione modificata.
 
-Oggi non esiste nessun dato salvato (la voce nella tab è solo visiva). Proposta: nuova tabella
-`product_direct_purchase_preferences` (company_id, product_id unico per azienda, is_preferred, preferred_set_at, preferred_set_by, created_at). RLS con `company_id = get_user_company_id()` in sola lettura; scrittura solo tramite funzione.
-Non la metterei su `products` (tabella aggiornata da Danea) per non mescolare dati del gestionale con preferenze d'acquisto.
+## File autorizzati per l’implementazione
 
-## 3. Dove il codice usa la stella e cosa cambia
+- `src/lib/delivery-schedule.ts`: piccoli helper puri condivisi per riepilogo e motivi del ritardo; conservare le regole di calcolo esistenti.
+- `src/lib/delivery-schedule.test.ts`: prove concrete per Barone (23→25 ottobre), solo giorno non servito, entrambe le cause e calendario vuoto con/senza preavviso.
+- `src/components/products/product-suppliers-manager.tsx`: riepilogo visibile e apertura della modifica esistente.
+- `src/components/shopping/card-suppliers.tsx`: riepiloghi, motivi dell’avviso, stella e spunta visiva dell’acquisto diretto.
+- `src/lib/list-preselection.test.ts`: regressione sulla proposta con due fornitori stellati e acquisto diretto stellato, senza quote automatiche.
+- `AGENTS.md`: aggiornare soltanto la regola tecnica della proposta visiva, se necessaria.
 
-- `supplier-selection.ts` `autoPickSupplier` (righe 64–75): una stella → propone quel fornitore; più stelle → `da_scegliere «Più fornitori preferiti»`. **Già oggi con più stelle non assegna nulla**: il comportamento richiesto esiste, cambia solo il motivo/avviso.
-- `supplier-selection.ts` `visualPick` (righe 309–319): più stelle → nessuna spunta. Da cambiare: con più stelle spunta (solo visivamente) tutte le destinazioni con stella, compreso l'acquisto diretto.
-- `supplier-memory.ts` `chooseListDestinations` (righe 26–47): la memoria dell'ultima Lista vale se la stella non è cambiata dopo. Con più stelle: se la memoria vale, resta prioritaria come oggi (decisione da confermare, vedi Domande); altrimenti restituisce tutte le destinazioni con stella con motivo `"piu_stelle"` e **nessuna scrittura**.
-- `shopping-auto-assign.ts` (righe 248–307): con più stelle non deve scrivere quote; resta `da_scegliere` con avviso «Da ripartire». Filtro giorni di consegna invariato: un fornitore stellato non in tempo resta proposto con avviso rosso (già presente via `lateWarning`), non viene tolto in silenzio. Nota: oggi il filtro giorni toglie i fornitori in ritardo prima della scelta; con più stelle va applicato solo come avviso.
-- Una sola stella e nessuna stella: nessun cambiamento.
+Nessun altro file applicativo sarà modificato senza un aggiornamento approvato del piano.
 
-## 4. File dell'interfaccia
+## Verifiche e screenshot
 
-- `src/components/products/product-suppliers-manager.tsx`: stella preferito su ogni fornitore e sulla voce «Acquisto diretto — compro io» (oggi solo visiva: diventa salvata).
-- `src/components/shopping/card-suppliers.tsx`: la stella non toglie più quella degli altri (toggle), riga «Acquisto diretto» con stella, avviso «Da ripartire» con più stelle.
-- `src/components/shopping/supplier-split-dialog.tsx` («Fornitori e ripartizione»): destinazioni con stella già proposte in cima, acquisto diretto compreso; quantità a mano.
-- `src/lib/supplier-selection.ts`, `src/lib/supplier-memory.ts`, `src/lib/shopping-auto-assign.ts`, `src/lib/shopping-card-reads.ts` (lettura stella acquisto diretto) + test in `list-preselection.test.ts` e `supplier-selection.test.ts`.
+- Eseguire le prove mirate di consegna e presele­zione; verificare i segnali della compilazione automatica.
+- In anteprima autenticata, leggere soltanto il prodotto **0288 ALLORO IT A MAZZI di 3 EMME ROMA SRL**. Controllare card Lista e scheda Acquisto su telefono e computer.
+- Aprire il riepilogo dei giorni senza premere «Salva giorni», cambiare stelle, confermare quantità o generare ordini. Controllare che proposta e spunta non causino scritture.
+- Se i dati attuali non permettono uno scenario, provarne il calcolo con test isolati e dichiarare il limite della verifica visiva, senza alterare dati.
+- Consegnare uno screenshot della card Lista e uno della scheda Acquisto dopo le correzioni; comunicare file toccati e righe cambiate.
 
-## 5. Migrazioni e app pubblicata
+## Limiti
 
-Servono (non applicate):
-1. Nuova tabella `product_direct_purchase_preferences` + GRANT + RLS — additiva, innocua per l'app pubblicata.
-2. Nuova funzione `toggle_product_destination_star(_company_id, _product_id, _supplier_record_id, _direct boolean, _on boolean)` (SECURITY DEFINER, search_path=public, controllo `is_company_admin`, audit) che aggiunge/toglie **senza** togliere le altre — additiva.
-3. **Da rinviare**: cambiare `set_preferred_product_supplier` o il trigger. Non serve toccarli: restano per l'app pubblicata. Rischio: dal momento in cui un prodotto ha due stelle, l'app **pubblicata** (database condiviso) mostrerà «Più fornitori preferiti» e non assegnerà più in automatico; se lì si preme la stella, toglierà le altre. Quindi la funzione nuova va usata solo in anteprima finché non si pubblica, e il collaudo solo su 3 EMME.
-
-```sql
-CREATE TABLE public.product_direct_purchase_preferences (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id uuid NOT NULL REFERENCES public.companies(id),
-  product_id uuid NOT NULL REFERENCES public.products(id),
-  is_preferred boolean NOT NULL DEFAULT false,
-  preferred_set_at timestamptz, preferred_set_by uuid,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (company_id, product_id)
-);
-GRANT SELECT ON public.product_direct_purchase_preferences TO authenticated;
-GRANT ALL ON public.product_direct_purchase_preferences TO service_role;
-ALTER TABLE public.product_direct_purchase_preferences ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "lettura azienda" ON public.product_direct_purchase_preferences
-  FOR SELECT TO authenticated USING (company_id = public.get_user_company_id());
--- + funzione toggle_product_destination_star (SECURITY DEFINER, is_company_admin, audit_events,
---   nessun RETURN dopo la prima scrittura, solo RAISE EXCEPTION)
-```
-
-## 6. Prove previste su 3 EMME (solo anteprima, nessun invio)
-
-1. Una stella: come oggi, tutta la quantità al fornitore con stella.
-2. Due stelle: entrambi spuntati, nessuna quota, avviso «Da ripartire»; ripartizione a mano funziona.
-3. Stella + acquisto diretto: fornitore e «compro io» proposti, nessuna quota, avviso.
-4. Nessuna stella: come oggi.
-5. Stella su un fornitore che non consegna entro «Per quando serve»: resta proposto con avviso rosso e prima consegna possibile.
-
-## Domande prima di implementare
-
-- Con più stelle, la memoria dell'ultima Lista (stesse destinazioni e proporzioni) deve ancora riproporre le quantità in automatico, o con più stelle si ripartisce sempre a mano?
-- La stella va messa solo dagli amministratori, come oggi?
+**Nessuna modifica al database, agli ordini o a roadmap.md; nessun invio e nessuna pubblicazione.** Non toccare Trevi né altre aziende. U.M. dell’acquisto diretto ancora solo anteprima locale. La pagina separata di anteprima resta invariata.
