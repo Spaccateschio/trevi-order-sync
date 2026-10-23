@@ -22,7 +22,11 @@ export type SupplierMemory = { listId: string; closedAt: string; destinations: M
 
 export type HistoryEntry = SupplierMemory;
 
-/** Shared destination choice before and after quantity input; unit/conversion checks remain separate. */
+/**
+ * Shared destination choice before and after quantity input; unit/conversion checks remain separate.
+ * Più stelle (fornitori e/o acquisto diretto): la memoria vale solo se ogni destinazione ricordata ha ancora
+ * la stella; altrimenti le destinazioni con stella sono solo proposte («da_ripartire»), senza quote automatiche.
+ */
 export function chooseListDestinations(args: {
   suppliers: PickSupplier[];
   deselected: Iterable<string>;
@@ -30,17 +34,28 @@ export function chooseListDestinations(args: {
   manualStarAt: string | null;
   inventoryStarLinks: string[];
   preferLinkId?: string | null;
+  /** Stella su «Acquisto diretto — compro io» del prodotto. */
+  directStarred?: boolean;
 }) {
   const off = new Set(args.deselected);
   const pool = args.suppliers.filter((s) => !off.has(s.linkId));
   const eligible = (s: PickSupplier) => s.purchasable && (!s.isB2B || s.sourceLinked);
+  const directStar = Boolean(args.directStarred);
+  const starred = pool.filter((s) => s.isPreferred && eligible(s));
+  const multi = !args.preferLinkId && starred.length + (directStar ? 1 : 0) >= 2;
+  const memoryOk = (m: SupplierMemory) => !multi || m.destinations.every((d) =>
+    d.kind === "diretto" ? directStar : starred.some((s) => s.linkId === d.linkId));
   const memory = !args.preferLinkId && args.memory && memoryStillValid(args.memory.closedAt, args.manualStarAt)
     && args.memory.destinations.every((d) => d.kind === "diretto" || pool.some((s) => s.linkId === d.linkId && eligible(s)))
+    && memoryOk(args.memory)
     ? args.memory : null;
   if (memory) return {
     linkIds: [...new Set(memory.destinations.flatMap((d) => d.kind === "fornitore" ? [d.linkId] : []))],
     direct: memory.destinations.some((d) => d.kind === "diretto"), memory, reason: "memoria" as const,
   };
+  if (multi) return { linkIds: starred.map((s) => s.linkId), direct: directStar, memory: null, reason: "da_ripartire" as const };
+  // Unica stella sull'acquisto diretto (nessun fornitore con stella): come una stella sola, tutto a «compro io».
+  if (directStar && !starred.length && !args.preferLinkId) return { linkIds: [], direct: true, memory: null, reason: "preferito" as const };
   const pick = autoPickSupplier(pool, null, "", args.inventoryStarLinks, { preferLinkId: args.preferLinkId ?? null, isEligible: eligible });
   return { linkIds: pick.kind === "pick" ? [pick.linkId] : [], direct: false, memory: null,
     reason: pick.kind === "pick" ? pick.reason : null };
