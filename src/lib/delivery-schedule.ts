@@ -94,3 +94,36 @@ export function deliveryHint(schedule: DeliverySchedule, today = new Date()): {
     label: `Non consegna oggi — prossima: ${WEEKDAY_FULL[isoWeekday(next)]} ${next.getDate()}`,
   };
 }
+
+/** Data locale "YYYY-MM-DD" → Date a mezzanotte locale (nessuno slittamento di fuso). */
+export function parseLocalDate(value: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+
+/**
+ * Prima consegna valida: primo giorno di consegna che cade almeno `leadDays` giorni di calendario
+ * dopo `from` (0/null = anche lo stesso giorno). Cerca fino a 400 giorni (copre il giorno mensile).
+ */
+export function firstValidDelivery(from: Date, schedule: DeliverySchedule, leadDays: number | null | undefined): Date | null {
+  if (isScheduleEmpty(schedule)) return null;
+  const lead = Math.max(0, Math.floor(leadDays ?? 0));
+  for (let offset = lead; offset <= lead + 400; offset += 1) {
+    const candidate = new Date(from.getFullYear(), from.getMonth(), from.getDate() + offset);
+    if (isDeliveryDay(candidate, schedule)) return candidate;
+  }
+  return null;
+}
+
+/** true se il fornitore può consegnare entro `needed` (incluso). Solo informativo: mai un blocco. */
+export function canDeliverBy(from: Date, schedule: DeliverySchedule, leadDays: number | null | undefined, needed: Date): boolean {
+  const first = firstValidDelivery(from, schedule, leadDays);
+  return first !== null && first.getTime() <= new Date(needed.getFullYear(), needed.getMonth(), needed.getDate()).getTime();
+}
+
+export type LinkTiming = { linkId: string; schedule: DeliverySchedule; leadDays: number | null };
+
+/** Collegamenti che arrivano in tempo per la data richiesta. */
+export function linksInTime(links: LinkTiming[], from: Date, needed: Date): Set<string> {
+  return new Set(links.filter((l) => canDeliverBy(from, l.schedule, l.leadDays, needed)).map((l) => l.linkId));
+}
