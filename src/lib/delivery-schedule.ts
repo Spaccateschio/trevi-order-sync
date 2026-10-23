@@ -131,6 +131,31 @@ export function linksInTime(links: LinkTiming[], from: Date, needed: Date): Set<
 
 export const formatDeliveryDay = (x: Date) => x.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "numeric" });
 
+/** Riepilogo del calendario effettivo, senza cambiare la configurazione salvata. */
+export function deliveryScheduleSummary(timing: { schedule: DeliverySchedule; leadDays: number | null; isOverride?: boolean }): string {
+  const days = isScheduleEmpty(timing.schedule) ? "Tutti i giorni" : scheduleSummary(timing.schedule);
+  const lead = Math.max(0, Math.floor(timing.leadDays ?? 0));
+  return `Consegna: ${days} · ${lead ? `preavviso ${lead} gg` : "nessun preavviso"} · ${timing.isOverride ? "eccezione prodotto" : "giorni del fornitore"}`;
+}
+
+/** Cause indipendenti del ritardo; nessuna assegnazione o modifica della data. */
+export function deliveryDelayReasons(timing: { schedule: DeliverySchedule; leadDays: number | null } | undefined, needed: Date, today = new Date()): { leadDays: number | null; weekday: string | null } {
+  if (!timing || !lateFirstDelivery(timing, needed, today)) return { leadDays: null, weekday: null };
+  const lead = Math.max(0, Math.floor(timing.leadDays ?? 0));
+  const earliest = new Date(today.getFullYear(), today.getMonth(), today.getDate() + lead);
+  const requested = new Date(needed.getFullYear(), needed.getMonth(), needed.getDate());
+  return {
+    leadDays: lead > 0 && earliest.getTime() > requested.getTime() ? lead : null,
+    weekday: !isScheduleEmpty(timing.schedule) && !isDeliveryDay(requested, timing.schedule) ? WEEKDAY_FULL[isoWeekday(requested)] ?? null : null,
+  };
+}
+
+export function deliveryDelaySummary(timing: { schedule: DeliverySchedule; leadDays: number | null } | undefined, needed: Date, today = new Date()): string {
+  const reasons = deliveryDelayReasons(timing, needed, today);
+  return [reasons.leadDays !== null ? `preavviso ${reasons.leadDays} giorni` : null,
+    reasons.weekday ? `non consegna di ${reasons.weekday}` : null].filter(Boolean).join(" · ");
+}
+
 /** Prima consegna possibile se arriva DOPO la data richiesta; null se in tempo (o nessuna data). */
 export function lateFirstDelivery(timing: { schedule: DeliverySchedule; leadDays: number | null } | undefined, needed: Date | null, today = new Date()): Date | null {
   if (!timing || !needed) return null;

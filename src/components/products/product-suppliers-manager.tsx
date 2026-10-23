@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { DeliveryDaysPicker, DeliveryHintBadge } from "@/components/suppliers/delivery-days-picker";
 import { supabase } from "@/integrations/supabase/client";
-import { DEFAULT_SCHEDULE, type DeliverySchedule } from "@/lib/delivery-schedule";
+import { DEFAULT_SCHEDULE, deliveryScheduleSummary, type DeliverySchedule } from "@/lib/delivery-schedule";
 import { dateTime, euro } from "@/lib/product-grid";
 import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
 import type { CompanyUnit } from "./sales-unit-manager";
@@ -535,7 +535,7 @@ export function ProductSuppliersManager({
           const label = linkedLabel(row.b2b_relation_status);
           return (
             <div key={row.link_id} className={`rounded-md border p-3 ${isSelected ? "border-primary" : "border-border"}`}>
-              <button type="button" className="w-full text-left" aria-expanded={isSelected} onClick={() => setSelectedLinkId(isSelected ? null : row.link_id)}>
+              <Button type="button" variant="ghost" className="block h-auto w-full whitespace-normal px-0 text-left hover:bg-transparent" aria-expanded={isSelected} onClick={() => setSelectedLinkId(isSelected ? null : row.link_id)}>
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     role="button"
@@ -557,6 +557,9 @@ export function ProductSuppliersManager({
                   {label ? <Badge variant="secondary"><Link2 aria-hidden="true" />{label}</Badge> : null}
                   {deliveries[row.link_id] ? <DeliveryHintBadge schedule={deliveries[row.link_id]!.schedule} /> : null}
                 </div>
+                <p className="mt-2 text-xs font-normal leading-relaxed text-muted-foreground">
+                  {deliveries[row.link_id] ? deliveryScheduleSummary(deliveries[row.link_id]) : "Consegna: caricamento giorni…"}
+                </p>
                 <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
                   <div><dt className="text-muted-foreground">Cod. fornitore</dt><dd className="font-mono">{row.supplier_product_code ?? "—"}</dd></div>
                   <div><dt className="text-muted-foreground">Priorità</dt><dd>{row.sourcing_priority ?? "—"}</dd></div>
@@ -568,7 +571,7 @@ export function ProductSuppliersManager({
                   <div><dt className="text-muted-foreground">Origine</dt><dd>{row.origin === "danea" ? "Danea" : "Manuale"}</dd></div>
                   <div><dt className="text-muted-foreground">Note</dt><dd className="truncate">{row.notes ?? "—"}</dd></div>
                 </dl>
-              </button>
+              </Button>
 
               {isSelected && editable ? (
                 <div className="mt-3 border-t border-border pt-3">
