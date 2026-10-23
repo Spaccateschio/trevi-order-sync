@@ -105,6 +105,7 @@ export function ProductSuppliersManager({
   const queryClient = useQueryClient();
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [directOpen, setDirectOpen] = useState(false);
+  const [directUnits, setDirectUnits] = useState<Set<string> | null>(null);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [matchChoice, setMatchChoice] = useState<Record<string, string>>({});
@@ -117,6 +118,15 @@ export function ProductSuppliersManager({
       return (data ?? []) as Overview[];
     },
   });
+
+  // Anteprima acquisto diretto: U.M. attive dell'azienda; predefinita la U.M. Danea. Nessun salvataggio.
+  const activeUnits = useMemo(() => units.filter((unit) => unit.status === "attivo"), [units]);
+  const directSelected = directUnits ?? new Set(activeUnits.filter((unit) => unit.code === daneaUm).map((unit) => unit.id));
+  function toggleDirectUnit(id: string) {
+    const next = new Set(directUnits ?? new Set(activeUnits.filter((unit) => unit.code === daneaUm).map((unit) => unit.id)));
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setDirectUnits(next);
+  }
 
   // U.M. del prezzo del costo concordato (solo fornitori non B2B): letta direttamente dalla referenza.
   const priceUnitsQuery = useQuery({
@@ -423,6 +433,32 @@ export function ProductSuppliersManager({
             <Button type="button" size="icon" variant="ghost" title="Togli acquisto diretto" aria-label="Togli acquisto diretto" onClick={() => setDirectOpen(false)}>
               <Trash2 className="size-4" />
             </Button>
+          </div>
+          <div className="mt-3 space-y-2">
+            <Label className="text-xs">U.M. con cui acquisti direttamente</Label>
+            {activeUnits.length ? (
+              <div className="flex flex-wrap gap-2">
+                {activeUnits.map((unit) => {
+                  const on = directSelected.has(unit.id);
+                  return (
+                    <Button
+                      key={unit.id}
+                      type="button"
+                      size="sm"
+                      variant={on ? "secondary" : "outline"}
+                      title={`${unit.code} — ${unit.description}`}
+                      aria-pressed={on}
+                      onClick={() => toggleDirectUnit(unit.id)}
+                    >
+                      {unit.code}{unit.code === daneaUm ? " ★" : ""}
+                    </Button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nessuna U.M. attiva da usare.</p>
+            )}
+            <p className="text-xs text-muted-foreground">Nell'anteprima la scelta non viene salvata.</p>
           </div>
         </article>
       ) : null}
