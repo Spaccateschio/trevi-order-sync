@@ -19,6 +19,7 @@ import {
   type MemoryDestination,
   type SupplierMemory,
 } from "@/lib/supplier-memory";
+import { linksInTime, parseLocalDate, toSchedule } from "@/lib/delivery-schedule";
 
 /**
  * Proposta automatica del fornitore per UNA riga della Lista, usata da «Conferma», dalla stella,
@@ -192,7 +193,7 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   const updateExisting = options.updateExisting ?? true;
   const { data: item, error } = await supabase
     .from("shopping_list_items")
-    .select("id, product_id, decided_quantity, decided_unit_id, decided_unit_code, unit_code, manual_purchase_quantity, quantity_locked_at, excluded_at")
+    .select("id, product_id, list_id, decided_quantity, decided_unit_id, decided_unit_code, unit_code, manual_purchase_quantity, quantity_locked_at, excluded_at")
     .eq("id", itemId)
     .maybeSingle();
   if (error || !item) return { kind: "saltato", reason: error?.message ?? "Riga non trovata" };
@@ -226,7 +227,7 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
 
   const unitsByLink = new Map(((units.data ?? []) as unknown as UnitsRead[]).map((u) => [u.link_id, u]));
   const active = ((overview.data ?? []) as unknown as OverviewRead[]).filter((s) => s.is_active);
-  const suppliers: (PickSupplier & { name: string })[] = active.map((s) => {
+  let suppliers: (PickSupplier & { name: string })[] = active.map((s) => {
     const u = unitsByLink.get(s.link_id);
     return {
       linkId: s.link_id,
@@ -241,6 +242,28 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   });
   const decidedUnitId = (item.decided_unit_id as string | null) ?? null;
   const decidedCode = ((item.decided_unit_code as string | null) ?? (decidedUnitId ? "" : (item.unit_code as string | null))) ?? "";
+
+  // Giorni di consegna: solo per righe ancora senza destinazioni e senza scelta esplicita.
+  // Mai su quote già presenti (manuali o confermate); mai blocchi.
+  if (!rows.length && directQuota === null && !options.onlyLinkId && !options.preferLinkId && suppliers.length) {
+    const inTime = await readLinksInTime(item.list_id as string, item.product_id as string);
+    if (inTime) {
+      const timely = suppliers.filter((s) => inTime.has(s.linkId));
+      if (!timely.length) {
+        const w = { kind: "diretto" as const, quantity, unitId: decidedUnitId, unitCode: decidedCode || null };
+        if (options.collect) options.collect.push(w);
+        else if (options.direct) {
+          try {
+            await options.direct({ data: { companyId, itemId, quantity: w.quantity, unitId: w.unitId, unitCode: w.unitCode } });
+          } catch (e) {
+            return { kind: "saltato", reason: quotaSaveError("l'acquisto diretto", (e as Error).message) };
+          }
+        } else return { kind: "da_scegliere", reason: "Nessun fornitore consegna in tempo: acquisto diretto consigliato" };
+        return { kind: "assegnato", supplierName: "acquisto diretto (nessun fornitore consegna in tempo)" };
+      }
+      suppliers = timely;
+    }
+  }
   const stockUnitId = (product.data?.stock_unit_id as string | null | undefined) ?? null;
   // Le conversioni servono solo se «Da acquistare» è nell'U.M. di magazzino (fornitori non B2B).
   const conversions =
@@ -387,6 +410,29 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
     return { kind: "saltato", reason: quotaSaveError(chosen.name, (e as Error).message) };
   }
   return plan.kind === "set" ? { kind: "aggiornato", supplierName: chosen.name } : { kind: "assegnato", supplierName: chosen.name };
+}
+
+/** Collegamenti in tempo per «Per quando serve» della Lista; null se la Lista non ha data. */
+async function readLinksInTime(listId: string, productId: string): Promise<Set<string> | null> {
+  const { data: list } = await supabase.from("shopping_lists").select("delivery_date").eq("id", listId).maybeSingle();
+  const needed = list?.delivery_date ? parseLocalDate(list.delivery_date as string) : null;
+  if (!needed) return null;
+  const { data, error } = await supabase
+    .from("product_supplier_links")
+    .select("id, lead_time_days, delivery_weekdays, delivery_month_day, supplier_records(delivery_weekdays, delivery_month_day)")
+    .eq("product_id", productId);
+  if (error || !data) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return linksInTime(
+    (data as unknown as { id: string; lead_time_days: number | null; delivery_weekdays: number[] | null; delivery_month_day: number | null; supplier_records: { delivery_weekdays: number[] | null; delivery_month_day: number | null } | null }[]).map((r) => ({
+      linkId: r.id,
+      leadDays: r.lead_time_days,
+      schedule: r.delivery_weekdays !== null ? toSchedule(r.delivery_weekdays, r.delivery_month_day) : toSchedule(r.supplier_records?.delivery_weekdays, r.supplier_records?.delivery_month_day),
+    })),
+    today,
+    needed,
+  );
 }
 
 const normCode = (code: string | null | undefined) => (code ?? "").trim().toUpperCase();
