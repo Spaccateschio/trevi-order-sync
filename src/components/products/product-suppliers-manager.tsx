@@ -288,6 +288,36 @@ export function ProductSuppliersManager({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // Stelle = destinazioni abituali (più fornitori e/o acquisto diretto); solo amministratori, deciso dal DB.
+  const directStarQuery = useQuery({
+    queryKey: ["product-direct-star", companyId, productId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("product_direct_purchase_preferences")
+        .select("is_preferred").eq("company_id", companyId).eq("product_id", productId).maybeSingle();
+      if (error) throw new Error(error.message);
+      return Boolean(data?.is_preferred);
+    },
+  });
+  const directStarred = directStarQuery.data ?? false;
+  const starMutation = useMutation({
+    mutationFn: async (input: { linkId: string | null; on: boolean }) => {
+      const { error } = await supabase.rpc("toggle_product_destination_star", {
+        _company_id: companyId, _product_id: productId,
+        _link_id: input.linkId ?? undefined, _direct: input.linkId === null, _on: input.on,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: async (_d, input) => {
+      await Promise.all([
+        refresh(),
+        queryClient.invalidateQueries({ queryKey: ["product-direct-star", companyId, productId] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-card-preference", companyId, productId] }),
+      ]);
+      toast.success(input.on ? "Stella aggiunta" : "Stella tolta");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const matchMutation = useMutation({
     mutationFn: async (input: { matchId: string; action: "link_existing" | "create_supplier" | "ignore"; supplierRecordId?: string }) => {
       const { error } = await supabase.rpc("resolve_danea_supplier_match", {
@@ -305,7 +335,7 @@ export function ProductSuppliersManager({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const busy = saveMutation.isPending || statusMutation.isPending || priorityMutation.isPending || matchMutation.isPending;
+  const busy = saveMutation.isPending || statusMutation.isPending || priorityMutation.isPending || matchMutation.isPending || starMutation.isPending;
   // U.M. proponibili per l'acquisto: uso "acquisto" o "entrambi".
   const purchaseUnits = units.filter((unit) => unit.status === "attivo" && (unit.usage ?? "entrambi") !== "vendita");
   const availableSuppliers = (suppliersQuery.data ?? []).filter(
@@ -415,22 +445,31 @@ export function ProductSuppliersManager({
         <Badge variant="secondary" className="shrink-0">{editable ? "Modificabili" : "Sola lettura"}</Badge>
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant="outline" disabled={directOpen} onClick={() => setDirectOpen(true)}>
+        <Button type="button" size="sm" variant="outline" disabled={directOpen || directStarred} onClick={() => setDirectOpen(true)}>
           <ShoppingBag aria-hidden="true" />Acquisto diretto
         </Button>
       </div>
 
-      {directOpen ? (
+      {directOpen || directStarred ? (
         <article className="mt-2 rounded-md border border-accent bg-accent/10 p-3">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 space-y-2">
-              <h4 className="flex items-start gap-2 text-sm font-semibold"><ShoppingBag className="mt-0.5 size-4 shrink-0" />Acquisto diretto — compro io</h4>
+              <h4 className="flex items-start gap-2 text-sm font-semibold">
+                <button type="button" className="mt-0.5 shrink-0 disabled:opacity-60" disabled={!editable || busy}
+                  aria-label={directStarred ? "Acquisto diretto: togli la stella" : "Metti la stella all'acquisto diretto"}
+                  title={directStarred ? "Destinazione abituale (tocca per togliere)" : "Aggiungi la stella: destinazione abituale"}
+                  onClick={() => starMutation.mutate({ linkId: null, on: !directStarred })}>
+                  <Star className={directStarred ? "size-4 fill-primary text-primary" : "size-4 text-muted-foreground"} aria-hidden="true" />
+                </button>
+                <ShoppingBag className="mt-0.5 size-4 shrink-0" />Acquisto diretto — compro io
+              </h4>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">Acquisto personale</Badge>
-                <Badge variant="outline">Anteprima — nessun salvataggio</Badge>
+                {directStarred ? <Badge>Con la stella: proposto nella Lista</Badge> : null}
               </div>
             </div>
-            <Button type="button" size="icon" variant="ghost" title="Togli acquisto diretto" aria-label="Togli acquisto diretto" onClick={() => setDirectOpen(false)}>
+            <Button type="button" size="icon" variant="ghost" title="Togli acquisto diretto" aria-label="Togli acquisto diretto" disabled={busy}
+              onClick={() => { setDirectOpen(false); if (directStarred) starMutation.mutate({ linkId: null, on: false }); }}>
               <Trash2 className="size-4" />
             </Button>
           </div>
@@ -458,7 +497,7 @@ export function ProductSuppliersManager({
             ) : (
               <p className="text-sm text-muted-foreground">Nessuna U.M. attiva da usare.</p>
             )}
-            <p className="text-xs text-muted-foreground">Nell'anteprima la scelta non viene salvata.</p>
+            <p className="text-xs text-muted-foreground">La stella si salva; le U.M. dell'acquisto diretto sono ancora un'anteprima e non vengono salvate.</p>
           </div>
         </article>
       ) : null}
@@ -498,6 +537,18 @@ export function ProductSuppliersManager({
             <div key={row.link_id} className={`rounded-md border p-3 ${isSelected ? "border-primary" : "border-border"}`}>
               <button type="button" className="w-full text-left" aria-expanded={isSelected} onClick={() => setSelectedLinkId(isSelected ? null : row.link_id)}>
                 <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    role="button"
+                    tabIndex={editable && row.is_active ? 0 : -1}
+                    aria-disabled={!editable || !row.is_active || busy}
+                    aria-label={row.is_preferred ? `${row.supplier_name}: togli la stella` : `Metti la stella a ${row.supplier_name}`}
+                    title={row.is_preferred ? "Destinazione abituale (tocca per togliere)" : "Aggiungi la stella: destinazione abituale"}
+                    className="shrink-0"
+                    onClick={(event) => { event.stopPropagation(); if (editable && row.is_active && !busy) starMutation.mutate({ linkId: row.link_id, on: !row.is_preferred }); }}
+                    onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && editable && row.is_active && !busy) { event.preventDefault(); event.stopPropagation(); starMutation.mutate({ linkId: row.link_id, on: !row.is_preferred }); } }}
+                  >
+                    <Star className={row.is_preferred ? "size-4 fill-primary text-primary" : "size-4 text-muted-foreground"} aria-hidden="true" />
+                  </span>
                   <Truck aria-hidden="true" className="size-4 text-muted-foreground" />
                   <strong className="text-sm">{row.supplier_name}</strong>
                   {row.supplier_reference_label ? <span className="text-xs text-muted-foreground">{row.supplier_reference_label}</span> : null}
