@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link2, Plus, Star, Trash2, Truck } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Link2, Plus, ShoppingBag, Star, Trash2, Truck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -402,6 +403,13 @@ export function ProductSuppliersManager({
       <div className="flex items-center justify-between gap-2">
         <h3 id="product-suppliers-title" className="text-sm font-semibold">Fornitori</h3>
         <Badge variant="secondary" className="shrink-0">{editable ? "Modificabili" : "Sola lettura"}</Badge>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button asChild size="sm" variant="outline">
+          <Link to="/acquisti/acquisto-diretto-anteprima">
+            <ShoppingBag aria-hidden="true" />Acquisto diretto — anteprima
+          </Link>
+        </Button>
       </div>
 
       {editable && pending.length ? (
