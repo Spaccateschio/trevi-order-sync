@@ -183,7 +183,9 @@ export function SupplierSplitDialog({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const suppliers = (suppliersQuery.data ?? []).filter((row) => row.is_active);
+  // Destinazioni con la stella in cima (proposte); le altre restano disponibili.
+  const suppliers = (suppliersQuery.data ?? []).filter((row) => row.is_active)
+    .sort((a, b) => Number(Boolean((b as { is_preferred?: boolean }).is_preferred)) - Number(Boolean((a as { is_preferred?: boolean }).is_preferred)));
   const unitsByLink = unitsQuery.data ?? {};
   const assignments = assignmentsQuery.data ?? [];
   // Solo le ripartizioni con equivalente entrano nel totale: «Non convertibile» non vale 0.
@@ -287,6 +289,9 @@ export function SupplierSplitDialog({
                   ) : null}
                   {supplier.supplier_reference_label ? (
                     <span className="text-xs text-muted-foreground">{supplier.supplier_reference_label}</span>
+                  ) : null}
+                  {(supplier as { is_preferred?: boolean }).is_preferred ? (
+                    <Badge><Star className="fill-current" aria-hidden="true" />Stella</Badge>
                   ) : null}
                   {supplier.sourcing_priority !== null ? (
                     <Badge variant="secondary">
