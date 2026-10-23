@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
-import { applyProductSaleUnitBatch } from "@/lib/sales-units.functions";
+import { applyProductSaleUnitBatch, manageUnitOfMeasure } from "@/lib/sales-units.functions";
 
 export type CompanyUnit = { id: string; code: string; description: string; status: "attivo" | "disattivato" | "revocato"; usage?: "acquisto" | "vendita" | "entrambi" };
 export type ProductSaleUnit = { id: string; product_id: string; unit_id: string; is_active: boolean; is_customer_visible: boolean; is_default: boolean; conversion_factor: number | null; conversion_reference_um: string | null; conversion_type: "esatta" | "indicativa"; needs_review: boolean; units_of_measure: { code: string; description: string } | null };
@@ -55,11 +55,13 @@ export function PurchaseUnitsOverview({ productId }: { productId: string }) {
 
 export function SalesUnitManager({ companyId, productId, daneaUm, units, assignments, editable, showPurchase = true }: { companyId: string; productId: string; daneaUm: string | null; units: CompanyUnit[]; assignments: ProductSaleUnit[]; editable: boolean; /** Nella scheda a tab le U.M. d'acquisto vivono nel tab Acquisto. */ showPurchase?: boolean }) {
   const run = useServerFn(applyProductSaleUnitBatch);
+  const manageUnit = useServerFn(manageUnitOfMeasure);
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [newUnitOpen, setNewUnitOpen] = useState(false);
   const [newUnitDraft, setNewUnitDraft] = useState<{ code: string; description: string; usage: "acquisto" | "vendita" | "entrambi" }>({ code: "", description: "", usage: "entrambi" });
+  const [newUnitError, setNewUnitError] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<ProductSaleUnit | null>(null);
   const [offerDeactivation, setOfferDeactivation] = useState(false);
   const [draft, setDraft] = useState<{ active: boolean; visible: boolean; isDefault: boolean; factor: string; conversionType: "esatta" | "indicativa" }>({ active: true, visible: true, isDefault: false, factor: "", conversionType: "indicativa" });
@@ -98,10 +100,22 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const createUnitMutation = useMutation({
+    mutationFn: () => manageUnit({ data: { companyId, unitId: null, action: "create", code: newUnitDraft.code.trim(), description: newUnitDraft.description.trim(), usage: newUnitDraft.usage } }),
+    onMutate: () => setNewUnitError(null),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["company-units", companyId] });
+      setNewUnitOpen(false);
+      setAddOpen(true);
+      toast.success("U.M. salvata nelle Impostazioni");
+    },
+    onError: (error: Error) => setNewUnitError(error.message),
+  });
+
   // Solo le U.M. dell'anagrafica destinate alla vendita (o a entrambi gli usi).
   const available = units.filter((unit) => unit.status === "attivo" && (unit.usage ?? "entrambi") !== "acquisto" && !assignments.some((row) => row.unit_id === unit.id));
 
-  const busy = mutation.isPending || saveMutation.isPending;
+  const busy = mutation.isPending || saveMutation.isPending || createUnitMutation.isPending;
   // Prodotti Danea: la predefinita è sempre danea_um (vincolo anche nel database).
   const daneaCode = daneaUm?.trim().toLowerCase() || null;
   const daneaLocked = Boolean(daneaCode);
@@ -165,7 +179,7 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
           <div role="region" aria-label="Elenco U.M. disponibili" tabIndex={0} className="max-h-[min(16rem,50dvh)] touch-pan-y space-y-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
             {available.map((unit) => <Button key={unit.id} type="button" variant="ghost" className="h-auto w-full justify-start py-2 text-left" disabled={busy} onClick={async () => { await mutation.mutateAsync({ unitId: unit.id, operation: "add" }); setAddOpen(false); }}><span><strong>{unit.code}</strong><span className="ml-2 text-muted-foreground">{unit.description}</span></span></Button>)}
             <div className="border-t border-border pt-1">
-              <Button type="button" variant="ghost" className="w-full justify-start" disabled={busy} onClick={() => { setAddOpen(false); setNewUnitDraft({ code: "", description: "", usage: "entrambi" }); setNewUnitOpen(true); }}><Plus aria-hidden="true" />Nuova U.M.</Button>
+              <Button type="button" variant="ghost" className="w-full justify-start" disabled={busy} onClick={() => { setAddOpen(false); setNewUnitDraft({ code: "", description: "", usage: "entrambi" }); setNewUnitError(null); setNewUnitOpen(true); }}><Plus aria-hidden="true" />Nuova U.M.</Button>
             </div>
           </div>
         </PopoverContent>
@@ -200,16 +214,16 @@ export function SalesUnitManager({ companyId, productId, daneaUm, units, assignm
       </div> : null}
     </div> : null}
 
-    <Dialog open={newUnitOpen} onOpenChange={setNewUnitOpen}>
+    <Dialog open={newUnitOpen} onOpenChange={(open) => { if (!createUnitMutation.isPending) setNewUnitOpen(open); }}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader><DialogTitle>Nuova U.M.</DialogTitle></DialogHeader>
-        <Badge variant="secondary" className="w-fit">Anteprima — nessun salvataggio</Badge>
-        <div className="space-y-4">
-          <label className="block space-y-1 text-sm font-medium"><span>Sigla</span><Input aria-label="Sigla U.M." value={newUnitDraft.code} onChange={(event) => setNewUnitDraft((current) => ({ ...current, code: event.target.value }))} /></label>
-          <label className="block space-y-1 text-sm font-medium"><span>Descrizione</span><Input aria-label="Descrizione U.M." value={newUnitDraft.description} onChange={(event) => setNewUnitDraft((current) => ({ ...current, description: event.target.value }))} /></label>
-          <fieldset><legend className="text-sm font-medium">Uso</legend><div className="mt-2 flex flex-wrap gap-2">{([{ value: "acquisto", label: "Acquisto" }, { value: "vendita", label: "Vendita" }, { value: "entrambi", label: "Entrambi" }] as const).map((option) => <Button key={option.value} type="button" size="sm" variant={newUnitDraft.usage === option.value ? "default" : "outline"} aria-pressed={newUnitDraft.usage === option.value} onClick={() => setNewUnitDraft((current) => ({ ...current, usage: option.value }))}>{option.label}</Button>)}</div></fieldset>
-        </div>
-        <DialogFooter><Button type="button" variant="outline" onClick={() => setNewUnitOpen(false)}>Annulla</Button><Button type="button" disabled>Salva</Button></DialogFooter>
+        <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (editable && !busy && newUnitDraft.code.trim() && newUnitDraft.description.trim()) createUnitMutation.mutate(); }}>
+          <label className="block space-y-1 text-sm font-medium"><span>Sigla</span><Input aria-label="Sigla U.M." maxLength={20} disabled={createUnitMutation.isPending} value={newUnitDraft.code} onChange={(event) => setNewUnitDraft((current) => ({ ...current, code: event.target.value }))} /></label>
+          <label className="block space-y-1 text-sm font-medium"><span>Descrizione</span><Input aria-label="Descrizione U.M." maxLength={100} disabled={createUnitMutation.isPending} value={newUnitDraft.description} onChange={(event) => setNewUnitDraft((current) => ({ ...current, description: event.target.value }))} /></label>
+          <fieldset disabled={createUnitMutation.isPending}><legend className="text-sm font-medium">Uso</legend><div className="mt-2 flex flex-wrap gap-2">{([{ value: "acquisto", label: "Acquisto" }, { value: "vendita", label: "Vendita" }, { value: "entrambi", label: "Entrambi" }] as const).map((option) => <Button key={option.value} type="button" size="sm" variant={newUnitDraft.usage === option.value ? "default" : "outline"} aria-pressed={newUnitDraft.usage === option.value} onClick={() => setNewUnitDraft((current) => ({ ...current, usage: option.value }))}>{option.label}</Button>)}</div></fieldset>
+          {newUnitError ? <p role="alert" className="text-sm text-destructive">{newUnitError}</p> : null}
+          <DialogFooter><Button type="button" variant="outline" disabled={createUnitMutation.isPending} onClick={() => setNewUnitOpen(false)}>Annulla</Button><Button type="submit" disabled={!editable || busy || !newUnitDraft.code.trim() || !newUnitDraft.description.trim()}>{createUnitMutation.isPending ? "Salvataggio…" : "Salva"}</Button></DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
 
