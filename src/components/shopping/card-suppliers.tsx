@@ -5,7 +5,7 @@ import { AlertTriangle, Check, Info, Lock, MoreVertical, Pencil, Split, Star, Tr
 import { AddSupplierInline, refreshProductSuppliers, useCompanyUnits } from "./add-supplier-inline";
 import { UnlinkSupplierDialog } from "./unlink-supplier-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import type { RowSupplier } from "./use-shopping-list-extras";
@@ -21,8 +21,9 @@ import { chooseListDestinations, matchesMemory, type SupplierMemory, clearDesele
 import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
 import { readCardBundle, readCardDirectQuota, readCardLinkPrices, readCardB2BPrice, readCardPreference } from "@/lib/shopping-card-reads";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatDeliveryDay, lateFirstDelivery } from "@/lib/delivery-schedule";
-import { useLinkTimings, useNeededDate } from "@/lib/use-needed-date";
+import { deliveryDelaySummary, deliveryScheduleSummary, formatDeliveryDay, lateFirstDelivery } from "@/lib/delivery-schedule";
+import { useNeededDate } from "@/lib/use-needed-date";
+import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
 import { assignShoppingListSupplier, commitShoppingListItemQuantity, setShoppingListDirectQuota, setShoppingListSupplierSelection } from "@/lib/shopping-list.functions";
 
 /**
@@ -707,7 +708,7 @@ export function CardSuppliers({
 
   // Giorni di consegna: solo avviso e proposta con un tocco, mai blocchi né spostamenti automatici.
   const needed = useNeededDate(pending ? null : row.item_id, !pending);
-  const timings = useLinkTimings(suppliers.map((x) => x.linkId), !pending && Boolean(needed)).data ?? {};
+  const timings = useDeliverySchedules(row.product_id).data ?? {};
   const runDirectRescue = useServerFn(setShoppingListDirectQuota);
   const rescueMutation = useMutation({
     mutationFn: async ({ from, to }: { from: RowSupplier; to: CardSupplier | "diretto" }) => {
@@ -793,16 +794,17 @@ export function CardSuppliers({
               onCheckedChange={(v) => selectMutation.mutate({ s, on: v === true, assignment })}
             />
           ) : null}
-          <button
+          <Button
             type="button"
-            className="shrink-0 disabled:opacity-60"
+            variant="ghost"
+            className="h-6 w-6 shrink-0 p-0 disabled:opacity-60"
             disabled={!editable || linkMutation.isPending}
             aria-label={s.isPreferred ? `${s.name}: togli la stella` : `Metti la stella a ${s.name}`}
             title={s.isPreferred ? "Destinazione abituale (tocca per togliere la stella)" : "Aggiungi la stella: destinazione abituale (solo amministratori)"}
             onClick={() => linkMutation.mutate({ kind: "preferred", s, on: !s.isPreferred })}
           >
-            <Star className={s.isPreferred ? "size-3.5 fill-primary text-primary" : "size-3.5 text-muted-foreground"} aria-hidden="true" />
-          </button>
+            <Star className={s.isPreferred ? "size-4 fill-primary text-primary" : "size-4 text-muted-foreground"} aria-hidden="true" />
+          </Button>
           <span className="min-w-0 flex-1 truncate font-semibold">{s.name}</span>
           {show.b2b && details && s.isB2B ? <B2BBadge /> : null}
           {editable ? (
@@ -842,6 +844,9 @@ export function CardSuppliers({
             </DropdownMenu>
           ) : null}
         </div>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {timings[s.linkId] ? deliveryScheduleSummary(timings[s.linkId]) : "Consegna: caricamento giorni…"}
+        </p>
         {show.price && details && s.price ? <PriceLine price={s.price} /> : null}
         {b2bBlocked ? (
           <p className="flex items-center gap-1 text-[11px] font-medium text-destructive">
@@ -1070,11 +1075,11 @@ export function CardSuppliers({
     <div className="space-y-1 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-1 text-[11px] text-destructive" role="status">
       {late.map(({ a, first }) => (
         <p key={a.id}>
-          {suppliers.find((x) => x.linkId === a.linkId)?.name ?? "Fornitore"} non consegna entro {formatDeliveryDay(needed)} — prima consegna: {formatDeliveryDay(first)}.
+          {suppliers.find((x) => x.linkId === a.linkId)?.name ?? "Fornitore"} non consegna entro {formatDeliveryDay(needed)} — {deliveryDelaySummary(timings[a.linkId], needed)}: prima consegna {formatDeliveryDay(first)}.
         </p>
       ))}
       {lateProposed.map((x) => (
-        <p key={x.id}>{x.name} (con la stella) non consegna entro {formatDeliveryDay(needed)} — prima consegna: {formatDeliveryDay(x.first)}.</p>
+        <p key={x.id}>{x.name} (con la stella) non consegna entro {formatDeliveryDay(needed)} — {deliveryDelaySummary(timings[x.id], needed)}: prima consegna {formatDeliveryDay(x.first)}.</p>
       ))}
       {simple ? (
         <div className="flex flex-wrap gap-1">
@@ -1184,6 +1189,8 @@ function DirectQuota({ companyId, itemId, editable, unitCode, target, remaining,
   const runSimple = useServerFn(setShoppingListDirectQuota);
   const runCommit = useServerFn(commitShoppingListItemQuantity);
   const [editing, setEditing] = useState(false);
+  const [proposalDismissed, setProposalDismissed] = useState(false);
+  useEffect(() => { setProposalDismissed(false); }, [itemId, proposed]);
   const [value, setValue] = useState("");
   const quota = useQuery({ queryKey: ["shopping-direct-quota", itemId], staleTime: 60_000, queryFn: () => readDirectQuota(itemId) });
   const invalidate = () =>
@@ -1242,7 +1249,7 @@ function DirectQuota({ companyId, itemId, editable, unitCode, target, remaining,
     onError: (e) => toast.error(e instanceof Error ? e.message : "Salvataggio non riuscito"),
   });
   const current = quota.data ?? null;
-  const checked = Boolean(current) || editing;
+  const checked = Boolean(current) || editing || (proposed && !proposalDismissed);
 
   const startEdit = () => {
     // Spunta senza salvare: proponi il residuo (0 se i fornitori hanno già tutto).
@@ -1271,25 +1278,32 @@ function DirectQuota({ companyId, itemId, editable, unitCode, target, remaining,
           aria-label={checked ? "Togli acquisto diretto" : "Scegli acquisto diretto"}
           onCheckedChange={(v) => {
             if (v !== true) {
+              setProposalDismissed(true);
               setEditing(false);
               if (current) save.mutate(null);
               return;
             }
+            setProposalDismissed(false);
             startEdit();
           }}
         />
-        <button
+        <Button
           type="button"
-          className="shrink-0 disabled:opacity-60"
+          variant="ghost"
+          className="h-6 w-6 shrink-0 p-0 disabled:opacity-60"
           disabled={!onToggleStar || starBusy}
           aria-label={starred ? "Acquisto diretto: togli la stella" : "Metti la stella all'acquisto diretto"}
           title={starred ? "Destinazione abituale (tocca per togliere la stella)" : "Aggiungi la stella: destinazione abituale (solo amministratori)"}
           onClick={() => onToggleStar?.(!starred)}
         >
-          <Star className={starred ? "size-3.5 fill-primary text-primary" : "size-3.5 text-muted-foreground"} aria-hidden="true" />
-        </button>
+          <Star className={starred ? "size-4 fill-primary text-primary" : "size-4 text-muted-foreground"} aria-hidden="true" />
+        </Button>
         <span className="font-semibold">Acquisto diretto (compro io)</span>
-        {proposed && !current && !editing ? <span className="text-[11px] text-muted-foreground">proposto (stella)</span> : null}
+        {proposed && !proposalDismissed && !current && !editing ? (
+          <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 px-1 text-[11px]" disabled={!editable || saving} onClick={startEdit}>
+            <Pencil className="size-3" aria-hidden="true" /> Inserisci quota
+          </Button>
+        ) : null}
         {current && !editing ? (
           <>
             <button

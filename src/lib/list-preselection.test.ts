@@ -96,6 +96,16 @@ describe("stelle su più destinazioni", () => {
     const r = chooseListDestinations({ ...base, suppliers: [sup("a", true), sup("b", false)], directStarred: true });
     assert.deepEqual(r.linkIds, ["a"]); assert.equal(r.direct, true); assert.equal(r.reason, "da_ripartire");
   });
+  it("due fornitori più acquisto diretto stellati: tre proposte, nessuna quota automatica", () => {
+    const suppliers = [sup("a", true), sup("b", true)];
+    const r = chooseListDestinations({ ...base, suppliers, directStarred: true });
+    assert.deepEqual(r.linkIds, ["a", "b"]);
+    assert.equal(r.direct, true);
+    assert.equal(r.reason, "da_ripartire");
+    assert.equal(r.memory, null);
+    const plan = planFromMemory(r.memory, { suppliers, deselected: new Set(), decidedUnitId: "kg", decidedCode: "kg", quantity: 12, stockUnitId: "kg", conversions: {} });
+    assert.notEqual(plan.kind, "scrivi");
+  });
   it("solo acquisto diretto con stella: tutto a compro io", () => {
     const r = chooseListDestinations({ ...base, suppliers: [sup("a", false), sup("b", false)], directStarred: true });
     assert.deepEqual(r.linkIds, []); assert.equal(r.direct, true); assert.equal(r.reason, "preferito");
