@@ -2,6 +2,7 @@
 
 ## Modifica
 - Collegare «Salva» al comando già utilizzato in Impostazioni → Unità di misura.
+- Salvare nella stessa anagrafica aziendale già mostrata nelle Impostazioni: nessun nuovo elenco o impostazione separata.
 - Abilitare il pulsante quando Sigla e Descrizione sono compilate; durante il salvataggio impedire invii ripetuti.
 - Eliminare «Anteprima — nessun salvataggio» da questo riquadro.
 - Dopo il successo aggiornare l'elenco U.M. e riaprire il menu nella stessa scheda. Nessuna associazione automatica al prodotto: la scegli tu.
