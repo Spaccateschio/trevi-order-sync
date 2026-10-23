@@ -21,6 +21,8 @@ import { chooseListDestinations, matchesMemory, type SupplierMemory, clearDesele
 import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
 import { readCardBundle, readCardDirectQuota, readCardLinkPrices, readCardB2BPrice, readCardPreference } from "@/lib/shopping-card-reads";
 import { Checkbox } from "@/components/ui/checkbox";
+import { formatDeliveryDay, lateFirstDelivery } from "@/lib/delivery-schedule";
+import { useLinkTimings, useNeededDate } from "@/lib/use-needed-date";
 import { assignShoppingListSupplier, commitShoppingListItemQuantity, setShoppingListDirectQuota, setShoppingListSupplierSelection } from "@/lib/shopping-list.functions";
 
 /**
@@ -698,6 +700,39 @@ export function CardSuppliers({
     },
   });
 
+  // Giorni di consegna: solo avviso e proposta con un tocco, mai blocchi né spostamenti automatici.
+  const needed = useNeededDate(pending ? null : row.item_id, !pending);
+  const timings = useLinkTimings(suppliers.map((x) => x.linkId), !pending && Boolean(needed)).data ?? {};
+  const runDirectRescue = useServerFn(setShoppingListDirectQuota);
+  const rescueMutation = useMutation({
+    mutationFn: async ({ from, to }: { from: RowSupplier; to: CardSupplier | "diretto" }) => {
+      if (!target) throw new Error("Quantità non confermata");
+      // Prima si toglie la quota in ritardo (mai oltre il totale), poi si assegna la nuova destinazione.
+      await runAssign({ data: { companyId, itemId: row.item_id, action: "remove", linkId: from.linkId, assignedQuantity: null, purchaseQuantity: null, minWarningAccepted: false, notes: null, purchaseUnitId: null, assignmentId: from.id, manualUnitCode: null } });
+      try {
+        if (to === "diretto") {
+          await runDirectRescue({ data: { companyId, itemId: row.item_id, quantity: target, unitId: decidedUnitId, unitCode: decidedCode || null } });
+        } else {
+          const q = quickFor(to)!;
+          await runAssign({ data: { companyId, itemId: row.item_id, action: "set", linkId: to.linkId, assignedQuantity: null, purchaseQuantity: target, minWarningAccepted: true, notes: null, purchaseUnitId: q.unitId, assignmentId: null, manualUnitCode: q.manual } });
+        }
+      } catch (e) {
+        throw new Error(`Quota tolta, ma la nuova destinazione non è stata salvata: ${(e as Error).message}`);
+      }
+      return to === "diretto" ? "acquisto diretto" : to.name;
+    },
+    onSuccess: (name) => toast.success(`Tutta la quantità a ${name}`),
+    onError: (error: Error) => toast.error(friendlyAssignError(error.message)),
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", row.item_id] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
+        queryClient.invalidateQueries({ queryKey: ["shopping-direct-quota", row.item_id] }),
+      ]);
+    },
+  });
+
   if (loading) return <p className="text-xs text-muted-foreground">Caricamento fornitori…</p>;
 
   const byLink = new Map(assignments.map((a) => [a.linkId, a]));
@@ -1012,6 +1047,31 @@ export function CardSuppliers({
 
   const orphans = assignments.filter((a) => !byLink.has(a.linkId));
   const available = suppliers.filter((s) => !byLink.has(s.linkId) && editing?.linkId !== s.linkId);
+  const late = assignments
+    .map((a) => ({ a, first: lateFirstDelivery(timings[a.linkId], needed) }))
+    .filter((x): x is { a: RowSupplier; first: Date } => x.first !== null);
+  // Proposta con un tocco solo nel caso semplice: una sola quota, nessun acquisto diretto, quantità confermata.
+  const simple = late.length === 1 && assignments.length === 1 && !directQuota && Boolean(target) && canWrite;
+  const timelyAlt = simple
+    ? suppliers.find((x) => x.linkId !== late[0]!.a.linkId && !deselectedSet.has(x.linkId) && timings[x.linkId] && !lateFirstDelivery(timings[x.linkId], needed) && quickFor(x) && !(x.isB2B && (!x.sourceLinked || !x.purchasable)))
+    : undefined;
+  const lateWarning = late.length && needed ? (
+    <div className="space-y-1 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-1 text-[11px] text-destructive" role="status">
+      {late.map(({ a, first }) => (
+        <p key={a.id}>
+          {suppliers.find((x) => x.linkId === a.linkId)?.name ?? "Fornitore"} non consegna entro {formatDeliveryDay(needed)} — prima consegna: {formatDeliveryDay(first)}.
+        </p>
+      ))}
+      {simple ? (
+        <div className="flex flex-wrap gap-1">
+          <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={rescueMutation.isPending}
+            onClick={() => rescueMutation.mutate({ from: late[0]!.a, to: timelyAlt ?? "diretto" })}>
+            {timelyAlt ? `Passa a ${timelyAlt.name}` : "Passa ad acquisto diretto"}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  ) : null;
   const assigned = suppliers.filter((s) => byLink.has(s.linkId) || editing?.linkId === s.linkId);
   const directUnit = decidedCode || row.unit_code || "";
 
@@ -1028,6 +1088,7 @@ export function CardSuppliers({
         ) : (
           <p className="text-xs text-muted-foreground">Senza fornitore</p>
         )}
+        {lateWarning}
         {memoryMatch ? <p className="text-[10px] italic text-muted-foreground">Come l’ultima volta</p> : null}
         {addButton}
         {listConfirmed && (assigned.length || orphans.length) ? (

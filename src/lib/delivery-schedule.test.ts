@@ -21,8 +21,9 @@ describe("giorni di consegna e preavviso", () => {
     assert.equal(ymd(firstValidDelivery(tue, toSchedule([], 15), 0)), "2026-11-15");
     assert.equal(ymd(firstValidDelivery(tue, toSchedule([5], 21), 0)), "2026-10-21");
   });
-  it("nessun giorno impostato → nessuna consegna", () => {
-    assert.equal(firstValidDelivery(tue, toSchedule([], null), 0), null);
+  it("nessun giorno impostato → consegna sempre, conta solo il preavviso", () => {
+    assert.equal(ymd(firstValidDelivery(tue, toSchedule([], null), 0)), "2026-10-20");
+    assert.equal(ymd(firstValidDelivery(tue, toSchedule([], null), 3)), "2026-10-23");
   });
   it("serve giovedì: A lun/gio 2 gg in tempo, B solo lunedì no", () => {
     const thu = d(2026, 10, 22);
@@ -32,7 +33,9 @@ describe("giorni di consegna e preavviso", () => {
       { linkId: "A", schedule: toSchedule([1, 4], null), leadDays: 2 },
       { linkId: "B", schedule: toSchedule([1], null), leadDays: null },
       { linkId: "C", schedule: toSchedule([], 15), leadDays: null },
+      { linkId: "D", schedule: toSchedule([], null), leadDays: 5 },
+      { linkId: "E", schedule: toSchedule([], null), leadDays: 1 },
     ], tue, thu);
-    assert.deepEqual([...ok], ["A"]);
+    assert.deepEqual([...ok], ["A", "E"]);
   });
 });

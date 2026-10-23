@@ -106,7 +106,8 @@ export function parseLocalDate(value: string): Date | null {
  * dopo `from` (0/null = anche lo stesso giorno). Cerca fino a 400 giorni (copre il giorno mensile).
  */
 export function firstValidDelivery(from: Date, schedule: DeliverySchedule, leadDays: number | null | undefined): Date | null {
-  if (isScheduleEmpty(schedule)) return null;
+  // Nessun giorno impostato = consegna sempre: conta solo il preavviso.
+  if (isScheduleEmpty(schedule)) schedule = DEFAULT_SCHEDULE;
   const lead = Math.max(0, Math.floor(leadDays ?? 0));
   for (let offset = lead; offset <= lead + 400; offset += 1) {
     const candidate = new Date(from.getFullYear(), from.getMonth(), from.getDate() + offset);
@@ -126,4 +127,14 @@ export type LinkTiming = { linkId: string; schedule: DeliverySchedule; leadDays:
 /** Collegamenti che arrivano in tempo per la data richiesta. */
 export function linksInTime(links: LinkTiming[], from: Date, needed: Date): Set<string> {
   return new Set(links.filter((l) => canDeliverBy(from, l.schedule, l.leadDays, needed)).map((l) => l.linkId));
+}
+
+export const formatDeliveryDay = (x: Date) => x.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "numeric" });
+
+/** Prima consegna possibile se arriva DOPO la data richiesta; null se in tempo (o nessuna data). */
+export function lateFirstDelivery(timing: { schedule: DeliverySchedule; leadDays: number | null } | undefined, needed: Date | null, today = new Date()): Date | null {
+  if (!timing || !needed) return null;
+  const from = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const first = firstValidDelivery(from, timing.schedule, timing.leadDays);
+  return first && first.getTime() > new Date(needed.getFullYear(), needed.getMonth(), needed.getDate()).getTime() ? first : null;
 }

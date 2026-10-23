@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatDeliveryDay, lateFirstDelivery, parseLocalDate } from "@/lib/delivery-schedule";
+import { useLinkTimings } from "@/lib/use-needed-date";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, ChevronDown, FileText, Info, Loader2, Lock, MapPin, Send, ShoppingBag, Truck } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -298,6 +300,8 @@ export function GenerateOrdersDialog({
   const [editingOrder, setEditingOrder] = useState<string | null>(null);
   // Una chiave per fornitore finché la generazione non riesce: ripetere il clic restituisce lo stesso ordine.
   const keys = useRef<Record<string, string>>({});
+  // Giorni di consegna: solo avviso per la data scelta; nessun blocco né spostamento della data.
+  const lineTimings = useLinkTimings((preview.data?.suppliers ?? []).flatMap((x) => x.lines.flatMap((l) => (l.link_id ? [l.link_id] : [])))).data ?? {};
 
   useEffect(() => {
     if (open) setStep(initialGenerationStep(mode));
@@ -754,6 +758,20 @@ export function GenerateOrdersDialog({
                         <div className="mt-1.5">
                           <DeliveryFields addresses={prefs.data?.addresses ?? []} value={d.delivery} disabled={!d.selected} onChange={(delivery) => setDraft(s.supplier_record_id, (x) => ({ ...x, delivery }))} />
                         </div>
+                        {(() => {
+                          const wanted = d.delivery.date ? parseLocalDate(d.delivery.date) : null;
+                          const firsts = s.lines.flatMap((l) => {
+                            const f = l.link_id ? lateFirstDelivery(lineTimings[l.link_id], wanted) : null;
+                            return f ? [f] : [];
+                          });
+                          if (!wanted || !firsts.length) return null;
+                          const latest = new Date(Math.max(...firsts.map((f) => f.getTime())));
+                          return (
+                            <p className="mt-1 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive" role="status">
+                              {s.name} non consegna il {formatDeliveryDay(wanted)} ({firsts.length} {firsts.length === 1 ? "prodotto" : "prodotti"}): prima consegna possibile {formatDeliveryDay(latest)}. Puoi cambiare data o generare comunque.
+                            </p>
+                          );
+                        })()}
                         <Collapsible>
                           <CollapsibleTrigger asChild>
                             <Button size="sm" variant="ghost" className="mt-1 h-7 px-1 text-xs"><ChevronDown className="size-4" /> Prodotti ({s.lines.length})</Button>

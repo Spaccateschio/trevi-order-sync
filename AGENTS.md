@@ -46,4 +46,4 @@
 - Mockups: isolated React state only. Platform bell uses caller-owned items/actions; read state never changes request status.
 - Product direct-purchase proposals live on a separate authenticated preview page with local state and invented sources only; never reuse operational supplier commands, so preview choices cannot modify purchases or product preferences.
 - External non-B2B delivery URLs are built and normalized only through order-share-url, preserving token and expiry while using the canonical public origin; editor origins require sign-in and must never enter supplier messages.
-- Delivery-day supplier choice applies only to shopping rows without destinations and no explicit choice; existing quotas only get a warning, never a block, so manual choices are never overwritten.
+- Delivery-day supplier choice applies only to shopping rows without destinations and no explicit choice; existing quotas only get a warning or an explicit one-tap switch, never a block; a link with no days set counts as delivering every day (lead time only), so manual choices are never overwritten and uncompiled suppliers stay usable.

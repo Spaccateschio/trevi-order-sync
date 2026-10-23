@@ -6,6 +6,7 @@ import { toSchedule, type DeliverySchedule } from "@/lib/delivery-schedule";
 type LinkRow = {
   id: string;
   supplier_record_id: string;
+  lead_time_days: number | null;
   delivery_weekdays: number[] | null;
   delivery_month_day: number | null;
   supplier_records: { delivery_weekdays: number[] | null; delivery_month_day: number | null } | null;
@@ -17,6 +18,8 @@ export type LinkDelivery = {
   /** true quando la referenza ha un'eccezione propria. */
   isOverride: boolean;
   supplierSchedule: DeliverySchedule;
+  /** Preavviso «Consegna N gg» del collegamento (giorni di calendario). */
+  leadDays: number | null;
 };
 
 /**
@@ -31,7 +34,7 @@ export function useDeliverySchedules(productId: string, enabled = true) {
       const { data, error } = await supabase
         .from("product_supplier_links")
         .select(
-          "id, supplier_record_id, delivery_weekdays, delivery_month_day, supplier_records(delivery_weekdays, delivery_month_day)",
+          "id, supplier_record_id, lead_time_days, delivery_weekdays, delivery_month_day, supplier_records(delivery_weekdays, delivery_month_day)",
         )
         .eq("product_id", productId);
       if (error) throw new Error(error.message);
@@ -44,6 +47,7 @@ export function useDeliverySchedules(productId: string, enabled = true) {
         const hasOverride = row.delivery_weekdays !== null;
         result[row.id] = {
           isOverride: hasOverride,
+          leadDays: row.lead_time_days ?? null,
           supplierSchedule,
           schedule: hasOverride ? toSchedule(row.delivery_weekdays, row.delivery_month_day) : supplierSchedule,
         };
