@@ -445,7 +445,7 @@ export function ProductSuppliersManager({
                       key={unit.id}
                       type="button"
                       size="sm"
-                      variant={on ? "secondary" : "outline"}
+                      variant={on ? "default" : "outline"}
                       title={`${unit.code} — ${unit.description}`}
                       aria-pressed={on}
                       onClick={() => toggleDirectUnit(unit.id)}
