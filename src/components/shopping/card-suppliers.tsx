@@ -394,7 +394,7 @@ export function CardSuppliers({
       const { error } = await supabase.rpc("toggle_product_destination_star", {
         _company_id: companyId,
         _product_id: row.product_id,
-        _link_id: input.s ? input.s.linkId : undefined,
+        ...(input.s ? { _link_id: input.s.linkId } : {}),
         _direct: input.s === null,
         _on: input.on,
       });
@@ -1179,7 +1179,7 @@ async function readDirectQuota(itemId: string) {
  * dal campo o con Invio, come le quote dei fornitori: un'unica operazione (commit) che salva anche
  * le quote fornitore ricalcolate sul residuo (planDirectQuotaRescale). Eccedenza ammessa con avviso.
  */
-function DirectQuota({ companyId, itemId, editable, unitCode, target, remaining, starred = false, proposed = false, starBusy = false, onToggleStar }: { companyId: string; itemId: string; editable: boolean; unitCode: string; target: number | null; remaining: number | null; starred?: boolean; proposed?: boolean; starBusy?: boolean; onToggleStar?: (on: boolean) => void }) {
+function DirectQuota({ companyId, itemId, editable, unitCode, target, remaining, starred = false, proposed = false, starBusy = false, onToggleStar }: { companyId: string; itemId: string; editable: boolean; unitCode: string; target: number | null; remaining: number | null; starred?: boolean; proposed?: boolean; starBusy?: boolean; onToggleStar?: ((on: boolean) => void) | undefined }) {
   const queryClient = useQueryClient();
   const runSimple = useServerFn(setShoppingListDirectQuota);
   const runCommit = useServerFn(commitShoppingListItemQuantity);

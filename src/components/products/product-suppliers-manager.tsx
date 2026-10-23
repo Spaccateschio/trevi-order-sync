@@ -303,7 +303,7 @@ export function ProductSuppliersManager({
     mutationFn: async (input: { linkId: string | null; on: boolean }) => {
       const { error } = await supabase.rpc("toggle_product_destination_star", {
         _company_id: companyId, _product_id: productId,
-        _link_id: input.linkId ?? undefined, _direct: input.linkId === null, _on: input.on,
+        ...(input.linkId ? { _link_id: input.linkId } : {}), _direct: input.linkId === null, _on: input.on,
       });
       if (error) throw new Error(error.message);
     },
