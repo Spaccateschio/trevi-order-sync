@@ -44,4 +44,5 @@
 - Ordini già scaricati da Danea intoccabili: niente ricalcolo prezzi, storico retroattivo o cambio stato; il riscarico senza storico usa la logica precedente (test con danea-orders-xml.legacy.ts).
 - Clarify closed-list undo errors via RLS reads after RPC rejection; SQL guards remain unchanged.
 - Mockups: isolated React state only. Platform bell uses caller-owned items/actions; read state never changes request status.
+- Product direct-purchase proposals live on a separate authenticated preview page with local state and invented sources only; never reuse operational supplier commands, so preview choices cannot modify purchases or product preferences.
 - External non-B2B delivery URLs are built and normalized only through order-share-url, preserving token and expiry while using the canonical public origin; editor origins require sign-in and must never enter supplier messages.
