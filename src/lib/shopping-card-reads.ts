@@ -46,21 +46,24 @@ export const readCardLinkPrices = batchCardRead(async (ids) => {
 
 const sellerReads = new Map<string, ReturnType<typeof batchCardRead<{ net: number | null; gross: number | null }>>>();
 export const readCardPreference = batchCardRead(async (keys) => {
-  const map = new Map<string, { manualStarAt: string | null; stars: string[] }>();
+  const map = new Map<string, { manualStarAt: string | null; stars: string[]; directStar: boolean }>();
   const companies = [...new Set(keys.map((key) => key.split(":")[0] ?? ""))];
   await Promise.all(companies.map(async (companyId) => {
     const ids = keys.filter((key) => key.startsWith(`${companyId}:`)).map((key) => key.split(":")[1] ?? "");
-    const [links, stars] = await Promise.all([
+    const [links, stars, direct] = await Promise.all([
       supabase.from("product_supplier_links").select("product_id, preferred_set_at, preferred_set_by")
         .eq("company_id", companyId).in("product_id", ids),
       supabase.from("company_product_supplier_favorites").select("product_id, product_supplier_link_id")
         .eq("company_id", companyId).in("product_id", ids),
+      supabase.from("product_direct_purchase_preferences").select("product_id, is_preferred")
+        .eq("company_id", companyId).in("product_id", ids),
     ]);
-    if (links.error || stars.error) throw new Error(links.error?.message ?? stars.error?.message);
+    if (links.error || stars.error || direct.error) throw new Error(links.error?.message ?? stars.error?.message ?? direct.error?.message);
     for (const id of ids) {
       const times = (links.data ?? []).filter((l) => l.product_id === id && l.preferred_set_by && l.preferred_set_at)
         .map((l) => l.preferred_set_at ?? "").sort();
       map.set(`${companyId}:${id}`, { manualStarAt: times.at(-1) ?? null,
+        directStar: (direct.data ?? []).some((d) => d.product_id === id && d.is_preferred),
         stars: (stars.data ?? []).filter((s) => s.product_id === id).flatMap((s) => s.product_supplier_link_id ? [s.product_supplier_link_id] : []) });
     }
   }));

@@ -80,3 +80,40 @@ describe("contatori", () => {
   });
   it("Prodotti = totale catalogo indipendente dal filtro", () => assert.equal(c.products, 120));
 });
+
+describe("stelle su più destinazioni", () => {
+  const sup = (id: string, pref: boolean) => ({ ...s(id, { isPreferred: pref }), allowManual: true, units: [] });
+  const base = { deselected: [] as string[], memory: null, manualStarAt: null, inventoryStarLinks: [] as string[] };
+  it("una stella: come oggi, proposto solo quel fornitore", () => {
+    const r = chooseListDestinations({ ...base, suppliers: [sup("a", true), sup("b", false)] });
+    assert.deepEqual(r.linkIds, ["a"]); assert.equal(r.reason, "preferito");
+  });
+  it("due stelle: entrambe proposte, da ripartire", () => {
+    const r = chooseListDestinations({ ...base, suppliers: [sup("a", true), sup("b", true)] });
+    assert.deepEqual(r.linkIds, ["a", "b"]); assert.equal(r.reason, "da_ripartire"); assert.equal(r.direct, false);
+  });
+  it("stella + acquisto diretto: da ripartire con diretto proposto", () => {
+    const r = chooseListDestinations({ ...base, suppliers: [sup("a", true), sup("b", false)], directStarred: true });
+    assert.deepEqual(r.linkIds, ["a"]); assert.equal(r.direct, true); assert.equal(r.reason, "da_ripartire");
+  });
+  it("solo acquisto diretto con stella: tutto a compro io", () => {
+    const r = chooseListDestinations({ ...base, suppliers: [sup("a", false), sup("b", false)], directStarred: true });
+    assert.deepEqual(r.linkIds, []); assert.equal(r.direct, true); assert.equal(r.reason, "preferito");
+  });
+  it("nessuna stella con più fornitori: nessuna proposta", () => {
+    const r = chooseListDestinations({ ...base, suppliers: [sup("a", false), sup("b", false)] });
+    assert.deepEqual(r.linkIds, []); assert.equal(r.reason, null);
+  });
+  const mem: SupplierMemory = { listId: "old", closedAt: "2026-10-10T10:00:00Z", destinations: [
+    { kind: "fornitore", linkId: "a", unitId: "kg", unitCode: "kg", quantity: 3, stockEquivalent: 3 },
+    { kind: "diretto", unitId: "kg", unitCode: "kg", quantity: 1 },
+  ] };
+  it("più stelle: la memoria vale se tutte le destinazioni hanno ancora la stella", () => {
+    const r = chooseListDestinations({ ...base, memory: mem, suppliers: [sup("a", true), sup("b", true)], directStarred: true });
+    assert.equal(r.reason, "memoria");
+  });
+  it("più stelle: memoria su destinazione senza stella non vale", () => {
+    const r = chooseListDestinations({ ...base, memory: mem, suppliers: [sup("a", true), sup("b", true)], directStarred: false });
+    assert.equal(r.reason, "da_ripartire"); assert.equal(r.memory, null);
+  });
+});

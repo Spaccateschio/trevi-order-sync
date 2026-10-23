@@ -389,11 +389,14 @@ export function CardSuppliers({
   // Collegamento Prodotto ↔ Fornitore (non la ripartizione della Lista): stesse RPC della scheda Prodotto.
   // «Scollega dal prodotto» non passa da qui: usa UnlinkSupplierDialog (solo collegamento, mai ripartizioni).
   const linkMutation = useMutation({
-    mutationFn: async (input: { kind: "preferred"; s: CardSupplier }) => {
-      const { error } = await supabase.rpc("set_preferred_product_supplier", {
+    // Stella = destinazione abituale: si aggiunge o si toglie senza togliere le altre (solo amministratori, deciso dal DB).
+    mutationFn: async (input: { kind: "preferred"; s: CardSupplier | null; on: boolean }) => {
+      const { error } = await supabase.rpc("toggle_product_destination_star", {
         _company_id: companyId,
         _product_id: row.product_id,
-        _supplier_record_id: input.s.supplierRecordId,
+        ...(input.s ? { _link_id: input.s.linkId } : {}),
+        _direct: input.s === null,
+        _on: input.on,
       });
       if (error) throw new Error(error.message);
     },
@@ -403,7 +406,9 @@ export function CardSuppliers({
         queryClient.invalidateQueries({ queryKey: ["shopping-card-preference", companyId, row.product_id] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
       ]);
-      toast.success(`${input.s.name} è il fornitore preferito`);
+      const who = input.s ? input.s.name : "Acquisto diretto";
+      toast.success(input.on ? `${who}: stella aggiunta` : `${who}: stella tolta`);
+      if (!input.on) return;
       // Riga confermata e senza quote: proposta al nuovo preferito (salvo conflitto con la stella dell'Inventario).
       if (!pending && target && !assignments.length && !directQuota) {
         const res = await autoAssignItem(runAssign, companyId, row.item_id, { updateExisting: false });
@@ -739,7 +744,9 @@ export function CardSuppliers({
   // Spunta solo visiva (★ valida o unico fornitore) finché non c'è nessuna quota né acquisto diretto: nessuna scrittura.
   const deselectedSet = new Set([...deselectedLinks, ...deselectedFor(row.item_id)]);
   const choice = chooseListDestinations({ suppliers, deselected: deselectedSet, memory,
-    manualStarAt: preferenceQuery.data?.manualStarAt ?? null, inventoryStarLinks: preferenceQuery.data?.stars ?? [] });
+    manualStarAt: preferenceQuery.data?.manualStarAt ?? null, inventoryStarLinks: preferenceQuery.data?.stars ?? [],
+    directStarred: preferenceQuery.data?.directStar ?? false });
+  const toSplit = choice.reason === "da_ripartire" && !assignments.length && !directQuota && preferenceQuery.isSuccess;
   const visualLinks = new Set(!assignments.length && !directQuota && editable && preferenceQuery.isSuccess ? choice.linkIds : []);
   const memoryMatch = choice.memory && (assignments.length
     ? matchesMemory(choice.memory, assignments.map((a) => ({ linkId: a.linkId, quantity: a.purchaseQuantity, unitKey: a.purchaseUnitId ?? a.purchaseUnitCode ?? "" })))
@@ -789,10 +796,10 @@ export function CardSuppliers({
           <button
             type="button"
             className="shrink-0 disabled:opacity-60"
-            disabled={!editable || s.isPreferred || linkMutation.isPending}
-            aria-label={s.isPreferred ? `${s.name}: fornitore preferito` : `Imposta ${s.name} come fornitore preferito`}
-            title={s.isPreferred ? "Fornitore preferito (vale anche per le prossime Liste)" : "Imposta come preferito (permanente, solo amministratori)"}
-            onClick={() => linkMutation.mutate({ kind: "preferred", s })}
+            disabled={!editable || linkMutation.isPending}
+            aria-label={s.isPreferred ? `${s.name}: togli la stella` : `Metti la stella a ${s.name}`}
+            title={s.isPreferred ? "Destinazione abituale (tocca per togliere la stella)" : "Aggiungi la stella: destinazione abituale (solo amministratori)"}
+            onClick={() => linkMutation.mutate({ kind: "preferred", s, on: !s.isPreferred })}
           >
             <Star className={s.isPreferred ? "size-3.5 fill-primary text-primary" : "size-3.5 text-muted-foreground"} aria-hidden="true" />
           </button>
@@ -824,9 +831,9 @@ export function CardSuppliers({
                 <DropdownMenuItem onSelect={() => setDetails((d) => !d)}>
                   <Info aria-hidden="true" /> {details ? "Nascondi dettagli" : "Dettagli (prezzo, U.M., B2B)"}
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled={s.isPreferred || linkMutation.isPending} onSelect={() => linkMutation.mutate({ kind: "preferred", s })}>
+                <DropdownMenuItem disabled={linkMutation.isPending} onSelect={() => linkMutation.mutate({ kind: "preferred", s, on: !s.isPreferred })}>
                   <Star className={s.isPreferred ? "fill-primary text-primary" : ""} aria-hidden="true" />
-                  {s.isPreferred ? "Fornitore preferito" : "Imposta come fornitore preferito"}
+                  {s.isPreferred ? "Togli la stella" : "Aggiungi la stella"}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive" disabled={linkMutation.isPending} onSelect={() => setRemoving(s)}>
                   <X aria-hidden="true" /> Scollega dal prodotto
@@ -1050,17 +1057,24 @@ export function CardSuppliers({
   const late = assignments
     .map((a) => ({ a, first: lateFirstDelivery(timings[a.linkId], needed) }))
     .filter((x): x is { a: RowSupplier; first: Date } => x.first !== null);
+  // Destinazioni con stella proposte (nessuna quota): stesso avviso se non consegnano in tempo.
+  const lateProposed = toSplit ? suppliers.filter((x) => visualLinks.has(x.linkId))
+    .map((x) => ({ name: x.name, id: x.linkId, first: lateFirstDelivery(timings[x.linkId], needed) }))
+    .filter((x): x is { name: string; id: string; first: Date } => x.first !== null) : [];
   // Proposta con un tocco solo nel caso semplice: una sola quota, nessun acquisto diretto, quantità confermata.
   const simple = late.length === 1 && assignments.length === 1 && !directQuota && Boolean(target) && canWrite;
   const timelyAlt = simple
     ? suppliers.find((x) => x.linkId !== late[0]!.a.linkId && !deselectedSet.has(x.linkId) && timings[x.linkId] && !lateFirstDelivery(timings[x.linkId], needed) && quickFor(x) && !(x.isB2B && (!x.sourceLinked || !x.purchasable)))
     : undefined;
-  const lateWarning = late.length && needed ? (
+  const lateWarning = (late.length || lateProposed.length) && needed ? (
     <div className="space-y-1 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-1 text-[11px] text-destructive" role="status">
       {late.map(({ a, first }) => (
         <p key={a.id}>
           {suppliers.find((x) => x.linkId === a.linkId)?.name ?? "Fornitore"} non consegna entro {formatDeliveryDay(needed)} — prima consegna: {formatDeliveryDay(first)}.
         </p>
+      ))}
+      {lateProposed.map((x) => (
+        <p key={x.id}>{x.name} (con la stella) non consegna entro {formatDeliveryDay(needed)} — prima consegna: {formatDeliveryDay(x.first)}.</p>
       ))}
       {simple ? (
         <div className="flex flex-wrap gap-1">
@@ -1088,6 +1102,11 @@ export function CardSuppliers({
         ) : (
           <p className="text-xs text-muted-foreground">Senza fornitore</p>
         )}
+        {toSplit ? (
+          <p className="rounded-sm border border-accent bg-accent/10 px-2 py-1 text-[11px] font-medium" role="status">
+            Da ripartire: {[...suppliers.filter((x) => visualLinks.has(x.linkId)).map((x) => x.name), ...(choice.direct ? ["acquisto diretto"] : [])].join(", ")} hanno la stella. Scrivi la quota di ciascuno.
+          </p>
+        ) : null}
         {lateWarning}
         {memoryMatch ? <p className="text-[10px] italic text-muted-foreground">Come l’ultima volta</p> : null}
         {addButton}
@@ -1103,6 +1122,10 @@ export function CardSuppliers({
           unitCode={directUnit}
           target={target ?? null}
           remaining={row.remaining}
+          starred={preferenceQuery.data?.directStar ?? false}
+          proposed={!assignments.length && !directQuota && choice.direct && preferenceQuery.isSuccess}
+          starBusy={linkMutation.isPending}
+          onToggleStar={editable ? (on) => linkMutation.mutate({ kind: "preferred", s: null, on }) : undefined}
         />
         {pending ? <p className="text-[11px] text-muted-foreground">La ripartizione si salva dopo «Conferma».</p> : null}
       </section>
@@ -1156,7 +1179,7 @@ async function readDirectQuota(itemId: string) {
  * dal campo o con Invio, come le quote dei fornitori: un'unica operazione (commit) che salva anche
  * le quote fornitore ricalcolate sul residuo (planDirectQuotaRescale). Eccedenza ammessa con avviso.
  */
-function DirectQuota({ companyId, itemId, editable, unitCode, target, remaining }: { companyId: string; itemId: string; editable: boolean; unitCode: string; target: number | null; remaining: number | null }) {
+function DirectQuota({ companyId, itemId, editable, unitCode, target, remaining, starred = false, proposed = false, starBusy = false, onToggleStar }: { companyId: string; itemId: string; editable: boolean; unitCode: string; target: number | null; remaining: number | null; starred?: boolean; proposed?: boolean; starBusy?: boolean; onToggleStar?: ((on: boolean) => void) | undefined }) {
   const queryClient = useQueryClient();
   const runSimple = useServerFn(setShoppingListDirectQuota);
   const runCommit = useServerFn(commitShoppingListItemQuantity);
@@ -1255,7 +1278,18 @@ function DirectQuota({ companyId, itemId, editable, unitCode, target, remaining 
             startEdit();
           }}
         />
+        <button
+          type="button"
+          className="shrink-0 disabled:opacity-60"
+          disabled={!onToggleStar || starBusy}
+          aria-label={starred ? "Acquisto diretto: togli la stella" : "Metti la stella all'acquisto diretto"}
+          title={starred ? "Destinazione abituale (tocca per togliere la stella)" : "Aggiungi la stella: destinazione abituale (solo amministratori)"}
+          onClick={() => onToggleStar?.(!starred)}
+        >
+          <Star className={starred ? "size-3.5 fill-primary text-primary" : "size-3.5 text-muted-foreground"} aria-hidden="true" />
+        </button>
         <span className="font-semibold">Acquisto diretto (compro io)</span>
+        {proposed && !current && !editing ? <span className="text-[11px] text-muted-foreground">proposto (stella)</span> : null}
         {current && !editing ? (
           <>
             <button

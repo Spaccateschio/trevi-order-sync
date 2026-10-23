@@ -3557,6 +3557,54 @@ export type Database = {
           },
         ]
       }
+      product_direct_purchase_preferences: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_preferred: boolean
+          preferred_set_at: string | null
+          preferred_set_by: string | null
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_preferred?: boolean
+          preferred_set_at?: string | null
+          preferred_set_by?: string | null
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_preferred?: boolean
+          preferred_set_at?: string | null
+          preferred_set_by?: string | null
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_direct_purchase_preferences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_direct_purchase_preferences_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_habitual_locations: {
         Row: {
           company_id: string
@@ -9333,6 +9381,16 @@ export type Database = {
       sync_danea_product_supplier_links: {
         Args: { _company_id: string }
         Returns: Json
+      }
+      toggle_product_destination_star: {
+        Args: {
+          _company_id: string
+          _direct?: boolean
+          _link_id?: string
+          _on?: boolean
+          _product_id: string
+        }
+        Returns: undefined
       }
       undo_non_b2b_order_send_confirmation: {
         Args: { _confirmation_key: string; _order_id: string; _reason: string }

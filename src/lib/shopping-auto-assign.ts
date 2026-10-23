@@ -206,7 +206,7 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   if (item.excluded_at) return { kind: "saltato", reason: "Prodotto escluso" };
   const directQuota = item.manual_purchase_quantity === null ? null : Number(item.manual_purchase_quantity);
 
-  const [assignments, overview, units, stars, product] = await Promise.all([
+  const [assignments, overview, units, stars, product, directPref] = await Promise.all([
     supabase
       .from("shopping_list_item_suppliers")
       .select("id, product_supplier_link_id, purchase_unit_id, purchase_unit_code, purchase_quantity, deselected_at")
@@ -215,8 +215,10 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
     supabase.rpc("shopping_item_supplier_units", { _item_id: itemId }),
     supabase.from("company_product_supplier_favorites").select("product_supplier_link_id").eq("company_id", companyId).eq("product_id", item.product_id),
     supabase.from("products").select("stock_unit_id").eq("id", item.product_id).maybeSingle(),
+    supabase.from("product_direct_purchase_preferences").select("is_preferred").eq("company_id", companyId).eq("product_id", item.product_id).maybeSingle(),
   ]);
-  const failure = assignments.error ?? overview.error ?? units.error ?? stars.error;
+  const failure = assignments.error ?? overview.error ?? units.error ?? stars.error ?? directPref.error;
+  const directStarred = Boolean(directPref.data?.is_preferred);
   if (failure) return { kind: "saltato", reason: failure.message };
   // Quote tolte volontariamente (salvate nel database): non contano e non vengono mai riproposte.
   const allRows = assignments.data ?? [];
@@ -245,7 +247,9 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
 
   // Giorni di consegna: solo per righe ancora senza destinazioni e senza scelta esplicita.
   // Mai su quote già presenti (manuali o confermate); mai blocchi.
-  if (!rows.length && directQuota === null && !options.onlyLinkId && !options.preferLinkId && suppliers.length) {
+  // Più stelle: le destinazioni con stella restano tutte proposte (anche se in ritardo, con avviso nella card).
+  const multiStar = suppliers.filter((s) => s.isPreferred).length + (directStarred ? 1 : 0) >= 2;
+  if (!multiStar && !rows.length && directQuota === null && !options.onlyLinkId && !options.preferLinkId && suppliers.length) {
     const inTime = await readLinksInTime(item.list_id as string, item.product_id as string);
     if (inTime) {
       const timely = suppliers.filter((s) => inTime.has(s.linkId));
@@ -304,7 +308,7 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   }
   const choice = chooseListDestinations({ suppliers, deselected, memory: remembered, manualStarAt,
     inventoryStarLinks: (stars.data ?? []).flatMap((s) => s.product_supplier_link_id ? [s.product_supplier_link_id as string] : []),
-    preferLinkId: options.preferLinkId ?? null });
+    preferLinkId: options.preferLinkId ?? null, directStarred });
   const memory = choice.memory;
   const memCtx = { suppliers, deselected, decidedUnitId, decidedCode, quantity, stockUnitId, conversions };
   const writeAll = async (writes: ({ kind: "fornitore"; linkId: string; assignmentId: string | null; target: { unitId: string | null; manual: string | null; quantity: number } } | { kind: "diretto"; quantity: number; unitId: string | null; unitCode: string | null })[]) => {
@@ -367,6 +371,19 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
         return { kind: "assegnato", supplierName: `${names.join(" + ")} (come l'ultima volta)` };
       }
       if (mp.kind === "proponi" || mp.kind === "scrivi") return { kind: "da_scegliere", reason: mp.kind === "proponi" ? mp.reason : "Acquisto diretto da inserire a mano" };
+    }
+    if (!options.onlyLinkId && choice.reason === "da_ripartire") return { kind: "da_scegliere", reason: "Da ripartire: più destinazioni con la stella" };
+    if (!options.onlyLinkId && choice.reason === "preferito" && choice.direct && !choice.linkIds.length) {
+      const w = { kind: "diretto" as const, quantity, unitId: decidedUnitId, unitCode: decidedCode || null };
+      if (options.collect) options.collect.push(w);
+      else if (options.direct) {
+        try {
+          await options.direct({ data: { companyId, itemId, quantity: w.quantity, unitId: w.unitId, unitCode: w.unitCode } });
+        } catch (e) {
+          return { kind: "saltato", reason: quotaSaveError("l'acquisto diretto", (e as Error).message) };
+        }
+      } else return { kind: "da_scegliere", reason: "Acquisto diretto con la stella: inserisci la quota" };
+      return { kind: "assegnato", supplierName: "acquisto diretto (stella)" };
     }
     const targetFor = (s: PickSupplier) => quotaFor(s, decidedUnitId, decidedCode, quantity, stockUnitId, conversions[s.linkId] ?? []);
     const pool = options.onlyLinkId ? suppliers.filter((s) => s.linkId === options.onlyLinkId) : suppliers.filter((s) => !deselected.has(s.linkId));
