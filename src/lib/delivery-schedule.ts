@@ -128,3 +128,13 @@ export type LinkTiming = { linkId: string; schedule: DeliverySchedule; leadDays:
 export function linksInTime(links: LinkTiming[], from: Date, needed: Date): Set<string> {
   return new Set(links.filter((l) => canDeliverBy(from, l.schedule, l.leadDays, needed)).map((l) => l.linkId));
 }
+
+export const formatDeliveryDay = (x: Date) => x.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "numeric" });
+
+/** Prima consegna possibile se arriva DOPO la data richiesta; null se in tempo (o nessuna data). */
+export function lateFirstDelivery(timing: { schedule: DeliverySchedule; leadDays: number | null } | undefined, needed: Date | null, today = new Date()): Date | null {
+  if (!timing || !needed) return null;
+  const from = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const first = firstValidDelivery(from, timing.schedule, timing.leadDays);
+  return first && first.getTime() > new Date(needed.getFullYear(), needed.getMonth(), needed.getDate()).getTime() ? first : null;
+}
