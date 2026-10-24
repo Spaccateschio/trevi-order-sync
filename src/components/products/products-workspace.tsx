@@ -77,23 +77,6 @@ function getDeviceClass(): GridDevice {
   return "desktop";
 }
 
-function sortProducts(products: ProductRow[], sorting: SortingState, archives: Map<string, string>) {
-  const active = sorting[0];
-  if (!active) return products;
-  const column = PRODUCT_COLUMNS.find((item) => item.id === active.id);
-  if (!column) return products;
-  return [...products].sort((left, right) => {
-    const a = column.value(left, archives);
-    const b = column.value(right, archives);
-    if (a === b) return 0;
-    if (a === null || a === "—") return 1;
-    if (b === null || b === "—") return -1;
-    const result = typeof a === "number" && typeof b === "number"
-      ? a - b
-      : String(a).localeCompare(String(b), "it", { numeric: true, sensitivity: "base" });
-    return active.desc ? -result : result;
-  });
-}
 
 /**
  * Unica pagina Prodotti: la usano sia Vendite → Prodotti sia Acquisti → Prodotti.
@@ -212,7 +195,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
     refetchOnWindowFocus: true,
     queryFn: async () => {
       if (!companyId) return [];
-      const { data, error } = await supabase.from("products").select("id, archive_id, stock_unit_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, b2b_visible, commercial_availability, price_unit_id, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price), product_images(id)").eq("company_id", companyId).order("code");
+      const { data, error } = await supabase.from("products").select("id, archive_id, stock_unit_id, code, description, description_html, category, subcategory, danea_um, size_um, weight_um, vat_perc, vat_code, vat_description, vat_class, publish_status, b2b_visible, commercial_availability, price_unit_id, danea_internal_id, notes, image_file_name, image_folder, supplier_code, supplier_name, supplier_product_code, supplier_notes, producer_name, product_type, barcode, link, custom_field_1, custom_field_2, custom_field_3, custom_field_4, first_received_at, last_received_at, product_prices(list_number, net_price, gross_price), product_images(id)").eq("company_id", companyId).order("description", { ascending: true });
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as ProductRow[];
     },
