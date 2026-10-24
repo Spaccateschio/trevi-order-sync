@@ -6,7 +6,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
-import { ProductDetailSheet } from "@/components/products/product-detail-sheet";
+import { ProductDetailPanel } from "@/components/products/product-detail-panel";
+import { ProductDetailSheet, type ProductDetailTab } from "@/components/products/product-detail-sheet";
 import { ProductGrid } from "@/components/products/product-grid";
 import { InternalProductDialog } from "@/components/products/internal-product-dialog";
 import { ProductMobileList } from "@/components/products/product-mobile-list";
