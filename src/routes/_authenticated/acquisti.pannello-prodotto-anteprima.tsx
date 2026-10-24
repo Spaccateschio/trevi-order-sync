@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { ProductDetailPanelMockup } from "@/components/products/product-detail-panel-mockup";
 
-export const Route = createFileRoute("/_authenticated/acquisti_/pannello-prodotto-anteprima")({
+export const Route = createFileRoute("/_authenticated/acquisti/pannello-prodotto-anteprima")({
   head: () => ({
     meta: [
       { title: "Pannello prodotto — Proposta pagina Prodotti — Trevi Fruit" },

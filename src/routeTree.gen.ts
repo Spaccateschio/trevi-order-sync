@@ -44,6 +44,7 @@ import { Route as AuthenticatedAcquistiListaSpesaRouteImport } from './routes/_a
 import { Route as AuthenticatedAcquistiListaSpesaAnteprimaRouteImport } from './routes/_authenticated/acquisti.lista-spesa-anteprima'
 import { Route as AuthenticatedAcquistiListaSpesaTestataAnteprimaRouteImport } from './routes/_authenticated/acquisti.lista-spesa-testata-anteprima'
 import { Route as AuthenticatedAcquistiOrdiniRouteImport } from './routes/_authenticated/acquisti.ordini'
+import { Route as AuthenticatedAcquistiPannelloProdottoAnteprimaRouteImport } from './routes/_authenticated/acquisti.pannello-prodotto-anteprima'
 import { Route as AuthenticatedAcquistiRicezioneRouteImport } from './routes/_authenticated/acquisti.ricezione'
 import { Route as AuthenticatedAcquistiProdottiRouteImport } from './routes/_authenticated/acquisti_.prodotti'
 import { Route as AuthenticatedImpostazioniNavigazioneRouteImport } from './routes/_authenticated/impostazioni_.navigazione'
@@ -245,6 +246,12 @@ const AuthenticatedAcquistiOrdiniRoute =
     path: '/acquisti/ordini',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAcquistiPannelloProdottoAnteprimaRoute =
+  AuthenticatedAcquistiPannelloProdottoAnteprimaRouteImport.update({
+    id: '/acquisti/pannello-prodotto-anteprima',
+    path: '/acquisti/pannello-prodotto-anteprima',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAcquistiRicezioneRoute =
   AuthenticatedAcquistiRicezioneRouteImport.update({
     id: '/acquisti/ricezione',
@@ -362,6 +369,7 @@ export interface FileRoutesByFullPath {
   '/acquisti/lista-spesa-anteprima': typeof AuthenticatedAcquistiListaSpesaAnteprimaRoute
   '/acquisti/lista-spesa-testata-anteprima': typeof AuthenticatedAcquistiListaSpesaTestataAnteprimaRoute
   '/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
+  '/acquisti/pannello-prodotto-anteprima': typeof AuthenticatedAcquistiPannelloProdottoAnteprimaRoute
   '/acquisti/ricezione': typeof AuthenticatedAcquistiRicezioneRoute
   '/acquisti/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/impostazioni/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
@@ -411,6 +419,7 @@ export interface FileRoutesByTo {
   '/acquisti/lista-spesa-anteprima': typeof AuthenticatedAcquistiListaSpesaAnteprimaRoute
   '/acquisti/lista-spesa-testata-anteprima': typeof AuthenticatedAcquistiListaSpesaTestataAnteprimaRoute
   '/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
+  '/acquisti/pannello-prodotto-anteprima': typeof AuthenticatedAcquistiPannelloProdottoAnteprimaRoute
   '/acquisti/ricezione': typeof AuthenticatedAcquistiRicezioneRoute
   '/acquisti/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/impostazioni/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
@@ -463,6 +472,7 @@ export interface FileRoutesById {
   '/_authenticated/acquisti/lista-spesa-anteprima': typeof AuthenticatedAcquistiListaSpesaAnteprimaRoute
   '/_authenticated/acquisti/lista-spesa-testata-anteprima': typeof AuthenticatedAcquistiListaSpesaTestataAnteprimaRoute
   '/_authenticated/acquisti/ordini': typeof AuthenticatedAcquistiOrdiniRoute
+  '/_authenticated/acquisti/pannello-prodotto-anteprima': typeof AuthenticatedAcquistiPannelloProdottoAnteprimaRoute
   '/_authenticated/acquisti/ricezione': typeof AuthenticatedAcquistiRicezioneRoute
   '/_authenticated/acquisti_/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/_authenticated/impostazioni_/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
@@ -515,6 +525,7 @@ export interface FileRouteTypes {
     | '/acquisti/lista-spesa-anteprima'
     | '/acquisti/lista-spesa-testata-anteprima'
     | '/acquisti/ordini'
+    | '/acquisti/pannello-prodotto-anteprima'
     | '/acquisti/ricezione'
     | '/acquisti/prodotti'
     | '/impostazioni/navigazione'
@@ -564,6 +575,7 @@ export interface FileRouteTypes {
     | '/acquisti/lista-spesa-anteprima'
     | '/acquisti/lista-spesa-testata-anteprima'
     | '/acquisti/ordini'
+    | '/acquisti/pannello-prodotto-anteprima'
     | '/acquisti/ricezione'
     | '/acquisti/prodotti'
     | '/impostazioni/navigazione'
@@ -615,6 +627,7 @@ export interface FileRouteTypes {
     | '/_authenticated/acquisti/lista-spesa-anteprima'
     | '/_authenticated/acquisti/lista-spesa-testata-anteprima'
     | '/_authenticated/acquisti/ordini'
+    | '/_authenticated/acquisti/pannello-prodotto-anteprima'
     | '/_authenticated/acquisti/ricezione'
     | '/_authenticated/acquisti_/prodotti'
     | '/_authenticated/impostazioni_/navigazione'
@@ -893,6 +906,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAcquistiOrdiniRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/acquisti/pannello-prodotto-anteprima': {
+      id: '/_authenticated/acquisti/pannello-prodotto-anteprima'
+      path: '/acquisti/pannello-prodotto-anteprima'
+      fullPath: '/acquisti/pannello-prodotto-anteprima'
+      preLoaderRoute: typeof AuthenticatedAcquistiPannelloProdottoAnteprimaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/acquisti/ricezione': {
       id: '/_authenticated/acquisti/ricezione'
       path: '/acquisti/ricezione'
@@ -1013,6 +1033,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAcquistiListaSpesaAnteprimaRoute: typeof AuthenticatedAcquistiListaSpesaAnteprimaRoute
   AuthenticatedAcquistiListaSpesaTestataAnteprimaRoute: typeof AuthenticatedAcquistiListaSpesaTestataAnteprimaRoute
   AuthenticatedAcquistiOrdiniRoute: typeof AuthenticatedAcquistiOrdiniRoute
+  AuthenticatedAcquistiPannelloProdottoAnteprimaRoute: typeof AuthenticatedAcquistiPannelloProdottoAnteprimaRoute
   AuthenticatedAcquistiRicezioneRoute: typeof AuthenticatedAcquistiRicezioneRoute
   AuthenticatedAcquistiProdottiRoute: typeof AuthenticatedAcquistiProdottiRoute
   AuthenticatedImpostazioniNavigazioneRoute: typeof AuthenticatedImpostazioniNavigazioneRoute
@@ -1048,6 +1069,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAcquistiListaSpesaTestataAnteprimaRoute:
     AuthenticatedAcquistiListaSpesaTestataAnteprimaRoute,
   AuthenticatedAcquistiOrdiniRoute: AuthenticatedAcquistiOrdiniRoute,
+  AuthenticatedAcquistiPannelloProdottoAnteprimaRoute:
+    AuthenticatedAcquistiPannelloProdottoAnteprimaRoute,
   AuthenticatedAcquistiRicezioneRoute: AuthenticatedAcquistiRicezioneRoute,
   AuthenticatedAcquistiProdottiRoute: AuthenticatedAcquistiProdottiRoute,
   AuthenticatedImpostazioniNavigazioneRoute:
