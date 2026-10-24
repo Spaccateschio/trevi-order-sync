@@ -141,6 +141,27 @@ export function ProductSuppliersManager({
     },
   });
 
+  // Articolo B2B realmente collegato (identità del collegamento), mostrato accanto al codice.
+  const b2bItemsQuery = useQuery({
+    queryKey: ["product-supplier-b2b-items", productId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_supplier_links")
+        .select("id, b2b_item_id")
+        .eq("product_id", productId)
+        .not("b2b_item_id", "is", null);
+      if (error) throw new Error(error.message);
+      const ids = (data ?? []).map((row) => row.b2b_item_id as string);
+      if (!ids.length) return {} as Record<string, { code: string; description: string | null }>;
+      const { data: items } = await supabase.from("products").select("id, code, description").in("id", ids);
+      const byId = new Map((items ?? []).map((item) => [item.id, item]));
+      return Object.fromEntries((data ?? []).flatMap((row) => {
+        const item = byId.get(row.b2b_item_id as string);
+        return item ? [[row.id, { code: item.code, description: item.description }]] : [];
+      })) as Record<string, { code: string; description: string | null }>;
+    },
+  });
+
   const matchesQuery = useQuery({
     queryKey: ["product-danea-supplier-matches", productId],
     enabled: editable,
@@ -562,6 +583,9 @@ export function ProductSuppliersManager({
                 </p>
                 <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
                   <div><dt className="text-muted-foreground">Cod. fornitore</dt><dd className="font-mono">{row.supplier_product_code ?? "—"}</dd></div>
+                  {b2bItemsQuery.data?.[row.link_id] ? (
+                    <div className="col-span-2"><dt className="text-muted-foreground">Articolo B2B collegato</dt><dd><span className="font-mono">{b2bItemsQuery.data[row.link_id]!.code}</span> · {b2bItemsQuery.data[row.link_id]!.description ?? "—"}</dd></div>
+                  ) : null}
                   <div><dt className="text-muted-foreground">Priorità</dt><dd>{row.sourcing_priority ?? "—"}</dd></div>
                   <div><dt className="text-muted-foreground">U.M. acquistabili</dt><dd>{(row.purchase_units ?? []).length ? (row.purchase_units ?? []).map((unit) => `${unit.code}${unit.is_default ? " ★" : ""}`).join(" · ") : "—"}</dd></div>
                   <div><dt className="text-muted-foreground">Costo Danea</dt><dd>{row.danea_net_cost !== null ? `${euro(row.danea_net_cost)} · ${dateTime(row.danea_cost_at)}` : "—"}</dd></div>
