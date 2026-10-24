@@ -214,6 +214,33 @@ export function columnLabel(column: ProductColumn, listName?: (number: number) =
   return column.label;
 }
 
+/** A parità di colonna scelta l'elenco resta leggibile in ordine alfabetico per descrizione. */
+function byDescription(left: ProductRow, right: ProductRow) {
+  return (left.description ?? left.code).localeCompare(right.description ?? right.code, "it", { numeric: true, sensitivity: "base" });
+}
+
+/**
+ * Ordine della pagina Prodotti: la colonna scelta dall'utente comanda, i pari merito
+ * si leggono in ordine alfabetico per descrizione (non per codice).
+ */
+export function sortProducts(products: ProductRow[], sorting: SortingState, archives: Map<string, string>) {
+  const active = sorting[0];
+  if (!active) return products;
+  const column = PRODUCT_COLUMNS.find((item) => item.id === active.id);
+  if (!column) return products;
+  return [...products].sort((left, right) => {
+    const a = column.value(left, archives);
+    const b = column.value(right, archives);
+    if (a === b) return byDescription(left, right);
+    if (a === null || a === "—") return 1;
+    if (b === null || b === "—") return -1;
+    const result = typeof a === "number" && typeof b === "number"
+      ? a - b
+      : String(a).localeCompare(String(b), "it", { numeric: true, sensitivity: "base" });
+    return result === 0 ? byDescription(left, right) : active.desc ? -result : result;
+  });
+}
+
 export function formatGridValue(column: ProductColumn, value: string | number | null) {
   if (column.numeric && typeof value === "number") return euro(value);
   return value === null || value === "" ? "—" : String(value);
