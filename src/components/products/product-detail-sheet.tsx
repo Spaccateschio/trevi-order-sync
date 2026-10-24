@@ -196,10 +196,10 @@ export function ProductDetailContent({ product, archiveName, listName, isAdmin, 
   initialTab: ProductDetailTab;
   /** "sheet": intestazione della finestra modale; "panel": intestazione compatta con × del pannello fisso. */
   variant?: "sheet" | "panel";
-  onClose?: () => void;
+  onClose?: (() => void) | undefined;
   /** Tab controllato (pannello): resta selezionato anche cambiando prodotto. */
-  tab?: ProductDetailTab;
-  onTabChange?: (tab: ProductDetailTab) => void;
+  tab?: ProductDetailTab | undefined;
+  onTabChange?: ((tab: ProductDetailTab) => void) | undefined;
 }) {
   const [daneaOpen, setDaneaOpen] = useState(false);
   return <>
