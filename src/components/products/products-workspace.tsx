@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import type { ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
 import { Columns3, Download, Eye, EyeOff, FileUp, MoreHorizontal, PackagePlus, Printer, Ruler, RotateCcw, Search, SlidersHorizontal, SquareCheckBig } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -139,6 +140,13 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
   const [sorting, setSorting] = useState<SortingState>(defaults.sorting);
   const [preferencesReady, setPreferencesReady] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [printTarget, setPrintTarget] = useState<HTMLElement | null>(null);
+
+  // A direct body child lets print CSS remove the application layout entirely.
+  // Resolve the target only after hydration; sheet-only workspaces do not print.
+  useEffect(() => {
+    if (!sheetOnly) setPrintTarget(document.body);
+  }, [sheetOnly]);
 
 
   // Vetrina B2B: products resta in sola scrittura Danea, l'interruttore passa dalla funzione dedicata.
@@ -616,7 +624,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
       </div>
     </div>
 
-    <div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column ? columnLabel(column, listName) : ""}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>
+    {printTarget ? createPortal(<div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column ? columnLabel(column, listName) : ""}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>, printTarget) : null}
 
     <ProductDetailSheet product={deviceClass === "desktop" ? null : currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => setSelected(null)} initialTab={detailTab} caps={caps} />
     {companyId ? <SalesUnitBatchDialog open={unitBatchOpen} onOpenChange={setUnitBatchOpen} companyId={companyId} productIds={selectedProducts.map((product) => product.id)} units={companyUnitsQuery.data ?? []} /> : null}
