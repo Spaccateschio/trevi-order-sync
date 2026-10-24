@@ -1027,7 +1027,28 @@ export function SupplierRecordsPanel({
               </div>
             ))}
           </div>
-        </>
+          </div>
+          {isDesktop ? (
+            <aside aria-label="Scheda fornitore" className="sticky top-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
+              {panelRecord ? (
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                  <p className="mb-3 truncate text-sm font-semibold">{panelRecord.legal_name}</p>
+                  {detailForm}
+                </div>
+              ) : (
+                <div className="grid min-h-[320px] place-items-center rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
+                  <div className="space-y-2">
+                    <SearchX className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
+                    <p className="text-sm font-medium">Seleziona un fornitore</p>
+                    <p className="text-xs text-muted-foreground">
+                      Tocca una riga dell'elenco: la scheda si apre qui, a fianco. Con le frecce ↑/↓ passi da un fornitore all'altro.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </aside>
+          ) : null}
+        </div>
       )}
 
       {deletedRecords.length ? (
@@ -1109,6 +1130,30 @@ export function SupplierRecordsPanel({
               }}
             >
               {bulkBusy ? "Eliminazione…" : "Elimina"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cambio fornitore con modifiche non salvate: mai scartarle in silenzio. */}
+      <AlertDialog open={Boolean(pendingSwitch)} onOpenChange={(open) => !open && setPendingSwitch(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Modifiche non salvate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ci sono modifiche non salvate su “{editing?.legal_name}”. Se apri “
+              {pendingSwitch?.legal_name}” le perderai.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continua a modificare</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingSwitch) activatePanel(pendingSwitch);
+                setPendingSwitch(null);
+              }}
+            >
+              Scarta e apri
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
