@@ -388,6 +388,8 @@ export function CustomerRecordsPanel({
       return;
     }
     setFormOpen(false);
+    // Nel pannello il cliente resta aperto: il bozzo salvato diventa il dato attuale.
+    setEditing((prev) => (prev ? { ...prev, ...form } : prev));
     await refresh();
     toast.success(editing ? "Cliente aggiornato." : "Cliente aggiunto all'anagrafica.");
   }
@@ -678,6 +680,23 @@ export function CustomerRecordsPanel({
 
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((record) => selectedIds.has(record.id));
+
+  const panelRecord = panelId ? (records.find((record) => record.id === panelId) ?? null) : null;
+
+  /** Frecce ↑/↓: si muovono nell'elenco filtrato e ordinato visibile. */
+  function navigateRecord(direction: -1 | 1) {
+    if (!filtered.length) return;
+    const index = filtered.findIndex((record) => record.id === panelId);
+    const next =
+      filtered[
+        index < 0
+          ? direction > 0
+            ? 0
+            : filtered.length - 1
+          : Math.min(filtered.length - 1, Math.max(0, index + direction))
+      ];
+    if (next && next.id !== panelId) openEdit(next);
+  }
 
   function toggleAllFiltered() {
     setSelectedIds((prev) => {
