@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Download, FileSpreadsheet, Printer } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Download, FileSpreadsheet, Printer, SearchX } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { useIdentity } from "@/hooks/use-identity";
@@ -216,6 +216,19 @@ export function CustomerRecordsPanel({
     }[]
   >([]);
 
+  // Pannello fisso a destra sui monitor grandi (≥1280 px): la scheda non oscura l'elenco.
+  const [panelId, setPanelId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState("anagrafica");
+  const [pendingSwitch, setPendingSwitch] = useState<CustomerRecord | null>(null);
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.innerWidth >= 1280,
+  );
+  useEffect(() => {
+    const update = () => setIsDesktop(window.innerWidth >= 1280);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   /** Dati aziendali stampati sul foglio invito: sola lettura. */
   const companyQuery = useQuery({
     queryKey: ["company-contact", companyId],
@@ -317,10 +330,35 @@ export function CustomerRecordsPanel({
     setFormOpen(true);
   }
 
+  function activatePanel(record: CustomerRecord) {
+    setEditing(record);
+    setForm(toForm(record));
+    setPanelId(record.id);
+  }
+
   function openEdit(record: CustomerRecord) {
+    if (isDesktop) {
+      // Modifiche non salvate: il cambio cliente chiede conferma, mai scarto silenzioso.
+      if (
+        editing &&
+        panelId &&
+        editing.id !== record.id &&
+        JSON.stringify(form) !== JSON.stringify(toForm(editing))
+      ) {
+        setPendingSwitch(record);
+        return;
+      }
+      activatePanel(record);
+      return;
+    }
     setEditing(record);
     setForm(toForm(record));
     setFormOpen(true);
+  }
+
+  function closeDetail() {
+    setFormOpen(false);
+    setPanelId(null);
   }
 
   async function save() {
@@ -350,6 +388,8 @@ export function CustomerRecordsPanel({
       return;
     }
     setFormOpen(false);
+    // Nel pannello il cliente resta aperto: il bozzo salvato diventa il dato attuale.
+    setEditing((prev) => (prev ? { ...prev, ...form } : prev));
     await refresh();
     toast.success(editing ? "Cliente aggiornato." : "Cliente aggiunto all'anagrafica.");
   }
@@ -641,6 +681,23 @@ export function CustomerRecordsPanel({
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((record) => selectedIds.has(record.id));
 
+  const panelRecord = panelId ? (records.find((record) => record.id === panelId) ?? null) : null;
+
+  /** Frecce ↑/↓: si muovono nell'elenco filtrato e ordinato visibile. */
+  function navigateRecord(direction: -1 | 1) {
+    if (!filtered.length) return;
+    const index = filtered.findIndex((record) => record.id === panelId);
+    const next =
+      filtered[
+        index < 0
+          ? direction > 0
+            ? 0
+            : filtered.length - 1
+          : Math.min(filtered.length - 1, Math.max(0, index + direction))
+      ];
+    if (next && next.id !== panelId) openEdit(next);
+  }
+
   function toggleAllFiltered() {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -818,6 +875,189 @@ export function CustomerRecordsPanel({
     `${(columnWidths[key] / Math.max(visibleWeight, 1)) * 100}%`;
   const densityClass = columns.length >= 12 ? "text-[8px]" : columns.length >= 8 ? "text-[9px]" : "text-[10px]";
 
+  /**
+   * Scheda cliente: stesso contenuto nella finestra centrata (schermi piccoli e
+   * «Nuovo cliente») e nel pannello fisso a destra (monitor grandi). Il tab aperto
+   * resta quello scelto quando si passa da un cliente all'altro.
+   */
+  const detailForm = (
+    <>
+      <Tabs value={detailTab} onValueChange={setDetailTab}>
+        <TabsList className="flex h-auto w-full flex-wrap">
+          <TabsTrigger value="anagrafica">Anagrafica</TabsTrigger>
+          <TabsTrigger value="commerciale">Rapporti commerciali</TabsTrigger>
+          <TabsTrigger value="varie">Varie</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="anagrafica" className="mt-4 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field
+              label="Codice"
+              value={form.internal_reference}
+              onChange={(v) => setForm({ ...form, internal_reference: v })}
+            />
+            <Field
+              label="Codice fiscale"
+              value={form.tax_code}
+              onChange={(v) => setForm({ ...form, tax_code: v })}
+            />
+            <Field
+              label="Partita IVA"
+              value={form.vat_number}
+              onChange={(v) => setForm({ ...form, vat_number: v })}
+            />
+            <Field
+              label="Denominazione"
+              value={form.legal_name}
+              onChange={(v) => setForm({ ...form, legal_name: v })}
+            />
+          </div>
+
+          <Section title="Sede operativa">
+            <Field
+              label="Indirizzo"
+              value={form.address_line}
+              onChange={(v) => setForm({ ...form, address_line: v })}
+              className="sm:col-span-2"
+            />
+            <Field
+              label="CAP"
+              value={form.postal_code}
+              onChange={(v) => setForm({ ...form, postal_code: v })}
+            />
+            <Field
+              label="Città"
+              value={form.city}
+              onChange={(v) => setForm({ ...form, city: v })}
+            />
+            <Field
+              label="Provincia"
+              value={form.province}
+              onChange={(v) => setForm({ ...form, province: v })}
+            />
+            <ReadField
+              label="Archivio Danea"
+              value={
+                editing
+                  ? (archivesQuery.data ?? []).find((a) => a.id === editing.archive_id)?.name ??
+                    "Non assegnato"
+                  : null
+              }
+            />
+            <ReadField label="Regione" value={editing?.region} />
+            <ReadField label="Nazione" value={editing?.country} />
+          </Section>
+
+          <Section title="Fattura elettronica">
+            <ReadField label="Recapito (cod. destinatario)" value={editing?.sdi_code} />
+            <ReadField label="Rif. amministrativo" value={editing?.sdi_admin_reference} />
+          </Section>
+
+          <Section title="Contatti">
+            <Field
+              label="Referente"
+              value={form.contact_name}
+              onChange={(v) => setForm({ ...form, contact_name: v })}
+            />
+            <Field label="Fax" value={form.fax} onChange={(v) => setForm({ ...form, fax: v })} />
+            <Field
+              label="Telefono"
+              value={form.phone}
+              onChange={(v) => setForm({ ...form, phone: v })}
+            />
+            <Field
+              label="e-mail"
+              value={form.email}
+              onChange={(v) => setForm({ ...form, email: v })}
+            />
+            <Field label="PEC" value={form.pec} onChange={(v) => setForm({ ...form, pec: v })} />
+          </Section>
+        </TabsContent>
+
+        <TabsContent value="commerciale" className="mt-4 space-y-4">
+          {editing ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ReadField label="Sconti" value={editing.discounts} />
+                <div className="grid gap-1.5">
+                  <Label>Listino</Label>
+                  <Select
+                    value={
+                      editing.assigned_price_list_number === null
+                        ? "nessuno"
+                        : String(editing.assigned_price_list_number)
+                    }
+                    onValueChange={(value) => void assignPriceList(editing, value)}
+                    disabled={!isAdmin}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Listino" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
+                      {listsForArchive(priceLists, editing.archive_id).map((item) => (
+                        <SelectItem key={item.listNumber} value={String(item.listNumber)}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <ReadField label="Fido" value={editing.credit_limit} />
+                <ReadField label="Agente" value={editing.agent} />
+                <ReadField label="Pagamento" value={editing.payment_terms} />
+                <ReadField label="Coordinate bancarie" value={editing.bank} />
+                <ReadField label="Nostra banca" value={editing.our_bank} />
+              </div>
+              <ExtraFields record={editing} group="commerciale" />
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              I dati commerciali arrivano dal gestionale: saranno visibili dopo il primo
+              salvataggio o l’importazione da Danea.
+            </p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="varie" className="mt-4 space-y-4">
+          {editing ? <ExtraFields record={editing} group="varie" /> : null}
+          <div className="grid gap-1.5">
+            <Label>Note</Label>
+            <Textarea
+              value={form.notes}
+              onChange={(event) => setForm({ ...form, notes: event.target.value })}
+            />
+          </div>
+          {editing ? <OtherDaneaData record={editing} /> : null}
+        </TabsContent>
+      </Tabs>
+
+      {editing ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <AddressManager
+            owner={{ customerRecordId: editing.id }}
+            isAdmin={isAdmin}
+            showPartnerVisibility={false}
+          />
+        </div>
+      ) : null}
+      {editing ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <DestinationManager customerRecordId={editing.id} isAdmin={isAdmin} />
+        </div>
+      ) : null}
+
+      <div className="mt-6 flex justify-end gap-2">
+        <Button variant="outline" onClick={closeDetail}>
+          Chiudi
+        </Button>
+        <Button disabled={busy || !isAdmin} onClick={save}>
+          Salva
+        </Button>
+      </div>
+    </>
+  );
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:flex-wrap sm:justify-between">
@@ -933,9 +1173,22 @@ export function CustomerRecordsPanel({
       ) : !filtered.length ? (
         <p className="text-sm text-muted-foreground">Nessun cliente corrisponde alla ricerca.</p>
       ) : (
-        <>
+        <div className={isDesktop ? "grid grid-cols-[minmax(0,1fr)_minmax(420px,36%)] items-start gap-3" : ""}>
+          <div className="min-w-0 space-y-3">
           {/* Elenco gestionale: una riga per cliente, testo compatto. */}
-          <div className="hidden rounded-lg border border-border bg-card sm:block">
+          <div
+            className="hidden rounded-lg border border-border bg-card outline-none sm:block"
+            tabIndex={isDesktop ? -1 : undefined}
+            onKeyDown={(event) => {
+              if (!isDesktop || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+              if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+              const target = event.target;
+              if (!(target instanceof HTMLElement) || (target !== event.currentTarget && target.tagName !== "TR")) return;
+              event.preventDefault();
+              event.currentTarget.focus({ preventScroll: true });
+              navigateRecord(event.key === "ArrowDown" ? 1 : -1);
+            }}
+          >
             <table className={`w-full table-fixed border-separate border-spacing-0 ${densityClass}`}>
               <colgroup>
                 <col className="w-8" />
@@ -1006,7 +1259,19 @@ export function CustomerRecordsPanel({
               </thead>
               <tbody>
                 {filtered.map((record) => (
-                  <tr key={record.id} className="odd:bg-muted/20 hover:bg-muted/50">
+                  <tr
+                    key={record.id}
+                    tabIndex={isDesktop ? (record.id === panelId ? 0 : -1) : undefined}
+                    aria-current={record.id === panelId ? "true" : undefined}
+                    onClick={(event) => {
+                      if ((event.target as HTMLElement).closest("button, input, select, textarea, a, [role='checkbox']")) return;
+                      if (isDesktop) event.currentTarget.focus({ preventScroll: true });
+                      openEdit(record);
+                    }}
+                    className={`outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${isDesktop ? "cursor-pointer" : ""} ${
+                      record.id === panelId ? "bg-accent/30 hover:bg-accent/40" : "odd:bg-muted/20 hover:bg-muted/50"
+                    }`}
+                  >
                     <td className="border-b border-r border-border px-1 py-1" onClick={(event) => event.stopPropagation()}>
                       <Checkbox
                         checked={selectedIds.has(record.id)}
@@ -1085,7 +1350,28 @@ export function CustomerRecordsPanel({
               </div>
             ))}
           </div>
-        </>
+          </div>
+          {isDesktop ? (
+            <aside aria-label="Scheda cliente" className="sticky top-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
+              {panelRecord ? (
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                  <p className="mb-3 truncate text-sm font-semibold">{panelRecord.legal_name}</p>
+                  {detailForm}
+                </div>
+              ) : (
+                <div className="grid min-h-[320px] place-items-center rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
+                  <div className="space-y-2">
+                    <SearchX className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
+                    <p className="text-sm font-medium">Seleziona un cliente</p>
+                    <p className="text-xs text-muted-foreground">
+                      Tocca una riga dell'elenco: la scheda si apre qui, a fianco. Con le frecce ↑/↓ passi da un cliente all'altro.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </aside>
+          ) : null}
+        </div>
       )}
 
       {/* Archivio: clienti eliminati, recuperabili con tutti i loro dati. */}
@@ -1148,8 +1434,29 @@ export function CustomerRecordsPanel({
         </AlertDialogContent>
       </AlertDialog>
 
-
-
+      {/* Cambio cliente con modifiche non salvate: mai scartarle in silenzio. */}
+      <AlertDialog open={Boolean(pendingSwitch)} onOpenChange={(open) => !open && setPendingSwitch(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Modifiche non salvate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ci sono modifiche non salvate su “{editing?.legal_name}”. Se apri “
+              {pendingSwitch?.legal_name}” le perderai.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continua a modificare</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingSwitch) activatePanel(pendingSwitch);
+                setPendingSwitch(null);
+              }}
+            >
+              Scarta e apri
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-3xl overflow-y-auto">
@@ -1161,179 +1468,7 @@ export function CustomerRecordsPanel({
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs defaultValue="anagrafica">
-            <TabsList className="flex w-full flex-wrap">
-              <TabsTrigger value="anagrafica">Anagrafica</TabsTrigger>
-              <TabsTrigger value="commerciale">Rapporti commerciali</TabsTrigger>
-              <TabsTrigger value="varie">Varie</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="anagrafica" className="mt-4 space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field
-                  label="Codice"
-                  value={form.internal_reference}
-                  onChange={(v) => setForm({ ...form, internal_reference: v })}
-                />
-                <Field
-                  label="Codice fiscale"
-                  value={form.tax_code}
-                  onChange={(v) => setForm({ ...form, tax_code: v })}
-                />
-                <Field
-                  label="Partita IVA"
-                  value={form.vat_number}
-                  onChange={(v) => setForm({ ...form, vat_number: v })}
-                />
-                <Field
-                  label="Denominazione"
-                  value={form.legal_name}
-                  onChange={(v) => setForm({ ...form, legal_name: v })}
-                />
-              </div>
-
-              <Section title="Sede operativa">
-                <Field
-                  label="Indirizzo"
-                  value={form.address_line}
-                  onChange={(v) => setForm({ ...form, address_line: v })}
-                  className="sm:col-span-2"
-                />
-                <Field
-                  label="CAP"
-                  value={form.postal_code}
-                  onChange={(v) => setForm({ ...form, postal_code: v })}
-                />
-                <Field
-                  label="Città"
-                  value={form.city}
-                  onChange={(v) => setForm({ ...form, city: v })}
-                />
-                <Field
-                  label="Provincia"
-                  value={form.province}
-                  onChange={(v) => setForm({ ...form, province: v })}
-                />
-                <ReadField
-                  label="Archivio Danea"
-                  value={
-                    editing
-                      ? (archivesQuery.data ?? []).find((a) => a.id === editing.archive_id)?.name ??
-                        "Non assegnato"
-                      : null
-                  }
-                />
-                <ReadField label="Regione" value={editing?.region} />
-                <ReadField label="Nazione" value={editing?.country} />
-              </Section>
-
-              <Section title="Fattura elettronica">
-                <ReadField label="Recapito (cod. destinatario)" value={editing?.sdi_code} />
-                <ReadField label="Rif. amministrativo" value={editing?.sdi_admin_reference} />
-              </Section>
-
-              <Section title="Contatti">
-                <Field
-                  label="Referente"
-                  value={form.contact_name}
-                  onChange={(v) => setForm({ ...form, contact_name: v })}
-                />
-                <Field label="Fax" value={form.fax} onChange={(v) => setForm({ ...form, fax: v })} />
-                <Field
-                  label="Telefono"
-                  value={form.phone}
-                  onChange={(v) => setForm({ ...form, phone: v })}
-                />
-                <Field
-                  label="e-mail"
-                  value={form.email}
-                  onChange={(v) => setForm({ ...form, email: v })}
-                />
-                <Field label="PEC" value={form.pec} onChange={(v) => setForm({ ...form, pec: v })} />
-              </Section>
-            </TabsContent>
-
-            <TabsContent value="commerciale" className="mt-4 space-y-4">
-              {editing ? (
-                <>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <ReadField label="Sconti" value={editing.discounts} />
-                    <div className="grid gap-1.5">
-                      <Label>Listino</Label>
-                      <Select
-                        value={
-                          editing.assigned_price_list_number === null
-                            ? "nessuno"
-                            : String(editing.assigned_price_list_number)
-                        }
-                        onValueChange={(value) => void assignPriceList(editing, value)}
-                        disabled={!isAdmin}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Listino" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
-                          {listsForArchive(priceLists, editing.archive_id).map((item) => (
-                            <SelectItem key={item.listNumber} value={String(item.listNumber)}>
-                              {item.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <ReadField label="Fido" value={editing.credit_limit} />
-                    <ReadField label="Agente" value={editing.agent} />
-                    <ReadField label="Pagamento" value={editing.payment_terms} />
-                    <ReadField label="Coordinate bancarie" value={editing.bank} />
-                    <ReadField label="Nostra banca" value={editing.our_bank} />
-                  </div>
-                  <ExtraFields record={editing} group="commerciale" />
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  I dati commerciali arrivano dal gestionale: saranno visibili dopo il primo
-                  salvataggio o l’importazione da Danea.
-                </p>
-              )}
-            </TabsContent>
-
-            <TabsContent value="varie" className="mt-4 space-y-4">
-              {editing ? <ExtraFields record={editing} group="varie" /> : null}
-              <div className="grid gap-1.5">
-                <Label>Note</Label>
-                <Textarea
-                  value={form.notes}
-                  onChange={(event) => setForm({ ...form, notes: event.target.value })}
-                />
-              </div>
-              {editing ? <OtherDaneaData record={editing} /> : null}
-            </TabsContent>
-          </Tabs>
-
-          {editing ? (
-            <div className="mt-4 border-t border-border pt-4">
-              <AddressManager
-                owner={{ customerRecordId: editing.id }}
-                isAdmin={isAdmin}
-                showPartnerVisibility={false}
-              />
-            </div>
-          ) : null}
-          {editing ? (
-            <div className="mt-4 border-t border-border pt-4">
-              <DestinationManager customerRecordId={editing.id} isAdmin={isAdmin} />
-            </div>
-          ) : null}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setFormOpen(false)}>
-              Chiudi
-            </Button>
-            <Button disabled={busy || !isAdmin} onClick={save}>
-              Salva
-            </Button>
-          </DialogFooter>
+          {detailForm}
         </DialogContent>
       </Dialog>
 
