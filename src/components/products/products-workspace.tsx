@@ -141,6 +141,8 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
   const [page, setPage] = useState(0);
   const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<ProductRow | null>(null);
+  // Pannello fisso su computer: il tab scelto resta selezionato anche cambiando prodotto.
+  const [panelTab, setPanelTab] = useState<ProductDetailTab>(detailTab);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [newProductOpen, setNewProductOpen] = useState(false);
