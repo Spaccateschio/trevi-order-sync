@@ -47,7 +47,10 @@ describe("planPurchaseUnitApply", () => {
       cs: { factor: 10, type: "esatta" },
       kg: { factor: -2, type: "esatta" },
     });
-    expect(ops).toEqual([{ linkId: "a", unitId: "cs", action: "set_conversion", conversionFactor: 10, conversionType: "esatta" }]);
+    expect(ops).toEqual([
+      { linkId: "a", unitId: "cs", action: "add", conversionFactor: null, conversionType: null },
+      { linkId: "a", unitId: "cs", action: "set_conversion", conversionFactor: 10, conversionType: "esatta" },
+    ]);
   });
 
   it("imposta la predefinita quando la referenza ha un'altra o nessuna", () => {
@@ -56,6 +59,10 @@ describe("planPurchaseUnitApply", () => {
       { link_id: "b", is_active: true, b2b_relation_status: null, purchase_units: [unit("cs", { isActive: false })] },
     ];
     const ops = planPurchaseUnitApply(links, ["kg", "cs"], "kg", {});
-    expect(ops).toEqual([{ linkId: "a", unitId: "kg", action: "set_default", conversionFactor: null, conversionType: null }]);
+    expect(ops).toEqual([
+      { linkId: "a", unitId: "kg", action: "set_default", conversionFactor: null, conversionType: null },
+      { linkId: "b", unitId: "kg", action: "add", conversionFactor: null, conversionType: null },
+      { linkId: "b", unitId: "kg", action: "set_default", conversionFactor: null, conversionType: null },
+    ]);
   });
 });
