@@ -11,7 +11,7 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, GripVertical, ImageOff } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { SupplierUnitsCell } from "@/components/products/supplier-units-cell";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,6 +24,9 @@ export function ProductGrid({
   isAdmin,
   allowedColumnIds,
   selectedIds,
+  activeProductId,
+  keyboardNavigation,
+  onNavigate,
   visibility,
   order,
   sizing,
@@ -43,6 +46,9 @@ export function ProductGrid({
   /** Colonne ammesse dalle capacità dell'azienda (il ruolo si applica in aggiunta). */
   allowedColumnIds?: Set<string>;
   selectedIds: Set<string>;
+  activeProductId: string | null;
+  keyboardNavigation: boolean;
+  onNavigate: (direction: -1 | 1) => void;
   visibility: VisibilityState;
   order: ColumnOrderState;
   sizing: ColumnSizingState;
@@ -56,6 +62,21 @@ export function ProductGrid({
   imageUrls: Map<string, string>;
   listName?: (number: number) => string;
 }) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const activeRowRef = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    if (!keyboardNavigation || !activeProductId) return;
+    const grid = gridRef.current;
+    const row = activeRowRef.current;
+    if (!grid || !row) return;
+    if (grid.contains(document.activeElement)) row.focus({ preventScroll: true });
+    const gridBounds = grid.getBoundingClientRect();
+    const rowBounds = row.getBoundingClientRect();
+    const headerHeight = grid.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+    const top = gridBounds.top + headerHeight;
+    if (rowBounds.top < top) grid.scrollTop -= top - rowBounds.top;
+    else if (rowBounds.bottom > gridBounds.bottom) grid.scrollTop += rowBounds.bottom - gridBounds.bottom;
+  }, [activeProductId, keyboardNavigation, products]);
   const [sizingInfo, setSizingInfo] = useState<ColumnSizingInfoState>({
     startOffset: null,
     startSize: null,
@@ -131,6 +152,7 @@ export function ProductGrid({
     onSortingChange: (updater) => onSortingChange(typeof updater === "function" ? updater(sorting) : updater),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    manualSorting: true,
   });
 
   function startDrag(event: React.DragEvent, id: string) {
@@ -152,7 +174,15 @@ export function ProductGrid({
   }
 
   return (
-    <div className="hidden h-[calc(100vh-235px)] min-h-[360px] overflow-auto border border-border bg-card md:block">
+    <div ref={gridRef} tabIndex={keyboardNavigation ? -1 : undefined} onKeyDown={(event) => {
+      if (!keyboardNavigation || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || (target !== event.currentTarget && target.tagName !== "TR")) return;
+      event.preventDefault();
+      event.currentTarget.focus({ preventScroll: true });
+      onNavigate(event.key === "ArrowDown" ? 1 : -1);
+    }} className="hidden h-[calc(100vh-235px)] min-h-[360px] overflow-auto border border-border bg-card outline-none md:block">
       <table className="border-separate border-spacing-0 text-xs" style={{ width: table.getTotalSize() }}>
         <thead className="sticky top-0 z-10 bg-muted">
           {table.getHeaderGroups().map((group) => <tr key={group.id}>
@@ -182,7 +212,19 @@ export function ProductGrid({
           </tr>)}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map((row) => <tr key={row.id} onClick={() => onOpen(row.original)} className={cn("h-8 cursor-pointer hover:bg-muted/60", selectedIds.has(row.original.id) && "bg-accent/10")}>
+          {table.getRowModel().rows.map((row) => <tr key={row.original.id}
+            ref={row.original.id === activeProductId ? activeRowRef : undefined}
+            tabIndex={keyboardNavigation ? row.original.id === activeProductId ? 0 : -1 : undefined}
+            aria-current={row.original.id === activeProductId ? "true" : undefined}
+            data-product-id={row.original.id}
+            onClick={(event) => {
+              if ((event.target as HTMLElement).closest("button, input, select, textarea, a, [role='checkbox']")) return;
+              if (keyboardNavigation) event.currentTarget.focus({ preventScroll: true });
+              onOpen(row.original);
+            }}
+            className={cn("h-8 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+              row.original.id === activeProductId ? "bg-accent/30 text-accent-foreground hover:bg-accent/40" : "hover:bg-muted/60",
+              row.original.id !== activeProductId && selectedIds.has(row.original.id) && "bg-accent/10")}>
             {row.getVisibleCells().map((cell) => <td key={cell.id} style={{ width: cell.column.getSize(), maxWidth: cell.column.getSize() }} className="border-b border-r border-border px-2 py-1 last:border-r-0">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>)}
           </tr>)}
         </tbody>
