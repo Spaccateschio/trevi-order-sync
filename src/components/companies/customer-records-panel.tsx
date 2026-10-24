@@ -1434,8 +1434,29 @@ export function CustomerRecordsPanel({
         </AlertDialogContent>
       </AlertDialog>
 
-
-
+      {/* Cambio cliente con modifiche non salvate: mai scartarle in silenzio. */}
+      <AlertDialog open={Boolean(pendingSwitch)} onOpenChange={(open) => !open && setPendingSwitch(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Modifiche non salvate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ci sono modifiche non salvate su “{editing?.legal_name}”. Se apri “
+              {pendingSwitch?.legal_name}” le perderai.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continua a modificare</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingSwitch) activatePanel(pendingSwitch);
+                setPendingSwitch(null);
+              }}
+            >
+              Scarta e apri
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-3xl overflow-y-auto">
