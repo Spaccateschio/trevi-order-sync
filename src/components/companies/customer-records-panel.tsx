@@ -1259,7 +1259,19 @@ export function CustomerRecordsPanel({
               </thead>
               <tbody>
                 {filtered.map((record) => (
-                  <tr key={record.id} className="odd:bg-muted/20 hover:bg-muted/50">
+                  <tr
+                    key={record.id}
+                    tabIndex={isDesktop ? (record.id === panelId ? 0 : -1) : undefined}
+                    aria-current={record.id === panelId ? "true" : undefined}
+                    onClick={(event) => {
+                      if ((event.target as HTMLElement).closest("button, input, select, textarea, a, [role='checkbox']")) return;
+                      if (isDesktop) event.currentTarget.focus({ preventScroll: true });
+                      openEdit(record);
+                    }}
+                    className={`outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${isDesktop ? "cursor-pointer" : ""} ${
+                      record.id === panelId ? "bg-accent/30 hover:bg-accent/40" : "odd:bg-muted/20 hover:bg-muted/50"
+                    }`}
+                  >
                     <td className="border-b border-r border-border px-1 py-1" onClick={(event) => event.stopPropagation()}>
                       <Checkbox
                         checked={selectedIds.has(record.id)}
