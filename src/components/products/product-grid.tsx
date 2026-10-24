@@ -69,7 +69,8 @@ export function ProductGrid({
     const grid = gridRef.current;
     const row = activeRowRef.current;
     if (!grid || !row) return;
-    if (grid.contains(document.activeElement)) row.focus({ preventScroll: true });
+    const focused = document.activeElement;
+    if (focused === grid || (focused instanceof HTMLElement && focused.tagName === "TR" && grid.contains(focused))) row.focus({ preventScroll: true });
     const gridBounds = grid.getBoundingClientRect();
     const rowBounds = row.getBoundingClientRect();
     const headerHeight = grid.querySelector("thead")?.getBoundingClientRect().height ?? 0;
