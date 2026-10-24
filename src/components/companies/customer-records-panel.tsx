@@ -875,6 +875,189 @@ export function CustomerRecordsPanel({
     `${(columnWidths[key] / Math.max(visibleWeight, 1)) * 100}%`;
   const densityClass = columns.length >= 12 ? "text-[8px]" : columns.length >= 8 ? "text-[9px]" : "text-[10px]";
 
+  /**
+   * Scheda cliente: stesso contenuto nella finestra centrata (schermi piccoli e
+   * «Nuovo cliente») e nel pannello fisso a destra (monitor grandi). Il tab aperto
+   * resta quello scelto quando si passa da un cliente all'altro.
+   */
+  const detailForm = (
+    <>
+      <Tabs value={detailTab} onValueChange={setDetailTab}>
+        <TabsList className="flex w-full flex-wrap">
+          <TabsTrigger value="anagrafica">Anagrafica</TabsTrigger>
+          <TabsTrigger value="commerciale">Rapporti commerciali</TabsTrigger>
+          <TabsTrigger value="varie">Varie</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="anagrafica" className="mt-4 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field
+              label="Codice"
+              value={form.internal_reference}
+              onChange={(v) => setForm({ ...form, internal_reference: v })}
+            />
+            <Field
+              label="Codice fiscale"
+              value={form.tax_code}
+              onChange={(v) => setForm({ ...form, tax_code: v })}
+            />
+            <Field
+              label="Partita IVA"
+              value={form.vat_number}
+              onChange={(v) => setForm({ ...form, vat_number: v })}
+            />
+            <Field
+              label="Denominazione"
+              value={form.legal_name}
+              onChange={(v) => setForm({ ...form, legal_name: v })}
+            />
+          </div>
+
+          <Section title="Sede operativa">
+            <Field
+              label="Indirizzo"
+              value={form.address_line}
+              onChange={(v) => setForm({ ...form, address_line: v })}
+              className="sm:col-span-2"
+            />
+            <Field
+              label="CAP"
+              value={form.postal_code}
+              onChange={(v) => setForm({ ...form, postal_code: v })}
+            />
+            <Field
+              label="Città"
+              value={form.city}
+              onChange={(v) => setForm({ ...form, city: v })}
+            />
+            <Field
+              label="Provincia"
+              value={form.province}
+              onChange={(v) => setForm({ ...form, province: v })}
+            />
+            <ReadField
+              label="Archivio Danea"
+              value={
+                editing
+                  ? (archivesQuery.data ?? []).find((a) => a.id === editing.archive_id)?.name ??
+                    "Non assegnato"
+                  : null
+              }
+            />
+            <ReadField label="Regione" value={editing?.region} />
+            <ReadField label="Nazione" value={editing?.country} />
+          </Section>
+
+          <Section title="Fattura elettronica">
+            <ReadField label="Recapito (cod. destinatario)" value={editing?.sdi_code} />
+            <ReadField label="Rif. amministrativo" value={editing?.sdi_admin_reference} />
+          </Section>
+
+          <Section title="Contatti">
+            <Field
+              label="Referente"
+              value={form.contact_name}
+              onChange={(v) => setForm({ ...form, contact_name: v })}
+            />
+            <Field label="Fax" value={form.fax} onChange={(v) => setForm({ ...form, fax: v })} />
+            <Field
+              label="Telefono"
+              value={form.phone}
+              onChange={(v) => setForm({ ...form, phone: v })}
+            />
+            <Field
+              label="e-mail"
+              value={form.email}
+              onChange={(v) => setForm({ ...form, email: v })}
+            />
+            <Field label="PEC" value={form.pec} onChange={(v) => setForm({ ...form, pec: v })} />
+          </Section>
+        </TabsContent>
+
+        <TabsContent value="commerciale" className="mt-4 space-y-4">
+          {editing ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ReadField label="Sconti" value={editing.discounts} />
+                <div className="grid gap-1.5">
+                  <Label>Listino</Label>
+                  <Select
+                    value={
+                      editing.assigned_price_list_number === null
+                        ? "nessuno"
+                        : String(editing.assigned_price_list_number)
+                    }
+                    onValueChange={(value) => void assignPriceList(editing, value)}
+                    disabled={!isAdmin}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Listino" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nessuno">Nessuno · prezzi su richiesta</SelectItem>
+                      {listsForArchive(priceLists, editing.archive_id).map((item) => (
+                        <SelectItem key={item.listNumber} value={String(item.listNumber)}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <ReadField label="Fido" value={editing.credit_limit} />
+                <ReadField label="Agente" value={editing.agent} />
+                <ReadField label="Pagamento" value={editing.payment_terms} />
+                <ReadField label="Coordinate bancarie" value={editing.bank} />
+                <ReadField label="Nostra banca" value={editing.our_bank} />
+              </div>
+              <ExtraFields record={editing} group="commerciale" />
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              I dati commerciali arrivano dal gestionale: saranno visibili dopo il primo
+              salvataggio o l’importazione da Danea.
+            </p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="varie" className="mt-4 space-y-4">
+          {editing ? <ExtraFields record={editing} group="varie" /> : null}
+          <div className="grid gap-1.5">
+            <Label>Note</Label>
+            <Textarea
+              value={form.notes}
+              onChange={(event) => setForm({ ...form, notes: event.target.value })}
+            />
+          </div>
+          {editing ? <OtherDaneaData record={editing} /> : null}
+        </TabsContent>
+      </Tabs>
+
+      {editing ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <AddressManager
+            owner={{ customerRecordId: editing.id }}
+            isAdmin={isAdmin}
+            showPartnerVisibility={false}
+          />
+        </div>
+      ) : null}
+      {editing ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <DestinationManager customerRecordId={editing.id} isAdmin={isAdmin} />
+        </div>
+      ) : null}
+
+      <div className="mt-6 flex justify-end gap-2">
+        <Button variant="outline" onClick={closeDetail}>
+          Chiudi
+        </Button>
+        <Button disabled={busy || !isAdmin} onClick={save}>
+          Salva
+        </Button>
+      </div>
+    </>
+  );
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:flex-wrap sm:justify-between">
