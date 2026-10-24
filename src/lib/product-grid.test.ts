@@ -42,7 +42,8 @@ describe("ordine della pagina Prodotti", () => {
       row("a", "0002", "Aglio SPAGNA", { category: "Ortoggi" }),
       row("b", "0003", "Melanzane IT", { category: "Frutta" }),
     ];
-    assert.deepEqual(order(sameCategory, "category"), ["Aglio SPAGNA", "Zucchine IT", "Melanzane IT"]);
+    // «Frutta» viene prima di «Ortoggi»; dentro la stessa categoria si legge A–Z.
+    assert.deepEqual(order(sameCategory, "category"), ["Melanzane IT", "Aglio SPAGNA", "Zucchine IT"]);
   });
 
   it("prodotti senza valore nella colonna scelta: ultimi", () => {
