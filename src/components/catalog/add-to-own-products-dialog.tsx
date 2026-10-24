@@ -40,7 +40,7 @@ export function AddToOwnProductsDialog({
   const [mode, setMode] = useState<"nuovo" | "esistente">("nuovo");
   const [term, setTerm] = useState("");
   const [ownProductId, setOwnProductId] = useState<string | null>(null);
-  const [supplierCode, setSupplierCode] = useState(sellerProduct.code);
+  const supplierCode = supplierCodeFor(sellerProduct);
 
   const ownProductsQuery = useQuery({
     queryKey: ["miei-prodotti-ricerca", buyerCompanyId, term],
@@ -59,6 +59,22 @@ export function AddToOwnProductsDialog({
       return data ?? [];
     },
   });
+
+  // Riapertura o cambio articolo: nessuna selezione precedente sopravvive.
+  useEffect(() => {
+    setMode("nuovo");
+    setTerm("");
+    setOwnProductId(null);
+    setCandidates(null);
+    setUncertain(null);
+  }, [open, sellerProduct.id]);
+
+  // Cambio ricerca: la scelta vale solo se il prodotto è ancora tra i risultati.
+  useEffect(() => {
+    setOwnProductId((current) => visibleSelection(current, (ownProductsQuery.data ?? []).map((row) => row.id)));
+  }, [ownProductsQuery.data]);
+
+  const chosenOwn = (ownProductsQuery.data ?? []).find((row) => row.id === ownProductId) ?? null;
 
   const [candidates, setCandidates] = useState<Array<{ id: string; code: string; description: string | null }> | null>(null);
   const [uncertain, setUncertain] = useState<{
