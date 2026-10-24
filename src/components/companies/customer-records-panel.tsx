@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Download, FileSpreadsheet, Printer } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Download, FileSpreadsheet, Printer, SearchX } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { useIdentity } from "@/hooks/use-identity";
@@ -216,6 +216,19 @@ export function CustomerRecordsPanel({
     }[]
   >([]);
 
+  // Pannello fisso a destra sui monitor grandi (≥1280 px): la scheda non oscura l'elenco.
+  const [panelId, setPanelId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState("anagrafica");
+  const [pendingSwitch, setPendingSwitch] = useState<CustomerRecord | null>(null);
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.innerWidth >= 1280,
+  );
+  useEffect(() => {
+    const update = () => setIsDesktop(window.innerWidth >= 1280);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   /** Dati aziendali stampati sul foglio invito: sola lettura. */
   const companyQuery = useQuery({
     queryKey: ["company-contact", companyId],
@@ -317,10 +330,35 @@ export function CustomerRecordsPanel({
     setFormOpen(true);
   }
 
+  function activatePanel(record: CustomerRecord) {
+    setEditing(record);
+    setForm(toForm(record));
+    setPanelId(record.id);
+  }
+
   function openEdit(record: CustomerRecord) {
+    if (isDesktop) {
+      // Modifiche non salvate: il cambio cliente chiede conferma, mai scarto silenzioso.
+      if (
+        editing &&
+        panelId &&
+        editing.id !== record.id &&
+        JSON.stringify(form) !== JSON.stringify(toForm(editing))
+      ) {
+        setPendingSwitch(record);
+        return;
+      }
+      activatePanel(record);
+      return;
+    }
     setEditing(record);
     setForm(toForm(record));
     setFormOpen(true);
+  }
+
+  function closeDetail() {
+    setFormOpen(false);
+    setPanelId(null);
   }
 
   async function save() {
