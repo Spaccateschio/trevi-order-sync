@@ -67,18 +67,23 @@
     margin: 10mm;
   }
 
-  body > * {
-    visibility: hidden;
+  body:has(> #product-print-area) {
+    display: block;
+    position: static;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    margin: 0;
+    padding: 0;
   }
 
-  #product-print-area,
-  #product-print-area * {
-    visibility: visible;
+  body:has(> #product-print-area) > :not(#product-print-area) {
+    display: none !important;
   }
 
-  #product-print-area {
-    position: absolute;
-    inset: 0;
+  body > #product-print-area {
+    display: block;
+    position: static;
     width: 100%;
     background: var(--color-background);
     color: var(--color-foreground);
