@@ -175,7 +175,7 @@ export function PurchaseUnitsQuickApply({
                     variant="ghost"
                     className="h-auto w-full justify-start py-2 text-left"
                     disabled={busy}
-                    onClick={() => { toggleUnit(unit.id); setAddOpen(false); }}
+                    onClick={() => { toggleUnit(unit.id); selectChip(unit.id); setAddOpen(false); }}
                   >
                     <span><strong>{unit.code}</strong><span className="ml-2 text-muted-foreground">{unit.description}</span></span>
                   </Button>
