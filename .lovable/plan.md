@@ -1,32 +1,32 @@
-# Correzione dell’abbinamento PATATE BN IT
+# Pannello fisso a destra anche in Clienti e Fornitori
 
-## Risultato
-- Collegare **PATATE BN IT di 3 EMME** a **PATATE BN IT di Trevi (0255)**, non a PERE ABATE IT (0055).
-- Impedire che il codice fornitore identifichi un altro articolo del catalogo rispetto all’articolo B2B collegato, senza vietare codici alternativi legittimi.
-- Nessuna modifica a prodotti Trevi, giacenze, quantità, ordini o storico; nessun invio o pubblicazione.
+## Cosa cambia per te
 
-## Evidenze e limite dell’analisi
-Il collegamento di 3 EMME contiene codice 0255 ma identifica internamente PERE ABATE IT, codice 0055. Anche l’origine del prodotto cliente registra le pere: è uno storico di creazione e non verrà riscritto. Non risultano ordini o ripartizioni che utilizzano questo collegamento.
+Nelle pagine **Clienti** (Vendite) e **Fornitori** (Acquisti), sui monitor grandi (da 1280 px in su):
 
-Il modulo attuale permette di modificare il codice senza cambiare l’articolo B2B; inoltre la finestra del catalogo conserva alcune selezioni quando cambia la ricerca o l’articolo. Sono rischi verificati nel codice, ma non è dimostrato quale abbia causato questo caso.
+- La scheda del cliente/fornitore si apre in un **pannello fisso a destra**, come nella pagina Prodotti: l'elenco resta sempre attivo a sinistra, senza oscuramenti.
+- Il clic su una riga **evidenzia** il cliente/fornitore e aggiorna subito la scheda a destra.
+- Con le **frecce ↑/↓ della tastiera** scorri da un cliente/fornitore all'altro velocemente; la scheda a destra segue il movimento.
+- Il **tab aperto** (es. Dettagli, Destinazioni, Prodotti forniti) resta quello quando cambi riga.
+- Il pulsante **×** chiude il pannello e torna all'invito «Seleziona un cliente/fornitore».
+- Su **telefono e tablet** (sotto 1280 px) tutto resta com'è ora: la scheda si apre in finestra al centro.
 
-## Intervento
-1. **Controllo globale prima di applicare:** elenco in sola lettura di tutti i collegamenti con codice diverso dall’articolo B2B, in tutte le aziende, inclusa Trevi. Risultato: solo PATATE BN IT (0255 → PERE ABATE IT 0055) e BASILICO ERBE AROMATICHE IT A MAZZI (codice vuoto → stesso basilico 0246), entrambi in 3 EMME. Il basilico resta invariato: codice mancante, non contraddittorio.
-2. **Riparazione mirata:** correggere solo l’identità B2B del collegamento di 3 EMME verso le patate 0255. Prima della scrittura verificare nuovamente ruolo autorizzato, identità precedente, azienda, codice, assenza di conflitti e assenza di utilizzi. Registrare prima/dopo nell’audit, senza alterare l’origine storica del prodotto; transazione unica con verifica finale e annullamento completo se qualcosa non torna. La riparazione dei dati avviene separatamente dalla migrazione di schema, tramite un comando autorizzato.
-3. **Controllo centrale rivisto, da approvare:** non imporre l’uguaglianza universale dei codici. Rifiutare nuove associazioni o cambi di identità/codice solo quando il codice non vuoto corrisponde a un diverso articolo del medesimo fornitore e archivio del prodotto B2B collegato. Nessuna riassociazione automatica in base al codice; nessun vincolo che richieda descrizioni identiche tra aziende. Codici vuoti e codici alternativi non attribuiti a un altro articolo restano ammessi. Fornitori senza articolo B2B identificato invariati.
-4. **Scheda Acquisto:** mostrare l’articolo B2B realmente collegato e mantenere modificabili i codici alternativi legittimi; il controllo centrale rifiuta le contraddizioni accertate, anche con rapporto sospeso. Fornitori esterni invariati.
-4. **Finestra catalogo:** codice ricavato dall’articolo selezionato; azzerare selezioni precedenti alla riapertura, al cambio articolo e al cambio ricerca. Durante il salvataggio bloccare i cambi di selezione; mostrare chiaramente i due prodotti prima della conferma.
-5. **Compatibilità online:** codice che identifica un altro articolo rifiutato con «Il codice indica un altro articolo del fornitore: verifica l’abbinamento prima di salvare». Nessun controllo sulle modifiche che lasciano invariata l’identità e il codice; codice vuoto ammesso. Il controllo iniziale di uguaglianza è sospeso: può bloccare codici alternativi legittimi e non copre i cambi di codice effettuati successivamente sul catalogo del venditore. La regola rivista non promette di impedire abbinamenti manuali sbagliati quando i codici non permettono di riconoscerli; la conferma esplicita dei due articoli serve a ridurre quel rischio.
-6. **Verifica:** prove con dati isolati per codice contraddittorio, selezione non più valida, riapertura e cambio articolo; controlli finali in sola lettura su collegamento, U.M. e prezzo. Listino assegnato attuale: patate 1,60 €/kg netto, pere 4,30 €/kg netto. Se non sono disponibili prove con utenti autenticati e rollback, dichiararle non verificate e consegnare i passi del collaudo a Andrea su 3 EMME, senza inviare ordini.
+## Cosa NON cambia
 
-## File previsti e dettagli tecnici
-- Migrazione generata dallo strumento database (numero assegnato dallo strumento): solo controllo SQL sulle variazioni di identità/codice e sui nuovi collegamenti, ed eventuale comando autorizzato di riparazione con audit; funzioni SQL con `SECURITY DEFINER` e `search_path = public`, privilegi espliciti minimi. Nessuna riparazione di righe nella migrazione.
-- `src/components/products/product-suppliers-manager.tsx`: lettura e visualizzazione dell’articolo B2B effettivamente collegato, senza vietare codici alternativi legittimi.
-- `src/components/catalog/add-to-own-products-dialog.tsx`: reset delle selezioni, codice non modificabile e conferma leggibile dell’abbinamento.
-- `src/lib/catalog-link-selection.ts` e `src/lib/catalog-link-selection.test.ts` (nuovi): regole pure della selezione e test.
-- `src/lib/catalog-link-identity.security.test.ts` (nuovo): test del controllo centrale tramite percorsi autenticati e dati isolati con rollback, senza usare dati operativi reali.
-- `src/components/catalog/AGENTS.md`: regola tecnica sulla coerenza dell’identità B2B.
+- Le **caselle di spunta** per selezionare più clienti/fornitori (esportazione, eliminazione multipla) restano separate: la spunta seleziona per le azioni di gruppo, il clic sulla riga apre la scheda.
+- Il pulsante **«Nuovo cliente» / «Nuovo fornitore»** continua ad aprire la finestra al centro (è una creazione, non una consultazione).
+- Il menu ⋮ di ogni riga (Dettagli, Elimina, ecc.) resta invariato.
+- Nessuna modifica al database, nessuna pubblicazione, roadmap.md invariato.
 
-Le modifiche SQL raggiungono il database condiviso anche senza pubblicazione: la riparazione è limitata a 3 EMME, il controllo preventivo protegge tutte le aziende. Nessuna cancellazione di codice o dati esistenti.
+## Dettagli tecnici
 
-**Stato:** approvazione originale ricevuta, ma esecuzione sospesa come richiesto per il rischio di bloccare operazioni legittime. Nessuna riparazione o modifica applicativa/database applicata. La regola preventiva rivista richiede conferma prima di procedere. Nessuna pubblicazione; `roadmap.md` invariato.
+- `src/components/companies/customer-records-panel.tsx` (1585 righe): estrarre il contenuto del Dialog «Dettagli cliente» in un componente riutilizzabile; su ≥1280 px renderizzarlo in un pannello laterale affiancato all'elenco (stesso approccio di `product-detail-panel.tsx`), sotto soglia mantenere il Dialog attuale.
+- `src/components/companies/supplier-records-panel.tsx` (1135 righe): stessa lavorazione.
+- Stato di selezione riga + navigazione da tastiera: logica pura di riga adiacente (pattern già usato in `product-grid.tsx` / `products-workspace.tsx`): frecce ↑/↓ si muovono nell'elenco filtrato/ordinato visibile, ignorano i campi di input (quando si scrive in un campo, le frecce restano al campo).
+- Il contenuto della scheda (tab, campi, salvataggio) resta identico: cambia solo **dove** viene mostrato su schermo grande.
+- Aggiornare `src/components/companies/AGENTS.md` (se esiste) o quello più vicino con la nuova regola di presentazione.
+
+## Verifica
+
+- Prova automatica con Playwright su dati fittizi: apertura pannello, cambio riga con clic, frecce ↑/↓, tab che resta, chiusura con ×, vista stretta (dialogo classico), spunte multiple ancora funzionanti.
+- Collaudo manuale su 3 EMME lasciato ad Andrea.
