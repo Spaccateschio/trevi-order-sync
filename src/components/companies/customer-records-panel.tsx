@@ -1350,7 +1350,28 @@ export function CustomerRecordsPanel({
               </div>
             ))}
           </div>
-        </>
+          </div>
+          {isDesktop ? (
+            <aside aria-label="Scheda cliente" className="sticky top-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
+              {panelRecord ? (
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                  <p className="mb-3 truncate text-sm font-semibold">{panelRecord.legal_name}</p>
+                  {detailForm}
+                </div>
+              ) : (
+                <div className="grid min-h-[320px] place-items-center rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
+                  <div className="space-y-2">
+                    <SearchX className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
+                    <p className="text-sm font-medium">Seleziona un cliente</p>
+                    <p className="text-xs text-muted-foreground">
+                      Tocca una riga dell'elenco: la scheda si apre qui, a fianco. Con le frecce ↑/↓ passi da un cliente all'altro.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </aside>
+          ) : null}
+        </div>
       )}
 
       {/* Archivio: clienti eliminati, recuperabili con tutti i loro dati. */}
