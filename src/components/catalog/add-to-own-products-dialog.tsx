@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { supplierCodeFor, visibleSelection } from "@/lib/catalog-link-selection";
 import { cn } from "@/lib/utils";
 
 /**
@@ -190,6 +191,7 @@ export function AddToOwnProductsDialog({
                   <li key={row.id}>
                     <button
                       type="button"
+                      disabled={add.isPending}
                       onClick={() => setOwnProductId(row.id)}
                       className={cn(
                         "w-full rounded-lg border border-border px-3 py-2 text-left",
@@ -215,18 +217,21 @@ export function AddToOwnProductsDialog({
             </p>
           )}
 
-          <div>
-            <Label htmlFor="supplier-code">Codice articolo del fornitore</Label>
-            <Input
-              id="supplier-code"
-              value={supplierCode}
-              onChange={(event) => setSupplierCode(event.target.value)}
-              className="mt-1 font-mono"
-              placeholder="facoltativo"
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Puoi lasciarlo vuoto e inserirlo in seguito.
+          <div className="space-y-1 rounded-lg border border-border bg-muted/40 p-3 text-xs">
+            <p className="font-medium">Abbinamento che stai confermando</p>
+            <p>
+              Articolo del fornitore: <span className="font-mono">{supplierCode || "—"}</span> ·{" "}
+              {sellerProduct.description ?? sellerProduct.code}
             </p>
+            <p>
+              Tuo prodotto:{" "}
+              {mode === "nuovo"
+                ? "nuovo prodotto da creare"
+                : chosenOwn
+                  ? <><span className="font-mono">{chosenOwn.code}</span> · {chosenOwn.description ?? chosenOwn.code}</>
+                  : "nessuno scelto"}
+            </p>
+            <p className="text-muted-foreground">Il codice viene dall'articolo selezionato e non si modifica qui.</p>
           </div>
 
           {candidates ? (
