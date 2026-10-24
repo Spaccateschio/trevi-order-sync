@@ -1173,9 +1173,22 @@ export function CustomerRecordsPanel({
       ) : !filtered.length ? (
         <p className="text-sm text-muted-foreground">Nessun cliente corrisponde alla ricerca.</p>
       ) : (
-        <>
+        <div className={isDesktop ? "grid grid-cols-[minmax(0,1fr)_minmax(420px,36%)] items-start gap-3" : ""}>
+          <div className="min-w-0 space-y-3">
           {/* Elenco gestionale: una riga per cliente, testo compatto. */}
-          <div className="hidden rounded-lg border border-border bg-card sm:block">
+          <div
+            className="hidden rounded-lg border border-border bg-card outline-none sm:block"
+            tabIndex={isDesktop ? -1 : undefined}
+            onKeyDown={(event) => {
+              if (!isDesktop || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+              if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+              const target = event.target;
+              if (!(target instanceof HTMLElement) || (target !== event.currentTarget && target.tagName !== "TR")) return;
+              event.preventDefault();
+              event.currentTarget.focus({ preventScroll: true });
+              navigateRecord(event.key === "ArrowDown" ? 1 : -1);
+            }}
+          >
             <table className={`w-full table-fixed border-separate border-spacing-0 ${densityClass}`}>
               <colgroup>
                 <col className="w-8" />
