@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Download, FileSpreadsheet, Printer, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Download, FileSpreadsheet, Printer, SearchX, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AddressManager } from "@/components/companies/address-manager";
@@ -165,6 +165,19 @@ export function SupplierRecordsPanel({
   const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
 
+  // Pannello fisso a destra sui monitor grandi (≥1280 px): la scheda non oscura l'elenco.
+  const [panelId, setPanelId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState("anagrafica");
+  const [pendingSwitch, setPendingSwitch] = useState<SupplierRecord | null>(null);
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.innerWidth >= 1280,
+  );
+  useEffect(() => {
+    const update = () => setIsDesktop(window.innerWidth >= 1280);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   const [search, setSearch] = useState("");
   const [visibleColumns, setVisibleColumns] = useState<SupplierColumnKey[]>(() =>
     loadSupplierColumns(),
@@ -214,11 +227,39 @@ export function SupplierRecordsPanel({
     setFormOpen(true);
   }
 
+  function activatePanel(record: SupplierRecord) {
+    setEditing(record);
+    setForm(toForm(record));
+    setDelivery(toSchedule(record.delivery_weekdays, record.delivery_month_day));
+    setPanelId(record.id);
+  }
+
   function openEdit(record: SupplierRecord) {
+    if (isDesktop) {
+      // Modifiche non salvate (campi o giorni di consegna): il cambio chiede conferma.
+      if (
+        editing &&
+        panelId &&
+        editing.id !== record.id &&
+        (JSON.stringify(form) !== JSON.stringify(toForm(editing)) ||
+          JSON.stringify(delivery) !==
+            JSON.stringify(toSchedule(editing.delivery_weekdays, editing.delivery_month_day)))
+      ) {
+        setPendingSwitch(record);
+        return;
+      }
+      activatePanel(record);
+      return;
+    }
     setEditing(record);
     setForm(toForm(record));
     setDelivery(toSchedule(record.delivery_weekdays, record.delivery_month_day));
     setFormOpen(true);
+  }
+
+  function closeDetail() {
+    setFormOpen(false);
+    setPanelId(null);
   }
 
   async function save() {
@@ -263,6 +304,8 @@ export function SupplierRecordsPanel({
     }
     setBusy(false);
     setFormOpen(false);
+    // Nel pannello il fornitore resta aperto: il bozzo salvato diventa il dato attuale.
+    setEditing((prev) => (prev ? { ...prev, ...form } : prev));
     await refresh();
     toast.success(editing ? "Fornitore aggiornato." : "Fornitore aggiunto all'anagrafica.");
   }
@@ -370,6 +413,23 @@ export function SupplierRecordsPanel({
 
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((record) => selectedIds.has(record.id));
+
+  const panelRecord = panelId ? (records.find((record) => record.id === panelId) ?? null) : null;
+
+  /** Frecce ↑/↓: si muovono nell'elenco filtrato e ordinato visibile. */
+  function navigateRecord(direction: -1 | 1) {
+    if (!filtered.length) return;
+    const index = filtered.findIndex((record) => record.id === panelId);
+    const next =
+      filtered[
+        index < 0
+          ? direction > 0
+            ? 0
+            : filtered.length - 1
+          : Math.min(filtered.length - 1, Math.max(0, index + direction))
+      ];
+    if (next && next.id !== panelId) openEdit(next);
+  }
 
   function toggleAllFiltered() {
     setSelectedIds((prev) => {
