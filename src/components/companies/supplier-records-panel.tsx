@@ -860,8 +860,21 @@ export function SupplierRecordsPanel({
       ) : !filtered.length ? (
         <p className="text-sm text-muted-foreground">Nessun fornitore corrisponde alla ricerca.</p>
       ) : (
-        <>
-          <div className="hidden rounded-lg border border-border bg-card sm:block">
+        <div className={isDesktop ? "grid grid-cols-[minmax(0,1fr)_minmax(420px,36%)] items-start gap-3" : ""}>
+          <div className="min-w-0 space-y-3">
+          <div
+            className="hidden rounded-lg border border-border bg-card outline-none sm:block"
+            tabIndex={isDesktop ? -1 : undefined}
+            onKeyDown={(event) => {
+              if (!isDesktop || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+              if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+              const target = event.target;
+              if (!(target instanceof HTMLElement) || (target !== event.currentTarget && target.tagName !== "TR")) return;
+              event.preventDefault();
+              event.currentTarget.focus({ preventScroll: true });
+              navigateRecord(event.key === "ArrowDown" ? 1 : -1);
+            }}
+          >
             <table className={`w-full table-fixed border-separate border-spacing-0 ${densityClass}`}>
               <colgroup>
                 <col className="w-8" />
@@ -938,8 +951,16 @@ export function SupplierRecordsPanel({
                 {filtered.map((record) => (
                   <tr
                     key={record.id}
-                    className="cursor-pointer odd:bg-muted/20 hover:bg-muted/50"
-                    onClick={() => openEdit(record)}
+                    tabIndex={isDesktop ? (record.id === panelId ? 0 : -1) : undefined}
+                    aria-current={record.id === panelId ? "true" : undefined}
+                    onClick={(event) => {
+                      if ((event.target as HTMLElement).closest("button, input, select, textarea, a, [role='checkbox']")) return;
+                      if (isDesktop) event.currentTarget.focus({ preventScroll: true });
+                      openEdit(record);
+                    }}
+                    className={`cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+                      record.id === panelId ? "bg-accent/30 hover:bg-accent/40" : "odd:bg-muted/20 hover:bg-muted/50"
+                    }`}
                   >
                     <td
                       className="border-b border-r border-border px-1 py-1"
