@@ -37,6 +37,7 @@
 - 3 EMME ROMA SRL è l'azienda di prova: Andrea può fare collaudi manuali dall'app in anteprima. Mai prove su trevi srl o su altre aziende reali. Nessun invio reale ai fornitori durante i collaudi.
 
 - Read nested AGENTS.md before edits, including src/lib/AGENTS.md for server logic. Shopping banner untilPickup polls receipt-open orders and syncs panel cache; other pages stay recent/dismissible.
+- Product row navigation is local presentation state owned by ProductsWorkspace, with pure adjacent-row calculations and keyboard focus handled by ProductGrid; it never persists preferences or changes product data. See src/components/products/AGENTS.md.
 
 - Ordini: mai totali in euro; prezzo indicativo fino allo scarico Danea (listino del cliente in quel momento).
 - Area piattaforma (/piattaforma): team interno in platform_team_members con permessi per sezione; super admin gestisce il team via manage_platform_team_member; letture cross-azienda solo in sola lettura via supabaseAdmin dopo is_platform_admin; ogni azione va in platform_audit_log; mai modificare dati delle aziende clienti.

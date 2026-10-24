@@ -9,6 +9,7 @@ import { AppShell } from "@/components/app-shell";
 import { ProductDetailPanel } from "@/components/products/product-detail-panel";
 import { ProductDetailSheet, type ProductDetailTab } from "@/components/products/product-detail-sheet";
 import { ProductGrid } from "@/components/products/product-grid";
+import { adjacentProduct } from "@/components/products/product-row-navigation";
 import { InternalProductDialog } from "@/components/products/internal-product-dialog";
 import { ProductMobileList } from "@/components/products/product-mobile-list";
 import { SalesUnitBatchDialog } from "@/components/products/sales-unit-batch-dialog";
@@ -460,6 +461,12 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
   const pageCount = Math.max(1, Math.ceil(sortedFiltered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
   const visible = showAll ? sortedFiltered : sortedFiltered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  function navigateProduct(direction: -1 | 1) {
+    const next = adjacentProduct(sortedFiltered, currentProduct?.id ?? null, direction, PAGE_SIZE, showAll);
+    if (!next) return;
+    setSelected(next.product);
+    if (!showAll) setPage(next.page);
+  }
   const getImageUrls = useServerFn(getProductImageUrls);
   const imageColumnVisible = visibility["image"] !== false;
   const needsThumbnails = imageColumnVisible || deviceClass === "smartphone";
@@ -580,7 +587,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
           {unitConfigFilter === "da_completare" ? <ul className="divide-y divide-border rounded-md border border-border text-sm" aria-label="Motivi configurazione U.M.">
             {visible.map((product) => <li key={product.id}><button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted" onClick={() => setSelected(product)}><span className="font-medium">{product.description ?? product.code}</span><span className="block text-xs text-muted-foreground">{(unitIssuesByProduct.get(product.id) ?? []).join(" · ")}</span></button></li>)}
           </ul> : null}
-          <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} allowedColumnIds={capsColumnIds} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} listName={listName} />
+          <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} allowedColumnIds={capsColumnIds} selectedIds={selectedIds} activeProductId={currentProduct?.id ?? null} keyboardNavigation={deviceClass === "desktop"} onNavigate={navigateProduct} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} listName={listName} />
           <ProductMobileList products={visible} selectedIds={selectedIds} imageUrls={imageUrls} columns={mobileColumns} archives={archiveNameById} listName={listName} onSelect={(id, checked) => setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; })} onOpen={setSelected} />
 
 
