@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 /** Quattro contesti della stessa scheda prodotto. */
 export type ProductDetailTab = "prodotto" | "vendita" | "acquisto" | "inventario";
-import { ChevronDown, Info } from "lucide-react";
+import { ChevronDown, Info, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { CompanyCaps } from "@/lib/products-view";
 import { supabase } from "@/integrations/supabase/client";
@@ -179,7 +179,11 @@ function PriceUnitSelector({ product, companyId, companyUnits, editable }: { pro
   );
 }
 
-function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, companyId, companyUnits, saleUnits, initialTab, caps }: {
+/**
+ * Contenuto della scheda condiviso tra la finestra modale (Sheet, smartphone e tablet)
+ * e il pannello fisso accanto all'elenco su computer.
+ */
+export function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, companyId, companyUnits, saleUnits, initialTab, caps, variant = "sheet", onClose, tab, onTabChange }: {
   caps: CompanyCaps;
   product: ProductRow;
   archiveName: string;
@@ -190,15 +194,36 @@ function ProductDetailContent({ product, archiveName, listName, isAdmin, cost, c
   companyUnits: CompanyUnit[];
   saleUnits: ProductSaleUnit[];
   initialTab: ProductDetailTab;
+  /** "sheet": intestazione della finestra modale; "panel": intestazione compatta con × del pannello fisso. */
+  variant?: "sheet" | "panel";
+  onClose?: (() => void) | undefined;
+  /** Tab controllato (pannello): resta selezionato anche cambiando prodotto. */
+  tab?: ProductDetailTab | undefined;
+  onTabChange?: ((tab: ProductDetailTab) => void) | undefined;
 }) {
   const [daneaOpen, setDaneaOpen] = useState(false);
   return <>
-    <SheetHeader className="pr-8 text-left">
-      <div className="flex items-center gap-2"><Badge variant="outline">{product.danea_internal_id ? "Danea" : "Interno"}</Badge><span className="font-mono text-xs text-muted-foreground">{product.code}</span></div>
-      <SheetTitle>{product.description ?? product.code}</SheetTitle>
-    </SheetHeader>
+    {variant === "panel" ? (
+      <div className="border-b border-border pb-3 pr-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex items-center gap-2"><Badge variant="outline">{product.danea_internal_id ? "Danea" : "Interno"}</Badge><span className="font-mono text-xs text-muted-foreground">{product.code}</span></div>
+            <h2 className="truncate text-base font-semibold">{product.description ?? product.code}</h2>
+          </div>
+          <Button type="button" size="icon" variant="ghost" aria-label="Chiudi la scheda" className="shrink-0" onClick={onClose}><X aria-hidden="true" /></Button>
+        </div>
+      </div>
+    ) : (
+      <SheetHeader className="pr-8 text-left">
+        <div className="flex items-center gap-2"><Badge variant="outline">{product.danea_internal_id ? "Danea" : "Interno"}</Badge><span className="font-mono text-xs text-muted-foreground">{product.code}</span></div>
+        <SheetTitle>{product.description ?? product.code}</SheetTitle>
+      </SheetHeader>
+    )}
     <TooltipProvider delayDuration={150}>
-      <Tabs defaultValue={initialTab} className="mt-3 gap-3">
+      <Tabs
+        {...(tab !== undefined ? { value: tab, onValueChange: (value: string) => onTabChange?.(value as ProductDetailTab) } : { defaultValue: initialTab })}
+        className="mt-3 gap-3"
+      >
         <TabsList className="w-full">
           <TabsTrigger value="prodotto">Prodotto</TabsTrigger>
           {caps.sells ? <TabsTrigger value="vendita">Vendita</TabsTrigger> : null}

@@ -6,7 +6,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
-import { ProductDetailSheet } from "@/components/products/product-detail-sheet";
+import { ProductDetailPanel } from "@/components/products/product-detail-panel";
+import { ProductDetailSheet, type ProductDetailTab } from "@/components/products/product-detail-sheet";
 import { ProductGrid } from "@/components/products/product-grid";
 import { InternalProductDialog } from "@/components/products/internal-product-dialog";
 import { ProductMobileList } from "@/components/products/product-mobile-list";
@@ -140,6 +141,8 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
   const [page, setPage] = useState(0);
   const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<ProductRow | null>(null);
+  // Pannello fisso su computer: il tab scelto resta selezionato anche cambiando prodotto.
+  const [panelTab, setPanelTab] = useState<ProductDetailTab>(detailTab);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [newProductOpen, setNewProductOpen] = useState(false);
@@ -588,20 +591,43 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
         </div>
       </div>
 
-      {unitConfigFilter === "da_completare" ? <ul className="divide-y divide-border rounded-md border border-border text-sm" aria-label="Motivi configurazione U.M.">
-        {visible.map((product) => <li key={product.id}><button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted" onClick={() => setSelected(product)}><span className="font-medium">{product.description ?? product.code}</span><span className="block text-xs text-muted-foreground">{(unitIssuesByProduct.get(product.id) ?? []).join(" · ")}</span></button></li>)}
-      </ul> : null}
-      <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} allowedColumnIds={capsColumnIds} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} listName={listName} />
-      <ProductMobileList products={visible} selectedIds={selectedIds} imageUrls={imageUrls} columns={mobileColumns} archives={archiveNameById} listName={listName} onSelect={(id, checked) => setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; })} onOpen={setSelected} />
+      <div className={cn(deviceClass === "desktop" && "grid grid-cols-[minmax(0,1fr)_minmax(420px,36%)] items-start gap-3")}>
+        <div className="min-w-0 space-y-2">
+          {unitConfigFilter === "da_completare" ? <ul className="divide-y divide-border rounded-md border border-border text-sm" aria-label="Motivi configurazione U.M.">
+            {visible.map((product) => <li key={product.id}><button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted" onClick={() => setSelected(product)}><span className="font-medium">{product.description ?? product.code}</span><span className="block text-xs text-muted-foreground">{(unitIssuesByProduct.get(product.id) ?? []).join(" · ")}</span></button></li>)}
+          </ul> : null}
+          <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} allowedColumnIds={capsColumnIds} selectedIds={selectedIds} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} listName={listName} />
+          <ProductMobileList products={visible} selectedIds={selectedIds} imageUrls={imageUrls} columns={mobileColumns} archives={archiveNameById} listName={listName} onSelect={(id, checked) => setSelectedIds((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; })} onOpen={setSelected} />
 
 
-      {pageCount > 1 && !showAll ? <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><Button variant="outline" size="sm" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Precedenti</Button><span className="truncate text-center text-xs text-muted-foreground">Pagina {currentPage + 1} di {pageCount}</span><Button variant="outline" size="sm" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>Successivi</Button></div> : null}
-      {pageCount > 1 ? <div className="flex justify-center"><Button variant="ghost" size="sm" onClick={() => { setShowAll((current) => !current); setPage(0); }}>{showAll ? "Mostra a pagine" : `Mostra tutti i ${sortedFiltered.length} prodotti`}</Button></div> : null}
+          {pageCount > 1 && !showAll ? <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"><Button variant="outline" size="sm" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Precedenti</Button><span className="truncate text-center text-xs text-muted-foreground">Pagina {currentPage + 1} di {pageCount}</span><Button variant="outline" size="sm" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>Successivi</Button></div> : null}
+          {pageCount > 1 ? <div className="flex justify-center"><Button variant="ghost" size="sm" onClick={() => { setShowAll((current) => !current); setPage(0); }}>{showAll ? "Mostra a pagine" : `Mostra tutti i ${sortedFiltered.length} prodotti`}</Button></div> : null}
+        </div>
+        {deviceClass === "desktop" ? (
+          <aside aria-label="Scheda prodotto" className="sticky top-4 h-[calc(100vh-235px)] min-h-[360px]">
+            <ProductDetailPanel
+              product={currentProduct}
+              archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"}
+              listName={listName}
+              isAdmin={isAdmin}
+              cost={costsQuery.data ?? null}
+              companyId={companyId}
+              companyUnits={companyUnitsQuery.data ?? []}
+              saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)}
+              initialTab={detailTab}
+              caps={caps}
+              tab={panelTab}
+              onTabChange={setPanelTab}
+              onClose={() => setSelected(null)}
+            />
+          </aside>
+        ) : null}
+      </div>
     </div>
 
     <div id="product-print-area" className="hidden print:block"><h1 className="mb-3 text-lg font-semibold">Prodotti</h1><p className="mb-3 text-xs">{outputProducts.length} prodotti · {new Intl.DateTimeFormat("it-IT").format(new Date())}</p><table className="w-full border-collapse text-[9pt]"><thead><tr>{visibleColumns.map((column) => <th key={column?.id} className="border border-border p-1 text-left">{column ? columnLabel(column, listName) : ""}</th>)}</tr></thead><tbody>{outputProducts.map((product) => <tr key={product.id}>{visibleColumns.map((column) => <td key={column?.id} className="border border-border p-1">{column ? formatGridValue(column, column.value(product, archiveNameById)) : ""}</td>)}</tr>)}</tbody></table></div>
 
-    <ProductDetailSheet product={currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => setSelected(null)} initialTab={detailTab} caps={caps} />
+    <ProductDetailSheet product={deviceClass === "desktop" ? null : currentProduct} archiveName={currentProduct ? archiveNameById.get(currentProduct.archive_id) ?? "—" : "—"} listName={listName} isAdmin={isAdmin} cost={costsQuery.data ?? null} companyId={companyId} companyUnits={companyUnitsQuery.data ?? []} saleUnits={(saleUnitsQuery.data ?? []).filter((row) => row.product_id === currentProduct?.id)} onClose={() => setSelected(null)} initialTab={detailTab} caps={caps} />
     {companyId ? <SalesUnitBatchDialog open={unitBatchOpen} onOpenChange={setUnitBatchOpen} companyId={companyId} productIds={selectedProducts.map((product) => product.id)} units={companyUnitsQuery.data ?? []} /> : null}
     <InternalProductDialog open={newProductOpen} onOpenChange={setNewProductOpen} companyId={companyId} userId={userId} />
     <ImportDialog open={importOpen} onOpenChange={setImportOpen} companyId={companyId} archives={archives.filter((archive) => archive.status === "attivo").map((archive) => ({ id: archive.id, name: archive.name, isDefault: archive.is_default }))} onImported={() => { void queryClient.invalidateQueries({ queryKey: ["prodotti", companyId] }); void queryClient.invalidateQueries({ queryKey: ["danea-listini", companyId] }); }} />
