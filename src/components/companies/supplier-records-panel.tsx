@@ -577,7 +577,7 @@ export function SupplierRecordsPanel({
   const detailForm = (
     <>
       <Tabs value={detailTab} onValueChange={setDetailTab}>
-        <TabsList className="flex w-full flex-wrap">
+        <TabsList className="flex h-auto w-full flex-wrap">
           <TabsTrigger value="anagrafica">Anagrafica</TabsTrigger>
           <TabsTrigger value="commerciale">Rapporti commerciali</TabsTrigger>
           <TabsTrigger value="varie">Varie</TabsTrigger>
