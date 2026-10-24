@@ -19,7 +19,7 @@ describe("navigazione locale dei prodotti", () => {
     expect(adjacentProduct(products, "ananas", -1, 2, false)).toEqual({ product: products[1], page: 0 });
   });
   it("usa solo i risultati filtrati e il loro ordinamento", () => {
-    expect(adjacentProduct([products[2], products[0]], "ananas", 1, 50, false)?.product.id).toBe("aglio");
+    expect(adjacentProduct([{ id: "ananas" }, { id: "aglio" }], "ananas", 1, 50, false)?.product.id).toBe("aglio");
   });
   it("la vista tutti non cambia pagina", () => {
     expect(adjacentProduct(products, "alloro", 1, 2, true)?.page).toBe(0);
