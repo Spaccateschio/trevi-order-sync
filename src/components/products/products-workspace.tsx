@@ -61,6 +61,7 @@ import {
   type GridPreferences,
   type ProductColumn,
   type ProductRow,
+  sortProducts,
 } from "@/lib/product-grid";
 
 
