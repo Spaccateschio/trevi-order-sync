@@ -603,6 +603,13 @@
       "when": 1792908759428,
       "tag": "0085_product_purchase_unit_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1792909364607,
+      "tag": "0086_product_purchase_units_authenticated_save",
+      "breakpoints": true
     }
   ]
 }
