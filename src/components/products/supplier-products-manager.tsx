@@ -332,20 +332,37 @@ export function SupplierProductsManager({
 
   const filtered = useMemo(() => {
     const needle = term.trim().toLowerCase();
-    return rows
-      .filter((row) => {
-        if (statusFilter === "attivi" && !row.is_active) return false;
-        if (statusFilter === "non_attivi" && row.is_active) return false;
-        if (statusFilter === "preferiti" && row.sourcing_priority === null) return false;
-        if (!needle) return true;
-        return (
-          (row.products?.code ?? "").toLowerCase().includes(needle) ||
-          (row.products?.description ?? "").toLowerCase().includes(needle) ||
-          (row.supplier_product_code ?? "").toLowerCase().includes(needle)
-        );
-      })
-      .sort((left, right) => (left.products?.code ?? "").localeCompare(right.products?.code ?? "", "it"));
-  }, [rows, statusFilter, term]);
+    const matched = rows.filter((row) => {
+      if (statusFilter === "attivi" && !row.is_active) return false;
+      if (statusFilter === "non_attivi" && row.is_active) return false;
+      if (statusFilter === "preferiti" && row.sourcing_priority === null) return false;
+      if (!needle) return true;
+      return (
+        (row.products?.code ?? "").toLowerCase().includes(needle) ||
+        (row.products?.description ?? "").toLowerCase().includes(needle) ||
+        (row.supplier_product_code ?? "").toLowerCase().includes(needle)
+      );
+    });
+    if (!sort) {
+      return matched.sort((left, right) =>
+        (left.products?.code ?? "").localeCompare(right.products?.code ?? "", "it"),
+      );
+    }
+    const numeric = NUMERIC_SORT_KEYS.includes(sort.key);
+    return matched.sort((left, right) => {
+      const leftValue = sortValue(left, sort.key);
+      const rightValue = sortValue(right, sort.key);
+      let result: number;
+      if (numeric) {
+        const l = typeof leftValue === "number" ? leftValue : Number.POSITIVE_INFINITY;
+        const r = typeof rightValue === "number" ? rightValue : Number.POSITIVE_INFINITY;
+        result = l === r ? 0 : l < r ? -1 : 1;
+      } else {
+        result = String(leftValue).localeCompare(String(rightValue), "it");
+      }
+      return result * sort.dir;
+    });
+  }, [rows, statusFilter, term, sort, costByProduct, archivesQuery.data]);
 
   const addable = useMemo(() => {
     const linked = new Set(rows.map((row) => row.product_id));
