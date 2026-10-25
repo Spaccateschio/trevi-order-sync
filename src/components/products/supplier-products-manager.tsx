@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, Plus, Search, Star } from "lucide-react";
+import { ArrowDown, ArrowUp, ExternalLink, Plus, Search, Star } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -60,6 +60,21 @@ function purchaseUnitsLabel(row: LinkRow) {
     .map((unit) => `${unit.units_of_measure?.code ?? "—"}${unit.is_default ? " ★" : ""}`);
   return codes.length ? codes.join(" · ") : "—";
 }
+
+/** Colonne ordinabili della tabella «Prodotti forniti» (clic sull'intestazione). */
+type SortKey =
+  | "code"
+  | "descrizione"
+  | "archivio"
+  | "cod_fornitore"
+  | "um"
+  | "costo_danea"
+  | "costo_trevi"
+  | "qtamin"
+  | "consegna"
+  | "stato";
+
+const NUMERIC_SORT_KEYS: readonly SortKey[] = ["costo_danea", "costo_trevi", "qtamin", "consegna"];
 
 type ProductOption = {
   id: string;
