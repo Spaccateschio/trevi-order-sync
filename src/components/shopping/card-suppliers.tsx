@@ -321,7 +321,6 @@ export function CardSuppliers({
   const runSelection = useServerFn(setShoppingListSupplierSelection);
   const { suppliers, loading, label } = useCardSuppliers(companyId, row, pending);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
-  const [orphanEditing, setOrphanEditing] = useState<{ id: string; quantity: string } | null>(null);
   const [editing, setEditing] = useState<Edit | null>(null);
   const [removing, setRemoving] = useState<CardSupplier | null>(null);
   // Vista operativa semplice: ripartizione e dettagli (prezzo, B2B, U.M.) solo su richiesta.
@@ -343,7 +342,6 @@ export function CardSuppliers({
   const companyUnits = useCompanyUnits(companyId);
   const setEditingNull = () => {
     setEditing(null);
-    setOrphanEditing(null);
   };
   const unit = row.unit_code ?? "";
 
@@ -510,7 +508,6 @@ export function CardSuppliers({
 
   const startEdit = (s: CardSupplier, assignment: RowSupplier | null) => {
     const single = s.units.length === 1 && !s.allowManual;
-    setOrphanEditing(null);
     setEditing({
       linkId: s.linkId,
       assignmentId: assignment?.id ?? null,
@@ -962,10 +959,9 @@ export function CardSuppliers({
     );
   };
 
-  // Ripartizioni senza più un fornitore collegato attivo: restano visibili e modificabili.
+  // Ripartizioni senza più un fornitore collegato attivo: restano visibili come avviso
+  // e si possono solo rimuovere esplicitamente (mai modificate né riproposte).
   const orphanRow = (a: RowSupplier) => {
-    const editingAssignment = orphanEditing && orphanEditing.id === a.id ? orphanEditing : null;
-    const editPacks = editingAssignment ? parseQuantity(editingAssignment.quantity) : null;
     return (
       <li key={a.id} className="space-y-1 rounded-sm border border-border px-1.5 max-md:py-0.5 py-1">
         <div className="flex min-w-0 items-center gap-1 text-xs">
