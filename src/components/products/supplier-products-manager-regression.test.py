@@ -31,7 +31,7 @@ async def main():
                     return
             if request.method == "GET" and "/rest/v1/product_supplier_links?" in request.url:
                 params = parse_qs(urlparse(request.url).query)
-                if params.get("supplier_record_id") == ["eq." + SUPPLIER]:
+                if params.get("supplier_record_id") == ["eq." + SUPPLIER] and "product_supplier_link_units(" in params.get("select", [""])[0]:
                     assert "units_of_measure!product_supplier_link_units_unit_id_fkey(code)" in params["select"][0]
                     if mode == "error":
                         await route.fulfill(status=300, json={"code": "PGRST201", "message": "Simulated read failure"})
