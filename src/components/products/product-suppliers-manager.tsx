@@ -187,7 +187,13 @@ export function ProductSuppliersManager({
     },
   });
 
-  const links = linksQuery.data ?? [];
+  const allLinks = linksQuery.data ?? [];
+  // I collegamenti disattivati («Scollega dal prodotto») spariscono dall'elenco normale:
+  // restano recuperabili solo dietro «Mostra disattivati», per una eventuale riattivazione.
+  const [showInactive, setShowInactive] = useState(false);
+  const links = allLinks.filter((row) => row.is_active);
+  const inactiveLinks = allLinks.filter((row) => !row.is_active);
+  const visibleLinks = showInactive ? allLinks : links;
   const selected = useMemo(() => links.find((row) => row.link_id === selectedLinkId) ?? null, [links, selectedLinkId]);
 
   useEffect(() => {
@@ -548,7 +554,14 @@ export function ProductSuppliersManager({
       ) : null}
 
       <div className="mt-2 space-y-2">
-        {links.map((row) => {
+        {inactiveLinks.length ? (
+          <div className="flex justify-end">
+            <Button type="button" size="sm" variant="ghost" className="text-xs" onClick={() => setShowInactive((v) => !v)}>
+              {showInactive ? "Nascondi disattivati" : `Mostra disattivati (${inactiveLinks.length})`}
+            </Button>
+          </div>
+        ) : null}
+        {visibleLinks.map((row) => {
           const isSelected = row.link_id === selectedLinkId;
           const label = linkedLabel(row.b2b_relation_status);
           return (
