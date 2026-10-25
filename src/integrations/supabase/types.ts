@@ -9016,15 +9016,24 @@ export type Database = {
         Args: { _actor_user_id?: string; _link_id: string }
         Returns: string
       }
-      save_product_purchase_units: {
-        Args: {
-          _actor_user_id: string
-          _default_unit_id: string
-          _product_id: string
-          _unit_ids: string[]
-        }
-        Returns: undefined
-      }
+      save_product_purchase_units:
+        | {
+            Args: {
+              _default_unit_id: string
+              _product_id: string
+              _unit_ids: string[]
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _actor_user_id: string
+              _default_unit_id: string
+              _product_id: string
+              _unit_ids: string[]
+            }
+            Returns: undefined
+          }
       search_companies: {
         Args: { _query: string; _role: string }
         Returns: {
