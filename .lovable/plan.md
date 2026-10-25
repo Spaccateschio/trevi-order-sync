@@ -1,39 +1,25 @@
-# U.M. di acquisto del prodotto, anche senza fornitori
+# Correzione autorizzazione del salvataggio U.M. di acquisto
 
-## Risultato richiesto
-- Nel riquadro superiore della tab **Acquisto**, scegliere e salvare le U.M. del prodotto e la predefinita anche quando non esiste alcun fornitore collegato.
-- Il pulsante diventa **«Salva U.M. di acquisto»**: non dipende più dal numero di fornitori manuali.
-- Queste U.M. sono disponibili per l'acquisto diretto e vengono proposte quando si aggiunge un nuovo fornitore non B2B; la singola referenza resta personalizzabile.
-- I fornitori B2B mantengono esclusivamente le U.M. del loro catalogo nella loro card, senza sovrascritture.
+## Verifica iniziale
+La funzione attuale riceve `_actor_user_id` dalla funzione server e controlla che quell’utente sia un amministratore aziendale attivo. È eseguibile solo da `service_role`: il controllo non deriva quindi dalla sessione database dell’utente.
 
-## Passi
-1. **Versione reale direttamente in anteprima**, come approvato nel documento del 25/10: nessun salvataggio simulato.
-2. Aggiungere il salvataggio persistente delle U.M. proprie del prodotto, distinto dalle referenze fornitore; riaprendo la scheda si ritrovano le impostazioni. Solo U.M. aziendali attive con uso acquisto/entrambi; predefinita tra le selezionate.
-3. Collegare le U.M. salvate all'acquisto diretto e alla creazione di nuovi collegamenti non B2B. Per i fornitori manuali già presenti conservare l'applicazione esplicita in blocco, senza rimozioni automatiche o cambiamenti silenziosi.
-4. Verificare con dati fittizi: prodotto senza fornitori, riapertura, acquisto diretto, nuovo fornitore manuale e presenza contemporanea di un B2B. Collaudo manuale reale riservato ad Andrea su 3 EMME.
+## Una sola correzione
+- Nuova firma di `save_product_purchase_units` senza parametro utente: identità esclusivamente da `auth.uid()`, controllo amministratore nel database sull’azienda del prodotto.
+- EXECUTE esclusivamente ad `authenticated`; revoca a `PUBLIC`, `anon` e `service_role`.
+- Vecchia firma conservata ma disabilitata, senza alcun EXECUTE ai ruoli applicativi: nessun percorso privilegiato alternativo.
+- La funzione server usa `context.supabase`, ossia la sessione dell’utente; nessuna chiave privilegiata o identità passata come parametro.
+- Validazioni U.M., predefinita, blocco del prodotto, scrittura atomica e audit restano invariati.
 
-## Attenzione
-Oggi non esiste un salvataggio delle U.M. di acquisto indipendente dal fornitore. Attivare soltanto il pulsante mostrerebbe un successo senza conservare nulla. Serve quindi un'impostazione dedicata, non un fornitore fittizio.
+## Controlli
+Migrazione piccola in un’unica transazione gestita dal servizio: controllo ruolo iniziale e firme attese, verifica finale dei privilegi effettivi su entrambe le firme, SECURITY DEFINER e search_path. Successivo controllo read-only del database e test mirati della chiamata con sessione e senza parametro utente. Nessun salvataggio su aziende reali: il collaudo A–E su 3 EMME resta ad Andrea.
 
-Le conversioni non cambiano: il nuovo salvataggio conserva soltanto U.M. e predefinita, senza applicare conversioni o modificare giacenze, quote e documenti.
+## Compatibilità e limite
+Nessun cambiamento a tabelle o dati. Le versioni che usano ancora la vecchia firma non potranno salvare queste U.M. dopo la revoca: mantenerla accessibile sarebbe contrario alla correzione richiesta. Nessuna pubblicazione automatica.
 
-La verifica della tabella `product_direct_purchase_preferences` conferma che conserva una sola stella per prodotto, con autore/data della scelta. Non contiene U.M.; usarla per la configurazione generale legherebbe impropriamente le U.M. alla destinazione diretta. Si usa una tabella separata senza duplicare stelle né U.M. aziendali. Nessuna modifica alle funzioni/tabelle esistenti o ai percorsi Danea: migrazione additiva compatibile con l'app pubblicata, nessun backfill.
+## File previsti
+- Nuova migrazione in `drizzle/migrations/`, generata e applicata dal servizio, con aggiornamento automatico dei tipi.
+- `src/lib/product-purchase-units.functions.ts`.
+- Nuovo test mirato `src/lib/product-purchase-units-auth.test.ts`.
+- `AGENTS.md`: sostituzione della sola regola relativa a questa autorizzazione.
 
-## Dettagli tecnici e file previsti
-**Interfaccia reale:**
-- Nuovo `src/components/products/product-purchase-units-editor.tsx` per il salvataggio generale, mantenendo l'applicazione ai fornitori esistenti come azione distinta.
-- `src/components/products/purchase-units-quick-apply.tsx`
-- `src/components/products/product-detail-sheet.tsx`
-- `src/components/products/product-suppliers-manager.tsx`
-- `src/lib/purchase-unit-apply.ts` e `src/lib/purchase-unit-apply.test.ts`
-- `src/components/products/AGENTS.md` e `AGENTS.md` per aggiornare le regole architetturali.
-
-**Salvataggio e collegamenti:**
-- Nuova migrazione generata dal servizio database: configurazione aziendale per prodotto/U.M., autorizzazioni e salvataggio atomico amministratore-only; azienda ricavata dall'utente autenticato.
-- Nuovi `src/lib/product-purchase-units.functions.ts`, `src/lib/product-purchase-units.ts` e relativo test.
-- File dell'interfaccia sopra elencati.
-- `src/components/shopping/card-suppliers.tsx`, `src/components/shopping/shopping-list-panel.tsx`, `src/lib/shopping-list.functions.ts`, `src/lib/shopping-list.ts` e relativi test, solo per rendere disponibili le U.M. dirette senza cambiare quote o generazione.
-- `src/components/shopping/shopping-list-card.tsx` e `src/components/shopping/catalog-entries.tsx`: selettori effettivi delle U.M. della Lista, per includere le U.M. proprie senza conversioni o cambi automatici delle quantità.
-- `src/components/shopping/AGENTS.md` per la nuova fonte delle U.M. dirette.
-
-Nessuna modifica a ordini, giacenze o dati operativi esistenti; nessun invio ai fornitori, nessuna pubblicazione. `roadmap.md` invariato.
+Nessuna modifica all’interfaccia, a Danea, ordini o giacenze; nessun invio; `roadmap.md` invariato.
