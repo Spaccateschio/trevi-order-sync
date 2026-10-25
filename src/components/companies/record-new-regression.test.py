@@ -104,6 +104,22 @@ async def main():
             assert calls[0][1][id_key] == "00000000-0000-4000-8000-000000000001"
             calls.clear()
             await page.screenshot(path=str(screenshots / (kind + "-after.png")))
+            if kind == "fornitore":
+                await row.locator("td").nth(1).click()
+                await aside.get_by_role("tab", name="Varie", exact=True).click()
+                day = aside.locator("button[aria-pressed]").first
+                await day.click()
+                pressed = await day.get_attribute("aria-pressed")
+                await page.get_by_role("button", name="Nuovo fornitore", exact=True).click()
+                await page.get_by_role("alertdialog").get_by_role("button", name="Continua a modificare").click()
+                assert await day.get_attribute("aria-pressed") == pressed
+                assert not calls
+                await page.get_by_role("button", name="Nuovo fornitore", exact=True).click()
+                await page.get_by_role("alertdialog").get_by_role("button", name="Scarta e apri").click()
+                await dialog.locator("input").nth(3).wait_for()
+                assert await aside.locator("input").count() == 0
+                await page.keyboard.press("Escape")
+                print("fornitore: delivery-only dirty draft protected")
             print(kind + ": dirty cancel/discard, New dismissal, mocked create/update passed")
         assert not unexpected_writes, unexpected_writes
         await browser.close()
