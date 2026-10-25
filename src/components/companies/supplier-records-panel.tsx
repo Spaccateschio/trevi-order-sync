@@ -169,6 +169,7 @@ export function SupplierRecordsPanel({
   const [panelId, setPanelId] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState("anagrafica");
   const [pendingSwitch, setPendingSwitch] = useState<SupplierRecord | null>(null);
+  const [pendingNew, setPendingNew] = useState(false);
   const [isDesktop, setIsDesktop] = useState(
     () => typeof window !== "undefined" && window.innerWidth >= 1280,
   );
@@ -221,9 +222,28 @@ export function SupplierRecordsPanel({
   const deletedRecords = allRecords.filter((record) => record.status === "revocato");
 
   function openNew() {
+    if (
+      editing &&
+      panelId &&
+      (JSON.stringify(form) !== JSON.stringify(toForm(editing)) ||
+        JSON.stringify(delivery) !==
+          JSON.stringify(toSchedule(editing.delivery_weekdays, editing.delivery_month_day)))
+    ) {
+      setPendingSwitch(null);
+      setPendingNew(true);
+      return;
+    }
+    activateNew();
+  }
+
+  function activateNew() {
+    setPanelId(null);
+    setPendingSwitch(null);
+    setPendingNew(false);
     setEditing(null);
     setForm(emptyForm);
     setDelivery(DEFAULT_SCHEDULE);
+    setDetailTab("anagrafica");
     setFormOpen(true);
   }
 
@@ -1136,21 +1156,28 @@ export function SupplierRecordsPanel({
       </AlertDialog>
 
       {/* Cambio fornitore con modifiche non salvate: mai scartarle in silenzio. */}
-      <AlertDialog open={Boolean(pendingSwitch)} onOpenChange={(open) => !open && setPendingSwitch(null)}>
+      <AlertDialog open={Boolean(pendingSwitch) || pendingNew} onOpenChange={(open) => {
+        if (!open) {
+          setPendingSwitch(null);
+          setPendingNew(false);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Modifiche non salvate</AlertDialogTitle>
             <AlertDialogDescription>
               Ci sono modifiche non salvate su “{editing?.legal_name}”. Se apri “
-              {pendingSwitch?.legal_name}” le perderai.
+              {pendingNew ? "Nuovo fornitore" : pendingSwitch?.legal_name}” le perderai.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Continua a modificare</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (pendingSwitch) activatePanel(pendingSwitch);
+                if (pendingNew) activateNew();
+                else if (pendingSwitch) activatePanel(pendingSwitch);
                 setPendingSwitch(null);
+                setPendingNew(false);
               }}
             >
               Scarta e apri
