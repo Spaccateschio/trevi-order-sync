@@ -46,6 +46,9 @@ async def main():
             if request.method == "OPTIONS":
                 await route.continue_()
                 return
+            if "/rpc/resolve_default_price_list" in request.url:
+                await route.fulfill(json=None)
+                return
             if any("/rpc/" + name in request.url for name in (
                 "manage_customer_record", "manage_supplier_record", "set_supplier_delivery_schedule",
             )):
@@ -63,6 +66,7 @@ async def main():
             aside = page.locator('aside[aria-label="Scheda ' + kind + '"]')
             field = aside.locator("input").nth(3)
             await field.fill("Modifica non salvata")
+            await page.wait_for_timeout(200)
             await page.get_by_role("button", name="Nuovo " + kind, exact=True).click()
             alert = page.get_by_role("alertdialog")
             await alert.wait_for()
