@@ -554,7 +554,14 @@ export function ProductSuppliersManager({
       ) : null}
 
       <div className="mt-2 space-y-2">
-        {links.map((row) => {
+        {inactiveLinks.length ? (
+          <div className="flex justify-end">
+            <Button type="button" size="sm" variant="ghost" className="text-xs" onClick={() => setShowInactive((v) => !v)}>
+              {showInactive ? "Nascondi disattivati" : `Mostra disattivati (${inactiveLinks.length})`}
+            </Button>
+          </div>
+        ) : null}
+        {visibleLinks.map((row) => {
           const isSelected = row.link_id === selectedLinkId;
           const label = linkedLabel(row.b2b_relation_status);
           return (
