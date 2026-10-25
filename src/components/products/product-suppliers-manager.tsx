@@ -106,7 +106,6 @@ export function ProductSuppliersManager({
   const queryClient = useQueryClient();
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [directOpen, setDirectOpen] = useState(false);
-  const [directUnits, setDirectUnits] = useState<Set<string> | null>(null);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [matchChoice, setMatchChoice] = useState<Record<string, string>>({});
@@ -123,12 +122,7 @@ export function ProductSuppliersManager({
   const ownUnitsQuery = useQuery(productPurchaseUnitsOptions(companyId, productId));
   const activeUnits = useMemo(() => allowedPurchaseUnits(units, companyId), [units, companyId]);
   const configuredUnits = activeUnits.filter((unit) => ownUnitsQuery.data?.some((u) => u.unit_id === unit.id));
-  const directSelected = directUnits ?? new Set(configuredUnits.map((unit) => unit.id));
-  function toggleDirectUnit(id: string) {
-    const next = new Set(directUnits ?? new Set(configuredUnits.map((unit) => unit.id)));
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setDirectUnits(next);
-  }
+  const directSelected = new Set(configuredUnits.map((unit) => unit.id));
 
   // U.M. del prezzo del costo concordato (solo fornitori non B2B): letta direttamente dalla referenza.
   const priceUnitsQuery = useQuery({
