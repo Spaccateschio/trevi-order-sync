@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AVAILABILITY_LABELS, dateTime, euro, type ProductRow } from "@/lib/product-grid";
 import { PurchaseUnitsOverview, SalesUnitManager, type CompanyUnit, type ProductSaleUnit } from "./sales-unit-manager";
 import { PurchaseUnitsQuickApply } from "./purchase-units-quick-apply";
+import { ProductPurchaseUnitsEditor } from "./product-purchase-units-editor";
 import { ProductImageManager } from "./product-image-manager";
 import { ProductSuppliersManager } from "./product-suppliers-manager";
 import { ProductProvenancePanel } from "./product-provenance-panel";
@@ -287,9 +288,10 @@ export function ProductDetailContent({ product, archiveName, listName, isAdmin, 
         {caps.buys ? <TabsContent value="acquisto" className="space-y-3">
           <section aria-labelledby="purchase-units-title">
             <h3 id="purchase-units-title" className="text-sm font-semibold">U.M. di acquisto</h3>
-            <PurchaseUnitsOverview productId={product.id} />
+            {companyId ? <ProductPurchaseUnitsEditor key={`${companyId}:${product.id}`} companyId={companyId} productId={product.id} units={companyUnits} editable={isAdmin} /> : null}
+            <div className="mt-3"><PurchaseUnitsOverview productId={product.id} /></div>
           </section>
-          {companyId ? <PurchaseUnitsQuickApply companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /> : null}
+          {companyId && isAdmin ? <Collapsible><CollapsibleTrigger asChild><Button type="button" size="sm" variant="ghost" className="w-full justify-between">Applica ai fornitori manuali esistenti<ChevronDown /></Button></CollapsibleTrigger><CollapsibleContent><PurchaseUnitsQuickApply key={product.id} companyId={companyId} productId={product.id} daneaUm={product.danea_um} units={companyUnits} editable={isAdmin} /></CollapsibleContent></Collapsible> : null}
 
           {companyId ? <SupplierConversionsSection productId={product.id} units={companyUnits} editable={isAdmin} /> : null}
 

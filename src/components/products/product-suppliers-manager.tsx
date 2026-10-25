@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_SCHEDULE, deliveryScheduleSummary, type DeliverySchedule } from "@/lib/delivery-schedule";
 import { dateTime, euro } from "@/lib/product-grid";
 import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
+import { allowedPurchaseUnits, productPurchaseUnitsOptions } from "@/lib/product-purchase-units";
 import type { CompanyUnit } from "./sales-unit-manager";
 
 /** U.M. con cui si può acquistare una singola referenza fornitore. */
@@ -105,7 +106,6 @@ export function ProductSuppliersManager({
   const queryClient = useQueryClient();
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [directOpen, setDirectOpen] = useState(false);
-  const [directUnits, setDirectUnits] = useState<Set<string> | null>(null);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [matchChoice, setMatchChoice] = useState<Record<string, string>>({});
@@ -119,14 +119,10 @@ export function ProductSuppliersManager({
     },
   });
 
-  // Anteprima acquisto diretto: U.M. attive dell'azienda; predefinita la U.M. Danea. Nessun salvataggio.
-  const activeUnits = useMemo(() => units.filter((unit) => unit.status === "attivo"), [units]);
-  const directSelected = directUnits ?? new Set(activeUnits.filter((unit) => unit.code === daneaUm).map((unit) => unit.id));
-  function toggleDirectUnit(id: string) {
-    const next = new Set(directUnits ?? new Set(activeUnits.filter((unit) => unit.code === daneaUm).map((unit) => unit.id)));
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setDirectUnits(next);
-  }
+  const ownUnitsQuery = useQuery(productPurchaseUnitsOptions(companyId, productId));
+  const activeUnits = useMemo(() => allowedPurchaseUnits(units, companyId), [units, companyId]);
+  const configuredUnits = activeUnits.filter((unit) => ownUnitsQuery.data?.some((u) => u.unit_id === unit.id));
+  const directSelected = new Set(configuredUnits.map((unit) => unit.id));
 
   // U.M. del prezzo del costo concordato (solo fornitori non B2B): letta direttamente dalla referenza.
   const priceUnitsQuery = useQuery({
@@ -409,6 +405,7 @@ export function ProductSuppliersManager({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">Dopo il salvataggio potrai aggiungere altre U.M. con cui acquistare questa referenza.</p>
+            {configuredUnits.length ? <div className="flex flex-wrap gap-1">{configuredUnits.map((u) => <Button key={u.id} type="button" size="sm" variant="outline" disabled={busy} title="Usa per questa nuova referenza" onClick={() => setDraft((current) => ({ ...current, purchaseUnitId: u.id }))}>{u.code}{ownUnitsQuery.data?.find((x) => x.unit_id === u.id)?.is_default ? " ★" : ""}</Button>)}</div> : null}
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Conversione (facoltativa) verso {daneaUm ?? "U.M. prodotto"}</Label>
@@ -496,9 +493,9 @@ export function ProductSuppliersManager({
           </div>
           <div className="mt-3 space-y-2">
             <Label className="text-xs">U.M. con cui acquisti direttamente</Label>
-            {activeUnits.length ? (
+            {configuredUnits.length ? (
               <div className="flex flex-wrap gap-2">
-                {activeUnits.map((unit) => {
+                {configuredUnits.map((unit) => {
                   const on = directSelected.has(unit.id);
                   return (
                     <Button
@@ -508,17 +505,17 @@ export function ProductSuppliersManager({
                       variant={on ? "default" : "outline"}
                       title={`${unit.code} — ${unit.description}`}
                       aria-pressed={on}
-                      onClick={() => toggleDirectUnit(unit.id)}
+                      disabled
                     >
-                      {unit.code}{unit.code === daneaUm ? " ★" : ""}
+                      {unit.code}{ownUnitsQuery.data?.find((u) => u.unit_id === unit.id)?.is_default ? " ★" : ""}
                     </Button>
                   );
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Nessuna U.M. attiva da usare.</p>
+              <p className="text-sm text-muted-foreground">Nessuna U.M. di acquisto impostata.</p>
             )}
-            <p className="text-xs text-muted-foreground">La stella si salva; le U.M. dell'acquisto diretto sono ancora un'anteprima e non vengono salvate.</p>
+            <p className="text-xs text-muted-foreground">U.M. di acquisto del prodotto</p>
           </div>
         </article>
       ) : null}

@@ -28,6 +28,7 @@ import {
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
 import { cn } from "@/lib/utils";
+import { companyProductPurchaseUnitsOptions } from "@/lib/product-purchase-units";
 
 const MANUAL = "__manuale__";
 
@@ -107,6 +108,8 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
     },
   });
 
+  const ownUnitsQuery = useQuery({ ...companyProductPurchaseUnitsOptions(companyId), enabled });
+
   /** Fornitori con rapporto operativo: il vero proprietario del catalogo e la sua anagrafica fornitore. */
   const sellers = useMemo(
     () =>
@@ -157,7 +160,9 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
       // Prodotto proprio collegato a un articolo B2B: valgono solo le U.M. pubblicate dal venditore.
       const b2bId = b2bOf.get(p.id);
       const pub = b2bId ? published.get(b2bId) : undefined;
-      const codes = pub && pub.codes.length ? pub.codes : [...units];
+      const ownUnits = (ownUnitsQuery.data ?? []).filter((u) => u.product_id === p.id);
+      const ownCodes = ownUnits.flatMap((u) => u.units_of_measure?.code ? [u.units_of_measure.code] : []);
+      const codes = [...new Set([...(pub && pub.codes.length ? pub.codes : [...units]), ...ownCodes])];
       return {
         key: `own:${p.id}`,
         ownProductId: p.id,
@@ -172,7 +177,7 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
         supplierNames: [...(l?.names ?? [])],
         unitCodes: codes,
         defaultUnit: pub && pub.codes.length ? pub.def || null : null,
-        unitsLocked: Boolean(pub && pub.codes.length),
+        unitsLocked: Boolean(pub && pub.codes.length && !ownCodes.length),
         isB2b: false,
         hasB2b: b2bOf.has(p.id),
         hasNonB2b: (linksQuery.data ?? []).some((l) => l.is_active && l.product_id === p.id && !l.b2b_item_id && Boolean(l.supplier_record_id)),
@@ -205,7 +210,7 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
       }
     }
     return [...own, ...b2b];
-  }, [productsQuery.data, linksQuery.data, cataloguesQuery.data]);
+  }, [productsQuery.data, linksQuery.data, cataloguesQuery.data, ownUnitsQuery.data]);
 
   const favoriteIds = useMemo(() => (productsQuery.data ?? []).map((p) => p.id).sort(), [productsQuery.data]);
   const favoritesQuery = useQuery({

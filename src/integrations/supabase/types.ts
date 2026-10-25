@@ -3979,6 +3979,55 @@ export type Database = {
           },
         ]
       }
+      product_purchase_units: {
+        Row: {
+          company_id: string
+          is_default: boolean
+          product_id: string
+          unit_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          company_id: string
+          is_default?: boolean
+          product_id: string
+          unit_id: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          company_id?: string
+          is_default?: boolean
+          product_id?: string
+          unit_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_purchase_units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_purchase_units_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_purchase_units_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_sale_units: {
         Row: {
           company_id: string
@@ -8966,6 +9015,15 @@ export type Database = {
       revoke_order_share_link: {
         Args: { _actor_user_id?: string; _link_id: string }
         Returns: string
+      }
+      save_product_purchase_units: {
+        Args: {
+          _actor_user_id: string
+          _default_unit_id: string
+          _product_id: string
+          _unit_ids: string[]
+        }
+        Returns: undefined
       }
       search_companies: {
         Args: { _query: string; _role: string }
