@@ -1,8 +1,5 @@
 # Roadmap
 
-## 25/10 — U.M. proprie del prodotto
-- [ ] Verificare riuso di product_direct_purchase_preferences e compatibilità con app pubblicata prima della migrazione; implementare salvataggio reale approvato, U.M. aziendali acquisto/entrambi, proposte non B2B e acquisto diretto, senza cambiare documenti o conversioni.
-
 ## 22/10 — Lista: nuovi acquisti dopo generazione (solo anteprima)
 - [ ] Nascondere intestazione e freccia su cellulare e computer; piano in preparazione.
 - [ ] Separare quantità nuove immediatamente dopo generazione riuscita, senza attendere invio o consegna; fallimento conserva la vista. Ordini, residui e bozze conservati e recuperabili. Attendere approvazione delle modifiche strutturali. Nessuna migrazione, scrittura operativa o pubblicazione.

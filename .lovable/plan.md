@@ -36,4 +36,4 @@ La verifica della tabella `product_direct_purchase_preferences` conferma che con
 - `src/components/shopping/shopping-list-card.tsx` e `src/components/shopping/catalog-entries.tsx`: selettori effettivi delle U.M. della Lista, per includere le U.M. proprie senza conversioni o cambi automatici delle quantità.
 - `src/components/shopping/AGENTS.md` per la nuova fonte delle U.M. dirette.
 
-Nessuna modifica a ordini, giacenze o dati operativi esistenti; nessun invio ai fornitori, nessuna pubblicazione. `roadmap.md` contiene soltanto il controllo richiesto dal nuovo messaggio, senza modificare le voci precedenti.
+Nessuna modifica a ordini, giacenze o dati operativi esistenti; nessun invio ai fornitori, nessuna pubblicazione. `roadmap.md` invariato.

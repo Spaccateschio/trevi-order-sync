@@ -200,7 +200,7 @@ export function ShoppingListCard({
     suppliers.filter((s) => !s.purchaseUnitId && s.purchaseUnitCode).map((s) => s.purchaseUnitCode as string),
   );
   const ownOptions: UnitOption[] = ownUnits.flatMap((u) => u.units_of_measure ? [{ key: u.unit_id, unitId: u.unit_id, code: u.units_of_measure.code, factor: null }] : []);
-  const unitOptions = [...ownOptions, ...decided.options.filter((o) => !ownOptions.some((u) => u.unitId === o.unitId))].filter((o) => o.code.trim().toLowerCase() !== unit.trim().toLowerCase());
+  const unitOptions = [...decided.options, ...ownOptions.filter((o) => !decided.options.some((u) => u.unitId === o.unitId))].filter((o) => o.code.trim().toLowerCase() !== unit.trim().toLowerCase());
   const decidedKey = extra?.decidedUnitId
     ? extra.decidedUnitId
     : extra?.decidedUnitCode
