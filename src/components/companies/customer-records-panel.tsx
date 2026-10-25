@@ -220,6 +220,7 @@ export function CustomerRecordsPanel({
   const [panelId, setPanelId] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState("anagrafica");
   const [pendingSwitch, setPendingSwitch] = useState<CustomerRecord | null>(null);
+  const [pendingNew, setPendingNew] = useState(false);
   const [isDesktop, setIsDesktop] = useState(
     () => typeof window !== "undefined" && window.innerWidth >= 1280,
   );
@@ -325,8 +326,21 @@ export function CustomerRecordsPanel({
   }
 
   function openNew() {
+    if (editing && panelId && JSON.stringify(form) !== JSON.stringify(toForm(editing))) {
+      setPendingSwitch(null);
+      setPendingNew(true);
+      return;
+    }
+    activateNew();
+  }
+
+  function activateNew() {
+    setPanelId(null);
+    setPendingSwitch(null);
+    setPendingNew(false);
     setEditing(null);
     setForm(emptyForm);
+    setDetailTab("anagrafica");
     setFormOpen(true);
   }
 
@@ -1435,21 +1449,28 @@ export function CustomerRecordsPanel({
       </AlertDialog>
 
       {/* Cambio cliente con modifiche non salvate: mai scartarle in silenzio. */}
-      <AlertDialog open={Boolean(pendingSwitch)} onOpenChange={(open) => !open && setPendingSwitch(null)}>
+      <AlertDialog open={Boolean(pendingSwitch) || pendingNew} onOpenChange={(open) => {
+        if (!open) {
+          setPendingSwitch(null);
+          setPendingNew(false);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Modifiche non salvate</AlertDialogTitle>
             <AlertDialogDescription>
               Ci sono modifiche non salvate su “{editing?.legal_name}”. Se apri “
-              {pendingSwitch?.legal_name}” le perderai.
+              {pendingNew ? "Nuovo cliente" : pendingSwitch?.legal_name}” le perderai.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Continua a modificare</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (pendingSwitch) activatePanel(pendingSwitch);
+                if (pendingNew) activateNew();
+                else if (pendingSwitch) activatePanel(pendingSwitch);
                 setPendingSwitch(null);
+                setPendingNew(false);
               }}
             >
               Scarta e apri
