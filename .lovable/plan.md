@@ -33,6 +33,7 @@ La verifica della tabella `product_direct_purchase_preferences` conferma che con
 - Nuovi `src/lib/product-purchase-units.functions.ts`, `src/lib/product-purchase-units.ts` e relativo test.
 - File dell'interfaccia sopra elencati.
 - `src/components/shopping/card-suppliers.tsx`, `src/components/shopping/shopping-list-panel.tsx`, `src/lib/shopping-list.functions.ts`, `src/lib/shopping-list.ts` e relativi test, solo per rendere disponibili le U.M. dirette senza cambiare quote o generazione.
+- `src/components/shopping/shopping-list-card.tsx` e `src/components/shopping/catalog-entries.tsx`: selettori effettivi delle U.M. della Lista, per includere le U.M. proprie senza conversioni o cambi automatici delle quantità.
 - `src/components/shopping/AGENTS.md` per la nuova fonte delle U.M. dirette.
 
 Nessuna modifica a ordini, giacenze o dati operativi esistenti; nessun invio ai fornitori, nessuna pubblicazione. `roadmap.md` contiene soltanto il controllo richiesto dal nuovo messaggio, senza modificare le voci precedenti.

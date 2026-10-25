@@ -15,7 +15,9 @@ export const saveProductPurchaseUnits = createServerFn({ method: "POST" })
     if (unitError) throw new Error(unitError.message);
     const unitIds = validatePurchaseSelection(units ?? [], product.company_id, data.unitIds, data.defaultUnitId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("save_product_purchase_units", { _product_id: data.productId, _unit_ids: unitIds, _default_unit_id: data.defaultUnitId, _actor_user_id: context.userId });
+    // Generated RPC argument types omit SQL nullability; keep null on the wire.
+    const args = { _product_id: data.productId, _unit_ids: unitIds, _default_unit_id: data.defaultUnitId, _actor_user_id: context.userId };
+    const { error } = await supabaseAdmin.rpc("save_product_purchase_units", args as unknown as { _product_id: string; _unit_ids: string[]; _default_unit_id: string; _actor_user_id: string });
     if (error) throw new Error(error.message);
     return { saved: true };
   });
