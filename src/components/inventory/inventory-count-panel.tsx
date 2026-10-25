@@ -2937,7 +2937,7 @@ function PhysicalCount({
           {visibleRows.length || catalogCandidates.length ? (
             <div
               data-tour="inv.card"
-              className={layout === "rows" ? "grid grid-cols-1 gap-1 p-1" : "grid auto-rows-fr items-stretch gap-2 p-2"}
+              className={layout === "rows" ? "grid grid-cols-1 gap-1 p-1" : "grid items-stretch gap-2 p-2"}
               style={layout === "cards" ? { gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${cardMinWidth}px), 1fr))` } : undefined}
             >
               {[
