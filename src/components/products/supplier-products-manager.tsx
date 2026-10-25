@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, Plus, Search, Star } from "lucide-react";
+import { ArrowDown, ArrowUp, ExternalLink, Plus, Search, Star } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -61,6 +61,21 @@ function purchaseUnitsLabel(row: LinkRow) {
   return codes.length ? codes.join(" · ") : "—";
 }
 
+/** Colonne ordinabili della tabella «Prodotti forniti» (clic sull'intestazione). */
+type SortKey =
+  | "code"
+  | "descrizione"
+  | "archivio"
+  | "cod_fornitore"
+  | "um"
+  | "costo_danea"
+  | "costo_trevi"
+  | "qtamin"
+  | "consegna"
+  | "stato";
+
+const NUMERIC_SORT_KEYS: readonly SortKey[] = ["costo_danea", "costo_trevi", "qtamin", "consegna"];
+
 type ProductOption = {
   id: string;
   code: string;
@@ -100,6 +115,7 @@ export function SupplierProductsManager({
   const queryClient = useQueryClient();
   const [term, setTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"tutti" | "attivi" | "non_attivi" | "preferiti">("tutti");
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [addOpen, setAddOpen] = useState(false);
@@ -164,6 +180,48 @@ export function SupplierProductsManager({
     () => new Map((costsQuery.data ?? []).map((row) => [row.product_id, row])),
     [costsQuery.data],
   );
+
+  const sortValue = (row: LinkRow, key: SortKey): string | number | null => {
+    switch (key) {
+      case "code":
+        return row.products?.code ?? "";
+      case "descrizione":
+        return row.products?.description ?? "";
+      case "archivio":
+        return archiveName(row.products?.archive_id ?? null);
+      case "cod_fornitore":
+        return row.supplier_product_code ?? "";
+      case "um":
+        return purchaseUnitsLabel(row);
+      case "costo_danea":
+        return costByProduct.get(row.product_id)?.supplier_net_price ?? null;
+      case "costo_trevi":
+        return row.manual_cost;
+      case "qtamin":
+        return row.min_quantity;
+      case "consegna":
+        return row.lead_time_days;
+      case "stato":
+        return row.is_active ? "attivo" : "non attivo";
+    }
+  };
+
+  const toggleSort = (key: SortKey) =>
+    setSort((current) =>
+      current && current.key === key ? (current.dir === 1 ? { key, dir: -1 } : null) : { key, dir: 1 },
+    );
+
+  const sortIcon = (key: SortKey) => {
+    if (!sort || sort.key !== key) return null;
+    return sort.dir === 1 ? (
+      <ArrowUp className="h-3 w-3" aria-hidden="true" />
+    ) : (
+      <ArrowDown className="h-3 w-3" aria-hidden="true" />
+    );
+  };
+
+  const ariaSort = (key: SortKey) =>
+    sort && sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : undefined;
 
   const open = rows.find((row) => row.id === openId) ?? null;
 
@@ -274,20 +332,37 @@ export function SupplierProductsManager({
 
   const filtered = useMemo(() => {
     const needle = term.trim().toLowerCase();
-    return rows
-      .filter((row) => {
-        if (statusFilter === "attivi" && !row.is_active) return false;
-        if (statusFilter === "non_attivi" && row.is_active) return false;
-        if (statusFilter === "preferiti" && row.sourcing_priority === null) return false;
-        if (!needle) return true;
-        return (
-          (row.products?.code ?? "").toLowerCase().includes(needle) ||
-          (row.products?.description ?? "").toLowerCase().includes(needle) ||
-          (row.supplier_product_code ?? "").toLowerCase().includes(needle)
-        );
-      })
-      .sort((left, right) => (left.products?.code ?? "").localeCompare(right.products?.code ?? "", "it"));
-  }, [rows, statusFilter, term]);
+    const matched = rows.filter((row) => {
+      if (statusFilter === "attivi" && !row.is_active) return false;
+      if (statusFilter === "non_attivi" && row.is_active) return false;
+      if (statusFilter === "preferiti" && row.sourcing_priority === null) return false;
+      if (!needle) return true;
+      return (
+        (row.products?.code ?? "").toLowerCase().includes(needle) ||
+        (row.products?.description ?? "").toLowerCase().includes(needle) ||
+        (row.supplier_product_code ?? "").toLowerCase().includes(needle)
+      );
+    });
+    if (!sort) {
+      return matched.sort((left, right) =>
+        (left.products?.code ?? "").localeCompare(right.products?.code ?? "", "it"),
+      );
+    }
+    const numeric = NUMERIC_SORT_KEYS.includes(sort.key);
+    return matched.sort((left, right) => {
+      const leftValue = sortValue(left, sort.key);
+      const rightValue = sortValue(right, sort.key);
+      let result: number;
+      if (numeric) {
+        const l = typeof leftValue === "number" ? leftValue : Number.POSITIVE_INFINITY;
+        const r = typeof rightValue === "number" ? rightValue : Number.POSITIVE_INFINITY;
+        result = l === r ? 0 : l < r ? -1 : 1;
+      } else {
+        result = String(leftValue).localeCompare(String(rightValue), "it");
+      }
+      return result * sort.dir;
+    });
+  }, [rows, statusFilter, term, sort, costByProduct, archivesQuery.data]);
 
   const addable = useMemo(() => {
     const linked = new Set(rows.map((row) => row.product_id));
@@ -452,16 +527,27 @@ export function SupplierProductsManager({
         <table className="w-full text-[11px]">
           <thead className="bg-muted/50 text-left">
             <tr className="[&>th]:border-r [&>th]:border-border [&>th]:px-2 [&>th]:py-1.5 [&>th:last-child]:border-r-0">
-              <th>Codice</th>
-              <th>Descrizione</th>
-              <th>Archivio</th>
-              <th>Cod. fornitore</th>
-              <th>U.M. acquistabili</th>
-              <th>Costo Danea</th>
-              <th>Costo Trevi Fruit</th>
-              <th>Q.tà min.</th>
-              <th>Consegna</th>
-              <th>Stato</th>
+              {(
+                [
+                  ["code", "Codice"],
+                  ["descrizione", "Descrizione"],
+                  ["archivio", "Archivio"],
+                  ["cod_fornitore", "Cod. fornitore"],
+                  ["um", "U.M. acquistabili"],
+                  ["costo_danea", "Costo Danea"],
+                  ["costo_trevi", "Costo Trevi Fruit"],
+                  ["qtamin", "Q.tà min."],
+                  ["consegna", "Consegna"],
+                  ["stato", "Stato"],
+                ] as [SortKey, string][]
+              ).map(([key, label]) => (
+                <th key={key} aria-sort={ariaSort(key)}>
+                  <button type="button" className="flex items-center gap-1 text-left" onClick={() => toggleSort(key)}>
+                    {label}
+                    {sortIcon(key)}
+                  </button>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
