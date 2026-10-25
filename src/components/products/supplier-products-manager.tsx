@@ -527,16 +527,27 @@ export function SupplierProductsManager({
         <table className="w-full text-[11px]">
           <thead className="bg-muted/50 text-left">
             <tr className="[&>th]:border-r [&>th]:border-border [&>th]:px-2 [&>th]:py-1.5 [&>th:last-child]:border-r-0">
-              <th>Codice</th>
-              <th>Descrizione</th>
-              <th>Archivio</th>
-              <th>Cod. fornitore</th>
-              <th>U.M. acquistabili</th>
-              <th>Costo Danea</th>
-              <th>Costo Trevi Fruit</th>
-              <th>Q.tà min.</th>
-              <th>Consegna</th>
-              <th>Stato</th>
+              {(
+                [
+                  ["code", "Codice"],
+                  ["descrizione", "Descrizione"],
+                  ["archivio", "Archivio"],
+                  ["cod_fornitore", "Cod. fornitore"],
+                  ["um", "U.M. acquistabili"],
+                  ["costo_danea", "Costo Danea"],
+                  ["costo_trevi", "Costo Trevi Fruit"],
+                  ["qtamin", "Q.tà min."],
+                  ["consegna", "Consegna"],
+                  ["stato", "Stato"],
+                ] as [SortKey, string][]
+              ).map(([key, label]) => (
+                <th key={key} aria-sort={ariaSort(key)}>
+                  <button type="button" className="flex items-center gap-1 text-left" onClick={() => toggleSort(key)}>
+                    {label}
+                    {sortIcon(key)}
+                  </button>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
