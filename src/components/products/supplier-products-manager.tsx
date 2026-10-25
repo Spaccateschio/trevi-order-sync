@@ -112,7 +112,7 @@ export function SupplierProductsManager({
       const { data, error } = await supabase
         .from("product_supplier_links")
         .select(
-          "id, product_id, supplier_product_code, purchase_unit_id, price_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, sourcing_priority, supplier_reference_label, is_active, notes, origin, products!product_supplier_links_product_id_fkey(code, description, archive_id, danea_um), units_of_measure!product_supplier_links_purchase_unit_id_fkey(code), product_supplier_link_units(id, is_default, units_of_measure(code))",
+          "id, product_id, supplier_product_code, purchase_unit_id, price_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, sourcing_priority, supplier_reference_label, is_active, notes, origin, products!product_supplier_links_product_id_fkey(code, description, archive_id, danea_um), units_of_measure!product_supplier_links_purchase_unit_id_fkey(code), product_supplier_link_units(id, is_default, units_of_measure!product_supplier_link_units_unit_id_fkey(code))",
         )
         .eq("supplier_record_id", supplierRecordId);
       if (error) throw new Error(error.message);
@@ -404,12 +404,12 @@ export function SupplierProductsManager({
             Prodotti forniti
           </h3>
           <p className="text-xs text-muted-foreground">
-            {rows.length} associazion{rows.length === 1 ? "e" : "i"} · archivio fornitore:{" "}
+            {linksQuery.isError ? "Associazioni non disponibili" : linksQuery.isPending ? "Caricamento associazioni…" : `${rows.length} associazion${rows.length === 1 ? "e" : "i"}`} · archivio fornitore:{" "}
             {supplierArchiveId ? archiveName(supplierArchiveId) : "fornitore manuale (nessun archivio)"}
           </p>
         </div>
         {isAdmin ? (
-          <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => setAddOpen(true)}>
+          <Button type="button" size="sm" variant="outline" className="h-8 text-xs" disabled={linksQuery.isPending || linksQuery.isError} onClick={() => setAddOpen(true)}>
             <Plus aria-hidden="true" />
             Aggiungi prodotti
           </Button>
@@ -437,6 +437,15 @@ export function SupplierProductsManager({
           </SelectContent>
         </Select>
       </div>
+
+      {linksQuery.isError ? (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 border border-destructive/40 p-3 text-sm">
+          <p>Impossibile caricare i prodotti associati. I collegamenti salvati non sono stati modificati.</p>
+          <Button type="button" size="sm" variant="outline" disabled={linksQuery.isFetching} onClick={() => void linksQuery.refetch()}>
+            Riprova
+          </Button>
+        </div>
+      ) : null}
 
       {/* Desktop/tablet: tabella compatta */}
       <div className="hidden overflow-hidden rounded-lg border border-border sm:block">
@@ -498,7 +507,7 @@ export function SupplierProductsManager({
             ))}
           </tbody>
         </table>
-        {!filtered.length ? (
+        {!linksQuery.isPending && !linksQuery.isError && !filtered.length ? (
           <p className="px-2 py-3 text-xs text-muted-foreground">Nessun prodotto associato a questo fornitore.</p>
         ) : null}
       </div>
@@ -560,7 +569,7 @@ export function SupplierProductsManager({
             {openId === row.id && isAdmin ? <div className="mt-3">{editor(row)}</div> : null}
           </div>
         ))}
-        {!filtered.length ? (
+        {!linksQuery.isPending && !linksQuery.isError && !filtered.length ? (
           <p className="text-xs text-muted-foreground">Nessun prodotto associato a questo fornitore.</p>
         ) : null}
       </div>
