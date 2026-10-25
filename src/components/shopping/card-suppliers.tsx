@@ -975,41 +975,7 @@ export function CardSuppliers({
         <p className="rounded-sm border border-warning/50 bg-warning/10 px-1.5 py-0.5 text-[11px] text-warning-foreground" role="status">
           Fornitore scollegato dal prodotto: questa quota non viene più proposta né usata per nuovi ordini. Rimuovila o riassegna il prodotto.
         </p>
-        {editingAssignment ? (
-          <div className="flex items-center gap-1">
-            <Input
-              className="h-8 w-20 text-right"
-              inputMode="decimal"
-              autoFocus
-              value={editingAssignment.quantity}
-              aria-label={`Quantità ${a.name}`}
-              onChange={(e) => setOrphanEditing({ id: a.id, quantity: e.target.value })}
-            />
-            <span className="text-xs font-semibold">{a.purchaseUnitCode ?? unit}</span>
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              disabled={mutation.isPending || !editPacks || editPacks <= 0}
-              onClick={() =>
-                mutation.mutate({
-                  action: "set",
-                  linkId: a.linkId,
-                  packs: editPacks,
-                  accepted: true,
-                  unitId: a.purchaseUnitId,
-                  manualUnitCode: a.purchaseUnitId ? null : a.purchaseUnitCode,
-                  assignmentId: a.id,
-                })
-              }
-            >
-              Salva
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 px-0" aria-label="Annulla modifica" onClick={() => setOrphanEditing(null)}>
-              <X aria-hidden="true" />
-            </Button>
-          </div>
-        ) : (
+        {(
           <div className="flex flex-wrap items-center gap-x-1 text-xs">
             <span className="font-bold">
               {a.purchaseQuantity !== null ? `${qty(a.purchaseQuantity)} ${a.purchaseUnitCode ?? ""}` : `${a.quantity === null ? "—" : qty(a.quantity)} ${unit}`}
@@ -1020,23 +986,13 @@ export function CardSuppliers({
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="h-7 gap-1 px-1.5 text-[11px]"
-                  disabled={mutation.isPending || a.purchaseQuantity === null}
-                  onClick={() => setOrphanEditing({ id: a.id, quantity: a.purchaseQuantity === null ? "" : String(a.purchaseQuantity) })}
-                >
-                  <Pencil className="size-3" aria-hidden="true" /> Modifica
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
                   className="h-7 gap-1 px-1.5 text-[11px] text-destructive"
                   disabled={mutation.isPending}
                   onClick={() =>
                     mutation.mutate({ action: "remove", linkId: a.linkId, packs: null, accepted: false, unitId: null, manualUnitCode: null, assignmentId: a.id })
                   }
                 >
-                  <Trash2 className="size-3" aria-hidden="true" /> Togli
+                  <Trash2 className="size-3" aria-hidden="true" /> Rimuovi quota
                 </Button>
               </span>
             ) : null}
