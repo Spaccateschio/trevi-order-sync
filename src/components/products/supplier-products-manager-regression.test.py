@@ -76,6 +76,7 @@ async def main():
         await page.get_by_text("AZIENDA AGRICOLA ALESSANDRO BERTONI", exact=True).first.wait_for()
         print("PASS 4: existing product view reads the same BERTONI association")
         print("Blocked unsolicited commands:", blocked)
+        assert all(path == "/rest/v1/user_grid_preferences" for path in blocked), "Unexpected operational command"
         assert len(link_reads) >= 2
         print("No operational writes; association tests remain manual on 3 EMME")
         await browser.close()
