@@ -972,6 +972,9 @@ export function CardSuppliers({
           <span className="min-w-0 flex-1 truncate font-semibold">{a.name}</span>
           {show.b2b && a.isB2B ? <B2BBadge /> : null}
         </div>
+        <p className="rounded-sm border border-warning/50 bg-warning/10 px-1.5 py-0.5 text-[11px] text-warning-foreground" role="status">
+          Fornitore scollegato dal prodotto: questa quota non viene più proposta né usata per nuovi ordini. Rimuovila o riassegna il prodotto.
+        </p>
         {editingAssignment ? (
           <div className="flex items-center gap-1">
             <Input
