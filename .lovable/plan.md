@@ -1,25 +1,27 @@
-# Correzione autorizzazione del salvataggio U.M. di acquisto
+# Ripristino dei prodotti associati al fornitore
 
-## Verifica iniziale
-La funzione attuale riceve `_actor_user_id` dalla funzione server e controlla che quell’utente sia un amministratore aziendale attivo. È eseguibile solo da `service_role`: il controllo non deriva quindi dalla sessione database dell’utente.
+## Problema verificato
+Per AZ.AGR. GORI MARCO risultano già tre collegamenti attivi salvati. L’elenco «Prodotti forniti» fallisce nel leggere le U.M. e mostra erroneamente «0 associazioni»: non è prova di un mancato salvataggio.
 
-## Una sola correzione
-- Nuova firma di `save_product_purchase_units` senza parametro utente: identità esclusivamente da `auth.uid()`, controllo amministratore nel database sull’azienda del prodotto.
-- EXECUTE esclusivamente ad `authenticated`; revoca a `PUBLIC`, `anon` e `service_role`.
-- Vecchia firma conservata ma disabilitata, senza alcun EXECUTE ai ruoli applicativi: nessun percorso privilegiato alternativo.
-- La funzione server usa `context.supabase`, ossia la sessione dell’utente; nessuna chiave privilegiata o identità passata come parametro.
-- Validazioni U.M., predefinita, blocco del prodotto, scrittura atomica e audit restano invariati.
+Il collegamento è già unico e condiviso: «Aggiungi prodotti» salva in `product_supplier_links`, la scheda Prodotto legge gli stessi collegamenti tramite `product_supplier_overview`. Non serve duplicare dati o creare una seconda associazione.
 
-## Controlli
-Migrazione piccola in un’unica transazione gestita dal servizio: controllo ruolo iniziale e firme attese, verifica finale dei privilegi effettivi su entrambe le firme, SECURITY DEFINER e search_path. Successivo controllo read-only del database e test mirati della chiamata con sessione e senza parametro utente. Nessun salvataggio su aziende reali: il collaudo A–E su 3 EMME resta ad Andrea.
-
-## Compatibilità e limite
-Nessun cambiamento a tabelle o dati. Le versioni che usano ancora la vecchia firma non potranno salvare queste U.M. dopo la revoca: mantenerla accessibile sarebbe contrario alla correzione richiesta. Nessuna pubblicazione automatica.
+## Correzione circoscritta
+- Correggere la lettura delle U.M. nell’elenco del fornitore, indicando esplicitamente la relazione dell’U.M. acquistabile, distinta dall’U.M. di magazzino verificata.
+- Se il caricamento fallisce, mostrare un errore con possibilità di riprovare, non un falso elenco vuoto né consentire nuove associazioni basate su dati mancanti.
+- Dopo un’associazione, aggiornare le letture interessate della scheda Prodotto e dell’elenco fornitore. Conservare le RPC esistenti, i controlli e la selezione multipla; nessuna duplicazione o modifica automatica di U.M., costi o conversioni.
+- In caso di errore durante la selezione multipla, aggiornare comunque l’elenco per mostrare eventuali collegamenti già riusciti, senza presentarli come non salvati.
 
 ## File previsti
-- Nuova migrazione in `drizzle/migrations/`, generata e applicata dal servizio, con aggiornamento automatico dei tipi.
-- `src/lib/product-purchase-units.functions.ts`.
-- Nuovo test mirato `src/lib/product-purchase-units-auth.test.ts`.
-- `AGENTS.md`: sostituzione della sola regola relativa a questa autorizzazione.
+- `src/components/products/supplier-products-manager.tsx`: lettura, stato di errore e aggiornamento degli elenchi.
+- `src/components/products/supplier-products-manager-regression.test.py`: prova del flusso con risposte di salvataggio simulate, senza scritture operative.
+- `src/components/products/AGENTS.md`: regola sul collegamento condiviso e sulla lettura U.M. esplicita.
 
-Nessuna modifica all’interfaccia, a Danea, ordini o giacenze; nessun invio; `roadmap.md` invariato.
+## Verifiche
+- Lettura autenticata dei collegamenti già presenti e controllo dell’assenza dell’errore osservato.
+- Prova selezione multipla → associazione → elenco fornitore → scheda Prodotto con risposte simulate, più prova di errore: nessuna scrittura su Trevi o altre aziende.
+- Il collaudo con salvataggio reale resta ad Andrea su 3 EMME.
+
+## Dettaglio tecnico
+Errore rilevato: `PGRST201`, relazione ambigua tra `product_supplier_link_units` e `units_of_measure`; usare `units_of_measure!product_supplier_link_units_unit_id_fkey`. L’altra relazione riguarda `verified_stock_unit_id` e non rappresenta l’U.M. acquistabile.
+
+Nessuna migrazione, modifica a dati aziendali, invio o pubblicazione; `roadmap.md` invariato.
