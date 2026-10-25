@@ -115,6 +115,7 @@ export function SupplierProductsManager({
   const queryClient = useQueryClient();
   const [term, setTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"tutti" | "attivi" | "non_attivi" | "preferiti">("tutti");
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [addOpen, setAddOpen] = useState(false);
@@ -179,6 +180,48 @@ export function SupplierProductsManager({
     () => new Map((costsQuery.data ?? []).map((row) => [row.product_id, row])),
     [costsQuery.data],
   );
+
+  const sortValue = (row: LinkRow, key: SortKey): string | number | null => {
+    switch (key) {
+      case "code":
+        return row.products?.code ?? "";
+      case "descrizione":
+        return row.products?.description ?? "";
+      case "archivio":
+        return archiveName(row.products?.archive_id ?? null);
+      case "cod_fornitore":
+        return row.supplier_product_code ?? "";
+      case "um":
+        return purchaseUnitsLabel(row);
+      case "costo_danea":
+        return costByProduct.get(row.product_id)?.supplier_net_price ?? null;
+      case "costo_trevi":
+        return row.manual_cost;
+      case "qtamin":
+        return row.min_quantity;
+      case "consegna":
+        return row.lead_time_days;
+      case "stato":
+        return row.is_active ? "attivo" : "non attivo";
+    }
+  };
+
+  const toggleSort = (key: SortKey) =>
+    setSort((current) =>
+      current && current.key === key ? (current.dir === 1 ? { key, dir: -1 } : null) : { key, dir: 1 },
+    );
+
+  const sortIcon = (key: SortKey) => {
+    if (!sort || sort.key !== key) return null;
+    return sort.dir === 1 ? (
+      <ArrowUp className="h-3 w-3" aria-hidden="true" />
+    ) : (
+      <ArrowDown className="h-3 w-3" aria-hidden="true" />
+    );
+  };
+
+  const ariaSort = (key: SortKey) =>
+    sort && sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : undefined;
 
   const open = rows.find((row) => row.id === openId) ?? null;
 
