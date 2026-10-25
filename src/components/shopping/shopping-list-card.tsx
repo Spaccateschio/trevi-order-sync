@@ -28,6 +28,7 @@ import { type OverviewRow } from "@/lib/shopping-list";
 import type { SupplierMemory } from "@/lib/supplier-memory";
 import { factsFromRow, rowLabel } from "@/lib/supplier-selection";
 import { cn } from "@/lib/utils";
+import { companyProductPurchaseUnitsOptions } from "@/lib/product-purchase-units";
 
 export type StockInfo = {
   lastQuantity: number | null;
@@ -190,13 +191,16 @@ export function ShoppingListCard({
   const name = row.description ?? row.code;
   const unit = row.unit_code ?? "";
   const suppliers = extra?.suppliers ?? [];
+  const ownUnitsQuery = useQuery(companyProductPurchaseUnitsOptions(companyId));
+  const ownUnits = (ownUnitsQuery.data ?? []).filter((u) => u.product_id === row.product_id);
   const decided = useDecidedUnitOptions(
     companyId,
     row.item_id,
     !pending && (Boolean(onUnitChange) || editable),
     suppliers.filter((s) => !s.purchaseUnitId && s.purchaseUnitCode).map((s) => s.purchaseUnitCode as string),
   );
-  const unitOptions = decided.options.filter((o) => o.code.trim().toLowerCase() !== unit.trim().toLowerCase());
+  const ownOptions: UnitOption[] = ownUnits.flatMap((u) => u.units_of_measure ? [{ key: u.unit_id, unitId: u.unit_id, code: u.units_of_measure.code, factor: null }] : []);
+  const unitOptions = [...ownOptions, ...decided.options.filter((o) => !ownOptions.some((u) => u.unitId === o.unitId))].filter((o) => o.code.trim().toLowerCase() !== unit.trim().toLowerCase());
   const decidedKey = extra?.decidedUnitId
     ? extra.decidedUnitId
     : extra?.decidedUnitCode

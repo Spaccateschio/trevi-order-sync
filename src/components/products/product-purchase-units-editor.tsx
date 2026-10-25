@@ -21,6 +21,7 @@ export function ProductPurchaseUnitsEditor({ companyId, productId, units, editab
     mutationFn: () => save({ data: { productId, unitIds: value.ids, defaultUnitId: value.defaultId } }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["product-purchase-units", companyId, productId] });
+      await queryClient.invalidateQueries({ queryKey: ["product-purchase-units", companyId, "all"] });
       setDraft(null);
       toast.success("U.M. di acquisto salvate");
     },

@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export type ProductPurchaseUnit = { unit_id: string; is_default: boolean };
+export type ProductPurchaseUnitCode = ProductPurchaseUnit & { product_id: string; units_of_measure: { code: string; status: string; usage: string } | null };
 export type PurchaseCompanyUnit = { id: string; company_id?: string; status: string; usage?: string | null };
 
 export function allowedPurchaseUnits<T extends PurchaseCompanyUnit>(units: T[], companyId: string): T[] {
@@ -22,6 +23,17 @@ export function productPurchaseUnitsOptions(companyId: string, productId: string
       const { data, error } = await supabase.from("product_purchase_units").select("unit_id, is_default").eq("company_id", companyId).eq("product_id", productId);
       if (error) throw new Error(error.message);
       return data ?? [];
+    },
+  });
+}
+
+export function companyProductPurchaseUnitsOptions(companyId: string) {
+  return queryOptions({
+    queryKey: ["product-purchase-units", companyId, "all"],
+    queryFn: async (): Promise<ProductPurchaseUnitCode[]> => {
+      const { data, error } = await supabase.from("product_purchase_units").select("product_id, unit_id, is_default, units_of_measure(code, status, usage)").eq("company_id", companyId);
+      if (error) throw new Error(error.message);
+      return (data ?? []).filter((u) => u.units_of_measure?.status === "attivo" && (u.units_of_measure.usage === "acquisto" || u.units_of_measure.usage === "entrambi"));
     },
   });
 }
