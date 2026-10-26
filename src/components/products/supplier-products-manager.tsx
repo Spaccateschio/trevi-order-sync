@@ -21,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { dateTime, euro } from "@/lib/product-grid";
 import { fetchDaneaArchives } from "@/lib/price-lists";
+import { StockPackagesSection } from "./stock-unit-config";
+import type { CompanyUnit } from "./sales-unit-manager";
 
 /**
  * Vista inversa Fornitore → Prodotti forniti.
