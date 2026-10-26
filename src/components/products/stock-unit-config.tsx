@@ -288,58 +288,9 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
 
       <IssuesList issues={issuesQuery.data ?? []} />
 
-      <div className="space-y-2 border-t border-border pt-2">
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold">Confezioni</h4>
-          {editable ? <Button type="button" size="sm" variant="outline" disabled={!stockUnitId} onClick={() => setPackageDraft({ id: null, name: "", unitId: "", quantity: "", active: true })}><Plus />Confezione</Button> : null}
-        </div>
-        {!stockUnitId ? <p className="text-xs text-muted-foreground">Imposta prima la U.M. di magazzino.</p> : null}
-        {packagesQuery.data?.length ? (
-          <ul className="divide-y divide-border rounded-md border border-border">
-            {packagesQuery.data.map((pack) => {
-              const review = pack.status === "attivo" && pack.verified_stock_unit_id !== stockUnitId;
-              return (
-                <li key={pack.id} className="flex items-center justify-between gap-2 px-2 py-1.5 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{pack.name}</p>
-                    <p className="text-xs text-muted-foreground">1 {unitCode(pack.unit_id)} = {Number(pack.stock_quantity).toLocaleString("it-IT")} {unitCode(pack.verified_stock_unit_id)} · versione {pack.package_version}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Badge variant={review ? "destructive" : pack.status === "attivo" ? "secondary" : "outline"}>{review ? "da rivedere" : pack.status === "attivo" ? "attiva" : "disattivata"}</Badge>
-                    {editable ? <Button type="button" size="icon" variant="ghost" aria-label={`${review ? "Riconferma" : "Modifica"} ${pack.name}`} onClick={() => setPackageDraft({ id: pack.id, name: pack.name, unitId: pack.unit_id, quantity: String(pack.stock_quantity), active: pack.status === "attivo" })}><Pencil /></Button> : null}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        ) : stockUnitId ? <p className="text-xs text-muted-foreground">Nessuna confezione dichiarata.</p> : null}
+      <div className="border-t border-border pt-2">
+        <StockPackagesSection productId={productId} units={units} editable={editable} />
       </div>
-
-
-      <Dialog open={packageDraft !== null} onOpenChange={(open) => { if (!open) setPackageDraft(null); }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{packageDraft?.id ? "Modifica confezione" : "Nuova confezione"}</DialogTitle></DialogHeader>
-          {packageDraft ? (
-            <div className="grid gap-3">
-              <div className="grid gap-1"><Label htmlFor="pack-name">Nome</Label><Input id="pack-name" value={packageDraft.name} placeholder="Cassa 6 bt" onChange={(event) => setPackageDraft({ ...packageDraft, name: event.target.value })} /></div>
-              <div className="grid gap-1">
-                <Label>U.M. della confezione</Label>
-                <Select value={packageDraft.unitId} onValueChange={(value) => setPackageDraft({ ...packageDraft, unitId: value })}>
-                  <SelectTrigger aria-label="U.M. della confezione"><SelectValue placeholder="Scegli" /></SelectTrigger>
-                  <SelectContent>{activeUnits.map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.code} — {unit.description}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-1"><Label htmlFor="pack-qty">Equivale a ({stockCode})</Label><Input id="pack-qty" inputMode="decimal" value={packageDraft.quantity} onChange={(event) => setPackageDraft({ ...packageDraft, quantity: event.target.value })} /></div>
-              <label className="flex items-center gap-2 text-sm"><Switch checked={packageDraft.active} onCheckedChange={(checked) => setPackageDraft({ ...packageDraft, active: checked })} />Attiva</label>
-              {packageDraft.id ? <p className="text-xs text-muted-foreground">Se cambi quantità o U.M., le conversioni dei fornitori collegate andranno riconfermate.</p> : null}
-            </div>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setPackageDraft(null)}>Annulla</Button>
-            <Button type="button" disabled={packageMutation.isPending || !packageDraft?.name.trim() || !packageDraft?.unitId} onClick={() => { if (packageDraft) packageMutation.mutate(packageDraft); }}>Salva</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }
