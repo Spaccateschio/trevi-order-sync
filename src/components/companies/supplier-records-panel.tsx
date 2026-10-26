@@ -586,8 +586,9 @@ export function SupplierRecordsPanel({
   const visibleWeight = columns.reduce((total, column) => total + columnWidths[column.key], 0);
   const columnPercent = (key: SupplierColumnKey) =>
     `${(columnWidths[key] / Math.max(visibleWeight, 1)) * 100}%`;
+  // Testo leggermente più grande su schermi grandi, come la pagina Prodotti (text-xs).
   const densityClass =
-    columns.length >= 12 ? "text-[8px]" : columns.length >= 8 ? "text-[9px]" : "text-[10px]";
+    columns.length >= 12 ? "text-[10px]" : columns.length >= 8 ? "text-[11px]" : "text-xs";
 
   /**
    * Scheda fornitore: stesso contenuto nella finestra centrata (schermi piccoli e
