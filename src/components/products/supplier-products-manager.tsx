@@ -21,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { dateTime, euro } from "@/lib/product-grid";
 import { fetchDaneaArchives } from "@/lib/price-lists";
+import { StockPackagesSection } from "./stock-unit-config";
+import type { CompanyUnit } from "./sales-unit-manager";
 
 /**
  * Vista inversa Fornitore → Prodotti forniti.
@@ -154,6 +156,21 @@ export function SupplierProductsManager({
   const archivesQuery = useQuery({
     queryKey: ["danea-archives", companyId],
     queryFn: () => fetchDaneaArchives(companyId),
+  });
+
+  // U.M. dell'azienda: servono per mostrare e gestire le confezioni del prodotto
+  // (archivio unico product_stock_packages, condiviso con la scheda prodotto).
+  const unitsQuery = useQuery({
+    queryKey: ["company-units", companyId],
+    queryFn: async (): Promise<CompanyUnit[]> => {
+      const { data, error } = await supabase
+        .from("units_of_measure")
+        .select("id, code, description, status")
+        .eq("company_id", companyId)
+        .order("code");
+      if (error) throw new Error(error.message);
+      return (data ?? []) as CompanyUnit[];
+    },
   });
 
 
@@ -437,6 +454,14 @@ export function SupplierProductsManager({
             onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
           />
         </div>
+      </div>
+      <div className="border-t border-border pt-2">
+        <StockPackagesSection
+          productId={row.product_id}
+          units={unitsQuery.data ?? []}
+          editable={isAdmin}
+          note="Le confezioni sono del prodotto: valgono per tutti i fornitori e sono le stesse che vedi nella scheda prodotto."
+        />
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         <Button
