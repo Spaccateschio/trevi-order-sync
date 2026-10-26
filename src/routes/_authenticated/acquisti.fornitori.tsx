@@ -44,6 +44,7 @@ function Fornitori() {
 
   return (
     <AppShell
+      wide
       title="Fornitori"
       description="La tua anagrafica commerciale: un fornitore esiste qui anche se non usa Trevi Fruit."
     >
