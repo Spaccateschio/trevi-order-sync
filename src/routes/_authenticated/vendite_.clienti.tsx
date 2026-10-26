@@ -45,6 +45,7 @@ function Clienti() {
 
   return (
     <AppShell
+      wide
       title="Clienti"
       description="La tua anagrafica commerciale: un cliente esiste qui anche se non usa Trevi Fruit."
     >
