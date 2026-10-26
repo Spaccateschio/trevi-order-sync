@@ -106,46 +106,27 @@ function IssuesList({ issues }: { issues: UnitConfigIssue[] }) {
 }
 
 /** Tab Inventario: U.M. Danea (informativa), U.M. di magazzino, confezioni e motivi da completare. */
-export function StockUnitSection({ companyId, productId, daneaUm, units, editable }: {
-  companyId: string;
+/**
+ * Confezioni del prodotto (es. «cassa da 10 kg»): salvate una sola volta sul prodotto
+ * (product_stock_packages) e condivise da tutti i fornitori. Lo stesso componente è
+ * usato nella scheda prodotto (tab Inventario) e nella scheda fornitore: chi modifica
+ * da una parte vede il cambiamento dall'altra, perché l'archivio è unico.
+ */
+export function StockPackagesSection({ productId, units, editable, note }: {
   productId: string;
-  daneaUm: string | null;
   units: CompanyUnit[];
   editable: boolean;
+  /** Nota facoltativa mostrata sotto il titolo (es. contesto fornitore). */
+  note?: string;
 }) {
   const invalidate = useInvalidateUnitConfig(productId);
   const stockQuery = useProductStockUnit(productId);
   const packagesQuery = useStockPackages(productId);
-  const issuesQuery = useUnitConfigIssues(companyId, productId);
-  const queryClient = useQueryClient();
-  const allowedQuery = useQuery({
-    queryKey: ["product-inventory-units", productId],
-    queryFn: async (): Promise<string[]> => {
-      const { data, error } = await supabase.from("product_inventory_units").select("unit_id").eq("product_id", productId).order("created_at");
-      if (error) throw new Error(error.message);
-      return (data ?? []).map((row) => row.unit_id);
-    },
-  });
-  const allowedIds = allowedQuery.data ?? [];
   const [packageDraft, setPackageDraft] = useState<{ id: string | null; name: string; unitId: string; quantity: string; active: boolean } | null>(null);
 
   const stockUnitId = stockQuery.data?.stock_unit_id ?? null;
   const unitCode = (id: string | null | undefined) => units.find((unit) => unit.id === id)?.code ?? "—";
   const stockCode = stockUnitId ? unitCode(stockUnitId) : null;
-  const differsFromDanea = Boolean(stockCode && daneaUm && stockCode.toLowerCase() !== daneaUm.trim().toLowerCase());
-
-  const toggleMutation = useMutation({
-    mutationFn: async ({ unitId, add }: { unitId: string; add: boolean }) => {
-      const { error } = await supabase.rpc("manage_product_inventory_unit", { _product_id: productId, _unit_id: unitId, _add: add });
-      if (error) throw new Error(error.message);
-    },
-    onSuccess: () => {
-      invalidate();
-      void queryClient.invalidateQueries({ queryKey: ["product-inventory-units", productId] });
-      void queryClient.invalidateQueries({ queryKey: ["inventory-allowed-units"] });
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
 
   const packageMutation = useMutation({
     mutationFn: async (draft: NonNullable<typeof packageDraft>) => {
@@ -162,6 +143,103 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
       if (error) throw new Error(error.message);
     },
     onSuccess: () => { toast.success("Confezione salvata"); setPackageDraft(null); invalidate(); },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const activeUnits = units.filter((unit) => unit.status === "attivo");
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold">Confezioni</h4>
+        {editable ? <Button type="button" size="sm" variant="outline" disabled={!stockUnitId} onClick={() => setPackageDraft({ id: null, name: "", unitId: "", quantity: "", active: true })}><Plus />Confezione</Button> : null}
+      </div>
+      {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
+      {!stockUnitId ? <p className="text-xs text-muted-foreground">Imposta prima la U.M. di magazzino.</p> : null}
+      {packagesQuery.data?.length ? (
+        <ul className="divide-y divide-border rounded-md border border-border">
+          {packagesQuery.data.map((pack) => {
+            const review = pack.status === "attivo" && pack.verified_stock_unit_id !== stockUnitId;
+            return (
+              <li key={pack.id} className="flex items-center justify-between gap-2 px-2 py-1.5 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{pack.name}</p>
+                  <p className="text-xs text-muted-foreground">1 {unitCode(pack.unit_id)} = {Number(pack.stock_quantity).toLocaleString("it-IT")} {unitCode(pack.verified_stock_unit_id)} · versione {pack.package_version}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Badge variant={review ? "destructive" : pack.status === "attivo" ? "secondary" : "outline"}>{review ? "da rivedere" : pack.status === "attivo" ? "attiva" : "disattivata"}</Badge>
+                  {editable ? <Button type="button" size="icon" variant="ghost" aria-label={`${review ? "Riconferma" : "Modifica"} ${pack.name}`} onClick={() => setPackageDraft({ id: pack.id, name: pack.name, unitId: pack.unit_id, quantity: String(pack.stock_quantity), active: pack.status === "attivo" })}><Pencil /></Button> : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : stockUnitId ? <p className="text-xs text-muted-foreground">Nessuna confezione dichiarata.</p> : null}
+
+      <Dialog open={packageDraft !== null} onOpenChange={(open) => { if (!open) setPackageDraft(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{packageDraft?.id ? "Modifica confezione" : "Nuova confezione"}</DialogTitle></DialogHeader>
+          {packageDraft ? (
+            <div className="grid gap-3">
+              <div className="grid gap-1"><Label htmlFor="pack-name">Nome</Label><Input id="pack-name" value={packageDraft.name} placeholder="Cassa 6 bt" onChange={(event) => setPackageDraft({ ...packageDraft, name: event.target.value })} /></div>
+              <div className="grid gap-1">
+                <Label>U.M. della confezione</Label>
+                <Select value={packageDraft.unitId} onValueChange={(value) => setPackageDraft({ ...packageDraft, unitId: value })}>
+                  <SelectTrigger aria-label="U.M. della confezione"><SelectValue placeholder="Scegli" /></SelectTrigger>
+                  <SelectContent>{activeUnits.map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.code} — {unit.description}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1"><Label htmlFor="pack-qty">Equivale a ({stockCode})</Label><Input id="pack-qty" inputMode="decimal" value={packageDraft.quantity} onChange={(event) => setPackageDraft({ ...packageDraft, quantity: event.target.value })} /></div>
+              <label className="flex items-center gap-2 text-sm"><Switch checked={packageDraft.active} onCheckedChange={(checked) => setPackageDraft({ ...packageDraft, active: checked })} />Attiva</label>
+              {packageDraft.id ? <p className="text-xs text-muted-foreground">Se cambi quantità o U.M., le conversioni dei fornitori collegate andranno riconfermate.</p> : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPackageDraft(null)}>Annulla</Button>
+            <Button type="button" disabled={packageMutation.isPending || !packageDraft?.name.trim() || !packageDraft?.unitId} onClick={() => { if (packageDraft) packageMutation.mutate(packageDraft); }}>Salva</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+export function StockUnitSection({ companyId, productId, daneaUm, units, editable }: {
+  companyId: string;
+  productId: string;
+  daneaUm: string | null;
+  units: CompanyUnit[];
+  editable: boolean;
+}) {
+  const invalidate = useInvalidateUnitConfig(productId);
+  const stockQuery = useProductStockUnit(productId);
+  const issuesQuery = useUnitConfigIssues(companyId, productId);
+  const queryClient = useQueryClient();
+  const allowedQuery = useQuery({
+    queryKey: ["product-inventory-units", productId],
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase.from("product_inventory_units").select("unit_id").eq("product_id", productId).order("created_at");
+      if (error) throw new Error(error.message);
+      return (data ?? []).map((row) => row.unit_id);
+    },
+  });
+  const allowedIds = allowedQuery.data ?? [];
+
+  const stockUnitId = stockQuery.data?.stock_unit_id ?? null;
+  const unitCode = (id: string | null | undefined) => units.find((unit) => unit.id === id)?.code ?? "—";
+  const stockCode = stockUnitId ? unitCode(stockUnitId) : null;
+  const differsFromDanea = Boolean(stockCode && daneaUm && stockCode.toLowerCase() !== daneaUm.trim().toLowerCase());
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ unitId, add }: { unitId: string; add: boolean }) => {
+      const { error } = await supabase.rpc("manage_product_inventory_unit", { _product_id: productId, _unit_id: unitId, _add: add });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      invalidate();
+      void queryClient.invalidateQueries({ queryKey: ["product-inventory-units", productId] });
+      void queryClient.invalidateQueries({ queryKey: ["inventory-allowed-units"] });
+    },
     onError: (error: Error) => toast.error(error.message),
   });
 
