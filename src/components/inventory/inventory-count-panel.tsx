@@ -571,21 +571,37 @@ export function InventoryCountPanel({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const resetOpenCountFn = useServerFn(resetOpenInventoryCount);
+  // «Svuota»: con inventario in corso cancella bozze e quantità confermate e sblocca le card.
+  // Il database rifiuta (nessun dato toccato) se non sei amministratore o gli ordini sono partiti.
   const clearAllDrafts = useMutation({
     mutationFn: async () => {
-      Object.values(draftTimers.current).forEach(clearTimeout);
-      draftTimers.current = {};
       if (sessionId) {
-        await draftFn({ data: { action: "clear_all", sessionId, productId: null, locationId: null, linkId: null, quantity: null, unitCode: null } });
+        await resetOpenCountFn({ data: { sessionId } });
       }
     },
     onSuccess: async () => {
+      Object.values(draftTimers.current).forEach(clearTimeout);
+      draftTimers.current = {};
+      draftsRef.current = {};
       setDrafts({});
       setDraftFirst({});
       setSavedDraftKeys(new Set());
+      setUnlockedCards(new Set());
+      setUnlockedAll(false);
+      setPending(null);
+      setPendingReason("");
       setClearDraftsOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["inventory-count-drafts", sessionId] });
-      toast.success("Quantità non confermate azzerate");
+      if (sessionId) {
+        queryClient.setQueryData(["inventory-count-drafts", sessionId], []);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
+          ...inventoryReopenQueryKeys(companyId, archiveId, sessionId).map((queryKey) =>
+            queryClient.invalidateQueries({ queryKey, refetchType: "all" }),
+          ),
+        ]);
+      }
+      toast.success("Inventario svuotato: tutte le quantità azzerate e card sbloccate");
     },
     onError: (error: Error) => toast.error(error.message),
   });
