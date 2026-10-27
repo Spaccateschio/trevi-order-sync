@@ -1,26 +1,26 @@
-# Ripristino dei prodotti associati al fornitore
+# Inventario: azzeramento coerente e barra stabile
 
-## Problema verificato
-Per AZ.AGR. GORI MARCO risultano già tre collegamenti attivi salvati. L’elenco «Prodotti forniti» fallisce nel leggere le U.M. e mostra erroneamente «0 associazioni»: non è prova di un mancato salvataggio.
+## Problemi verificati
+- «Azzera» nei filtri cancella soltanto le quantità non confermate: quelle confermate restano bloccate. L’altro «Azzera quantità» riapre invece un inventario concluso, con controlli già esistenti.
+- Dopo una riapertura, la pagina non aggiorna esplicitamente tutte le letture delle card e conserva le quantità locali: può mostrare valori e blocchi precedenti.
+- La barra superiore cambia contenuto e altezza sulla soglia di scorrimento; la sua stessa posizione contribuisce a decidere quando cambiare.
 
-Il collegamento è già unico e condiviso: «Aggiungi prodotti» salva in `product_supplier_links`, la scheda Prodotto legge gli stessi collegamenti tramite `product_supplier_overview`. Non serve duplicare dati o creare una seconda associazione.
+## Correzione proposta
+1. Distinguere «Svuota bozze» da «Rifai inventario» nei comandi e nelle conferme. Non trasformare un semplice svuotamento in cancellazione di conteggi confermati.
+2. Dopo una riapertura riuscita con azzeramento, annullare i salvataggi locali in attesa, svuotare le quantità locali e rileggere card, avanzamento e bozze prima di dichiarare il successo. In caso di rifiuto mantenere tutto invariato.
+3. Stabilizzare la soglia della barra compatta, con margine tra attivazione e disattivazione, evitando cambi ripetuti mentre si scorre verso l’alto. Conservare filtri, ricerca e comandi.
 
-## Correzione circoscritta
-- Correggere la lettura delle U.M. nell’elenco del fornitore, indicando esplicitamente la relazione dell’U.M. acquistabile, distinta dall’U.M. di magazzino verificata.
-- Se il caricamento fallisce, mostrare un errore con possibilità di riprovare, non un falso elenco vuoto né consentire nuove associazioni basate su dati mancanti.
-- Salvataggio già condiviso tramite `manage_product_supplier_link`: lasciarlo interamente invariato, insieme alla pagina Prodotto e alla selezione multipla.
+## Limite da rispettare
+Su 3 EMME l’ultimo inventario ha già generato un ordine inviato: la protezione esistente impedisce di riaprirlo e cancellarne i conteggi. Resta invariata; mostrare chiaramente il motivo. Non azzerare giacenze, non cancellare lo storico e non modificare ordini o Lista della Spesa.
 
 ## File previsti
-- `src/components/products/supplier-products-manager.tsx`: soltanto lettura e stato di errore con riprova.
-- `src/components/products/supplier-products-manager-regression.test.py`: verifica autenticata in sola lettura, errore simulato e riprova; nessuna associazione reale.
-- `src/components/products/AGENTS.md`: regola sul collegamento condiviso e sulla lettura U.M. esplicita.
+- `src/components/inventory/inventory-count-panel.tsx`: comandi distinti, aggiornamento dopo riapertura e stabilizzazione della barra.
+- `src/lib/inventory-reset.ts` e `src/lib/inventory-reset.test.ts`: decisione condivisa dei comandi e verifica delle letture da aggiornare.
+- `src/lib/inventory-scroll.ts` e `src/lib/inventory-scroll.test.ts`: soglia stabile e test delle oscillazioni.
+- `src/components/inventory/AGENTS.md` e `AGENTS.md`: regole della correzione.
+- `roadmap.md`: soltanto aggiunta e chiusura di questi due interventi, senza modificare le attività precedenti.
 
 ## Verifiche
-- Lettura autenticata dei collegamenti già presenti e controllo dell’assenza dell’errore osservato.
-- Verifica BASILICO → BERTONI in entrambe le viste, solo lettura; errore simulato e riprova, nessuna scrittura su Trevi o altre aziende.
-- Il collaudo con salvataggio reale resta ad Andrea su 3 EMME.
+Test mirati su azzeramento riuscito/rifiutato, bozze e protezioni; controllo della pagina autenticata e dello scorrimento su cellulare, senza scritture sui dati operativi. Il collaudo con azzeramento reale resta ad Andrea su dati di prova consentiti.
 
-## Dettaglio tecnico
-Errore rilevato: `PGRST201`, relazione ambigua tra `product_supplier_link_units` e `units_of_measure`; usare `units_of_measure!product_supplier_link_units_unit_id_fkey`. L’altra relazione riguarda `verified_stock_unit_id` e non rappresenta l’U.M. acquistabile.
-
-Nessuna migrazione, modifica a dati aziendali, invio o pubblicazione; `roadmap.md` invariato.
+Nessuna migrazione, modifica SQL, invio o pubblicazione.
