@@ -617,6 +617,13 @@
       "when": 1793120581249,
       "tag": "0087_reset_open_inventory_count",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1793122206506,
+      "tag": "0088_deactivate_link_removing_from_open_lists",
+      "breakpoints": true
     }
   ]
 }
