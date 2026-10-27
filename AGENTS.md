@@ -33,6 +33,7 @@
 - Prezzo riga d'ordine B2B: solo applicable_b2b_price (netto, listino assegnato, articolo pubblicato) sull'articolo del collegamento usato, letto prima di ogni scrittura in close_shopping_list / create_purchase_orders_from_list; nessun fallback: senza prezzo «Prezzo su richiesta».
 - Regole U.M. di vendita: vedi src/components/products/AGENTS.md.
 - Regole Inventario (zone abituali, aggiunte al conteggio, inventario completo): vedi src/components/inventory/AGENTS.md.
+- Inventory reset/cache and scroll thresholds use pure helpers; DB guards remain authoritative.
 - Never alter real operational data in tests, even temporarily. Writes require rollback or explicitly authorized test data.
 - 3 EMME ROMA SRL è l'azienda di prova: Andrea può fare collaudi manuali dall'app in anteprima. Mai prove su trevi srl o su altre aziende reali. Nessun invio reale ai fornitori durante i collaudi.
 
