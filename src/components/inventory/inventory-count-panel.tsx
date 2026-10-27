@@ -290,7 +290,7 @@ export function InventoryCountPanel({
   const unitChoice = useMemo(() => ({
     allowed: allowedUnitsQuery.data ?? new Map<string, { id: string; code: string }[]>(),
     chosen: chosenUnits,
-    choose: (productId: string, unitId: string) => setChosenUnits((current) => ({ ...current, [productId]: unitId })),
+    choose: (cardKey: string, unitId: string) => setChosenUnits((current) => ({ ...current, [cardKey]: unitId })),
   }), [allowedUnitsQuery.data, chosenUnits]);
   const readHistory = useServerFn(getCountHistory);
   const manageProposal = useServerFn(managePurchaseProposal);
@@ -1222,7 +1222,7 @@ export function InventoryCountPanel({
           entryType: input.row.counted !== null ? "riconteggio" : "conteggio",
           countedQuantity: input.value,
           unitCode: input.unit || null,
-          unitId: unitChoice.chosen[input.row.product_id]
+          unitId: unitChoice.chosen[rowKey(input.row)]
             ?? unitChoice.allowed.get(input.row.product_id)?.find((option) => option.code === input.row.counted_unit_code?.trim())?.id
             ?? null,
           notes: input.notes,
@@ -3225,7 +3225,7 @@ function ProductCard({
   const allowedUnits = unitChoice.allowed.get(row.product_id) ?? [];
   // Default: U.M. dell'ultimo conteggio se ammessa, altrimenti la principale.
   const lastCountedUnitId = allowedUnits.find((option) => option.code === row.counted_unit_code?.trim())?.id;
-  const chosenUnitId = unitChoice.chosen[row.product_id]
+  const chosenUnitId = unitChoice.chosen[rowKey(row)]
     ?? lastCountedUnitId
     ?? allowedUnits.find((option) => option.code === rowUnit(row))?.id
     ?? allowedUnits[0]?.id;
@@ -3483,7 +3483,7 @@ function ProductCard({
                 className="h-5 rounded border border-border bg-background px-1 text-[10px] font-semibold leading-none"
                 aria-label="Unità di misura inventario"
                 value={chosenUnitId ?? ""}
-                onChange={(event) => { if (editable) unitChoice.choose(row.product_id, event.target.value); }}
+                onChange={(event) => { if (editable) unitChoice.choose(rowKey(row), event.target.value); }}
               >
                 {allowedUnits.map((option) => <option key={option.id} value={option.id}>{option.code}</option>)}
               </select>
