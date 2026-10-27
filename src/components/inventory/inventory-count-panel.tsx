@@ -93,6 +93,7 @@ import {
   startGeneralInventory,
   manageCountDraft,
   reopenInventoryCount,
+  resetOpenInventoryCount,
   type CatalogCandidate,
   type CountHistoryEntry,
   type InventoryCountRow,
@@ -570,21 +571,37 @@ export function InventoryCountPanel({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const resetOpenCountFn = useServerFn(resetOpenInventoryCount);
+  // «Svuota»: con inventario in corso cancella bozze e quantità confermate e sblocca le card.
+  // Il database rifiuta (nessun dato toccato) se non sei amministratore o gli ordini sono partiti.
   const clearAllDrafts = useMutation({
     mutationFn: async () => {
-      Object.values(draftTimers.current).forEach(clearTimeout);
-      draftTimers.current = {};
       if (sessionId) {
-        await draftFn({ data: { action: "clear_all", sessionId, productId: null, locationId: null, linkId: null, quantity: null, unitCode: null } });
+        await resetOpenCountFn({ data: { sessionId } });
       }
     },
     onSuccess: async () => {
+      Object.values(draftTimers.current).forEach(clearTimeout);
+      draftTimers.current = {};
+      draftsRef.current = {};
       setDrafts({});
       setDraftFirst({});
       setSavedDraftKeys(new Set());
+      setUnlockedCards(new Set());
+      setUnlockedAll(false);
+      setPending(null);
+      setPendingReason("");
       setClearDraftsOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["inventory-count-drafts", sessionId] });
-      toast.success("Quantità non confermate azzerate");
+      if (sessionId) {
+        queryClient.setQueryData(["inventory-count-drafts", sessionId], []);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
+          ...inventoryReopenQueryKeys(companyId, archiveId, sessionId).map((queryKey) =>
+            queryClient.invalidateQueries({ queryKey, refetchType: "all" }),
+          ),
+        ]);
+      }
+      toast.success("Inventario svuotato: tutte le quantità azzerate e card sbloccate");
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -2347,15 +2364,15 @@ export function InventoryCountPanel({
       <Dialog open={clearDraftsOpen} onOpenChange={setClearDraftsOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-base">Svuotare le bozze?</DialogTitle>
+            <DialogTitle className="text-base">Svuotare l'inventario?</DialogTitle>
             <DialogDescription>
-              Cancello tutte le quantità scritte e non ancora confermate. I conteggi già confermati e lo storico restano invariati.
+              Cancello tutte le quantità dell'inventario in corso, anche quelle già confermate, e sblocco tutte le card. La giacenza di magazzino non cambia e lo storico dei conteggi resta. Solo un amministratore può farlo; se gli ordini del ciclo sono già stati inviati non viene modificato nulla.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setClearDraftsOpen(false)}>Annulla</Button>
             <Button variant="destructive" disabled={clearAllDrafts.isPending} onClick={() => clearAllDrafts.mutate()}>
-              Svuota bozze
+              Svuota inventario
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2729,7 +2746,7 @@ function PhysicalCount({
               </Button>
             </div>
             <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={onClearDrafts}>
-              {!sessionActive && cycleLock.locked ? "Rifai inventario" : "Svuota bozze"}
+              {!sessionActive && cycleLock.locked ? "Rifai inventario" : "Svuota"}
             </Button>
             <Button size="sm" className="h-8 px-2 text-xs" variant={workFilter === "all" ? "default" : "outline"} onClick={() => onWorkFilterChange("all")}>
               Tutti gli stati

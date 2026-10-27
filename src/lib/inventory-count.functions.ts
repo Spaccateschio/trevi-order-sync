@@ -854,6 +854,18 @@ export const reopenInventoryCount = createServerFn({ method: "POST" })
     return result as { session_id: string; reset: boolean };
   });
 
+/** «Svuota» su inventario in corso: cancella bozze e conteggi confermati (solo admin, controlli nel DB). */
+export const resetOpenInventoryCount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ sessionId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase.rpc as any)("reset_open_inventory_count", {
+      _session_id: data.sessionId,
+    });
+    if (error) throw new Error(error.message);
+    return result as { session_id: string; counts_removed: number; drafts_removed: number };
+  });
+
 /** Card possibili dei propri prodotti non ancora nella sessione (vista «Tutti»): solo lettura. */
 export type PossibleInventoryCard = {
   productId: string;
