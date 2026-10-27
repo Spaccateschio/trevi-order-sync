@@ -3,6 +3,7 @@ import { Link2, Plus, ShoppingBag, Star, Trash2, Truck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -295,6 +296,28 @@ export function ProductSuppliersManager({
       toast.success("Associazione aggiornata");
     },
     onError: (error: Error) => toast.error(error.message),
+  });
+
+  // «Disattiva» / «Scollega dal prodotto»: conferma, poi il DB toglie il fornitore dalle Liste aperte e lo disattiva
+  // in un'unica operazione (rifiuta con Lista confermata o quota già in ordine, senza modifiche).
+  const [unlinkTarget, setUnlinkTarget] = useState<{ linkId: string; name: string; kind: "deactivate" | "unlink" } | null>(null);
+  const unlinkMutation = useMutation({
+    mutationFn: async (linkId: string) => {
+      const { data, error } = await (supabase.rpc as any)("deactivate_product_supplier_link_with_lists", {
+        _company_id: companyId,
+        _link_id: linkId,
+      });
+      if (error) throw new Error(error.message);
+      return data as { removed_from_lists: number };
+    },
+    onSuccess: async (result) => {
+      setUnlinkTarget(null);
+      setSelectedLinkId(null);
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: ["shopping-list"] });
+      toast.success(result?.removed_from_lists ? `Fornitore disattivato e tolto dalla Lista (${result.removed_from_lists} prodotto)` : "Fornitore disattivato");
+    },
+    onError: (error: Error) => toast.error(error.message, { duration: 10000 }),
   });
 
   const priorityMutation = useMutation({
@@ -634,7 +657,14 @@ export function ProductSuppliersManager({
                     ) : (
                       <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => priorityMutation.mutate({ linkId: row.link_id, priority: 1 })}><Star className="fill-current" aria-hidden="true" />Priorità 1</Button>
                     )}
-                    <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => statusMutation.mutate({ linkId: row.link_id, action: row.is_active ? "deactivate" : "activate" })}>{row.is_active ? "Disattiva" : "Riattiva"}</Button>
+                    {row.is_active ? (
+                      <>
+                        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setUnlinkTarget({ linkId: row.link_id, name: row.supplier_name ?? "fornitore", kind: "deactivate" })}>Disattiva</Button>
+                        <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => setUnlinkTarget({ linkId: row.link_id, name: row.supplier_name ?? "fornitore", kind: "unlink" })}><Trash2 aria-hidden="true" />Scollega dal prodotto</Button>
+                      </>
+                    ) : (
+                      <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => statusMutation.mutate({ linkId: row.link_id, action: "activate" })}>Riattiva</Button>
+                    )}
                     <Button type="button" size="sm" disabled={busy || hasFieldErrors} onClick={() => saveMutation.mutate("update")}>Salva</Button>
                   </div>
                 </div>
@@ -683,6 +713,23 @@ export function ProductSuppliersManager({
           ) : null}
         </div>
       ) : null}
+      <AlertDialog open={unlinkTarget !== null} onOpenChange={(open) => { if (!open && !unlinkMutation.isPending) setUnlinkTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{unlinkTarget?.kind === "unlink" ? "Scollegare il fornitore dal prodotto?" : "Disattivare il fornitore?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {unlinkTarget?.name} non sarà più proposto per questo prodotto. Se è scelto in una Lista della Spesa aperta, lo tolgo da quel prodotto della Lista.
+              Ordini e storico restano invariati; potrai riattivarlo da «Mostra disattivati». Con una Lista confermata o una quota già in ordine non viene modificato nulla.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={unlinkMutation.isPending}>Annulla</AlertDialogCancel>
+            <AlertDialogAction disabled={unlinkMutation.isPending} onClick={(event) => { event.preventDefault(); if (unlinkTarget) unlinkMutation.mutate(unlinkTarget.linkId); }}>
+              {unlinkTarget?.kind === "unlink" ? "Scollega" : "Disattiva"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
