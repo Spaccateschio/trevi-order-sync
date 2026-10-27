@@ -1,4 +1,6 @@
 import { resolveDraftTarget } from "@/lib/inventory-draft-transfer";
+import { inventoryResetAction, inventoryReopenQueryKeys } from "@/lib/inventory-reset";
+import { inventoryCompactBar } from "@/lib/inventory-scroll";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CYCLE_QUERY_KEY } from "@/components/shopping/inventory-to-evaluate";
 import { getInventoryCycleStatus, type CycleStatus } from "@/lib/inventory-cycle.functions";
@@ -540,13 +542,28 @@ export function InventoryCountPanel({
       const cycleSession = cycleQuery.data?.session_id;
       if (!cycleSession) throw new Error("Nessun conteggio da riaprire");
       await reopenCountFn({ data: { companyId, sessionId: cycleSession, reset } });
+      return cycleSession;
     },
-    onSuccess: async (_result, reset) => {
+    onSuccess: async (reopenedSessionId, reset) => {
+      if (reset) {
+        Object.values(draftTimers.current).forEach(clearTimeout);
+        draftTimers.current = {};
+        draftsRef.current = {};
+        setDrafts({});
+        setDraftFirst({});
+        setSavedDraftKeys(new Set());
+        setUnlockedCards(new Set());
+        setUnlockedAll(false);
+        setPending(null);
+        setPendingReason("");
+        queryClient.setQueryData(["inventory-count-drafts", reopenedSessionId], []);
+      }
       setReopenResetOpen(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
-        queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] }),
-        queryClient.invalidateQueries({ queryKey: ["inventory-last-closed", companyId, archiveId] }),
+        ...inventoryReopenQueryKeys(companyId, archiveId, reopenedSessionId).map((queryKey) =>
+          queryClient.invalidateQueries({ queryKey, refetchType: "all" }),
+        ),
       ]);
       toast.success(reset ? "Conteggio riaperto e quantità azzerate" : "Conteggio riaperto: puoi correggere le quantità");
     },
@@ -1652,7 +1669,7 @@ export function InventoryCountPanel({
                           <Pencil aria-hidden="true" /> Modifica conteggio
                         </Button>
                         <Button type="button" size="sm" variant="outline" className="h-8 text-xs" disabled={reopenCount.isPending} onClick={() => setReopenResetOpen(true)}>
-                          <RotateCcw aria-hidden="true" /> Azzera quantità
+                          <RotateCcw aria-hidden="true" /> Rifai inventario
                         </Button>
                       </>
                     ) : null}
@@ -1816,7 +1833,13 @@ export function InventoryCountPanel({
               firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: rowUnit(row), value });
             }}
             onConfirmAll={() => void confirmInventory()}
-            onClearDrafts={() => setClearDraftsOpen(true)}
+            onClearDrafts={() => {
+              if (inventoryResetAction(Boolean(sessionId), cycleColor === "rosso") === "reopen") {
+                setReopenResetOpen(true);
+              } else {
+                setClearDraftsOpen(true);
+              }
+            }}
             savedDraftCount={savedDraftKeys.size}
             onToggleFavorite={(row) =>
               favoriteMutation.mutate({ productId: row.product_id, favorite: !row.is_favorite })
@@ -2324,7 +2347,7 @@ export function InventoryCountPanel({
       <Dialog open={clearDraftsOpen} onOpenChange={setClearDraftsOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-base">Azzerare le quantità?</DialogTitle>
+            <DialogTitle className="text-base">Svuotare le bozze?</DialogTitle>
             <DialogDescription>
               Cancello tutte le quantità scritte e non ancora confermate. I conteggi già confermati e lo storico restano invariati.
             </DialogDescription>
@@ -2332,7 +2355,7 @@ export function InventoryCountPanel({
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setClearDraftsOpen(false)}>Annulla</Button>
             <Button variant="destructive" disabled={clearAllDrafts.isPending} onClick={() => clearAllDrafts.mutate()}>
-              Azzera quantità
+              Svuota bozze
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2344,12 +2367,13 @@ export function InventoryCountPanel({
             <DialogTitle className="text-base">Rifare l'inventario da zero?</DialogTitle>
             <DialogDescription>
               Il conteggio confermato viene riaperto e tutte le quantità cancellate: le card si sbloccano vuote. La Lista della Spesa resta com'è e lo storico non si perde.
+              Se gli ordini del ciclo sono già stati inviati, l’operazione non è consentita e nessun dato viene modificato.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setReopenResetOpen(false)}>Annulla</Button>
             <Button variant="destructive" disabled={reopenCount.isPending} onClick={() => reopenCount.mutate(true)}>
-              Azzera quantità
+              Rifai inventario
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2666,8 +2690,8 @@ function PhysicalCount({
   const topFiltersRef = useRef<HTMLDivElement>(null);
   const [compactBar, setCompactBar] = useState(false);
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
-  // La barra compatta compare quando la ricerca originale finisce sotto il riquadro fisso:
-  // il confronto usa la posizione reale del riquadro sticky, qualunque sia la sua altezza.
+  // Measure a document-space marker against the CSS sticky inset, never the changing
+  // header rectangle. Separate entry/exit margins prevent scroll anchoring feedback.
   useEffect(() => {
     let frame = 0;
     const check = () => {
@@ -2675,7 +2699,10 @@ function PhysicalCount({
       const search = topFiltersRef.current;
       const header = stickyHeaderRef.current;
       if (!search || !header) return;
-      setCompactBar(search.getBoundingClientRect().top < header.getBoundingClientRect().top - 20);
+      const scrollY = Math.max(0, window.scrollY);
+      const markerY = search.getBoundingClientRect().top + window.scrollY;
+      const stickyInset = Number.parseFloat(window.getComputedStyle(header).top) || 0;
+      setCompactBar((current) => inventoryCompactBar(current, scrollY, markerY, stickyInset));
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(check); };
     window.addEventListener("scroll", schedule, { passive: true, capture: true });
@@ -2702,7 +2729,7 @@ function PhysicalCount({
               </Button>
             </div>
             <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={onClearDrafts}>
-              Azzera<span className="hidden sm:inline"> quantità</span>
+              {!sessionActive && cycleLock.locked ? "Rifai inventario" : "Svuota bozze"}
             </Button>
             <Button size="sm" className="h-8 px-2 text-xs" variant={workFilter === "all" ? "default" : "outline"} onClick={() => onWorkFilterChange("all")}>
               Tutti gli stati
@@ -2809,7 +2836,7 @@ function PhysicalCount({
   );
 
   return (
-    <section className="space-y-2 pb-24 lg:pb-16">
+    <section className="space-y-2 pb-24 lg:pb-16 [overflow-anchor:none]">
       <div ref={topFiltersRef} className="h-px" aria-hidden="true" />
       <div
         ref={stickyHeaderRef}
