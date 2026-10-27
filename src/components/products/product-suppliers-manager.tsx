@@ -224,6 +224,9 @@ export function ProductSuppliersManager({
       queryClient.invalidateQueries({ queryKey: ["product-danea-supplier-matches", productId] }),
       queryClient.invalidateQueries({ queryKey: ["supplier-options", companyId] }),
       queryClient.invalidateQueries({ queryKey: ["product-supplier-delivery", productId] }),
+      // Aggiorna anche le colonne «Fornitori collegati» / «U.M. acquisto per fornitore» dell'elenco Prodotti.
+      queryClient.invalidateQueries({ queryKey: ["product-purchase-units", companyId] }),
+      queryClient.invalidateQueries({ queryKey: ["prodotti-fornitori", companyId] }),
     ]);
   };
 
