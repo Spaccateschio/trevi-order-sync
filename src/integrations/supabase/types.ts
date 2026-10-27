@@ -8961,6 +8961,10 @@ export type Database = {
           token: string
         }[]
       }
+      reset_open_inventory_count: {
+        Args: { _session_id: string }
+        Returns: Json
+      }
       resolve_danea_supplier_match: {
         Args: {
           _action: string

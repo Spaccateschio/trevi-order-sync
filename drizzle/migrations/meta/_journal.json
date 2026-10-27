@@ -610,6 +610,13 @@
       "when": 1792909364607,
       "tag": "0086_product_purchase_units_authenticated_save",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1793120581249,
+      "tag": "0087_reset_open_inventory_count",
+      "breakpoints": true
     }
   ]
 }
