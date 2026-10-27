@@ -194,7 +194,7 @@ export function ProductSuppliersManager({
   const links = allLinks.filter((row) => row.is_active);
   const inactiveLinks = allLinks.filter((row) => !row.is_active);
   const visibleLinks = showInactive ? allLinks : links;
-  const selected = useMemo(() => links.find((row) => row.link_id === selectedLinkId) ?? null, [links, selectedLinkId]);
+  const selected = useMemo(() => visibleLinks.find((row) => row.link_id === selectedLinkId) ?? null, [visibleLinks, selectedLinkId]);
 
   useEffect(() => {
     if (!selected) return;
