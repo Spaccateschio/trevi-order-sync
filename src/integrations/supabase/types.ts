@@ -7708,6 +7708,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      deactivate_product_supplier_link_with_lists: {
+        Args: { _company_id: string; _link_id: string }
+        Returns: Json
+      }
       decide_company_relation: {
         Args: { _accept: boolean; _relation_id: string }
         Returns: undefined
