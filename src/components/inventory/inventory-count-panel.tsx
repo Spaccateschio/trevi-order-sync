@@ -2836,7 +2836,7 @@ function PhysicalCount({
   );
 
   return (
-    <section className="space-y-2 pb-24 lg:pb-16">
+    <section className="space-y-2 pb-24 lg:pb-16 [overflow-anchor:none]">
       <div ref={topFiltersRef} className="h-px" aria-hidden="true" />
       <div
         ref={stickyHeaderRef}
