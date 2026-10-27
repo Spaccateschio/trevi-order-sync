@@ -1,5 +1,9 @@
 # Roadmap
 
+## 27/10 — Inventario: azzeramento e scorrimento
+- [ ] Distinguere svuotamento bozze e riapertura autorizzata, aggiornare quantità/blocchi dopo successo senza toccare storico o ordini.
+- [ ] Stabilizzare la barra durante lo scorrimento verso l’alto e verificare su cellulare senza scritture operative.
+
 ## 22/10 — Lista: nuovi acquisti dopo generazione (solo anteprima)
 - [ ] Nascondere intestazione e freccia su cellulare e computer; piano in preparazione.
 - [ ] Separare quantità nuove immediatamente dopo generazione riuscita, senza attendere invio o consegna; fallimento conserva la vista. Ordini, residui e bozze conservati e recuperabili. Attendere approvazione delle modifiche strutturali. Nessuna migrazione, scrittura operativa o pubblicazione.
