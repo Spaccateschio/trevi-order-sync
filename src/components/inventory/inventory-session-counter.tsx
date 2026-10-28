@@ -18,8 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { dateTimeShort, parseQuantity, qty, type CountRow, type LocationRow, type SessionRow } from "@/lib/inventory";
 import { recordInventoryCount } from "@/lib/inventory.functions";
 
-type ProductRow = { id: string; code: string; description: string | null; danea_um: string | null };
-type CardCountRow = CountRow & { product_supplier_link_id: string | null };
+type ProductRow = { id: string; code: string; description: string | null; danea_um: string | null; stock_unit_id:string|null; units_of_measure:{code:string}|null };
+type CardCountRow = CountRow & { product_supplier_link_id: string | null; stock_quantity:number|null; stock_unit_id:string|null };
 type CardRow = ProductRow & { key: string; count: CardCountRow | null };
 
 /**
@@ -53,7 +53,7 @@ export function InventorySessionCounter({
     queryFn: async (): Promise<ProductRow[]> => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, code, description, danea_um")
+        .select("id, code, description, danea_um, stock_unit_id, units_of_measure!products_stock_unit_id_fkey(code)")
         .eq("company_id", companyId)
         .eq("archive_id", session.archive_id)
         .order("code");
@@ -94,7 +94,7 @@ export function InventorySessionCounter({
     queryFn: async (): Promise<CardCountRow[]> => {
       const { data, error } = await supabase
         .from("inventory_counts")
-        .select("id, product_id, location_id, product_supplier_link_id, counted_quantity, previous_quantity, difference, unit_code, counted_at, notes" as "id, product_id, location_id, counted_quantity, previous_quantity, difference, unit_code, counted_at, notes")
+        .select("id, product_id, location_id, product_supplier_link_id, counted_quantity, previous_quantity, difference, unit_code, counted_at, notes, stock_quantity, stock_unit_id")
         .eq("session_id", session.id);
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as CardCountRow[];
@@ -193,7 +193,7 @@ export function InventorySessionCounter({
     mutation.mutate({
       productId: product.id,
       quantity: value,
-      unitCode: product.danea_um,
+      unitCode: product.units_of_measure?.code??null,
       linkId: product.count ? product.count.product_supplier_link_id : undefined,
     });
     setDrafts((current) => {
@@ -265,7 +265,8 @@ export function InventorySessionCounter({
               const value = draft ?? (count ? String(count.counted_quantity) : "");
               const parsed = parseQuantity(value);
               const previous = count ? count.previous_quantity : (stock?.quantity ?? 0);
-              const difference = parsed === null ? null : parsed - previous;
+              const normalized = draft!==undefined ? parsed : count?.stock_unit_id===product.stock_unit_id&&count?.stock_quantity!=null?Number(count.stock_quantity):count?.unit_code===product.units_of_measure?.code?parsed:null;
+              const difference = normalized === null ? null : normalized - previous;
               return (
                 <tr
                   key={product.key}
@@ -304,7 +305,7 @@ export function InventorySessionCounter({
                   <td className={difference && difference < 0 ? "text-destructive" : undefined}>
                     {difference === null ? "—" : qty(difference)}
                   </td>
-                  <td className="text-muted-foreground">{count?.unit_code?.trim() || product.danea_um || "—"}</td>
+                  <td className="text-muted-foreground">{draft!==undefined?product.units_of_measure?.code:count?.unit_code?.trim() || product.units_of_measure?.code || "—"}</td>
                   <td>
                     {count ? (
                       <span className="flex items-center gap-1 text-muted-foreground">
@@ -361,7 +362,7 @@ export function InventorySessionCounter({
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 Precedente: {stock?.hasCount || count ? qty(count ? count.previous_quantity : stock?.quantity) : "mai contato"}
-                {product.danea_um ? ` ${product.danea_um}` : ""}
+                {product.units_of_measure?.code ? ` ${product.units_of_measure.code}` : ""}
               </p>
               {count?.notes ? <p className="mt-1 text-xs text-muted-foreground">Nota: {count.notes}</p> : null}
               {editable ? (
@@ -385,7 +386,7 @@ export function InventorySessionCounter({
                 </div>
               ) : (
                 <p className="mt-2 text-sm">
-                  Quantità contata: <strong>{count ? qty(count.counted_quantity) : "—"} {count?.unit_code ?? product.danea_um ?? ""}</strong>
+                  Quantità contata: <strong>{count ? qty(count.counted_quantity) : "—"} {count?.unit_code ?? product.units_of_measure?.code ?? ""}</strong>
                 </p>
               )}
               {onCorrectCount && count ? (

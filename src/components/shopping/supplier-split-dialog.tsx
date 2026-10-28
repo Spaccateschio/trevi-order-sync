@@ -185,7 +185,7 @@ export function SupplierSplitDialog({
 
   // Destinazioni con la stella in cima (proposte); le altre restano disponibili.
   const suppliers = (suppliersQuery.data ?? []).filter((row) => row.is_active)
-    .sort((a, b) => Number(Boolean((b as { is_preferred?: boolean }).is_preferred)) - Number(Boolean((a as { is_preferred?: boolean }).is_preferred)));
+    .sort((a, b) => Number(Boolean((b as { is_preferred?: boolean }).is_preferred)) - Number(Boolean((a as { is_preferred?: boolean }).is_preferred))||a.supplier_name.localeCompare(b.supplier_name,"it"));
   const unitsByLink = unitsQuery.data ?? {};
   const assignments = assignmentsQuery.data ?? [];
   // Solo le ripartizioni con equivalente entrano nel totale: «Non convertibile» non vale 0.

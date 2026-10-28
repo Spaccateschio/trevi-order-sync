@@ -2,9 +2,10 @@
 
 ## 28/10 — Fase 2: scheda fornitore, conversioni e Inventario
 - [x] Piano e conteggi approvati 28/10 06:05 UTC: 8 trasferimenti, 7 esclusioni diagnosticate, 14 preavvisi e 171 vuoti.
-- [ ] Diagnostica delle 7 conversioni incoerenti e confezioni ambigue; elenco/filtro U.M. inventario senza confezione (114). Costo Danea nella U.M. Danea: totale/stima solo con base verificata, B2B invariato; preavviso vuoto = solo calendario.
-- [ ] Dopo conferma: semplificare scheda manuale e U.M., unificare conversioni, preavviso sul fornitore, costo indicativo Danea, salvataggi parziali e conteggio convertito con confezioni.
-- [ ] Test isolati, collaudo manuale 3 EMME e resoconto campi/colonne/funzioni/schermate; Danea e storico invariati, nessun invio o pubblicazione.
+- [x] Diagnostica conversioni incoerenti/confezioni ambigue e filtro U.M. senza confezione. Controllo finale invariato: 7 legacy, 114 confezioni mancanti, 14 preavvisi e 171 vuoti; 37 conteggi e 68 eventi storici.
+- [x] Migrazioni 0089–0095 e schede semplificate: patch, eredità U.M., conversioni verificate, preavviso fornitore, costo indicativo Danea e quantità magazzino fotografata. Danea/XML non modificati; nessuna pubblicazione.
+- [x] 27 test Vitest + 72 regressioni + 15 calendario/condivisione passati; compilazione OK. Schermate e letture senza scritture; accesso a 3 EMME dalla sessione Trevi respinto correttamente.
+- [ ] Collaudo salvataggio/rilettura e generazione 3 EMME: affidato ad Andrea come richiesto; non eseguibile dall'assistente senza autorizzazione a scritture di prova. Nessun invio reale.
 
 ## 27/10 — Inventario: azzeramento e scorrimento
 - [x] Distinti svuotamento bozze e riapertura autorizzata; quantità locali ripulite e letture aggiornate dopo successo, rifiuto conserva i valori. Azzeramento reale lasciato ad Andrea: il vecchio ciclo 3 EMME ha un ordine inviato e non può essere riaperto.
