@@ -217,7 +217,7 @@ function rowUnit(row: InventoryCountRow) {
   return row.stock_unit_code?.trim() || "";
 }
 
-/** U.M. ammesse per prodotto e U.M. scelta da chi conta (solo etichetta, nessun calcolo). */
+/** U.M. ammesse per prodotto; la conversione del conteggio è verificata dal database. */
 const UnitChoiceContext = createContext<{
   allowed: Map<string, { id: string; code: string }[]>;
   chosen: Record<string, string>;
@@ -1211,11 +1211,12 @@ export function InventoryCountPanel({
 
   // Conferma e riconteggio: append-only nello storico, l'ultima riga è la fotografia corrente
   const countMutation = useMutation({
-    mutationFn: (input: { row: InventoryCountRow; value: number; unit: string; notes: string | null }) =>
-      saveEntry({
+    mutationFn: (input: { row: InventoryCountRow; value: number; unit: string; notes: string | null }) => {
+      if(!sessionId) throw new Error("Inventario non aperto");
+      return saveEntry({
         data: {
           companyId,
-          sessionId: sessionId!,
+          sessionId,
           productId: input.row.product_id,
           locationId: input.row.location_id,
           linkId: input.row.product_supplier_link_id,
@@ -1229,7 +1230,8 @@ export function InventoryCountPanel({
           nonCompliant: null,
           nonCompliantQuantity: null,
         },
-      }),
+      });
+    },
     onSuccess: async (_result, input) => {
       lockSavedCard(rowKey(input.row));
       setDrafts((current) => {
@@ -3230,6 +3232,13 @@ function ProductCard({
     ?? allowedUnits.find((option) => option.code === rowUnit(row))?.id
     ?? allowedUnits[0]?.id;
   const unit = allowedUnits.find((option) => option.id === chosenUnitId)?.code ?? rowUnit(row);
+  const conversionQuery=useQuery({queryKey:["inventory-count-factor",row.product_id,chosenUnitId],enabled:editable&&Boolean(chosenUnitId)&&unit!==row.stock_unit_code, retry:false,queryFn:async()=>{
+    if(!chosenUnitId) return null;
+    const {data,error}=await supabase.rpc("inventory_count_conversion",{_product_id:row.product_id,_unit_id:chosenUnitId});
+    if(error) throw new Error(error.message);
+    return data?.[0]?.factor??null;
+  }});
+  const draftFactor=unit===row.stock_unit_code?1:conversionQuery.data??null;
   const unitMissing = row.stock_unit_missing;
   const name = rowName(row);
   // Giacenza "Da verificare": nessun numero finché non c'è un conteggio nella U.M. di magazzino.
@@ -3243,7 +3252,7 @@ function ProductCard({
     ? null
     : counted === null
       ? (isConfirmed ? confirmedDifference : null)
-      : counted - calculated;
+      : draftFactor===null?null:counted*draftFactor - calculated;
   const needsRecount = row.recount_requested_at !== null;
   const proposalOpen = row.proposal_status === "aperta";
   const status = needsRecount
