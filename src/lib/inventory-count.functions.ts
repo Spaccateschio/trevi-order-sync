@@ -117,7 +117,7 @@ type SupplierReferenceCandidate = {
   sellerCompanyId: string;
   code: string;
   isPreferred: boolean;
-  priority: number | null;
+  supplierName: string;
 };
 
 async function getSupplierReferences(
@@ -129,7 +129,7 @@ async function getSupplierReferences(
 
   const { data: links, error: linksError } = await context.supabase
     .from("product_supplier_links")
-    .select("product_id, supplier_record_id, supplier_product_code, is_preferred, sourcing_priority")
+    .select("product_id, supplier_record_id, supplier_product_code, is_preferred, supplier_records(legal_name)")
     .eq("company_id", companyId)
     .eq("is_active", true)
     .in("product_id", productIds);
@@ -161,13 +161,13 @@ async function getSupplierReferences(
       supplier_record_id: string;
       supplier_product_code: string | null;
       is_preferred: boolean;
-      sourcing_priority: number | null;
+      supplier_records: {legal_name:string|null}|null;
     }) => ({
       ownProductId: link.product_id,
       sellerCompanyId: sellerBySupplierRecord.get(link.supplier_record_id) ?? null,
       code: link.supplier_product_code,
       isPreferred: link.is_preferred,
-      priority: link.sourcing_priority,
+      supplierName: link.supplier_records?.legal_name ?? "",
     }))
     .filter(
       (entry: {
@@ -175,7 +175,7 @@ async function getSupplierReferences(
         sellerCompanyId: string | null;
         code: string | null;
         isPreferred: boolean;
-        priority: number | null;
+        supplierName: string;
       }): entry is SupplierReferenceCandidate => Boolean(entry.sellerCompanyId && entry.code),
     );
   if (!wanted.length) return [];
@@ -197,7 +197,7 @@ async function getSupplierReferences(
   return wanted
     .sort((left, right) => {
       if (left.isPreferred !== right.isPreferred) return left.isPreferred ? -1 : 1;
-      return (left.priority ?? Number.MAX_SAFE_INTEGER) - (right.priority ?? Number.MAX_SAFE_INTEGER);
+      return left.supplierName.localeCompare(right.supplierName,"it");
     })
     .flatMap((entry) => {
       const sellerProductId = sellerProductByKey.get(`${entry.sellerCompanyId}|${entry.code}`);

@@ -57,6 +57,7 @@ import { readCardBundle } from "@/lib/shopping-card-reads";
 import { supplierUnitProposal, unitsSoldText, type ProposalLink } from "@/lib/supplier-unit-proposal";
 import { issueReason, type RowFacts } from "@/lib/supplier-selection";
 import { MISSING_SELLING_PRICE, priceLabel } from "@/lib/purchase";
+import { manualPriceLabel, type ManualPriceIndication } from "@/lib/manual-price-indication";
 
 /** addressId: id indirizzo aziendale scelto; null = «Altro indirizzo…»; undefined = collegamento non toccato. */
 type Delivery = { date: string; from: string; to: string; address: string; notes: string; addressId?: string | null };

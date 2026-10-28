@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
+import { manualPriceLabel, type ManualPriceIndication } from "@/lib/manual-price-indication";
 import { type OverviewRow } from "@/lib/shopping-list";
 import { autoAssignItem, planDirectQuotaRescale } from "@/lib/shopping-auto-assign";
 import { chooseListDestinations, matchesMemory, type SupplierMemory, clearDeselected, deselectedFor, markDeselected } from "@/lib/supplier-memory";
@@ -81,6 +82,16 @@ type OptionRead = {
 };
 
 const MANUAL = "__manuale__";
+
+function ManualIndication({linkId,unitId,quantity}:{linkId:string;unitId:string|null;quantity:number|null}) {
+  const query=useQuery({queryKey:["manual-indication",linkId,unitId,quantity],enabled:quantity!=null&&quantity>0&&Boolean(unitId),queryFn:async()=>{
+    if(!unitId||quantity==null) return null;
+    const {data,error}=await supabase.rpc("manual_purchase_indication",{_link_id:linkId,_unit_id:unitId,_quantity:quantity});
+    if(error) throw new Error(error.message);
+    return data as unknown as ManualPriceIndication|null;
+  }});
+  return query.data?<p className="text-xs text-muted-foreground">{manualPriceLabel(query.data)}</p>:null;
+}
 
 function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean) {
   const productId = row.product_id;
@@ -800,6 +811,7 @@ export function CardSuppliers({
         ) : null}
 
         {editingLink ? editForm(s, assignment) : null}
+        {!s.isB2B ? <ManualIndication linkId={s.linkId} unitId={assignment?.purchaseUnitId??chosen?.unitId??null} quantity={assignment?.purchaseQuantity??packs}/>:null}
 
         {!assignment && noUnits ? (
           <p className="text-[11px] font-medium text-muted-foreground">U.M. non pubblicata dal fornitore</p>
