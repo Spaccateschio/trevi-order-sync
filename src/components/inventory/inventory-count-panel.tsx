@@ -92,6 +92,7 @@ import {
   recordCountEntry,
   startGeneralInventory,
   manageCountDraft,
+  confirmAllInventoryDrafts,
   reopenInventoryCount,
   resetOpenInventoryCount,
   type CatalogCandidate,
