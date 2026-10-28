@@ -1881,7 +1881,15 @@ export function InventoryCountPanel({
               }
               firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: rowUnit(row), value });
             }}
-            onConfirmAll={() => void confirmInventory()}
+            onConfirmAll={() => {
+              // Con inventario aperto: conferma collettiva delle bozze via database.
+              // Senza sessione (primo conteggio): resta il flusso guidato esistente.
+              if (sessionId) {
+                setConfirmAllOpen(true);
+              } else {
+                void confirmInventory();
+              }
+            }}
             onClearDrafts={() => {
               if (inventoryResetAction(Boolean(sessionId), cycleColor === "rosso") === "reopen") {
                 setReopenResetOpen(true);
