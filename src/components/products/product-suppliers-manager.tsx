@@ -17,6 +17,7 @@ import { DEFAULT_SCHEDULE, deliveryScheduleSummary, type DeliverySchedule } from
 import { dateTime, euro } from "@/lib/product-grid";
 import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
 import { allowedPurchaseUnits, productPurchaseUnitsOptions } from "@/lib/product-purchase-units";
+import { supplierLinkPatch } from "@/lib/supplier-link-patch";
 import type { CompanyUnit } from "./sales-unit-manager";
 
 /** U.M. con cui si può acquistare una singola referenza fornitore. */
@@ -237,6 +238,19 @@ export function ProductSuppliersManager({
     mutationFn: async (mode: "create" | "update") => {
       const supplierRecordId = mode === "create" ? draft.supplierRecordId : "";
       if (mode === "create" && !supplierRecordId) throw new Error("Scegli un fornitore");
+      if (mode === "update") {
+        if (!selected) throw new Error("Scegli la referenza da modificare");
+        const patch = supplierLinkPatch({ supplier_product_code: selected.supplier_product_code, supplier_reference_label: selected.supplier_reference_label, sourcing_priority: selected.sourcing_priority, manual_cost: selected.manual_cost, price_unit_id: priceUnitsQuery.data?.[selected.link_id] ?? null, min_quantity: selected.min_quantity, lead_time_days: selected.lead_time_days, notes: selected.notes }, {
+          supplier_product_code: draft.supplierProductCode.trim() || null,
+          supplier_reference_label: draft.referenceLabel.trim() || null,
+          sourcing_priority: num(draft.sourcingPriority), manual_cost: num(draft.manualCost),
+          ...(!isB2b ? { price_unit_id: draft.priceUnitId || null } : {}),
+          min_quantity: num(draft.minQuantity), lead_time_days: num(draft.leadTimeDays), notes: draft.notes.trim() || null,
+        });
+        const { error } = await supabase.rpc("patch_product_supplier_link", { _link_id: selected.link_id, _patch: patch });
+        if (error) throw new Error(error.message);
+        return;
+      }
       const payload = {
         _company_id: companyId,
         _action: mode as string,

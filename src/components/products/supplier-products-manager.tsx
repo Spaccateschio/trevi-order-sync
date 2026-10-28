@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { dateTime, euro } from "@/lib/product-grid";
 import { fetchDaneaArchives } from "@/lib/price-lists";
+import { supplierLinkPatch } from "@/lib/supplier-link-patch";
 import { StockPackagesSection } from "./stock-unit-config";
 import type { CompanyUnit } from "./sales-unit-manager";
 
@@ -264,22 +265,12 @@ export function SupplierProductsManager({
 
   const saveMutation = useMutation({
     mutationFn: async (row: LinkRow) => {
-      const { error } = await supabase.rpc("manage_product_supplier_link", {
-        _company_id: companyId,
-        _action: "update",
-        _link_id: row.id,
-        _supplier_product_code: draft.supplierProductCode,
-        ...(draft.purchaseUnitId ? { _purchase_unit_id: draft.purchaseUnitId } : {}),
-        ...(num(draft.conversionFactor) !== null
-          ? { _conversion_factor: num(draft.conversionFactor) as number }
-          : {}),
-        ...(row.products?.danea_um ? { _conversion_reference_um: row.products.danea_um } : {}),
-        ...(num(draft.manualCost) !== null ? { _manual_cost: num(draft.manualCost) as number } : {}),
-        ...(row.price_unit_id ? { _price_unit_id: row.price_unit_id } : {}),
-        ...(num(draft.minQuantity) !== null ? { _min_quantity: num(draft.minQuantity) as number } : {}),
-        ...(num(draft.leadTimeDays) !== null ? { _lead_time_days: num(draft.leadTimeDays) as number } : {}),
-        _notes: draft.notes,
+      const patch = supplierLinkPatch({ supplier_product_code: row.supplier_product_code, manual_cost: row.manual_cost, min_quantity: row.min_quantity, lead_time_days: row.lead_time_days, notes: row.notes }, {
+        supplier_product_code: draft.supplierProductCode.trim() || null,
+        manual_cost: num(draft.manualCost), min_quantity: num(draft.minQuantity),
+        lead_time_days: num(draft.leadTimeDays), notes: draft.notes.trim() || null,
       });
+      const { error } = await supabase.rpc("patch_product_supplier_link", { _link_id: row.id, _patch: patch });
       if (error) throw new Error(error.message);
     },
     onSuccess: async () => {
