@@ -554,13 +554,12 @@ export function InventoryCountPanel({
       draftTimers.current = {};
       setDrafts({});
       setSavedDraftKeys(new Set());
-      if (result.confirmed > 0) toast.success(`${result.confirmed} quantità confermate`);
-      if (result.skipped.length > 0) {
-        toast.warning(
-          `${result.skipped.length} non confermate: ${result.skipped.slice(0, 3).map((s) => s.label).join(", ")}${result.skipped.length > 3 ? "…" : ""}`,
-        );
-      }
-      if (result.confirmed === 0 && result.skipped.length === 0) toast.info("Nessuna bozza da confermare");
+      const summary = confirmAllSummary(result);
+      if (summary.kind === "done") toast.success(summary.message);
+      else if (summary.kind === "partial") {
+        if (result.confirmed > 0) toast.success(`${result.confirmed} quantità confermate`);
+        toast.warning(summary.message);
+      } else toast.info(summary.message);
       await refresh();
     },
     onError: (error: Error) => toast.error(error.message),
