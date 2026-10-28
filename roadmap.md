@@ -1,9 +1,5 @@
 # Roadmap
 
-## 28/10 — Quantità ordinabile per prodotto e U.M. di vendita
-- [x] Recepita correzione definitiva: nessun passo nelle U.M. generali e nessuno switch sul prodotto; allows_decimals mai usato o modificato, nessun riconoscimento dal codice.
-- [ ] Piano aggiornato: Intera=1 / Metà=0,5 / Decimali=0,1 per ogni U.M. di vendita del prodotto; default Metà per esistenti e nuove, Danea non modifica la scelta. Selettore con salvataggio reale immediato, senza mockup, dopo approvazione del piano.
-
 ## 28/10 — Verifica mirata Conferma tutto / Chiudi inventario
 - [x] Verifica read-only: vuoti non salvati a zero nel percorso attuale, conferma singola presente, RPC collettiva distinta dalla chiusura; riepilogo insufficiente e attesa fissa delle bozze da correggere.
 - [x] Piano approvato alle 07:37 UTC e implementato solo nei sei file elencati: comandi separati, riepilogo preventivo tutte le card, top 10 in U.M. magazzino, rosso oltre 50%, note facoltative, attesa effettiva bozze e U.M. per card. Nessuna migrazione o pubblicazione.
