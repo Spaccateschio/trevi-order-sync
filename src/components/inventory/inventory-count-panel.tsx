@@ -1,4 +1,5 @@
 import { resolveDraftTarget } from "@/lib/inventory-draft-transfer";
+import { confirmAllSummary } from "@/lib/inventory-confirm-all";
 import { inventoryResetAction, inventoryReopenQueryKeys } from "@/lib/inventory-reset";
 import { inventoryCompactBar } from "@/lib/inventory-scroll";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
