@@ -316,7 +316,7 @@ export function SupplierRecordsPanel({
     // Giorni di consegna: dato informativo salvato a parte, non tocca gli altri campi.
     const supplierId = editing?.id ?? ((savedId as string | null) ?? null);
     if (supplierId) {
-      const { error: noticeError } = await supabase.rpc("set_supplier_notice", { _supplier_record_id: supplierId, _days: days });
+      const { error: noticeError } = await supabase.rpc("set_supplier_notice", { _supplier_record_id: supplierId, _days: days as number });
       if (noticeError) { setBusy(false); toast.error(noticeError.message); return; }
       const { error: scheduleError } = await supabase.rpc("set_supplier_delivery_schedule", {
         _supplier_record_id: supplierId,
