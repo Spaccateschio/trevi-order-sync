@@ -389,7 +389,7 @@ export function ProductSuppliersManager({
   };
   const invalidClass = (value: string) => (isInvalidNumber(value) ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : "");
   const numberError = (value: string) => (isInvalidNumber(value) ? <p className="text-xs font-medium text-destructive">Inserisci solo un numero</p> : null);
-  const hasFieldErrors = [draft.sourcingPriority, draft.conversionFactor, draft.manualCost, draft.minQuantity, draft.leadTimeDays].some(isInvalidNumber);
+  const hasFieldErrors = false;
 
   const fieldsFor = (_mode: "create" | "update") => (
     <div className="mt-3 space-y-1">
