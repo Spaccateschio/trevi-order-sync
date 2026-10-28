@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { ManualPriceIndication } from "./manual-price-indication";
 
 /**
  * «Genera ordini per fornitore»: ogni scrittura passa da RPC del database (auth.uid(), FOR UPDATE,
@@ -40,6 +41,7 @@ export type GenerationLine = {
   assign_count?: number;
   assign_at?: string | null;
   in_order?: boolean;
+  indication?: ManualPriceIndication | null;
 };
 export type GenerationSupplier = { supplier_record_id: string; name: string; is_b2b: boolean; lines: GenerationLine[] };
 export type GenerationPreview = {

@@ -64,7 +64,8 @@ const OTHER_ADDRESS = "__altro__";
 type SupplierDraft = { selected: boolean; delivery: Delivery; lines: Record<string, { included: boolean; quantity: string }> };
 
 
-function linePrice(line: { unit_cost: number | null; price_unit_code: string | null; is_b2b: boolean }) {
+function linePrice(line: { unit_cost: number | null; price_unit_code: string | null; is_b2b: boolean; indication?: ManualPriceIndication|null }) {
+  if(!line.is_b2b && line.indication) return manualPriceLabel(line.indication);
   if (line.unit_cost === null || line.unit_cost === undefined) return line.is_b2b ? MISSING_SELLING_PRICE : "Prezzo non indicato";
   return priceLabel(line.unit_cost, line.price_unit_code);
 }
@@ -788,7 +789,7 @@ export function GenerateOrdersDialog({
                                   />
                                   <div className="min-w-0">
                                     <p className="truncate font-medium" title={`${l.code ? `${l.code} · ` : ""}${l.name}`}>{l.name}</p>
-                                    <p className="hidden text-xs text-muted-foreground">Assegnati: {qty(Number(l.saved_quantity ?? l.quantity))} {l.unit_code ?? ""}{linePrice(l) ? ` · ${linePrice(l)}` : ""}{l.notes ? ` · ${l.notes}` : ""}</p>
+                                    <p className="text-xs text-muted-foreground">{linePrice(l)}{l.notes ? ` · ${l.notes}` : ""}</p>
                                     {excessBadge(l.item_id)}
                                     {l.needs_coverage ? (
                                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
