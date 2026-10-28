@@ -1,8 +1,8 @@
 # Roadmap
 
-## 28/10 — Dati: passi U.M. e vendita a mezza cassa
-- [x] Elenco read-only completo delle 33 U.M. esistenti e passi iniziali proposti; allows_decimals invariato.
-- [ ] Approvazione elenco e piano prima di aggiungere i dati e lo switch nella tab Vendita; nessuna modifica ai documenti o alla validazione quantità in questa fase.
+## 28/10 — Quantità ordinabile per prodotto e U.M. di vendita
+- [x] Recepita correzione definitiva: nessun passo nelle U.M. generali e nessuno switch sul prodotto; allows_decimals mai usato o modificato, nessun riconoscimento dal codice.
+- [ ] Piano aggiornato: Intera=1 / Metà=0,5 / Decimali=0,1 per ogni U.M. di vendita del prodotto; default Metà per esistenti e nuove, Danea non modifica la scelta. Selettore con salvataggio reale immediato, senza mockup, dopo approvazione del piano.
 
 ## 28/10 — Verifica mirata Conferma tutto / Chiudi inventario
 - [x] Verifica read-only: vuoti non salvati a zero nel percorso attuale, conferma singola presente, RPC collettiva distinta dalla chiusura; riepilogo insufficiente e attesa fissa delle bozze da correggere.
