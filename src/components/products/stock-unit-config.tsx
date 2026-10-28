@@ -213,6 +213,8 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
 }) {
   const invalidate = useInvalidateUnitConfig(productId);
   const stockQuery = useProductStockUnit(productId);
+  const packagesQuery = useStockPackages(productId);
+  const [missingOnly, setMissingOnly] = useState(false);
   const issuesQuery = useUnitConfigIssues(companyId, productId);
   const queryClient = useQueryClient();
   const allowedQuery = useQuery({
@@ -245,6 +247,8 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
 
   const activeUnits = units.filter((unit) => unit.status === "attivo");
 
+  const hasPackage = (id: string) => id === stockUnitId || (packagesQuery.data ?? []).some(p => p.unit_id === id && p.status === "attivo" && p.stock_quantity > 0 && p.verified_stock_unit_id === stockUnitId);
+
   return (
     <section aria-labelledby="stock-unit-title" className="space-y-3 rounded-lg border border-border p-3">
       <h3 id="stock-unit-title" className="text-sm font-semibold">U.M. di magazzino</h3>
@@ -258,9 +262,9 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
           <dt className="text-xs uppercase text-muted-foreground">U.M. per l'inventario</dt>
           <dd className="mt-1 space-y-2">
             <div className="flex flex-wrap gap-1.5">
-              {allowedIds.map((id) => (
+              {allowedIds.filter(id => !missingOnly || !hasPackage(id)).map((id) => (
                 <Badge key={id} variant={id === stockUnitId ? "default" : "secondary"} className="gap-1 font-mono">
-                  {unitCode(id)}{id === stockUnitId ? " · principale" : ""}
+                  {unitCode(id)}{id === stockUnitId ? " · principale" : hasPackage(id) ? " · conversione presente" : " · senza confezione"}
                   {editable ? (
                     <button type="button" aria-label={`Togli ${unitCode(id)}`} className="ml-1 rounded px-0.5 hover:opacity-70" disabled={toggleMutation.isPending} onClick={() => toggleMutation.mutate({ unitId: id, add: false })}>×</button>
                   ) : null}
@@ -268,6 +272,7 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
               ))}
               {!allowedIds.length && !allowedQuery.isLoading ? <p className="text-xs font-medium text-destructive">Nessuna U.M.: nell'inventario la card resta bloccata.</p> : null}
             </div>
+            <label className="flex items-center gap-2 text-xs"><Switch checked={missingOnly} onCheckedChange={setMissingOnly}/>U.M. inventario senza confezione</label>
             {editable ? (
               <Select value="" disabled={toggleMutation.isPending} onValueChange={(value) => toggleMutation.mutate({ unitId: value, add: true })}>
                 <SelectTrigger aria-label="Aggiungi U.M." className="w-full sm:w-48"><SelectValue placeholder="+ Aggiungi U.M." /></SelectTrigger>
@@ -283,7 +288,7 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
 
       <Alert>
         <Info />
-        <AlertDescription className="text-xs">Chi fa l'inventario può scegliere solo tra queste U.M. Sono solo un'etichetta per capire la quantità: nessun calcolo.</AlertDescription>
+        <AlertDescription className="text-xs">Le U.M. diverse da quella di magazzino richiedono una confezione verificata.</AlertDescription>
       </Alert>
 
       <IssuesList issues={issuesQuery.data ?? []} />
@@ -310,10 +315,11 @@ type SupplierConversionRow = {
 const MODE_LABELS: Record<string, string> = { stessa: "Stessa U.M.", fissa: "Fissa", variabile: "Variabile", nessuna: "Da configurare" };
 
 /** Tab Acquisto: conversione U.M. acquisto fornitore → U.M. di magazzino (campo dedicato stock_conversion_factor). */
-export function SupplierConversionsSection({ productId, units, editable }: {
+export function SupplierConversionsSection({ productId, units, editable, linkUnitId }: {
   productId: string;
   units: CompanyUnit[];
   editable: boolean;
+  linkUnitId?: string;
 }) {
   const invalidate = useInvalidateUnitConfig(productId);
   const stockQuery = useProductStockUnit(productId);
@@ -327,7 +333,7 @@ export function SupplierConversionsSection({ productId, units, editable }: {
     queryFn: async (): Promise<SupplierConversionRow[]> => {
       const { data, error } = await supabase
         .from("product_supplier_link_units")
-        .select("id, unit_id, conversion_factor, conversion_mode, stock_conversion_factor, indicative_factor, package_id, product_supplier_links!inner(product_id, is_active, supplier_records(legal_name))")
+        .select("id, unit_id, conversion_mode, stock_conversion_factor, indicative_factor, package_id, product_supplier_links!inner(product_id, is_active, supplier_records(legal_name))")
         .eq("product_supplier_links.product_id", productId)
         .eq("product_supplier_links.is_active", true)
         .eq("is_active", true);
@@ -373,21 +379,19 @@ export function SupplierConversionsSection({ productId, units, editable }: {
 
   return (
     <section aria-labelledby="supplier-conv-title" className="space-y-2 rounded-lg border border-border p-3">
-      <h3 id="supplier-conv-title" className="text-sm font-semibold">Conversioni verso la U.M. di magazzino{stockUnitId ? ` (${unitCode(stockUnitId)})` : ""}</h3>
-      <p className="text-xs text-muted-foreground">Non ancora usate da Lista, Ordini, Carico o Inventario: il fattore attuale del fornitore resta invariato.</p>
+      {!linkUnitId ? <h3 className="text-sm font-semibold">Riepilogo conversioni verso {unitCode(stockUnitId)}</h3> : null}
       {!stockUnitId ? <p className="text-xs font-medium text-destructive">U.M. magazzino da impostare nel tab Inventario.</p> : null}
       {rowsQuery.data?.length ? (
         <ul className="divide-y divide-border rounded-md border border-border">
-          {rowsQuery.data.map((row) => (
+          {rowsQuery.data.filter(row => !linkUnitId || row.id === linkUnitId).map((row) => (
             <li key={row.id} className="flex items-center justify-between gap-2 px-2 py-1.5 text-sm">
               <div className="min-w-0">
                 <p className="truncate font-medium">{row.supplier_name} · {unitCode(row.unit_id)}</p>
                 <p className="text-xs text-muted-foreground">{MODE_LABELS[row.conversion_mode ?? "nessuna"]}: {describe(row)}</p>
-                {row.conversion_factor !== null ? <p className="text-xs text-muted-foreground">Fattore del sistema attuale: {Number(row.conversion_factor).toLocaleString("it-IT")} (non modificato)</p> : null}
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Badge variant={row.effective?.is_valid ? "secondary" : "destructive"}>{row.effective?.is_valid ? "valida" : row.effective?.reason ?? "da configurare"}</Badge>
-                {editable ? <Button type="button" size="icon" variant="ghost" aria-label={`Configura ${row.supplier_name} ${unitCode(row.unit_id)}`} disabled={!stockUnitId} onClick={() => setDraft({ row, mode: row.conversion_mode ?? "nessuna", packageId: row.package_id ?? "diretto", factor: row.package_id ? "" : row.stock_conversion_factor?.toString() ?? "", indicative: row.indicative_factor?.toString() ?? "" })}><Pencil /></Button> : null}
+                {editable && linkUnitId ? <Button type="button" size="icon" variant="ghost" aria-label={`Configura ${row.supplier_name} ${unitCode(row.unit_id)}`} disabled={!stockUnitId} onClick={() => setDraft({ row, mode: row.conversion_mode ?? "nessuna", packageId: row.package_id ?? "diretto", factor: row.package_id ? "" : row.stock_conversion_factor?.toString() ?? "", indicative: row.indicative_factor?.toString() ?? "" })}><Pencil /></Button> : null}
               </div>
             </li>
           ))}

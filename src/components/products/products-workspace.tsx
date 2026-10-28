@@ -397,7 +397,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
       list.sort((a, b) => {
         if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
         if (a.is_preferred !== b.is_preferred) return a.is_preferred ? -1 : 1;
-        return (a.sourcing_priority ?? 99) - (b.sourcing_priority ?? 99);
+        return (a.supplier_records?.legal_name ?? "").localeCompare(b.supplier_records?.legal_name ?? "", "it");
       });
     }
     return map;
@@ -425,7 +425,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
       link_supplier_name: main?.supplier_records?.legal_name ?? null,
       link_supplier_product_code: main?.supplier_product_code ?? null,
       link_supplier_count: links.length,
-      purchase_cost: main?.manual_cost ?? null,
+      purchase_cost: daneaCosts?.get(product.id)?.supplier_net_price ?? null,
       supplier_price: supplierPrices?.get(product.id) ?? null,
       danea_cost: daneaCosts?.get(product.id)?.supplier_net_price ?? null,
       danea_cost_supplier: daneaCosts?.get(product.id)?.supplier_name ?? null,
