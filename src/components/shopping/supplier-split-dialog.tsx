@@ -269,8 +269,7 @@ export function SupplierSplitDialog({
             const packs = parseQuantity(draft.quantity);
             const code = isManual ? draft.manual.trim().toUpperCase() : chosen?.code ?? "";
             const equivalent = chosen?.conversion_factor && packs ? packs * Number(chosen.conversion_factor) : null;
-            const belowMin =
-              supplier.min_quantity !== null && equivalent !== null && equivalent < Number(supplier.min_quantity);
+            const belowMin = false;
             // Acquistabilità decisa solo dal database (shopping_item_supplier_units.purchasable).
             const b2bBlocked = Boolean(info?.is_b2b && (!info.source_linked || info.purchasable === false));
             const canSave =
@@ -287,31 +286,16 @@ export function SupplierSplitDialog({
                   {info?.is_b2b ? (
                     <span className="rounded border border-primary/50 bg-primary/10 px-1 text-[9px] font-semibold leading-4">B2B</span>
                   ) : null}
-                  {supplier.supplier_reference_label ? (
-                    <span className="text-xs text-muted-foreground">{supplier.supplier_reference_label}</span>
-                  ) : null}
+                  <span className="text-xs text-muted-foreground">{supplier.supplier_name} · {options.map(u=>u.code).join(" / ") || "—"}</span>
                   {(supplier as { is_preferred?: boolean }).is_preferred ? (
                     <Badge><Star className="fill-current" aria-hidden="true" />Stella</Badge>
-                  ) : null}
-                  {supplier.sourcing_priority !== null ? (
-                    <Badge variant="secondary">
-                      <Star className="fill-current" aria-hidden="true" />
-                      Priorità {supplier.sourcing_priority}
-                    </Badge>
                   ) : null}
                   {deliveries[supplier.link_id] ? <DeliveryHintBadge schedule={deliveries[supplier.link_id]!.schedule} /> : null}
                 </div>
 
-                <p className="text-xs text-muted-foreground">
-                  {supplier.min_quantity !== null ? `Minimo ${qty(supplier.min_quantity)} ${unit}` : "Nessun minimo"}
-                  {supplier.lead_time_days !== null ? ` · consegna ${supplier.lead_time_days} gg` : ""}
-                  {supplier.danea_net_cost !== null ? ` · costo Danea ${euro(supplier.danea_net_cost)}` : ""}
-                  {supplier.manual_cost !== null ? ` · costo Trevi Fruit ${euro(supplier.manual_cost)}` : ""}
-                </p>
-
-                {rows.length && lateNote(supplier.link_id, supplier.lead_time_days) ? (
+                {rows.length && lateNote(supplier.link_id, deliveries[supplier.link_id]?.leadDays ?? null) ? (
                   <p className="rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive" role="status">
-                    {lateNote(supplier.link_id, supplier.lead_time_days)}
+                    {lateNote(supplier.link_id, deliveries[supplier.link_id]?.leadDays ?? null)}
                   </p>
                 ) : null}
                 {rows.length ? (
@@ -444,16 +428,7 @@ export function SupplierSplitDialog({
                         )}
                       </p>
                     ) : null}
-                    {belowMin ? (
-                      <label className="flex items-center gap-2 text-xs text-destructive">
-                        <input
-                          type="checkbox"
-                          checked={draft.accepted}
-                          onChange={(e) => setDrafts((c) => ({ ...c, [supplier.link_id]: { ...draft, accepted: e.target.checked } }))}
-                        />
-                        Sotto il minimo di {supplier.supplier_name} ({qty(supplier.min_quantity)} {unit}): procedo comunque
-                      </label>
-                    ) : null}
+
                   </div>
                 ) : null}
               </li>

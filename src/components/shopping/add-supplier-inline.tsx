@@ -115,27 +115,15 @@ export function AddSupplierInline({
   const create = useMutation({
     mutationFn: async () => {
       if (!chosen) throw new Error("Scegli un fornitore");
-      const cost = price.trim() ? parseQuantity(price) : null;
-      if (price.trim() && (cost === null || cost < 0)) throw new Error("Prezzo non valido");
-      const unitId = !isB2B && purchaseUnit && purchaseUnit !== OTHER ? purchaseUnit : null;
+      const unitId: string | null = null;
       const { data: linkId, error } = await supabase.rpc("manage_product_supplier_link", {
         _company_id: companyId,
         _action: "create",
         _product_id: productId,
         _supplier_record_id: chosen.id,
         ...(daneaUm ? { _conversion_reference_um: daneaUm } : {}),
-        ...(!isB2B && cost !== null ? { _manual_cost: cost } : {}),
-        ...(!isB2B && priceUnit !== NONE ? { _price_unit_id: priceUnit } : {}),
-        ...(unitId ? { _purchase_unit_id: unitId } : {}),
       });
       if (error) throw new Error(error.message);
-      if (linkId && unitId) {
-        const args = { _company_id: companyId, _link_id: linkId as string, _unit_id: unitId };
-        const { error: addError } = await supabase.rpc("manage_product_supplier_link_unit", { ...args, _action: "add" });
-        if (addError) throw new Error(addError.message);
-        const { error: defError } = await supabase.rpc("manage_product_supplier_link_unit", { ...args, _action: "set_default" });
-        if (defError) throw new Error(defError.message);
-      }
       return { linkId: (linkId as string | null) ?? null, unitId };
     },
     onSuccess: async (result) => {
@@ -193,25 +181,9 @@ export function AddSupplierInline({
           {isB2B ? (
             <p className="text-[11px] text-muted-foreground">Prezzo, U.M. e conversioni li decide il venditore nel suo catalogo.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-1">
-              <Input className="h-8 text-xs" inputMode="decimal" placeholder="Prezzo €" value={price} onChange={(e) => setPrice(e.target.value)} aria-label="Prezzo" />
-              <Select value={priceUnit} onValueChange={setPriceUnit}>
-                <SelectTrigger className="h-8 text-xs" aria-label="U.M. prezzo"><SelectValue placeholder="U.M. prezzo" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>U.M. prezzo: non indicata</SelectItem>
-                  {(units.data ?? []).map((u) => <SelectItem key={u.id} value={u.id}>/ {u.code}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={purchaseUnit} onValueChange={setPurchaseUnit}>
-                <SelectTrigger className="col-span-2 h-8 text-xs" aria-label="U.M. acquisto"><SelectValue placeholder="U.M. acquisto" /></SelectTrigger>
-                <SelectContent>
-                  {purchaseUnits.map((u) => <SelectItem key={u.id} value={u.id}>{u.description && u.description.toLowerCase() !== u.code.toLowerCase() ? `${u.description} (${u.code})` : u.code}</SelectItem>)}
-                  <SelectItem value={OTHER}>Altra U.M. (la scrivi nella ripartizione)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <p className="text-xs text-muted-foreground">U.M. di acquisto del prodotto</p>
           )}
-          <Button type="button" size="sm" className="h-8 w-full text-xs" disabled={create.isPending || (!isB2B && !purchaseUnit)} onClick={() => create.mutate()}>
+          <Button type="button" size="sm" className="h-8 w-full text-xs" disabled={create.isPending} onClick={() => create.mutate()}>
             Collega al prodotto
           </Button>
         </div>
