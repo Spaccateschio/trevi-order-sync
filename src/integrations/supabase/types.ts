@@ -8591,6 +8591,10 @@ export type Database = {
         Args: { _supplier_record_id: string }
         Returns: boolean
       }
+      patch_product_supplier_link: {
+        Args: { _link_id: string; _patch: Json }
+        Returns: string
+      }
       platform_permission: { Args: { _section: string }; Returns: string }
       platform_sell_requests: {
         Args: never

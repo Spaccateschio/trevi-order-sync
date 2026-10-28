@@ -624,6 +624,13 @@
       "when": 1793122206506,
       "tag": "0088_deactivate_link_removing_from_open_lists",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1793167565980,
+      "tag": "0089_supplier_reference_patch_save",
+      "breakpoints": true
     }
   ]
 }
