@@ -290,7 +290,7 @@ export function InventoryCountPanel({
   const [chosenUnits, setChosenUnits] = useState<Record<string, string>>({});
   const chosenUnitsRef = useRef(chosenUnits);
   chosenUnitsRef.current = chosenUnits;
-  const unitChoice = useMemo(() => ({
+  const unitChoice = {
     allowed: allowedUnitsQuery.data ?? new Map<string, { id: string; code: string }[]>(),
     chosen: chosenUnits,
     choose: (key: string, unitId: string) => {
@@ -299,7 +299,7 @@ export function InventoryCountPanel({
       const raw = draftsRef.current[key] ?? "";
       if (raw.trim()) scheduleDraftSave(key, raw);
     },
-  }), [allowedUnitsQuery.data, chosenUnits]);
+  };
   const readHistory = useServerFn(getCountHistory);
   const manageProposal = useServerFn(managePurchaseProposal);
   const toggleFavorite = useServerFn(manageCompanyProductFavorite);
@@ -656,6 +656,8 @@ export function InventoryCountPanel({
       if (reset) {
         Object.values(draftTimers.current).forEach(clearTimeout);
         draftTimers.current = {};
+        dirtyDraftKeys.current.clear();
+        savedDraftUnits.current.clear();
         draftsRef.current = {};
         setDrafts({});
         setDraftFirst({});
@@ -690,6 +692,8 @@ export function InventoryCountPanel({
     onSuccess: async () => {
       Object.values(draftTimers.current).forEach(clearTimeout);
       draftTimers.current = {};
+      dirtyDraftKeys.current.clear();
+      savedDraftUnits.current.clear();
       draftsRef.current = {};
       setDrafts({});
       setDraftFirst({});
