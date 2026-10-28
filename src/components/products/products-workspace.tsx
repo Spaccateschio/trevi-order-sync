@@ -461,6 +461,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
       if (imageFilter === "con" && !product.product_images) return false;
       if (imageFilter === "senza" && product.product_images) return false;
       if (unitConfigFilter === "da_completare" && !unitIssuesByProduct.has(product.id)) return false;
+      if (unitConfigFilter === "senza_confezione" && !(unitIssuesQuery.data??[]).some(issue=>issue.product_id===product.id && issue.reason_code==="inventory_package_missing")) return false;
       if (view === "acquisti" && supplierFilter !== "tutti" && !(product.purchase_suppliers ?? []).some((s) => s.name === supplierFilter)) return false;
       return !term || product.code.toLowerCase().includes(term) || (product.description ?? "").toLowerCase().includes(term);
     });
@@ -538,7 +539,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
       <Select value={status} onValueChange={(value) => { setStatus(value); setPage(0); }}><SelectTrigger className={triggerClass("w-48")}><SelectValue placeholder="Stato" /></SelectTrigger><SelectContent><SelectItem value="pubblicato">Catalogo attuale</SelectItem><SelectItem value="non_pubblicato">Non più inviati</SelectItem><SelectItem value="tutti">Tutti gli stati</SelectItem></SelectContent></Select>
       <Select value={imageFilter} onValueChange={(value) => { setImageFilter(value); setPage(0); }}><SelectTrigger className={triggerClass("w-40")}><SelectValue placeholder="Immagine" /></SelectTrigger><SelectContent><SelectItem value="tutte">Tutte le immagini</SelectItem><SelectItem value="con">Con immagine</SelectItem><SelectItem value="senza">Senza immagine</SelectItem></SelectContent></Select>
       {view === "acquisti" && isAdmin ? <Select value={supplierFilter} onValueChange={(value) => { setSupplierFilter(value); setPage(0); }}><SelectTrigger className={triggerClass("w-48")} aria-label="Fornitore"><SelectValue placeholder="Fornitore" /></SelectTrigger><SelectContent><SelectItem value="tutti">Tutti i fornitori</SelectItem>{supplierOptions.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select> : null}
-      <Select value={unitConfigFilter} onValueChange={(value) => { setUnitConfigFilter(value); setPage(0); }}><SelectTrigger className={triggerClass("w-56")} aria-label="Configurazione U.M."><SelectValue /></SelectTrigger><SelectContent><SelectItem value="tutte">Tutte le configurazioni U.M.</SelectItem><SelectItem value="da_completare">Configurazione U.M. da completare ({unitIssuesByProduct.size})</SelectItem></SelectContent></Select>
+      <Select value={unitConfigFilter} onValueChange={(value) => { setUnitConfigFilter(value); setPage(0); }}><SelectTrigger className={triggerClass("w-56")} aria-label="Configurazione U.M."><SelectValue /></SelectTrigger><SelectContent><SelectItem value="tutte">Tutte le configurazioni U.M.</SelectItem><SelectItem value="da_completare">Configurazione U.M. da completare ({unitIssuesByProduct.size})</SelectItem><SelectItem value="senza_confezione">U.M. inventario senza confezione</SelectItem></SelectContent></Select>
     </>;
   };
 
@@ -592,7 +593,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
 
       <div className={cn(deviceClass === "desktop" && "grid grid-cols-[minmax(0,1fr)_minmax(420px,36%)] items-start gap-3")}>
         <div className="min-w-0 space-y-2">
-          {unitConfigFilter === "da_completare" ? <ul className="divide-y divide-border rounded-md border border-border text-sm" aria-label="Motivi configurazione U.M.">
+          {unitConfigFilter !== "tutte" ? <ul className="divide-y divide-border rounded-md border border-border text-sm" aria-label="Motivi configurazione U.M.">
             {visible.map((product) => <li key={product.id}><button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted" onClick={() => setSelected(product)}><span className="font-medium">{product.description ?? product.code}</span><span className="block text-xs text-muted-foreground">{(unitIssuesByProduct.get(product.id) ?? []).join(" · ")}</span></button></li>)}
           </ul> : null}
           <ProductGrid products={visible} archives={archiveNameById} isAdmin={isAdmin} allowedColumnIds={capsColumnIds} selectedIds={selectedIds} activeProductId={currentProduct?.id ?? null} keyboardNavigation={deviceClass === "desktop"} onNavigate={navigateProduct} visibility={visibility} order={columnOrder} sizing={columnSizing} sorting={sorting} onSelectionChange={setSelectedIds} onVisibilityChange={setVisibility} onOrderChange={setColumnOrder} onSizingChange={setColumnSizing} onSortingChange={(next) => { setSorting(next); setPage(0); }} onOpen={setSelected} imageUrls={imageUrls} listName={listName} />
