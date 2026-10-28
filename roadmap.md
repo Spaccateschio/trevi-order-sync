@@ -312,3 +312,4 @@
 ## Guida interattiva — 17/10
 - [x] Fase 1: ⓘ + guida Lista della Spesa (9 passaggi)
 - [ ] Fase 2: memoria per utente, Mostra le novità, proposta automatica all'ingresso (attende autorizzazione)
+- [x] Conferma collettiva inventario: RPC confirm_all_inventory_drafts + pulsante «Conferma inventario» con riepilogo (0096, 2026-10-28). Da collaudare su 3 EMME.
