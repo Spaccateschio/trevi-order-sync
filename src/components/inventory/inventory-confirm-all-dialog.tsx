@@ -17,7 +17,7 @@ export function InventoryConfirmAllDialog({ open, onOpenChange, review, loading,
   onCorrect: () => void;
 }) {
   return <Dialog open={open} onOpenChange={(next) => { if (!pending) onOpenChange(next); }}>
-    <DialogContent className="flex max-h-[85dvh] w-[calc(100vw-1.5rem)] max-w-2xl flex-col overflow-hidden [&>*]:min-w-0">
+    <DialogContent className="flex max-h-[85dvh] w-full max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden sm:max-w-2xl [&>*]:min-w-0">
       <DialogHeader>
         <DialogTitle>Conferma tutto — riepilogo</DialogTitle>
         <DialogDescription>Tutte le card dell’inventario aperto, anche fuori dai filtri.</DialogDescription>
@@ -33,7 +33,7 @@ export function InventoryConfirmAllDialog({ open, onOpenChange, review, loading,
               ["Bloccati", review.products.blocked, review.blocked.length],
             ] as const).map(([label, products, cards]) => <div key={label} className="min-w-0">
               <dt className="break-words text-xs text-muted-foreground">{label}</dt>
-              <dd className="mt-1 font-semibold">{products} prodotti</dd>
+              <dd className="mt-1 font-semibold">{products} {products === 1 ? "prodotto" : "prodotti"}</dd>
               <dd className="text-xs text-muted-foreground">{cards} card</dd>
             </div>)}
           </dl>
