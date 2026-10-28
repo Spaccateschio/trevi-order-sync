@@ -2,7 +2,9 @@
 
 ## 28/10 — Verifica mirata Conferma tutto / Chiudi inventario
 - [x] Verifica read-only: vuoti non salvati a zero nel percorso attuale, conferma singola presente, RPC collettiva distinta dalla chiusura; riepilogo insufficiente e attesa fissa delle bozze da correggere.
-- [ ] Piano approvato alle 07:37 UTC: implementare solo i file elencati, inclusi attesa effettiva bozze e U.M. per card; resoconto finale, nessuna pubblicazione. Collaudo operativo affidato ad Andrea su 3 EMME.
+- [x] Piano approvato alle 07:37 UTC e implementato solo nei sei file elencati: comandi separati, riepilogo preventivo tutte le card, top 10 in U.M. magazzino, rosso oltre 50%, note facoltative, attesa effettiva bozze e U.M. per card. Nessuna migrazione o pubblicazione.
+- [x] 50 test superati (25 Vitest, 25 Bun); build OK. Anteprima autenticata: 130 conferme singole e due comandi distinti; riepilogo vuoto 115 prodotti/130 card e ritorno al conteggio verificati senza scritture. Riepilogo pieno verificato con dati inventati isolati a 1280/813/390 px, nessun errore React. Nessuna conferma/chiusura reale.
+- [ ] Collaudo operativo affidato ad Andrea su 3 EMME: conferma, rilettura e chiusura con quantità di prova. L'assistente non modifica dati esistenti.
 
 ## 28/10 — Fase 2: scheda fornitore, conversioni e Inventario
 - [x] Piano e conteggi approvati 28/10 06:05 UTC: 8 trasferimenti, 7 esclusioni diagnosticate, 14 preavvisi e 171 vuoti.
