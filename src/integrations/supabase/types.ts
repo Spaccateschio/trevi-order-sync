@@ -6813,6 +6813,7 @@ export type Database = {
           fax: string | null
           id: string
           internal_reference: string | null
+          lead_time_days: number | null
           legal_name: string
           notes: string | null
           our_bank: string | null
@@ -6850,6 +6851,7 @@ export type Database = {
           fax?: string | null
           id?: string
           internal_reference?: string | null
+          lead_time_days?: number | null
           legal_name: string
           notes?: string | null
           our_bank?: string | null
@@ -6887,6 +6889,7 @@ export type Database = {
           fax?: string | null
           id?: string
           internal_reference?: string | null
+          lead_time_days?: number | null
           legal_name?: string
           notes?: string | null
           our_bank?: string | null
@@ -9331,6 +9334,10 @@ export type Database = {
           _weekdays?: number[]
         }
         Returns: string
+      }
+      set_supplier_notice: {
+        Args: { _days: number; _supplier_record_id: string }
+        Returns: undefined
       }
       set_supplier_unit_conversion: {
         Args: {

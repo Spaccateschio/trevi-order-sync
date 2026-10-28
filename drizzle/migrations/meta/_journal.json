@@ -631,6 +631,13 @@
       "when": 1793167565980,
       "tag": "0089_supplier_reference_patch_save",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1793167637078,
+      "tag": "0090_supplier_units_conversion_notice_phase2",
+      "breakpoints": true
     }
   ]
 }
