@@ -724,7 +724,7 @@ export function PurchaseUnitsEditor({ companyId, productId, linkId, assigned, un
   });
   return <div className="space-y-2">
     <Label>U.M. usate</Label>
-    {assigned.filter(u=>u.is_active).map(u=><div key={u.id} className="border-b border-border py-2">
+    {assigned.filter(u=>u.is_active).sort((a,b)=>Number(b.is_default)-Number(a.is_default)||a.code.localeCompare(b.code,"it")).map(u=><div key={u.id} className="border-b border-border py-2">
       <div className="flex items-center gap-2"><span className="font-medium">{u.code}</span>
         <Button size="icon" variant="ghost" aria-label={`${u.is_default?"Togli":"Metti"} stella U.M. ${u.code}`} disabled={disabled||mutation.isPending} onClick={()=>mutation.mutate({unitId:u.unit_id,action:u.is_default?"clear_default":"set_default"})}><Star className={u.is_default?"fill-current":""}/></Button>
         <Button size="icon" variant="ghost" aria-label={`Rimuovi U.M. ${u.code}`} disabled={disabled||mutation.isPending} onClick={()=>mutation.mutate({unitId:u.unit_id,action:"remove"})}><Trash2/></Button>

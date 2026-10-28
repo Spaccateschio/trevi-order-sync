@@ -347,7 +347,7 @@ export function SupplierProductsManager({
     });
     if (!sort) {
       return matched.sort((left, right) =>
-        (left.products?.code ?? "").localeCompare(right.products?.code ?? "", "it"),
+        Number(right.is_preferred)-Number(left.is_preferred)||(left.products?.description ?? left.products?.code??"").localeCompare(right.products?.description ?? right.products?.code??"", "it"),
       );
     }
     const numeric = NUMERIC_SORT_KEYS.includes(sort.key);

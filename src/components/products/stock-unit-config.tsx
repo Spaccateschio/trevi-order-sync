@@ -247,7 +247,7 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
 
   const activeUnits = units.filter((unit) => unit.status === "attivo");
 
-  const hasPackage = (id: string) => id === stockUnitId || (packagesQuery.data ?? []).some(p => p.unit_id === id && p.status === "attivo" && p.stock_quantity > 0 && p.verified_stock_unit_id === stockUnitId);
+  const hasPackage = (id: string) => id === stockUnitId || new Set((packagesQuery.data ?? []).filter(p => p.unit_id === id && p.status === "attivo" && p.stock_quantity > 0 && p.verified_stock_unit_id === stockUnitId).map(p=>p.stock_quantity)).size===1;
 
   return (
     <section aria-labelledby="stock-unit-title" className="space-y-3 rounded-lg border border-border p-3">
