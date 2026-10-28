@@ -102,9 +102,11 @@ export type SupplierRecord = {
   archive_id: string | null;
   delivery_weekdays: number[] | null;
   delivery_month_day: number | null;
+  lead_time_days: number | null;
 };
 
 const emptyForm = {
+  lead_time_days: "",
   legal_name: "",
   vat_number: "",
   tax_code: "",
@@ -125,6 +127,7 @@ type FormState = typeof emptyForm;
 
 function toForm(record: SupplierRecord): FormState {
   return {
+    lead_time_days: record.lead_time_days?.toString() ?? "",
     legal_name: record.legal_name,
     vat_number: record.vat_number ?? "",
     tax_code: record.tax_code ?? "",
@@ -204,7 +207,7 @@ export function SupplierRecordsPanel({
       const { data, error } = await supabase
         .from("supplier_records")
         .select(
-          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, fax, pec, contact_name, address_line, postal_code, city, province, region, country, sdi_code, sdi_admin_reference, payment_terms, bank, our_bank, agent, discounts, credit_limit, internal_reference, notes, danea_extra, status, archive_id, delivery_weekdays, delivery_month_day",
+          "id, legal_name, vat_number, vat_normalized, tax_code, email, phone, fax, pec, contact_name, address_line, postal_code, city, province, region, country, sdi_code, sdi_admin_reference, payment_terms, bank, our_bank, agent, discounts, credit_limit, internal_reference, notes, danea_extra, status, archive_id, delivery_weekdays, delivery_month_day, lead_time_days",
         )
         .eq("buyer_company_id", companyId)
         .order("legal_name");
@@ -283,6 +286,8 @@ export function SupplierRecordsPanel({
   }
 
   async function save() {
+    const days = form.lead_time_days.trim() ? Number(form.lead_time_days) : null;
+    if (days !== null && (!Number.isInteger(days) || days < 0)) { toast.error("Preavviso non valido"); return; }
     setBusy(true);
     const { data: savedId, error } = await supabase.rpc("manage_supplier_record", {
       _buyer_company_id: companyId,
@@ -311,6 +316,8 @@ export function SupplierRecordsPanel({
     // Giorni di consegna: dato informativo salvato a parte, non tocca gli altri campi.
     const supplierId = editing?.id ?? ((savedId as string | null) ?? null);
     if (supplierId) {
+      const { error: noticeError } = await supabase.rpc("set_supplier_notice", { _supplier_record_id: supplierId, _days: days as number });
+      if (noticeError) { setBusy(false); toast.error(noticeError.message); return; }
       const { error: scheduleError } = await supabase.rpc("set_supplier_delivery_schedule", {
         _supplier_record_id: supplierId,
         _weekdays: delivery.weekdays,
@@ -325,7 +332,9 @@ export function SupplierRecordsPanel({
     setBusy(false);
     setFormOpen(false);
     // Nel pannello il fornitore resta aperto: il bozzo salvato diventa il dato attuale.
-    setEditing((prev) => (prev ? { ...prev, ...form } : prev));
+    setEditing((prev) => (prev ? { ...prev, ...form, lead_time_days: days, delivery_weekdays: delivery.weekdays, delivery_month_day: delivery.monthDay } : prev));
+    await queryClient.invalidateQueries({ queryKey: ["product-supplier-delivery"] });
+    await queryClient.invalidateQueries({ queryKey: ["link-delivery-timings"] });
     await refresh();
     toast.success(editing ? "Fornitore aggiornato." : "Fornitore aggiunto all'anagrafica.");
   }
@@ -711,9 +720,8 @@ export function SupplierRecordsPanel({
         <TabsContent value="varie" className="mt-4 space-y-4">
           <div className="rounded-md border border-border p-3">
             <DeliveryDaysPicker schedule={delivery} onChange={setDelivery} disabled={busy || !isAdmin} />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Serve solo come promemoria in inventario e lista della spesa: non blocca né filtra nulla.
-            </p>
+            <Label className="mt-3 block">Preavviso (giorni)</Label><Input type="number" min={0} step={1} value={form.lead_time_days} disabled={busy || !isAdmin} onChange={e=>setForm({...form,lead_time_days:e.target.value})}/>
+            {!form.lead_time_days ? <p className="text-xs text-muted-foreground">Preavviso non impostato</p> : null}
           </div>
           {editing ? <ExtraFields record={editing} group="varie" /> : null}
           <div className="grid gap-1.5">

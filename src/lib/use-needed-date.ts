@@ -27,13 +27,13 @@ export function useLinkTimings(linkIds: string[], enabled = true) {
     queryFn: async (): Promise<Record<string, { schedule: DeliverySchedule; leadDays: number | null }>> => {
       const { data, error } = await supabase
         .from("product_supplier_links")
-        .select("id, lead_time_days, delivery_weekdays, delivery_month_day, supplier_records(delivery_weekdays, delivery_month_day)")
+        .select("id, delivery_weekdays, delivery_month_day, supplier_records(delivery_weekdays, delivery_month_day, lead_time_days)")
         .in("id", ids);
       if (error) throw new Error(error.message);
       const out: Record<string, { schedule: DeliverySchedule; leadDays: number | null }> = {};
-      for (const r of (data ?? []) as unknown as { id: string; lead_time_days: number | null; delivery_weekdays: number[] | null; delivery_month_day: number | null; supplier_records: { delivery_weekdays: number[] | null; delivery_month_day: number | null } | null }[]) {
+      for (const r of (data ?? []) as unknown as { id: string; delivery_weekdays: number[] | null; delivery_month_day: number | null; supplier_records: { delivery_weekdays: number[] | null; delivery_month_day: number | null; lead_time_days:number|null } | null }[]) {
         out[r.id] = {
-          leadDays: r.lead_time_days ?? null,
+          leadDays: r.supplier_records?.lead_time_days ?? null,
           schedule: r.delivery_weekdays !== null ? toSchedule(r.delivery_weekdays, r.delivery_month_day) : toSchedule(r.supplier_records?.delivery_weekdays, r.supplier_records?.delivery_month_day),
         };
       }

@@ -624,6 +624,41 @@
       "when": 1793122206506,
       "tag": "0088_deactivate_link_removing_from_open_lists",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1793167565980,
+      "tag": "0089_supplier_reference_patch_save",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1793167637078,
+      "tag": "0090_supplier_units_conversion_notice_phase2",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1793167706319,
+      "tag": "0091_phase2_conversion_and_inventory_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1793167871676,
+      "tag": "0092_phase2_conversion_readers_and_danea_cost",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1793167926572,
+      "tag": "0093_phase2_manual_price_indication",
+      "breakpoints": true
     }
   ]
 }

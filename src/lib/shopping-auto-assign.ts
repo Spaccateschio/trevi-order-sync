@@ -436,15 +436,15 @@ async function readLinksInTime(listId: string, productId: string): Promise<Set<s
   if (!needed) return null;
   const { data, error } = await supabase
     .from("product_supplier_links")
-    .select("id, lead_time_days, delivery_weekdays, delivery_month_day, supplier_records(delivery_weekdays, delivery_month_day)")
+    .select("id, delivery_weekdays, delivery_month_day, supplier_records(lead_time_days, delivery_weekdays, delivery_month_day)")
     .eq("product_id", productId);
   if (error || !data) return null;
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return linksInTime(
-    (data as unknown as { id: string; lead_time_days: number | null; delivery_weekdays: number[] | null; delivery_month_day: number | null; supplier_records: { delivery_weekdays: number[] | null; delivery_month_day: number | null } | null }[]).map((r) => ({
+    (data as unknown as { id: string; delivery_weekdays: number[] | null; delivery_month_day: number | null; supplier_records: { lead_time_days:number|null; delivery_weekdays: number[] | null; delivery_month_day: number | null } | null }[]).map((r) => ({
       linkId: r.id,
-      leadDays: r.lead_time_days,
+      leadDays: r.supplier_records?.lead_time_days??null,
       schedule: r.delivery_weekdays !== null ? toSchedule(r.delivery_weekdays, r.delivery_month_day) : toSchedule(r.supplier_records?.delivery_weekdays, r.supplier_records?.delivery_month_day),
     })),
     today,

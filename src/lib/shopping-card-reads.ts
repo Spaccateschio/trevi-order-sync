@@ -1,5 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 
+export const readCardDaneaCost = batchCardRead<{net:number|null;unit:string|null}>(async(ids)=>{
+  const [costs,products]=await Promise.all([
+    supabase.from("product_supplier_costs").select("product_id,supplier_net_price").in("product_id",ids),
+    supabase.from("products").select("id,danea_um").in("id",ids),
+  ]);
+  if(costs.error||products.error) throw new Error(costs.error?.message??products.error?.message);
+  const units=new Map((products.data??[]).map(p=>[p.id,p.danea_um?.trim()||null]));
+  return new Map((costs.data??[]).map(c=>[c.product_id,{net:c.supplier_net_price,unit:units.get(c.product_id)??null}]));
+});
+
 /** Coalesce same-frame card reads; React Query owns caching and invalidation, RLS owns access. */
 export function batchCardRead<T>(load: (ids: string[]) => Promise<Map<string, T>>) {
   let pending = new Map<string, { resolve: (value: T | undefined) => void; reject: (reason: unknown) => void }[]>();

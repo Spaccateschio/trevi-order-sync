@@ -1,4 +1,5 @@
 # Danea: ordini e prezzi
+- Supplier reference form updates use patch_product_supplier_link with changed keys only; absent values preserve stored fields and explicit null clears, preventing hidden-field loss and stale full-row replay.
 
 - Sell requests use authenticated RPCs. Resolve company from the user's active membership ID; no browser company ID. Feature-specific server email helper is blocked until send authorization, with event-based idempotency and no replay of test events.
 

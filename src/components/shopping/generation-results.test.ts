@@ -25,3 +25,8 @@ test("il messaggio di condivisione contiene il link personale dell'ordine", () =
   assert.ok(t.includes("https://x/consegna/abc"));
   assert.ok(t.includes("M1 Mele: 2 kg"));
 });
+
+test("la condivisione conserva il codice articolo del fornitore", () => {
+  const text = orderShareText("ORD-3", "Garb aglia", [{ product_name: "Carciofi", product_code: "1791", supplier_product_code: "GF-16", purchase_quantity: 2, purchase_unit_code: "cs" }], "");
+  assert.ok(text.includes("Carciofi (cod. fornitore GF-16): 2 cs"));
+});

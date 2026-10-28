@@ -1,0 +1,74 @@
+ALTER TABLE public.inventory_counts ADD COLUMN counted_package_id uuid REFERENCES public.product_stock_packages(id), ADD COLUMN counted_package_version integer;
+ALTER TABLE public.inventory_count_entries ADD COLUMN stock_unit_id uuid REFERENCES public.units_of_measure(id), ADD COLUMN stock_quantity numeric, ADD COLUMN conversion_factor numeric, ADD COLUMN counted_package_id uuid REFERENCES public.product_stock_packages(id), ADD COLUMN counted_package_version integer;
+CREATE OR REPLACE FUNCTION public.inventory_count_conversion(_product_id uuid,_unit_id uuid) RETURNS TABLE(stock_unit_id uuid,unit_id uuid,unit_code text,factor numeric,package_id uuid,package_version integer) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
+DECLARE v_product public.products; v_unit uuid; v_code text; v_stock_code text; v_package public.product_stock_packages; v_factors integer;
+BEGIN
+ SELECT * INTO v_product FROM public.products WHERE id=_product_id;
+ IF NOT FOUND OR auth.uid() IS NULL OR NOT public.is_company_member(v_product.company_id) THEN RAISE EXCEPTION 'Accesso non consentito'; END IF;
+ IF v_product.stock_unit_id IS NULL THEN RAISE EXCEPTION 'Nessuna U.M. impostata per questo prodotto (scheda prodotto → Inventario)'; END IF;
+ v_unit:=COALESCE(_unit_id,v_product.stock_unit_id);
+ IF NOT EXISTS(SELECT 1 FROM public.product_inventory_units piu WHERE piu.product_id=_product_id AND piu.unit_id=v_unit) AND v_unit<>v_product.stock_unit_id THEN RAISE EXCEPTION 'U.M. non ammessa per il conteggio'; END IF;
+ SELECT u.code INTO v_code FROM public.units_of_measure u WHERE u.id=v_unit;
+ SELECT u.code INTO v_stock_code FROM public.units_of_measure u WHERE u.id=v_product.stock_unit_id;
+ IF v_unit=v_product.stock_unit_id THEN RETURN QUERY SELECT v_product.stock_unit_id,v_unit,v_code,1::numeric,NULL::uuid,NULL::integer; RETURN; END IF;
+ SELECT count(distinct pk.stock_quantity) INTO v_factors FROM public.product_stock_packages pk WHERE pk.product_id=_product_id AND pk.unit_id=v_unit AND pk.status='attivo' AND pk.stock_quantity>0 AND pk.verified_stock_unit_id=v_product.stock_unit_id;
+ IF v_factors=0 THEN RAISE EXCEPTION 'Imposta la confezione per % nella tab Inventario o conta in %',v_code,v_stock_code; END IF;
+ IF v_factors>1 THEN RAISE EXCEPTION 'Confezione ambigua per %: verifica le confezioni nella tab Inventario o conta in %',v_code,v_stock_code; END IF;
+ SELECT pk.* INTO v_package FROM public.product_stock_packages pk WHERE pk.product_id=_product_id AND pk.unit_id=v_unit AND pk.status='attivo' AND pk.stock_quantity>0 AND pk.verified_stock_unit_id=v_product.stock_unit_id ORDER BY pk.created_at,pk.id LIMIT 1;
+ RETURN QUERY SELECT v_product.stock_unit_id,v_unit,v_code,v_package.stock_quantity,v_package.id,v_package.package_version;
+END $$;
+REVOKE ALL ON FUNCTION public.inventory_count_conversion(uuid,uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.inventory_count_conversion(uuid,uuid) TO authenticated;
+DO $migration$
+DECLARE def text; old text; replacement text;
+BEGIN
+ SELECT pg_get_functiondef('public.record_inventory_count_entry(uuid,uuid,uuid,uuid,text,numeric,uuid,text,text,boolean,numeric,uuid,uuid,boolean)'::regprocedure) INTO def;
+ def:=replace(def,'  v_stock_code text;','  v_stock_code text; v_conversion record;');
+ def:=replace(def,'WHERE id = _session_id AND company_id = _company_id;','WHERE id = _session_id AND company_id = _company_id FOR UPDATE;');
+ old:='    v_quantity := _counted_quantity;';
+ IF strpos(def,old)=0 THEN RAISE EXCEPTION 'Conteggio: definizione inattesa'; END IF;
+ def:=replace(def,old,'    SELECT * INTO v_conversion FROM public.inventory_count_conversion(_product_id,_unit_id);'||chr(10)||'    _unit_id:=v_conversion.unit_id; _unit_code:=v_conversion.unit_code;'||chr(10)||old);
+ def:=replace(def,'stock_unit_id, stock_quantity, conversion_factor'||chr(10)||'    )','stock_unit_id, stock_quantity, conversion_factor, counted_package_id, counted_package_version'||chr(10)||'    )');
+ def:=replace(def,'            _unit_id, v_quantity, 1)','            v_conversion.stock_unit_id, round(v_quantity*v_conversion.factor,3), v_conversion.factor, v_conversion.package_id, v_conversion.package_version)');
+ def:=replace(def,'conversion_factor = EXCLUDED.conversion_factor;','conversion_factor = EXCLUDED.conversion_factor, counted_package_id=EXCLUDED.counted_package_id, counted_package_version=EXCLUDED.counted_package_version;');
+ def:=replace(def,'unit_id, unit_code, non_compliant, non_compliant_quantity, note, created_by'||chr(10)||'  )','unit_id, unit_code, non_compliant, non_compliant_quantity, note, created_by, stock_unit_id, stock_quantity, conversion_factor, counted_package_id, counted_package_version'||chr(10)||'  )');
+ def:=replace(def,'NULLIF(btrim(COALESCE(_notes, '''')), ''''), _actor_user_id)','NULLIF(btrim(COALESCE(_notes, '''')), ''''), _actor_user_id,'||chr(10)||'          CASE WHEN _entry_type IN (''conteggio'',''riconteggio'') THEN v_conversion.stock_unit_id ELSE v_current.stock_unit_id END,'||chr(10)||'          CASE WHEN _entry_type IN (''conteggio'',''riconteggio'') THEN round(v_quantity*v_conversion.factor,3) ELSE v_current.stock_quantity END,'||chr(10)||'          CASE WHEN _entry_type IN (''conteggio'',''riconteggio'') THEN v_conversion.factor ELSE v_current.conversion_factor END,'||chr(10)||'          CASE WHEN _entry_type IN (''conteggio'',''riconteggio'') THEN v_conversion.package_id ELSE v_current.counted_package_id END,'||chr(10)||'          CASE WHEN _entry_type IN (''conteggio'',''riconteggio'') THEN v_conversion.package_version ELSE v_current.counted_package_version END)');
+ EXECUTE def;
+ SELECT pg_get_functiondef('public.record_inventory_count(uuid,uuid,uuid,uuid,numeric,uuid,text,text,uuid,uuid,boolean)'::regprocedure) INTO def;
+ def:=replace(def,'  v_previous numeric;','  v_previous numeric; v_conversion record;');
+ def:=replace(def,'  SELECT quantity INTO v_previous','  PERFORM 1 FROM public.inventory_sessions WHERE id=_session_id AND status=''in_corso'' FOR UPDATE;'||chr(10)||'  IF NOT FOUND THEN RAISE EXCEPTION ''Sessione di inventario non aperta''; END IF;'||chr(10)||'  SELECT * INTO v_conversion FROM public.inventory_count_conversion(_product_id,_unit_id);'||chr(10)||'  _unit_id:=v_conversion.unit_id; _unit_code:=v_conversion.unit_code;'||chr(10)||'  SELECT quantity INTO v_previous');
+ def:=replace(def,'previous_quantity, counted_at, counted_by, notes'||chr(10)||'  )','previous_quantity, counted_at, counted_by, notes, stock_unit_id, stock_quantity, conversion_factor, counted_package_id, counted_package_version'||chr(10)||'  )');
+ def:=replace(def,'COALESCE(v_previous, 0), clock_timestamp(), _actor_user_id, _notes)','COALESCE(v_previous, 0), clock_timestamp(), _actor_user_id, _notes,v_conversion.stock_unit_id,round(_counted_quantity*v_conversion.factor,3),v_conversion.factor,v_conversion.package_id,v_conversion.package_version)');
+ def:=replace(def,'notes = EXCLUDED.notes','notes = EXCLUDED.notes, stock_unit_id=EXCLUDED.stock_unit_id, stock_quantity=EXCLUDED.stock_quantity, conversion_factor=EXCLUDED.conversion_factor, counted_package_id=EXCLUDED.counted_package_id, counted_package_version=EXCLUDED.counted_package_version');
+ EXECUTE def;
+ FOREACH old IN ARRAY ARRAY['public._inventory_card_stock(uuid,uuid,uuid)','public.inventory_location_stock(uuid,uuid)'] LOOP
+  SELECT pg_get_functiondef(old::regprocedure) INTO def;
+  def:=replace(def,'c.counted_quantity, c.counted_at','CASE WHEN c.stock_unit_id=p.stock_unit_id AND c.stock_quantity IS NOT NULL THEN c.stock_quantity ELSE c.counted_quantity END AS counted_quantity, c.counted_at');
+  def:=replace(def,'AND lower(btrim(c.unit_code)) = lower(btrim(su.code))','AND ((c.stock_unit_id=p.stock_unit_id AND c.stock_quantity IS NOT NULL) OR lower(btrim(c.unit_code)) = lower(btrim(su.code)))');
+  EXECUTE def;
+ END LOOP;
+ SELECT pg_get_functiondef('public.assign_shopping_list_supplier(uuid,uuid,text,uuid,numeric,numeric,boolean,text,uuid,uuid,uuid,text)'::regprocedure) INTO def;
+ def:=replace(def,'  v_list_status public.shopping_list_status;','  v_list_status public.shopping_list_status; v_lu uuid; v_effective record;');
+ old:='    SELECT um.code, lu.conversion_factor, lu.conversion_type INTO v_unit_code, v_factor, v_ctype';
+ IF strpos(def,old)=0 THEN RAISE EXCEPTION 'Assegnazione: definizione inattesa'; END IF;
+ def:=replace(def,old,'    SELECT um.code, lu.id INTO v_unit_code, v_lu');
+ def:=replace(def,'    IF v_factor IS NULL OR v_factor <= 0 THEN v_factor := NULL; v_ctype := NULL; END IF;', '    SELECT * INTO v_effective FROM public.effective_supplier_conversion(v_lu);'||chr(10)||'    v_factor:=CASE WHEN v_effective.is_valid THEN v_effective.stock_conversion_factor END;'||chr(10)||'    v_ctype:=CASE WHEN v_factor IS NOT NULL THEN ''esatta''::public.sale_conversion_type END;');
+ EXECUTE def;
+ SELECT pg_get_functiondef('public.product_supplier_overview(uuid)'::regprocedure) INTO def;
+ def:=replace(def,'l.sourcing_priority ASC NULLS LAST, l.manual_cost ASC NULLS LAST, s.legal_name','l.is_preferred DESC, s.legal_name');
+ def:=replace(def,'''conversion_factor'', lu.conversion_factor,','''conversion_factor'', CASE WHEN eff.is_valid THEN eff.stock_conversion_factor END,');
+ def:=replace(def,'''conversion_type'', lu.conversion_type','''conversion_type'', CASE WHEN eff.is_valid AND eff.stock_conversion_factor IS NOT NULL THEN ''esatta'' ELSE NULL END');
+ def:=replace(def,'WHERE lu.link_id = l.id','LEFT JOIN LATERAL public.effective_supplier_conversion(lu.id) eff ON true'||chr(10)||'       WHERE lu.link_id = l.id');
+ EXECUTE def;
+ SELECT pg_get_functiondef('public.shopping_list_item_state(uuid)'::regprocedure) INTO def;
+ def:=replace(def,'a.assigned_quantity, l.min_quantity, a.min_warning_accepted','a.assigned_quantity');
+ def:=replace(def,'COUNT(*) FILTER (WHERE min_quantity IS NOT NULL AND assigned_quantity IS NOT NULL'||chr(10)||'                              AND assigned_quantity < min_quantity AND NOT min_warning_accepted)::int AS under_minimum','0::int AS under_minimum');
+ EXECUTE def;
+ SELECT pg_get_functiondef('public.product_unit_config_issues(uuid,uuid[])'::regprocedure) INTO def;
+ def:=replace(def,'FROM lus x WHERE x.conversion_mode IS NULL AND x.unit_id <> x.stock_unit_id','FROM lus x WHERE x.conversion_mode IS NULL');
+ old:='END $function$';
+ -- pg_get_functiondef preserves the body delimiter; append extra diagnostics before RETURN QUERY terminates.
+ replacement:='UNION ALL SELECT iu.product_id,''inventory_package_missing'',''U.M. inventario ''||u.code||'' senza confezione verificata'' FROM public.product_inventory_units iu JOIN prods pr ON pr.id=iu.product_id JOIN public.units_of_measure u ON u.id=iu.unit_id WHERE iu.unit_id<>pr.stock_unit_id AND NOT EXISTS(SELECT 1 FROM public.product_stock_packages pk WHERE pk.product_id=iu.product_id AND pk.unit_id=iu.unit_id AND pk.status=''attivo'' AND pk.stock_quantity>0 AND pk.verified_stock_unit_id=pr.stock_unit_id)'||chr(10)||'UNION ALL SELECT pk.product_id,''package_ambiguous'',''Confezione ambigua per ''||u.code||'': più fattori diversi'' FROM public.product_stock_packages pk JOIN prods pr ON pr.id=pk.product_id JOIN public.units_of_measure u ON u.id=pk.unit_id WHERE pk.status=''attivo'' AND pk.verified_stock_unit_id=pr.stock_unit_id GROUP BY pk.product_id,u.code,pk.unit_id HAVING count(distinct pk.stock_quantity)>1';
+ def:=replace(def,'pk.verified_stock_unit_id IS DISTINCT FROM pr.stock_unit_id;','pk.verified_stock_unit_id IS DISTINCT FROM pr.stock_unit_id'||chr(10)||replacement||';');
+ EXECUTE def;
+END $migration$;

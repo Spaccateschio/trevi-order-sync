@@ -15,11 +15,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity, qty } from "@/lib/inventory";
 import { euro } from "@/lib/product-grid";
+import { manualPriceLabel, type ManualPriceIndication } from "@/lib/manual-price-indication";
 import { type OverviewRow } from "@/lib/shopping-list";
 import { autoAssignItem, planDirectQuotaRescale } from "@/lib/shopping-auto-assign";
 import { chooseListDestinations, matchesMemory, type SupplierMemory, clearDeselected, deselectedFor, markDeselected } from "@/lib/supplier-memory";
 import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
-import { readCardBundle, readCardDirectQuota, readCardLinkPrices, readCardB2BPrice, readCardPreference } from "@/lib/shopping-card-reads";
+import { readCardBundle, readCardDirectQuota, readCardDaneaCost, readCardB2BPrice, readCardPreference } from "@/lib/shopping-card-reads";
 import { Checkbox } from "@/components/ui/checkbox";
 import { deliveryDelaySummary, deliveryScheduleSummary, formatDeliveryDay, lateFirstDelivery } from "@/lib/delivery-schedule";
 import { useNeededDate } from "@/lib/use-needed-date";
@@ -81,6 +82,16 @@ type OptionRead = {
 };
 
 const MANUAL = "__manuale__";
+
+function ManualIndication({linkId,unitId,quantity}:{linkId:string;unitId:string|null;quantity:number|null}) {
+  const query=useQuery({queryKey:["manual-indication",linkId,unitId,quantity],enabled:quantity!=null&&quantity>0&&Boolean(unitId),queryFn:async()=>{
+    if(!unitId||quantity==null) return null;
+    const {data,error}=await supabase.rpc("manual_purchase_indication",{_link_id:linkId,_unit_id:unitId,_quantity:quantity});
+    if(error) throw new Error(error.message);
+    return data as unknown as ManualPriceIndication|null;
+  }});
+  return query.data?<p className="text-xs text-muted-foreground">{manualPriceLabel(query.data)}</p>:null;
+}
 
 function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean) {
   const productId = row.product_id;
@@ -177,13 +188,8 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
     },
   });
 
-  // Prezzo concordato dei fornitori non B2B con la sua U.M. prezzo (stesso dato della scheda Prodotto).
   const companyUnits = useCompanyUnits(companyId);
-  const linkPrices = useQuery({
-    queryKey: ["shopping-card-link-prices", productId],
-    staleTime: 60_000,
-    queryFn: async () => (await readCardLinkPrices(productId)) ?? new Map<string, string | null>(),
-  });
+  const daneaCost = useQuery({queryKey:["shopping-card-danea-cost",productId],queryFn:()=>readCardDaneaCost(productId)});
 
   const unitIds = [
     ...new Set(
@@ -230,24 +236,16 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
       sourceLinked,
       purchasable,
       allowManual: dbUnits ? dbUnits.allow_manual : !isB2B,
-      minQuantity: s.min_quantity === null ? null : Number(s.min_quantity),
+      minQuantity: null,
       units,
       price:
         isB2B && sourceLinked && purchasable && b2bPrice
           ? { ...b2bPrice, unitCode: opt?.price_unit_code ?? null }
-          : !isB2B && s.manual_cost !== null
-            ? {
-                net: Number(s.manual_cost),
-                gross: null,
-                unitCode: (() => {
-                  const id = linkPrices.data?.get(s.link_id) ?? null;
-                  return id ? (companyUnits.data ?? []).find((u) => u.id === id)?.code ?? null : null;
-                })(),
-              }
-            : null,
+          : !isB2B && daneaCost.data?.net != null && daneaCost.data.unit
+            ? {net:daneaCost.data.net,gross:null,unitCode:daneaCost.data.unit} : null,
       isPreferred: Boolean(s.is_preferred),
-      priceUnitId: linkPrices.data?.get(s.link_id) ?? null,
-      manualCost: s.manual_cost === null ? null : Number(s.manual_cost),
+      priceUnitId: null,
+      manualCost: null,
     };
   });
 
@@ -433,34 +431,6 @@ export function CardSuppliers({
       if (packs && !isManual && !e.unit) throw new Error("Scegli l'U.M. d'acquisto");
       if (isManual && !e.manual.trim()) throw new Error("Scrivi l'U.M. d'acquisto");
       if (!s.isB2B) {
-        const cost = e.price.trim() ? parseQuantity(e.price) : null;
-        if (e.price.trim() && (cost === null || cost < 0)) throw new Error("Prezzo non valido");
-        const priceUnitId = e.priceUnit === NO_PRICE_UNIT ? null : e.priceUnit;
-        if (cost !== s.manualCost || priceUnitId !== s.priceUnitId) {
-          const { data: link, error: readError } = await supabase
-            .from("product_supplier_links")
-            .select("supplier_product_code, supplier_reference_label, sourcing_priority, purchase_unit_id, conversion_factor, conversion_reference_um, min_quantity, lead_time_days, notes")
-            .eq("id", s.linkId)
-            .maybeSingle();
-          if (readError || !link) throw new Error(readError?.message ?? "Collegamento non trovato");
-          const { error } = await supabase.rpc("manage_product_supplier_link", stripUndefined({
-            _company_id: companyId,
-            _action: "update",
-            _link_id: s.linkId,
-            _supplier_product_code: link.supplier_product_code ?? undefined,
-            _supplier_reference_label: link.supplier_reference_label ?? undefined,
-            _sourcing_priority: link.sourcing_priority ?? undefined,
-            _purchase_unit_id: link.purchase_unit_id ?? undefined,
-            _conversion_factor: link.conversion_factor === null ? undefined : Number(link.conversion_factor),
-            _conversion_reference_um: link.conversion_reference_um ?? undefined,
-            _min_quantity: link.min_quantity === null ? undefined : Number(link.min_quantity),
-            _lead_time_days: link.lead_time_days ?? undefined,
-            _notes: link.notes ?? undefined,
-            ...(cost !== null ? { _manual_cost: cost } : {}),
-            ...(priceUnitId ? { _price_unit_id: priceUnitId } : {}),
-          }));
-          if (error) throw new Error(error.message);
-        }
         // Nuova U.M. d'acquisto dell'elenco aziendale: diventa U.M. del collegamento (resta per le prossime Liste).
         if (e.unit && !isManual && !s.units.some((u) => u.unitId === e.unit)) {
           const args = { _company_id: companyId, _link_id: s.linkId, _unit_id: e.unit };
@@ -536,37 +506,6 @@ export function CardSuppliers({
     const canQuantity = !pending && !(s.isB2B && (!s.sourceLinked || !s.purchasable || !s.units.length));
     return (
       <div className="space-y-1.5 rounded-sm border border-primary/40 bg-muted/40 p-1.5">
-        {s.isB2B ? (
-          <p className="text-[11px] text-muted-foreground">
-            {s.price ? "Prezzo pubblicato dal venditore: non modificabile" : "Prezzo: lo decide il venditore"}
-          </p>
-        ) : (
-          <>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dati del fornitore per questo prodotto</p>
-            <div className="flex flex-wrap items-center gap-1">
-              <Input
-                className="h-8 w-20 text-right"
-                inputMode="decimal"
-                placeholder="Prezzo"
-                value={e.price}
-                aria-label={`Prezzo ${s.name}`}
-                onChange={(ev) => patch({ price: ev.target.value })}
-              />
-              <span className="text-xs">€ /</span>
-              <Select value={e.priceUnit} onValueChange={(v) => patch({ priceUnit: v })}>
-                <SelectTrigger className="h-8 w-auto min-w-20 text-xs" aria-label={`U.M. prezzo ${s.name}`}>
-                  <SelectValue placeholder="U.M. prezzo" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60 overflow-y-auto">
-                  <SelectItem value={NO_PRICE_UNIT}>U.M. prezzo non indicata</SelectItem>
-                  {allUnits.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>{label({ unitId: u.id, code: u.code })}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </>
-        )}
         {canQuantity || !s.isB2B ? (
           <>
             {!s.isB2B ? <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Acquisto</p> : null}
@@ -775,7 +714,7 @@ export function CardSuppliers({
     const packs = parseQuantity(draft.quantity);
     const code = isManual ? draft.manual.trim().toUpperCase() : chosen?.code ?? "";
     const equivalent = chosen?.conversionFactor && packs ? packs * Number(chosen.conversionFactor) : null;
-    const belowMin = s.minQuantity !== null && equivalent !== null && equivalent < s.minQuantity;
+    const belowMin = false;
     const canSave =
       canWrite && !mutation.isPending && !b2bBlocked && (packs ?? 0) > 0 && (isManual ? code.length > 0 : Boolean(chosen)) && (!belowMin || draft.accepted);
 
@@ -872,6 +811,7 @@ export function CardSuppliers({
         ) : null}
 
         {editingLink ? editForm(s, assignment) : null}
+        {!s.isB2B ? <ManualIndication linkId={s.linkId} unitId={assignment?.purchaseUnitId??chosen?.unitId??null} quantity={assignment?.purchaseQuantity??packs}/>:null}
 
         {!assignment && noUnits ? (
           <p className="text-[11px] font-medium text-muted-foreground">U.M. non pubblicata dal fornitore</p>
@@ -947,12 +887,7 @@ export function CardSuppliers({
                 {qty(packs)} {code} {chosen?.conversionType === "esatta" ? "=" : "≈"} {qty(Number(equivalent.toFixed(3)))} {unit}
               </p>
             ) : null}
-            {belowMin ? (
-              <label className="flex items-center gap-1.5 text-[11px] text-destructive">
-                <input type="checkbox" checked={draft.accepted} onChange={(e) => set({ accepted: e.target.checked })} />
-                Sotto il minimo ({qty(s.minQuantity)} {unit}): procedo comunque
-              </label>
-            ) : null}
+
           </div>
         ) : null}
       </li>
