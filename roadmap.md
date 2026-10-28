@@ -1,7 +1,8 @@
 # Roadmap
 
 ## 28/10 — Fase 2: scheda fornitore, conversioni e Inventario
-- [ ] Preparare piano con file interessati, migrazioni e conteggi reali; attendere conferma prima di applicare.
+- [x] Piano e conteggi approvati 28/10 06:05 UTC: 8 trasferimenti, 7 esclusioni diagnosticate, 14 preavvisi e 171 vuoti.
+- [ ] Diagnostica delle 7 conversioni incoerenti e confezioni ambigue; elenco/filtro U.M. inventario senza confezione (114). Costo Danea nella U.M. Danea: totale/stima solo con base verificata, B2B invariato; preavviso vuoto = solo calendario.
 - [ ] Dopo conferma: semplificare scheda manuale e U.M., unificare conversioni, preavviso sul fornitore, costo indicativo Danea, salvataggi parziali e conteggio convertito con confezioni.
 - [ ] Test isolati, collaudo manuale 3 EMME e resoconto campi/colonne/funzioni/schermate; Danea e storico invariati, nessun invio o pubblicazione.
 
