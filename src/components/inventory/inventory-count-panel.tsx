@@ -536,6 +536,35 @@ export function InventoryCountPanel({
       .catch(() => undefined);
   }
 
+  // «Conferma tutto»: il database conferma ogni bozza con gli stessi controlli della conferma singola;
+  // le card non confermabili restano bozze e vengono segnalate con il motivo.
+  const confirmAllFn = useServerFn(confirmAllInventoryDrafts);
+  const [confirmAllOpen, setConfirmAllOpen] = useState(false);
+  const confirmAll = useMutation({
+    mutationFn: async () => {
+      if (!sessionId) throw new Error("Inventario non aperto");
+      flushRef.current();
+      await new Promise((resolve) => window.setTimeout(resolve, 1200));
+      return confirmAllFn({ data: { sessionId } });
+    },
+    onSuccess: async (result) => {
+      setConfirmAllOpen(false);
+      Object.values(draftTimers.current).forEach(clearTimeout);
+      draftTimers.current = {};
+      setDrafts({});
+      setSavedDraftKeys(new Set());
+      if (result.confirmed > 0) toast.success(`${result.confirmed} quantità confermate`);
+      if (result.skipped.length > 0) {
+        toast.warning(
+          `${result.skipped.length} non confermate: ${result.skipped.slice(0, 3).map((s) => s.label).join(", ")}${result.skipped.length > 3 ? "…" : ""}`,
+        );
+      }
+      if (result.confirmed === 0 && result.skipped.length === 0) toast.info("Nessuna bozza da confermare");
+      await refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const reopenCountFn = useServerFn(reopenInventoryCount);
   const [reopenResetOpen, setReopenResetOpen] = useState(false);
   // «Modifica conteggio» / «Azzera quantità» su un conteggio confermato: il database rifiuta se gli ordini sono già partiti.
