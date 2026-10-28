@@ -1,4 +1,5 @@
 import { resolveDraftTarget } from "@/lib/inventory-draft-transfer";
+import { confirmAllSummary } from "@/lib/inventory-confirm-all";
 import { inventoryResetAction, inventoryReopenQueryKeys } from "@/lib/inventory-reset";
 import { inventoryCompactBar } from "@/lib/inventory-scroll";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -92,6 +93,7 @@ import {
   recordCountEntry,
   startGeneralInventory,
   manageCountDraft,
+  confirmAllInventoryDrafts,
   reopenInventoryCount,
   resetOpenInventoryCount,
   type CatalogCandidate,
@@ -534,6 +536,34 @@ export function InventoryCountPanel({
     void draftFn({ data: { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null } })
       .catch(() => undefined);
   }
+
+  // «Conferma tutto»: il database conferma ogni bozza con gli stessi controlli della conferma singola;
+  // le card non confermabili restano bozze e vengono segnalate con il motivo.
+  const confirmAllFn = useServerFn(confirmAllInventoryDrafts);
+  const [confirmAllOpen, setConfirmAllOpen] = useState(false);
+  const confirmAll = useMutation({
+    mutationFn: async () => {
+      if (!sessionId) throw new Error("Inventario non aperto");
+      flushRef.current();
+      await new Promise((resolve) => window.setTimeout(resolve, 1200));
+      return confirmAllFn({ data: { sessionId } });
+    },
+    onSuccess: async (result) => {
+      setConfirmAllOpen(false);
+      Object.values(draftTimers.current).forEach(clearTimeout);
+      draftTimers.current = {};
+      setDrafts({});
+      setSavedDraftKeys(new Set());
+      const summary = confirmAllSummary(result);
+      if (summary.kind === "done") toast.success(summary.message);
+      else if (summary.kind === "partial") {
+        if (result.confirmed > 0) toast.success(`${result.confirmed} quantità confermate`);
+        toast.warning(summary.message);
+      } else toast.info(summary.message);
+      await refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const reopenCountFn = useServerFn(reopenInventoryCount);
   const [reopenResetOpen, setReopenResetOpen] = useState(false);
@@ -1851,7 +1881,15 @@ export function InventoryCountPanel({
               }
               firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: rowUnit(row), value });
             }}
-            onConfirmAll={() => void confirmInventory()}
+            onConfirmAll={() => {
+              // Con inventario aperto: conferma collettiva delle bozze via database.
+              // Senza sessione (primo conteggio): resta il flusso guidato esistente.
+              if (sessionId) {
+                setConfirmAllOpen(true);
+              } else {
+                void confirmInventory();
+              }
+            }}
             onClearDrafts={() => {
               if (inventoryResetAction(Boolean(sessionId), cycleColor === "rosso") === "reopen") {
                 setReopenResetOpen(true);
@@ -2375,6 +2413,23 @@ export function InventoryCountPanel({
             <Button variant="outline" onClick={() => setClearDraftsOpen(false)}>Annulla</Button>
             <Button variant="destructive" disabled={clearAllDrafts.isPending} onClick={() => clearAllDrafts.mutate()}>
               Svuota inventario
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmAllOpen} onOpenChange={setConfirmAllOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Confermare tutte le quantità?</DialogTitle>
+            <DialogDescription>
+              Confermo {savedDraftKeys.size} {savedDraftKeys.size === 1 ? "quantità scritta" : "quantità scritte"}: diventano conteggi e le card si bloccano. Le card che non si possono confermare (ad esempio U.M. senza confezione) restano bozze e ti vengono segnalate.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmAllOpen(false)}>Annulla</Button>
+            <Button disabled={confirmAll.isPending} onClick={() => confirmAll.mutate()}>
+              Conferma tutto
             </Button>
           </DialogFooter>
         </DialogContent>

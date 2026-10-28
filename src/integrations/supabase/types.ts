@@ -7545,6 +7545,10 @@ export type Database = {
           suggested: number
         }[]
       }
+      confirm_all_inventory_drafts: {
+        Args: { _session_id: string }
+        Returns: Json
+      }
       confirm_assignment_coverage: {
         Args: { _assignment_id: string; _confirm?: boolean }
         Returns: Json

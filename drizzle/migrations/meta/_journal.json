@@ -673,6 +673,13 @@
       "when": 1793169118086,
       "tag": "0095_phase2_inventory_unit_candidates",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1793170612103,
+      "tag": "0096_confirm_all_inventory_drafts",
+      "breakpoints": true
     }
   ]
 }

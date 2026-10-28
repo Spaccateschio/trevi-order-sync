@@ -832,6 +832,20 @@ export const manageCountDraft = createServerFn({ method: "POST" })
     return { affected: (n as number) ?? 0 };
   });
 
+/** Conferma in blocco: tutte le bozze della sessione diventano conteggi con i controlli del database. */
+export const confirmAllInventoryDrafts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ sessionId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase.rpc as any)("confirm_all_inventory_drafts", {
+      _session_id: data.sessionId,
+    });
+    if (error) throw new Error(error.message);
+    return result as { confirmed: number; skipped: { label: string; reason: string }[] };
+  });
+
 /** Riapre un conteggio confermato: Modifica conteggio (reset=false) o Azzera quantità (reset=true). */
 export const reopenInventoryCount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
