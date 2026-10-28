@@ -2,7 +2,7 @@
 
 ## 28/10 — Verifica mirata Conferma tutto / Chiudi inventario
 - [x] Verifica read-only: vuoti non salvati a zero nel percorso attuale, conferma singola presente, RPC collettiva distinta dalla chiusura; riepilogo insufficiente e attesa fissa delle bozze da correggere.
-- [ ] Attende approvazione del piano: comandi separati, riepilogo preventivo completo, top 10 differenze e soglia strettamente oltre 50%; test senza scritture operative, nessuna pubblicazione.
+- [ ] Piano approvato alle 07:37 UTC: implementare solo i file elencati, inclusi attesa effettiva bozze e U.M. per card; resoconto finale, nessuna pubblicazione. Collaudo operativo affidato ad Andrea su 3 EMME.
 
 ## 28/10 — Fase 2: scheda fornitore, conversioni e Inventario
 - [x] Piano e conteggi approvati 28/10 06:05 UTC: 8 trasferimenti, 7 esclusioni diagnosticate, 14 preavvisi e 171 vuoti.
