@@ -14,6 +14,8 @@ export const Route = createFileRoute("/")({
           "Portale Trevi Fruit per clienti e operatori: raccolta ordini, preparazione e consegne in un unico sistema.",
       },
       { property: "og:title", content: "Trevi Fruit — Ordini, preparazione e consegne" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       {
         property: "og:description",
         content:
