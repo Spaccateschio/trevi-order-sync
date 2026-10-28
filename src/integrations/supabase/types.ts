@@ -2518,6 +2518,9 @@ export type Database = {
       inventory_count_entries: {
         Row: {
           company_id: string
+          conversion_factor: number | null
+          counted_package_id: string | null
+          counted_package_version: number | null
           counted_quantity: number | null
           created_at: string
           created_by: string | null
@@ -2531,11 +2534,16 @@ export type Database = {
           product_id: string
           product_supplier_link_id: string | null
           session_id: string
+          stock_quantity: number | null
+          stock_unit_id: string | null
           unit_code: string | null
           unit_id: string | null
         }
         Insert: {
           company_id: string
+          conversion_factor?: number | null
+          counted_package_id?: string | null
+          counted_package_version?: number | null
           counted_quantity?: number | null
           created_at?: string
           created_by?: string | null
@@ -2549,11 +2557,16 @@ export type Database = {
           product_id: string
           product_supplier_link_id?: string | null
           session_id: string
+          stock_quantity?: number | null
+          stock_unit_id?: string | null
           unit_code?: string | null
           unit_id?: string | null
         }
         Update: {
           company_id?: string
+          conversion_factor?: number | null
+          counted_package_id?: string | null
+          counted_package_version?: number | null
           counted_quantity?: number | null
           created_at?: string
           created_by?: string | null
@@ -2567,6 +2580,8 @@ export type Database = {
           product_id?: string
           product_supplier_link_id?: string | null
           session_id?: string
+          stock_quantity?: number | null
+          stock_unit_id?: string | null
           unit_code?: string | null
           unit_id?: string | null
         }
@@ -2576,6 +2591,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_entries_counted_package_id_fkey"
+            columns: ["counted_package_id"]
+            isOneToOne: false
+            referencedRelation: "product_stock_packages"
             referencedColumns: ["id"]
           },
           {
@@ -2607,6 +2629,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inventory_count_entries_stock_unit_id_fkey"
+            columns: ["stock_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inventory_count_entries_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
@@ -2622,6 +2651,8 @@ export type Database = {
           count_breakdown: Json | null
           counted_at: string
           counted_by: string | null
+          counted_package_id: string | null
+          counted_package_version: number | null
           counted_quantity: number
           created_at: string
           difference: number | null
@@ -2649,6 +2680,8 @@ export type Database = {
           count_breakdown?: Json | null
           counted_at?: string
           counted_by?: string | null
+          counted_package_id?: string | null
+          counted_package_version?: number | null
           counted_quantity: number
           created_at?: string
           difference?: number | null
@@ -2676,6 +2709,8 @@ export type Database = {
           count_breakdown?: Json | null
           counted_at?: string
           counted_by?: string | null
+          counted_package_id?: string | null
+          counted_package_version?: number | null
           counted_quantity?: number
           created_at?: string
           difference?: number | null
@@ -2703,6 +2738,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_counted_package_id_fkey"
+            columns: ["counted_package_id"]
+            isOneToOne: false
+            referencedRelation: "product_stock_packages"
             referencedColumns: ["id"]
           },
           {
@@ -7937,6 +7979,17 @@ export type Database = {
           label: string
           product_supplier_link_id: string
           rule: string
+        }[]
+      }
+      inventory_count_conversion: {
+        Args: { _product_id: string; _unit_id: string }
+        Returns: {
+          factor: number
+          package_id: string
+          package_version: number
+          stock_unit_id: string
+          unit_code: string
+          unit_id: string
         }[]
       }
       inventory_count_history: {
