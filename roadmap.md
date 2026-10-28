@@ -1,5 +1,10 @@
 # Roadmap
 
+## 28/10 — Fase 2: scheda fornitore, conversioni e Inventario
+- [ ] Preparare piano con file interessati, migrazioni e conteggi reali; attendere conferma prima di applicare.
+- [ ] Dopo conferma: semplificare scheda manuale e U.M., unificare conversioni, preavviso sul fornitore, costo indicativo Danea, salvataggi parziali e conteggio convertito con confezioni.
+- [ ] Test isolati, collaudo manuale 3 EMME e resoconto campi/colonne/funzioni/schermate; Danea e storico invariati, nessun invio o pubblicazione.
+
 ## 27/10 — Inventario: azzeramento e scorrimento
 - [x] Distinti svuotamento bozze e riapertura autorizzata; quantità locali ripulite e letture aggiornate dopo successo, rifiuto conserva i valori. Azzeramento reale lasciato ad Andrea: il vecchio ciclo 3 EMME ha un ordine inviato e non può essere riaperto.
 - [x] Soglie separate e ancoraggio automatico escluso dall’area inventario; 18 test superati, verifica mobile autenticata di comandi e scorrimento senza azzeramenti operativi. Nessuna migrazione o pubblicazione.
