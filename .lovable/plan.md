@@ -1,37 +1,62 @@
-# Inventario — verifica e correzione dei cinque punti
+# Passi delle quantità — solo dati e impostazione di vendita
 
-## Già corretto
-- Nel percorso attuale, campo vuoto non diventa zero: la conferma collettiva registra solo le bozze con quantità valida. Zero scritto esplicitamente resta un conteggio valido.
-- Il pulsante «Conferma» è presente sulle singole card, con i blocchi e i permessi esistenti.
-- Il comando collettivo non chiude l'inventario: conferma e chiusura sono già separate nel database. Non occorrono migrazioni.
+## Elenco completo prima dell'applicazione
+Letti **33 record U.M.**: 9 di 3 EMME ROMA SRL, 8 di AIELLO CESARE, 16 di trevi srl. Tutti hanno attualmente `allows_decimals = true`: quel campo resta invariato.
 
-## Correzioni previste
-1. **Due azioni chiaramente separate:** «Conferma tutto» nella barra inferiore, disponibile a chi può contare; «Chiudi inventario» separato, solo con gli attuali permessi di chiusura. Conferma tutto lascia sempre aperto l'inventario. Chiudi inventario riusa la chiusura esistente e non conferma bozze implicitamente; se restano bozze, invita a confermarle o correggerle prima. I vuoti restano mai contati, anche chiudendo.
-2. **Riepilogo prima della conferma:** considerare tutte le card della sessione, non solo quelle mostrate dai filtri; indicare distintamente prodotti e card quando lo stesso prodotto ha più fornitori/zone. Mostrare da confermare, vuoti mai contati e bloccati, con prodotto/card e motivo del blocco. I prodotti già confermati e senza nuova bozza non sono vuoti.
-3. **Le 10 differenze più grandi:** confrontare solo bozze numeriche confermabili e quantità calcolate note, nella stessa U.M. di magazzino, tramite la conversione verificata già esistente. Ordinare per valore assoluto della differenza; mostrare prodotto, fornitore/zona, calcolata, contata, differenza e U.M. Nessuna equivalenza inventata: senza confezione la card compare tra i bloccati.
-4. **Differenze oltre il 50%:** evidenziare in rosso solo se `|contata − calcolata| > |calcolata| × 0,5`; esattamente 50% non rosso. Con calcolata zero, un conteggio diverso da zero viene evidenziato senza percentuale infinita; con calcolata sconosciuta non calcolare differenze/percentuali. Nota sempre facoltativa.
-5. **Torna a correggere:** chiude il riepilogo senza confermare nulla e lascia intatte quantità e U.M. Rendere accessibili anche tutti i motivi restituiti dalla conferma effettiva, se nel frattempo qualche card non è più confermabile.
+Ogni cella numerica rappresenta una U.M. esistente di quell'azienda. «—» significa assente. Sono incluse anche le U.M. disattivate, indicate con *.
 
-## Criticità da correggere nello stesso flusso
-- Oggi la conferma aspetta 1,2 secondi dopo aver avviato il salvataggio delle bozze, senza attendere davvero la conclusione. Sostituire l'attesa fissa con l'attesa delle operazioni effettive: un errore deve impedire la conferma e conservare i valori.
-- Mantenere nella bozza la U.M. scelta per ciascuna card e usarla coerentemente nel riepilogo e nella conferma: non confondere casse e kg.
-- Dopo successo rileggere le bozze rimaste e le righe aggiornate: confermate bloccate, rifiutate ancora correggibili. Nessuna chiusura automatica.
-- Eventuali percorsi precedenti che consentivano di trasformare collettivamente i vuoti in «esauriti» non saranno collegati ai nuovi due comandi; nessuna eliminazione massiva del codice precedente.
+| Codice | Descrizione | 3 EMME ROMA SRL | AIELLO CESARE | trevi srl |
+|---|---|---:|---:|---:|
+| cassa | Cassa da Danea | — | — | 1 |
+| confezione | Confezione da Danea | — | — | 0,1 |
+| cs | Cassa | 1 | 1 | 1 |
+| ct | Cartone | 0,1 * | 0,1 | 0,1 |
+| kg | Chilogrammo | 0,1 | 0,1 | 0,1 |
+| lt | Litro | 0,1 | 0,1 | 0,1 |
+| mazzo | Mazzo da Danea | — | — | 1 |
+| ml | Millilitro | 0,1 * | 0,1 | 0,1 |
+| mz | Mazzo | 1 | 1 | 1 |
+| nr | nr da Danea | 1 | — | 1 |
+| pezzo | Pezzo da Danea | — | — | 1 |
+| pz | Pezzo | 1 | 1 | 1 |
+| sc | Sacco | — | — | 0,1 |
+| vasch | Vaschetta | 1 | 1 | 1 |
+| vaschetta | Vaschetta da Danea | — | — | 1 |
+| zzt | Test C1 mod | — | — | 0,1 * |
 
-## File autorizzati per l'implementazione
-- `src/components/inventory/inventory-count-panel.tsx`: comandi, attesa bozze, U.M., riepilogo e aggiornamento dopo conferma.
-- `src/lib/inventory-confirm-all.ts` e `src/lib/inventory-confirm-all.test.ts`: classificazione pura, differenze, limite 10 e soglia 50% con test.
-- Nuovo `src/components/inventory/inventory-confirm-all-dialog.tsx`: finestra del riepilogo usando gli elementi grafici già presenti.
-- `src/components/inventory/AGENTS.md`: regola delle due azioni e del riepilogo senza scritture implicite.
-- `roadmap.md`: solo la voce di questo intervento e il suo esito.
+**Totali: 18 record con passo 1; 15 con passo 0,1.** Nessun passo viene applicato prima della conferma. `mz` e `vasch` sono gli attuali codici di Mazzo e Vaschetta, quindi ricevono passo 1. Cartone, sacco e confezione non sono trattati come casse: seguono la regola delle altre U.M.
 
-Nessun altro file applicativo, pagina, stile, migrazione o funzione database viene modificato. Prima di estendere questo elenco, fermarsi e chiedere conferma.
+## Perimetro
+- Aggiungere il passo della U.M., numerico e strettamente positivo.
+- Aggiungere al prodotto «Vendibile a mezza cassa», spento di default; mostrarlo nella tab Vendita accanto alle U.M., solo se esiste una U.M. di vendita attiva `cs` o `cassa`.
+- Cassa: passo 0,5 quando acceso, 1 quando spento. Tutte le altre U.M. usano il proprio passo.
+- Nessun cambio al significato o ai valori di `allows_decimals`, alle conversioni o alle confezioni.
+- Questa fase **non introduce ancora controlli o arrotondamenti** nell'app cliente, nell'inserimento manuale, nella Lista, negli ordini fornitore, nell'inventario o nell'XML Danea; il nuovo passo è una configurazione disponibile per una successiva fase approvata.
 
-## Verifiche e consegna
-- Test concreti: vuoto distinto da zero esplicito, già contato senza bozza, bozza invalida, confezione mancante/ambigua, conversione 2 casse × 10 = 20 kg, top 10 ordinato, 50% esatto/non esatto, calcolata zero/null, note non richieste.
-- Eseguire i test pertinenti e verificare i segnali automatici dell'anteprima.
-- Verificare comandi e riepilogo nell'anteprima autenticata senza confermare, chiudere o modificare dati operativi; le prove locali isolate non alterano quantità esistenti.
-- Il collaudo effettivo di scrittura/rilettura resta ad Andrea su 3 EMME, non viene eseguito dall'assistente su Trevi o altre aziende reali.
-- Resoconto distinguendo ciò che era già corretto dalle correzioni, file/righe e test eseguiti.
+## Sequenza e punti di conferma
+1. Dopo l'approvazione del piano, mostrare prima il solo nuovo switch in una prova isolata, senza salvataggio reale, rispettando la richiesta di mockup prima dei collegamenti.
+2. Dopo l'approvazione di quella prova e dell'elenco sopra, applicare la modifica additiva: inizializzare solo il nuovo passo sulle 33 U.M., senza cambiare gli altri campi; tutti i prodotti partono con lo switch spento.
+3. Collegare il salvataggio del solo switch ai controlli amministratore, conservando tutti i salvataggi esistenti. Su errore il valore non viene presentato come salvato. Danea non modifica la scelta.
+4. Verificare i nuovi campi, i 33 passi e l'invarianza di `allows_decimals`; testare le regole con valori concreti. Non fare salvataggi di prova sui prodotti reali: il collaudo operativo resta ad Andrea su dati di prova autorizzati.
 
-**Nessun dato esistente modificato, nessuna pubblicazione.**
+## Dettagli tecnici e file previsti
+- Nuova migrazione generata dallo strumento in `drizzle/migrations/`: `units_of_measure.quantity_step numeric NOT NULL DEFAULT 0.1`, backfill dei valori sopra e vincolo `CHECK (quantity_step > 0)`; `products.sell_half_case boolean NOT NULL DEFAULT false`.
+- Inizializzazione anche delle nuove U.M. usando gli stessi codici e `allows_decimals` solo come criterio iniziale: nessun aggiornamento automatico del passo quando cambia quel flag.
+- Nuova RPC `set_product_sell_half_case(product_id, enabled)`: identità da `auth.uid()`, verifica amministratore dell'azienda proprietaria del prodotto; nessun parametro azienda o utente; `SECURITY DEFINER SET search_path = public`, EXECUTE solo authenticated. Non modificare le RPC esistenti delle U.M.
+- `src/components/products/sales-unit-manager.tsx`: switch shadcn, lettura mirata del nuovo campo e aggiornamento della relativa cache; prova isolata prima del collegamento. Non cambiare il form delle U.M. già presente.
+- Nuovi `src/lib/sale-quantity-step.ts` e `src/lib/sale-quantity-step.test.ts`: riconoscimento `cs`/`cassa`, regole di inizializzazione e passo effettivo; non collegati ai campi quantità in questa fase.
+- Nuovi `src/lib/product-half-case.functions.ts` e `src/lib/product-half-case.functions.test.ts`: salvataggio autenticato e test del percorso senza privilegi.
+- Nuovo `src/components/products/half-case-switch-mockup.tsx`: prova dello switch con stato locale isolato, prima di qualsiasi scrittura reale.
+- `src/components/products/AGENTS.md` e `src/lib/AGENTS.md`: regole strutturali di configurazione separata e salvataggio autenticato; `roadmap.md`: solo la voce di questo intervento.
+- `src/integrations/supabase/types.ts`: rigenerato automaticamente dallo strumento, mai modificato a mano.
+
+Se serve un altro file applicativo, fermarsi e aggiornare il piano prima di modificarlo.
+
+## Verifiche
+- kg = 0,1; pz/pezzo, cs/cassa, mz/mazzo, vasch/vaschetta, nr = 1.
+- Altra U.M.: 1 con allows_decimals=false; 0,1 con true.
+- Cassa: switch spento = 1; acceso = 0,5; altre U.M. non influenzate dallo switch.
+- Passo zero/negativo rifiutato; salvataggio non amministratore rifiutato; identità mai presa dai parametri.
+- Visibilità solo con cassa di vendita attiva; nessuna modifica di ordini, conteggi, prezzi o storico.
+
+**Nessuna pubblicazione. Nessuna modifica applicativa o al database è stata ancora eseguita: finora solo verifica, memoria dei requisiti e aggiornamento della voce nella roadmap.**
