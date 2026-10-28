@@ -462,7 +462,18 @@ export function InventoryCountPanel({
       return next;
     });
     setSavedDraftKeys(new Set(list.map((d) => rowKey(d as typeof d & { product_supplier_link_id: string | null }))));
-  }, [savedDraftsQuery.data]);
+    const restored: Record<string, string> = {};
+    for (const draft of list) {
+      const key = rowKey(draft as typeof draft & { product_supplier_link_id: string | null });
+      if (dirtyDraftKeys.current.has(key) || chosenUnitsRef.current[key]) continue;
+      const option = unitChoice.allowed.get(draft.product_id)?.find((unit) => unit.code.toLowerCase() === draft.unit_code?.toLowerCase());
+      if (option) restored[key] = option.id;
+    }
+    if (Object.keys(restored).length) {
+      chosenUnitsRef.current = { ...chosenUnitsRef.current, ...restored };
+      setChosenUnits((current) => ({ ...current, ...restored }));
+    }
+  }, [savedDraftsQuery.data, allowedUnitsQuery.data]);
 
   function selectedCardUnit(key: string, row?: InventoryCountRow) {
     const parsed = parseCardKey(key);
@@ -563,9 +574,13 @@ export function InventoryCountPanel({
       return next;
     });
     dirtyDraftKeys.current.delete(key);
+    savedDraftUnits.current.delete(key);
     const previous = draftWrites.current.get(key) ?? Promise.resolve();
-    void previous.catch(() => undefined).then(() => draftFn({ data: { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null } }))
-      .catch(() => undefined);
+    const write = previous.catch(() => undefined).then(() => draftFn({ data: { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null } }));
+    draftWrites.current.set(key, write);
+    void write.then(() => {
+      if (draftWrites.current.get(key) === write) draftWrites.current.delete(key);
+    }, (error: Error) => toast.error(`Bozza non rimossa: ${error.message}`));
   }
 
   // «Conferma tutto»: il database conferma ogni bozza con gli stessi controlli della conferma singola;
@@ -618,7 +633,10 @@ export function InventoryCountPanel({
         toast.warning(summary.message);
       } else toast.info(summary.message);
       await refresh();
-      if (result.skipped.length) setBulkReview(await buildBulkReview());
+      if (result.skipped.length) {
+        try { setBulkReview(await buildBulkReview()); }
+        catch { setReviewError("Non riesco ad aggiornare il riepilogo. Torna al conteggio e riaprilo."); }
+      }
       else setConfirmAllOpen(false);
     },
     onError: (error: Error) => { setReviewError(error.message); toast.error(error.message); },
@@ -3026,7 +3044,7 @@ function PhysicalCount({
   );
 
   return (
-    <section className="space-y-2 pb-24 lg:pb-16 [overflow-anchor:none]">
+    <section className="space-y-2 pb-40 lg:pb-32 [overflow-anchor:none]">
       <div ref={topFiltersRef} className="h-px" aria-hidden="true" />
       <div
         ref={stickyHeaderRef}
@@ -3137,7 +3155,7 @@ function PhysicalCount({
                 {filteredSummary.differences ? ` · ${filteredSummary.differences} differenze` : ""}
               </p>
               {filtersActive ? (
-                <p className="mt-0.5">«Conferma inventario» controlla comunque tutte le card previste dalla sessione, anche quelle non visualizzate.</p>
+                <p className="mt-0.5">«Conferma tutto» controlla tutte le card della sessione, anche quelle non visualizzate.</p>
               ) : null}
             </div>
           ) : scope !== "Tutto l'inventario" ? (

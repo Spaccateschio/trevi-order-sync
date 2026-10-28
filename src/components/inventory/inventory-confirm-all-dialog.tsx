@@ -70,7 +70,7 @@ export function InventoryConfirmAllDialog({ open, onOpenChange, review, loading,
       </div>
       <DialogFooter className="gap-2">
         <Button variant="outline" disabled={pending} onClick={onCorrect}>Torna a correggere</Button>
-        <Button disabled={pending || loading || Boolean(error) || !review?.ready.length} onClick={onConfirm}>{pending ? "Conferma in corso…" : "Conferma tutto"}</Button>
+        <Button disabled={pending || loading || !review?.ready.length} onClick={onConfirm}>{pending ? "Conferma in corso…" : "Conferma tutto"}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>;
