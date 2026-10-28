@@ -254,7 +254,6 @@ export function ProductSuppliersManager({
       const payload = {
         _company_id: companyId,
         _action: mode as string,
-        ...(mode === "update" && selected ? { _link_id: selected.link_id } : {}),
         ...(mode === "create" ? { _product_id: productId, _supplier_record_id: supplierRecordId } : {}),
         _supplier_product_code: draft.supplierProductCode,
         _supplier_reference_label: draft.referenceLabel,

@@ -29,7 +29,7 @@ export function OrderShareDialog({ orderId, mode = 'first', onClose, onConfirmed
     if (error) throw new Error(error.message);
     const [supplier, lines, links] = await Promise.all([
       supabase.from('supplier_records').select('legal_name,email,phone').eq('id', order.supplier_record_id).single(),
-      supabase.from('purchase_order_items').select('product_name,product_code,purchase_quantity,purchase_unit_code,notes').eq('order_id', orderId).order('created_at'),
+      supabase.from('purchase_order_items').select('product_name,product_code,supplier_product_code,purchase_quantity,purchase_unit_code,notes').eq('order_id', orderId).order('created_at'),
       supabase.from('purchase_order_share_links').select('expires_at').eq('order_id', orderId).is('revoked_at',null).gt('expires_at',new Date().toISOString()),
     ]);
     if (supplier.error) throw new Error(supplier.error.message);
