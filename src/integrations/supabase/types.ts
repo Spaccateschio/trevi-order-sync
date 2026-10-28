@@ -8586,6 +8586,10 @@ export type Database = {
           unit_id: string
         }[]
       }
+      manual_purchase_indication: {
+        Args: { _link_id: string; _quantity: number; _unit_id: string }
+        Returns: Json
+      }
       mark_notifications_read: { Args: { _ids?: string[] }; Returns: number }
       mark_order_seen_by_supplier: {
         Args: { _order_id: string }
