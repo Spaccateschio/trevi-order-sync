@@ -8578,6 +8578,14 @@ export type Database = {
         }
         Returns: string
       }
+      manual_danea_cost: {
+        Args: { _product_id: string }
+        Returns: {
+          cost: number
+          unit_code: string
+          unit_id: string
+        }[]
+      }
       mark_notifications_read: { Args: { _ids?: string[] }; Returns: number }
       mark_order_seen_by_supplier: {
         Args: { _order_id: string }
