@@ -2410,6 +2410,23 @@ export function InventoryCountPanel({
         </DialogContent>
       </Dialog>
 
+      <Dialog open={confirmAllOpen} onOpenChange={setConfirmAllOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Confermare tutte le quantità?</DialogTitle>
+            <DialogDescription>
+              Confermo {savedDraftKeys.size} {savedDraftKeys.size === 1 ? "quantità scritta" : "quantità scritte"}: diventano conteggi e le card si bloccano. Le card che non si possono confermare (ad esempio U.M. senza confezione) restano bozze e ti vengono segnalate.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmAllOpen(false)}>Annulla</Button>
+            <Button disabled={confirmAll.isPending} onClick={() => confirmAll.mutate()}>
+              Conferma tutto
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={reopenResetOpen} onOpenChange={setReopenResetOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
