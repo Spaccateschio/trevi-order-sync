@@ -1,5 +1,6 @@
 import { resolveDraftTarget } from "@/lib/inventory-draft-transfer";
-import { confirmAllSummary } from "@/lib/inventory-confirm-all";
+import { afterInventoryDraftWrites, confirmAllSummary, inventoryBulkReview, inventoryDraftQuantity, type ConfirmAllResult, type InventoryBulkReview, type InventoryReviewCard } from "@/lib/inventory-confirm-all";
+import { InventoryConfirmAllDialog } from "./inventory-confirm-all-dialog";
 import { inventoryResetAction, inventoryReopenQueryKeys } from "@/lib/inventory-reset";
 import { inventoryCompactBar } from "@/lib/inventory-scroll";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -156,9 +157,7 @@ const cardSupplierName = (row: InventoryCountRow) =>
 const NO_SUBCATEGORY = "Senza sottocategoria";
 
 function parseQuantity(value: string) {
-  if (!value.trim()) return null;
-  const parsed = Number(value.trim().replace(",", "."));
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  return inventoryDraftQuantity(value);
 }
 
 function addToQuantity(current: string, increment: number) {
@@ -289,11 +288,18 @@ export function InventoryCountPanel({
     },
   });
   const [chosenUnits, setChosenUnits] = useState<Record<string, string>>({});
-  const unitChoice = useMemo(() => ({
+  const chosenUnitsRef = useRef(chosenUnits);
+  chosenUnitsRef.current = chosenUnits;
+  const unitChoice = {
     allowed: allowedUnitsQuery.data ?? new Map<string, { id: string; code: string }[]>(),
     chosen: chosenUnits,
-    choose: (cardKey: string, unitId: string) => setChosenUnits((current) => ({ ...current, [cardKey]: unitId })),
-  }), [allowedUnitsQuery.data, chosenUnits]);
+    choose: (key: string, unitId: string) => {
+      setChosenUnits((current) => ({ ...current, [key]: unitId }));
+      chosenUnitsRef.current = { ...chosenUnitsRef.current, [key]: unitId };
+      const raw = draftsRef.current[key] ?? "";
+      if (raw.trim()) scheduleDraftSave(key, raw);
+    },
+  };
   const readHistory = useServerFn(getCountHistory);
   const manageProposal = useServerFn(managePurchaseProposal);
   const toggleFavorite = useServerFn(manageCompanyProductFavorite);
@@ -350,7 +356,7 @@ export function InventoryCountPanel({
     return next;
   });
   const [emptyRows, setEmptyRows] = useState<InventoryCountRow[] | null>(null);
-  const [pending, setPending] = useState<{ row: InventoryCountRow; value: number } | null>(null);
+  const [pending, setPending] = useState<{ row: InventoryCountRow; value: number; stockValue?: number; unit?: string } | null>(null);
   const [pendingReason, setPendingReason] = useState("");
   const [showCompletion, setShowCompletion] = useState(true);
   // Conteggio immediato senza sessione aperta: bozze per prodotto e zona scelta
@@ -425,6 +431,9 @@ export function InventoryCountPanel({
   const draftTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [savedDraftKeys, setSavedDraftKeys] = useState<Set<string>>(new Set());
   const [clearDraftsOpen, setClearDraftsOpen] = useState(false);
+  const dirtyDraftKeys = useRef(new Set<string>());
+  const draftWrites = useRef(new Map<string, Promise<unknown>>());
+  const savedDraftUnits = useRef(new Map<string, string | null>());
   const savedDraftsQuery = useQuery({
     queryKey: ["inventory-count-drafts", sessionId],
     enabled: Boolean(sessionId),
@@ -447,35 +456,82 @@ export function InventoryCountPanel({
       const next = { ...current };
       for (const d of list) {
         const key = rowKey(d as typeof d & { product_supplier_link_id: string | null });
-        if (!draftTimers.current[key]) next[key] = d.quantity;
+        savedDraftUnits.current.set(key, d.unit_code);
+        if (!dirtyDraftKeys.current.has(key)) next[key] = d.quantity;
       }
       return next;
     });
     setSavedDraftKeys(new Set(list.map((d) => rowKey(d as typeof d & { product_supplier_link_id: string | null }))));
-  }, [savedDraftsQuery.data]);
+    const restored: Record<string, string> = {};
+    for (const draft of list) {
+      const key = rowKey(draft as typeof draft & { product_supplier_link_id: string | null });
+      if (dirtyDraftKeys.current.has(key) || chosenUnitsRef.current[key]) continue;
+      const option = unitChoice.allowed.get(draft.product_id)?.find((unit) => unit.code.toLowerCase() === draft.unit_code?.toLowerCase());
+      if (option) restored[key] = option.id;
+    }
+    if (Object.keys(restored).length) {
+      chosenUnitsRef.current = { ...chosenUnitsRef.current, ...restored };
+      setChosenUnits((current) => ({ ...current, ...restored }));
+    }
+  }, [savedDraftsQuery.data, allowedUnitsQuery.data]);
 
-  // Salva subito le bozze in sospeso quando si esce dalla pagina o la finestra va in background.
-  const flushRef = useRef<() => void>(() => undefined);
-  flushRef.current = () => {
-    if (!sessionId) return;
+  function selectedCardUnit(key: string, row?: InventoryCountRow) {
+    const parsed = parseCardKey(key);
+    const options = parsed ? unitChoice.allowed.get(parsed.productId) ?? [] : [];
+    const resolvedRow = row ?? allRowsQuery.data?.find((entry) => rowKey(entry) === key);
+    const selectedId = chosenUnitsRef.current[key];
+    const savedCode = savedDraftUnits.current.get(key);
+    const code = options.find((option) => option.id === selectedId)?.code
+      ?? savedCode
+      ?? resolvedRow?.counted_unit_code?.trim()
+      ?? resolvedRow?.stock_unit_code?.trim()
+      ?? options[0]?.code ?? null;
+    return { code, id: options.find((option) => option.code.toLowerCase() === code?.toLowerCase())?.id ?? null };
+  }
+
+  function writeDraft(key: string, raw: string) {
+    if (!sessionId) return Promise.resolve();
+    const card = parseCardKey(key);
+    if (!card) return Promise.reject(new Error("Card di inventario non valida"));
+    const { productId, locationId, linkId } = card;
+    const value = raw.trim();
+    const unitCode = selectedCardUnit(key).code;
+    const previous = draftWrites.current.get(key) ?? Promise.resolve();
+    const write = previous.catch(() => undefined).then(() => draftFn({
+      data: value === ""
+        ? { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null }
+        : { action: "set", sessionId, productId, locationId, linkId, quantity: value, unitCode },
+    })).then(() => {
+      savedDraftUnits.current.set(key, unitCode);
+      if ((draftsRef.current[key] ?? "").trim() === value && selectedCardUnit(key).code === unitCode) {
+        dirtyDraftKeys.current.delete(key);
+        setSavedDraftKeys((current) => {
+          const next = new Set(current);
+          if (value) next.add(key); else next.delete(key);
+          return next;
+        });
+      }
+    });
+    draftWrites.current.set(key, write);
+    void write.then(() => {
+      if (draftWrites.current.get(key) === write) draftWrites.current.delete(key);
+    }, () => undefined);
+    return write;
+  }
+
+  // Await all writes, including requests already running. Failures preserve dirty values for retry.
+  async function flushDraftWrites() {
     for (const key of Object.keys(draftTimers.current)) {
       clearTimeout(draftTimers.current[key]);
       delete draftTimers.current[key];
-      const card = parseCardKey(key);
-      if (!card) continue;
-      const { productId, locationId, linkId } = card;
-      const value = (draftsRef.current[key] ?? "").trim();
-      void draftFn({
-        data: value === ""
-          ? { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null }
-          : { action: "set", sessionId, productId, locationId, linkId, quantity: value, unitCode: null },
-      }).catch(() => undefined);
     }
-  };
+    const writes = [...dirtyDraftKeys.current].map((key) => writeDraft(key, draftsRef.current[key] ?? ""));
+    await afterInventoryDraftWrites([...draftWrites.current.values(), ...writes], async () => undefined);
+  }
+  const flushRef = useRef<() => void>(() => undefined);
+  flushRef.current = () => { void flushDraftWrites().catch(() => undefined); };
   useEffect(() => {
-    const onHide = () => {
-      if (document.visibilityState === "hidden") flushRef.current();
-    };
+    const onHide = () => { if (document.visibilityState === "hidden") flushRef.current(); };
     const onPageHide = () => flushRef.current();
     document.addEventListener("visibilitychange", onHide);
     window.addEventListener("pagehide", onPageHide);
@@ -493,29 +549,13 @@ export function InventoryCountPanel({
 
   function scheduleDraftSave(key: string, raw: string) {
     if (!sessionId) return;
-    const card = parseCardKey(key);
-    if (!card) return;
-    const { productId, locationId, linkId } = card;
+    dirtyDraftKeys.current.add(key);
+    draftsRef.current = { ...draftsRef.current, [key]: raw };
     if (draftTimers.current[key]) clearTimeout(draftTimers.current[key]);
-    setSavedDraftKeys((current) => {
-      const next = new Set(current);
-      next.delete(key);
-      return next;
-    });
+    setSavedDraftKeys((current) => { const next = new Set(current); next.delete(key); return next; });
     draftTimers.current[key] = setTimeout(() => {
       delete draftTimers.current[key];
-      const value = raw.trim();
-      void draftFn({
-        data: value === ""
-          ? { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null }
-          : { action: "set", sessionId, productId, locationId, linkId, quantity: value, unitCode: null },
-      })
-        .then(() => {
-          if (value !== "" && draftsRef.current[key]?.trim() === value) {
-            setSavedDraftKeys((current) => new Set(current).add(key));
-          }
-        })
-        .catch((error: Error) => toast.error(`Bozza non salvata: ${error.message}`));
+      void writeDraft(key, raw).catch((error: Error) => toast.error(`Bozza non salvata: ${error.message}`));
     }, 1000);
   }
 
@@ -533,36 +573,73 @@ export function InventoryCountPanel({
       next.delete(key);
       return next;
     });
-    void draftFn({ data: { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null } })
-      .catch(() => undefined);
+    dirtyDraftKeys.current.delete(key);
+    savedDraftUnits.current.delete(key);
+    const previous = draftWrites.current.get(key) ?? Promise.resolve();
+    const write = previous.catch(() => undefined).then(() => draftFn({ data: { action: "clear_one", sessionId, productId, locationId, linkId, quantity: null, unitCode: null } }));
+    draftWrites.current.set(key, write);
+    void write.then(() => {
+      if (draftWrites.current.get(key) === write) draftWrites.current.delete(key);
+    }, (error: Error) => toast.error(`Bozza non rimossa: ${error.message}`));
   }
 
   // «Conferma tutto»: il database conferma ogni bozza con gli stessi controlli della conferma singola;
   // le card non confermabili restano bozze e vengono segnalate con il motivo.
   const confirmAllFn = useServerFn(confirmAllInventoryDrafts);
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
+  const [bulkReview, setBulkReview] = useState<InventoryBulkReview | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [bulkSkipped, setBulkSkipped] = useState<ConfirmAllResult["skipped"]>([]);
   const confirmAll = useMutation({
     mutationFn: async () => {
       if (!sessionId) throw new Error("Inventario non aperto");
-      flushRef.current();
-      await new Promise((resolve) => window.setTimeout(resolve, 1200));
+      await flushDraftWrites();
+      const latest = await buildBulkReview();
+      if (latest.signature !== bulkReview?.signature) {
+        setBulkReview(latest);
+        throw new Error("Il riepilogo è stato aggiornato: ricontrolla le quantità e premi nuovamente Conferma tutto.");
+      }
       return confirmAllFn({ data: { sessionId } });
     },
     onSuccess: async (result) => {
-      setConfirmAllOpen(false);
-      Object.values(draftTimers.current).forEach(clearTimeout);
-      draftTimers.current = {};
-      setDrafts({});
-      setSavedDraftKeys(new Set());
+      const remaining = await savedDraftsQuery.refetch();
+      if (remaining.error) {
+        setReviewError("Quantità confermate, ma non riesco a rileggere le bozze rimaste. Riapri il riepilogo prima di continuare.");
+        await refresh();
+        return;
+      }
+      const next: Record<string, string> = {};
+      for (const draft of remaining.data ?? []) {
+        const key = rowKey(draft as typeof draft & { product_supplier_link_id: string | null });
+        next[key] = draft.quantity;
+        savedDraftUnits.current.set(key, draft.unit_code);
+      }
+      const confirmedKeys = (bulkReview?.ready ?? []).filter((row) => !(row.key in next)).map((row) => row.key);
+      setUnlockedCards((current) => {
+        const updated = new Set(current);
+        for (const key of confirmedKeys) updated.delete(key);
+        for (const key of Object.keys(next)) updated.add(key);
+        return updated;
+      });
+      draftsRef.current = next;
+      setDrafts(next);
+      setSavedDraftKeys(new Set(Object.keys(next)));
+      setBulkSkipped(result.skipped);
       const summary = confirmAllSummary(result);
-      if (summary.kind === "done") toast.success(summary.message);
+      if (summary.kind === "done") toast.success(`${summary.message} · inventario aperto`);
       else if (summary.kind === "partial") {
-        if (result.confirmed > 0) toast.success(`${result.confirmed} quantità confermate`);
+        if (result.confirmed > 0) toast.success(`${result.confirmed} quantità confermate · inventario aperto`);
         toast.warning(summary.message);
       } else toast.info(summary.message);
       await refresh();
+      if (result.skipped.length) {
+        try { setBulkReview(await buildBulkReview()); }
+        catch { setReviewError("Non riesco ad aggiornare il riepilogo. Torna al conteggio e riaprilo."); }
+      }
+      else setConfirmAllOpen(false);
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => { setReviewError(error.message); toast.error(error.message); },
   });
 
   const reopenCountFn = useServerFn(reopenInventoryCount);
@@ -579,6 +656,8 @@ export function InventoryCountPanel({
       if (reset) {
         Object.values(draftTimers.current).forEach(clearTimeout);
         draftTimers.current = {};
+        dirtyDraftKeys.current.clear();
+        savedDraftUnits.current.clear();
         draftsRef.current = {};
         setDrafts({});
         setDraftFirst({});
@@ -613,6 +692,8 @@ export function InventoryCountPanel({
     onSuccess: async () => {
       Object.values(draftTimers.current).forEach(clearTimeout);
       draftTimers.current = {};
+      dirtyDraftKeys.current.clear();
+      savedDraftUnits.current.clear();
       draftsRef.current = {};
       setDrafts({});
       setDraftFirst({});
@@ -998,6 +1079,66 @@ export function InventoryCountPanel({
     () => habitualFirst(baseRows.filter((row) => matchesHabitual(row.product_id, habitualMap, habitualFilter)), habitualMap, selectedLocationId),
     [baseRows, habitualFilter, habitualMap, selectedLocationId],
   );
+  async function buildBulkReview(): Promise<InventoryBulkReview> {
+    const [freshRows, freshDrafts] = await Promise.all([allRowsQuery.refetch(), savedDraftsQuery.refetch()]);
+    if (freshRows.error) throw freshRows.error;
+    if (freshDrafts.error) throw freshDrafts.error;
+    const draftMap = new Map<string, { quantity: string; unit_code: string | null }>();
+    for (const draft of freshDrafts.data ?? []) draftMap.set(rowKey(draft as typeof draft & { product_supplier_link_id: string | null }), draft);
+    const cards = await Promise.all((freshRows.data ?? []).map(async (row): Promise<InventoryReviewCard> => {
+      const key = rowKey(row);
+      const stored = draftMap.get(key);
+      const raw = dirtyDraftKeys.current.has(key) ? draftsRef.current[key] ?? "" : stored?.quantity ?? "";
+      const selected = selectedCardUnit(key, row);
+      const code = dirtyDraftKeys.current.has(key) ? selected.code : stored?.unit_code ?? row.stock_unit_code;
+      const unitId = unitChoice.allowed.get(row.product_id)?.find((option) => option.code.toLowerCase() === code?.toLowerCase())?.id ?? selected.id;
+      let factor: number | null = null;
+      let blockedReason: string | null = null;
+      if (raw.trim() && parseQuantity(raw) !== null) {
+        if (row.stock_unit_missing) blockedReason = "U.M. di magazzino da impostare";
+        else if (!code) blockedReason = "U.M. del conteggio da impostare";
+        else if (code.toLowerCase() === row.stock_unit_code?.trim().toLowerCase()) factor = 1;
+        else if (!unitId) blockedReason = "U.M. non ammessa per il conteggio";
+        else {
+          const { data, error } = await supabase.rpc("inventory_count_conversion", { _product_id: row.product_id, _unit_id: unitId });
+          factor = data?.[0]?.factor ?? null;
+          blockedReason = error?.message ?? (factor === null ? `Imposta la confezione per ${code} nella tab Inventario o conta in ${row.stock_unit_code}` : null);
+        }
+      }
+      return { key, productId: row.product_id, label: rowName(row), detail: `${cardSupplierName(row)} · ${row.location_name}`,
+        raw, alreadyCounted: row.counted !== null, calculated: row.calculated === null ? null : Number(row.calculated),
+        unit: row.stock_unit_code ?? "", countedUnit: code ?? "", factor, blockedReason };
+    }));
+    return inventoryBulkReview(cards);
+  }
+
+  async function openBulkReview() {
+    if (!sessionId) return;
+    setConfirmAllOpen(true);
+    setReviewLoading(true);
+    setReviewError(null);
+    setBulkSkipped([]);
+    setBulkReview(null);
+    try { setBulkReview(await buildBulkReview()); }
+    catch (error) { setReviewError(error instanceof Error ? error.message : "Impossibile verificare le quantità"); }
+    finally { setReviewLoading(false); }
+  }
+
+  async function requestCloseInventory() {
+    if (!isAdmin || !sessionId) return;
+    try {
+      await flushDraftWrites();
+      const remaining = await savedDraftsQuery.refetch();
+      if (remaining.error) throw remaining.error;
+      if ((remaining.data ?? []).some((draft) => draft.quantity.trim())) {
+        toast.info("Ci sono quantità in bozza: confermale o correggile prima di chiudere l’inventario.");
+        await openBulkReview();
+        return;
+      }
+      setConfirmedOpen(true);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Bozze non salvate: inventario ancora aperto"); }
+  }
+
   // Card più strette quando sotto il nome non c'è nulla da leggere; una sola misura per tutte.
   const cardMinWidth = useMemo(
     () =>
@@ -1253,9 +1394,7 @@ export function InventoryCountPanel({
           entryType: input.row.counted !== null ? "riconteggio" : "conteggio",
           countedQuantity: input.value,
           unitCode: input.unit || null,
-          unitId: unitChoice.chosen[rowKey(input.row)]
-            ?? unitChoice.allowed.get(input.row.product_id)?.find((option) => option.code === input.row.counted_unit_code?.trim())?.id
-            ?? null,
+          unitId: selectedCardUnit(rowKey(input.row), input.row).id,
           notes: input.notes,
           nonCompliant: null,
           nonCompliantQuantity: null,
@@ -1467,20 +1606,23 @@ export function InventoryCountPanel({
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const confirmRow = (row: InventoryCountRow) => {
-    const value = parseQuantity(drafts[rowKey(row)] ?? "");
-    if (value === null) {
-      toast.error("Inserisci una quantità valida");
-      return;
+  const confirmRow = async (row: InventoryCountRow) => {
+    const value = parseQuantity(draftsRef.current[rowKey(row)] ?? "");
+    if (value === null) { toast.error("Inserisci una quantità valida"); return; }
+    const chosen = selectedCardUnit(rowKey(row), row);
+    let stockValue = value;
+    if (chosen.code?.toLowerCase() !== row.stock_unit_code?.trim().toLowerCase()) {
+      if (!chosen.id) { toast.error("U.M. del conteggio da impostare"); return; }
+      const { data, error } = await supabase.rpc("inventory_count_conversion", { _product_id: row.product_id, _unit_id: chosen.id });
+      if (error || !data?.[0]) { toast.error(error?.message ?? "Confezione non configurata"); return; }
+      stockValue = Math.round(value * data[0].factor * 1000) / 1000;
     }
-    const unit = rowUnit(row);
-    // Giacenza "Da verificare" (calcolata nulla): nessun confronto numerico possibile.
-    if (row.calculated !== null && value !== Number(row.calculated)) {
-      setPending({ row, value });
+    if (row.calculated !== null && stockValue !== Number(row.calculated)) {
+      setPending({ row, value, stockValue, unit: chosen.code ?? rowUnit(row) });
       setPendingReason(row.note ?? "");
       return;
     }
-    countMutation.mutate({ row, value, unit, notes: null });
+    countMutation.mutate({ row, value, unit: chosen.code ?? rowUnit(row), notes: null });
   };
 
   const savePendingDifference = () => {
@@ -1488,8 +1630,8 @@ export function InventoryCountPanel({
     countMutation.mutate({
       row: pending.row,
       value: pending.value,
-      unit: rowUnit(pending.row),
-      notes: pendingReason.trim(),
+      unit: pending.unit ?? rowUnit(pending.row),
+      notes: pendingReason.trim() || null,
     });
     const head = noteQueue.current.rows[0];
     setPending(null);
@@ -1666,7 +1808,7 @@ export function InventoryCountPanel({
         ) : (
           <CardLockContext.Provider value={{
             unlocked: unlockedCards,
-            pending: countMutation.isPending || firstCount.isPending,
+            pending: countMutation.isPending || firstCount.isPending || confirmAll.isPending || reviewLoading || confirmAllOpen,
             canSave: !screenOutdated,
             isAdmin,
             toggleCardFavorite: (row) => cardFavoriteMutation.mutate(row),
@@ -1867,7 +2009,7 @@ export function InventoryCountPanel({
             }}
             onConfirm={(row) => {
               if (sessionId) {
-                confirmRow(row);
+                void confirmRow(row);
                 return;
               }
               const value = parseQuantity(draftFirst[rowKey(row)] ?? "");
@@ -1881,15 +2023,7 @@ export function InventoryCountPanel({
               }
               firstCount.mutate({ productId: row.product_id, locationId: draftLocation.id, unit: rowUnit(row), value });
             }}
-            onConfirmAll={() => {
-              // Con inventario aperto: conferma collettiva delle bozze via database.
-              // Senza sessione (primo conteggio): resta il flusso guidato esistente.
-              if (sessionId) {
-                setConfirmAllOpen(true);
-              } else {
-                void confirmInventory();
-              }
-            }}
+            onConfirmAll={() => { void openBulkReview(); }}
             onClearDrafts={() => {
               if (inventoryResetAction(Boolean(sessionId), cycleColor === "rosso") === "reopen") {
                 setReopenResetOpen(true);
@@ -1941,7 +2075,7 @@ export function InventoryCountPanel({
             }}
             onHistory={(row) => setHistoryRow(row)}
             onOpenProduct={(row) => { productReturnScroll.current = window.scrollY; setProductDialogRow(row); }}
-            onCloseInventory={() => closeMutation.mutate()}
+            onCloseInventory={() => { void requestCloseInventory(); }}
             // Ciclo concluso (verde/arancione): le card sono pronte per un nuovo conteggio,
             // senza le quantità dell'inventario precedente. Il passato resta nello storico.
             stockHistory={sessionId || cycleColor !== "rosso" ? null : (stockHistoryQuery.data ?? null)}
@@ -2032,7 +2166,7 @@ export function InventoryCountPanel({
           {pending
             ? (() => {
                 const unit = rowUnit(pending.row);
-                const difference = pending.value - Number(pending.row.calculated);
+                const difference = (pending.stockValue ?? pending.value) - Number(pending.row.calculated);
                 const higher = difference > 0;
                 return (
                   <>
@@ -2050,7 +2184,7 @@ export function InventoryCountPanel({
                         calcolata
                       </p>
                       <p>
-                        <strong className="block text-sm">{formatQuantity(pending.value, unit)}</strong>fisica
+                        <strong className="block text-sm">{formatQuantity(pending.stockValue ?? pending.value, unit)}</strong>fisica
                       </p>
                       <p>
                         <strong className={cn("block text-sm", higher ? "text-success" : "text-destructive")}>
@@ -2061,7 +2195,7 @@ export function InventoryCountPanel({
                       </p>
                     </div>
                     <div className="space-y-1.5">
-                      <p className="text-xs font-semibold">Motivazione della differenza</p>
+                      <p className="text-xs font-semibold">Motivazione della differenza (facoltativa)</p>
                       <Textarea
                         autoFocus
                         className="min-h-20 text-sm"
@@ -2104,7 +2238,7 @@ export function InventoryCountPanel({
                       >
                         Annulla
                       </Button>
-                      <Button disabled={!pendingReason.trim() || countMutation.isPending} onClick={savePendingDifference}>
+                      <Button disabled={countMutation.isPending} onClick={savePendingDifference}>
                         <Check className="size-4" /> Conferma differenza
                       </Button>
                     </DialogFooter>
@@ -2327,6 +2461,20 @@ export function InventoryCountPanel({
                 className="h-auto w-full whitespace-normal py-2"
                 disabled={closeMutation.isPending}
                 onClick={async () => {
+                  try {
+                    await flushDraftWrites();
+                    const remaining = await savedDraftsQuery.refetch();
+                    if (remaining.error) throw remaining.error;
+                    if ((remaining.data ?? []).some((draft) => draft.quantity.trim())) {
+                      setConfirmedOpen(false);
+                      toast.info("Ci sono ancora bozze: confermale o correggile prima di chiudere.");
+                      await openBulkReview();
+                      return;
+                    }
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Impossibile verificare le bozze");
+                    return;
+                  }
                   // Entrambe le scelte chiudono l'inventario; cambia solo dove si va dopo.
                   if (sessionId) {
                     try {
@@ -2418,22 +2566,12 @@ export function InventoryCountPanel({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmAllOpen} onOpenChange={setConfirmAllOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-base">Confermare tutte le quantità?</DialogTitle>
-            <DialogDescription>
-              Confermo {savedDraftKeys.size} {savedDraftKeys.size === 1 ? "quantità scritta" : "quantità scritte"}: diventano conteggi e le card si bloccano. Le card che non si possono confermare (ad esempio U.M. senza confezione) restano bozze e ti vengono segnalate.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setConfirmAllOpen(false)}>Annulla</Button>
-            <Button disabled={confirmAll.isPending} onClick={() => confirmAll.mutate()}>
-              Conferma tutto
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <InventoryConfirmAllDialog
+        open={confirmAllOpen} onOpenChange={setConfirmAllOpen} review={bulkReview}
+        loading={reviewLoading} pending={confirmAll.isPending} error={reviewError} skipped={bulkSkipped}
+        onConfirm={() => { setReviewError(null); confirmAll.mutate(); }}
+        onCorrect={() => { setConfirmAllOpen(false); setTab("conteggio"); }}
+      />
 
       <Dialog open={reopenResetOpen} onOpenChange={setReopenResetOpen}>
         <DialogContent className="max-w-sm">
@@ -2910,7 +3048,7 @@ function PhysicalCount({
   );
 
   return (
-    <section className="space-y-2 pb-24 lg:pb-16 [overflow-anchor:none]">
+    <section className="space-y-2 pb-40 lg:pb-32 [overflow-anchor:none]">
       <div ref={topFiltersRef} className="h-px" aria-hidden="true" />
       <div
         ref={stickyHeaderRef}
@@ -3021,7 +3159,7 @@ function PhysicalCount({
                 {filteredSummary.differences ? ` · ${filteredSummary.differences} differenze` : ""}
               </p>
               {filtersActive ? (
-                <p className="mt-0.5">«Conferma inventario» controlla comunque tutte le card previste dalla sessione, anche quelle non visualizzate.</p>
+                <p className="mt-0.5">«Conferma tutto» controlla tutte le card della sessione, anche quelle non visualizzate.</p>
               ) : null}
             </div>
           ) : scope !== "Tutto l'inventario" ? (
@@ -3152,9 +3290,13 @@ function PhysicalCount({
               variant="ghost"
               className="w-full max-w-md shrink-0 justify-center bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground"
               onClick={onConfirmAll}
+              disabled={!sessionActive || !cardLockState.canSave || cardLockState.pending || closing}
             >
-              <CheckCheck /> Conferma inventario
+              <CheckCheck /> Conferma tutto
             </Button>
+            {sessionActive && isAdmin ? <Button size="sm" variant="outline" className="w-full max-w-md" disabled={closing || cardLockState.pending || !cardLockState.canSave} onClick={onCloseInventory}>
+              <Lock /> Chiudi inventario
+            </Button> : null}
           </div>
         </div>
       </div>
