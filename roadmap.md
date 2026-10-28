@@ -1,5 +1,9 @@
 # Roadmap
 
+## 28/10 — Dati: passi U.M. e vendita a mezza cassa
+- [x] Elenco read-only completo delle 33 U.M. esistenti e passi iniziali proposti; allows_decimals invariato.
+- [ ] Approvazione elenco e piano prima di aggiungere i dati e lo switch nella tab Vendita; nessuna modifica ai documenti o alla validazione quantità in questa fase.
+
 ## 28/10 — Verifica mirata Conferma tutto / Chiudi inventario
 - [x] Verifica read-only: vuoti non salvati a zero nel percorso attuale, conferma singola presente, RPC collettiva distinta dalla chiusura; riepilogo insufficiente e attesa fissa delle bozze da correggere.
 - [x] Piano approvato alle 07:37 UTC e implementato solo nei sei file elencati: comandi separati, riepilogo preventivo tutte le card, top 10 in U.M. magazzino, rosso oltre 50%, note facoltative, attesa effettiva bozze e U.M. per card. Nessuna migrazione o pubblicazione.
