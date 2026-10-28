@@ -15,13 +15,13 @@
 - Giacenza: espressa solo nella U.M. di magazzino del prodotto (products.stock_unit_id, inizializzata da danea_um e mai scritta da Danea); documenti e movimenti fotografano U.M., fattore e modo di conversione: nessun ricalcolo dalla configurazione.
 - Semaforo Inventario→Lista→Ordini: solo inventory_purchase_cycle_status / manage_inventory_purchase_evaluation; un solo ciclo aperto.
 - Acquisti: dato d'ordine = quantità + U.M. d'acquisto + fornitore; *_quantity in U.M. magazzino solo equivalente (NULL senza conversione, mai 0): non confondere cassette e kg.
-- U.M. prezzo: config FK (links.price_unit_id non B2B; B2B dal prodotto venditore), documenti fotografano id+codice (+price_quantity sul carico); stock_lots.unit_cost NULL senza base: prezzo mai senza U.M.
+- Price units: manual supplier orders use manual_danea_cost with the product's Danea unit; B2B remains seller-product based. Documents snapshot id+code and receipts price_quantity; stock_lots.unit_cost stays NULL without a valid price basis. Indicative values never replace actual receipt costs.
 - Shared quantity editor and non-B2B sharing rules: src/components/shopping/AGENTS.md.
 - Missing-quantity bulk completion selects visibly empty fields through the shared pure predicate and reuses existing exclusion/evaluation commands; generation waits for refreshed rows so pending numeric drafts are never silently excluded or confirmed.
 
 - Operational pages show only current work; when the purchase cycle is not red, past counts and closed lists are reachable only via history views (no data deleted).
 - Sent order edits use customer_update_order_full, request/decide_order_change or supplier_cancel_order: DB order/supplier locks decide concurrency; every change logs purchase_order_changes.
-- Conversione U.M. acquisto fornitore → U.M. di magazzino: solo `product_supplier_link_units.stock_conversion_factor` + verified_stock_unit_id/verified_package_version, letta solo da `effective_supplier_conversion`; il vecchio `conversion_factor` resta del sistema attuale: nessuna conversione superata viene usata in silenzio.
+- Supplier purchase-to-stock conversion uses effective_supplier_conversion with verified stock unit/package version: fixed factors produce exact equivalents, variable factors only indications. Legacy conversion columns remain for compatibility and historical snapshots, never as silent fallbacks.
 - U.M. di magazzino, confezioni e conversioni si scrivono solo con set_product_stock_unit / manage_product_stock_package / set_supplier_unit_conversion (flag app.unit_config_rpc nei trigger): il browser non le scrive direttamente.
 
 - Recurring schedules: company_operational_schedules, unique company+schedule_type; writes via manage_company_operational_schedule (DB admin check), separate from delivery preferences.
