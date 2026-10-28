@@ -42,13 +42,7 @@ export function AddToOwnProductsDialog({
   const [term, setTerm] = useState("");
   const [ownProductId, setOwnProductId] = useState<string | null>(null);
   const supplierCode = supplierCodeFor(sellerProduct);
-  const supplierLabels=useQuery({queryKey:["catalog-reference-labels",uncertain?.links.map(l=>l.link_id)],enabled:Boolean(uncertain?.links.length),queryFn:async()=>{
-    const ids=uncertain?.links.map(l=>l.link_id)??[];
-    if(!ids.length) return new Map<string,string>();
-    const {data,error}=await supabase.from("product_supplier_links").select("id,supplier_records(legal_name),units_of_measure!product_supplier_links_purchase_unit_id_fkey(code)").in("id",ids);
-    if(error) throw new Error(error.message);
-    return new Map((data??[]).map(l=>[l.id,`${l.supplier_records?.legal_name??"Fornitore"} · ${l.units_of_measure?.code??"—"}`]));
-  }});
+
 
   const ownProductsQuery = useQuery({
     queryKey: ["miei-prodotti-ricerca", buyerCompanyId, term],
@@ -89,6 +83,14 @@ export function AddToOwnProductsDialog({
     message: string;
     links: Array<{ link_id: string; product_code: string; product_description: string | null; supplier_reference_label: string | null; supplier_product_code: string | null; is_active: boolean }>;
   } | null>(null);
+
+  const supplierLabels=useQuery({queryKey:["catalog-reference-labels",uncertain?.links.map(l=>l.link_id)],enabled:Boolean(uncertain?.links.length),queryFn:async()=>{
+    const ids=uncertain?.links.map(l=>l.link_id)??[];
+    if(!ids.length) return new Map<string,string>();
+    const {data,error}=await supabase.from("product_supplier_links").select("id,supplier_records(legal_name),units_of_measure!product_supplier_links_purchase_unit_id_fkey(code)").in("id",ids);
+    if(error) throw new Error(error.message);
+    return new Map((data??[]).map(l=>[l.id,`${l.supplier_records?.legal_name??"Fornitore"} · ${l.units_of_measure?.code??"—"}`]));
+  }});
 
   type AddResult = {
     status?: string;
