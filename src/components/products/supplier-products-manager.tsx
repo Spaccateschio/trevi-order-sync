@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { dateTime, euro } from "@/lib/product-grid";
 import { fetchDaneaArchives } from "@/lib/price-lists";
 import { supplierLinkPatch } from "@/lib/supplier-link-patch";
+import { PurchaseUnitsEditor } from "./product-suppliers-manager";
 import { StockPackagesSection } from "./stock-unit-config";
 import type { CompanyUnit } from "./sales-unit-manager";
 
@@ -52,7 +53,7 @@ type LinkRow = {
   origin: "manuale" | "danea";
   products: { code: string; description: string | null; archive_id: string | null; danea_um: string | null } | null;
   units_of_measure: { code: string } | null;
-  product_supplier_link_units: { id: string; is_default: boolean; units_of_measure: { code: string } | null }[] | null;
+  product_supplier_link_units: { id: string; unit_id:string; is_active:boolean; is_default: boolean; units_of_measure: { code: string } | null }[] | null;
 };
 
 /** Elenco delle U.M. con cui si può acquistare la referenza (★ = predefinita, facoltativa). */
@@ -131,7 +132,7 @@ export function SupplierProductsManager({
       const { data, error } = await supabase
         .from("product_supplier_links")
         .select(
-          "id, product_id, supplier_product_code, purchase_unit_id, price_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, sourcing_priority, supplier_reference_label, is_active, notes, origin, products!product_supplier_links_product_id_fkey(code, description, archive_id, danea_um), units_of_measure!product_supplier_links_purchase_unit_id_fkey(code), product_supplier_link_units(id, is_default, units_of_measure!product_supplier_link_units_unit_id_fkey(code))",
+          "id, product_id, supplier_product_code, purchase_unit_id, price_unit_id, conversion_factor, conversion_reference_um, manual_cost, manual_cost_at, min_quantity, lead_time_days, is_preferred, sourcing_priority, supplier_reference_label, is_active, notes, origin, products!product_supplier_links_product_id_fkey(code, description, archive_id, danea_um), units_of_measure!product_supplier_links_purchase_unit_id_fkey(code), product_supplier_link_units(id, unit_id, is_active, is_default, units_of_measure!product_supplier_link_units_unit_id_fkey(code))",
         )
         .eq("supplier_record_id", supplierRecordId);
       if (error) throw new Error(error.message);
@@ -265,11 +266,7 @@ export function SupplierProductsManager({
 
   const saveMutation = useMutation({
     mutationFn: async (row: LinkRow) => {
-      const patch = supplierLinkPatch({ supplier_product_code: row.supplier_product_code, manual_cost: row.manual_cost, min_quantity: row.min_quantity, lead_time_days: row.lead_time_days, notes: row.notes }, {
-        supplier_product_code: draft.supplierProductCode.trim() || null,
-        manual_cost: num(draft.manualCost), min_quantity: num(draft.minQuantity),
-        lead_time_days: num(draft.leadTimeDays), notes: draft.notes.trim() || null,
-      });
+      const patch = supplierLinkPatch({supplier_product_code: row.supplier_product_code}, {supplier_product_code:draft.supplierProductCode.trim()||null});
       const { error } = await supabase.rpc("patch_product_supplier_link", { _link_id: row.id, _patch: patch });
       if (error) throw new Error(error.message);
     },
@@ -298,17 +295,14 @@ export function SupplierProductsManager({
 
   const preferredMutation = useMutation({
     mutationFn: async (input: { linkId: string; priority: number | null }) => {
-      const { error } = await supabase.rpc("manage_product_supplier_link", {
-        _company_id: companyId,
-        _action: "set_priority",
-        _link_id: input.linkId,
-        ...(input.priority !== null ? { _sourcing_priority: input.priority } : {}),
+      const { error } = await supabase.rpc("toggle_product_destination_star", {
+        _company_id:companyId, _product_id:rows.find(r=>r.id===input.linkId)?.product_id ?? "", _link_id:input.linkId, _direct:false, _on:input.priority!==null,
       });
       if (error) throw new Error(error.message);
     },
     onSuccess: async () => {
       await refresh();
-      toast.success("Priorità di approvvigionamento aggiornata");
+      toast.success("Stella aggiornata");
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -343,7 +337,7 @@ export function SupplierProductsManager({
     const matched = rows.filter((row) => {
       if (statusFilter === "attivi" && !row.is_active) return false;
       if (statusFilter === "non_attivi" && row.is_active) return false;
-      if (statusFilter === "preferiti" && row.sourcing_priority === null) return false;
+      if (statusFilter === "preferiti" && !row.is_preferred) return false;
       if (!needle) return true;
       return (
         (row.products?.code ?? "").toLowerCase().includes(needle) ||
@@ -388,7 +382,7 @@ export function SupplierProductsManager({
   const costCell = (row: LinkRow) => {
     const cost = costByProduct.get(row.product_id);
     if (!cost || cost.supplier_net_price === null) return "—";
-    return `${euro(Number(cost.supplier_net_price))} · ${dateTime(cost.received_at)}`;
+    return row.products?.danea_um ? `${euro(Number(cost.supplier_net_price))} / ${row.products.danea_um} · ${dateTime(cost.received_at)}` : "—";
   };
 
   const editor = (row: LinkRow) => (
@@ -402,49 +396,7 @@ export function SupplierProductsManager({
             onChange={(event) => setDraft((current) => ({ ...current, supplierProductCode: event.target.value }))}
           />
         </div>
-        <div className="space-y-1 sm:col-span-2">
-          <Label className="text-xs">U.M. acquistabili</Label>
-          <p className="text-sm">{purchaseUnitsLabel(row)}</p>
-          <p className="text-xs text-muted-foreground">
-            Le U.M. con cui acquisti questa referenza e le eventuali conversioni si gestiscono nella scheda del prodotto.
-          </p>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Costo manuale Trevi Fruit</Label>
-          <Input
-            inputMode="decimal"
-            value={draft.manualCost}
-            disabled={busy}
-            placeholder="Nessuno"
-            onChange={(event) => setDraft((current) => ({ ...current, manualCost: event.target.value }))}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Quantità minima</Label>
-          <Input
-            inputMode="decimal"
-            value={draft.minQuantity}
-            disabled={busy}
-            onChange={(event) => setDraft((current) => ({ ...current, minQuantity: event.target.value }))}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Giorni di consegna</Label>
-          <Input
-            inputMode="numeric"
-            value={draft.leadTimeDays}
-            disabled={busy}
-            onChange={(event) => setDraft((current) => ({ ...current, leadTimeDays: event.target.value }))}
-          />
-        </div>
-        <div className="space-y-1 sm:col-span-2">
-          <Label className="text-xs">Note</Label>
-          <Input
-            value={draft.notes}
-            disabled={busy}
-            onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
-          />
-        </div>
+        <div className="sm:col-span-2"><PurchaseUnitsEditor companyId={companyId} productId={row.product_id} linkId={row.id} assigned={(row.product_supplier_link_units ?? []).map(u=>({...u,unit_id:u.unit_id,code:u.units_of_measure?.code??"—",description:"",is_active:u.is_active,conversion_factor:null,conversion_type:"indicativa" as const}))} units={unitsQuery.data??[]} disabled={busy} onChanged={refresh}/></div>
       </div>
       <div className="border-t border-border pt-2">
         <StockPackagesSection
@@ -460,10 +412,10 @@ export function SupplierProductsManager({
           size="sm"
           variant="ghost"
           disabled={busy}
-          onClick={() => preferredMutation.mutate({ linkId: row.id, priority: row.sourcing_priority === null ? 1 : null })}
+          onClick={() => preferredMutation.mutate({ linkId: row.id, priority: !row.is_preferred ? 1 : null })}
         >
-          <Star className={row.sourcing_priority !== null ? "fill-current" : ""} aria-hidden="true" />
-          {row.sourcing_priority !== null ? "Togli priorità" : "Priorità 1"}
+          <Star className={row.is_preferred ? "fill-current" : ""} aria-hidden="true" />
+          {row.is_preferred ? "Togli stella" : "Stella fornitore"}
         </Button>
         <Button
           type="button"
@@ -551,9 +503,6 @@ export function SupplierProductsManager({
                   ["cod_fornitore", "Cod. fornitore"],
                   ["um", "U.M. acquistabili"],
                   ["costo_danea", "Costo Danea"],
-                  ["costo_trevi", "Costo Trevi Fruit"],
-                  ["qtamin", "Q.tà min."],
-                  ["consegna", "Consegna"],
                   ["stato", "Stato"],
                 ] as [SortKey, string][]
               ).map(([key, label]) => (
@@ -579,16 +528,11 @@ export function SupplierProductsManager({
                   <td className="font-mono">{row.supplier_product_code ?? "—"}</td>
                   <td>{purchaseUnitsLabel(row)}</td>
                   <td>{costCell(row)}</td>
-                  <td>
-                    {row.manual_cost !== null ? `${euro(Number(row.manual_cost))} · ${dateTime(row.manual_cost_at)}` : "—"}
-                  </td>
-                  <td>{row.min_quantity ?? "—"}</td>
-                  <td>{row.lead_time_days !== null ? `${row.lead_time_days} gg` : "—"}</td>
                   <td className="whitespace-nowrap">
-                    {row.sourcing_priority !== null ? (
+                    {row.is_preferred ? (
                       <Badge className="mr-1">
                         <Star className="fill-current" aria-hidden="true" />
-                        Priorità {row.sourcing_priority}
+                        Preferito
                       </Badge>
                     ) : null}
                     {row.is_active ? (
@@ -600,7 +544,7 @@ export function SupplierProductsManager({
                 </tr>
                 {openId === row.id ? (
                   <tr key={`${row.id}-editor`} className="border-t border-border bg-muted/20">
-                    <td colSpan={10} className="p-2">
+                    <td colSpan={7} className="p-2">
                       {isAdmin ? editor(row) : <p className="text-xs text-muted-foreground">Sola lettura.</p>}
                     </td>
                   </tr>
@@ -626,10 +570,10 @@ export function SupplierProductsManager({
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs">{row.products?.code ?? "—"}</span>
-                {row.sourcing_priority !== null ? (
+                {row.is_preferred ? (
                   <Badge>
                     <Star className="fill-current" aria-hidden="true" />
-                    Priorità {row.sourcing_priority}
+                    Preferito
                   </Badge>
                 ) : null}
                 {!row.is_active ? <Badge variant="outline">Non attivo</Badge> : null}
@@ -652,20 +596,7 @@ export function SupplierProductsManager({
                   <dt className="text-muted-foreground">Costo Danea</dt>
                   <dd>{costCell(row)}</dd>
                 </div>
-                <div>
-                  <dt className="text-muted-foreground">Costo Trevi Fruit</dt>
-                  <dd>
-                    {row.manual_cost !== null
-                      ? `${euro(Number(row.manual_cost))} · ${dateTime(row.manual_cost_at)}`
-                      : "—"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Q.tà min. · consegna</dt>
-                  <dd>
-                    {row.min_quantity ?? "—"} · {row.lead_time_days !== null ? `${row.lead_time_days} gg` : "—"}
-                  </dd>
-                </div>
+
               </dl>
             </button>
             {openId === row.id && isAdmin ? <div className="mt-3">{editor(row)}</div> : null}
@@ -681,8 +612,7 @@ export function SupplierProductsManager({
           <DialogHeader>
             <DialogTitle>Aggiungi prodotti al fornitore</DialogTitle>
             <DialogDescription>
-              Selezione multipla. Vengono create solo le associazioni: U.M., conversioni, costi, quantità minima e
-              tempi restano da completare sulla singola riga.
+              Le U.M. del prodotto vengono ereditate dal nuovo collegamento.
             </DialogDescription>
           </DialogHeader>
 

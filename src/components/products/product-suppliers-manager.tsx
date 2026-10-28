@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { DeliveryDaysPicker, DeliveryHintBadge } from "@/components/suppliers/delivery-days-picker";
 import { supabase } from "@/integrations/supabase/client";
+import { SupplierConversionsSection } from "./stock-unit-config";
 import { DEFAULT_SCHEDULE, deliveryScheduleSummary, type DeliverySchedule } from "@/lib/delivery-schedule";
 import { dateTime, euro } from "@/lib/product-grid";
 import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
@@ -195,7 +196,7 @@ export function ProductSuppliersManager({
   const [showInactive, setShowInactive] = useState(false);
   const links = allLinks.filter((row) => row.is_active);
   const inactiveLinks = allLinks.filter((row) => !row.is_active);
-  const visibleLinks = showInactive ? allLinks : links;
+  const visibleLinks = (showInactive ? allLinks : links).slice().sort((a,b) => Number(b.is_preferred)-Number(a.is_preferred) || a.supplier_name.localeCompare(b.supplier_name,"it"));
   const selected = useMemo(() => visibleLinks.find((row) => row.link_id === selectedLinkId) ?? null, [visibleLinks, selectedLinkId]);
 
   useEffect(() => {
@@ -240,48 +241,16 @@ export function ProductSuppliersManager({
       if (mode === "create" && !supplierRecordId) throw new Error("Scegli un fornitore");
       if (mode === "update") {
         if (!selected) throw new Error("Scegli la referenza da modificare");
-        const patch = supplierLinkPatch({ supplier_product_code: selected.supplier_product_code, supplier_reference_label: selected.supplier_reference_label, sourcing_priority: selected.sourcing_priority, manual_cost: selected.manual_cost, price_unit_id: priceUnitsQuery.data?.[selected.link_id] ?? null, min_quantity: selected.min_quantity, lead_time_days: selected.lead_time_days, notes: selected.notes }, {
-          supplier_product_code: draft.supplierProductCode.trim() || null,
-          supplier_reference_label: draft.referenceLabel.trim() || null,
-          sourcing_priority: num(draft.sourcingPriority), manual_cost: num(draft.manualCost),
-          ...(!isB2b ? { price_unit_id: draft.priceUnitId || null } : {}),
-          min_quantity: num(draft.minQuantity), lead_time_days: num(draft.leadTimeDays), notes: draft.notes.trim() || null,
-        });
+        const patch = supplierLinkPatch({ supplier_product_code: selected.supplier_product_code }, { supplier_product_code: draft.supplierProductCode.trim() || null });
         const { error } = await supabase.rpc("patch_product_supplier_link", { _link_id: selected.link_id, _patch: patch });
         if (error) throw new Error(error.message);
         return;
       }
-      const payload = {
-        _company_id: companyId,
-        _action: mode as string,
-        ...(mode === "create" ? { _product_id: productId, _supplier_record_id: supplierRecordId } : {}),
-        _supplier_product_code: draft.supplierProductCode,
-        _supplier_reference_label: draft.referenceLabel,
-        ...(num(draft.sourcingPriority, "Priorità di approvvigionamento") !== null ? { _sourcing_priority: num(draft.sourcingPriority, "Priorità di approvvigionamento") as number } : {}),
-        ...(draft.purchaseUnitId ? { _purchase_unit_id: draft.purchaseUnitId } : {}),
-        ...(num(draft.conversionFactor, "Conversione") !== null ? { _conversion_factor: num(draft.conversionFactor, "Conversione") as number } : {}),
-        ...(daneaUm ? { _conversion_reference_um: daneaUm } : {}),
-        ...(num(draft.manualCost, "Costo concordato") !== null ? { _manual_cost: num(draft.manualCost, "Costo concordato") as number } : {}),
-        ...(draft.priceUnitId && !isB2b ? { _price_unit_id: draft.priceUnitId } : {}),
-        ...(num(draft.minQuantity, "Quantità minima") !== null ? { _min_quantity: num(draft.minQuantity, "Quantità minima") as number } : {}),
-        ...(num(draft.leadTimeDays, "Giorni di consegna") !== null ? { _lead_time_days: num(draft.leadTimeDays, "Giorni di consegna") as number } : {}),
-        _notes: draft.notes,
-      };
-      const { data: linkId, error } = await supabase.rpc("manage_product_supplier_link", payload);
+      const { error } = await supabase.rpc("manage_product_supplier_link", {
+        _company_id: companyId, _action: "create", _product_id: productId,
+        _supplier_record_id: supplierRecordId, _supplier_product_code: draft.supplierProductCode,
+      });
       if (error) throw new Error(error.message);
-      // In creazione la U.M. scelta (facoltativa) diventa la prima U.M. acquistabile, predefinita.
-      if (mode === "create" && linkId && draft.purchaseUnitId) {
-        const args = { _company_id: companyId, _link_id: linkId as string, _unit_id: draft.purchaseUnitId };
-        const factor = num(draft.conversionFactor);
-        const { error: addError } = await supabase.rpc("manage_product_supplier_link_unit", {
-          ...args,
-          _action: "add",
-          ...(factor !== null ? { _conversion_factor: factor } : {}),
-        });
-        if (addError) throw new Error(addError.message);
-        const { error: defaultError } = await supabase.rpc("manage_product_supplier_link_unit", { ...args, _action: "set_default" });
-        if (defaultError) throw new Error(defaultError.message);
-      }
     },
     onSuccess: async (_data, mode) => {
       await refresh();
@@ -422,82 +391,10 @@ export function ProductSuppliersManager({
   const numberError = (value: string) => (isInvalidNumber(value) ? <p className="text-xs font-medium text-destructive">Inserisci solo un numero</p> : null);
   const hasFieldErrors = [draft.sourcingPriority, draft.conversionFactor, draft.manualCost, draft.minQuantity, draft.leadTimeDays].some(isInvalidNumber);
 
-  const fieldsFor = (mode: "create" | "update") => (
-    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <div className="space-y-1">
-        <Label className="text-xs">Codice articolo presso il fornitore</Label>
-        <Input value={draft.supplierProductCode} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, supplierProductCode: event.target.value }))} />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Descrizione della referenza del fornitore</Label>
-        <Input value={draft.referenceLabel} disabled={busy} placeholder="Es. sacco 10 kg" onChange={(event) => setDraft((current) => ({ ...current, referenceLabel: event.target.value }))} />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Priorità di approvvigionamento (facoltativa)</Label>
-        <Input type="number" min={1} step={1} inputMode="numeric" aria-invalid={isInvalidNumber(draft.sourcingPriority)} className={invalidClass(draft.sourcingPriority)} value={draft.sourcingPriority} disabled={busy} placeholder="Es. 1 (prima scelta)" onChange={(event) => setDraft((current) => ({ ...current, sourcingPriority: event.target.value }))} />
-        {numberError(draft.sourcingPriority)}
-        <p className="text-xs text-muted-foreground">Solo un numero: 1 = prima scelta. Più fonti possono avere la stessa priorità, la scelta finale resta nella Lista della Spesa.</p>
-      </div>
-      {mode === "create" ? (
-        <>
-          <div className="space-y-1">
-            <Label className="text-xs">Prima U.M. di acquisto (facoltativa)</Label>
-            <Select value={draft.purchaseUnitId || "nessuna"} disabled={busy} onValueChange={(value) => setDraft((current) => ({ ...current, purchaseUnitId: value === "nessuna" ? "" : value }))}>
-              <SelectTrigger><SelectValue placeholder="Nessuna" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="nessuna">Nessuna</SelectItem>
-                {purchaseUnits.map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.code} — {unit.description}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">Dopo il salvataggio potrai aggiungere altre U.M. con cui acquistare questa referenza.</p>
-            {configuredUnits.length ? <div className="flex flex-wrap gap-1">{configuredUnits.map((u) => <Button key={u.id} type="button" size="sm" variant="outline" disabled={busy} title="Usa per questa nuova referenza" onClick={() => setDraft((current) => ({ ...current, purchaseUnitId: u.id }))}>{u.code}{ownUnitsQuery.data?.find((x) => x.unit_id === u.id)?.is_default ? " ★" : ""}</Button>)}</div> : null}
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Conversione (facoltativa) verso {daneaUm ?? "U.M. prodotto"}</Label>
-            <div className="grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2">
-              <span className="text-sm">1 {draft.purchaseUnitId ? purchaseUnits.find((unit) => unit.id === draft.purchaseUnitId)?.code ?? "U.M." : "U.M."} ≈</span>
-              <Input inputMode="decimal" aria-label="Conversione stimata" aria-invalid={isInvalidNumber(draft.conversionFactor)} className={invalidClass(draft.conversionFactor)} value={draft.conversionFactor} disabled={busy} placeholder="Nessuna" onChange={(event) => setDraft((current) => ({ ...current, conversionFactor: event.target.value }))} />
-              <span className="truncate text-sm">{daneaUm ?? "U.M. prodotto"}</span>
-            </div>
-            {numberError(draft.conversionFactor)}
-            <p className="text-xs text-muted-foreground">Compila solo se l’equivalenza è certa: senza conversione il sistema non calcola equivalenti.</p>
-          </div>
-        </>
-      ) : null}
-      <div className="space-y-1">
-        <Label className="text-xs">Costo concordato (Trevi Fruit)</Label>
-        <Input inputMode="decimal" aria-invalid={isInvalidNumber(draft.manualCost)} className={invalidClass(draft.manualCost)} value={draft.manualCost} disabled={busy} placeholder="Nessuno" onChange={(event) => setDraft((current) => ({ ...current, manualCost: event.target.value }))} />
-        {numberError(draft.manualCost)}
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">U.M. del prezzo</Label>
-        {isB2b && mode === "update" ? (
-          <p className="text-sm text-muted-foreground">Fornitore B2B: la U.M. del prezzo arriva dal suo catalogo.</p>
-        ) : (
-          <Select value={draft.priceUnitId || "nessuna"} disabled={busy} onValueChange={(value) => setDraft((current) => ({ ...current, priceUnitId: value === "nessuna" ? "" : value }))}>
-            <SelectTrigger><SelectValue placeholder="Non indicata" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nessuna">Non indicata</SelectItem>
-              {units.filter((unit) => unit.status === "attivo" || unit.id === draft.priceUnitId).map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.code} — {unit.description}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        )}
-        <p className="text-xs text-muted-foreground">Es. costo 2,00 con U.M. kg = € 2,00/kg. Può essere diversa dalla U.M. con cui ordini.</p>
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Quantità minima</Label>
-        <Input inputMode="decimal" aria-invalid={isInvalidNumber(draft.minQuantity)} className={invalidClass(draft.minQuantity)} value={draft.minQuantity} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, minQuantity: event.target.value }))} />
-        {numberError(draft.minQuantity)}
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Giorni di consegna</Label>
-        <Input type="number" min={0} step={1} inputMode="numeric" aria-invalid={isInvalidNumber(draft.leadTimeDays)} className={invalidClass(draft.leadTimeDays)} value={draft.leadTimeDays} disabled={busy} placeholder="Es. 2" onChange={(event) => setDraft((current) => ({ ...current, leadTimeDays: event.target.value }))} />
-        {numberError(draft.leadTimeDays)}
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Note</Label>
-        <Input value={draft.notes} disabled={busy} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} />
-      </div>
+  const fieldsFor = (_mode: "create" | "update") => (
+    <div className="mt-3 space-y-1">
+      <Label className="text-xs">Codice articolo presso il fornitore</Label>
+      <Input value={draft.supplierProductCode} disabled={busy} onChange={event => setDraft(current => ({ ...current, supplierProductCode: event.target.value }))} />
     </div>
   );
 
@@ -621,8 +518,6 @@ export function ProductSuppliersManager({
                   </span>
                   <Truck aria-hidden="true" className="size-4 text-muted-foreground" />
                   <strong className="text-sm">{row.supplier_name}</strong>
-                  {row.supplier_reference_label ? <span className="text-xs text-muted-foreground">{row.supplier_reference_label}</span> : null}
-                  {row.sourcing_priority !== null ? <Badge><Star className="fill-current" aria-hidden="true" />Priorità {row.sourcing_priority}</Badge> : null}
                   {!row.is_active ? <Badge variant="outline">Disattivato</Badge> : null}
                   {label ? <Badge variant="secondary"><Link2 aria-hidden="true" />{label}</Badge> : null}
                   {deliveries[row.link_id] ? <DeliveryHintBadge schedule={deliveries[row.link_id]!.schedule} /> : null}
@@ -635,14 +530,9 @@ export function ProductSuppliersManager({
                   {b2bItemsQuery.data?.[row.link_id] ? (
                     <div className="col-span-2"><dt className="text-muted-foreground">Articolo B2B collegato</dt><dd><span className="font-mono">{b2bItemsQuery.data[row.link_id]!.code}</span> · {b2bItemsQuery.data[row.link_id]!.description ?? "—"}</dd></div>
                   ) : null}
-                  <div><dt className="text-muted-foreground">Priorità</dt><dd>{row.sourcing_priority ?? "—"}</dd></div>
                   <div><dt className="text-muted-foreground">U.M. acquistabili</dt><dd>{(row.purchase_units ?? []).length ? (row.purchase_units ?? []).map((unit) => `${unit.code}${unit.is_default ? " ★" : ""}`).join(" · ") : "—"}</dd></div>
                   <div><dt className="text-muted-foreground">Costo Danea</dt><dd>{row.danea_net_cost !== null ? `${euro(row.danea_net_cost)} · ${dateTime(row.danea_cost_at)}` : "—"}</dd></div>
-                  <div><dt className="text-muted-foreground">Costo Trevi Fruit</dt><dd>{row.manual_cost !== null ? `${euro(row.manual_cost)} · ${dateTime(row.manual_cost_at)}` : "—"}</dd></div>
-                  <div><dt className="text-muted-foreground">Q.tà minima</dt><dd>{row.min_quantity ?? "—"}</dd></div>
-                  <div><dt className="text-muted-foreground">Consegna</dt><dd>{row.lead_time_days !== null ? `${row.lead_time_days} gg` : "—"}</dd></div>
                   <div><dt className="text-muted-foreground">Origine</dt><dd>{row.origin === "danea" ? "Danea" : "Manuale"}</dd></div>
-                  <div><dt className="text-muted-foreground">Note</dt><dd className="truncate">{row.notes ?? "—"}</dd></div>
                 </dl>
               </Button>
 
@@ -651,9 +541,9 @@ export function ProductSuppliersManager({
                   <PurchaseUnitsEditor
                     companyId={companyId}
                     linkId={row.link_id}
-                    baseUm={daneaUm}
+                    productId={productId}
                     assigned={row.purchase_units ?? []}
-                    units={purchaseUnits}
+                    units={units}
                     disabled={busy}
                     onChanged={refresh}
                   />
@@ -665,11 +555,6 @@ export function ProductSuppliersManager({
                   />
                   {fieldsFor("update")}
                   <div className="mt-3 flex flex-wrap justify-end gap-2">
-                    {row.sourcing_priority !== null ? (
-                      <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => priorityMutation.mutate({ linkId: row.link_id, priority: null })}><Star aria-hidden="true" />Togli priorità</Button>
-                    ) : (
-                      <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => priorityMutation.mutate({ linkId: row.link_id, priority: 1 })}><Star className="fill-current" aria-hidden="true" />Priorità 1</Button>
-                    )}
                     {row.is_active ? (
                       <>
                         <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setUnlinkTarget({ linkId: row.link_id, name: row.supplier_name ?? "fornitore", kind: "deactivate" })}>Disattiva</Button>
@@ -827,148 +712,25 @@ function LinkDeliveryEditor({
  * U.M. con cui è possibile acquistare una singola referenza fornitore.
  * La predefinita è facoltativa: una referenza può restare senza U.M. preferita.
  */
-function PurchaseUnitsEditor({
-  companyId,
-  linkId,
-  baseUm,
-  assigned,
-  units,
-  disabled,
-  onChanged,
-}: {
-  companyId: string;
-  linkId: string;
-  baseUm: string | null;
-  assigned: PurchaseUnit[];
-  units: CompanyUnit[];
-  disabled: boolean;
-  onChanged: () => Promise<void>;
+export function PurchaseUnitsEditor({ companyId, productId, linkId, assigned, units, disabled, onChanged }: {
+  companyId: string; productId: string; linkId: string; assigned: PurchaseUnit[];
+  units: CompanyUnit[]; disabled: boolean; onChanged: () => Promise<void>;
 }) {
-  const [addOpen, setAddOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [factor, setFactor] = useState("");
-  const [conversionType, setConversionType] = useState<"esatta" | "indicativa">("indicativa");
-
-  const selected = assigned.find((row) => row.id === selectedId) ?? null;
-  useEffect(() => {
-    if (!selected) return;
-    setFactor(selected.conversion_factor?.toString() ?? "");
-    setConversionType(selected.conversion_type);
-  }, [selected]);
-
   const mutation = useMutation({
-    mutationFn: async (input: {
-      unitId: string;
-      action: "add" | "remove" | "set_default" | "clear_default" | "set_conversion";
-      conversionFactor?: number | null;
-      conversionType?: "esatta" | "indicativa";
-    }) => {
-      const { error } = await supabase.rpc("manage_product_supplier_link_unit", {
-        _company_id: companyId,
-        _link_id: linkId,
-        _unit_id: input.unitId,
-        _action: input.action,
-        ...(input.conversionFactor !== null && input.conversionFactor !== undefined ? { _conversion_factor: input.conversionFactor } : {}),
-        ...(input.conversionType ? { _conversion_type: input.conversionType } : {}),
-      });
-      if (error) throw new Error(error.message);
-    },
-    onSuccess: async () => {
-      await onChanged();
-      toast.success("U.M. di acquisto aggiornate");
-    },
-    onError: (error: Error) => toast.error(error.message),
+    mutationFn: async (input: {unitId:string; action:"remove"|"set_default"|"clear_default"}) => {
+      const {error}=await supabase.rpc("manage_product_supplier_link_unit",{_company_id:companyId,_link_id:linkId,_unit_id:input.unitId,_action:input.action});
+      if(error) throw new Error(error.message);
+    }, onSuccess: async()=>{await onChanged();toast.success("U.M. aggiornata");}, onError:(e:Error)=>toast.error(e.message)
   });
-
-  const busy = disabled || mutation.isPending;
-  const available = units.filter((unit) => !assigned.some((row) => row.unit_id === unit.id));
-
-  return (
-    <div className="rounded-md border border-border bg-muted/30 p-3">
-      <p className="text-xs font-semibold">U.M. con cui posso acquistare questa referenza</p>
-      <p className="text-xs text-muted-foreground">La predefinita (★) è facoltativa: se manca, la sceglierai nella Lista della Spesa.</p>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        {assigned.map((row) => (
-          <Button
-            key={row.id}
-            type="button"
-            size="sm"
-            variant={selectedId === row.id ? "default" : "outline"}
-            aria-pressed={selectedId === row.id}
-            aria-label={`${row.code}${row.is_default ? ", predefinita" : ""}`}
-            disabled={busy}
-            onClick={() => setSelectedId(selectedId === row.id ? null : row.id)}
-          >
-            {row.code}
-            {row.is_default ? <Star className="fill-current" aria-hidden="true" /> : null}
-          </Button>
-        ))}
-        {available.length ? (
-          <Popover open={addOpen} onOpenChange={setAddOpen}>
-            <PopoverTrigger asChild>
-              <Button type="button" size="icon" variant="outline" aria-label="Aggiungi U.M. di acquisto" disabled={busy}><Plus /></Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-2">
-              <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">Aggiungi U.M. di acquisto</p>
-              <div className="max-h-64 space-y-1 overflow-y-auto">
-                {available.map((unit) => (
-                  <Button
-                    key={unit.id}
-                    type="button"
-                    variant="ghost"
-                    className="h-auto w-full justify-start py-2 text-left"
-                    disabled={busy}
-                    onClick={async () => { await mutation.mutateAsync({ unitId: unit.id, action: "add" }); setAddOpen(false); }}
-                  >
-                    <span><strong>{unit.code}</strong><span className="ml-2 text-muted-foreground">{unit.description}</span></span>
-                  </Button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-        ) : null}
-        {!assigned.length ? <span className="text-xs text-muted-foreground">Nessuna U.M. di acquisto: aggiungila con +.</span> : null}
+  return <div className="space-y-2">
+    <Label>U.M. usate</Label>
+    {assigned.filter(u=>u.is_active).map(u=><div key={u.id} className="border-b border-border py-2">
+      <div className="flex items-center gap-2"><span className="font-medium">{u.code}</span>
+        <Button size="icon" variant="ghost" aria-label={`${u.is_default?"Togli":"Metti"} stella U.M. ${u.code}`} disabled={disabled||mutation.isPending} onClick={()=>mutation.mutate({unitId:u.unit_id,action:u.is_default?"clear_default":"set_default"})}><Star className={u.is_default?"fill-current":""}/></Button>
+        <Button size="icon" variant="ghost" aria-label={`Rimuovi U.M. ${u.code}`} disabled={disabled||mutation.isPending} onClick={()=>mutation.mutate({unitId:u.unit_id,action:"remove"})}><Trash2/></Button>
       </div>
-
-      {selected ? (
-        <div className="mt-3 space-y-2 border-t border-border pt-3">
-          <Label className="text-xs">Conversione (facoltativa) verso {baseUm ?? "U.M. prodotto"}</Label>
-          <div className="grid grid-cols-[auto_minmax(0,8rem)_minmax(0,1fr)] items-center gap-2">
-            <span className="text-sm">1 {selected.code} {conversionType === "esatta" ? "=" : "≈"}</span>
-            <Input inputMode="decimal" aria-label={`Conversione ${selected.code}`} value={factor} disabled={busy} placeholder="Nessuna" onChange={(event) => setFactor(event.target.value)} />
-            <span className="truncate text-sm">{baseUm ?? "U.M. prodotto"}</span>
-          </div>
-          {factor.trim() ? (
-            <div className="flex gap-2">
-              <Button type="button" size="sm" variant={conversionType === "esatta" ? "default" : "outline"} aria-pressed={conversionType === "esatta"} disabled={busy} onClick={() => setConversionType("esatta")}>Esatta</Button>
-              <Button type="button" size="sm" variant={conversionType === "indicativa" ? "default" : "outline"} aria-pressed={conversionType === "indicativa"} disabled={busy} onClick={() => setConversionType("indicativa")}>Indicativa</Button>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">Senza conversione il sistema non calcola equivalenti: fabbisogno e quantità acquistata restano separati.</p>
-          )}
-          <div className="flex flex-wrap justify-end gap-2">
-            {selected.is_default ? (
-              <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => mutation.mutate({ unitId: selected.unit_id, action: "clear_default" })}><Star aria-hidden="true" />Togli predefinita</Button>
-            ) : (
-              <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => mutation.mutate({ unitId: selected.unit_id, action: "set_default" })}><Star className="fill-current" aria-hidden="true" />Predefinita</Button>
-            )}
-            <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => { mutation.mutate({ unitId: selected.unit_id, action: "remove" }); setSelectedId(null); }}><Trash2 aria-hidden="true" />Rimuovi</Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={busy}
-              onClick={() => {
-                const normalized = factor.trim().replace(",", ".");
-                const value = normalized ? Number(normalized) : null;
-                if (value !== null && (!Number.isFinite(value) || value <= 0)) { toast.error("La conversione deve essere maggiore di zero"); return; }
-                mutation.mutate({ unitId: selected.unit_id, action: "set_conversion", conversionFactor: value, conversionType });
-              }}
-            >
-              Salva conversione
-            </Button>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
+      <SupplierConversionsSection productId={productId} units={units} editable={!disabled} linkUnitId={u.id}/>
+    </div>)}
+    {!assigned.some(u=>u.is_active)?<p className="text-sm text-muted-foreground">Nessuna U.M. impostata per questa referenza.</p>:null}
+  </div>;
 }
