@@ -1,26 +1,39 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
-// Su iOS la barra fissa in basso "salta" quando la barra degli indirizzi si apre/chiude
-// o quando appare la tastiera: position: fixed segue il viewport di layout, non quello
-// visibile. Questo offset riporta la barra sul bordo inferiore realmente visibile.
-export function useVisualViewportBottom(): number {
-  const [offset, setOffset] = useState(0);
+// Su cellulare, quando si scrive in un campo, la tastiera fa "salire" le barre fisse
+// in basso (comandi e menu). Per tenere ferma la struttura le barre marcate con
+// data-hide-on-keyboard vengono nascoste mentre la tastiera è aperta e ricompaiono
+// appena si chiude, senza spostare nulla.
+const TEXT_INPUT_TYPES = new Set(["", "text", "search", "number", "tel", "email", "url", "password", "decimal"]);
 
+function isTextEntry(element: Element | null): boolean {
+  if (!element) return false;
+  if (element instanceof HTMLTextAreaElement) return !element.readOnly && !element.disabled;
+  if (element instanceof HTMLInputElement) {
+    return TEXT_INPUT_TYPES.has(element.type) && !element.readOnly && !element.disabled;
+  }
+  return element instanceof HTMLElement && element.isContentEditable;
+}
+
+export function useMobileKeyboardFlag(): void {
   useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
+    if (!window.matchMedia("(hover: none) and (pointer: coarse)").matches) return;
+    const root = document.documentElement;
+    let frame = 0;
     const update = () => {
-      const next = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
-      setOffset((current) => (current === next ? current : next));
+      frame = 0;
+      if (isTextEntry(document.activeElement)) root.setAttribute("data-keyboard-open", "");
+      else root.removeAttribute("data-keyboard-open");
     };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+    document.addEventListener("focusin", schedule);
+    document.addEventListener("focusout", schedule);
     update();
-    viewport.addEventListener("resize", update);
-    viewport.addEventListener("scroll", update);
     return () => {
-      viewport.removeEventListener("resize", update);
-      viewport.removeEventListener("scroll", update);
+      if (frame) cancelAnimationFrame(frame);
+      document.removeEventListener("focusin", schedule);
+      document.removeEventListener("focusout", schedule);
+      root.removeAttribute("data-keyboard-open");
     };
   }, []);
-
-  return offset;
 }

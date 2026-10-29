@@ -28,7 +28,6 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { useVisualViewportBottom } from "@/hooks/use-visual-viewport-bottom";
 import { CopyToOwnProductsFlow, type B2BOrigin } from "./copy-to-own-products";
 import { toast } from "sonner";
 
@@ -1241,7 +1240,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   // «Da valutare» → Conferma: una sola operazione nel database (Lista + prodotto + quantità + blocco).
   const [confirmingIds, setConfirmingIds] = useState<Set<string>>(new Set());
-  const vvBottom = useVisualViewportBottom();
   const confirmingRef = useRef<Set<string>>(new Set());
   const confirmPending = async (row: OverviewRow, explicitQuantity?: number) => {
     const quantity = explicitQuantity ?? parseQuantity(evalValues[row.product_id] ?? "");
@@ -2136,7 +2134,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
       {/* Barra fissa: il comando resta sempre raggiungibile senza scorrere l'elenco */}
       {list && editable && allRows.length ? (
-        <div data-tour="spesa.genera" style={{ "--vv-bottom": `${vvBottom}px` } as CSSProperties} className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+var(--vv-bottom,0px))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
+        <div data-tour="spesa.genera" data-hide-on-keyboard className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
           <span className="min-w-0 text-center text-[11px] text-sidebar-foreground/70">
             {summary.total} {summary.total === 1 ? "prodotto" : "prodotti"} · {summary.assigned}{" "}
             {summary.assigned === 1 ? "assegnato" : "assegnati"}
