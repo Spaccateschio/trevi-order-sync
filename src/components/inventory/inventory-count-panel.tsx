@@ -114,6 +114,7 @@ import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inv
 import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget } from "@/components/inventory/physical-quick-edit";
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
 import { dateTimeShort, type SessionRow } from "@/lib/inventory";
+import { inventoryDefaultUnitId } from "@/lib/inventory-unit-default";
 import { INVENTORY_SCREEN_VERSION, cardKey, cardTitle, compareCards, groupKey, parseCardKey, productCardTotal, rowCardKey } from "@/lib/inventory-cards";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 import { InventoryProductDialog } from "@/components/inventory/inventory-product-dialog";
@@ -222,9 +223,11 @@ function rowUnit(row: InventoryCountRow) {
 /** U.M. ammesse per prodotto; la conversione del conteggio è verificata dal database. */
 const UnitChoiceContext = createContext<{
   allowed: { get: (productId: string) => { id: string; code: string }[] | undefined };
+  /** Prima U.M. abituale del prodotto: automaticamente preferita nella card. */
+  preferred: { get: (productId: string) => string | undefined };
   chosen: Record<string, string>;
   choose: (productId: string, unitId: string) => void;
-}>({ allowed: new Map(), chosen: {}, choose: () => {} });
+}>({ allowed: new Map(), preferred: new Map(), chosen: {}, choose: () => {} });
 
 const CardLockContext = createContext<{
   unlocked: Set<string>;
