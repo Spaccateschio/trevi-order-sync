@@ -16,7 +16,7 @@
 - Semaforo Inventario→Lista→Ordini: solo inventory_purchase_cycle_status / manage_inventory_purchase_evaluation; un solo ciclo aperto.
 - Acquisti: dato d'ordine = quantità + U.M. d'acquisto + fornitore; *_quantity in U.M. magazzino solo equivalente (NULL senza conversione, mai 0): non confondere cassette e kg.
 - Price units: manual supplier orders use manual_danea_cost with the product's Danea unit; B2B remains seller-product based. Documents snapshot id+code and receipts price_quantity; stock_lots.unit_cost stays NULL without a valid price basis. Indicative values never replace actual receipt costs.
-- Shared quantity editor and non-B2B sharing rules: src/components/shopping/AGENTS.md.
+- Shopping quantities, stock display and sharing: src/components/shopping/AGENTS.md.
 - Missing-quantity bulk completion selects visibly empty fields through the shared pure predicate and reuses existing exclusion/evaluation commands; generation waits for refreshed rows so pending numeric drafts are never silently excluded or confirmed.
 
 - Operational pages show only current work; when the purchase cycle is not red, past counts and closed lists are reachable only via history views (no data deleted).
