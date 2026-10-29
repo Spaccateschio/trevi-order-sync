@@ -377,7 +377,7 @@ export function CatalogProductCard({
   stock,
   show = ALL_VISIBLE,
 }: {
-  stock?: StockInfo;
+  stock?: StockInfo | undefined;
   show?: DisplayPrefs;
   entry: CatalogEntry;
   imageUrl: string | null;
