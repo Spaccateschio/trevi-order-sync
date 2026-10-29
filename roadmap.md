@@ -1,5 +1,9 @@
 # Roadmap
 
+## 29/10 — Configurazioni operative facoltative
+- [ ] Rimuovere i soli blocchi da configurazione mancante in Inventario e Lista, conservando quantità/U.M. effettive e senza inventare conversioni; lasciare invariati autorizzazioni, storico e ordini inviati.
+- [ ] Tenere le configurazioni avanzate nei dettagli pertinenti e verificare conferma singola/collettiva e chiusura senza scritture operative. Nessuna pubblicazione.
+
 ## 28/10 — Verifica mirata Conferma tutto / Chiudi inventario
 - [x] Verifica read-only: vuoti non salvati a zero nel percorso attuale, conferma singola presente, RPC collettiva distinta dalla chiusura; riepilogo insufficiente e attesa fissa delle bozze da correggere.
 - [x] Piano approvato alle 07:37 UTC e implementato solo nei sei file elencati: comandi separati, riepilogo preventivo tutte le card, top 10 in U.M. magazzino, rosso oltre 50%, note facoltative, attesa effettiva bozze e U.M. per card. Nessuna migrazione o pubblicazione.
