@@ -74,7 +74,7 @@ export function HabitualZonesProvider({
 const EMPTY: HabitualState = { ids: [], primaryId: null };
 
 /** Riga compatta sulla card: «Zona abituale» del prodotto, distinta dalla zona del conteggio. */
-export function HabitualZoneControl({ productId }: { productId: string }) {
+export function HabitualZoneControl({ productId, disabled = false }: { productId: string; disabled?: boolean }) {
   const { companyId, map, locations, canEdit } = useContext(HabitualContext);
   const queryClient = useQueryClient();
   const saved = map.get(productId) ?? EMPTY;
@@ -119,7 +119,7 @@ export function HabitualZoneControl({ productId }: { productId: string }) {
   ) : (
     <span className="shrink-0 font-semibold">+ zona</span>
   );
-  if (!canEdit || !locations.length) {
+  if (disabled || !canEdit || !locations.length) {
     // Chi non può modificarle legge solo ciò che c'è: «nessuna» non è una scritta da mostrare.
     if (!hasZones) return null;
     return <p className="flex items-center gap-1 text-[11px] leading-tight text-muted-foreground"><MapPin className="size-3 shrink-0" />{text}</p>;
