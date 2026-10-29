@@ -114,6 +114,7 @@ import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inv
 import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget } from "@/components/inventory/physical-quick-edit";
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
 import { dateTimeShort, type SessionRow } from "@/lib/inventory";
+import { inventoryDefaultUnitId } from "@/lib/inventory-unit-default";
 import { INVENTORY_SCREEN_VERSION, cardKey, cardTitle, compareCards, groupKey, parseCardKey, productCardTotal, rowCardKey } from "@/lib/inventory-cards";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 import { InventoryProductDialog } from "@/components/inventory/inventory-product-dialog";
@@ -222,9 +223,11 @@ function rowUnit(row: InventoryCountRow) {
 /** U.M. ammesse per prodotto; la conversione del conteggio è verificata dal database. */
 const UnitChoiceContext = createContext<{
   allowed: { get: (productId: string) => { id: string; code: string }[] | undefined };
+  /** Prima U.M. abituale del prodotto: automaticamente preferita nella card. */
+  preferred: { get: (productId: string) => string | undefined };
   chosen: Record<string, string>;
   choose: (productId: string, unitId: string) => void;
-}>({ allowed: new Map(), chosen: {}, choose: () => {} });
+}>({ allowed: new Map(), preferred: new Map(), chosen: {}, choose: () => {} });
 
 const CardLockContext = createContext<{
   unlocked: Set<string>;
@@ -296,6 +299,8 @@ export function InventoryCountPanel({
       const configured = allowedUnitsQuery.data?.configured.get(productId) ?? [];
       return [...configured, ...(allowedUnitsQuery.data?.companyUnits ?? []).filter((unit) => !configured.some((item) => item.id === unit.id))];
     } },
+    // La prima U.M. abituale inserita sul prodotto è automaticamente la preferita della card.
+    preferred: { get: (productId: string) => allowedUnitsQuery.data?.configured.get(productId)?.[0]?.id },
     chosen: chosenUnits,
     choose: (key: string, unitId: string) => {
       setChosenUnits((current) => ({ ...current, [key]: unitId }));
@@ -482,12 +487,14 @@ export function InventoryCountPanel({
   function selectedCardUnit(key: string, row?: InventoryCountRow) {
     const parsed = parseCardKey(key);
     const options = parsed ? unitChoice.allowed.get(parsed.productId) ?? [] : [];
+    const preferredId = parsed ? unitChoice.preferred.get(parsed.productId) : undefined;
     const resolvedRow = row ?? allRowsQuery.data?.find((entry) => rowKey(entry) === key);
     const selectedId = chosenUnitsRef.current[key];
     const savedCode = savedDraftUnits.current.get(key);
     const code = options.find((option) => option.id === selectedId)?.code
       ?? savedCode
       ?? resolvedRow?.counted_unit_code?.trim()
+      ?? options.find((option) => option.id === preferredId)?.code
       ?? resolvedRow?.stock_unit_code?.trim()
       ?? null;
     return { code, id: options.find((option) => option.code.toLowerCase() === code?.toLowerCase())?.id ?? null };
@@ -3424,12 +3431,15 @@ function ProductCard({
   };
   const unitChoice = useContext(UnitChoiceContext);
   const allowedUnits = unitChoice.allowed.get(row.product_id) ?? [];
-  // Default: U.M. dell'ultimo conteggio se ammessa, altrimenti la principale.
+  // Default: la prima U.M. abituale del prodotto è automaticamente preferita;
+  // seguono l'U.M. dell'ultimo conteggio e, per ultima, la U.M. di magazzino.
   const lastCountedUnitId = allowedUnits.find((option) => option.code === row.counted_unit_code?.trim())?.id;
-  const chosenUnitId = unitChoice.chosen[rowKey(row)]
-    ?? lastCountedUnitId
-    ?? allowedUnits.find((option) => option.code === rowUnit(row))?.id
-    ?? undefined;
+  const chosenUnitId = inventoryDefaultUnitId({
+    chosenId: unitChoice.chosen[rowKey(row)],
+    preferredId: unitChoice.preferred.get(row.product_id),
+    lastCountedId: lastCountedUnitId,
+    stockUnitId: allowedUnits.find((option) => option.code === rowUnit(row))?.id,
+  }) ?? undefined;
   const unit = allowedUnits.find((option) => option.id === chosenUnitId)?.code ?? rowUnit(row);
   const conversionQuery=useQuery({queryKey:["inventory-count-factor",row.product_id,chosenUnitId],enabled:editable&&Boolean(chosenUnitId)&&unit!==row.stock_unit_code, retry:false,queryFn:async()=>{
     if(!chosenUnitId) return null;
