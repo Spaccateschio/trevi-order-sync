@@ -5,6 +5,11 @@ export type ProductPurchaseUnit = { unit_id: string; is_default: boolean };
 export type ProductPurchaseUnitCode = ProductPurchaseUnit & { product_id: string; units_of_measure: { code: string; status: string; usage: string } | null };
 export type PurchaseCompanyUnit = { id: string; company_id?: string; status: string; usage?: string | null };
 
+export function addProductPurchaseUnit(value: { ids: string[]; defaultId: string | null }, unitId: string) {
+  if (value.ids.includes(unitId)) return value;
+  return { ids: [...value.ids, unitId], defaultId: value.ids.length === 0 ? unitId : value.defaultId };
+}
+
 export function allowedPurchaseUnits<T extends PurchaseCompanyUnit>(units: T[], companyId: string): T[] {
   return units.filter((u) => (!u.company_id || u.company_id === companyId) && u.status === "attivo" && (u.usage === "acquisto" || u.usage === "entrambi"));
 }

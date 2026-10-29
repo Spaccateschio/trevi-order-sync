@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { allowedPurchaseUnits, productPurchaseUnitsOptions } from "@/lib/product-purchase-units";
+import { addProductPurchaseUnit, allowedPurchaseUnits, productPurchaseUnitsOptions } from "@/lib/product-purchase-units";
 import { saveProductPurchaseUnits } from "@/lib/product-purchase-units.functions";
 import type { CompanyUnit } from "./sales-unit-manager";
 
@@ -40,7 +40,7 @@ export function ProductPurchaseUnitsEditor({ companyId, productId, units, editab
         </div>;
       })}
       {editable ? <Popover open={open} onOpenChange={setOpen}><PopoverTrigger asChild><Button type="button" size="icon" variant="outline" disabled={busy || query.isError} aria-label="Aggiungi U.M. di acquisto del prodotto"><Plus /></Button></PopoverTrigger><PopoverContent align="start" className="w-64 p-2"><div className="max-h-64 overflow-y-auto">
-        {available.filter((u) => !value.ids.includes(u.id)).map((u) => <Button key={u.id} type="button" variant="ghost" className="h-auto w-full justify-start whitespace-normal text-left" onClick={() => { setDraft({ ...value, ids: [...value.ids, u.id] }); setOpen(false); }}>{u.code} — {u.description}</Button>)}
+        {available.filter((u) => !value.ids.includes(u.id)).map((u) => <Button key={u.id} type="button" variant="ghost" className="h-auto w-full justify-start whitespace-normal text-left" onClick={() => { setDraft(addProductPurchaseUnit(value, u.id)); setOpen(false); }}>{u.code} — {u.description}</Button>)}
       </div></PopoverContent></Popover> : null}
       {!value.ids.length ? <span className="self-center text-xs text-muted-foreground">Nessuna U.M. impostata</span> : null}
     </div>
