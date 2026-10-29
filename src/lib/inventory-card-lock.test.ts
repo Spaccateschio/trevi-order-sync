@@ -12,5 +12,5 @@ describe('Blocco della card inventario', () => {
   it('mantiene il blocco del ciclo anche con la matita ordinaria', () => assert.equal(inventoryCardLocked(true, true, true, false), true));
   it('mantiene la correzione autorizzata del ciclo', () => assert.equal(inventoryCardLocked(true, false, true, true), false));
   it('lascia modificabili i prodotti non confermati', () => assert.equal(inventoryCardLocked(false, false, false, false), false));
-  it('non consente quantità senza U.M.', () => assert.equal(canEditInventoryCard(false, false, true), false));
+  it('consente di scrivere senza configurare la U.M. di magazzino', () => assert.equal(canEditInventoryCard(false, false, true), true));
 });

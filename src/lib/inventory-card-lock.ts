@@ -6,6 +6,6 @@ export function afterInventoryCardSave(unlocked: boolean, succeeded: boolean) {
   return succeeded ? false : unlocked;
 }
 
-export function canEditInventoryCard(locked: boolean, pending: boolean, unitMissing: boolean) {
-  return !locked && !pending && !unitMissing;
+export function canEditInventoryCard(locked: boolean, pending: boolean, _unitMissing: boolean) {
+  return !locked && !pending;
 }
