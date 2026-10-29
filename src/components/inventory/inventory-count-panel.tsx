@@ -3288,7 +3288,7 @@ function PhysicalCount({
 
           {extraSection}
 
-          <div data-tour="inv.conferma" className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
+          <div data-tour="inv.conferma" style={{ "--vv-bottom": `${vvBottom}px` } as CSSProperties} className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+var(--vv-bottom,0px))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
             {savedDraftCount ? (
               <span className="min-w-0 text-center text-[11px] text-sidebar-foreground/70">
                 Bozza salvata · {savedDraftCount} {savedDraftCount === 1 ? "quantità non confermata" : "quantità non confermate"}
