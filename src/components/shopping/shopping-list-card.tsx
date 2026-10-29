@@ -581,13 +581,13 @@ export function ShoppingListCard({
         {recheck ? <div className="mt-1">{recheckNote}</div> : null}
       </>}
       summary={<span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+        {show.lastCount ? <span className="w-full text-xs font-normal text-muted-foreground">Ult. conteggio {stock?.lastQuantity != null ? `${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}` : "—"}</span> : null}
         {show.stock ? <span className="text-xs font-normal text-muted-foreground">Giacenza {stock?.stock != null ? `${qty(stock.stock)} ${stock.stockUnit ?? unit}` : "—"}{show.toBuy ? " ·" : ""}</span> : null}
         {show.toBuy ? <span className="text-base font-bold text-foreground">{excluded ? "Non acquistare" : `Da acquistare ${displayedQuantity === null ? "—" : `${qty(displayedQuantity)} ${decidedCode}`}`}</span> : null}
       </span>}
       supplier={show.suppliers && !excluded ? <span className="min-w-0 break-words">Fornitore: <span className="font-medium text-foreground">{suppliers[0]?.name ?? "—"}{suppliers.length > 1 ? ` + ${suppliers.length - 1}` : ""}</span></span> : null}
       suggested={show.suggested && suggested != null && suggested > 0 ? <span>Suggerita {qty(suggested)} {unit}</span> : null}>
       {show.code || show.category ? <p className="max-md:text-[10px] text-xs text-muted-foreground">{[show.code ? row.code : null, show.category ? extra?.category : null].filter(Boolean).join(" · ")}</p> : null}
-      {show.lastCount ? <p className="max-md:text-[10px] text-xs text-muted-foreground">Ult. conteggio {stock?.lastQuantity != null ? `${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}` : "—"}</p> : null}
       {excluded ? excludedBlock : show.toBuy ? <ShoppingQuantityEditor input={quantityBlock} details={<>{unitFixBlock}{equivalentNote}</>}
         editable={editable} locked={locked} busy={lockPending || saving} ready={confirmTarget !== null && confirmTarget >= 0}
         name={name} onConfirm={onToggleLock} quick={show.quick ? quickButtons("h-8 max-md:h-7") : null} /> : null}
