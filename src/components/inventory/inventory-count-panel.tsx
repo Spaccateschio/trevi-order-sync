@@ -109,7 +109,7 @@ import {
   buildInventoryPrintHtml, cardPercentage, findSearchElsewhere, isFavoriteCard, selectInventoryCards, summarizeCards,
   type CardFilterKey, type InventoryCardFilters, type InventoryPrintMode, type InventoryPrintRow, type SearchElsewhere,
 } from "@/lib/inventory-print";
-import { inventoryCardLocked, afterInventoryCardSave, canEditInventoryCard } from "@/lib/inventory-card-lock";
+import { inventoryCardLocked, afterInventoryCardSave, canEditInventoryCard, inventoryCardEditorState } from "@/lib/inventory-card-lock";
 import { CorrectCountDialog, type CountCorrectionTarget } from "@/components/inventory/correct-count-dialog";
 import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget } from "@/components/inventory/physical-quick-edit";
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
@@ -3453,7 +3453,8 @@ function ProductCard({
   // Giacenza "Da verificare": nessun numero finché non c'è un conteggio nella U.M. di magazzino.
   const calculated = row.calculated === null ? null : Number(row.calculated);
   const counted = parseQuantity(value);
-  const isConfirmed = row.counted !== null;
+  const editorState = inventoryCardEditorState(row.counted !== null, locked, value, row.counted === null ? "" : formatQuantity(Number(row.counted), row.counted_unit_code ?? unit));
+  const isConfirmed = editorState.confirmedAppearance;
   const countedUnit = row.counted_unit_code?.trim() || unit;
   const confirmedDifference = isConfirmed && row.units_comparable !== false ? Number(row.difference ?? 0) : null;
   const hasDifference = isConfirmed && confirmedDifference !== null && confirmedDifference !== 0;
@@ -3522,7 +3523,7 @@ function ProductCard({
             {unit ? ` · ${unit}` : ""}
             {isVisible("zona") ? ` · Zona conteggio: ${row.location_name}` : ""}
           </p>
-          <HabitualZoneControl productId={row.product_id} />
+          <HabitualZoneControl productId={row.product_id} disabled={!editable} />
           {isVisible("categoria") && row.category ? (
             <p className="truncate text-[11px] leading-tight text-muted-foreground">
               {row.category}
@@ -3593,19 +3594,19 @@ function ProductCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
-              <DropdownMenuItem onClick={onRecount} disabled={!isAdmin || !actionsEnabled}>
+              <DropdownMenuItem onClick={onRecount} disabled={locked || !isAdmin || !actionsEnabled}>
                 <RotateCcw className="size-3.5" /> Segna da ricontare
               </DropdownMenuItem>
               {row.non_compliant ? (
-                <DropdownMenuItem onClick={onRevokeNonCompliance} disabled={!isAdmin || !actionsEnabled}>
+                <DropdownMenuItem onClick={onRevokeNonCompliance} disabled={locked || !isAdmin || !actionsEnabled}>
                   <TriangleAlert className="size-3.5" /> Revoca non conforme
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={onNonCompliance} disabled={!isAdmin || !actionsEnabled}>
+                <DropdownMenuItem onClick={onNonCompliance} disabled={locked || !isAdmin || !actionsEnabled}>
                   <TriangleAlert className="size-3.5" /> Segnala non conforme
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={onProposal} disabled={!isAdmin || !actionsEnabled}>
+              <DropdownMenuItem onClick={onProposal} disabled={locked || !isAdmin || !actionsEnabled}>
                 <ShoppingCart className="size-3.5" />
                 {proposalOpen ? "Chiudi proposta d'acquisto" : "Proponi per l'acquisto"}
               </DropdownMenuItem>
@@ -3616,7 +3617,7 @@ function ProductCard({
                 {[1, 3, 5, 10].map((increment) => <DropdownMenuItem key={increment} disabled={!editable} onClick={() => changeQuantity(addToQuantity(correcting ? correction.value : value, increment))}>+{increment}</DropdownMenuItem>)}
                 <DropdownMenuItem disabled={!editable} onClick={() => changeQuantity("")}>Azzera quantità</DropdownMenuItem>
                 <DropdownMenuLabel>Zona abituale</DropdownMenuLabel>
-                <HabitualZoneControl productId={row.product_id} />
+                <HabitualZoneControl productId={row.product_id} disabled={!editable} />
                 {isVisible("categoria") && row.category ? <DropdownMenuLabel>{row.category}{isVisible("sottocategoria") && row.subcategory ? ` · ${row.subcategory}` : ""}</DropdownMenuLabel> : null}
                 {isVisible("prezzo_acquisto") && supplier?.cost != null ? <DropdownMenuLabel>Prezzo acquisto: € {Number(supplier.cost).toFixed(2).replace(".", ",")}</DropdownMenuLabel> : null}
                 {isVisible("scorta_minima") ? <DropdownMenuLabel>Scorta minima: {row.min_stock ?? "—"}</DropdownMenuLabel> : null}
@@ -3718,11 +3719,11 @@ function ProductCard({
                   ? correction.value
                   : cycleLocked && history?.physical != null
                     ? formatQuantity(history.physical, history.lastUnit ?? unit)
-                    : value
+                    : editorState.value
               }
               disabled={!editable}
               title={locked ? (correctionTarget || !cycleLocked ? "Premi la matita per sbloccare" : "Completa prima il ciclo acquisti") : undefined}
-              placeholder={isConfirmed ? formatQuantity(Number(row.counted), countedUnit) : ""}
+              placeholder={editorState.placeholder}
               onChange={(event) => changeQuantity(event.target.value)}
               onFocus={(event) => event.currentTarget.select()}
               onKeyDown={(event) => {
@@ -3744,7 +3745,7 @@ function ProductCard({
                 disabled={correction.pending || cardLock.pending}
                 onClick={() => { if (correctionTarget) correction.toggle(); else cardLock.toggle(rowKey(row)); }}
               >
-                {!locked ? <Lock className="size-4" /> : <Pencil className="size-4" />}
+                {locked ? <Lock className="size-4" /> : <Pencil className="size-4" />}
               </Button>
             ) : null}
           </div>

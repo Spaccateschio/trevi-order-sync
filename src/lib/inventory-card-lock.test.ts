@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { inventoryCardLocked, afterInventoryCardSave, canEditInventoryCard } from './inventory-card-lock';
+import { inventoryCardLocked, afterInventoryCardSave, canEditInventoryCard, inventoryCardEditorState } from './inventory-card-lock';
 
 describe('Blocco della card inventario', () => {
   it('blocca una quantità confermata', () => assert.equal(inventoryCardLocked(true, false, false, false), true));
@@ -13,4 +13,13 @@ describe('Blocco della card inventario', () => {
   it('mantiene la correzione autorizzata del ciclo', () => assert.equal(inventoryCardLocked(true, false, true, true), false));
   it('lascia modificabili i prodotti non confermati', () => assert.equal(inventoryCardLocked(false, false, false, false), false));
   it('consente di scrivere senza configurare la U.M. di magazzino', () => assert.equal(canEditInventoryCard(false, false, true), true));
+  it('riapre un inserimento vuoto senza riproporre la quantità salvata', () => {
+    assert.deepEqual(inventoryCardEditorState(true, false, '', '12'), { confirmedAppearance: false, value: '', placeholder: '' });
+  });
+  it('mostra la quantità confermata quando la card è bloccata, non una bozza', () => {
+    assert.deepEqual(inventoryCardEditorState(true, true, '7', '12'), { confirmedAppearance: true, value: '12', placeholder: '' });
+  });
+  it('mantiene il nuovo inserimento riaperto fino alla conferma', () => {
+    assert.equal(inventoryCardEditorState(true, false, '1,5', '12').value, '1,5');
+  });
 });
