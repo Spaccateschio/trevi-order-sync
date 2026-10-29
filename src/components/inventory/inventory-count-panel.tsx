@@ -3749,7 +3749,12 @@ function ProductCard({
                 aria-label={!locked ? `Blocca ${name}` : `Sblocca ${name}`}
                 title={!locked ? "Blocca" : "Sblocca"}
                 disabled={correction.pending || cardLock.pending}
-                onClick={() => { if (correctionTarget) correction.toggle(); else cardLock.toggle(rowKey(row)); }}
+                onClick={() => {
+                  if (correctionTarget) {
+                    correction.toggle();
+                    if (locked) correction.setValue("");
+                  } else cardLock.toggle(rowKey(row));
+                }}
               >
                 {locked ? <Lock className="size-4" /> : <Pencil className="size-4" />}
               </Button>
