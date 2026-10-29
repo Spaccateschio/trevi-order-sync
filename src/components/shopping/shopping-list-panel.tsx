@@ -27,7 +27,7 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CopyToOwnProductsFlow, type B2BOrigin } from "./copy-to-own-products";
 import { toast } from "sonner";
 
