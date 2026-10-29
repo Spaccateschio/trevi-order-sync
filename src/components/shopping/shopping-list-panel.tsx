@@ -1241,6 +1241,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
   // «Da valutare» → Conferma: una sola operazione nel database (Lista + prodotto + quantità + blocco).
   const [confirmingIds, setConfirmingIds] = useState<Set<string>>(new Set());
+  const vvBottom = useVisualViewportBottom();
   const confirmingRef = useRef<Set<string>>(new Set());
   const confirmPending = async (row: OverviewRow, explicitQuantity?: number) => {
     const quantity = explicitQuantity ?? parseQuantity(evalValues[row.product_id] ?? "");
