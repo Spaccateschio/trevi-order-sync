@@ -206,7 +206,22 @@
     /* Niente scorrimento laterale su cellulare: lo schermo resta fermo. */
     overflow-x: hidden;
     overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
+}
+
+/* iPhone ingrandisce e sposta la pagina quando si tocca un campo con testo
+   sotto i 16px: sui dispositivi touch i campi restano almeno a 16px. */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+}
+
+@layer base {
 
   body {
     background-color: var(--color-background);
