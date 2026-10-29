@@ -1824,11 +1824,17 @@ export function InventoryCountPanel({
             toggleCardFavorite: (row) => cardFavoriteMutation.mutate(row),
             cardFavoritePending: cardFavoriteMutation.isPending,
             groupSize: cardGroupSize,
-            toggle: (key) => setUnlockedCards((current) => {
-              const next = new Set(current);
-              if (next.has(key)) next.delete(key); else next.add(key);
-              return next;
-            }),
+            toggle: (key) => {
+              if (!unlockedCards.has(key)) {
+                // Only reset the local editor: no observation or history is deleted.
+                setDrafts((current) => ({ ...current, [key]: "" }));
+              }
+              setUnlockedCards((current) => {
+                const next = new Set(current);
+                if (next.has(key)) next.delete(key); else next.add(key);
+                return next;
+              });
+            },
           }}>
           <UnitChoiceContext.Provider value={unitChoice}>
           <HabitualZonesProvider companyId={companyId} map={habitualMap} locations={activeLocations} isAdmin={isAdmin}>
