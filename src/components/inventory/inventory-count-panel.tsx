@@ -299,6 +299,8 @@ export function InventoryCountPanel({
       const configured = allowedUnitsQuery.data?.configured.get(productId) ?? [];
       return [...configured, ...(allowedUnitsQuery.data?.companyUnits ?? []).filter((unit) => !configured.some((item) => item.id === unit.id))];
     } },
+    // La prima U.M. abituale inserita sul prodotto è automaticamente la preferita della card.
+    preferred: { get: (productId: string) => allowedUnitsQuery.data?.configured.get(productId)?.[0]?.id },
     chosen: chosenUnits,
     choose: (key: string, unitId: string) => {
       setChosenUnits((current) => ({ ...current, [key]: unitId }));
@@ -485,12 +487,14 @@ export function InventoryCountPanel({
   function selectedCardUnit(key: string, row?: InventoryCountRow) {
     const parsed = parseCardKey(key);
     const options = parsed ? unitChoice.allowed.get(parsed.productId) ?? [] : [];
+    const preferredId = parsed ? unitChoice.preferred.get(parsed.productId) : undefined;
     const resolvedRow = row ?? allRowsQuery.data?.find((entry) => rowKey(entry) === key);
     const selectedId = chosenUnitsRef.current[key];
     const savedCode = savedDraftUnits.current.get(key);
     const code = options.find((option) => option.id === selectedId)?.code
       ?? savedCode
       ?? resolvedRow?.counted_unit_code?.trim()
+      ?? options.find((option) => option.id === preferredId)?.code
       ?? resolvedRow?.stock_unit_code?.trim()
       ?? null;
     return { code, id: options.find((option) => option.code.toLowerCase() === code?.toLowerCase())?.id ?? null };
