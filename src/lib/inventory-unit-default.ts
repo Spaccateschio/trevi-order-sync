@@ -6,10 +6,10 @@
  * seguono l'U.M. dell'ultimo conteggio e, per ultima, l'U.M. di magazzino.
  */
 export function inventoryDefaultUnitId(input: {
-  chosenId?: string | null;
-  preferredId?: string | null;
-  lastCountedId?: string | null;
-  stockUnitId?: string | null;
+  chosenId?: string | null | undefined;
+  preferredId?: string | null | undefined;
+  lastCountedId?: string | null | undefined;
+  stockUnitId?: string | null | undefined;
 }): string | null {
   return input.chosenId ?? input.preferredId ?? input.lastCountedId ?? input.stockUnitId ?? null;
 }
