@@ -2191,7 +2191,7 @@ export function InventoryCountPanel({
                       <p>
                         <strong className={cn("block text-sm", higher ? "text-success" : "text-destructive")}>
                           {higher ? "+" : ""}
-                          {formatQuantity(difference, row.stock_unit_code ?? "")}
+                          {formatQuantity(difference, unit)}
                         </strong>
                         differenza
                       </p>
@@ -3905,7 +3905,7 @@ function AiAnalysisDemo({
       </p>
       <p className="mt-1 text-[10px] leading-snug">
         <strong>Spiegazione:</strong> la differenza di {difference > 0 ? "+" : ""}
-        {formatQuantity(difference, row.stock_unit_code ?? "")} {unit} su {name} potrebbe essere collegata a: «{note}».
+        {formatQuantity(difference, unit)} {unit} su {name} potrebbe essere collegata a: «{note}».
       </p>
       <p className="text-[10px] leading-snug">
         <strong>Azione proposta:</strong> verificare lo scarto indicato e, se corretto, registrare la causale appropriata.
