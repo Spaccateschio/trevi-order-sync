@@ -59,14 +59,14 @@ export function inventoryBulkReview(cards: InventoryReviewCard[]): InventoryBulk
       continue;
     }
     const quantity = inventoryDraftQuantity(card.raw);
-    const reason = quantity === null ? "Quantità non valida" : card.blockedReason
-      ?? (card.factor === null || !Number.isFinite(card.factor) || card.factor <= 0 ? "Confezione mancante o ambigua" : null);
+    const reason = quantity === null ? "Quantità non valida" : card.blockedReason;
     if (reason) {
       blocked.push({ ...card, blockedReason: reason });
       continue;
     }
-    if (quantity === null || card.factor === null) continue;
+    if (quantity === null) continue;
     ready.push(card);
+    if (card.factor === null || !Number.isFinite(card.factor) || card.factor <= 0) continue;
     const counted = Math.round(quantity * card.factor * 1000) / 1000;
     if (card.calculated !== null && Number.isFinite(card.calculated)) {
       const difference = Math.round((counted - card.calculated) * 1000) / 1000;

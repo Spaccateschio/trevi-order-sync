@@ -17,9 +17,10 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { dateTimeShort, parseQuantity, qty, type CountRow, type LocationRow, type SessionRow } from "@/lib/inventory";
 import { recordInventoryCount } from "@/lib/inventory.functions";
+import { inventorySnapshotQuantity } from "@/lib/inventory-snapshot";
 
 type ProductRow = { id: string; code: string; description: string | null; danea_um: string | null; stock_unit_id:string|null; units_of_measure:{code:string}|null };
-type CardCountRow = CountRow & { product_supplier_link_id: string | null; stock_quantity:number|null; stock_unit_id:string|null };
+type CardCountRow = CountRow & { product_supplier_link_id: string | null; stock_quantity:number|null; stock_unit_id:string|null; snapshot_version:number|null };
 type CardRow = ProductRow & { key: string; count: CardCountRow | null };
 
 /**
@@ -94,7 +95,7 @@ export function InventorySessionCounter({
     queryFn: async (): Promise<CardCountRow[]> => {
       const { data, error } = await supabase
         .from("inventory_counts")
-        .select("id, product_id, location_id, product_supplier_link_id, counted_quantity, previous_quantity, difference, unit_code, counted_at, notes, stock_quantity, stock_unit_id")
+        .select("id, product_id, location_id, product_supplier_link_id, counted_quantity, previous_quantity, difference, unit_code, counted_at, notes, stock_quantity, stock_unit_id, snapshot_version")
         .eq("session_id", session.id);
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as CardCountRow[];
@@ -265,7 +266,7 @@ export function InventorySessionCounter({
               const value = draft ?? (count ? String(count.counted_quantity) : "");
               const parsed = parseQuantity(value);
               const previous = count ? count.previous_quantity : (stock?.quantity ?? 0);
-              const normalized = draft!==undefined ? parsed : count?.stock_unit_id===product.stock_unit_id&&count?.stock_quantity!=null?Number(count.stock_quantity):count?.unit_code===product.units_of_measure?.code?parsed:null;
+              const normalized = draft!==undefined && product.stock_unit_id ? parsed : count ? inventorySnapshotQuantity(count, product.stock_unit_id, product.units_of_measure?.code ?? null) : null;
               const difference = normalized === null ? null : normalized - previous;
               return (
                 <tr

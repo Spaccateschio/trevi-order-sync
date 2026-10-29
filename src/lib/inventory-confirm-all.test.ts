@@ -64,12 +64,23 @@ describe("riepilogo preventivo inventario", () => {
     expect(inventoryDraftQuantity("-1")).toBeNull();
   });
   it("confezione mancante non crea una falsa differenza", () => {
-    const result = inventoryBulkReview([card({ factor: null, blockedReason: "Imposta confezione cs" })]);
-    expect(result.blocked[0]?.blockedReason).toBe("Imposta confezione cs");
+    const result = inventoryBulkReview([card({ factor: null })]);
+    expect(result.ready).toHaveLength(1);
+    expect(result.ready[0]?.raw).toBe("2");
+    expect(result.ready[0]?.countedUnit).toBe("cs");
+    expect(result.blocked).toHaveLength(0);
     expect(result.differences).toHaveLength(0);
   });
-  it("confezione ambigua resta bloccata", () => {
-    expect(inventoryBulkReview([card({ factor: null, blockedReason: "Confezione ambigua" })]).blocked[0]?.blockedReason).toBe("Confezione ambigua");
+  it("confezione ambigua consente il conteggio senza equivalente inventato", () => {
+    const result = inventoryBulkReview([card({ factor: null })]);
+    expect(result.ready[0]?.factor).toBeNull();
+    expect(result.differences).toHaveLength(0);
+  });
+  it("senza U.M. magazzino conferma la quantità nella U.M. scelta", () => {
+    const result = inventoryBulkReview([card({ unit: "", countedUnit: "cs", factor: null, raw: "1,5" })]);
+    expect(result.ready).toHaveLength(1);
+    expect(inventoryDraftQuantity(result.ready[0]?.raw ?? "")).toBe(1.5);
+    expect(result.differences).toHaveLength(0);
   });
   it("2 casse da 10 sono 20 kg, differenza 10 kg rispetto a 10", () => {
     const row = inventoryBulkReview([card()]).differences[0];

@@ -93,10 +93,10 @@ function parseNumber(value: string): number | null {
 function IssuesList({ issues }: { issues: UnitConfigIssue[] }) {
   if (!issues.length) return null;
   return (
-    <Alert variant="destructive">
+    <Alert>
       <AlertTriangle />
       <AlertDescription>
-        <p className="font-medium">Configurazione U.M. da completare</p>
+        <p className="font-medium">Conversioni non disponibili</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs">
           {issues.map((issue, index) => <li key={`${issue.reason_code}-${index}`}>{issue.reason}</li>)}
         </ul>
@@ -230,7 +230,6 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
   const stockUnitId = stockQuery.data?.stock_unit_id ?? null;
   const unitCode = (id: string | null | undefined) => units.find((unit) => unit.id === id)?.code ?? "—";
   const stockCode = stockUnitId ? unitCode(stockUnitId) : null;
-  const differsFromDanea = Boolean(stockCode && daneaUm && stockCode.toLowerCase() !== daneaUm.trim().toLowerCase());
 
   const toggleMutation = useMutation({
     mutationFn: async ({ unitId, add }: { unitId: string; add: boolean }) => {
@@ -250,29 +249,25 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
   const hasPackage = (id: string) => id === stockUnitId || new Set((packagesQuery.data ?? []).filter(p => p.unit_id === id && p.status === "attivo" && p.stock_quantity > 0 && p.verified_stock_unit_id === stockUnitId).map(p=>p.stock_quantity)).size===1;
 
   return (
-    <section aria-labelledby="stock-unit-title" className="space-y-3 rounded-lg border border-border p-3">
-      <h3 id="stock-unit-title" className="text-sm font-semibold">U.M. di magazzino</h3>
+    <details className="space-y-3 border-t border-border py-3">
+      <summary id="stock-unit-title" className="cursor-pointer text-sm font-semibold">Configurazione magazzino · facoltativa</summary>
 
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <dt className="text-xs uppercase text-muted-foreground">U.M. Danea</dt>
-          <dd className="mt-1 flex items-center gap-2 text-sm"><Badge variant="outline" className="font-mono">{daneaUm?.trim() || "—"}</Badge><span className="text-xs text-muted-foreground">solo informativa</span></dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase text-muted-foreground">U.M. per l'inventario</dt>
+          <dt className="text-xs uppercase text-muted-foreground">U.M. abituali per l'inventario</dt>
           <dd className="mt-1 space-y-2">
             <div className="flex flex-wrap gap-1.5">
               {allowedIds.filter(id => !missingOnly || !hasPackage(id)).map((id) => (
                 <Badge key={id} variant={id === stockUnitId ? "default" : "secondary"} className="gap-1 font-mono">
-                  {unitCode(id)}{id === stockUnitId ? " · principale" : hasPackage(id) ? " · conversione presente" : " · senza confezione"}
+                  {unitCode(id)}{id === stockUnitId ? " · magazzino" : hasPackage(id) ? " · conversione presente" : ""}
                   {editable ? (
                     <button type="button" aria-label={`Togli ${unitCode(id)}`} className="ml-1 rounded px-0.5 hover:opacity-70" disabled={toggleMutation.isPending} onClick={() => toggleMutation.mutate({ unitId: id, add: false })}>×</button>
                   ) : null}
                 </Badge>
               ))}
-              {!allowedIds.length && !allowedQuery.isLoading ? <p className="text-xs font-medium text-destructive">Nessuna U.M.: nell'inventario la card resta bloccata.</p> : null}
+              {!allowedIds.length && !allowedQuery.isLoading ? <p className="text-xs text-muted-foreground">Nessuna U.M. abituale impostata.</p> : null}
             </div>
-            <label className="flex items-center gap-2 text-xs"><Switch checked={missingOnly} onCheckedChange={setMissingOnly}/>U.M. inventario senza confezione</label>
+            <label className="flex items-center gap-2 text-xs"><Switch checked={missingOnly} onCheckedChange={setMissingOnly}/>Mostra solo U.M. senza conversione</label>
             {editable ? (
               <Select value="" disabled={toggleMutation.isPending} onValueChange={(value) => toggleMutation.mutate({ unitId: value, add: true })}>
                 <SelectTrigger aria-label="Aggiungi U.M." className="w-full sm:w-48"><SelectValue placeholder="+ Aggiungi U.M." /></SelectTrigger>
@@ -281,14 +276,13 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
                 </SelectContent>
               </Select>
             ) : null}
-            {differsFromDanea ? <p className="text-xs text-muted-foreground">Principale diversa da Danea</p> : null}
           </dd>
         </div>
       </dl>
 
       <Alert>
         <Info />
-        <AlertDescription className="text-xs">Le U.M. diverse da quella di magazzino richiedono una confezione verificata.</AlertDescription>
+        <AlertDescription className="text-xs">Senza conversione, la quantità resta nella U.M. contata e la giacenza equivalente non viene calcolata.</AlertDescription>
       </Alert>
 
       <IssuesList issues={issuesQuery.data ?? []} />
@@ -296,7 +290,7 @@ export function StockUnitSection({ companyId, productId, daneaUm, units, editabl
       <div className="border-t border-border pt-2">
         <StockPackagesSection productId={productId} units={units} editable={editable} />
       </div>
-    </section>
+    </details>
   );
 }
 
