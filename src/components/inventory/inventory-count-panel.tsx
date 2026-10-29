@@ -42,7 +42,8 @@ import { FullInventoryStartButton, InventoryExtraCards } from "./inventory-add-c
 import { HabitualZoneControl, HabitualZonesProvider, useHabitualMap } from "./habitual-zone-control";
 import { pickCardMinWidth } from "@/lib/inventory-card-size";
 import { habitualFirst, matchesHabitual, NO_HABITUAL, type HabitualFilter } from "@/lib/habitual-locations";
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useVisualViewportBottom } from "@/hooks/use-visual-viewport-bottom";
 import { toast } from "sonner";
 
 import { PriceTrendIcon } from "@/components/pricing/price-trend-icon";
@@ -2912,6 +2913,7 @@ function PhysicalCount({
   const topFiltersRef = useRef<HTMLDivElement>(null);
   const [compactBar, setCompactBar] = useState(false);
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
+  const vvBottom = useVisualViewportBottom();
   // Measure a document-space marker against the CSS sticky inset, never the changing
   // header rectangle. Separate entry/exit margins prevent scroll anchoring feedback.
   useEffect(() => {
@@ -3288,7 +3290,7 @@ function PhysicalCount({
 
           {extraSection}
 
-          <div data-tour="inv.conferma" className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
+          <div data-tour="inv.conferma" style={{ "--vv-bottom": `${vvBottom}px` } as CSSProperties} className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+var(--vv-bottom,0px))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
             {savedDraftCount ? (
               <span className="min-w-0 text-center text-[11px] text-sidebar-foreground/70">
                 Bozza salvata · {savedDraftCount} {savedDraftCount === 1 ? "quantità non confermata" : "quantità non confermate"}
