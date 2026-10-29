@@ -581,19 +581,19 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
 
 
   // Ultimo conteggio e giacenza per le card: sola lettura, stessa fonte dell'Inventario.
-  const stockProductIds = useMemo(() => [...new Set(allRows.map((row) => row.product_id))].sort(), [allRows]);
+  const listStockProductIds = useMemo(() => [...new Set(allRows.map((row) => row.product_id))].sort(), [allRows]);
 
   // «Copia nei miei prodotti»: solo amministratori e solo card nate da un articolo B2B (created_from_product_id).
   const b2bOriginQuery = useQuery({
-    queryKey: ["shopping-b2b-origin", companyId, stockProductIds],
-    enabled: isAdmin && stockProductIds.length > 0,
+    queryKey: ["shopping-b2b-origin", companyId, listStockProductIds],
+    enabled: isAdmin && listStockProductIds.length > 0,
     queryFn: async () => {
       const map = new Map<string, B2BOrigin>();
-      for (let i = 0; i < stockProductIds.length; i += 300) {
+      for (let i = 0; i < listStockProductIds.length; i += 300) {
         const { data, error } = await supabase
           .from("products")
           .select("id, created_from_product_id, created_from_company_id")
-          .in("id", stockProductIds.slice(i, i + 300))
+          .in("id", listStockProductIds.slice(i, i + 300))
           .not("created_from_product_id", "is", null);
         if (error) throw new Error(error.message);
         for (const p of data ?? []) {
@@ -611,59 +611,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     const origin = isAdmin ? b2bOriginQuery.data?.get(productId) : undefined;
     return origin ? () => setCopyOrigin(origin) : undefined;
   };
-  const stockQuery = useQuery({
-    queryKey: ["shopping-card-stock", companyId, list?.archive_id, stockProductIds],
-    enabled: Boolean(list?.archive_id) && stockProductIds.length > 0,
-    queryFn: async () => {
-      const result = new Map<string, StockInfo>();
-      const { data: counts, error } = await supabase
-        .from("inventory_counts")
-        .select("product_id, location_id, counted_quantity, unit_code, counted_at")
-        .eq("company_id", companyId)
-        .in("product_id", stockProductIds)
-        .order("counted_at", { ascending: false });
-      if (error) throw new Error(error.message);
-      const locations = new Set<string>();
-      for (const count of (counts ?? []) as { product_id: string; location_id: string; counted_quantity: number; unit_code: string | null; counted_at: string }[]) {
-        locations.add(count.location_id);
-        if (result.has(count.product_id)) continue;
-        result.set(count.product_id, {
-          lastQuantity: Number(count.counted_quantity),
-          lastUnit: count.unit_code,
-          lastAt: count.counted_at,
-          stock: null,
-          stockUnit: null,
-        });
-      }
-      // U.M. di magazzino del prodotto: la giacenza di inventory_location_stock_list è sempre espressa in questa.
-      const { data: prods } = await supabase.from("products").select("id, stock_unit_id").in("id", stockProductIds);
-      const unitIds = new Set<string>();
-      for (const product of (prods ?? []) as { id: string; stock_unit_id: string | null }[]) {
-        if (product.stock_unit_id) unitIds.add(product.stock_unit_id);
-      }
-      const unitCodes = new Map<string, string>();
-      if (unitIds.size > 0) {
-        const { data: units } = await supabase.from("units_of_measure").select("id, code").in("id", [...unitIds]);
-        for (const unit of (units ?? []) as { id: string; code: string }[]) unitCodes.set(unit.id, unit.code);
-      }
-      for (const product of (prods ?? []) as { id: string; stock_unit_id: string | null }[]) {
-        const info = result.get(product.id);
-        if (info) info.stockUnit = product.stock_unit_id ? unitCodes.get(product.stock_unit_id) ?? null : null;
-      }
-      for (const locationId of locations) {
-        const { data: stock } = await supabase.rpc("inventory_location_stock_list", {
-          _company_id: companyId,
-          _archive_id: list!.archive_id,
-          _location_id: locationId,
-        });
-        for (const entry of (stock ?? []) as { product_id: string; has_count: boolean; quantity: number }[]) {
-          const info = result.get(entry.product_id);
-          if (info && entry.has_count) info.stock = (info.stock ?? 0) + Number(entry.quantity);
-        }
-      }
-      return result;
-    },
-  });
 
   const favoriteMutation = useMutation({
     mutationFn: (input: { productId: string; favorite: boolean }) =>
@@ -835,6 +782,64 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const showCatalog = ready.showProducts;
   // Caricato anche con ★ Preferiti attivo: serve al contatore «Prodotti» (le card restano nascoste).
   const catalog = useCatalogEntries({ companyId, archiveId: catalogArchiveId, enabled: ready.showProducts });
+  const stockProductIds = useMemo(() => [...new Set([...allRows.map((row) => row.product_id), ...catalog.entries.flatMap((entry) => entry.ownProductId ? [entry.ownProductId] : [])])].sort(), [allRows, catalog.entries]);
+  const stockQuery = useQuery({
+    queryKey: ["shopping-card-stock", companyId, catalogArchiveId, stockProductIds],
+    enabled: Boolean(catalogArchiveId) && stockProductIds.length > 0,
+    queryFn: async () => {
+      const result = new Map<string, StockInfo>();
+      const { data: counts, error } = await supabase
+        .from("inventory_counts")
+        .select("product_id, location_id, counted_quantity, unit_code, counted_at")
+        .eq("company_id", companyId)
+        .in("product_id", stockProductIds)
+        .order("counted_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      const locations = new Set<string>();
+      for (const count of (counts ?? []) as { product_id: string; location_id: string; counted_quantity: number; unit_code: string | null; counted_at: string }[]) {
+        locations.add(count.location_id);
+        if (result.has(count.product_id)) continue;
+        result.set(count.product_id, {
+          lastQuantity: Number(count.counted_quantity),
+          lastUnit: count.unit_code,
+          lastAt: count.counted_at,
+          stock: null,
+          stockUnit: null,
+        });
+      }
+      // U.M. di magazzino del prodotto: la giacenza di inventory_location_stock_list è sempre espressa in questa.
+      const { data: prods, error: productError } = await supabase.from("products").select("id, stock_unit_id").in("id", stockProductIds);
+      if (productError) throw new Error(productError.message);
+      const unitIds = new Set<string>();
+      for (const product of (prods ?? []) as { id: string; stock_unit_id: string | null }[]) {
+        if (product.stock_unit_id) unitIds.add(product.stock_unit_id);
+      }
+      const unitCodes = new Map<string, string>();
+      if (unitIds.size > 0) {
+        const { data: units, error: unitError } = await supabase.from("units_of_measure").select("id, code").in("id", [...unitIds]);
+        if (unitError) throw new Error(unitError.message);
+        for (const unit of (units ?? []) as { id: string; code: string }[]) unitCodes.set(unit.id, unit.code);
+      }
+      for (const product of (prods ?? []) as { id: string; stock_unit_id: string | null }[]) {
+        const info = result.get(product.id);
+        if (info) info.stockUnit = product.stock_unit_id ? unitCodes.get(product.stock_unit_id) ?? null : null;
+      }
+      for (const locationId of locations) {
+        const { data: stock, error: stockError } = await supabase.rpc("inventory_location_stock_list", {
+          _company_id: companyId,
+          _archive_id: catalogArchiveId,
+          _location_id: locationId,
+        });
+        if (stockError) throw new Error(stockError.message);
+        for (const entry of (stock ?? []) as { product_id: string; has_count: boolean; quantity: number }[]) {
+          const info = result.get(entry.product_id);
+          if (info && entry.has_count) info.stock = (info.stock ?? 0) + Number(entry.quantity);
+        }
+      }
+      return result;
+    },
+  });
+
   const catalogActions = useCatalogActions({ companyId, listId: list?.id ?? null, resolveListId: resolvePurchaseList });
   const [catalogLimit, setCatalogLimit] = useState(60);
   const categories = [...new Set([...extras.values()].map((r) => r.category).concat(pendingEntries.map((p) => p.extra?.category ?? null), catalog.entries.map((p) => p.category)).filter((c): c is string => Boolean(c)))].sort((a, b) => a.localeCompare(b, "it"));
@@ -1986,6 +1991,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                     mobileOpen={mobileOpenId === entry.key}
                     onToggleMobile={() => setMobileOpenId((current) => toggleMobileCard(current, entry.key))}
                     entry={entry}
+                    show={display.prefs}
+                    stock={entry.ownProductId ? stockQuery.data?.get(entry.ownProductId) : undefined}
                     layout={viewMode}
                     imageUrl={catalogImages.get(entry.key) ?? null}
                     isFavorite={Boolean(entry.ownProductId && catalog.favorites.has(entry.ownProductId))}
