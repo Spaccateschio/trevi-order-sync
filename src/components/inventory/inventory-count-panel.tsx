@@ -1,4 +1,5 @@
 import { resolveDraftTarget } from "@/lib/inventory-draft-transfer";
+import { inventorySnapshotQuantity, type InventoryQuantitySnapshot } from "@/lib/inventory-snapshot";
 import { afterInventoryDraftWrites, confirmAllSummary, inventoryBulkReview, inventoryDraftQuantity, type ConfirmAllResult, type InventoryBulkReview, type InventoryReviewCard } from "@/lib/inventory-confirm-all";
 import { InventoryConfirmAllDialog } from "./inventory-confirm-all-dialog";
 import { inventoryResetAction, inventoryReopenQueryKeys } from "@/lib/inventory-reset";
@@ -798,7 +799,7 @@ export function InventoryCountPanel({
         }),
         supabase
           .from("inventory_counts")
-          .select("id, session_id, product_id, counted_quantity, previous_quantity, notes, unit_code, counted_at, inventory_sessions!inner(status)")
+          .select("id, session_id, product_id, counted_quantity, previous_quantity, notes, unit_code, counted_at, stock_unit_id, stock_quantity, snapshot_version, inventory_sessions!inner(status)")
           .eq("company_id", companyId)
           .eq("location_id", historyLocationId!)
           .eq("inventory_sessions.status", "completata")
@@ -810,14 +811,14 @@ export function InventoryCountPanel({
       const units = new Map(catalogPreview.map((product) => [product.id, stockUnitCodeOf(product)]));
       const everCounted = new Set<string>();
       const last = new Map<string, { quantity: number; unit: string | null; at: string; id: string; sessionId: string; previous: number | null; note: string | null }>();
-      for (const count of (countsResult.data ?? []) as { id: string; session_id: string; product_id: string; counted_quantity: number; previous_quantity: number | null; notes: string | null; unit_code: string | null; counted_at: string }[]) {
+      for (const count of (countsResult.data ?? []) as (InventoryQuantitySnapshot & { id: string; session_id: string; product_id: string; previous_quantity: number | null; notes: string | null; counted_at: string })[]) {
         everCounted.add(count.product_id);
         if (last.has(count.product_id)) continue;
-        const productUnit = (units.get(count.product_id) ?? "").trim().toLowerCase();
-        const countUnit = (count.unit_code ?? "").trim().toLowerCase();
-        // Stesso criterio della giacenza: vale solo il conteggio nella U.M. di magazzino.
-        if (!productUnit || !countUnit || countUnit !== productUnit) continue;
-        last.set(count.product_id, { quantity: Number(count.counted_quantity), unit: count.unit_code, at: count.counted_at, id: count.id, sessionId: count.session_id, previous: count.previous_quantity === null ? null : Number(count.previous_quantity), note: count.notes });
+        const productUnit = units.get(count.product_id) ?? null;
+        const stockId = catalogPreview.find((product) => product.id === count.product_id)?.stock_unit_id ?? null;
+        const quantity = inventorySnapshotQuantity(count, stockId, productUnit);
+        if (quantity === null) continue;
+        last.set(count.product_id, { quantity, unit: productUnit, at: count.counted_at, id: count.id, sessionId: count.session_id, previous: count.previous_quantity === null ? null : Number(count.previous_quantity), note: count.notes });
       }
       // Correzioni rapide: rettifiche riferite all'ultimo conteggio, in ordine cronologico.
       const countIds = [...last.values()].map((c) => c.id);
@@ -3730,7 +3731,7 @@ function ProductCard({
                 className={rowLayout ? "h-8 w-7 shrink-0 px-0" : "h-10 w-9 shrink-0 px-0"}
                 aria-label={!locked ? `Blocca ${name}` : `Sblocca ${name}`}
                 title={!locked ? "Blocca" : "Sblocca"}
-                disabled={correction.pending || cardLock.pending || unitMissing}
+                disabled={correction.pending || cardLock.pending}
                 onClick={() => { if (correctionTarget) correction.toggle(); else cardLock.toggle(rowKey(row)); }}
               >
                 {!locked ? <Lock className="size-4" /> : <Pencil className="size-4" />}
