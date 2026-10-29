@@ -1,8 +1,9 @@
 # Roadmap
 
 ## 29/10 — Configurazioni operative facoltative
-- [ ] Rimuovere i soli blocchi da configurazione mancante in Inventario e Lista, conservando quantità/U.M. effettive e senza inventare conversioni; lasciare invariati autorizzazioni, storico e ordini inviati.
-- [ ] Tenere le configurazioni avanzate nei dettagli pertinenti e verificare conferma singola/collettiva e chiusura senza scritture operative. Nessuna pubblicazione.
+- [x] Inventario: migrazione 0097 rimuove blocchi per confezioni/U.M. magazzino mancanti; quantità/U.M. reali e snapshot versione 1, equivalenti NULL senza conversione. Chiusura anche con vuoti/non confrontabili; autorizzazioni e storico invariati. Lista già consente acquisti senza conversione tramite conferma quantità: nessun cambio al flusso ordini.
+- [x] Configurazioni magazzino raccolte nei dettagli facoltativi, riferimento Danea rimosso dal conteggio. 55 test superati, compilazione OK; anteprima autenticata: 130 Conferma singole, riepilogo della bozza esistente 1,5 cassa da confermare con 0 bloccati, dettagli richiudibili; nessuna quantità scritta/confermata, nessuna pubblicazione.
+- [ ] Conferma e chiusura effettive con rilettura: collaudo manuale di Andrea su 3 EMME; l'assistente non modifica dati operativi né conferma la bozza Trevi presente.
 
 ## 28/10 — Verifica mirata Conferma tutto / Chiudi inventario
 - [x] Verifica read-only: vuoti non salvati a zero nel percorso attuale, conferma singola presente, RPC collettiva distinta dalla chiusura; riepilogo insufficiente e attesa fissa delle bozze da correggere.
