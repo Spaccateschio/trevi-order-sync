@@ -42,7 +42,8 @@ import { FullInventoryStartButton, InventoryExtraCards } from "./inventory-add-c
 import { HabitualZoneControl, HabitualZonesProvider, useHabitualMap } from "./habitual-zone-control";
 import { pickCardMinWidth } from "@/lib/inventory-card-size";
 import { habitualFirst, matchesHabitual, NO_HABITUAL, type HabitualFilter } from "@/lib/habitual-locations";
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useVisualViewportBottom } from "@/hooks/use-visual-viewport-bottom";
 import { toast } from "sonner";
 
 import { PriceTrendIcon } from "@/components/pricing/price-trend-icon";
@@ -2912,6 +2913,7 @@ function PhysicalCount({
   const topFiltersRef = useRef<HTMLDivElement>(null);
   const [compactBar, setCompactBar] = useState(false);
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
+  const vvBottom = useVisualViewportBottom();
   // Measure a document-space marker against the CSS sticky inset, never the changing
   // header rectangle. Separate entry/exit margins prevent scroll anchoring feedback.
   useEffect(() => {

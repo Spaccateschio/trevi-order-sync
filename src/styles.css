@@ -201,6 +201,13 @@
     border-color: var(--color-border);
   }
 
+  html,
+  body {
+    // Niente scorrimento laterale su cellulare: lo schermo resta fermo.
+    overflow-x: hidden;
+    overflow-x: clip;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
