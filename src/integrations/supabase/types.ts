@@ -2534,6 +2534,7 @@ export type Database = {
           product_id: string
           product_supplier_link_id: string | null
           session_id: string
+          snapshot_version: number | null
           stock_quantity: number | null
           stock_unit_id: string | null
           unit_code: string | null
@@ -2557,6 +2558,7 @@ export type Database = {
           product_id: string
           product_supplier_link_id?: string | null
           session_id: string
+          snapshot_version?: number | null
           stock_quantity?: number | null
           stock_unit_id?: string | null
           unit_code?: string | null
@@ -2580,6 +2582,7 @@ export type Database = {
           product_id?: string
           product_supplier_link_id?: string | null
           session_id?: string
+          snapshot_version?: number | null
           stock_quantity?: number | null
           stock_unit_id?: string | null
           unit_code?: string | null
@@ -2668,6 +2671,7 @@ export type Database = {
           recount_requested_at: string | null
           recount_requested_by: string | null
           session_id: string
+          snapshot_version: number | null
           stock_quantity: number | null
           stock_unit_id: string | null
           unit_code: string | null
@@ -2697,6 +2701,7 @@ export type Database = {
           recount_requested_at?: string | null
           recount_requested_by?: string | null
           session_id: string
+          snapshot_version?: number | null
           stock_quantity?: number | null
           stock_unit_id?: string | null
           unit_code?: string | null
@@ -2726,6 +2731,7 @@ export type Database = {
           recount_requested_at?: string | null
           recount_requested_by?: string | null
           session_id?: string
+          snapshot_version?: number | null
           stock_quantity?: number | null
           stock_unit_id?: string | null
           unit_code?: string | null

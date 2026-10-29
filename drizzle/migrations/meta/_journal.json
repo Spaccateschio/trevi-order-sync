@@ -680,6 +680,13 @@
       "when": 1793170612103,
       "tag": "0096_confirm_all_inventory_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1793246760007,
+      "tag": "0097_optional_inventory_configuration",
+      "breakpoints": true
     }
   ]
 }
