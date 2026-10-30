@@ -43,6 +43,8 @@ export type RowExtras = {
   /** U.M. scelta per «Da acquistare»: entrambi null = U.M. del prodotto. */
   decidedUnitId: string | null;
   decidedUnitCode: string | null;
+  /** Nota libera del prodotto su questa Lista (shopping_list_items.notes). */
+  itemNotes: string | null;
 };
 
 type AssignmentRead = {
@@ -132,13 +134,14 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shopping_list_items")
-        .select("id, quantity_locked_at, decided_unit_id, decided_unit_code, inventory_changed_at, inventory_previous_quantity")
+        .select("id, notes, quantity_locked_at, decided_unit_id, decided_unit_code, inventory_changed_at, inventory_previous_quantity")
         .in("id", itemIds);
       if (error) throw new Error(error.message);
       return new Map(
         (data ?? []).map((row) => [
           row.id,
           {
+            itemNotes: (row.notes as string | null) ?? null,
             lockedAt: row.quantity_locked_at as string | null,
             unitId: (row.decided_unit_id as string | null) ?? null,
             unitCode: (row.decided_unit_code as string | null) ?? null,
@@ -219,6 +222,7 @@ export function useShoppingListExtras(companyId: string, listId: string | null, 
         inventoryPreviousQuantity: locksQuery.data?.get(row.item_id)?.inventoryPreviousQuantity ?? null,
         decidedUnitId: locksQuery.data?.get(row.item_id)?.unitId ?? null,
         decidedUnitCode: locksQuery.data?.get(row.item_id)?.unitCode ?? null,
+        itemNotes: locksQuery.data?.get(row.item_id)?.itemNotes ?? null,
       });
     }
     return map;
