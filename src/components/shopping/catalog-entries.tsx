@@ -5,7 +5,7 @@ import { catalogConfirmAction, createConfirmationGuard } from "./shopping-quanti
 import { defaultUnitCode } from "@/lib/supplier-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ImageOff, Plus, Star } from "lucide-react";
+import { ChevronDown, ChevronUp, ImageOff, Plus, Star } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -433,6 +433,7 @@ export function CatalogProductCard({
   const ready = canAdd && Boolean(quantity && quantity > 0) && (unit !== MANUAL || Boolean(unitCode));
   const name = entry.description ?? entry.code;
   const supplier = catalogSupplierLabel(entry);
+  const [suppliersOpen, setSuppliersOpen] = useState(false);
 
   const star = (
     <Button
