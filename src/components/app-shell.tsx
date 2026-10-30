@@ -108,6 +108,7 @@ export function AppShell({ title, description, actions, compact = false, wide = 
 
   return <div className="min-h-screen bg-background">
     <aside className={sidebarRailClass(collapsed)}>
+      <TooltipProvider delayDuration={150}>
       <div className={cn("flex items-center gap-1", collapsed ? "flex-col" : "justify-between px-2")}>
         <BrandMark tone="dark" showName={!collapsed} />
         <div className={cn("flex items-center gap-1", collapsed && "flex-col")}>
@@ -120,7 +121,6 @@ export function AppShell({ title, description, actions, compact = false, wide = 
       {collapsed
         ? company ? <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" onClick={toggleSidebar} className="mt-4 h-10 w-10 shrink-0 border border-sidebar-border bg-sidebar-accent p-0 text-xs font-semibold text-sidebar-accent-foreground hover:bg-sidebar-accent">{companyInitials(company.companyName)}</Button></TooltipTrigger><TooltipContent side="right" sideOffset={8}>{company.companyName} — tocca per ingrandire la barra</TooltipContent></Tooltip> : null
         : identity && identity.memberships.length > 1 ? <div className="mt-5 px-2"><Select value={company?.companyId ?? ""} onValueChange={handleCompanyChange}><SelectTrigger className="border-sidebar-border bg-sidebar-accent text-sidebar-accent-foreground" aria-label="Azienda attiva"><SelectValue /></SelectTrigger><SelectContent>{identity.memberships.map((membership) => <SelectItem key={membership.companyId} value={membership.companyId}>{membership.companyName}</SelectItem>)}</SelectContent></Select></div> : company ? <p className="mt-5 truncate px-3 text-xs font-medium text-sidebar-foreground/60">{company.companyName}</p> : null}
-      <TooltipProvider delayDuration={150}>
         <nav className={cn("mt-4 flex flex-1 flex-col", collapsed ? "items-center gap-2" : "gap-4")}>
           {home ? <NavLink item={home} pathname={pathname} collapsed={collapsed} /> : null}
           {(["OPERATIVITÀ", "SISTEMA"] as const).map((section) => {
@@ -129,14 +129,13 @@ export function AppShell({ title, description, actions, compact = false, wide = 
             return <div key={section}>{collapsed ? <div className="mb-1 h-px w-6 bg-sidebar-border" aria-hidden="true" /> : <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase text-sidebar-foreground/50">{section}</p>}<div className={cn(collapsed ? "flex flex-col items-center gap-1" : "space-y-1")}>{sectionGroups.map((group) => {
               if (collapsed) {
                 // Con la barra compressa tutte le voci restano raggiungibili come icone, con il nome nel messaggio.
-                return <div key={group.key} className="flex flex-col items-center gap-0.5"><NavLink item={group.parent as NavItem} pathname={pathname} collapsed /><CollapsibleContent className="flex flex-col items-center gap-0.5">{group.children.map((item) => <NavLink key={item.key} item={item} pathname={pathname} nested collapsed />)}</CollapsibleContent></div>;
+                return <div key={group.key} className="flex flex-col items-center gap-0.5"><NavLink item={group.parent as NavItem} pathname={pathname} collapsed /><div className="flex flex-col items-center gap-0.5">{group.children.map((item) => <NavLink key={item.key} item={item} pathname={pathname} nested collapsed />)}</div></div>;
               }
               const isOpen = openGroups.includes(group.key);
               return <Collapsible key={group.key} open={isOpen} onOpenChange={(open) => setOpenGroups((value) => open ? [...new Set([...value, group.key])] : value.filter((key) => key !== group.key))}><div className="grid grid-cols-[minmax(0,1fr)_auto] items-center"><NavLink item={group.parent as NavItem} pathname={pathname} /><CollapsibleTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-sidebar-foreground" aria-label={`${isOpen ? "Chiudi" : "Apri"} ${group.label}`}><ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} /></Button></CollapsibleTrigger></div><CollapsibleContent className="mt-1 space-y-0.5">{group.children.map((item) => <NavLink key={item.key} item={item} pathname={pathname} nested />)}</CollapsibleContent></Collapsible>;
             })}</div></div>;
           })}
         </nav>
-      </TooltipProvider>
       <div className={cn("border-t border-sidebar-border pt-3", collapsed && "flex flex-col items-center")}>
         {collapsed ? null : <p className="truncate px-3 pb-2 text-xs text-sidebar-foreground/60">{identity?.email}</p>}
         <Tooltip>
@@ -148,6 +147,7 @@ export function AppShell({ title, description, actions, compact = false, wide = 
           {collapsed ? <TooltipContent side="right" sideOffset={8}>Esci</TooltipContent> : null}
         </Tooltip>
       </div>
+      </TooltipProvider>
     </aside>
     <div className={sidebarMainClass(collapsed)}>
       <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-sidebar px-4 py-3 lg:hidden"><BrandMark tone="dark" /><div className="flex items-center gap-2">{identity && identity.memberships.length > 1 ? <Select value={company?.companyId ?? ""} onValueChange={handleCompanyChange}><SelectTrigger className="h-8 max-w-40 border-sidebar-border bg-sidebar-accent text-xs text-sidebar-accent-foreground" aria-label="Azienda attiva"><SelectValue /></SelectTrigger><SelectContent>{identity.memberships.map((membership) => <SelectItem key={membership.companyId} value={membership.companyId}>{membership.companyName}</SelectItem>)}</SelectContent></Select> : null}<NotificationBell companyId={company?.companyId} className="text-sidebar-foreground hover:bg-sidebar-accent" /><Button variant="ghost" size="icon" onClick={handleSignOut} aria-label="Esci" className="text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="h-5 w-5" /></Button></div></header>
