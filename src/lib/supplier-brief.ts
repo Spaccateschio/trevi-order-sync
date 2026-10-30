@@ -18,7 +18,7 @@ const byLink = <T extends { link_id: string }>(rows: unknown[]) =>
  * i dati del collegamento (`shopping_item_supplier_units`) hanno la precedenza sulle opzioni B2B.
  * `units`/`allowManual` non contano alla scelta, ma restano nel tipo: qui sono vuoti/false.
  */
-export function pickFromCardReads(overview: unknown[], b2bOptions: unknown[], supplierUnits: unknown[]): PickSupplier[] {
+export function pickFromCardReads(overview: unknown[], b2bOptions: unknown[], supplierUnits: unknown[]): (PickSupplier & { name: string })[] {
   const options = byLink<OptionRead>(b2bOptions);
   const linkUnits = byLink<LinkUnitsRead>(supplierUnits);
   return (overview as OverviewRead[])
@@ -29,6 +29,7 @@ export function pickFromCardReads(overview: unknown[], b2bOptions: unknown[], su
       const isB2B = db ? db.is_b2b : Boolean(opt?.is_b2b);
       return {
         linkId: s.link_id,
+        name: s.supplier_name,
         isB2B,
         sourceLinked: db ? db.source_linked : Boolean(opt?.source_product_id),
         purchasable: db ? db.purchasable !== false : opt?.purchasable !== false,
