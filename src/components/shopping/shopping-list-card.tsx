@@ -209,7 +209,6 @@ export function ShoppingListCard({
   const decidedOption = unitOptions.find((o) => o.key === decidedKey) ?? null;
   const otherUnit = decidedKey !== PRODUCT_UNIT;
   const decidedCode = otherUnit ? (decidedOption?.code ?? extra?.decidedUnitCode ?? "") : unit;
-  const unitLabel = decidedCode.trim().toLowerCase();
   // Badge solo informativo «U.M. non più offerta»: stessa regola di unlink_supplier_preview (Liste aperte),
   // U.M. di magazzino e U.M. della riga sempre valide. Non cambia quantità, U.M., stato o chiusura.
   const decidedNorm = normUnit(decidedCode);
@@ -252,6 +251,7 @@ export function ShoppingListCard({
     ? ownDefault ?? (proposeUnit && proposal ? { unitId: proposal.defaultUnit.unit_id, code: proposal.defaultUnit.code } : null)
     : null;
   const proposedKey = firstUnit ? (normUnit(firstUnit.code) === normUnit(unit) ? PRODUCT_UNIT : firstUnit.unitId) : null;
+  const unitLabel = (firstUnit?.code ?? decidedCode).trim().toLowerCase();
   useEffect(() => {
     onProposeUnit?.(firstUnit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
