@@ -389,7 +389,8 @@ export const setShoppingListItemNotes = createServerFn({ method: "POST" })
     const { error } = await context.supabase.rpc("set_shopping_list_item_notes", {
       _company_id: data.companyId,
       _item_id: data.itemId,
-      _notes: data.notes,
+      // Null non è accettato dai tipi generati: la stringa vuota rimuove la nota (NULLIF nel database).
+      _notes: data.notes ?? "",
     });
     if (error) throw new Error(error.message);
     return { ok: true };
