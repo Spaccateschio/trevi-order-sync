@@ -742,6 +742,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 inventoryPreviousQuantity: null,
                 decidedUnitId: null,
                 decidedUnitCode: null,
+                itemNotes: null,
               },
               stock: { lastQuantity: row.counted, lastUnit: row.unit, lastAt: null, stock: row.stock, stockUnit: row.stockUnit },
             }))

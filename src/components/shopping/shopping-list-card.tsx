@@ -185,7 +185,7 @@ export function ShoppingListCard({
   onOpenSuppliers: () => void;
   onRemove: () => void;
   /** Nota libera del prodotto: salvata solo su Liste aperte; null = nota rimossa. */
-  onSaveNotes?: (notes: string | null) => Promise<boolean>;
+  onSaveNotes?: ((notes: string | null) => Promise<boolean>) | undefined;
   onToggleLock: () => void;
   lockPending?: boolean;
   /** Conferma automatica (uscita dal campo, Invio, tasti rapidi): niente pulsante «Conferma». */
