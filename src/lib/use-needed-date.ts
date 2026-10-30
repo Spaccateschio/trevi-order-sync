@@ -14,7 +14,12 @@ export function useNeededDate(itemId: string | null, enabled = true) {
       return (data?.shopping_lists as unknown as { delivery_date: string | null } | null)?.delivery_date ?? null;
     },
   });
-  return q.data ? parseLocalDate(q.data) : null;
+  if (!q.data) return null;
+  // Data della Lista già passata: si ragiona da oggi, mai avvisi di ritardo su giorni trascorsi.
+  const d = parseLocalDate(q.data);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return d && d.getTime() < today.getTime() ? today : d;
 }
 
 /** Giorni e preavviso effettivi per collegamento (eccezione del prodotto, altrimenti fornitore). */
