@@ -28,7 +28,7 @@ import { type OverviewRow } from "@/lib/shopping-list";
 import type { SupplierMemory } from "@/lib/supplier-memory";
 import { factsFromRow, rowLabel } from "@/lib/supplier-selection";
 import { cn } from "@/lib/utils";
-import { companyProductPurchaseUnitsOptions } from "@/lib/product-purchase-units";
+import { companyProductPurchaseUnitsOptions, productPurchaseDefault } from "@/lib/product-purchase-units";
 
 export type StockInfo = {
   lastQuantity: number | null;
@@ -221,7 +221,7 @@ export function ShoppingListCard({
     decidedNorm !== "" &&
     decidedNorm !== normUnit(unit) &&
     decidedNorm !== normUnit(stock?.stockUnit) &&
-    !decided.offeredCodes.has(decidedNorm);
+    !decided.offeredCodes.has(decidedNorm) && !ownOptions.some((o) => normUnit(o.code) === decidedNorm);
   // U.M. del fornitore usato/preselezionato: stessa fonte del database, nessuna conversione inventata.
   const supplierInfo = useQuery({
     queryKey: ["shopping-card-unit-suppliers", companyId, row.item_id],
@@ -247,11 +247,15 @@ export function ShoppingListCard({
   const savedQuantity = row.decided_quantity === null ? null : Number(row.decided_quantity);
   // Prima quantità: la card parte nell'U.M. predefinita del fornitore se quella attuale non è sua.
   const proposeUnit = Boolean(proposal && !proposal.compatible && !otherUnit && savedQuantity === null && !proposalDeclined);
-  const proposedKey = proposeUnit && proposal ? proposal.defaultUnit.unit_id : null;
+  const ownDefault = productPurchaseDefault(ownUnits, row.product_id);
+  const firstUnit = savedQuantity === null && !otherUnit && !proposalDeclined
+    ? ownDefault ?? (proposeUnit && proposal ? { unitId: proposal.defaultUnit.unit_id, code: proposal.defaultUnit.code } : null)
+    : null;
+  const proposedKey = firstUnit ? (normUnit(firstUnit.code) === normUnit(unit) ? PRODUCT_UNIT : firstUnit.unitId) : null;
   useEffect(() => {
-    onProposeUnit?.(proposeUnit && proposal ? { unitId: proposal.defaultUnit.unit_id, code: proposal.defaultUnit.code } : null);
+    onProposeUnit?.(firstUnit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proposeUnit, proposal?.defaultUnit.unit_id]);
+  }, [firstUnit?.unitId, firstUnit?.code]);
   // Quantità già salvata in U.M. che il fornitore non vende: si segnala e si corregge solo con conferma.
   const unitMismatch = Boolean(proposal && !proposal.compatible && savedQuantity !== null && savedQuantity > 0 && onFixUnit);
   const supplierName = proposal ? (supplierInfo.data?.get(proposal.linkId)?.name ?? "Il fornitore") : "";

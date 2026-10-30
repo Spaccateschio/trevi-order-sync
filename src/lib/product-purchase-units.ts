@@ -5,6 +5,21 @@ export type ProductPurchaseUnit = { unit_id: string; is_default: boolean };
 export type ProductPurchaseUnitCode = ProductPurchaseUnit & { product_id: string; units_of_measure: { code: string; status: string; usage: string } | null };
 export type PurchaseCompanyUnit = { id: string; company_id?: string; status: string; usage?: string | null };
 
+/** Proposta per un nuovo acquisto, mai sostituzione di quantità/U.M. già scelte. */
+export function productPurchaseDefault(units: ProductPurchaseUnitCode[], productId: string) {
+  const preferred = units.find((u) => u.product_id === productId && u.is_default && u.units_of_measure?.code);
+  return preferred?.units_of_measure ? { unitId: preferred.unit_id, code: preferred.units_of_measure.code } : null;
+}
+
+export function mergeManualPurchaseUnits<T extends { unitId: string; code: string; conversionFactor: number | null; conversionType: string | null; isDefault?: boolean }>(
+  supplierUnits: T[], ownUnits: ProductPurchaseUnitCode[], productId: string, isB2B: boolean,
+) {
+  if (isB2B) return supplierUnits;
+  const added = ownUnits.filter((u) => u.product_id === productId && u.units_of_measure && !supplierUnits.some((s) => s.unitId === u.unit_id))
+    .map((u) => ({ unitId: u.unit_id, code: u.units_of_measure?.code ?? "", conversionFactor: null, conversionType: null, isDefault: u.is_default }));
+  return [...supplierUnits, ...added];
+}
+
 export function addProductPurchaseUnit(value: { ids: string[]; defaultId: string | null }, unitId: string) {
   if (value.ids.includes(unitId)) return value;
   return { ids: [...value.ids, unitId], defaultId: value.ids.length === 0 ? unitId : value.defaultId };
