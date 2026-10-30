@@ -7212,6 +7212,10 @@ export type Database = {
         Args: { _company_id: string; _link_id: string }
         Returns: Json
       }
+      _link_units_fill_from_package: {
+        Args: { _package_id: string }
+        Returns: undefined
+      }
       _resolve_session_card: {
         Args: {
           _explicit: boolean
