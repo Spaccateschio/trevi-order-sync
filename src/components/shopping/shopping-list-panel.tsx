@@ -2016,6 +2016,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                     mobileOpen={mobileOpenId === entry.key}
                     onToggleMobile={() => setMobileOpenId((current) => toggleMobileCard(current, entry.key))}
                     entry={entry}
+                    companyId={companyId}
                     show={display.prefs}
                     stock={entry.ownProductId ? stockQuery.data?.get(entry.ownProductId) : undefined}
                     layout={viewMode}
