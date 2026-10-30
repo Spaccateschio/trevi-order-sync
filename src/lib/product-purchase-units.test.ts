@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addProductPurchaseUnit, allowedPurchaseUnits, validatePurchaseSelection, productPurchaseDefault, mergeManualPurchaseUnits, type ProductPurchaseUnitCode } from "./product-purchase-units";
+import { sharedPurchaseUnitChoices, addProductPurchaseUnit, allowedPurchaseUnits, validatePurchaseSelection, productPurchaseDefault, mergeManualPurchaseUnits, type ProductPurchaseUnitCode } from "./product-purchase-units";
 const units = [
   { id: "kg", company_id: "a", status: "attivo", usage: "acquisto" },
   { id: "cs", company_id: "a", status: "attivo", usage: "entrambi" },
@@ -10,6 +10,18 @@ const units = [
 describe("U.M. proprie del prodotto", () => {
   const own: ProductPurchaseUnitCode[] = [{ product_id: "1847", unit_id: "cs", is_default: true, units_of_measure: { code: "cassa", status: "attivo", usage: "acquisto" } }];
   const linked = [{ unitId: "mazzo", code: "mazzo", conversionFactor: 1, conversionType: "esatta" }];
+  it("due fornitori manuali già collegati ricevono cassa senza configurarla nuovamente", () => {
+    const a = [{ unit_id: "mazzo", code: "mazzo", is_active: true, is_default: false }];
+    const b = [{ unit_id: "kg", code: "kg", is_active: true, is_default: false }];
+    expect(sharedPurchaseUnitChoices(a, own, "1847", false).map(u => u.code)).toEqual(["mazzo", "cassa"]);
+    expect(sharedPurchaseUnitChoices(b, own, "1847", false).map(u => u.code)).toEqual(["kg", "cassa"]);
+  });
+  it("le U.M. condivise non entrano nella referenza B2B", () => expect(sharedPurchaseUnitChoices([], own, "1847", true)).toEqual([]));
+  it("una U.M. già configurata conserva stella e conversione", () => {
+    const a = [{ unit_id: "cs", code: "cassa", is_active: true, is_default: false, factor: 10 }];
+    expect(sharedPurchaseUnitChoices(a, own, "1847", false)).toEqual(a);
+  });
+  it("esclude le U.M. inattive o di altri prodotti", () => expect(sharedPurchaseUnitChoices([], [...own.map(u => ({...u, units_of_measure: {...u.units_of_measure, code: "cassa", usage: "acquisto", status: "disattivato"}}))], "1847", false)).toEqual([]));
   it("BASILICO 1847 propone la cassa preferita anziché mazzo", () => expect(productPurchaseDefault(own, "1847")).toEqual({ unitId: "cs", code: "cassa" }));
   it("non prende la preferita di un altro prodotto", () => expect(productPurchaseDefault(own, "altro")).toBeNull());
   it("fornitore manuale riconosce cassa senza inventare conversioni", () => expect(mergeManualPurchaseUnits(linked, own, "1847", false)[1]).toEqual({ unitId: "cs", code: "cassa", conversionFactor: null, conversionType: null, isDefault: true }));

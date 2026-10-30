@@ -5,6 +5,19 @@ export type ProductPurchaseUnit = { unit_id: string; is_default: boolean };
 export type ProductPurchaseUnitCode = ProductPurchaseUnit & { product_id: string; units_of_measure: { code: string; status: string; usage: string } | null };
 export type PurchaseCompanyUnit = { id: string; company_id?: string; status: string; usage?: string | null };
 
+/** Shared availability; existing reference configuration and seller-controlled B2B stay intact. */
+export function sharedPurchaseUnitChoices<T extends { unit_id: string; code: string; is_default: boolean; is_active: boolean }>(
+  assigned: T[], own: ProductPurchaseUnitCode[], productId: string, isB2B: boolean,
+): (T | { unit_id: string; code: string; is_default: boolean; is_active: boolean })[] {
+  const active = assigned.filter((u) => u.is_active);
+  if (isB2B) return active;
+  const added = own.filter((u) => u.product_id === productId && u.units_of_measure?.status === "attivo"
+    && ["acquisto", "entrambi"].includes(u.units_of_measure.usage)
+    && !active.some((a) => a.unit_id === u.unit_id))
+    .map((u) => ({ unit_id: u.unit_id, code: u.units_of_measure?.code ?? "", is_default: u.is_default, is_active: true }));
+  return [...active, ...added];
+}
+
 /** Proposta per un nuovo acquisto, mai sostituzione di quantità/U.M. già scelte. */
 export function productPurchaseDefault(units: ProductPurchaseUnitCode[], productId: string) {
   const preferred = units.find((u) => u.product_id === productId && u.is_default && u.units_of_measure?.code);

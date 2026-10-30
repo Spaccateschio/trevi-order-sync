@@ -17,7 +17,7 @@ import { SupplierConversionsSection } from "./stock-unit-config";
 import { DEFAULT_SCHEDULE, deliveryScheduleSummary, type DeliverySchedule } from "@/lib/delivery-schedule";
 import { dateTime, euro } from "@/lib/product-grid";
 import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
-import { allowedPurchaseUnits, productPurchaseUnitsOptions } from "@/lib/product-purchase-units";
+import { allowedPurchaseUnits, companyProductPurchaseUnitsOptions, sharedPurchaseUnitChoices, productPurchaseUnitsOptions } from "@/lib/product-purchase-units";
 import { supplierLinkPatch } from "@/lib/supplier-link-patch";
 import type { CompanyUnit } from "./sales-unit-manager";
 
@@ -123,6 +123,7 @@ export function ProductSuppliersManager({
   });
 
   const ownUnitsQuery = useQuery(productPurchaseUnitsOptions(companyId, productId));
+  const sharedUnitsQuery = useQuery(companyProductPurchaseUnitsOptions(companyId));
   const activeUnits = useMemo(() => allowedPurchaseUnits(units, companyId), [units, companyId]);
   const configuredUnits = activeUnits.filter((unit) => ownUnitsQuery.data?.some((u) => u.unit_id === unit.id));
   const directSelected = new Set(configuredUnits.map((unit) => unit.id));
@@ -498,6 +499,7 @@ export function ProductSuppliersManager({
           </div>
         ) : null}
         {visibleLinks.map((row) => {
+          const purchaseChoices = sharedPurchaseUnitChoices(row.purchase_units ?? [], sharedUnitsQuery.data ?? [], productId, row.b2b_relation_status === "attivo");
           const isSelected = row.link_id === selectedLinkId;
           const label = linkedLabel(row.b2b_relation_status);
           return (
@@ -530,7 +532,7 @@ export function ProductSuppliersManager({
                   {b2bItemsQuery.data?.[row.link_id] ? (
                     <div className="col-span-2"><dt className="text-muted-foreground">Articolo B2B collegato</dt><dd><span className="font-mono">{b2bItemsQuery.data[row.link_id]!.code}</span> · {b2bItemsQuery.data[row.link_id]!.description ?? "—"}</dd></div>
                   ) : null}
-                  <div><dt className="text-muted-foreground">U.M. acquistabili</dt><dd>{(row.purchase_units ?? []).length ? (row.purchase_units ?? []).map((unit) => `${unit.code}${unit.is_default ? " ★" : ""}`).join(" · ") : "—"}</dd></div>
+                  <div><dt className="text-muted-foreground">U.M. acquistabili</dt><dd>{purchaseChoices.length ? purchaseChoices.map((unit) => `${unit.code}${unit.is_default ? " ★" : ""}`).join(" · ") : "—"}</dd></div>
                   <div><dt className="text-muted-foreground">Costo Danea</dt><dd>{row.danea_net_cost !== null ? `${euro(row.danea_net_cost)} · ${dateTime(row.danea_cost_at)}` : "—"}</dd></div>
                   <div><dt className="text-muted-foreground">Origine</dt><dd>{row.origin === "danea" ? "Danea" : "Manuale"}</dd></div>
                 </dl>
@@ -543,6 +545,7 @@ export function ProductSuppliersManager({
                     linkId={row.link_id}
                     productId={productId}
                     assigned={row.purchase_units ?? []}
+                    isB2B={row.b2b_relation_status === "attivo"}
                     units={units}
                     disabled={busy}
                     onChanged={refresh}
@@ -712,10 +715,14 @@ function LinkDeliveryEditor({
  * U.M. con cui è possibile acquistare una singola referenza fornitore.
  * La predefinita è facoltativa: una referenza può restare senza U.M. preferita.
  */
-export function PurchaseUnitsEditor({ companyId, productId, linkId, assigned, units, disabled, onChanged }: {
+export function PurchaseUnitsEditor({ companyId, productId, linkId, assigned, units, disabled, onChanged, isB2B = true }: {
   companyId: string; productId: string; linkId: string; assigned: PurchaseUnit[];
   units: CompanyUnit[]; disabled: boolean; onChanged: () => Promise<void>;
+  isB2B?: boolean;
 }) {
+  const shared = useQuery(companyProductPurchaseUnitsOptions(companyId));
+  const inherited = sharedPurchaseUnitChoices(assigned, shared.data ?? [], productId, isB2B)
+    .filter(u => !assigned.some(a => a.is_active && a.unit_id === u.unit_id));
   const mutation = useMutation({
     mutationFn: async (input: {unitId:string; action:"remove"|"set_default"|"clear_default"}) => {
       const {error}=await supabase.rpc("manage_product_supplier_link_unit",{_company_id:companyId,_link_id:linkId,_unit_id:input.unitId,_action:input.action});
@@ -724,6 +731,7 @@ export function PurchaseUnitsEditor({ companyId, productId, linkId, assigned, un
   });
   return <div className="space-y-2">
     <Label>U.M. usate</Label>
+    {inherited.map(u => <div key={u.unit_id} className="flex items-center gap-2 border-b border-border py-2"><span className="font-medium">{u.code}</span>{u.is_default ? <Star className="size-4 fill-primary text-primary" aria-label="U.M. preferita del prodotto" /> : null}<Badge variant="secondary">Del prodotto</Badge></div>)}
     {assigned.filter(u=>u.is_active).sort((a,b)=>Number(b.is_default)-Number(a.is_default)||a.code.localeCompare(b.code,"it")).map(u=><div key={u.id} className="border-b border-border py-2">
       <div className="flex items-center gap-2"><span className="font-medium">{u.code}</span>
         <Button size="icon" variant="ghost" aria-label={`${u.is_default?"Togli":"Metti"} stella U.M. ${u.code}`} disabled={disabled||mutation.isPending} onClick={()=>mutation.mutate({unitId:u.unit_id,action:u.is_default?"clear_default":"set_default"})}><Star className={u.is_default?"fill-current":""}/></Button>
@@ -731,6 +739,6 @@ export function PurchaseUnitsEditor({ companyId, productId, linkId, assigned, un
       </div>
       <SupplierConversionsSection productId={productId} units={units} editable={!disabled} linkUnitId={u.id}/>
     </div>)}
-    {!assigned.some(u=>u.is_active)?<p className="text-sm text-muted-foreground">Nessuna U.M. impostata per questa referenza.</p>:null}
+    {!assigned.some(u=>u.is_active)&&!inherited.length?<p className="text-sm text-muted-foreground">Nessuna U.M. impostata per questa referenza.</p>:null}
   </div>;
 }
