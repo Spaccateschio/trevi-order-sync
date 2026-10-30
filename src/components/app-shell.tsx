@@ -89,7 +89,7 @@ export function AppShell({ title, description, actions, compact = false, wide = 
   useEffect(() => {
     const current = groups.find((group) => group.parent?.to && (pathname === group.parent.to || group.children.some((item) => item.to && pathname.startsWith(item.to))));
     if (current && !openGroups.includes(current.key)) setOpenGroups((value) => [...value, current.key]);
-  }, [pathname]);
+  }, [pathname, groups.length]);
 
   async function handleCompanyChange(companyId: string) {
     if (!identity) return;
