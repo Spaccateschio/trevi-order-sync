@@ -287,6 +287,12 @@ export function ShoppingListCard({
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
+  const noteLine = itemNotes ? (
+    <p className="flex items-start gap-1 text-[11px] leading-tight text-muted-foreground">
+      <StickyNote className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+      <span className="min-w-0 break-words">{itemNotes}</span>
+    </p>
+  ) : null;
   const suggested = row.current_suggested ?? row.suggested_quantity;
   const isFavorite = Boolean(extra?.isFavorite);
   const isRow = layout === "row";
