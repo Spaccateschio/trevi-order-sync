@@ -9357,6 +9357,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_shopping_list_item_notes: {
+        Args: { _company_id: string; _item_id: string; _notes: string }
+        Returns: undefined
+      }
       set_shopping_list_item_quantity: {
         Args: {
           _actor_user_id?: string

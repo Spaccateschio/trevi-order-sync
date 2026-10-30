@@ -87,6 +87,7 @@ import {
   setShoppingListItemQuantity,
   commitShoppingListItemQuantity,
   setShoppingListDirectQuota,
+  setShoppingListItemNotes,
   setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
 import { autoAssignItem, readMemories, type PlannedWrite } from "@/lib/shopping-auto-assign";
@@ -173,6 +174,17 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runQuantity = useServerFn(setShoppingListItemQuantity);
   const runRemove = useServerFn(removeShoppingListItem);
   const runLock = useServerFn(setShoppingListItemQuantityLock);
+  const runItemNotes = useServerFn(setShoppingListItemNotes);
+  // Note libere del prodotto: solo Liste aperte; nessun tocco a quantità, quote o ordini.
+  const itemNotesMutation = useMutation({
+    mutationFn: async (input: { itemId: string; notes: string | null }) => {
+      await runItemNotes({ data: { companyId, itemId: input.itemId, notes: input.notes } });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["shopping-extras-locks"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Nota non salvata"),
+  });
   const runConfirm = useServerFn(confirmShoppingListProduct);
   const readCycle = useServerFn(getInventoryCycleStatus);
   const runFavorite = useServerFn(manageCompanyProductFavorite);
@@ -730,6 +742,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 inventoryPreviousQuantity: null,
                 decidedUnitId: null,
                 decidedUnitCode: null,
+                itemNotes: null,
               },
               stock: { lastQuantity: row.counted, lastUnit: row.unit, lastAt: null, stock: row.stock, stockUnit: row.stockUnit },
             }))
@@ -2072,6 +2085,18 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 onOpenSuppliers={() => setSplitItem(row)}
                 onCopyToOwnProducts={copyHandler(row.product_id)}
                 onRemove={() => removeMutation.mutate(row.item_id)}
+                onSaveNotes={
+                  editable
+                    ? async (notes) => {
+                        try {
+                          await itemNotesMutation.mutateAsync({ itemId: row.item_id, notes });
+                          return true;
+                        } catch {
+                          return false;
+                        }
+                      }
+                    : undefined
+                }
                 onToggleLock={() => void toggleLock(row)}
                 draftQuantity={confirmationQuantity(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity))}
                 quantityLocked={Boolean(extra?.lockedAt) && !unlockedIds.has(row.item_id)}

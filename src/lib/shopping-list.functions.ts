@@ -374,3 +374,24 @@ export const setShoppingListDeliveryDate = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/** Note libere del prodotto nella Lista: solo righe di Liste aperte, mai quantità o quote. */
+export const setShoppingListItemNotes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      companyId: z.string().uuid(),
+      itemId: z.string().uuid(),
+      notes: z.string().trim().max(1000).nullable(),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("set_shopping_list_item_notes", {
+      _company_id: data.companyId,
+      _item_id: data.itemId,
+      // Null non è accettato dai tipi generati: la stringa vuota rimuove la nota (NULLIF nel database).
+      _notes: data.notes ?? "",
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
