@@ -1,5 +1,9 @@
 # Roadmap
 
+## 30/10 — U.M. d’acquisto nella Lista
+- [ ] Rispettare le U.M. del prodotto e la preferita sulle card; renderle disponibili ai fornitori non B2B senza riscrivere quote o documenti. B2B invariato.
+- [ ] Test mirati e verifica autenticata in sola lettura; nessuna pubblicazione.
+
 ## 29/10 — Configurazioni operative facoltative
 - [x] Inventario: migrazione 0097 rimuove blocchi per confezioni/U.M. magazzino mancanti; quantità/U.M. reali e snapshot versione 1, equivalenti NULL senza conversione. Chiusura anche con vuoti/non confrontabili; autorizzazioni e storico invariati. Lista già consente acquisti senza conversione tramite conferma quantità: nessun cambio al flusso ordini.
 - [x] Configurazioni magazzino raccolte nei dettagli facoltativi, riferimento Danea rimosso dal conteggio. 55 test superati, compilazione OK; anteprima autenticata: 130 Conferma singole, riepilogo della bozza esistente 1,5 cassa da confermare con 0 bloccati, dettagli richiudibili; nessuna quantità scritta/confermata, nessuna pubblicazione.
