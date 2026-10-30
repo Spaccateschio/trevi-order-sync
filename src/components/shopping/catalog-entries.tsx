@@ -5,7 +5,9 @@ import { catalogConfirmAction, createConfirmationGuard } from "./shopping-quanti
 import { defaultUnitCode } from "@/lib/supplier-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, ChevronUp, ImageOff, Plus, Star } from "lucide-react";
+import { ChevronDown, ChevronUp, ImageOff, MoreVertical, Plus, Star } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AddSupplierInline } from "./add-supplier-inline";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -376,7 +378,10 @@ export function CatalogProductCard({
   onQuantityChange,
   stock,
   show = ALL_VISIBLE,
+  companyId,
 }: {
+  /** Serve a ⋮ → «Aggiungi fornitore» (collegamento reale prodotto ↔ fornitore). */
+  companyId?: string;
   stock?: StockInfo | undefined;
   show?: DisplayPrefs;
   entry: CatalogEntry;
@@ -434,6 +439,35 @@ export function CatalogProductCard({
   const name = entry.description ?? entry.code;
   const supplier = catalogSupplierLabel(entry);
   const [suppliersOpen, setSuppliersOpen] = useState(false);
+  const [addingSupplier, setAddingSupplier] = useState(false);
+  const queryClient = useQueryClient();
+  const canLinkSupplier = Boolean(companyId && entry.ownProductId && !entry.isB2b);
+  const addSupplier = canLinkSupplier && addingSupplier ? (
+    <AddSupplierInline
+      initialOpen
+      companyId={companyId!}
+      productId={entry.ownProductId!}
+      itemId={null}
+      linkedSupplierIds={new Set(entry.supplierRecordIds)}
+      daneaUm={entry.baseUm}
+      onLinked={() => { setAddingSupplier(false); void queryClient.invalidateQueries({ queryKey: ["shopping-add-links", companyId] }); }}
+    />
+  ) : null;
+  const menu = canLinkSupplier ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" size="sm" variant="ghost" className="h-7 w-7 shrink-0 px-0" aria-label={`Altre azioni ${entry.code}`}>
+          <MoreVertical aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => { setSuppliersOpen(true); setAddingSupplier(true); }}>
+          <Plus aria-hidden="true" />
+          Aggiungi fornitore
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null;
 
   const star = (
     <Button
@@ -495,10 +529,10 @@ export function CatalogProductCard({
   if (isMobile && layout === "card" && onToggleMobile) {
     return <ShoppingMobileCard id={entry.key} name={name} open={mobileOpen} onToggle={onToggleMobile}
       locked={false} recheck={false} busy={adding || confirming}
-      header={<div className="flex min-w-0 items-start gap-2">{image}<div className="min-w-0 flex-1"><p className="break-words font-display text-base font-bold uppercase leading-tight">{name}</p><Badge variant="outline" className="mt-0.5 text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge></div>{star}</div>}
+      header={<div className="flex min-w-0 items-start gap-2">{image}<div className="min-w-0 flex-1"><p className="break-words font-display text-base font-bold uppercase leading-tight">{name}</p><Badge variant="outline" className="mt-0.5 text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge></div>{star}{menu}</div>}
       summary={<span className="block">{inventorySummary}<span className="text-base font-bold">{nonPurchase ? "Non acquistare" : `Da acquistare ${quantity === null ? "—" : `${quantity} ${unitCode ?? ""}`}`}</span></span>}
       supplier={<span>Fornitore: {supplier}</span>} suggested={null} warnings={null}>
-      <p className="text-xs text-muted-foreground">{meta}</p>{controls}
+      <p className="text-xs text-muted-foreground">{meta}</p>{controls}{addSupplier}
     </ShoppingMobileCard>;
   }
 
@@ -514,7 +548,9 @@ export function CatalogProductCard({
         </div>
         <Badge variant="outline" className="text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge>
         {star}
+        {menu}
         {controls}
+        {addSupplier ? <div className="w-full">{addSupplier}</div> : null}
       </article>
     );
   }
@@ -527,6 +563,7 @@ export function CatalogProductCard({
           <p className="truncate text-muted-foreground">{meta}</p>
         </div>
         {star}
+        {menu}
       </div>
       <Badge variant="outline" className="w-fit text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge>
       {inventorySummary}
@@ -555,6 +592,7 @@ export function CatalogProductCard({
                 )}
               </ul>
             ) : null}
+            {suppliersOpen ? addSupplier : null}
           </>
         )}
       </div>

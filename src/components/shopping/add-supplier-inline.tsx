@@ -52,6 +52,7 @@ export function AddSupplierInline({
   linkedSupplierIds,
   daneaUm,
   onLinked,
+  initialOpen = false,
 }: {
   companyId: string;
   productId: string;
@@ -60,9 +61,11 @@ export function AddSupplierInline({
   daneaUm: string | null;
   /** Dopo il collegamento: la card preseleziona l'U.M. d'acquisto appena scelta. */
   onLinked?: (linkId: string, unitId: string | null) => void;
+  /** Aperto subito (es. da ⋮ → «Aggiungi fornitore»). */
+  initialOpen?: boolean;
 }) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [search, setSearch] = useState("");
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [price, setPrice] = useState("");
