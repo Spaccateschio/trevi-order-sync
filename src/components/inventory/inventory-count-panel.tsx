@@ -115,6 +115,7 @@ import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget 
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
 import { dateTimeShort, type SessionRow } from "@/lib/inventory";
 import { inventoryDefaultUnitId } from "@/lib/inventory-unit-default";
+import { loadInventoryUnitMemory, saveInventoryUnitMemory } from "@/lib/inventory-unit-memory";
 import { INVENTORY_SCREEN_VERSION, cardKey, cardTitle, compareCards, groupKey, parseCardKey, productCardTotal, rowCardKey } from "@/lib/inventory-cards";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 import { InventoryProductDialog } from "@/components/inventory/inventory-product-dialog";
@@ -294,6 +295,11 @@ export function InventoryCountPanel({
   const [chosenUnits, setChosenUnits] = useState<Record<string, string>>({});
   const chosenUnitsRef = useRef(chosenUnits);
   chosenUnitsRef.current = chosenUnits;
+  // U.M. scelte ricordate sul dispositivo: restano anche con «Rifai inventario».
+  useEffect(() => {
+    const saved = loadInventoryUnitMemory(typeof window === "undefined" ? null : window.localStorage, companyId);
+    setChosenUnits((current) => ({ ...saved, ...current }));
+  }, [companyId]);
   const unitChoice = {
     allowed: { get: (productId: string) => {
       const configured = allowedUnitsQuery.data?.configured.get(productId) ?? [];
@@ -303,8 +309,10 @@ export function InventoryCountPanel({
     preferred: { get: (productId: string) => allowedUnitsQuery.data?.configured.get(productId)?.[0]?.id },
     chosen: chosenUnits,
     choose: (key: string, unitId: string) => {
-      setChosenUnits((current) => ({ ...current, [key]: unitId }));
-      chosenUnitsRef.current = { ...chosenUnitsRef.current, [key]: unitId };
+      const next = { ...chosenUnitsRef.current, [key]: unitId };
+      setChosenUnits(next);
+      chosenUnitsRef.current = next;
+      saveInventoryUnitMemory(typeof window === "undefined" ? null : window.localStorage, companyId, next);
       const raw = draftsRef.current[key] ?? "";
       if (raw.trim()) scheduleDraftSave(key, raw);
     },
