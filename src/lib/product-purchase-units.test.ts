@@ -24,11 +24,12 @@ describe("U.M. proprie del prodotto", () => {
   it("esclude le U.M. inattive o di altri prodotti", () => expect(sharedPurchaseUnitChoices([], [...own.map(u => ({...u, units_of_measure: {...u.units_of_measure, code: "cassa", usage: "acquisto", status: "disattivato"}}))], "1847", false)).toEqual([]));
   it("BASILICO 1847 propone la cassa preferita anziché mazzo", () => expect(productPurchaseDefault(own, "1847")).toEqual({ unitId: "cs", code: "cassa" }));
   it("non prende la preferita di un altro prodotto", () => expect(productPurchaseDefault(own, "altro")).toBeNull());
-  it("fornitore manuale riconosce cassa senza inventare conversioni", () => expect(mergeManualPurchaseUnits(linked, own, "1847", false)[1]).toEqual({ unitId: "cs", code: "cassa", conversionFactor: null, conversionType: null, isDefault: true }));
+  it("fornitore manuale usa solo le U.M. della tab Acquisto (mazzo della referenza escluso)", () => expect(mergeManualPurchaseUnits(linked, own, "1847", false)).toEqual([{ unitId: "cs", code: "cassa", conversionFactor: null, conversionType: null, isDefault: true }]));
+  it("senza U.M. del prodotto restano quelle della referenza", () => expect(mergeManualPurchaseUnits(linked, [], "1847", false)).toEqual(linked));
   it("B2B mantiene solo le unità del venditore", () => expect(mergeManualPurchaseUnits(linked, own, "1847", true)).toEqual(linked));
   it("non duplica né altera la conversione della referenza", () => {
     const existing = [{ unitId: "cs", code: "cassa", conversionFactor: 10, conversionType: "esatta" }];
-    expect(mergeManualPurchaseUnits(existing, own, "1847", false)).toEqual(existing);
+    expect(mergeManualPurchaseUnits(existing, own, "1847", false)).toEqual([{ ...existing[0], isDefault: true }]);
   });
   it("la prima U.M. acquisto cassa diventa automaticamente preferita", () => expect(addProductPurchaseUnit({ ids: [], defaultId: null }, "cs")).toEqual({ ids: ["cs"], defaultId: "cs" }));
   it("aggiungere un'altra U.M. mantiene la preferita scelta", () => expect(addProductPurchaseUnit({ ids: ["cs"], defaultId: "cs" }, "kg")).toEqual({ ids: ["cs", "kg"], defaultId: "cs" }));
