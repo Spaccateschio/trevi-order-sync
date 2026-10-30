@@ -767,7 +767,7 @@ export function ShoppingListCard({
 
   const anyStat = show.lastCount || show.stock || show.suggested;
   return (
-    <article id={`item-${row.item_id}`} className={cn("@container flex h-full min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2 @max-[260px]:p-1.5", locked && "border-primary/60 bg-primary/15", recheck && "border-warning bg-warning/10")}>
+    <article id={`item-${row.item_id}`} className={cn("@container flex min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2 @max-[260px]:p-1.5", locked && "border-primary/60 bg-primary/15", recheck && "border-warning bg-warning/10")}>
       <div className={cn("grid items-start gap-2 @max-[260px]:gap-1.5", show.photo ? "grid-cols-[44px_minmax(0,1fr)] @max-[260px]:grid-cols-[32px_minmax(0,1fr)]" : "grid-cols-1")}>
         {show.photo ? image("size-11 @max-[260px]:size-8") : null}
         <div className="min-w-0">
@@ -823,7 +823,7 @@ export function ShoppingListCard({
       ) : null}
 
       {show.suppliers && !excluded ? (
-        <div className="mt-auto space-y-1 border-t border-border pt-1.5">
+        <div className="space-y-1 border-t border-border pt-1.5">
           <p className="text-[10px] font-semibold uppercase text-muted-foreground">Fornitori</p>
           {splitSummary}
           {show.splits ? totals : null}

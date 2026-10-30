@@ -518,7 +518,7 @@ export function CatalogProductCard({
     );
   }
   return (
-    <article className="flex h-full min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2">
+    <article className="flex min-w-0 flex-col gap-1.5 rounded-md border-2 border-border bg-card p-2">
       <div className="flex items-start gap-2">
         {image}
         <div className="min-w-0 flex-1 text-xs">
