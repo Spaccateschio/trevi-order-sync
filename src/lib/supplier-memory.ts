@@ -314,3 +314,12 @@ export function planRescale(args: {
     target: { unitId: r.purchaseUnitId, manual: r.purchaseUnitId ? null : r.purchaseUnitCode, quantity: parts[i]! },
   }));
 }
+
+/** Divide la quantità in n parti uguali (3 decimali); l'ultima parte assorbe l'arrotondamento. */
+export function equalSplit(quantity: number, n: number): number[] {
+  if (n <= 0) return [];
+  const part = Math.floor((quantity / n) * 1000) / 1000;
+  const parts = Array.from({ length: n }, () => part);
+  parts[n - 1] = Math.round((quantity - part * (n - 1)) * 1000) / 1000;
+  return parts;
+}

@@ -12,6 +12,7 @@ import { planDirectChange } from "@/lib/direct-quota-plan";
 import {
   deselectedFor,
   chooseListDestinations,
+  equalSplit,
   pickMemory,
   planFromMemory,
   planRescale,
@@ -372,7 +373,27 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
       }
       if (mp.kind === "proponi" || mp.kind === "scrivi") return { kind: "da_scegliere", reason: mp.kind === "proponi" ? mp.reason : "Acquisto diretto da inserire a mano" };
     }
-    if (!options.onlyLinkId && choice.reason === "da_ripartire") return { kind: "da_scegliere", reason: "Da ripartire: più destinazioni con la stella" };
+    if (!options.onlyLinkId && choice.reason === "da_ripartire") {
+      // Più stelle: quantità divisa in parti uguali tra le destinazioni con la stella (modificabili a mano dopo).
+      const starredSuppliers = choice.linkIds.map((id) => suppliers.find((s) => s.linkId === id)).filter((s): s is (typeof suppliers)[number] => Boolean(s));
+      const parts = equalSplit(quantity, starredSuppliers.length + (choice.direct ? 1 : 0));
+      const writes: Parameters<typeof writeAll>[0] = [];
+      for (const [i, s] of starredSuppliers.entries()) {
+        const t = quotaFor(s, decidedUnitId, decidedCode, parts[i] ?? 0, stockUnitId, conversions[s.linkId] ?? []);
+        if (!t) return { kind: "verifica", reason: "Da verificare: U.M. diverse senza conversione valida" };
+        writes.push({ kind: "fornitore", linkId: s.linkId, assignmentId: null, target: t });
+      }
+      if (choice.direct) {
+        if (!options.direct && !options.collect) return { kind: "da_scegliere", reason: "Da ripartire: più destinazioni con la stella" };
+        writes.push({ kind: "diretto", quantity: parts[parts.length - 1] ?? 0, unitId: decidedUnitId, unitCode: decidedCode || null });
+      }
+      try {
+        await writeAll(writes);
+      } catch (e) {
+        return { kind: "saltato", reason: quotaSaveError("la ripartizione", (e as Error).message) };
+      }
+      return { kind: "assegnato", supplierName: `${[...starredSuppliers.map((s) => s.name), ...(choice.direct ? ["acquisto diretto"] : [])].join(" + ")} (parti uguali)` };
+    }
     if (!options.onlyLinkId && choice.reason === "preferito" && choice.direct && !choice.linkIds.length) {
       const w = { kind: "diretto" as const, quantity, unitId: decidedUnitId, unitCode: decidedCode || null };
       if (options.collect) options.collect.push(w);
@@ -570,3 +591,4 @@ async function runDirectChange(companyId: string, itemId: string, directQuantity
     collect.push({ kind: "fornitore", linkId: w.linkId, assignmentId: w.assignmentId, purchaseQuantity: w.quantity, purchaseUnitId: w.unitId, manualUnitCode: w.manual });
   return { kind: "salvato" };
 }
+
