@@ -5,7 +5,7 @@ export const DISPLAY_FIELDS = [
   ["photo", "Foto prodotto"],
   ["code", "Codice prodotto"],
   ["category", "Categoria"],
-  ["lastCount", "Ultimo conteggio"],
+  ["lastCount", "Totale inventario"],
   ["stock", "Giacenza"],
   ["suggested", "Quantità suggerita"],
   ["toBuy", "Da acquistare"],

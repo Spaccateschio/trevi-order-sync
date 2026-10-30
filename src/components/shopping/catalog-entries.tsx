@@ -487,7 +487,7 @@ export function CatalogProductCard({
   ) : null;
   const meta = [entry.code, entry.category, entry.subcategory, entry.baseUm].filter(Boolean).join(" · ");
   const inventorySummary = <div className="space-y-0.5 text-xs font-normal text-muted-foreground">
-    {show.lastCount ? <p>Ult. conteggio {stock?.lastQuantity != null ? `${formatQuantity(stock.lastQuantity)} ${stock.lastUnit ?? ""}` : "—"}</p> : null}
+    {show.lastCount ? <p>Totale inventario {stock?.total != null ? `${formatQuantity(stock.total)} ${stock.totalUnit ?? ""}` : stock?.totalReason === "um_diverse" ? "U.M. diverse" : "—"}</p> : null}
     {show.stock ? <p>Giacenza {stock?.stock != null ? `${formatQuantity(stock.stock)} ${stock.stockUnit ?? ""}` : "—"}</p> : null}
   </div>;
 
