@@ -525,13 +525,39 @@ export function CatalogProductCard({
         <div className="min-w-0 flex-1 text-xs">
           <p className="line-clamp-2 font-display text-sm font-bold uppercase leading-tight">{name}</p>
           <p className="truncate text-muted-foreground">{meta}</p>
-          <p className="truncate text-muted-foreground">{supplier}{entry.isB2b ? " · catalogo B2B" : ""}</p>
         </div>
         {star}
       </div>
       <Badge variant="outline" className="w-fit text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge>
       {inventorySummary}
       {controls}
+      <div className="space-y-1 border-t border-border pt-1.5">
+        <p className="text-[10px] font-semibold uppercase text-muted-foreground">Fornitori</p>
+        {entry.isB2b ? (
+          <p className="truncate text-xs text-muted-foreground">{supplier}</p>
+        ) : (
+          <>
+            <button
+              type="button"
+              aria-expanded={suppliersOpen}
+              className="flex w-full items-center justify-between gap-1 text-left text-xs text-muted-foreground"
+              onClick={() => setSuppliersOpen((v) => !v)}
+            >
+              <span className="truncate">{supplier}</span>
+              {suppliersOpen ? <ChevronUp className="size-3.5 shrink-0" aria-hidden="true" /> : <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />}
+            </button>
+            {suppliersOpen ? (
+              <ul className="space-y-0.5 text-xs">
+                {entry.supplierNames.length === 0 ? (
+                  <li className="text-muted-foreground">Nessun fornitore collegato</li>
+                ) : (
+                  entry.supplierNames.map((n) => <li key={n} className="truncate font-medium">{n}</li>)
+                )}
+              </ul>
+            ) : null}
+          </>
+        )}
+      </div>
     </article>
   );
 }
