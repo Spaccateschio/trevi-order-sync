@@ -687,6 +687,13 @@
       "when": 1793246760007,
       "tag": "0097_optional_inventory_configuration",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1793333490785,
+      "tag": "0098_shopping_manual_product_purchase_units",
+      "breakpoints": true
     }
   ]
 }
