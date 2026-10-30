@@ -379,13 +379,13 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
       const parts = equalSplit(quantity, starredSuppliers.length + (choice.direct ? 1 : 0));
       const writes: Parameters<typeof writeAll>[0] = [];
       for (const [i, s] of starredSuppliers.entries()) {
-        const t = quotaFor(s, decidedUnitId, decidedCode, parts[i], stockUnitId, conversions[s.linkId] ?? []);
+        const t = quotaFor(s, decidedUnitId, decidedCode, parts[i] ?? 0, stockUnitId, conversions[s.linkId] ?? []);
         if (!t) return { kind: "verifica", reason: "Da verificare: U.M. diverse senza conversione valida" };
         writes.push({ kind: "fornitore", linkId: s.linkId, assignmentId: null, target: t });
       }
       if (choice.direct) {
         if (!options.direct && !options.collect) return { kind: "da_scegliere", reason: "Da ripartire: più destinazioni con la stella" };
-        writes.push({ kind: "diretto", quantity: parts[parts.length - 1], unitId: decidedUnitId, unitCode: decidedCode || null });
+        writes.push({ kind: "diretto", quantity: parts[parts.length - 1] ?? 0, unitId: decidedUnitId, unitCode: decidedCode || null });
       }
       try {
         await writeAll(writes);
