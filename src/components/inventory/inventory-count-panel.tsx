@@ -3440,12 +3440,13 @@ function ProductCard({
   // Default: la prima U.M. abituale del prodotto è automaticamente preferita;
   // seguono l'U.M. dell'ultimo conteggio e, per ultima, la U.M. di magazzino.
   const lastCountedUnitId = allowedUnits.find((option) => option.code === row.counted_unit_code?.trim())?.id;
-  const chosenUnitId = inventoryDefaultUnitId({
+  // Card bloccata con conteggio salvato: mostra sempre l'U.M. realmente salvata.
+  const chosenUnitId = (locked && row.counted !== null && lastCountedUnitId) || inventoryDefaultUnitId({
     chosenId: unitChoice.chosen[rowKey(row)],
     preferredId: unitChoice.preferred.get(row.product_id),
     lastCountedId: lastCountedUnitId,
     stockUnitId: allowedUnits.find((option) => option.code === rowUnit(row))?.id,
-  }) ?? undefined;
+  }) || undefined;
   const unit = allowedUnits.find((option) => option.id === chosenUnitId)?.code ?? rowUnit(row);
   const conversionQuery=useQuery({queryKey:["inventory-count-factor",row.product_id,chosenUnitId],enabled:editable&&Boolean(chosenUnitId)&&unit!==row.stock_unit_code, retry:false,queryFn:async()=>{
     if(!chosenUnitId) return null;
