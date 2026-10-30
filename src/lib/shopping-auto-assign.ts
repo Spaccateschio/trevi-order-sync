@@ -4,7 +4,6 @@ import {
   quotaSaveError,
   planQuotaUpdate,
   quotaFor,
-  equalSplit,
   type PickSupplier,
   type QuotaAssignment,
   type ValidConversion,
@@ -13,6 +12,7 @@ import { planDirectChange } from "@/lib/direct-quota-plan";
 import {
   deselectedFor,
   chooseListDestinations,
+  equalSplit,
   pickMemory,
   planFromMemory,
   planRescale,
