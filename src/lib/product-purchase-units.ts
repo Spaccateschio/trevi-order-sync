@@ -11,11 +11,11 @@ export function sharedPurchaseUnitChoices<T extends { unit_id: string; code: str
 ): (T | { unit_id: string; code: string; is_default: boolean; is_active: boolean })[] {
   const active = assigned.filter((u) => u.is_active);
   if (isB2B) return active;
-  const added = own.filter((u) => u.product_id === productId && u.units_of_measure?.status === "attivo"
-    && ["acquisto", "entrambi"].includes(u.units_of_measure.usage)
-    && !active.some((a) => a.unit_id === u.unit_id))
+  // Fornitori normali: solo le U.M. della tab Acquisto; quelle della referenza solo se il prodotto non ne ha.
+  const productUnits = own.filter((u) => u.product_id === productId && u.units_of_measure?.status === "attivo"
+    && ["acquisto", "entrambi"].includes(u.units_of_measure.usage))
     .map((u) => ({ unit_id: u.unit_id, code: u.units_of_measure?.code ?? "", is_default: u.is_default, is_active: true }));
-  return [...active, ...added];
+  return productUnits.length ? productUnits : active;
 }
 
 /** Proposta per un nuovo acquisto, mai sostituzione di quantità/U.M. già scelte. */

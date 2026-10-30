@@ -721,14 +721,22 @@ export function PurchaseUnitsEditor({ companyId, productId, linkId, assigned, un
   isB2B?: boolean;
 }) {
   const shared = useQuery(companyProductPurchaseUnitsOptions(companyId));
+  const productOnly = !isB2B && (shared.data ?? []).some(u => u.product_id === productId && u.units_of_measure?.status === "attivo");
   const inherited = sharedPurchaseUnitChoices(assigned, shared.data ?? [], productId, isB2B)
-    .filter(u => !assigned.some(a => a.is_active && a.unit_id === u.unit_id));
+    .filter(u => productOnly || !assigned.some(a => a.is_active && a.unit_id === u.unit_id));
   const mutation = useMutation({
     mutationFn: async (input: {unitId:string; action:"remove"|"set_default"|"clear_default"}) => {
       const {error}=await supabase.rpc("manage_product_supplier_link_unit",{_company_id:companyId,_link_id:linkId,_unit_id:input.unitId,_action:input.action});
       if(error) throw new Error(error.message);
     }, onSuccess: async()=>{await onChanged();toast.success("U.M. aggiornata");}, onError:(e:Error)=>toast.error(e.message)
   });
+  if (!isB2B && inherited.length) {
+    return <div className="space-y-2">
+      <Label>U.M. usate</Label>
+      {inherited.map(u => <div key={u.unit_id} className="flex items-center gap-2 border-b border-border py-2"><span className="font-medium">{u.code}</span>{u.is_default ? <Star className="size-4 fill-primary text-primary" aria-label="U.M. preferita del prodotto" /> : null}<Badge variant="secondary">Del prodotto</Badge></div>)}
+      <p className="text-sm text-muted-foreground">Si cambiano dalla tab Acquisto del prodotto; le confezioni (es. cassa = 10 kg) sono quelle del prodotto.</p>
+    </div>;
+  }
   return <div className="space-y-2">
     <Label>U.M. usate</Label>
     {inherited.map(u => <div key={u.unit_id} className="flex items-center gap-2 border-b border-border py-2"><span className="font-medium">{u.code}</span>{u.is_default ? <Star className="size-4 fill-primary text-primary" aria-label="U.M. preferita del prodotto" /> : null}<Badge variant="secondary">Del prodotto</Badge></div>)}
