@@ -1,7 +1,7 @@
 import { ShoppingQuantityEditor } from "./shopping-quantity-editor";
 import { ShoppingMobileCard } from "./shopping-mobile-card";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Check, Copy, Lock, MoreVertical, Package, Plus, Star, StickyNote, Trash2, TriangleAlert, Truck, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, Lock, MoreVertical, Package, Plus, Star, StickyNote, Trash2, TriangleAlert, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { readCardBundle } from "@/lib/shopping-card-reads";
 import { useEffect, useState, type ReactNode } from "react";
