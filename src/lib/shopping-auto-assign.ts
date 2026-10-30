@@ -4,6 +4,7 @@ import {
   quotaSaveError,
   planQuotaUpdate,
   quotaFor,
+  equalSplit,
   type PickSupplier,
   type QuotaAssignment,
   type ValidConversion,
@@ -374,7 +375,7 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
     }
     if (!options.onlyLinkId && choice.reason === "da_ripartire") {
       // Più stelle: quantità divisa in parti uguali tra le destinazioni con la stella (modificabili a mano dopo).
-      const starredSuppliers = choice.linkIds.map((id) => suppliers.find((s) => s.linkId === id)).filter((s): s is PickSupplier => Boolean(s));
+      const starredSuppliers = choice.linkIds.map((id) => suppliers.find((s) => s.linkId === id)).filter((s): s is (typeof suppliers)[number] => Boolean(s));
       const parts = equalSplit(quantity, starredSuppliers.length + (choice.direct ? 1 : 0));
       const writes: Parameters<typeof writeAll>[0] = [];
       for (const [i, s] of starredSuppliers.entries()) {
@@ -591,11 +592,3 @@ async function runDirectChange(companyId: string, itemId: string, directQuantity
   return { kind: "salvato" };
 }
 
-/** Divide la quantità in n parti uguali (3 decimali); l'ultima parte assorbe l'arrotondamento. */
-export function equalSplit(quantity: number, n: number): number[] {
-  if (n <= 0) return [];
-  const part = Math.floor((quantity / n) * 1000) / 1000;
-  const parts = Array.from({ length: n }, () => part);
-  parts[n - 1] = Math.round((quantity - part * (n - 1)) * 1000) / 1000;
-  return parts;
-}
