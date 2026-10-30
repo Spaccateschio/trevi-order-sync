@@ -729,6 +729,13 @@ export function PurchaseUnitsEditor({ companyId, productId, linkId, assigned, un
       if(error) throw new Error(error.message);
     }, onSuccess: async()=>{await onChanged();toast.success("U.M. aggiornata");}, onError:(e:Error)=>toast.error(e.message)
   });
+  if (!isB2B && inherited.length) {
+    return <div className="space-y-2">
+      <Label>U.M. usate</Label>
+      {inherited.map(u => <div key={u.unit_id} className="flex items-center gap-2 border-b border-border py-2"><span className="font-medium">{u.code}</span>{u.is_default ? <Star className="size-4 fill-primary text-primary" aria-label="U.M. preferita del prodotto" /> : null}<Badge variant="secondary">Del prodotto</Badge></div>)}
+      <p className="text-sm text-muted-foreground">Si cambiano dalla tab Acquisto del prodotto; le confezioni (es. cassa = 10 kg) sono quelle del prodotto.</p>
+    </div>;
+  }
   return <div className="space-y-2">
     <Label>U.M. usate</Label>
     {inherited.map(u => <div key={u.unit_id} className="flex items-center gap-2 border-b border-border py-2"><span className="font-medium">{u.code}</span>{u.is_default ? <Star className="size-4 fill-primary text-primary" aria-label="U.M. preferita del prodotto" /> : null}<Badge variant="secondary">Del prodotto</Badge></div>)}
