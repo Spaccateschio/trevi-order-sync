@@ -30,7 +30,7 @@ import {
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
 import { cn } from "@/lib/utils";
-import { companyProductPurchaseUnitsOptions } from "@/lib/product-purchase-units";
+import { companyProductPurchaseUnitsOptions, productPurchaseDefault } from "@/lib/product-purchase-units";
 
 const MANUAL = "__manuale__";
 
@@ -178,7 +178,7 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
         supplierRecordIds: [...(l?.ids ?? [])],
         supplierNames: [...(l?.names ?? [])],
         unitCodes: codes,
-        defaultUnit: pub && pub.codes.length ? pub.def || null : null,
+        defaultUnit: productPurchaseDefault(ownUnits, p.id)?.code ?? (pub && pub.codes.length ? pub.def || null : null),
         unitsLocked: Boolean(pub && pub.codes.length && !ownCodes.length),
         isB2b: false,
         hasB2b: b2bOf.has(p.id),
@@ -424,7 +424,8 @@ export function CatalogProductCard({
       finally { setConfirming(false); }
     } finally { guard.current.finish(entry.key); }
   };
-  const [unit, setUnit] = useState(draftUnit ? entry.unitCodes.includes(draftUnit) ? draftUnit : MANUAL : entry.defaultUnit ?? entry.unitCodes[0] ?? "");
+  const [chosenUnit, setUnit] = useState<string | null>(draftUnit ? entry.unitCodes.includes(draftUnit) ? draftUnit : MANUAL : null);
+  const unit = chosenUnit ?? entry.defaultUnit ?? entry.unitCodes[0] ?? "";
   const [manual, setManual] = useState(draftUnit && !entry.unitCodes.includes(draftUnit) ? draftUnit : "");
   const quantity = parseQuantity(qty);
   const unitCode = unit === MANUAL ? manual.trim().toUpperCase() || null : unit || null;

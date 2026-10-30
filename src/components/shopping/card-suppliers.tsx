@@ -26,6 +26,7 @@ import { deliveryDelaySummary, deliveryScheduleSummary, formatDeliveryDay, lateF
 import { useNeededDate } from "@/lib/use-needed-date";
 import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
 import { assignShoppingListSupplier, commitShoppingListItemQuantity, setShoppingListDirectQuota, setShoppingListSupplierSelection } from "@/lib/shopping-list.functions";
+import { companyProductPurchaseUnitsOptions, mergeManualPurchaseUnits } from "@/lib/product-purchase-units";
 
 /**
  * Sezione FORNITORI della card: solo presentazione + la stessa regola di salvataggio della finestra
@@ -95,6 +96,7 @@ function ManualIndication({linkId,unitId,quantity}:{linkId:string;unitId:string|
 
 function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean) {
   const productId = row.product_id;
+  const ownUnits = useQuery(companyProductPurchaseUnitsOptions(companyId));
 
   const overview = useQuery({
     queryKey: ["product-supplier-overview", productId],
@@ -237,7 +239,7 @@ function useCardSuppliers(companyId: string, row: OverviewRow, pending: boolean)
       purchasable,
       allowManual: dbUnits ? dbUnits.allow_manual : !isB2B,
       minQuantity: null,
-      units,
+      units: mergeManualPurchaseUnits(units, ownUnits.data ?? [], productId, isB2B),
       price:
         isB2B && sourceLinked && purchasable && b2bPrice
           ? { ...b2bPrice, unitCode: opt?.price_unit_code ?? null }
