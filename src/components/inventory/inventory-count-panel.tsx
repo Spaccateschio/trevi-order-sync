@@ -115,6 +115,7 @@ import { usePhysicalCorrection, type PhysicalEdit, type PhysicalQuickEditTarget 
 import { InventorySessionCounter } from "@/components/inventory/inventory-session-counter";
 import { dateTimeShort, type SessionRow } from "@/lib/inventory";
 import { inventoryDefaultUnitId } from "@/lib/inventory-unit-default";
+import { loadInventoryUnitMemory, saveInventoryUnitMemory } from "@/lib/inventory-unit-memory";
 import { INVENTORY_SCREEN_VERSION, cardKey, cardTitle, compareCards, groupKey, parseCardKey, productCardTotal, rowCardKey } from "@/lib/inventory-cards";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 import { InventoryProductDialog } from "@/components/inventory/inventory-product-dialog";
