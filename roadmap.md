@@ -1,5 +1,8 @@
 # Roadmap
 
+## 30/10 — Barra laterale comprimibile
+- [x] Pulsante nella barra (schermi grandi): compressa a 72 px con sole icone e nomi al passaggio del mouse; preferenza locale del dispositivo (src/lib/sidebar-collapse.ts + app-shell.tsx). 7 test helper, build OK; anteprima autenticata Trevi: 240→72 px, sotto-voci della sezione in corso raggiungibili, preferenza conservata dopo ricaricamento e ritorno a 240 px. Corretto anche l'apertura automatica del gruppo quando una sezione è raggiunta dall'indirizzo (dipendenza dell'aggiornamento). Nessuna migrazione, nessuna pubblicazione.
+
 ## 30/10 — Tendina fornitori nelle card della Lista
 - [x] Card con fornitore proposto (stella, nessuna quota) chiuse come quelle con quote: riga «NOME (proposto) ▾» (src/lib/supplier-brief.ts + shopping-list-card.tsx). 7 test helper e typecheck OK; anteprima autenticata Trevi in sola lettura: ALLORO IT A MAZZI compatto (338 px) con «GERMANO (proposto)», PEPERONI IT apre la sezione (525 px), AGLIO SPAGNA mostra «CATARINACCI 3 cs · GARBAGLIA 2 cs». Nessuna scrittura, nessuna pubblicazione.
 
