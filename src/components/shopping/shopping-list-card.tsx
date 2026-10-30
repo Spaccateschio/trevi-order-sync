@@ -3,7 +3,7 @@ import { ShoppingMobileCard } from "./shopping-mobile-card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Check, ChevronDown, ChevronUp, Copy, Lock, MoreVertical, Package, Plus, Star, StickyNote, Trash2, TriangleAlert, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { readCardBundle } from "@/lib/shopping-card-reads";
+import { readCardBundle, readCardDirectQuota, readCardPreference } from "@/lib/shopping-card-reads";
 import { useEffect, useState, type ReactNode } from "react";
 import { supplierUnitProposal, unitsSoldText, type ProposalLink } from "@/lib/supplier-unit-proposal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -27,7 +27,8 @@ import {
 import { evaluationBadge, type EvaluationBadgeStatus } from "@/lib/card-labels";
 import { dateTimeShort, qty } from "@/lib/inventory";
 import { type OverviewRow } from "@/lib/shopping-list";
-import type { SupplierMemory } from "@/lib/supplier-memory";
+import { chooseListDestinations, deselectedFor, type SupplierMemory } from "@/lib/supplier-memory";
+import { pickFromCardReads, supplierBriefText } from "@/lib/supplier-brief";
 import { factsFromRow, rowLabel } from "@/lib/supplier-selection";
 import { cn } from "@/lib/utils";
 import { companyProductPurchaseUnitsOptions, productPurchaseDefault, productUnitsReplaceLinkUnits } from "@/lib/product-purchase-units";
@@ -619,11 +620,39 @@ export function ShoppingListCard({
       <p className="text-[11px] leading-tight text-muted-foreground">Assegnato {qty(assigned)} {unit} · obiettivo non indicato</p>
     ) : null;
 
-  const supplierBrief = suppliers
-    .filter((s) => s.purchaseQuantity !== null)
-    .map((s) => `${s.name} ${qty(s.purchaseQuantity as number)} ${s.purchaseUnitCode ?? ""}`.trim())
-    .join(" · ");
-  // Fornitori già organizzati: chiusi per default, si aprono con un tocco per cambiare qualcosa.
+  // Destinazione proposta dal database (stella, memoria o unico idoneo) ancora senza quote: la card si chiude lo stesso.
+  const proposalQuery = useQuery({
+    queryKey: ["shopping-card-supplier-proposal", companyId, row.item_id],
+    enabled:
+      !pending && editable && show.suppliers && !excluded && suppliers.length === 0 && Boolean(companyId) && Boolean(row.item_id),
+    staleTime: 60_000,
+    queryFn: async () => {
+      const [bundle, preference, directQuota] = await Promise.all([
+        readCardBundle(`${companyId}:${row.item_id}`),
+        readCardPreference(`${companyId}:${row.product_id}`),
+        readCardDirectQuota(row.item_id),
+      ]);
+      // Quota di «Acquisto diretto» già salvata: la sezione non propone nessuno, la card resta aperta.
+      if (!bundle || !preference || directQuota) return [] as string[];
+      const pool = pickFromCardReads(bundle.overview, bundle.b2b_options, bundle.supplier_units);
+      const choice = chooseListDestinations({
+        suppliers: pool,
+        deselected: new Set([...(extra?.deselectedLinks ?? []), ...deselectedFor(row.item_id)]),
+        memory: memory ?? null,
+        manualStarAt: preference.manualStarAt,
+        inventoryStarLinks: preference.stars,
+        directStarred: preference.directStar,
+      });
+      return choice.linkIds
+        .map((id) => pool.find((s) => s.linkId === id)?.name)
+        .filter((name): name is string => Boolean(name));
+    },
+  });
+  const supplierBrief = supplierBriefText([
+    ...suppliers.map((s) => ({ name: s.name, quantity: s.purchaseQuantity, unitCode: s.purchaseUnitCode, note: "senza quantità" })),
+    ...(proposalQuery.data ?? []).map((name) => ({ name, quantity: null, note: "proposto" })),
+  ]);
+  // Fornitori già organizzati o solo proposti: chiusi per default, si aprono con un tocco per cambiare qualcosa.
   const suppliersCollapsed = supplierBrief !== "" && !suppliersOpen;
   const splitSummary = suppliersCollapsed ? (
     <button
