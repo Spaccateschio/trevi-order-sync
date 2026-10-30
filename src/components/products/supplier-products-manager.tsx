@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { dateTime, euro } from "@/lib/product-grid";
 import { fetchDaneaArchives } from "@/lib/price-lists";
 import { supplierLinkPatch } from "@/lib/supplier-link-patch";
+import { companyProductPurchaseUnitsOptions, sharedPurchaseUnitChoices } from "@/lib/product-purchase-units";
 import { PurchaseUnitsEditor } from "./product-suppliers-manager";
 import { StockPackagesSection } from "./stock-unit-config";
 import type { CompanyUnit } from "./sales-unit-manager";
@@ -57,11 +58,12 @@ type LinkRow = {
 };
 
 /** Elenco delle U.M. con cui si può acquistare la referenza (★ = predefinita, facoltativa). */
-function purchaseUnitsLabel(row: LinkRow) {
-  const codes = (row.product_supplier_link_units ?? [])
+function purchaseUnitsLabel(row: LinkRow, own: Parameters<typeof sharedPurchaseUnitChoices>[1], isB2B: boolean) {
+  const choices = sharedPurchaseUnitChoices((row.product_supplier_link_units ?? []).map(u => ({...u, code: u.units_of_measure?.code ?? "—"})), own, row.product_id, isB2B);
+  const codes = choices
     .slice()
     .sort((a, b) => Number(b.is_default) - Number(a.is_default))
-    .map((unit) => `${unit.units_of_measure?.code ?? "—"}${unit.is_default ? " ★" : ""}`);
+    .map((unit) => `${unit.code}${unit.is_default ? " ★" : ""}`);
   return codes.length ? codes.join(" · ") : "—";
 }
 
@@ -117,6 +119,17 @@ export function SupplierProductsManager({
   isAdmin: boolean;
 }) {
   const queryClient = useQueryClient();
+  const ownUnits = useQuery(companyProductPurchaseUnitsOptions(companyId));
+  const sourceQuery = useQuery({
+    queryKey: ["supplier-product-unit-sources", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("product_purchase_units_overview", { _company_id: companyId });
+      if (error) throw new Error(error.message);
+      return new Map((data ?? []).map(r => [r.link_id, r.is_b2b]));
+    },
+  });
+  const isB2B = (row: LinkRow) => sourceQuery.data?.get(row.id) ?? true;
+  const unitsLabel = (row: LinkRow) => purchaseUnitsLabel(row, ownUnits.data ?? [], isB2B(row));
   const [term, setTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"tutti" | "attivi" | "non_attivi" | "preferiti">("tutti");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
@@ -211,7 +224,7 @@ export function SupplierProductsManager({
       case "cod_fornitore":
         return row.supplier_product_code ?? "";
       case "um":
-        return purchaseUnitsLabel(row);
+        return unitsLabel(row);
       case "costo_danea":
         return costByProduct.get(row.product_id)?.supplier_net_price ?? null;
       case "costo_trevi":
@@ -364,7 +377,7 @@ export function SupplierProductsManager({
       }
       return result * sort.dir;
     });
-  }, [rows, statusFilter, term, sort, costByProduct, archivesQuery.data]);
+  }, [rows, statusFilter, term, sort, costByProduct, archivesQuery.data, ownUnits.data, sourceQuery.data]);
 
   const addable = useMemo(() => {
     const linked = new Set(rows.map((row) => row.product_id));
@@ -396,7 +409,7 @@ export function SupplierProductsManager({
             onChange={(event) => setDraft((current) => ({ ...current, supplierProductCode: event.target.value }))}
           />
         </div>
-        <div className="sm:col-span-2"><PurchaseUnitsEditor companyId={companyId} productId={row.product_id} linkId={row.id} assigned={(row.product_supplier_link_units ?? []).map(u=>({...u,unit_id:u.unit_id,code:u.units_of_measure?.code??"—",description:"",is_active:u.is_active,conversion_factor:null,conversion_type:"indicativa" as const}))} units={unitsQuery.data??[]} disabled={busy} onChanged={refresh}/></div>
+        <div className="sm:col-span-2"><PurchaseUnitsEditor companyId={companyId} productId={row.product_id} linkId={row.id} isB2B={isB2B(row)} assigned={(row.product_supplier_link_units ?? []).map(u=>({...u,unit_id:u.unit_id,code:u.units_of_measure?.code??"—",description:"",is_active:u.is_active,conversion_factor:null,conversion_type:"indicativa" as const}))} units={unitsQuery.data??[]} disabled={busy} onChanged={refresh}/></div>
       </div>
       <div className="border-t border-border pt-2">
         <StockPackagesSection
@@ -526,7 +539,7 @@ export function SupplierProductsManager({
                   <td className="max-w-[18rem] truncate">{row.products?.description ?? "—"}</td>
                   <td>{archiveName(row.products?.archive_id ?? null)}</td>
                   <td className="font-mono">{row.supplier_product_code ?? "—"}</td>
-                  <td>{purchaseUnitsLabel(row)}</td>
+                  <td>{unitsLabel(row)}</td>
                   <td>{costCell(row)}</td>
                   <td className="whitespace-nowrap">
                     {row.is_preferred ? (
@@ -590,7 +603,7 @@ export function SupplierProductsManager({
                 </div>
                 <div>
                   <dt className="text-muted-foreground">U.M. acquistabili</dt>
-                  <dd>{purchaseUnitsLabel(row)}</dd>
+                  <dd>{unitsLabel(row)}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Costo Danea</dt>

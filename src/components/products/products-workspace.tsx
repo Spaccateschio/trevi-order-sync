@@ -48,6 +48,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Link, Navigate } from "@tanstack/react-router";
 import { availableViews, columnAllowedForCaps, productsViewRedirect, resolveDetailTab, sortSuppliers, VIEW_PRIORITY_COLUMNS, type ProductsView, type PurchaseSupplier } from "@/lib/products-view";
+import { companyProductPurchaseUnitsOptions } from "@/lib/product-purchase-units";
 
 import type { Json } from "@/integrations/supabase/types";
 import { analyzeDaneaFile, importDaneaFile } from "@/lib/danea.functions";
@@ -373,10 +374,14 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
       if (!companyId) return new Map<string, PurchaseSupplier[]>();
       const { data, error } = await supabase.rpc("product_purchase_units_overview", { _company_id: companyId });
       if (error) throw new Error(error.message);
+      const own = await queryClient.fetchQuery(companyProductPurchaseUnitsOptions(companyId));
       const map = new Map<string, PurchaseSupplier[]>();
       for (const row of data ?? []) {
+        const units = (row.units as { code: string; is_default: boolean }[] | null) ?? [];
+        const shared = row.is_b2b ? [] : own.filter(u => u.product_id === row.product_id && !units.some(a => a.code === u.units_of_measure?.code))
+          .map(u => ({ code: u.units_of_measure?.code ?? "", is_default: u.is_default }));
         const list = map.get(row.product_id) ?? [];
-        list.push({ linkId: row.link_id, name: row.supplier_name ?? "Fornitore senza nome", isB2b: row.is_b2b, purchasable: row.purchasable, isPreferred: row.is_preferred, units: (row.units as { code: string; is_default: boolean }[] | null) ?? [] });
+        list.push({ linkId: row.link_id, name: row.supplier_name ?? "Fornitore senza nome", isB2b: row.is_b2b, purchasable: row.purchasable, isPreferred: row.is_preferred, units: [...units, ...shared] });
         map.set(row.product_id, list);
       }
       for (const [key, list] of map) map.set(key, sortSuppliers(list));
