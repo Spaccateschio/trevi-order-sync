@@ -1,13 +1,15 @@
 import { ShoppingQuantityEditor } from "./shopping-quantity-editor";
 import { ShoppingMobileCard } from "./shopping-mobile-card";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Check, Copy, Lock, MoreVertical, Package, Plus, Star, Trash2, TriangleAlert, Truck, X } from "lucide-react";
+import { Check, Copy, Lock, MoreVertical, Package, Plus, Star, StickyNote, Trash2, TriangleAlert, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { readCardBundle } from "@/lib/shopping-card-reads";
 import { useEffect, useState, type ReactNode } from "react";
 import { supplierUnitProposal, unitsSoldText, type ProposalLink } from "@/lib/supplier-unit-proposal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 import { ALL_VISIBLE, type DisplayPrefs } from "./card-display";
 import { CardSuppliers } from "./card-suppliers";
@@ -128,6 +130,7 @@ export function ShoppingListCard({
   favoritePending,
   onOpenSuppliers,
   onRemove,
+  onSaveNotes,
   onToggleLock,
   lockPending = false,
   autoConfirm = false,
@@ -181,6 +184,8 @@ export function ShoppingListCard({
   favoritePending: boolean;
   onOpenSuppliers: () => void;
   onRemove: () => void;
+  /** Nota libera del prodotto: salvata solo su Liste aperte; null = nota rimossa. */
+  onSaveNotes?: (notes: string | null) => Promise<boolean>;
   onToggleLock: () => void;
   lockPending?: boolean;
   /** Conferma automatica (uscita dal campo, Invio, tasti rapidi): niente pulsante «Conferma». */
@@ -277,6 +282,11 @@ export function ShoppingListCard({
   const unitMismatch = Boolean(proposal && !proposal.compatible && savedQuantity !== null && savedQuantity > 0 && onFixUnit);
   const supplierName = proposal ? (supplierInfo.data?.get(proposal.linkId)?.name ?? "Il fornitore") : "";
   const [fix, setFix] = useState<{ unitId: string; code: string; value: string } | null>(null);
+  // Note libere del prodotto: solo testo di presentazione, mai quantità, quote o ordini.
+  const itemNotes = extra?.itemNotes ?? null;
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
   const suggested = row.current_suggested ?? row.suggested_quantity;
   const isFavorite = Boolean(extra?.isFavorite);
   const isRow = layout === "row";
@@ -360,6 +370,12 @@ export function ShoppingListCard({
             <Truck aria-hidden="true" />
             Fornitori e ripartizione
           </DropdownMenuItem>
+          {onSaveNotes ? (
+            <DropdownMenuItem onClick={() => { setNoteDraft(itemNotes ?? ""); setNoteOpen(true); }}>
+              <StickyNote aria-hidden="true" />
+              {itemNotes ? "Modifica nota" : "Aggiungi nota"}
+            </DropdownMenuItem>
+          ) : null}
           {editable && (row.suppliers_available > 0 || suppliers.length) ? (
             <DropdownMenuItem onClick={onOpenSuppliers}>
               <Plus aria-hidden="true" />
@@ -383,6 +399,42 @@ export function ShoppingListCard({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      {onSaveNotes ? (
+        <Dialog open={noteOpen} onOpenChange={(o) => { if (!o) setNoteOpen(false); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Note di {name}</DialogTitle>
+              <DialogDescription>Nota libera su questa Lista: non cambia quantità, fornitori o ordini.</DialogDescription>
+            </DialogHeader>
+            <Textarea
+              value={noteDraft}
+              rows={3}
+              maxLength={1000}
+              aria-label={`Note di ${name}`}
+              placeholder="Es. consegna al mattino, grappolo grosso…"
+              onChange={(e) => setNoteDraft(e.target.value)}
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={noteSaving} onClick={() => setNoteOpen(false)}>Annulla</Button>
+              <Button
+                type="button"
+                disabled={noteSaving}
+                onClick={async () => {
+                  setNoteSaving(true);
+                  try {
+                    const ok = await onSaveNotes(noteDraft.trim() ? noteDraft.trim() : null);
+                    if (ok) setNoteOpen(false);
+                  } finally {
+                    setNoteSaving(false);
+                  }
+                }}
+              >
+                {noteSaving ? "Salvataggio…" : "Salva nota"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
       )}
     </>
   );
@@ -614,6 +666,7 @@ export function ShoppingListCard({
         name={name} onConfirm={onToggleLock} quick={show.quick ? quickButtons("h-8 max-md:h-7") : null} /> : null}
       {show.lockDate ? lockNote : null}
       {memoryLine}
+      {noteLine}
       {show.suppliers && !excluded ? <div className="space-y-1 border-t border-border pt-1.5 max-md:pt-1">{splitSummary}{show.splits ? totals : null}{orderState}</div> : null}
     </ShoppingMobileCard>;
   }
@@ -651,9 +704,10 @@ export function ShoppingListCard({
           </div>
           <div className={cn("grid min-w-0 gap-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
             {excluded ? excludedBlock : show.toBuy ? <ShoppingQuantityEditor input={quantityBlock} details={<>{unitFixBlock}{equivalentNote}</>} editable={editable} locked={locked} busy={lockPending || saving} ready={confirmTarget !== null && confirmTarget >= 0} name={name} onConfirm={onToggleLock} quick={show.quick ? quickButtons("h-8") : null} /> : null}
-            {show.lockDate ? lockNote : null}
+          {show.lockDate ? lockNote : null}
             {memoryLine}
-            {recheckNote}
+            {noteLine}
+          {recheckNote}
           </div>
           <div className={cn("min-w-0 space-y-0.5 @min-[860px]:order-1 @min-[860px]:col-span-1", show.photo ? "col-span-3" : "col-span-2")}>
             {show.suppliers && !excluded ? (
@@ -721,9 +775,10 @@ export function ShoppingListCard({
             editable={editable} locked={locked} busy={lockPending || saving}
             ready={confirmTarget !== null && confirmTarget >= 0} name={name} onConfirm={onToggleLock}
             quick={show.quick ? quickButtons("h-8 @max-[260px]:h-7 @max-[260px]:text-[11px]") : null} /> : null}
-          {show.lockDate ? lockNote : null}
+            {show.lockDate ? lockNote : null}
             {memoryLine}
-          {recheckNote}
+            {noteLine}
+            {recheckNote}
         </div>
       ) : null}
 
