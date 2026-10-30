@@ -365,6 +365,7 @@ export function ShoppingListCard({
         <Star className={cn("size-3.5", isFavorite && "fill-current")} />
       </Button>
       {pending ? null : (
+      <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" size="sm" variant="ghost" className="h-7 w-7 px-0" aria-label={`Altre azioni ${row.code}`}>
@@ -441,6 +442,7 @@ export function ShoppingListCard({
           </DialogContent>
         </Dialog>
       ) : null}
+      </>
       )}
     </>
   );
