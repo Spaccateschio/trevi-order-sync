@@ -721,8 +721,9 @@ export function PurchaseUnitsEditor({ companyId, productId, linkId, assigned, un
   isB2B?: boolean;
 }) {
   const shared = useQuery(companyProductPurchaseUnitsOptions(companyId));
+  const productOnly = !isB2B && (shared.data ?? []).some(u => u.product_id === productId && u.units_of_measure?.status === "attivo");
   const inherited = sharedPurchaseUnitChoices(assigned, shared.data ?? [], productId, isB2B)
-    .filter(u => !assigned.some(a => a.is_active && a.unit_id === u.unit_id));
+    .filter(u => productOnly || !assigned.some(a => a.is_active && a.unit_id === u.unit_id));
   const mutation = useMutation({
     mutationFn: async (input: {unitId:string; action:"remove"|"set_default"|"clear_default"}) => {
       const {error}=await supabase.rpc("manage_product_supplier_link_unit",{_company_id:companyId,_link_id:linkId,_unit_id:input.unitId,_action:input.action});
