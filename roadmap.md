@@ -1,8 +1,9 @@
 # Roadmap
 
 ## 30/10 — U.M. d’acquisto nella Lista
-- [ ] Rispettare le U.M. del prodotto e la preferita sulle card; renderle disponibili ai fornitori non B2B senza riscrivere quote o documenti. B2B invariato.
-- [ ] Test mirati e verifica autenticata in sola lettura; nessuna pubblicazione.
+- [x] U.M. prodotto e preferita proposte sulle card senza scelta salvata; manuali riconoscono gli ID via lettura/RPC 0098. B2B, collegamenti, quote e documenti invariati; salvataggio configurazione invalida le letture Lista.
+- [x] 53 test superati, build OK; verifica autenticata mobile su 3 EMME: apertura BASILICO e menu U.M. senza scritture/errori. Non pubblicato.
+- [ ] Collaudo salvataggio/rilettura con U.M. proprie: Andrea su 3 EMME, che oggi non ha configurazioni product_purchase_units; l'assistente non modifica dati operativi. Il BASILICO 1847 di Trevi resta verificato solo in lettura (cassa preferita).
 
 ## 29/10 — Configurazioni operative facoltative
 - [x] Inventario: migrazione 0097 rimuove blocchi per confezioni/U.M. magazzino mancanti; quantità/U.M. reali e snapshot versione 1, equivalenti NULL senza conversione. Chiusura anche con vuoti/non confrontabili; autorizzazioni e storico invariati. Lista già consente acquisti senza conversione tramite conferma quantità: nessun cambio al flusso ordini.
