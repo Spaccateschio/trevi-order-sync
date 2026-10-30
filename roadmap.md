@@ -1,5 +1,8 @@
 # Roadmap
 
+## 30/10 — Tendina fornitori nelle card della Lista
+- [x] Card con fornitore proposto (stella, nessuna quota) chiuse come quelle con quote: riga «NOME (proposto) ▾» (src/lib/supplier-brief.ts + shopping-list-card.tsx). 7 test helper e typecheck OK; anteprima autenticata Trevi in sola lettura: ALLORO IT A MAZZI compatto (338 px) con «GERMANO (proposto)», PEPERONI IT apre la sezione (525 px), AGLIO SPAGNA mostra «CATARINACCI 3 cs · GARBAGLIA 2 cs». Nessuna scrittura, nessuna pubblicazione.
+
 ## 30/10 — U.M. d’acquisto nella Lista
 - [x] U.M. prodotto e preferita proposte sulle card senza scelta salvata; manuali riconoscono gli ID via lettura/RPC 0098. B2B, collegamenti, quote e documenti invariati; salvataggio configurazione invalida le letture Lista.
 - [x] 53 test superati, build OK; verifica autenticata mobile su 3 EMME: apertura BASILICO e menu U.M. senza scritture/errori. Non pubblicato.
