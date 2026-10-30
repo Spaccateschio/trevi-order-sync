@@ -91,6 +91,7 @@ import {
   setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
 import { autoAssignItem, readMemories, type PlannedWrite } from "@/lib/shopping-auto-assign";
+import { shoppingInventoryTotals, type ShoppingCountRow } from "@/lib/shopping-inventory-total";
 import { createLatestQueue } from "@/lib/supplier-memory";
 import { factsFromRow, listCounters, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
 
@@ -803,14 +804,16 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       const result = new Map<string, StockInfo>();
       const { data: counts, error } = await supabase
         .from("inventory_counts")
-        .select("product_id, location_id, counted_quantity, unit_code, counted_at")
+        .select("product_id, session_id, location_id, counted_quantity, unit_code, counted_at")
         .eq("company_id", companyId)
         .in("product_id", stockProductIds)
         .order("counted_at", { ascending: false });
       if (error) throw new Error(error.message);
       const locations = new Set<string>();
-      for (const count of (counts ?? []) as { product_id: string; location_id: string; counted_quantity: number; unit_code: string | null; counted_at: string }[]) {
+      const countRows: ShoppingCountRow[] = [];
+      for (const count of (counts ?? []) as { product_id: string; session_id: string; location_id: string; counted_quantity: number | null; unit_code: string | null; counted_at: string }[]) {
         locations.add(count.location_id);
+        countRows.push({ product_id: count.product_id, session_id: count.session_id, location_id: count.location_id, counted_quantity: count.counted_quantity, unit_code: count.unit_code, counted_at: count.counted_at });
         if (result.has(count.product_id)) continue;
         result.set(count.product_id, {
           lastQuantity: Number(count.counted_quantity),
@@ -819,6 +822,15 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           stock: null,
           stockUnit: null,
         });
+      }
+      // Totale contato del prodotto, con la stessa regola dell'intestazione dell'Inventario: sola presentazione.
+      for (const [productId, total] of shoppingInventoryTotals(countRows)) {
+        const info = result.get(productId);
+        if (!info) continue;
+        info.total = total.total;
+        info.totalUnit = total.unit;
+        info.totalReason = total.reason;
+        info.totalCards = total.countedCards;
       }
       // U.M. di magazzino del prodotto: la giacenza di inventory_location_stock_list è sempre espressa in questa.
       const { data: prods, error: productError } = await supabase.from("products").select("id, stock_unit_id").in("id", stockProductIds);

@@ -39,6 +39,11 @@ export type StockInfo = {
   stock: number | null;
   /** U.M. di magazzino del prodotto: la giacenza è sempre espressa in questa, non in quella della riga. */
   stockUnit: string | null;
+  /** Somma dei conteggi del prodotto nella sessione dell'ultimo conteggio, come nell'intestazione dell'Inventario. */
+  total?: number | null;
+  totalUnit?: string | null;
+  totalReason?: "nessun_conteggio" | "um_diverse" | null;
+  totalCards?: number;
 };
 
 const QUICK_STEPS = [1, 3, 5, 10] as const;
@@ -572,6 +577,12 @@ export function ShoppingListCard({
       </div>
     ) : null;
 
+  // «Totale inventario»: somma delle card contate del prodotto, mai una conversione inventata.
+  const inventoryTotalText = stock?.total !== null && stock?.total !== undefined
+    ? `${qty(stock.total)} ${stock.totalUnit ?? unit}`
+    : stock?.totalReason === "um_diverse"
+      ? "U.M. diverse"
+      : "—";
   const lockNote = locked && extra?.lockedAt ? (
     <p className="flex items-center gap-1 text-[10px] font-semibold text-foreground">
       <Lock className="size-3" aria-hidden="true" /> Confermata {dateTimeShort(extra.lockedAt)}
@@ -662,7 +673,7 @@ export function ShoppingListCard({
         {recheck ? <div className="mt-1">{recheckNote}</div> : null}
       </>}
       summary={<span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-        {show.lastCount ? <span className="w-full text-xs font-normal text-muted-foreground">Ult. conteggio {stock?.lastQuantity != null ? `${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}` : "—"}</span> : null}
+        {show.lastCount ? <span className="w-full text-xs font-normal text-muted-foreground">Totale inventario {inventoryTotalText}</span> : null}
         {show.stock ? <span className="text-xs font-normal text-muted-foreground">Giacenza {stock?.stock != null ? `${qty(stock.stock)} ${stock.stockUnit ?? unit}` : "—"}{show.toBuy ? " ·" : ""}</span> : null}
         {show.toBuy ? <span className="text-base font-bold text-foreground">{excluded ? "Non acquistare" : `Da acquistare ${displayedQuantity === null ? "—" : `${qty(displayedQuantity)} ${decidedCode}`}`}</span> : null}
       </span>}
@@ -684,9 +695,7 @@ export function ShoppingListCard({
       show.category ? extra?.category ?? "—" : null,
       show.suggested ? `Suggerita ${suggested !== null && suggested !== undefined ? `${qty(suggested)} ${unit}` : "—"}` : null,
       show.stock && stock?.stock !== null && stock?.stock !== undefined ? `Giacenza ${qty(stock.stock)} ${stock.stockUnit ?? unit}` : null,
-      show.lastCount && stock?.lastQuantity !== null && stock?.lastQuantity !== undefined
-        ? `Ult. conteggio ${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}`
-        : null,
+      show.lastCount ? `Totale inventario ${inventoryTotalText}` : null,
     ].filter(Boolean);
     return (
       <article id={`item-${row.item_id}`} className={cn("@container min-w-0 rounded-md border-2 border-border bg-card px-2 py-1.5", locked && "border-primary/60 bg-primary/15", recheck && "border-warning bg-warning/10")}>
@@ -756,10 +765,8 @@ export function ShoppingListCard({
         <dl className="grid grid-flow-col auto-cols-fr gap-1 rounded-sm bg-muted/40 px-1.5 py-1 text-[10px] leading-tight">
           {show.lastCount ? (
             <div className="min-w-0">
-              <dt className="truncate text-muted-foreground">Ult. conteggio</dt>
-              <dd className="truncate font-semibold">
-                {stock?.lastQuantity !== null && stock?.lastQuantity !== undefined ? `${qty(stock.lastQuantity)} ${stock.lastUnit ?? unit}` : "—"}
-              </dd>
+              <dt className="truncate text-muted-foreground">Totale inventario</dt>
+              <dd className="truncate font-semibold">{inventoryTotalText}</dd>
             </div>
           ) : null}
           {show.stock ? (
