@@ -28,7 +28,7 @@ import { type OverviewRow } from "@/lib/shopping-list";
 import type { SupplierMemory } from "@/lib/supplier-memory";
 import { factsFromRow, rowLabel } from "@/lib/supplier-selection";
 import { cn } from "@/lib/utils";
-import { companyProductPurchaseUnitsOptions, productPurchaseDefault } from "@/lib/product-purchase-units";
+import { companyProductPurchaseUnitsOptions, productPurchaseDefault, productUnitsReplaceLinkUnits } from "@/lib/product-purchase-units";
 
 export type StockInfo = {
   lastQuantity: number | null;
@@ -49,7 +49,20 @@ type UnitOption = { key: string; unitId: string | null; code: string; factor: nu
  * L'equivalente si mostra solo se TUTTI i fornitori che offrono quella U.M. hanno la stessa conversione: mai applicare
  * la conversione di un fornitore agli altri.
  */
-function useDecidedUnitOptions(companyId: string, itemId: string, enabled: boolean, manualCodes: string[]) {
+function useDecidedUnitOptions(companyId: string, itemId: string, enabled: boolean, manualCodes: string[], productId: string, replaceManualLinks: boolean) {
+  // Stessa lettura di card-suppliers: quali collegamenti sono B2B (dal database).
+  const b2b = useQuery({
+    queryKey: ["shopping-card-b2b-options", companyId, productId],
+    staleTime: 60_000,
+    enabled: enabled && replaceManualLinks,
+    queryFn: async () => {
+      const bundle = await readCardBundle(`${companyId}:${itemId}`);
+      if (bundle) return Object.fromEntries((bundle.b2b_options as unknown as { link_id: string; is_b2b: boolean }[]).map((r) => [r.link_id, r]));
+      const { data, error } = await supabase.rpc("product_supplier_b2b_options", { _company_id: companyId, _product_id: productId });
+      if (error) throw new Error(error.message);
+      return Object.fromEntries(((data ?? []) as unknown as { link_id: string; is_b2b: boolean }[]).map((r) => [r.link_id, r]));
+    },
+  });
   const query = useQuery({
     queryKey: ["shopping-item-supplier-units", itemId],
     staleTime: 60_000,
@@ -68,6 +81,8 @@ function useDecidedUnitOptions(companyId: string, itemId: string, enabled: boole
   // Codici U.M. offerti dai fornitori ATTIVI (stessa fonte e stessa normalizzazione di unlink_supplier_preview).
   const offeredCodes = new Set<string>();
   for (const link of Object.values(query.data ?? {})) {
+    // Fornitori non B2B: con U.M. impostate nella tab Acquisto valgono solo quelle del prodotto.
+    if (replaceManualLinks && !(b2b.data as Record<string, { is_b2b: boolean }> | undefined)?.[link.link_id]?.is_b2b) continue;
     for (const u of link.units ?? []) {
       const entry = byUnit.get(u.unit_id) ?? { code: u.code, factors: [] };
       entry.factors.push(u.conversion_factor === null || u.conversion_factor === undefined ? null : Number(u.conversion_factor));
@@ -198,6 +213,8 @@ export function ShoppingListCard({
     row.item_id,
     !pending && (Boolean(onUnitChange) || editable),
     suppliers.filter((s) => !s.purchaseUnitId && s.purchaseUnitCode).map((s) => s.purchaseUnitCode as string),
+    row.product_id,
+    productUnitsReplaceLinkUnits(ownUnits, row.product_id),
   );
   const ownOptions: UnitOption[] = ownUnits.flatMap((u) => u.units_of_measure ? [{ key: u.unit_id, unitId: u.unit_id, code: u.units_of_measure.code, factor: null }] : []);
   const unitOptions = [...decided.options, ...ownOptions.filter((o) => !decided.options.some((u) => u.unitId === o.unitId))].filter((o) => o.code.trim().toLowerCase() !== unit.trim().toLowerCase());

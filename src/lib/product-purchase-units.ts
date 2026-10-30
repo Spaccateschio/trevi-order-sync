@@ -24,13 +24,28 @@ export function productPurchaseDefault(units: ProductPurchaseUnitCode[], product
   return preferred?.units_of_measure ? { unitId: preferred.unit_id, code: preferred.units_of_measure.code } : null;
 }
 
+/**
+ * Fornitori non B2B: se il prodotto ha U.M. d'acquisto (tab Acquisto) si usano SOLO quelle,
+ * riusando la conversione della referenza quando è la stessa U.M. (mai inventata).
+ * Senza U.M. del prodotto restano quelle della referenza. B2B: solo U.M. del venditore.
+ */
 export function mergeManualPurchaseUnits<T extends { unitId: string; code: string; conversionFactor: number | null; conversionType: string | null; isDefault?: boolean }>(
   supplierUnits: T[], ownUnits: ProductPurchaseUnitCode[], productId: string, isB2B: boolean,
 ) {
   if (isB2B) return supplierUnits;
-  const added = ownUnits.filter((u) => u.product_id === productId && u.units_of_measure && !supplierUnits.some((s) => s.unitId === u.unit_id))
-    .map((u) => ({ unitId: u.unit_id, code: u.units_of_measure?.code ?? "", conversionFactor: null, conversionType: null, isDefault: u.is_default }));
-  return [...supplierUnits, ...added];
+  const mine = ownUnits.filter((u) => u.product_id === productId && u.units_of_measure);
+  if (mine.length === 0) return supplierUnits;
+  return mine.map((u) => {
+    const same = supplierUnits.find((s) => s.unitId === u.unit_id);
+    return same
+      ? { ...same, isDefault: u.is_default }
+      : ({ unitId: u.unit_id, code: u.units_of_measure?.code ?? "", conversionFactor: null, conversionType: null, isDefault: u.is_default } as unknown as T);
+  });
+}
+
+/** Link non B2B le cui U.M. vanno sostituite da quelle del prodotto (quando il prodotto ne ha). */
+export function productUnitsReplaceLinkUnits(ownUnits: ProductPurchaseUnitCode[], productId: string) {
+  return ownUnits.some((u) => u.product_id === productId && u.units_of_measure);
 }
 
 export function addProductPurchaseUnit(value: { ids: string[]; defaultId: string | null }, unitId: string) {
