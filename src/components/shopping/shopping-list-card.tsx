@@ -1,7 +1,7 @@
 import { ShoppingQuantityEditor } from "./shopping-quantity-editor";
 import { ShoppingMobileCard } from "./shopping-mobile-card";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Check, Copy, Lock, MoreVertical, Package, Plus, Star, StickyNote, Trash2, TriangleAlert, Truck, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, Lock, MoreVertical, Package, Plus, Star, StickyNote, Trash2, TriangleAlert, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { readCardBundle } from "@/lib/shopping-card-reads";
 import { useEffect, useState, type ReactNode } from "react";
@@ -216,6 +216,7 @@ export function ShoppingListCard({
   const name = row.description ?? row.code;
   const unit = row.unit_code ?? "";
   const suppliers = extra?.suppliers ?? [];
+  const [suppliersOpen, setSuppliersOpen] = useState(false);
   const ownUnitsQuery = useQuery(companyProductPurchaseUnitsOptions(companyId));
   const ownUnits = (ownUnitsQuery.data ?? []).filter((u) => u.product_id === row.product_id);
   const decided = useDecidedUnitOptions(
@@ -618,7 +619,30 @@ export function ShoppingListCard({
       <p className="text-[11px] leading-tight text-muted-foreground">Assegnato {qty(assigned)} {unit} · obiettivo non indicato</p>
     ) : null;
 
-  const splitSummary = (
+  const supplierBrief = suppliers
+    .filter((s) => s.purchaseQuantity !== null)
+    .map((s) => `${s.name} ${qty(s.purchaseQuantity as number)} ${s.purchaseUnitCode ?? ""}`.trim())
+    .join(" · ");
+  // Fornitori già organizzati: chiusi per default, si aprono con un tocco per cambiare qualcosa.
+  const suppliersCollapsed = supplierBrief !== "" && !suppliersOpen;
+  const splitSummary = suppliersCollapsed ? (
+    <button
+      type="button"
+      onClick={() => setSuppliersOpen(true)}
+      className="flex w-full items-center justify-between gap-2 rounded-sm border border-border bg-muted/40 px-2 py-1 text-left text-xs"
+      aria-expanded={false}
+    >
+      <span className="min-w-0 truncate">{supplierBrief}</span>
+      <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden />
+    </button>
+  ) : (
+    <div className="space-y-1">
+      {supplierBrief !== "" ? (
+        <button type="button" onClick={() => setSuppliersOpen(false)} aria-expanded
+          className="flex w-full items-center justify-end gap-1 text-[11px] text-muted-foreground">
+          Chiudi fornitori <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      ) : null}
     <CardSuppliers
       companyId={companyId}
       row={row}
@@ -634,6 +658,7 @@ export function ShoppingListCard({
       deselectedLinks={extra?.deselectedLinks ?? []}
       memory={memory}
     />
+    </div>
   );
 
   const orderState =
