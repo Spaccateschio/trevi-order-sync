@@ -823,7 +823,7 @@ export function ShoppingListCard({
       ) : null}
 
       {show.suppliers && !excluded ? (
-        <div className="mt-auto space-y-1 border-t border-border pt-1.5">
+        <div className="space-y-1 border-t border-border pt-1.5">
           <p className="text-[10px] font-semibold uppercase text-muted-foreground">Fornitori</p>
           {splitSummary}
           {show.splits ? totals : null}
