@@ -22,6 +22,7 @@ export function ProductPurchaseUnitsEditor({ companyId, productId, units, editab
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["product-purchase-units", companyId, productId] });
       await queryClient.invalidateQueries({ queryKey: ["product-purchase-units", companyId, "all"] });
+      await queryClient.invalidateQueries({ queryKey: ["product-purchase-units", companyId], exact: true });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["shopping-item-supplier-units"] }),
         queryClient.invalidateQueries({ queryKey: ["shopping-card-unit-suppliers", companyId] }),
