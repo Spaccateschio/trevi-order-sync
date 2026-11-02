@@ -201,7 +201,7 @@ export const processTomInventoryPhrase = createServerFn({ method: "POST" })
       const cards = await loadCards(context, companyId, data.cardKeys);
       const guided = data.guidedCardKey ? cards.find((card) => card.key === data.guidedCardKey) ?? null : null;
       const keywords = [...new Set([guided?.name, ...cards.map((card) => card.name), ...cards.map((card) => card.location)].filter(Boolean) as string[])];
-      transcript = await tomTranscribe(audio, data.mime, keywords, context.request?.signal);
+      transcript = await tomTranscribe(audio, data.mime, keywords);
       if (!transcript) {
         const result: TomPhraseResult = { kind: "none" };
         return { transcript, result };
@@ -230,7 +230,7 @@ export const processTomInventoryPhrase = createServerFn({ method: "POST" })
         // 2) Interpretazione: candidati cercati lato server tra le card visibili dell'azienda.
         const ranked = rankProducts(transcript, cards.map((card) => ({ ...card, name: label(card) })), 8);
         const candidates = ranked.map((entry) => entry.item);
-        const ai = await tomInterpret(transcript, candidates.map((card) => card.name), context.request?.signal);
+        const ai = await tomInterpret(transcript, candidates.map((card) => card.name));
         const chosen = ai.candidate_index >= 0 ? candidates[ai.candidate_index] ?? null : null;
         const original = chosen ? cards.find((card) => card.key === chosen.key) ?? null : null;
         if (ai.action === "start_guided") result = { kind: "start_guided", zone: ai.zone_text };
