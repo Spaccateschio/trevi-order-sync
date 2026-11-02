@@ -335,3 +335,11 @@
 - [x] Fase 1: ⓘ + guida Lista della Spesa (9 passaggi)
 - [ ] Fase 2: memoria per utente, Mostra le novità, proposta automatica all'ingresso (attende autorizzazione)
 - [x] Conferma collettiva inventario: RPC confirm_all_inventory_drafts + pulsante «Conferma inventario» con riepilogo (0096, 2026-10-28). Da collaudare su 3 EMME.
+
+## Assistente vocale Tom — 02/11
+- [x] Fase 0: abilitazione per azienda (company_features), registro comandi 30 giorni, limiti frasi/sessioni; acceso solo 3 EMME
+- [x] Fase 1: Inventario — pulsante microfono, sessione frase per frase, modalità guidata, conferma tutto a voce dopo riepilogo
+- [ ] Collaudo di Andrea su 3 EMME in anteprima (serve un inventario aperto)
+- [ ] Fase 2: Lista della Spesa (dopo collaudo)
+- [ ] Fase 3: wake word «Hey Tom» (dopo collaudo)
+- [ ] Accensione per Trevi srl (solo su richiesta di Andrea)
