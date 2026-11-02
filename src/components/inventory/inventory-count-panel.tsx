@@ -243,6 +243,9 @@ const CardLockContext = createContext<{
   groupSize: Map<string, number>;
 }>({ unlocked: new Set(), toggle: () => {}, pending: false, canSave: true, isAdmin: false, toggleCardFavorite: () => {}, cardFavoritePending: false, groupSize: new Map() });
 
+/** Card compilate da Tom (solo presentazione) e card corrente della modalità guidata. */
+const TomMarksContext = createContext<{ keys: Set<string>; current: string | null }>({ keys: new Set(), current: null });
+
 /** Semaforo rosso senza inventario aperto: campi bloccati, solo «Correggi conteggio» sui conteggi del ciclo. */
 const CycleLockContext = createContext<{
   locked: boolean;
@@ -3431,6 +3434,7 @@ function ProductCard({
   const correcting = correction.editing;
   // Bloccata: scheda ocra, controlli disabilitati (matita esclusa). Sbloccata: aspetto normale.
   const cardLock = useContext(CardLockContext);
+  const tomMarks = useContext(TomMarksContext);
   const locked = inventoryCardLocked(row.counted !== null, cardLock.unlocked.has(rowKey(row)), cycleLocked, correcting);
   const editable = cardLock.canSave
     && canEditInventoryCard(locked, correction.pending || cardLock.pending, row.stock_unit_missing);
@@ -3496,17 +3500,26 @@ function ProductCard({
       ? (history.hasCount ? "Contato in precedenza" : history.toVerify ? "Da verificare" : "Mai contato")
       : null;
 
+  const tomMarked = tomMarks.keys.has(rowKey(row)) && !locked;
+  const tomCurrent = tomMarks.current === rowKey(row);
   return (
     <article
+      data-tom-card={rowKey(row)}
       className={cn(
+        "relative",
         rowLayout ? "@container grid grid-cols-1 items-center gap-1 rounded-md border bg-card px-2 py-1.5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)] lg:gap-3" : "@container flex h-full flex-col rounded-md border-2 bg-card p-2",
         !isConfirmed && "border-border",
         isConfirmed && !hasDifference && "border-success/50 bg-success/5",
         hasDifference && "border-destructive/50 bg-destructive/5",
         needsRecount && "border-primary/60 bg-primary/5",
         locked && "border-primary/60 bg-primary/15",
+        tomMarked && "border-accent ring-2 ring-accent/60",
+        tomCurrent && "ring-4 ring-primary",
       )}
     >
+      {tomMarked ? (
+        <span className="absolute -top-2 right-2 z-10 rounded-full bg-accent px-1.5 text-[10px] font-semibold text-accent-foreground">Tom · da confermare</span>
+      ) : null}
       {/* Nome a tutta larghezza, comandi a destra; immagine e scritte sotto, così il nome non compete con l'immagine. */}
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-1 gap-y-1">
         <div className="col-start-1 row-start-1 min-w-0">
