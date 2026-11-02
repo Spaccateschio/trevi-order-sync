@@ -23,7 +23,8 @@ const has = (text: string, words: string[]) => words.some((word) => new RegExp(`
  * (la card è già nota); altrimenti resta al modello che individua il prodotto.
  */
 export function parseQuickCommand(text: string, guided: boolean): QuickCommand | null {
-  const t = normalizeSpeech(text).replace(/[.,]$/, "");
+  // Virgole/punti tra parole (non tra cifre) sono solo pause.
+  const t = normalizeSpeech(text).replace(/(?<!\d)[.,]|[.,](?!\d)/g, " ").replace(/\s+/g, " ").trim();
   if (!t) return null;
   if (/^(fine|basta|stop|chiudi tom|grazie tom|ho finito)( .*)?$/.test(t) && t.split(" ").length <= 3) return { kind: "end" };
   if (/^(salta|prossimo|avanti|passa)( .*)?$/.test(t) && t.split(" ").length <= 2) return { kind: "skip" };
