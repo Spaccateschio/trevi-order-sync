@@ -1887,6 +1887,7 @@ export function InventoryCountPanel({
             onContinue={() => setSelectingLocation(false)}
           />
         ) : (
+          <TomMarksContext.Provider value={tomMarks}>
           <CardLockContext.Provider value={{
             unlocked: unlockedCards,
             pending: countMutation.isPending || firstCount.isPending || confirmAll.isPending || reviewLoading || confirmAllOpen,
@@ -2183,6 +2184,7 @@ export function InventoryCountPanel({
           </HabitualZonesProvider>
           </UnitChoiceContext.Provider>
           </CardLockContext.Provider>
+          </TomMarksContext.Provider>
         )}
       </TabsContent>
 
@@ -2652,6 +2654,8 @@ export function InventoryCountPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {sessionId ? <TomInventoryButton companyId={companyId} controller={tomController} /> : null}
 
       <InventoryConfirmAllDialog
         open={confirmAllOpen} onOpenChange={setConfirmAllOpen} review={bulkReview}
