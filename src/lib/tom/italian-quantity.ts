@@ -68,7 +68,7 @@ const UNIT_WORDS: Record<string, string> = {
 };
 
 /** Codici U.M. aziendali che corrispondono a una parola canonica. */
-const UNIT_CODES: Record<string, string[]> = {
+const UNIT_CODES = {
   cassa: ["cassa", "cs", "cas", "cass", "cassetta"],
   kg: ["kg", "chili", "kilo"],
   pz: ["pz", "pezzo", "pezzi", "pzz"],
@@ -80,7 +80,7 @@ const UNIT_CODES: Record<string, string[]> = {
   g: ["g", "gr"],
   etto: ["hg", "etto"],
   nr: ["nr", "n", "num"],
-};
+} as Record<string, string[]> & Record<"cassa" | "kg" | "pz" | "mazzo" | "vaschetta", string[]>;
 
 export type SpokenQuantity = { quantity: number | null; unitWord: string | null; explicitZero: boolean };
 

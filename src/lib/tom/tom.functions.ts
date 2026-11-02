@@ -17,17 +17,17 @@ export const TOM_MAX_PHRASES_PER_SESSION = 150;
 export const TOM_MAX_SESSIONS_PER_DAY = 25;
 const MAX_AUDIO_BYTES = 2_000_000;
 
-const LIMIT_MESSAGES: Record<string, string> = {
+const LIMIT_MESSAGES = {
   TOM_LIMITE_FRASI: "Ho raggiunto il limite di frasi per questa sessione. Mi fermo.",
   TOM_LIMITE_SESSIONI: "Limite giornaliero di sessioni Tom raggiunto per l'azienda. Riprova domani.",
   TOM_NON_ABILITATO: "Tom non è attivo per questa azienda.",
   TOM_SESSIONE_NON_VALIDA: "Sessione Tom non valida: riaprila.",
   TOM_INVENTARIO_NON_APERTO: "Tom funziona solo con un inventario aperto.",
-};
+} as const;
 
 function friendly(message: string) {
-  const code = Object.keys(LIMIT_MESSAGES).find((key) => message.includes(key));
-  return code ? LIMIT_MESSAGES[code]! : message;
+  const code = (Object.keys(LIMIT_MESSAGES) as (keyof typeof LIMIT_MESSAGES)[]).find((key) => message.includes(key));
+  return code ? LIMIT_MESSAGES[code] : message;
 }
 
 export const getTomAvailability = createServerFn({ method: "POST" })

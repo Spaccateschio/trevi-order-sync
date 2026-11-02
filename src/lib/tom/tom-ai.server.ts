@@ -11,7 +11,7 @@ export class TomServiceError extends Error {
 }
 
 function apiKey() {
-  const key = process.env.LOVABLE_API_KEY;
+  const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new TomServiceError("Assistente vocale non configurato", 401);
   return key;
 }
@@ -40,7 +40,7 @@ async function* sseEvents(body: ReadableStream<Uint8Array>) {
       buffer = buffer.slice(index + 2);
       const data = frame.split("\n").filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("");
       if (!data || data === "[DONE]") continue;
-      try { yield JSON.parse(data) as Record<string, any>; } catch { /* frame non JSON */ }
+      try { yield JSON.parse(data) as any; } catch { /* frame non JSON */ }
     }
   }
 }
@@ -60,7 +60,7 @@ export async function tomTranscribe(audio: Uint8Array, mime: string, keywords: s
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey()}` },
     body: form,
-    signal,
+    ...(signal ? { signal } : {}),
   });
   if (!response.ok || !response.body) await failure(response);
   let text = "";
@@ -113,7 +113,7 @@ export async function tomInterpret(transcript: string, candidates: string[], sig
   const list = candidates.map((name, index) => `${index}. ${name}`).join("\n") || "(nessun candidato)";
   const response = await fetch(`${GATEWAY}/responses`, {
     method: "POST",
-    signal,
+    ...(signal ? { signal } : {}),
     headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey(), Authorization: `Bearer ${apiKey()}`, "X-Lovable-AIG-SDK": "fetch" },
     body: JSON.stringify({
       model: TOM_INTERPRET_MODEL,
