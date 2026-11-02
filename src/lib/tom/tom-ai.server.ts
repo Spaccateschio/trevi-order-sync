@@ -54,7 +54,7 @@ export async function tomTranscribe(audio: Uint8Array, mime: string, keywords: s
   form.append("response_format", "json");
   form.append("stream", "true");
   form.append("languages", "it");
-  form.append("prompt", "Inventario di frutta e verdura in un magazzino italiano: nomi di prodotti, numeri, casse, chili, pezzi, mazzi.");
+  // form.append("prompt", "Inventario di frutta e verdura in un magazzino italiano: nomi di prodotti, numeri, casse, chili, pezzi, mazzi.");
   for (const keyword of keywords.slice(0, 80)) form.append("keywords[]", keyword);
   const response = await fetch(`${GATEWAY}/audio/transcriptions`, {
     method: "POST",
