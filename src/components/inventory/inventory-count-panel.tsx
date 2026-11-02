@@ -117,6 +117,7 @@ import { dateTimeShort, type SessionRow } from "@/lib/inventory";
 import { inventoryDefaultUnitId } from "@/lib/inventory-unit-default";
 import { loadInventoryUnitMemory, saveInventoryUnitMemory } from "@/lib/inventory-unit-memory";
 import { INVENTORY_SCREEN_VERSION, cardKey, cardTitle, compareCards, groupKey, parseCardKey, productCardTotal, rowCardKey } from "@/lib/inventory-cards";
+import { TomInventoryButton, type TomInventoryController } from "@/components/voice/tom-inventory";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 import { InventoryProductDialog } from "@/components/inventory/inventory-product-dialog";
 
@@ -1576,6 +1577,65 @@ export function InventoryCountPanel({
   const screenOutdated = Boolean(
     versionQuery.data && (versionQuery.data.version !== INVENTORY_SCREEN_VERSION || !versionQuery.data.databaseReady),
   );
+
+  // Tom: compila solo bozze con lo stesso percorso della digitazione (scheduleDraftSave + U.M. della card);
+  // la conferma passa sempre da «Conferma tutto» (confirm_all_inventory_drafts) dopo il riepilogo.
+  const [tomMarks, setTomMarks] = useState<{ keys: Set<string>; current: string | null }>({ keys: new Set(), current: null });
+  const tomController: TomInventoryController = {
+    inventorySessionId: sessionId,
+    cards: rows.map((row) => {
+      const key = rowKey(row);
+      return {
+        key,
+        locationId: row.location_id,
+        label: rowName(row),
+        supplier: row.product_supplier_link_id ? cardSupplierName(row) : null,
+        locked: row.counted !== null && !unlockedCards.has(key),
+        draft: drafts[key] ?? "",
+        unitCode: selectedCardUnit(key, row).code,
+        unitId: selectedCardUnit(key, row).id,
+        counted: row.counted,
+        countedUnit: row.counted_unit_code ?? row.stock_unit_code,
+        calculated: row.calculated,
+        stockUnit: row.stock_unit_code,
+      };
+    }),
+    locations: activeLocations.map((location) => ({ id: location.id, name: location.name, code: location.code })),
+    selectedLocationId,
+    canWrite: Boolean(sessionId) && !screenOutdated && !confirmAll.isPending && !countMutation.isPending,
+    selectLocation: (id) => { setSelectedLocationId(id); setCategory(null); setSubcategory(null); },
+    applyDraft: (key, raw, unitId) => {
+      if (!sessionId || screenOutdated) return false;
+      const row = rows.find((entry) => rowKey(entry) === key);
+      if (!row || (row.counted !== null && !unlockedCards.has(key))) return false;
+      if (unitId && unitChoice.allowed.get(row.product_id)?.some((unit) => unit.id === unitId)) unitChoice.choose(key, unitId);
+      setDrafts((current) => ({ ...current, [key]: raw }));
+      scheduleDraftSave(key, raw);
+      return true;
+    },
+    mark: (keys, current) => setTomMarks({ keys, current }),
+    review: async () => {
+      if (!sessionId) return null;
+      await flushDraftWrites();
+      setConfirmAllOpen(true);
+      setReviewLoading(true);
+      setReviewError(null);
+      setBulkSkipped([]);
+      try {
+        const review = await buildBulkReview();
+        setBulkReview(review);
+        return review;
+      } catch (error) {
+        setReviewError(error instanceof Error ? error.message : "Impossibile verificare le quantità");
+        return null;
+      } finally { setReviewLoading(false); }
+    },
+    confirmAll: async () => {
+      setReviewError(null);
+      await confirmAll.mutateAsync();
+    },
+    closeReview: () => setConfirmAllOpen(false),
+  };
 
   const favoriteMutation = useMutation({
     mutationFn: (input: { productId: string; favorite: boolean }) =>
