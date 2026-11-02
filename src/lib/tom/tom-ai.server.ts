@@ -33,7 +33,7 @@ async function* sseEvents(body: ReadableStream<Uint8Array>) {
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
     let index;
     while ((index = buffer.indexOf("\n\n")) >= 0) {
       const frame = buffer.slice(0, index);
@@ -54,7 +54,7 @@ export async function tomTranscribe(audio: Uint8Array, mime: string, keywords: s
   form.append("response_format", "json");
   form.append("stream", "true");
   form.append("languages", "it");
-  // form.append("prompt", "Inventario di frutta e verdura in un magazzino italiano: nomi di prodotti, numeri, casse, chili, pezzi, mazzi.");
+  form.append("prompt", "Inventario di frutta e verdura in un magazzino italiano: nomi di prodotti, numeri, casse, chili, pezzi, mazzi.");
   for (const keyword of keywords.slice(0, 80)) form.append("keywords[]", keyword);
   const response = await fetch(`${GATEWAY}/audio/transcriptions`, {
     method: "POST",
@@ -66,7 +66,6 @@ export async function tomTranscribe(audio: Uint8Array, mime: string, keywords: s
   let text = "";
   let done: string | null = null;
   for await (const event of sseEvents(response.body!)) {
-    console.log("EV", JSON.stringify(event).slice(0,200));
     if (event.type === "transcript.text.delta" && typeof event.delta === "string") text += event.delta;
     if (event.type === "transcript.text.done" && typeof event.text === "string") done = event.text;
     if (event.type === "error") throw new TomServiceError(event.error?.message ?? "Trascrizione non riuscita", 500);
