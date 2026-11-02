@@ -66,6 +66,7 @@ export async function tomTranscribe(audio: Uint8Array, mime: string, keywords: s
   let text = "";
   let done: string | null = null;
   for await (const event of sseEvents(response.body!)) {
+    console.log("EV", JSON.stringify(event).slice(0,200));
     if (event.type === "transcript.text.delta" && typeof event.delta === "string") text += event.delta;
     if (event.type === "transcript.text.done" && typeof event.text === "string") done = event.text;
     if (event.type === "error") throw new TomServiceError(event.error?.message ?? "Trascrizione non riuscita", 500);
