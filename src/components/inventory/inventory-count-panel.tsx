@@ -117,6 +117,7 @@ import { dateTimeShort, type SessionRow } from "@/lib/inventory";
 import { inventoryDefaultUnitId } from "@/lib/inventory-unit-default";
 import { loadInventoryUnitMemory, saveInventoryUnitMemory } from "@/lib/inventory-unit-memory";
 import { INVENTORY_SCREEN_VERSION, cardKey, cardTitle, compareCards, groupKey, parseCardKey, productCardTotal, rowCardKey } from "@/lib/inventory-cards";
+import { TomInventoryButton, type TomInventoryController } from "@/components/voice/tom-inventory";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 import { InventoryProductDialog } from "@/components/inventory/inventory-product-dialog";
 
@@ -242,6 +243,9 @@ const CardLockContext = createContext<{
   /** Numero di card per prodotto+ubicazione nell'elenco visibile. */
   groupSize: Map<string, number>;
 }>({ unlocked: new Set(), toggle: () => {}, pending: false, canSave: true, isAdmin: false, toggleCardFavorite: () => {}, cardFavoritePending: false, groupSize: new Map() });
+
+/** Card compilate da Tom (solo presentazione) e card corrente della modalità guidata. */
+const TomMarksContext = createContext<{ keys: Set<string>; current: string | null }>({ keys: new Set(), current: null });
 
 /** Semaforo rosso senza inventario aperto: campi bloccati, solo «Correggi conteggio» sui conteggi del ciclo. */
 const CycleLockContext = createContext<{
@@ -1574,6 +1578,65 @@ export function InventoryCountPanel({
     versionQuery.data && (versionQuery.data.version !== INVENTORY_SCREEN_VERSION || !versionQuery.data.databaseReady),
   );
 
+  // Tom: compila solo bozze con lo stesso percorso della digitazione (scheduleDraftSave + U.M. della card);
+  // la conferma passa sempre da «Conferma tutto» (confirm_all_inventory_drafts) dopo il riepilogo.
+  const [tomMarks, setTomMarks] = useState<{ keys: Set<string>; current: string | null }>({ keys: new Set(), current: null });
+  const tomController: TomInventoryController = {
+    inventorySessionId: sessionId,
+    cards: rows.map((row) => {
+      const key = rowKey(row);
+      return {
+        key,
+        locationId: row.location_id,
+        label: rowName(row),
+        supplier: row.product_supplier_link_id ? cardSupplierName(row) : null,
+        locked: row.counted !== null && !unlockedCards.has(key),
+        draft: drafts[key] ?? "",
+        unitCode: selectedCardUnit(key, row).code,
+        unitId: selectedCardUnit(key, row).id,
+        counted: row.counted,
+        countedUnit: row.counted_unit_code ?? row.stock_unit_code,
+        calculated: row.calculated,
+        stockUnit: row.stock_unit_code,
+      };
+    }),
+    locations: activeLocations.map((location) => ({ id: location.id, name: location.name, code: location.code })),
+    selectedLocationId,
+    canWrite: Boolean(sessionId) && !screenOutdated && !confirmAll.isPending && !countMutation.isPending,
+    selectLocation: (id) => { setSelectedLocationId(id); setCategory(null); setSubcategory(null); },
+    applyDraft: (key, raw, unitId) => {
+      if (!sessionId || screenOutdated) return false;
+      const row = rows.find((entry) => rowKey(entry) === key);
+      if (!row || (row.counted !== null && !unlockedCards.has(key))) return false;
+      if (unitId && unitChoice.allowed.get(row.product_id)?.some((unit) => unit.id === unitId)) unitChoice.choose(key, unitId);
+      setDrafts((current) => ({ ...current, [key]: raw }));
+      scheduleDraftSave(key, raw);
+      return true;
+    },
+    mark: (keys, current) => setTomMarks({ keys, current }),
+    review: async () => {
+      if (!sessionId) return null;
+      await flushDraftWrites();
+      setConfirmAllOpen(true);
+      setReviewLoading(true);
+      setReviewError(null);
+      setBulkSkipped([]);
+      try {
+        const review = await buildBulkReview();
+        setBulkReview(review);
+        return review;
+      } catch (error) {
+        setReviewError(error instanceof Error ? error.message : "Impossibile verificare le quantità");
+        return null;
+      } finally { setReviewLoading(false); }
+    },
+    confirmAll: async () => {
+      setReviewError(null);
+      await confirmAll.mutateAsync();
+    },
+    closeReview: () => setConfirmAllOpen(false),
+  };
+
   const favoriteMutation = useMutation({
     mutationFn: (input: { productId: string; favorite: boolean }) =>
       toggleFavorite({ data: { companyId, productId: input.productId, favorite: input.favorite } }),
@@ -1824,6 +1887,7 @@ export function InventoryCountPanel({
             onContinue={() => setSelectingLocation(false)}
           />
         ) : (
+          <TomMarksContext.Provider value={tomMarks}>
           <CardLockContext.Provider value={{
             unlocked: unlockedCards,
             pending: countMutation.isPending || firstCount.isPending || confirmAll.isPending || reviewLoading || confirmAllOpen,
@@ -2120,6 +2184,7 @@ export function InventoryCountPanel({
           </HabitualZonesProvider>
           </UnitChoiceContext.Provider>
           </CardLockContext.Provider>
+          </TomMarksContext.Provider>
         )}
       </TabsContent>
 
@@ -2589,6 +2654,8 @@ export function InventoryCountPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {sessionId ? <TomInventoryButton companyId={companyId} controller={tomController} /> : null}
 
       <InventoryConfirmAllDialog
         open={confirmAllOpen} onOpenChange={setConfirmAllOpen} review={bulkReview}
@@ -3431,6 +3498,7 @@ function ProductCard({
   const correcting = correction.editing;
   // Bloccata: scheda ocra, controlli disabilitati (matita esclusa). Sbloccata: aspetto normale.
   const cardLock = useContext(CardLockContext);
+  const tomMarks = useContext(TomMarksContext);
   const locked = inventoryCardLocked(row.counted !== null, cardLock.unlocked.has(rowKey(row)), cycleLocked, correcting);
   const editable = cardLock.canSave
     && canEditInventoryCard(locked, correction.pending || cardLock.pending, row.stock_unit_missing);
@@ -3496,17 +3564,26 @@ function ProductCard({
       ? (history.hasCount ? "Contato in precedenza" : history.toVerify ? "Da verificare" : "Mai contato")
       : null;
 
+  const tomMarked = tomMarks.keys.has(rowKey(row)) && !locked;
+  const tomCurrent = tomMarks.current === rowKey(row);
   return (
     <article
+      data-tom-card={rowKey(row)}
       className={cn(
+        "relative",
         rowLayout ? "@container grid grid-cols-1 items-center gap-1 rounded-md border bg-card px-2 py-1.5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)] lg:gap-3" : "@container flex h-full flex-col rounded-md border-2 bg-card p-2",
         !isConfirmed && "border-border",
         isConfirmed && !hasDifference && "border-success/50 bg-success/5",
         hasDifference && "border-destructive/50 bg-destructive/5",
         needsRecount && "border-primary/60 bg-primary/5",
         locked && "border-primary/60 bg-primary/15",
+        tomMarked && "border-accent ring-2 ring-accent/60",
+        tomCurrent && "ring-4 ring-primary",
       )}
     >
+      {tomMarked ? (
+        <span className="absolute -top-2 right-2 z-10 rounded-full bg-accent px-1.5 text-[10px] font-semibold text-accent-foreground">Tom · da confermare</span>
+      ) : null}
       {/* Nome a tutta larghezza, comandi a destra; immagine e scritte sotto, così il nome non compete con l'immagine. */}
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-1 gap-y-1">
         <div className="col-start-1 row-start-1 min-w-0">

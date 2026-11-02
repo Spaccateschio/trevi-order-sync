@@ -563,6 +563,41 @@ export type Database = {
           },
         ]
       }
+      company_features: {
+        Row: {
+          company_id: string
+          enabled: boolean
+          enabled_at: string | null
+          enabled_by: string | null
+          feature_key: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          enabled?: boolean
+          enabled_at?: string | null
+          enabled_by?: string | null
+          feature_key: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          enabled?: boolean
+          enabled_at?: string | null
+          enabled_by?: string | null
+          feature_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_features_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_invitations: {
         Row: {
           created_at: string
@@ -6972,6 +7007,105 @@ export type Database = {
           },
         ]
       }
+      tom_command_log: {
+        Row: {
+          card_key: string | null
+          command: Json | null
+          company_id: string
+          created_at: string
+          id: string
+          outcome: string
+          page: string
+          tom_session_id: string
+          transcript: string | null
+          user_id: string
+        }
+        Insert: {
+          card_key?: string | null
+          command?: Json | null
+          company_id: string
+          created_at?: string
+          id?: string
+          outcome: string
+          page: string
+          tom_session_id: string
+          transcript?: string | null
+          user_id: string
+        }
+        Update: {
+          card_key?: string | null
+          command?: Json | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          outcome?: string
+          page?: string
+          tom_session_id?: string
+          transcript?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tom_command_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tom_command_log_tom_session_id_fkey"
+            columns: ["tom_session_id"]
+            isOneToOne: false
+            referencedRelation: "tom_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tom_sessions: {
+        Row: {
+          company_id: string
+          id: string
+          inventory_session_id: string | null
+          page: string
+          phrase_count: number
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          id?: string
+          inventory_session_id?: string | null
+          page: string
+          phrase_count?: number
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          id?: string
+          inventory_session_id?: string | null
+          page?: string
+          phrase_count?: number
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tom_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tom_sessions_inventory_session_id_fkey"
+            columns: ["inventory_session_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       units_of_measure: {
         Row: {
           allows_decimals: boolean
@@ -7242,6 +7376,10 @@ export type Database = {
       }
       _shopping_list_try_complete: {
         Args: { _actor: string; _list_id: string }
+        Returns: boolean
+      }
+      _tom_member_ok: {
+        Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
       _touch_seller_price_update: {
@@ -7956,6 +8094,10 @@ export type Database = {
       }
       has_active_relation: {
         Args: { _buyer_company_id: string; _seller_company_id: string }
+        Returns: boolean
+      }
+      has_company_feature: {
+        Args: { _company_id: string; _feature_key: string }
         Returns: boolean
       }
       has_company_role: {
@@ -9560,6 +9702,35 @@ export type Database = {
           _product_id: string
         }
         Returns: undefined
+      }
+      tom_log_command: {
+        Args: {
+          _card_key: string
+          _command: Json
+          _outcome: string
+          _tom_session_id: string
+          _transcript: string
+          _user_id: string
+        }
+        Returns: undefined
+      }
+      tom_reserve_phrase: {
+        Args: {
+          _max_phrases: number
+          _tom_session_id: string
+          _user_id: string
+        }
+        Returns: string
+      }
+      tom_start_session: {
+        Args: {
+          _company_id: string
+          _inventory_session_id: string
+          _max_daily: number
+          _page: string
+          _user_id: string
+        }
+        Returns: string
       }
       undo_non_b2b_order_send_confirmation: {
         Args: { _confirmation_key: string; _order_id: string; _reason: string }
