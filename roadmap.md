@@ -344,4 +344,4 @@
 - [ ] Fase 3: wake word «Hey Tom» (dopo collaudo)
 - [ ] Accensione per Trevi srl (solo su richiesta di Andrea)
 
-- [ ] Archivi Danea su clienti, listini e catalogo (piano approvato 11/11)
+- [x] Archivi Danea su clienti, listini e catalogo (piano approvato 11/11)
