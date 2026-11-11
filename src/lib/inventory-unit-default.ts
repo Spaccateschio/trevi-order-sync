@@ -13,3 +13,24 @@ export function inventoryDefaultUnitId(input: {
 }): string | null {
   return input.chosenId ?? input.preferredId ?? input.lastCountedId ?? input.stockUnitId ?? null;
 }
+
+/** Unica risoluzione per il selettore e tutte le scritture della card. */
+export function inventoryCardUnit(input: {
+  options: readonly { id: string; code: string }[];
+  chosenId?: string | null;
+  preferredId?: string | null;
+  lastCountedCode?: string | null;
+  stockCode?: string | null;
+}): { id: string | null; code: string | null } {
+  const byCode = (code: string | null | undefined) => input.options.find(
+    (option) => option.code.trim().toLowerCase() === code?.trim().toLowerCase(),
+  );
+  const id = inventoryDefaultUnitId({
+    chosenId: input.options.find((option) => option.id === input.chosenId)?.id,
+    preferredId: input.options.find((option) => option.id === input.preferredId)?.id,
+    lastCountedId: byCode(input.lastCountedCode)?.id,
+    stockUnitId: byCode(input.stockCode)?.id,
+  });
+  const option = input.options.find((unit) => unit.id === id);
+  return { id, code: option?.code ?? (input.stockCode?.trim() || null) };
+}
