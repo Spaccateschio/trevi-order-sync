@@ -17,10 +17,10 @@ export function inventoryDefaultUnitId(input: {
 /** Unica risoluzione per il selettore e tutte le scritture della card. */
 export function inventoryCardUnit(input: {
   options: readonly { id: string; code: string }[];
-  chosenId?: string | null;
-  preferredId?: string | null;
-  lastCountedCode?: string | null;
-  stockCode?: string | null;
+  chosenId?: string | null | undefined;
+  preferredId?: string | null | undefined;
+  lastCountedCode?: string | null | undefined;
+  stockCode?: string | null | undefined;
 }): { id: string | null; code: string | null } {
   const byCode = (code: string | null | undefined) => input.options.find(
     (option) => option.code.trim().toLowerCase() === code?.trim().toLowerCase(),
