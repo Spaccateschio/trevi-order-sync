@@ -708,6 +708,13 @@
       "when": 1793603406780,
       "tag": "0100_tom_voice_assistant_phase0",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1794373301635,
+      "tag": "0101_catalog_visibility_by_customer_archive",
+      "breakpoints": true
     }
   ]
 }
