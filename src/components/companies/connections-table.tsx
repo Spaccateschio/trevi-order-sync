@@ -194,7 +194,7 @@ export function ConnectionsTable({ rows, canManage, onOpen, onToggleSide }: Prop
   if (!rows.length) {
     return (
       <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
-        Nessun collegamento in questo elenco. Usa Cerca azienda o Invita partner.
+        Nessun collegamento in questo elenco. Usa Invita partner.
       </p>
     );
   }

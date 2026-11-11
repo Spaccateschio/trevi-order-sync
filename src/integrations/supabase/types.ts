@@ -443,6 +443,7 @@ export type Database = {
           delivery_province: string | null
           email: string | null
           id: string
+          is_discoverable: boolean
           legal_name: string
           logo_url: string | null
           phone: string | null
@@ -471,6 +472,7 @@ export type Database = {
           delivery_province?: string | null
           email?: string | null
           id?: string
+          is_discoverable?: boolean
           legal_name: string
           logo_url?: string | null
           phone?: string | null
@@ -499,6 +501,7 @@ export type Database = {
           delivery_province?: string | null
           email?: string | null
           id?: string
+          is_discoverable?: boolean
           legal_name?: string
           logo_url?: string | null
           phone?: string | null

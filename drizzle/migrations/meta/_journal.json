@@ -715,6 +715,13 @@
       "when": 1794373301635,
       "tag": "0101_catalog_visibility_by_customer_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1794374212279,
+      "tag": "0102_closed_network_invite_only",
+      "breakpoints": true
     }
   ]
 }
