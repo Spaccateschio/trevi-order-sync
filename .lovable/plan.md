@@ -1,48 +1,45 @@
-# Archivi Danea su clienti e listini
+# Rete chiusa: collegamenti solo su invito
 
-## Cosa ho verificato nel progetto
-- **Prodotti**: già legati all'archivio.
-- **Listini**: hanno già il campo archivio e la sincronizzazione dei nomi aggiorna per azienda + archivio + numero. Verificato oggi nel database: l'indice unico su questa terna **esiste già**, quindi non va toccato.
-- **Clienti**: nessun campo archivio. Da aggiungere, con scelta obbligatoria all'import.
-- **Prezzi e listini assegnati**: le funzioni di risoluzione cercano il listino per azienda + numero, senza archivio: con due archivi il numero 2 diventa ambiguo.
+## Cosa ho trovato (database reale e codice)
+
+**Regole di lettura su `companies`**
+- `companies_select_member_or_partner` (SELECT, authenticated): `is_company_member(id) OR shares_relation_with(id)`. `shares_relation_with` considera qualsiasi relazione in `supplier_customer_relations`, in ogni stato. Rispetta già la regola richiesta: non va toccata.
+- `companies_update_admin` (UPDATE): non riguarda la lettura.
+
+**Funzioni (SECURITY DEFINER, eseguibili da authenticated) che espongono aziende non collegate**
+1. `search_companies(_query, _role)`: cerca per nome (ILIKE) o P.IVA (prefisso), fino a 50 aziende attive. Usata in `src/routes/_authenticated/collegamenti.tsx` (riga 365, vista «Cerca azienda», righe 626/715/926).
+2. `available_suppliers()`: elenca tutti i venditori attivi. Nessun uso nel frontend.
+3. `available_buyers()`: elenca tutti gli acquirenti attivi. Nessun uso nel frontend.
+4. `company_exists_for_vat(_vat)`: dice se una P.IVA è registrata. Usata dentro le funzioni di invito (accettazione con nuova azienda) e nell'anteprima invito (`invito.$token.tsx`, campo calcolato dal server). Esposta però anche direttamente: chiunque autenticato può sondare P.IVA.
+5. `customer_record_match_suggestions(_customer_record_id)`: dato un cliente in anagrafica, restituisce le aziende registrate con la stessa P.IVA (anche non collegate). Nessun uso nel frontend.
+6. `request_supplier_relation` / `invite_customer_relation`: creano una richiesta verso un'azienda scelta per id, senza invito. La prima è usata dalla vista «Cerca azienda» (riga 421); la seconda non è usata nel frontend.
+
+**Già a posto**
+- `invitation_preview`, `supplier_record_match_suggestions` (solo relazioni già esistenti), area piattaforma (`piattaforma.aziende.tsx`, solo super admin, sola lettura).
+- `connections-table.tsx` riga 197: testo «Usa Cerca azienda o Invita partner».
 
 ## Cosa farò
 
-### 1. Listini per archivio
-- L'unicità azienda + archivio + numero è già garantita: nessuna modifica.
-- Gli elenchi "Listino assegnato" e "Listino predefinito" mostrano i listini raggruppati per archivio.
+**Frontend (`collegamenti.tsx`, `connections-table.tsx`)**
+- Nascondere per tutti il pulsante e la vista «Cerca azienda» (nome e P.IVA) e la richiesta collegata. Il codice resta, spento.
+- Testo vuoto: «Usa Invita partner».
 
-### 2. Archivio sui clienti
-- Nuovo campo archivio sull'anagrafica cliente, vuoto per i clienti già presenti.
-- All'importazione da file, prima dell'anteprima, scelta obbligatoria dell'archivio Danea: nessuna deduzione dal file. L'archivio scelto viene salvato su ogni cliente creato o aggiornato.
-- Riconoscimento dei clienti già presenti (codice Danea, P.IVA, codice fiscale) solo dentro l'archivio scelto: stessi dati in due archivi restano due schede distinte.
+**Database (una migrazione)**
+- Nuova colonna `companies.is_discoverable boolean NOT NULL DEFAULT false`. Modificabile solo dal super admin: un trigger blocca il cambio se `_is_active_platform_super()` è falso. Nessuna schermata per cambiarla (fuori scope).
+- `search_companies`: restituisce solo aziende con `is_discoverable = true` (oggi nessuna, quindi niente risultati).
+- `request_supplier_relation` e `invite_customer_relation`: accettate solo se l'azienda di destinazione è `is_discoverable`, oppure se esiste già una relazione tra le due aziende (riattivazione invariata).
+- `available_suppliers`, `available_buyers`: stesso filtro `is_discoverable` (non usate, restano per il futuro).
+- `customer_record_match_suggestions`: restituisce solo aziende con relazione già esistente col venditore, oppure `is_discoverable`.
+- `company_exists_for_vat`: tolto EXECUTE a authenticated (REVOKE). Resta usata internamente dalle funzioni di invito e dall'anteprima, che girano con i permessi del proprietario.
 
-### 3. Prezzi risolti nell'archivio del cliente
-- Il listino del cliente si risolve sui listini del suo archivio; cliente senza archivio: come oggi.
-- L'assegnazione manuale accetta solo listini dell'archivio del cliente.
+**Non toccato**: policy `companies_select_member_or_partner`, inviti (creazione, link, codice, PDF/QR, accettazione anche con nuova azienda), doppio consenso, relazioni esistenti, destinazioni, catalogo, listini, area piattaforma.
 
-### 4. Catalogo limitato all'archivio del cliente (decisione del titolare)
-- Cliente collegato a un'anagrafica con archivio: vede solo i prodotti di quell'archivio in vetrine, «Tutti i prodotti», pagina prodotto e preferiti.
-- Anagrafica senza archivio: comportamento identico a oggi.
-- Filtro applicato dal server, mai solo nella pagina: un prodotto di un altro archivio non è leggibile né acquistabile neppure da link diretto.
-- Effetto da sapere: un preferito su un prodotto di un altro archivio smette di comparire (non viene cancellato).
+## Flag futuro
+Confermo: `is_discoverable` è previsto, default falso, solo super admin. Vetrina pubblica e filtro per zona fuori scope.
 
-## Fuori scope (confermato)
-Colonna "Listino" del file clienti (Punto 5c), cancellazione dati di test, fusione clienti tra archivi. Restano in coda conferma/sovrascrittura in import e valore listino "Rompi".
+## Rischio da segnalare
+L'accettazione invito con nuova azienda indica ancora se la P.IVA è già registrata, ma solo a chi ha un invito valido: accettabile secondo la regola, ma lo segnalo.
 
-## Note tecniche
-- **Indice listini**: `danea_price_lists_archive_unique (company_id, archive_id, list_number)` verificato presente nel database live (migrazione 20260917043558) → nessun DROP né ricreazione. Solo se al momento dell'applicazione risultasse assente: consolidamento duplicati + `CREATE UNIQUE INDEX IF NOT EXISTS`.
-- **Clienti**: `customer_records.archive_id uuid NULL REFERENCES danea_archives(id)` + indice (seller_company_id, archive_id); trigger di coerenza archivio↔azienda come per i prodotti.
-- **`manage_customer_record` senza overload**, nella stessa migrazione: `DROP FUNCTION` della firma attuale esatta → `CREATE FUNCTION` con la nuova firma che aggiunge in coda `_archive_id uuid DEFAULT NULL` → `REVOKE ALL ... FROM PUBLIC, anon` → `GRANT EXECUTE ... TO authenticated` sulla nuova firma. Mai `CREATE OR REPLACE` con parametro aggiunto. Corpo invariato salvo la scrittura di `archive_id` (create; update solo se passato); `SECURITY DEFINER`, `search_path = public`, controlli `is_company_admin` + `company_sells` invariati. Dopo l'applicazione: verifica che esista una sola funzione con quel nome.
-- **Discrepanza da segnalare**: la firma live letta oggi ha **35 argomenti**, non 19: `(uuid, text, uuid, 29×text, jsonb, smallint, uuid)`. Il DROP userà la firma esatta letta dal database al momento della migrazione; le chiamate del codice passano i parametri per nome e vengono ricontrollate.
-- **Prezzi**: `buyer_catalog_prices`, `resolve_default_price_list`, `set_customer_price_list` vincolati all'`archive_id` del cliente (fallback attuale se NULL).
-- **Visibilità catalogo lato server**: `can_view_seller_catalogue(uuid)` resta il controllo d'accesso al venditore; nuova funzione `buyer_visible_archive(seller_company_id)` (SECURITY DEFINER, `search_path = public`, cliente ricavato da `auth.uid()`) usata da `buyer_catalog_prices`, `buyer_unpublished_favorites`, `b2b_item_purchasable` e dalle query catalogo delle server function (vetrine, «Tutti i prodotti», pagina prodotto, preferiti): anagrafica con `archive_id NULL` → nessun filtro; altrimenti `products.archive_id = archivio del cliente`.
-- **Frontend**: `fetchActivePriceLists` restituisce l'archivio (raggruppamento), selettore archivio in `customer-import-dialog.tsx`, matching per archivio in `buildPreview` (`src/lib/customer-import.ts`), archivio mostrato nella scheda cliente.
-- Nessuna modifica a import prodotti, relazioni B2B, doppio consenso, inviti, destinazioni.
-
-## Verifiche
-- Due file con stessi codici e P.IVA su due archivi → schede separate, nomi listini intatti.
-- Listino 2 a un cliente dell'archivio A → prezzi del listino 2 di A, mai di B.
-- Cliente dell'archivio A: nessun prodotto dell'archivio B in vetrine, «Tutti i prodotti», pagina prodotto (anche da link diretto), preferiti e ordini; cliente senza archivio: catalogo invariato.
-- Una sola funzione `manage_customer_record`; salvataggio clienti esistente funzionante.
-- Un solo archivio: comportamento identico a oggi; build e controlli su computer e smartphone.
+## Verifica
+- Da utente 3 EMME: la pagina Collegamenti non mostra «Cerca azienda»; chiamare `search_companies`, `company_exists_for_vat`, `request_supplier_relation` verso un'azienda non collegata restituisce vuoto o errore.
+- Inviti e relazioni esistenti invariati. Nessuna prova su Trevi, nessuna pubblicazione.
