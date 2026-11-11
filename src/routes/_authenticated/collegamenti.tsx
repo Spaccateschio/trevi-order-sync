@@ -40,6 +40,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { sendInvitationEmail } from "@/lib/invitation-email.functions";
 import { fetchActivePriceLists, fetchDefaultPriceList } from "@/lib/price-lists";
 
+/** Rete chiusa: collegamenti solo su invito. Ricerca aperta spenta (vedi companies.is_discoverable). */
+const OPEN_COMPANY_SEARCH_ENABLED = false;
+
 export const Route = createFileRoute("/_authenticated/collegamenti")({
   head: () => ({
     meta: [
@@ -369,7 +372,7 @@ function Collegamenti() {
       if (error) throw error;
       return (data ?? []) as CompanyOption[];
     },
-    enabled: Boolean(company) && searchQuery.length > 0,
+    enabled: OPEN_COMPANY_SEARCH_ENABLED && Boolean(company) && searchQuery.length > 0,
   });
 
   const linkedBuyerIds = new Set(asSeller.map((r) => r.buyerCompanyId));
@@ -616,6 +619,7 @@ function Collegamenti() {
             <span className="hidden sm:inline">Le mie connessioni</span>
           </Button>
 
+          {OPEN_COMPANY_SEARCH_ENABLED ? (
           <Button
             size="sm"
             variant={view === "ricerca" ? "default" : "outline"}
@@ -625,6 +629,7 @@ function Collegamenti() {
             <Search className="size-4 shrink-0" />
             <span className="truncate">Cerca azienda</span>
           </Button>
+          ) : null}
 
           {sells ? (
             <Button
@@ -709,7 +714,7 @@ function Collegamenti() {
             />
           </div>
         ) : null}
-        {view === "ricerca" ? (
+        {OPEN_COMPANY_SEARCH_ENABLED && view === "ricerca" ? (
           <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
             <div>
               <h2 className="font-display text-base font-semibold">Cerca azienda</h2>
@@ -917,6 +922,7 @@ function Collegamenti() {
         {/* Scorciatoie: righe compatte su mobile, card estese da tablet in su. */}
         {view === "connessioni" ? (
           <div className="grid gap-2 pt-1 sm:grid-cols-2 sm:gap-3 sm:pt-2 lg:grid-cols-3">
+            {OPEN_COMPANY_SEARCH_ENABLED ? (
             <div className="flex items-center gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-3 sm:flex-col sm:items-stretch sm:p-4">
               <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary sm:size-10">
                 <Search className="size-4 sm:size-5" />
@@ -939,6 +945,7 @@ function Collegamenti() {
                 <ArrowRight className="size-4" />
               </Button>
             </div>
+            ) : null}
             {sells ? (
               <div className="flex items-center gap-3 rounded-2xl border border-success/20 bg-success/5 p-3 sm:flex-col sm:items-stretch sm:p-4">
                 <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-success/10 text-success sm:size-10">
