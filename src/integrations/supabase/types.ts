@@ -7603,6 +7603,10 @@ export type Database = {
           seller_name: string
         }[]
       }
+      buyer_visible_archive: {
+        Args: { _buyer_company_id?: string; _seller_company_id: string }
+        Returns: string
+      }
       can_declare_on_order: { Args: { _order_id: string }; Returns: boolean }
       can_read_company_address: {
         Args: { _company_id: string; _visible: boolean }
