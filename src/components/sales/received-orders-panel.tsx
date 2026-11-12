@@ -11,6 +11,7 @@ import { orderPriceNote } from "@/lib/purchase";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { readSupplierOrder } from "@/lib/b2b-order-sharing";
+import { isReceivedOrder } from "@/lib/received-orders";
 
 /** Separate from the operational panel: only SELECT and the read-only supplier check. */
 export function SupplierOrderConsultation({ orderId, userId }: { orderId: string; userId: string }) {
@@ -99,17 +100,19 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
   const [open, setOpen] = useState<string | null>(null);
 
   const ordersQuery = useQuery({
-    queryKey: ["received-orders", companyId],
+    queryKey: ["received-orders", companyId, "seller-scoped"],
     enabled: Boolean(companyId),
     queryFn: async (): Promise<OrderRow[]> => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("id,number,status,created_at,sent_at,delivery_date,delivery_time_from,delivery_time_to,delivery_address_text,notes,seen_by_supplier_at,customer_modified_at,danea_exported_at,cancel_reason,companies!purchase_orders_company_id_fkey(legal_name)")
+        .select("id,number,status,created_at,sent_at,delivery_date,delivery_time_from,delivery_time_to,delivery_address_text,notes,seen_by_supplier_at,customer_modified_at,danea_exported_at,cancel_reason,companies!purchase_orders_company_id_fkey(legal_name),supplier_customer_relations!inner(seller_company_id)")
+        .eq("supplier_customer_relations.seller_company_id", companyId)
+        .neq("status", "bozza")
         .order("created_at", { ascending: false });
       if (error) throw error;
       // Annullato prima che il fornitore lo aprisse: non c'è nulla da preparare,
       // quindi non compare nella schermata operativa (resta solo la notifica).
-      return (data ?? []).filter((o) => !(o.status === "annullato" && !o.seen_by_supplier_at)).map((o) => ({
+      return (data ?? []).filter((o) => isReceivedOrder({ status: o.status, sellerCompanyId: o.supplier_customer_relations?.seller_company_id ?? null }, companyId) && !(o.status === "annullato" && !o.seen_by_supplier_at)).map((o) => ({
         id: o.id,
         number: o.number,
         status: o.status,
@@ -130,12 +133,14 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
   });
 
   const itemsQuery = useQuery({
-    queryKey: ["received-order-items", companyId],
+    queryKey: ["received-order-items", companyId, "seller-scoped"],
     enabled: Boolean(companyId),
     queryFn: async (): Promise<ItemRow[]> => {
       const { data, error } = await supabase
         .from("purchase_order_items")
-        .select("id,order_id,product_name,product_code,purchase_quantity,purchase_unit_code,ordered_quantity,unit_code,unit_cost,price_unit_code,notes,previous_quantity");
+        .select("id,order_id,product_name,product_code,purchase_quantity,purchase_unit_code,ordered_quantity,unit_code,unit_cost,price_unit_code,notes,previous_quantity,purchase_orders!inner(status,supplier_customer_relations!inner(seller_company_id))")
+        .eq("purchase_orders.supplier_customer_relations.seller_company_id", companyId)
+        .neq("purchase_orders.status", "bozza");
       if (error) throw error;
       return (data ?? []) as ItemRow[];
     },
