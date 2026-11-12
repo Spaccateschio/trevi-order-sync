@@ -4,6 +4,8 @@ import { afterInventoryDraftWrites, confirmAllSummary, inventoryBulkReview, inve
 import { InventoryConfirmAllDialog } from "./inventory-confirm-all-dialog";
 import { inventoryResetAction, inventoryReopenQueryKeys } from "@/lib/inventory-reset";
 import { inventoryCompactBar } from "@/lib/inventory-scroll";
+import { createRefreshBatcher } from "@/lib/shopping-optimistic";
+import { countedRowPatch, patchCardRow, restoreCardRow } from "@/lib/inventory-optimistic";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CYCLE_QUERY_KEY } from "@/components/shopping/inventory-to-evaluate";
 import { getInventoryCycleStatus, type CycleStatus } from "@/lib/inventory-cycle.functions";
@@ -235,6 +237,8 @@ const CardLockContext = createContext<{
   unlocked: Set<string>;
   toggle: (key: string) => void;
   pending: boolean;
+  /** Card con un conteggio in salvataggio: solo quelle restano bloccate. */
+  saving: Set<string>;
   /** false = schermata non allineata al server: nessun salvataggio finché non si ricarica. */
   canSave: boolean;
   isAdmin: boolean;
@@ -242,7 +246,7 @@ const CardLockContext = createContext<{
   cardFavoritePending: boolean;
   /** Numero di card per prodotto+ubicazione nell'elenco visibile. */
   groupSize: Map<string, number>;
-}>({ unlocked: new Set(), toggle: () => {}, pending: false, canSave: true, isAdmin: false, toggleCardFavorite: () => {}, cardFavoritePending: false, groupSize: new Map() });
+}>({ unlocked: new Set(), toggle: () => {}, pending: false, saving: new Set(), canSave: true, isAdmin: false, toggleCardFavorite: () => {}, cardFavoritePending: false, groupSize: new Map() });
 
 /** Card compilate da Tom (solo presentazione) e card corrente della modalità guidata. */
 const TomMarksContext = createContext<{ keys: Set<string>; current: string | null }>({ keys: new Set(), current: null });
@@ -1401,8 +1405,27 @@ export function InventoryCountPanel({
 
 
   // Conferma e riconteggio: append-only nello storico, l'ultima riga è la fotografia corrente
+  // Conferma ottimistica: la card si aggiorna e si blocca subito; ricarica unica in sottofondo a coda vuota.
+  const [savingCards, setSavingCards] = useState<Set<string>>(new Set());
+  const countBatcher = useMemo(() => createRefreshBatcher(() => { void refreshRef.current(); }), []);
+  const refreshRef = useRef<() => Promise<void>>(async () => undefined);
+  refreshRef.current = refresh;
+  const countBackups = useRef(new Map<string, Array<[readonly unknown[], InventoryCountRow | undefined]>>());
   const countMutation = useMutation({
-    mutationFn: (input: { row: InventoryCountRow; value: number; unit: string; notes: string | null }) => {
+    onMutate: (input) => {
+      const key = rowKey(input.row);
+      countBatcher.begin();
+      setSavingCards((current) => new Set(current).add(key));
+      const backups: Array<[readonly unknown[], InventoryCountRow | undefined]> = [];
+      for (const [queryKey, rows] of queryClient.getQueriesData<InventoryCountRow[]>({ queryKey: ["inventory-rows"] })) {
+        backups.push([queryKey, rows?.find((row) => rowKey(row) === key)]);
+        queryClient.setQueryData<InventoryCountRow[]>(queryKey, (current) => patchCardRow(current, key, rowKey, (row) =>
+          countedRowPatch(row, { value: input.value, unitCode: input.unit || null, stockValue: input.stockValue ?? null, at: new Date().toISOString() }) as Partial<InventoryCountRow>));
+      }
+      countBackups.current.set(key, backups);
+      lockSavedCard(key);
+    },
+    mutationFn: (input: { row: InventoryCountRow; value: number; unit: string; notes: string | null; stockValue?: number | null }) => {
       if(!sessionId) throw new Error("Inventario non aperto");
       return saveEntry({
         data: {
@@ -1421,17 +1444,29 @@ export function InventoryCountPanel({
         },
       });
     },
-    onSuccess: async (_result, input) => {
-      lockSavedCard(rowKey(input.row));
+    onSuccess: (_result, input) => {
       setDrafts((current) => {
         const next = { ...current };
         delete next[rowKey(input.row)];
         return next;
       });
       clearDraftOnServer(rowKey(input.row));
-      await refresh();
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error, input) => {
+      const key = rowKey(input.row);
+      // Ripristino della sola card: la bozza resta nel campo e la card torna modificabile.
+      for (const [queryKey, original] of countBackups.current.get(key) ?? []) {
+        queryClient.setQueryData<InventoryCountRow[]>(queryKey, (current) => restoreCardRow(current, key, rowKey, original));
+      }
+      setUnlockedCards((current) => new Set(current).add(key));
+      toast.error(error.message);
+    },
+    onSettled: (_result, _error, input) => {
+      const key = rowKey(input.row);
+      countBackups.current.delete(key);
+      setSavingCards((current) => { const next = new Set(current); next.delete(key); return next; });
+      countBatcher.end(key);
+    },
   });
 
   // Riconta: segna la riga come "Da ricontare" senza cancellare il conteggio precedente
@@ -1692,16 +1727,23 @@ export function InventoryCountPanel({
     let stockValue: number | null = row.stock_unit_code && chosen.code?.toLowerCase() === row.stock_unit_code.trim().toLowerCase() ? value : null;
     if (chosen.code?.toLowerCase() !== row.stock_unit_code?.trim().toLowerCase()) {
       if (!chosen.id) { toast.error("U.M. del conteggio da impostare"); return; }
-      const { data, error } = await supabase.rpc("inventory_count_conversion", { _product_id: row.product_id, _unit_id: chosen.id });
-      if (error || !data?.[0]) { toast.error(error?.message ?? "Confezione non configurata"); return; }
-      stockValue = data[0].factor === null ? null : Math.round(value * data[0].factor * 1000) / 1000;
+      // Fattore già letto dalla card: nessuna attesa di rete in più.
+      const cached = queryClient.getQueryData<number | null>(["inventory-count-factor", row.product_id, chosen.id]);
+      let factor: number | null;
+      if (cached !== undefined) factor = cached;
+      else {
+        const { data, error } = await supabase.rpc("inventory_count_conversion", { _product_id: row.product_id, _unit_id: chosen.id });
+        if (error || !data?.[0]) { toast.error(error?.message ?? "Confezione non configurata"); return; }
+        factor = data[0].factor;
+      }
+      stockValue = factor === null ? null : Math.round(value * factor * 1000) / 1000;
     }
     if (stockValue !== null && row.calculated !== null && stockValue !== Number(row.calculated)) {
       setPending({ row, value, stockValue, unit: chosen.code ?? rowUnit(row) });
       setPendingReason(row.note ?? "");
       return;
     }
-    countMutation.mutate({ row, value, unit: chosen.code ?? rowUnit(row), notes: null });
+    countMutation.mutate({ row, value, unit: chosen.code ?? rowUnit(row), notes: null, stockValue });
   };
 
   const savePendingDifference = () => {
@@ -1711,6 +1753,7 @@ export function InventoryCountPanel({
       value: pending.value,
       unit: pending.unit ?? rowUnit(pending.row),
       notes: pendingReason.trim() || null,
+      stockValue: pending.stockValue ?? null,
     });
     const head = noteQueue.current.rows[0];
     setPending(null);
@@ -1888,7 +1931,8 @@ export function InventoryCountPanel({
           <TomMarksContext.Provider value={tomMarks}>
           <CardLockContext.Provider value={{
             unlocked: unlockedCards,
-            pending: countMutation.isPending || firstCount.isPending || confirmAll.isPending || reviewLoading || confirmAllOpen,
+            pending: firstCount.isPending || confirmAll.isPending || reviewLoading || confirmAllOpen,
+            saving: savingCards,
             canSave: !screenOutdated,
             isAdmin,
             toggleCardFavorite: (row) => cardFavoriteMutation.mutate(row),
@@ -3378,11 +3422,11 @@ function PhysicalCount({
               variant="ghost"
               className="w-full max-w-md shrink-0 justify-center bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground"
               onClick={onConfirmAll}
-              disabled={!sessionActive || !cardLockState.canSave || cardLockState.pending || closing}
+              disabled={!sessionActive || !cardLockState.canSave || cardLockState.pending || cardLockState.saving.size > 0 || closing}
             >
               <CheckCheck /> Conferma tutto
             </Button>
-            {sessionActive && isAdmin ? <Button size="sm" variant="outline" className="w-full max-w-md" disabled={closing || cardLockState.pending || !cardLockState.canSave} onClick={onCloseInventory}>
+            {sessionActive && isAdmin ? <Button size="sm" variant="outline" className="w-full max-w-md" disabled={closing || cardLockState.pending || cardLockState.saving.size > 0 || !cardLockState.canSave} onClick={onCloseInventory}>
               <Lock /> Chiudi inventario
             </Button> : null}
           </div>
@@ -3499,7 +3543,7 @@ function ProductCard({
   const tomMarks = useContext(TomMarksContext);
   const locked = inventoryCardLocked(row.counted !== null, cardLock.unlocked.has(rowKey(row)), cycleLocked, correcting);
   const editable = cardLock.canSave
-    && canEditInventoryCard(locked, correction.pending || cardLock.pending, row.stock_unit_missing);
+    && canEditInventoryCard(locked, correction.pending || cardLock.pending || cardLock.saving.has(rowKey(row)), row.stock_unit_missing);
   const showCard = actionsEnabled && (cardLock.groupSize.get(groupKey(row)) ?? 0) > 0;
   const changeQuantity = (next: string) => {
     if (!editable) return;
@@ -3834,7 +3878,7 @@ function ProductCard({
                 className={rowLayout ? "h-8 w-7 shrink-0 px-0" : "h-10 w-9 shrink-0 px-0"}
                 aria-label={!locked ? `Blocca ${name}` : `Sblocca ${name}`}
                 title={!locked ? "Blocca" : "Sblocca"}
-                disabled={correction.pending || cardLock.pending}
+                disabled={correction.pending || cardLock.pending || cardLock.saving.has(rowKey(row))}
                 onClick={() => {
                   if (correctionTarget) {
                     correction.toggle();
