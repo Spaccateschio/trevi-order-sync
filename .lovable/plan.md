@@ -1,59 +1,48 @@
-# Lentezza conferma quantità nella Lista della Spesa — diagnosi e correzione minima
+# Lentezza conferma quantità nell'Inventario — diagnosi e piano
 
-## Diagnosi (verificata sul codice e sul database reale)
+## Diagnosi (codice e database reali)
 
-### 1. Cosa succede alla conferma
-Percorso: `toggleLock` → `commitQuantity` → coda per riga `commitQueue` → `workerRef.current` in `src/components/shopping/shopping-list-panel.tsx` (righe ~1114–1206). Chiamate tutte **in sequenza**, ognuna è un viaggio di rete browser → database:
+### 1. Cosa parte alla conferma di una card
+Percorso: `confirmQuantity` (InventoryCard) → `onConfirm` → `confirmRow` → `countMutation.mutate` (`src/components/inventory/inventory-count-panel.tsx`).
 
-1. lettura `shopping_list_items` (quantità, blocco, U.M.)
-2. lettura `shopping_list_item_suppliers.updated_at` (versione quote)
-3. `autoAssignItem` (`src/lib/shopping-auto-assign.ts`, `run`):
-   - rilegge **di nuovo** la stessa riga `shopping_list_items` (doppione del punto 1)
-   - 6 letture in parallelo: `shopping_list_item_suppliers`, RPC `product_supplier_overview`, RPC `shopping_item_supplier_units`, `company_product_supplier_favorites`, `products.stock_unit_id`, `product_direct_purchase_preferences`
-   - poi in sequenza, secondo il caso: `readLinksInTime` (2 letture una dopo l'altra: `shopping_lists.delivery_date`, poi `product_supplier_links`), `readConversions`, `purchase_order_items` (solo se ci sono quote), `readMemories` (2 letture), `product_supplier_links.preferred_set_at`
-4. server function `commitShoppingListItemQuantity` (`src/lib/shopping-list.functions.ts`) → RPC `commit_shopping_list_item_quantity` (passaggio in più browser → server → database)
-5. attende il ricaricamento di `shopping-list-overview`, `shopping-extras-assignments`, `shopping-list-assignments`
-6. nel `finally` attende **un secondo** ricaricamento: `shopping-extras-locks` + `refresh()` = `shopping-lists`, di nuovo `shopping-list-overview`, di nuovo `shopping-extras-assignments`, stato ciclo `inventory-cycle`
+In fila:
+1. Solo se l'U.M. scelta è diversa da quella di magazzino: RPC `inventory_count_conversion` (attesa prima di tutto il resto, anche se la card ha già lo stesso fattore in cache nella query `inventory-count-factor`).
+2. Server function `recordCountEntry` (`src/lib/inventory-count.functions.ts`) → RPC `record_inventory_count_entry` (una sola chiamata).
+3. `onSuccess`: `lockSavedCard`, pulizia bozza locale, `clearDraftOnServer` (server function `manageCountDraft` `clear_one`, non attesa), poi **`await refresh()`**.
+4. `refresh()` invalida e attende in parallelo `inventory-progress` (RPC `inventory_session_progress`) e tutte le query `inventory-rows` (due: `all-session` e `all-favorites`).
+5. Ognuna delle due `getInventoryRows` fa sul server, in fila: lettura `inventory_sessions` → RPC `inventory_session_rows` → `getSupplierReferences` (`product_supplier_links`, poi `supplier_customer_relations`) → preferiti (`company_product_favorites` + `buyer_product_favorites` in parallelo).
 
-Totale tipico: **10–13 viaggi di rete in fila** per ogni riga.
+### 2. Ricarica totale
+Sì: dopo ogni conferma viene ricaricata **tutta la sessione due volte** (134 card nella sessione aperta, tutte le righe + solo preferiti), più l'avanzamento. Nessun aggiornamento della sola riga.
 
-### 2. Ricarica dell'intera lista
-Sì. Dopo ogni conferma si ricarica tutta la RPC `shopping_list_overview` (tutte le 119 righe della lista aperta più grande) **due volte di seguito**, più elenco liste e stato del ciclo. Nessun aggiornamento della sola riga.
+### 3. Trigger e funzioni sul salvataggio
+- `record_inventory_count_entry` (SECURITY DEFINER) lavora solo sulla card: controlli di appartenenza, `_resolve_session_card`, conversione, `_inventory_card_stock`, 3 insert e 2 update mirati.
+- Trigger: `validate_inventory_count` e `set_updated_at` su `inventory_counts`; `deny_history_write` su `inventory_count_entries` (solo blocco modifiche allo storico). Nessun ricalcolo di sessione, nessuna proposta di riordino, nessun audit pesante.
 
-### 3. Trigger e funzioni lato database
-- Trigger su `shopping_list_items`: solo `assert_shopping_list_open` e `set_updated_at`; su `shopping_list_item_suppliers`: `assert_shopping_list_open`, `assert_assignment_purchase_data`, `set_updated_at`. Leggeri, nessun ricalcolo su tutta la lista.
-- `commit_shopping_list_item_quantity` (SECURITY DEFINER) richiama `set_shopping_list_item_quantity_lock` e `shopping_list_item_state` solo sulla riga: nessun ciclo su tutta la lista né controlli di acquistabilità per ogni prodotto.
+### 4. Input bloccato
+Sì, ed è il punto principale: `CardLockContext.pending = countMutation.isPending || ...` vale per **tutte le card**. Poiché `onSuccess` attende `refresh()`, ogni card dell'inventario resta disabilitata (`canEditInventoryCard`) finché salvataggio e doppia ricarica non sono finiti. Non c'è aggiornamento ottimistico.
 
-### 4. Campo bloccato durante il salvataggio
-Sì. `savingIds` disattiva campo quantità (riga ~1009), «Conferma» e «Non acquistare» (`shopping-list-card.tsx` riga 704, `lockPending`) finché non finiscono **anche i due ricaricamenti** (il `finally`). Nessun aggiornamento ottimistico.
+### 5. Tempi e viaggi di rete
+EXPLAIN ANALYZE sui dati reali (sessione aperta, 134 card):
+- bozze sessione 1,2 ms; `inventory_sessions` 0,04 ms; `inventory_counts` 0,04 ms; `inventory_session_products` 0,07 ms; `product_supplier_links` 5,5 ms; `company_product_favorites` 1,9 ms.
+- Le RPC (`inventory_session_rows`, `record_inventory_count_entry`, `inventory_session_progress`) non sono eseguibili dal ruolo di sola lettura: tempo non misurabile direttamente.
+- Nessun indice mancante: il database non è il collo di bottiglia.
 
-### 5. Tempi misurati (EXPLAIN ANALYZE, dati reali, sola lettura)
-| Lettura | Tempo |
-|---|---|
-| riga `shopping_list_items` | 1,2 ms |
-| versioni quote `shopping_list_item_suppliers` | 6,9 ms |
-| `product_supplier_links` del prodotto | 2,4 ms |
-| `company_product_supplier_favorites` | 1,2 ms |
-| `product_direct_purchase_preferences` | 1,2 ms |
-| memoria ultima Lista chiusa | 1,4 ms |
-| `purchase_order_items` per quote | 0,1 ms |
-| tutte le 119 righe della lista | 1,4 ms |
-| tutte le quote della lista | 0,2 ms |
+Viaggi di rete in fila per una conferma tipica:
+- Browser: conversione (solo U.M. diversa) → salvataggio → ricarica = **2–3 giri**, il terzo contiene a sua volta **4–5 giri interni** server→database per ciascuna delle due letture.
+- Totale in fila percepito: **circa 6–8**, con tutte le card bloccate per tutta la durata.
 
-Statistiche del database: le letture della Lista hanno media 1–14 ms. Le RPC (`shopping_list_overview`, `commit_shopping_list_item_quantity`, ecc.) non posso lanciarle con EXPLAIN ANALYZE (il mio accesso in lettura non può eseguire funzioni) e non compaiono tra le 100 operazioni più costose del database.
+## Piano di correzione (modifiche minime, nessuna modifica al database)
 
-**Conclusione:** il database è veloce, **nessun indice manca** (le scansioni complete sono su tabelle di 86–119 righe). I secondi di attesa nascono dai 10–13 viaggi di rete in fila più i due ricaricamenti completi, con il campo bloccato per tutto il tempo.
+1. **Niente blocco globale**: `pending` del contesto delle card non dipende più dal salvataggio della singola card; resta bloccata solo la card in salvataggio (stato per chiave card). «Conferma tutto», «Svuota» e chiusura continuano a bloccare come oggi.
+2. **Aggiornamento ottimistico della riga**: alla conferma la card nelle due cache `inventory-rows` riceve subito quantità contata e U.M., e si blocca subito (`lockSavedCard`); in caso di errore si ripristina la riga, la card resta modificabile con la bozza nel campo e compare il messaggio. Riuso di `patchRowQuantity`-stile da `src/lib/shopping-optimistic.ts` (helper puro generico di patch/ripristino per chiave).
+3. **Una sola ricarica in sottofondo, non attesa**: `onSuccess` non attende più `refresh()`; si usa `createRefreshBatcher` da `src/lib/shopping-optimistic.ts` per invalidare `inventory-rows` e `inventory-progress` una sola volta quando non restano salvataggi in corso.
+4. **Conversione senza attesa extra**: se il fattore è già nella cache `inventory-count-factor` della card, si usa quello; la RPC parte solo se manca.
+5. Invariati: una sola `record_inventory_count_entry` per conferma, card esplicita (`_card_explicit`), richiesta della nota per differenze, coda bozze per card, regole di blocco/sblocco, «Conferma tutto».
+6. Test puri per patch/ripristino della riga inventario e per il blocco per singola card; esecuzione dei test Inventario esistenti.
 
-## Piano di correzione (modifiche minime)
-
-1. **Aggiornamento ottimistico della riga**: alla conferma la riga mostra subito quantità e stato confermato nella cache di `shopping-list-overview`, la card si chiude e il campo successivo è subito usabile. Il salvataggio continua in coda per quella riga (un piccolo indicatore «salvataggio…»). Se il database rifiuta: la riga torna com'era, la bozza resta nel campo, messaggio d'errore come oggi.
-2. **Niente ricarica totale in attesa**: un solo ricaricamento in sottofondo, non atteso e senza doppioni (overview + quote della sola riga + blocchi); elenco liste e stato ciclo solo quando cambiano davvero (prima quantità della lista / ultima riga), non a ogni riga.
-3. **Letture in parallelo e senza doppioni**: le letture dei punti 1 e 2 partono insieme; la riga già letta viene passata ad `autoAssignItem` invece di rileggerla; `readLinksInTime`, `readMemories` e `preferred_set_at` partono in parallelo quando indipendenti.
-4. **Nessun indice nuovo** e nessuna modifica al database: la misura non lo giustifica.
-
-Restano invariati: una sola `commit_shopping_list_item_quantity` per salvataggio (regola del progetto), controlli del database, coda per riga «vince l'ultimo valore», regole fornitori/stelle/memoria, Non acquistare.
+Risultato atteso: dopo «Conferma» la card si blocca subito e si può scrivere la successiva senza attesa; giri in fila prima di poter continuare: da circa 6–8 a 0 (il salvataggio prosegue in sottofondo).
 
 ## Dettagli tecnici
-- File: `src/components/shopping/shopping-list-panel.tsx` (worker, `toggleLock`, `savingIds`), `src/lib/shopping-auto-assign.ts` (opzione `item` già letto, parallelismo), eventualmente `src/components/shopping/shopping-list-card.tsx` solo per l'indicatore.
-- Nuova funzione pura per applicare/annullare la modifica ottimistica alla riga, con test (conferma, rifiuto con ripristino, valore più recente in coda che vince).
-- Verifica: test esistenti della Lista + prova in anteprima solo su 3 EMME ROMA SRL, misurando il tempo tra conferma e campo successivo utilizzabile prima e dopo.
+- File: `src/components/inventory/inventory-count-panel.tsx` (countMutation, confirmRow, CardLockContext), eventuale piccolo helper in `src/lib/inventory-optimistic.ts` con test, riuso di `createRefreshBatcher`; regola in `src/components/inventory/AGENTS.md`.
+- Nessuna migrazione, indice o modifica a RPC/trigger.
