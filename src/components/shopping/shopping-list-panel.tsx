@@ -37,6 +37,8 @@ import { CYCLE_QUERY_KEY, EvaluationDecision, InventoryEvaluation, useEvaluation
 import { statusFromQuantity, type EvaluationStatus } from "@/lib/inventory-evaluation";
 import { DISPLAY_FIELDS, useCardDisplay } from "./card-display";
 import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
+import { MemoCatalogProductCard, MemoShoppingListCard } from "./memo-cards";
+import { useStableCallbacks } from "@/lib/stable-props";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { CloseListDialog } from "./close-list-dialog";
 import { GenerateOrdersDialog } from "./generate-orders-dialog";
@@ -1003,6 +1005,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     }
     return commitQuantity(row.item_id, { quantity: value > 0 ? value : null });
   };
+  const stable = useStableCallbacks();
   const quantityInput = (row: OverviewRow, className: string) => (
     <Input
       className={className}
@@ -1010,12 +1013,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       disabled={!editable || (Boolean(extras.get(row.item_id)?.lockedAt) && !unlockedIds.has(row.item_id)) || savingIds.has(row.item_id)}
       value={edits[row.item_id] ?? (row.decided_quantity === null ? "" : String(row.decided_quantity))}
       aria-label={`Quantità decisa ${row.code}`}
-      onFocus={(event) => event.currentTarget.select()}
-      onClick={(event) => event.currentTarget.select()}
-      onChange={(event) => setEdits((current) => ({ ...current, [row.item_id]: event.target.value }))}
-      onKeyDown={(event) => {
+      onFocus={stable(`${row.item_id}:qi:onFocus`, (event) => event.currentTarget.select())}
+      onClick={stable(`${row.item_id}:qi:onClick`, (event) => event.currentTarget.select())}
+      onChange={stable(`${row.item_id}:qi:onChange`, (event) => setEdits((current) => ({ ...current, [row.item_id]: event.target.value })))}
+      onKeyDown={stable(`${row.item_id}:qi:onKeyDown`, (event) => {
         if (event.key === "Enter") { event.preventDefault(); void toggleLock(row); }
-      }}
+      })}
     />
   );
 
@@ -1042,22 +1045,22 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     <span className="flex min-w-0 flex-1 items-center gap-1">
     {savedEvaluations.get(row.product_id)?.status === "non_acquistare" ? null : (
     <Input
-      onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void confirmPending(row); } }}
+      onKeyDown={stable(`${row.product_id}:pi:onKeyDown`, (event) => { if (event.key === "Enter") { event.preventDefault(); void confirmPending(row); } })}
       className="h-9 max-md:h-8 min-w-0 flex-1 text-right text-base max-md:text-sm font-bold"
       inputMode="decimal"
       placeholder="—"
       disabled={!(editable || previewMode)}
       value={evalValues[row.product_id] ?? ""}
       aria-label={`Da acquistare ${row.code}`}
-      onFocus={(event) => event.currentTarget.select()}
-      onClick={(event) => event.currentTarget.select()}
-      onChange={(event) => setEvalValues((current) => ({ ...current, [row.product_id]: event.target.value }))}
+      onFocus={stable(`${row.product_id}:pi:onFocus`, (event) => event.currentTarget.select())}
+      onClick={stable(`${row.product_id}:pi:onClick`, (event) => event.currentTarget.select())}
+      onChange={stable(`${row.product_id}:pi:onChange`, (event) => setEvalValues((current) => ({ ...current, [row.product_id]: event.target.value })))}
     />
     )}
     <EvaluationDecision
       status={savedEvaluations.get(row.product_id)?.status}
       disabled={!(editable || previewMode) || saveEvaluation.isPending}
-      onDecide={(status) => decidePending(row.product_id, status)}
+      onDecide={stable(`${row.product_id}:pi:onDecide`, (status) => decidePending(row.product_id, status))}
     />
     </span>
   );
@@ -2058,10 +2061,10 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 const entry = item.value;
                 return (
                   <div key={`${list?.id ?? "next-purchase"}:${entry.key}`} id={`review-catalog-${entry.key}`} className="min-w-0">
-                  <CatalogProductCard
+                  <MemoCatalogProductCard
                     key={`${list?.id ?? "next-purchase"}:${entry.key}`}
                     mobileOpen={mobileOpenId === entry.key}
-                    onToggleMobile={() => setMobileOpenId((current) => toggleMobileCard(current, entry.key))}
+                    onToggleMobile={stable(`${entry.key}:c:onToggleMobile`, () => setMobileOpenId((current) => toggleMobileCard(current, entry.key)))}
                     entry={entry}
                     companyId={companyId}
                     show={display.prefs}
@@ -2072,36 +2075,36 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                     favoriteDisabled={catalogActions.favorite.isPending || (Boolean(entry.ownProductId) && !catalog.favoritesReady)}
                     canAdd={ready.canPrepare || previewMode}
                     adding={catalogActions.add.isPending}
-                    onToggleFavorite={() =>
+                    onToggleFavorite={stable(`${entry.key}:c:onToggleFavorite`, () =>
                       catalogActions.favorite.mutate({
                         entry,
                         value: !(entry.ownProductId && catalog.favorites.has(entry.ownProductId)),
                       })
-                    }
+                    )}
                     draftValue={catalogValues[entry.key]?.raw ?? ""}
                     draftUnit={catalogValues[entry.key]?.unit ?? null}
-                    onQuantityChange={(raw, unit) => setCatalogValues((current) => ({ ...current, [entry.key]: { raw, unit } }))}
-                    onDraftChange={(dirty) => setCatalogDrafts((current) => { const next = new Set(current); if (dirty) next.add(entry.key); else next.delete(entry.key); return next; })}
+                    onQuantityChange={stable(`${entry.key}:c:onQuantityChange`, (raw, unit) => setCatalogValues((current) => ({ ...current, [entry.key]: { raw, unit } })))}
+                    onDraftChange={stable(`${entry.key}:c:onDraftChange`, (dirty) => setCatalogDrafts((current) => { const next = new Set(current); if (dirty) next.add(entry.key); else next.delete(entry.key); return next; }))}
                     nonPurchase={catalogNotBuying.has(entry.key)}
-                    onNonPurchase={() => setCatalogNotBuying((current) => new Set(current).add(entry.key))}
-                    onRestoreNonPurchase={() => setCatalogNotBuying((current) => { const next = new Set(current); next.delete(entry.key); return next; })}
-                    onAdd={async (quantity, unitCode) => {
+                    onNonPurchase={stable(`${entry.key}:c:onNonPurchase`, () => setCatalogNotBuying((current) => new Set(current).add(entry.key)))}
+                    onRestoreNonPurchase={stable(`${entry.key}:c:onRestoreNonPurchase`, () => setCatalogNotBuying((current) => { const next = new Set(current); next.delete(entry.key); return next; }))}
+                    onAdd={stable(`${entry.key}:c:onAdd`, async (quantity, unitCode) => {
                       const added = await catalogActions.add.mutateAsync({ entry, quantity, unitCode });
                       setEdits((current) => ({ ...current, [added.itemId]: String(quantity) }));
                       setUnitEdits((current) => ({ ...current, [added.itemId]: { unitId: null, unitCode } }));
                       await commitQuantity(added.itemId, { quantity, unitId: null, unitCode });
                       setUnitEdits((current) => { const next = { ...current }; delete next[added.itemId]; return next; });
-                    }}
+                    })}
                   />
                   </div>
                 );
               }
               const { kind, row, extra, stock } = item.value;
               return kind === "pending" ? (
-                <ShoppingListCard
+                <MemoShoppingListCard
                   key={row.item_id}
                   mobileOpen={mobileOpenId === row.item_id}
-                  onToggleMobile={() => setMobileOpenId((current) => toggleMobileCard(current, row.item_id))}
+                  onToggleMobile={stable(`${row.item_id}:p:onToggleMobile`, () => setMobileOpenId((current) => toggleMobileCard(current, row.item_id)))}
                   show={display.prefs}
                   pending
                   layout={viewMode}
@@ -2110,28 +2113,28 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   stock={stock}
                   editable={Boolean(editable || previewMode)}
                   quantityInput={pendingInput(row)}
-                  onQuickAdd={(step) => pendingQuickAdd(row, step)}
+                  onQuickAdd={stable(`${row.item_id}:p:onQuickAdd`, (step) => pendingQuickAdd(row, step))}
                   companyId={companyId}
                   favoritePending={favoriteMutation.isPending}
-                  onToggleFavorite={() => favoriteMutation.mutate({ productId: row.product_id, favorite: !pendingFavorites.has(row.product_id) })}
-                  onOpenSuppliers={() => undefined}
-                  onRemove={() => undefined}
+                  onToggleFavorite={stable(`${row.item_id}:p:onToggleFavorite`, () => favoriteMutation.mutate({ productId: row.product_id, favorite: !pendingFavorites.has(row.product_id) }))}
+                  onOpenSuppliers={stable(`${row.item_id}:p:onOpenSuppliers`, () => undefined)}
+                  onRemove={stable(`${row.item_id}:p:onRemove`, () => undefined)}
                   pendingQuantity={parseQuantity(evalValues[row.product_id] ?? "")}
                   evaluation={savedEvaluations.get(row.product_id)}
                   excluded={savedEvaluations.get(row.product_id)?.status === "non_acquistare"}
-                  onRestore={() => decidePending(row.product_id, "da_valutare")}
+                  onRestore={stable(`${row.item_id}:p:onRestore`, () => decidePending(row.product_id, "da_valutare"))}
                   lockPending={confirmingIds.has(row.product_id)}
-                  onToggleLock={() => void confirmPending(row)}
+                  onToggleLock={stable(`${row.item_id}:p:onToggleLock`, () => void confirmPending(row))}
                 />
               ) : (
-              <ShoppingListCard
+              <MemoShoppingListCard
                 key={row.item_id}
                 mobileOpen={mobileOpenId === row.item_id}
-                onToggleMobile={() => setMobileOpenId((current) => toggleMobileCard(current, row.item_id))}
+                onToggleMobile={stable(`${row.item_id}:l:onToggleMobile`, () => setMobileOpenId((current) => toggleMobileCard(current, row.item_id)))}
                 show={display.prefs}
                 companyId={companyId}
                 layout={viewMode}
-                onQuickAdd={(step) => quickAdd(row, step)}
+                onQuickAdd={stable(`${row.item_id}:l:onQuickAdd`, (step) => quickAdd(row, step))}
                 row={row}
                 extra={unitEdits[row.item_id] && extra ? { ...extra, decidedUnitId: unitEdits[row.item_id]?.unitId ?? null, decidedUnitCode: unitEdits[row.item_id]?.unitCode ?? null } : extra}
                 stock={stock}
@@ -2139,13 +2142,13 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 listConfirmed={list?.status === "confermata"}
                 quantityInput={quantityInput(row, "h-9 max-md:h-8 min-w-0 flex-1 text-right text-base max-md:text-sm font-bold")}
                 favoritePending={favoriteMutation.isPending}
-                onToggleFavorite={() =>
+                onToggleFavorite={stable(`${row.item_id}:l:onToggleFavorite`, () =>
                   favoriteMutation.mutate({ productId: row.product_id, favorite: !extras.get(row.item_id)?.isFavorite })
-                }
-                onOpenSuppliers={() => setSplitItem(row)}
-                onCopyToOwnProducts={copyHandler(row.product_id)}
-                onRemove={() => removeMutation.mutate(row.item_id)}
-                onSaveNotes={
+                )}
+                onOpenSuppliers={stable(`${row.item_id}:l:onOpenSuppliers`, () => setSplitItem(row))}
+                onCopyToOwnProducts={stable(`${row.item_id}:l:onCopyToOwnProducts`, copyHandler(row.product_id))}
+                onRemove={stable(`${row.item_id}:l:onRemove`, () => removeMutation.mutate(row.item_id))}
+                onSaveNotes={stable(`${row.item_id}:l:onSaveNotes`, 
                   editable
                     ? async (notes) => {
                         try {
@@ -2156,29 +2159,29 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                         }
                       }
                     : undefined
-                }
-                onToggleLock={() => void toggleLock(row)}
+                )}
+                onToggleLock={stable(`${row.item_id}:l:onToggleLock`, () => void toggleLock(row))}
                 draftQuantity={confirmationQuantity(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity))}
                 quantityLocked={Boolean(extra?.lockedAt) && !unlockedIds.has(row.item_id)}
                 excluded={excludedQuery.data?.has(row.item_id) ?? false}
-                onRestore={() => void excludeItem(row.item_id, "restore").catch(() => undefined)}
+                onRestore={stable(`${row.item_id}:l:onRestore`, () => void excludeItem(row.item_id, "restore").catch(() => undefined))}
                 saving={savingIds.has(row.item_id)}
                 memory={memoryQuery.data?.get(row.product_id) ?? null}
                 lockPending={savingIds.has(row.item_id)}
-                onClearQuantity={() => {
+                onClearQuantity={stable(`${row.item_id}:l:onClearQuantity`, () => {
                   setEdits((current) => ({ ...current, [row.item_id]: "" }));
-                }}
-                onProposeUnit={(unit) => {
+                })}
+                onProposeUnit={stable(`${row.item_id}:l:onProposeUnit`, (unit) => {
                   if (unit) proposedUnits.current.set(row.item_id, unit);
                   else proposedUnits.current.delete(row.item_id);
-                }}
-                onFixUnit={(unitId, unitCode, quantity) => {
+                })}
+                onFixUnit={stable(`${row.item_id}:l:onFixUnit`, (unitId, unitCode, quantity) => {
                   setEdits((current) => ({ ...current, [row.item_id]: String(quantity) }));
                   void commitQuantity(row.item_id, { quantity, unitId, unitCode });
-                }}
-                onUnitChange={(unitId, unitCode) => {
+                })}
+                onUnitChange={stable(`${row.item_id}:l:onUnitChange`, (unitId, unitCode) => {
                   setUnitEdits((current) => ({ ...current, [row.item_id]: { unitId, unitCode } }));
-                }}
+                })}
               />
               );
             })}
