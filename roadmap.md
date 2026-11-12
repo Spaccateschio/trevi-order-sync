@@ -345,3 +345,4 @@
 - [ ] Accensione per Trevi srl (solo su richiesta di Andrea)
 
 - [x] Archivi Danea su clienti, listini e catalogo (piano approvato 11/11)
+- [ ] Lista: conferma quantità veloce (ottimistico, ricarica in sottofondo, letture parallele)
