@@ -1005,6 +1005,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     }
     return commitQuantity(row.item_id, { quantity: value > 0 ? value : null });
   };
+  const stable = useStableCallbacks();
   const quantityInput = (row: OverviewRow, className: string) => (
     <Input
       className={className}
