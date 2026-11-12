@@ -90,7 +90,8 @@ import {
   setShoppingListItemNotes,
   setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
-import { autoAssignItem, readMemories, type PlannedWrite } from "@/lib/shopping-auto-assign";
+import { autoAssignItem, ITEM_COLUMNS, readMemories, type AutoAssignItemRow, type PlannedWrite } from "@/lib/shopping-auto-assign";
+import { createRefreshBatcher, patchLock, patchRowQuantity } from "@/lib/shopping-optimistic";
 import { shoppingInventoryTotals, type ShoppingCountRow } from "@/lib/shopping-inventory-total";
 import { createLatestQueue } from "@/lib/supplier-memory";
 import { factsFromRow, listCounters, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
