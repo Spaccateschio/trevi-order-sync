@@ -8,8 +8,8 @@ describe("inventory optimistic", () => {
   it("patcha solo la card confermata", () => {
     const rows = [base("a"), base("b")];
     const next = patchCardRow(rows, "a", (r) => r.k, (r) => countedRowPatch(r, { value: 12, unitCode: "kg", stockValue: 12, at: "t" }) as Partial<R>)!;
-    expect(next[0].counted).toBe(12);
-    expect(next[0].difference).toBe(2);
+    expect(next[0]!.counted).toBe(12);
+    expect(next[0]!.difference).toBe(2);
     expect(next[1]).toBe(rows[1]);
   });
   it("senza equivalente in U.M. di magazzino la differenza resta sconosciuta, mai zero", () => {
@@ -20,6 +20,6 @@ describe("inventory optimistic", () => {
     const patched = patchCardRow(rows, "a", (r) => r.k, () => ({ counted: 5 }))!;
     const restored = restoreCardRow(patched, "a", (r) => r.k, rows[0])!;
     expect(restored[0]).toBe(rows[0]);
-    expect(restored[0].counted).toBeNull();
+    expect(restored[0]!.counted).toBeNull();
   });
 });
