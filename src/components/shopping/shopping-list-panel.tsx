@@ -1111,14 +1111,56 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const workerRef = useRef<(itemId: string, c: Commit) => Promise<void>>(async () => undefined);
   // U.M. del fornitore proposta dalla card per la prima quantità (usata solo se la riga non ha ancora quantità né U.M.).
   const proposedUnits = useRef(new Map<string, { unitId: string; code: string }>());
+  // Ricarica unica in sottofondo, non attesa, quando non resta nessun salvataggio in corso.
+  const refreshBatcher = useMemo(
+    () =>
+      createRefreshBatcher((itemIds, wide) => {
+        void queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] });
+        void queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] });
+        void queryClient.invalidateQueries({ queryKey: ["shopping-extras-locks"] });
+        for (const id of itemIds) void queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", id] });
+        if (wide) {
+          void queryClient.invalidateQueries({ queryKey: ["shopping-lists", companyId] });
+          void queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] });
+        }
+      }),
+    [queryClient, companyId],
+  );
+  // Valori della riga prima della conferma ottimistica: servono solo a ripristinarla se il salvataggio fallisce.
+  const optimisticBackup = useRef(new Map<string, { quantity: number | string | null; lock: { lockedAt: string | null; unitId: string | null; unitCode: string | null } | null }>());
+  const patchCachedRow = (itemId: string, quantity: number | string | null, lock: Partial<{ lockedAt: string | null; unitId: string | null; unitCode: string | null }>) => {
+    queryClient.setQueriesData<OverviewRow[]>({ queryKey: ["shopping-list-overview"] }, (rows) => patchRowQuantity(rows, itemId, quantity));
+    queryClient.setQueriesData<Map<string, { lockedAt: string | null; unitId: string | null; unitCode: string | null }>>({ queryKey: ["shopping-extras-locks"] }, (m) => patchLock(m, itemId, lock));
+  };
+  const applyOptimistic = (row: OverviewRow, quantity: number, unit?: { unitId?: string | null; unitCode?: string | null }) => {
+    const extra = extras.get(row.item_id);
+    if (!optimisticBackup.current.has(row.item_id))
+      optimisticBackup.current.set(row.item_id, {
+        quantity: row.decided_quantity,
+        lock: extra ? { lockedAt: extra.lockedAt ?? null, unitId: extra.unitId ?? null, unitCode: extra.unitCode ?? null } : null,
+      });
+    patchCachedRow(row.item_id, quantity, {
+      lockedAt: extra?.lockedAt ?? new Date().toISOString(),
+      ...(unit?.unitId !== undefined ? { unitId: unit.unitId } : {}),
+      ...(unit?.unitCode !== undefined ? { unitCode: unit.unitCode } : {}),
+    });
+  };
+  const restoreOptimistic = (itemId: string) => {
+    const backup = optimisticBackup.current.get(itemId);
+    optimisticBackup.current.delete(itemId);
+    if (backup) patchCachedRow(itemId, backup.quantity, backup.lock ?? {});
+  };
   workerRef.current = async (itemId, c) => {
     setSavingIds((cur) => new Set(cur).add(itemId));
+    refreshBatcher.begin();
+    let refreshWide = false;
+    let saved = false;
     try {
-      const { data: item, error } = await supabase
-        .from("shopping_list_items")
-        .select("decided_quantity, quantity_locked_at, decided_unit_id, decided_unit_code, manual_purchase_quantity")
-        .eq("id", itemId)
-        .maybeSingle();
+      // Riga e versione delle quote: letture indipendenti, in parallelo.
+      const [{ data: item, error }, { data: quotaRows, error: quotaErr }] = await Promise.all([
+        supabase.from("shopping_list_items").select(ITEM_COLUMNS).eq("id", itemId).maybeSingle(),
+        supabase.from("shopping_list_item_suppliers").select("updated_at").eq("item_id", itemId),
+      ]);
       if (error || !item) throw new Error(error?.message ?? "Riga non trovata");
       const prev = item.decided_quantity === null ? null : Number(item.decided_quantity);
       const locked = Boolean(item.quantity_locked_at);
@@ -1134,10 +1176,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         // Nessuna modifica (doppio evento di uscita): nessuna scrittura.
       } else {
         // Versione delle quote letta ora: il database rifiuta se cambiano prima del salvataggio.
-        const { data: quotaRows, error: quotaErr } = await supabase
-          .from("shopping_list_item_suppliers")
-          .select("updated_at")
-          .eq("item_id", itemId);
         if (quotaErr) throw new Error(quotaErr.message);
         const expectedAssignCount = quotaRows?.length ?? 0;
         const expectedAssignAt = (quotaRows ?? []).map((r) => r.updated_at as string).sort().at(-1) ?? null;
@@ -1147,6 +1185,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         if (c.quantity !== null && commitQueue.isLatest(itemId)) {
           plannedResult = await autoAssignItem(runAssignAuto, companyId, itemId, {
             collect: planned, quantity: c.quantity, unitId, unitCode, previousQuantity: changed ? prev : null, direct: runDirect,
+            item: item as unknown as AutoAssignItemRow,
           });
         }
         const send = (withQuotas: boolean) =>
@@ -1175,12 +1214,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           const hasQuotas = (extras.get(itemId)?.suppliers.length ?? 0) > 0 || item.manual_purchase_quantity !== null;
           if (hasQuotas && prev !== null) toast.warning("Quantità tolta: le quote già salvate restano. Sistemale dalla card.");
         }
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
-          queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
-          queryClient.invalidateQueries({ queryKey: ["shopping-list-assignments", itemId] }),
-        ]);
+        saved = true;
+        // Elenco liste e stato del ciclo cambiano solo quando la riga passa da vuota a compilata o viceversa.
+        refreshWide = prev === null || c.quantity === null;
       }
+      if (commitQueue.isLatest(itemId)) optimisticBackup.current.delete(itemId);
       setEdits((current) => {
         const raw = current[itemId];
         if (raw === undefined || !commitQueue.isLatest(itemId)) return current;
@@ -1193,9 +1231,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     } catch (e) {
       // Il valore scritto resta nel campo: si può riprovare uscendo di nuovo dal campo.
       toast.error(`Quantità non salvata: ${(e as Error).message}`);
+      // La riga torna com'era; la bozza resta nel campo per riprovare.
+      if (commitQueue.isLatest(itemId)) restoreOptimistic(itemId);
       throw e;
     } finally {
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["shopping-extras-locks"] }), refresh()]);
+      refreshBatcher.end(itemId, refreshWide || !saved);
       if (commitQueue.isLatest(itemId))
         setSavingIds((cur) => {
           const next = new Set(cur);
@@ -1217,8 +1257,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     if (value === null) { toast.error("Inserisci una quantità valida prima di confermare"); return; }
     if (!confirmationGuard.current.start(row.item_id)) return;
     try {
-      if (value === 0) await excludeItem(row.item_id, "exclude");
-      else await commitQuantity(row.item_id, { quantity: value, ...unitEdits[row.item_id] });
+      if (value === 0) {
+        await excludeItem(row.item_id, "exclude");
+      } else {
+        // Conferma ottimistica: la riga si aggiorna subito, il salvataggio prosegue in coda (vince l'ultimo valore).
+        const unit = unitEdits[row.item_id];
+        applyOptimistic(row, value, unit);
+        void commitQuantity(row.item_id, { quantity: value, ...unit });
+      }
       setUnitEdits((current) => { const next = { ...current }; delete next[row.item_id]; return next; });
       setUnlockedIds((current) => { const next = new Set(current); next.delete(row.item_id); return next; });
       setMobileOpenId((current) => finishMobileCard(current, row.item_id, true));
