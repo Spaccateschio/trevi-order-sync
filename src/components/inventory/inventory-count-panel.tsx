@@ -1294,7 +1294,6 @@ export function InventoryCountPanel({
       queryClient.invalidateQueries({ queryKey: ["inventory-rows"] }),
     ]);
   };
-  refreshRef.current = refresh;
 
   const startMutation = useMutation({
     mutationFn: () => start({ data: { companyId, archiveId: archiveId!, name: null } }),
@@ -1410,6 +1409,7 @@ export function InventoryCountPanel({
   const [savingCards, setSavingCards] = useState<Set<string>>(new Set());
   const countBatcher = useMemo(() => createRefreshBatcher(() => { void refreshRef.current(); }), []);
   const refreshRef = useRef<() => Promise<void>>(async () => undefined);
+  refreshRef.current = refresh;
   const countBackups = useRef(new Map<string, Array<[readonly unknown[], InventoryCountRow | undefined]>>());
   const countMutation = useMutation({
     onMutate: (input) => {
