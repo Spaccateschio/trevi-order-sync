@@ -89,6 +89,16 @@ export type AutoAssignOptions = {
   quantity?: number;
   unitId?: string | null;
   unitCode?: string | null;
+  /** Riga già letta dal chiamante (stesse colonne di ITEM_COLUMNS): evita di rileggerla. */
+  item?: AutoAssignItemRow;
+};
+
+/** Colonne della riga lette da autoAssignItem: il chiamante che passa `item` deve leggere almeno queste. */
+export const ITEM_COLUMNS = "id, product_id, list_id, decided_quantity, decided_unit_id, decided_unit_code, unit_code, manual_purchase_quantity, quantity_locked_at, excluded_at";
+export type AutoAssignItemRow = {
+  id: string; product_id: string; list_id: string; decided_quantity: number | string | null;
+  decided_unit_id: string | null; decided_unit_code: string | null; unit_code: string | null;
+  manual_purchase_quantity: number | string | null; quantity_locked_at: string | null; excluded_at: string | null;
 };
 
 export type PlannedWrite =
@@ -170,9 +180,13 @@ async function readConversions(linkIds: string[]): Promise<Record<string, ValidC
     .in("link_id", linkIds)
     .eq("is_active", true);
   if (error || !data) return out;
-  for (const lu of data) {
+  // Letture indipendenti: in parallelo, poi raccolte nell'ordine originale.
+  const convs = await Promise.all(
+    data.map((lu) => (lu.unit_id ? supabase.rpc("effective_supplier_conversion", { _link_unit_id: lu.id as string }) : Promise.resolve({ data: null }))),
+  );
+  for (const [i, lu] of data.entries()) {
     if (!lu.unit_id) continue;
-    const { data: conv } = await supabase.rpc("effective_supplier_conversion", { _link_unit_id: lu.id as string });
+    const conv = convs[i]?.data;
     const row = (conv as unknown as { is_valid: boolean; stock_conversion_factor: number | null }[] | null)?.[0];
     if (row?.is_valid && row.stock_conversion_factor && Number(row.stock_conversion_factor) > 0) {
       (out[lu.link_id as string] ??= []).push({ unitId: lu.unit_id as string, factor: Number(row.stock_conversion_factor) });
@@ -192,11 +206,10 @@ export async function autoAssignItem(
 
 async function run(assign: AssignFn, companyId: string, itemId: string, options: AutoAssignOptions): Promise<AutoAssignResult> {
   const updateExisting = options.updateExisting ?? true;
-  const { data: item, error } = await supabase
-    .from("shopping_list_items")
-    .select("id, product_id, list_id, decided_quantity, decided_unit_id, decided_unit_code, unit_code, manual_purchase_quantity, quantity_locked_at, excluded_at")
-    .eq("id", itemId)
-    .maybeSingle();
+  const read = options.item
+    ? { data: { ...options.item }, error: null }
+    : await supabase.from("shopping_list_items").select(ITEM_COLUMNS).eq("id", itemId).maybeSingle();
+  const { data: item, error } = read;
   if (error || !item) return { kind: "saltato", reason: error?.message ?? "Riga non trovata" };
   const planning = Boolean(options.collect);
   const quantity = planning && options.quantity !== undefined ? options.quantity : item.decided_quantity === null ? null : Number(item.decided_quantity);
@@ -207,6 +220,13 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   if (item.excluded_at) return { kind: "saltato", reason: "Prodotto escluso" };
   const directQuota = item.manual_purchase_quantity === null ? null : Number(item.manual_purchase_quantity);
 
+  const wantsMemory = !(options.onlyLinkId || options.preferLinkId);
+  const memoryP = wantsMemory ? readMemories(companyId, [item.product_id as string]) : null;
+  const manualStarP = wantsMemory
+    ? Promise.resolve(supabase.from("product_supplier_links").select("preferred_set_at").eq("product_id", item.product_id).not("preferred_set_by", "is", null).order("preferred_set_at", { ascending: false }).limit(1))
+    : null;
+  // Evita rifiuti non gestiti se si esce prima di usarle.
+  memoryP?.catch(() => undefined);
   const [assignments, overview, units, stars, product, directPref] = await Promise.all([
     supabase
       .from("shopping_list_item_suppliers")
@@ -293,17 +313,11 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   }));
 
   const deselected = new Set([...deselectedFor(itemId), ...dbDeselected]);
-  const remembered = options.onlyLinkId || options.preferLinkId ? null : ((await readMemories(companyId, [item.product_id as string])).get(item.product_id as string) ?? null);
+  const remembered = memoryP ? ((await memoryP).get(item.product_id as string) ?? null) : null;
   let manualStarAt: string | null = null;
-  if (remembered) {
+  if (remembered && manualStarP) {
     // Stella cambiata a mano DOPO l'ultima Lista chiusa: vale la nuova preferenza, non la memoria.
-    const { data: manual } = await supabase
-      .from("product_supplier_links")
-      .select("preferred_set_at")
-      .eq("product_id", item.product_id)
-      .not("preferred_set_by", "is", null)
-      .order("preferred_set_at", { ascending: false })
-      .limit(1);
+    const { data: manual } = await manualStarP;
     if (manual === null) return { kind: "saltato", reason: "Preferenza fornitore non disponibile" };
     manualStarAt = (manual?.[0]?.preferred_set_at as string | null | undefined) ?? null;
   }
@@ -452,13 +466,16 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
 
 /** Collegamenti in tempo per «Per quando serve» della Lista; null se la Lista non ha data. */
 async function readLinksInTime(listId: string, productId: string): Promise<Set<string> | null> {
-  const { data: list } = await supabase.from("shopping_lists").select("delivery_date").eq("id", listId).maybeSingle();
+  // Data della Lista e giorni dei fornitori: letture indipendenti, in parallelo.
+  const [{ data: list }, { data, error }] = await Promise.all([
+    supabase.from("shopping_lists").select("delivery_date").eq("id", listId).maybeSingle(),
+    supabase
+      .from("product_supplier_links")
+      .select("id, delivery_weekdays, delivery_month_day, supplier_records(lead_time_days, delivery_weekdays, delivery_month_day)")
+      .eq("product_id", productId),
+  ]);
   const needed = list?.delivery_date ? parseLocalDate(list.delivery_date as string) : null;
   if (!needed) return null;
-  const { data, error } = await supabase
-    .from("product_supplier_links")
-    .select("id, delivery_weekdays, delivery_month_day, supplier_records(lead_time_days, delivery_weekdays, delivery_month_day)")
-    .eq("product_id", productId);
   if (error || !data) return null;
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
