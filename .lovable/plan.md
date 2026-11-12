@@ -46,3 +46,18 @@ Risultato atteso: dopo «Conferma» la card si blocca subito e si può scrivere 
 ## Dettagli tecnici
 - File: `src/components/inventory/inventory-count-panel.tsx` (countMutation, confirmRow, CardLockContext), eventuale piccolo helper in `src/lib/inventory-optimistic.ts` con test, riuso di `createRefreshBatcher`; regola in `src/components/inventory/AGENTS.md`.
 - Nessuna migrazione, indice o modifica a RPC/trigger.
+
+---
+
+# Lista della Spesa ancora lenta (circa 3 secondi) — diagnosi dal vivo
+
+## Stato
+- Codice ricontrollato: in `toggleLock` (`src/components/shopping/shopping-list-panel.tsx`) `applyOptimistic` viene eseguito prima di `commitQuantity`, sullo stesso percorso per telefono e computer; `finishMobileCard` chiude la card subito dopo; `confirmationGuard` termina senza attese di rete. `savingIds` disabilita solo il campo della riga in salvataggio (riga 1010), non quello della riga successiva.
+- La causa dei 3 secondi **non è ancora confermata**: la misura dal vivo non è stata possibile, perché l'anteprima è collegata solo all'account di Andrea (trevi srl, dove le prove sono vietate) e l'accesso con un account di 3 EMME ROMA SRL richiede la tua approvazione, non disponibile in questo passaggio.
+
+## Passi
+1. Accesso all'anteprima con un utente di 3 EMME ROMA SRL (approvazione richiesta al prossimo passaggio).
+2. Telefono simulato + rete «Fast 3G»: registrazione di una conferma (richieste, ordine, durata, cosa tiene bloccato campo/card).
+3. Misura del tempo di disegno della lista (Profiler) per una conferma, separato dalla rete.
+4. Verifica se la ricarica in sottofondo, arrivando mentre si scrive la riga dopo, ridisegna la lista o fa perdere il punto di scrittura.
+5. Solo dopo: correzione minima sulla causa misurata (se è il disegno: card memorizzate e aggiornamento che sostituisce solo la riga cambiata).
