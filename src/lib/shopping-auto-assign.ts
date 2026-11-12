@@ -186,7 +186,7 @@ async function readConversions(linkIds: string[]): Promise<Record<string, ValidC
   );
   for (const [i, lu] of data.entries()) {
     if (!lu.unit_id) continue;
-    const conv = convs[i].data;
+    const conv = convs[i]?.data;
     const row = (conv as unknown as { is_valid: boolean; stock_conversion_factor: number | null }[] | null)?.[0];
     if (row?.is_valid && row.stock_conversion_factor && Number(row.stock_conversion_factor) > 0) {
       (out[lu.link_id as string] ??= []).push({ unitId: lu.unit_id as string, factor: Number(row.stock_conversion_factor) });
