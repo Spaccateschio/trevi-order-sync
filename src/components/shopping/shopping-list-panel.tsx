@@ -1128,7 +1128,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     [queryClient, companyId],
   );
   // Valori della riga prima della conferma ottimistica: servono solo a ripristinarla se il salvataggio fallisce.
-  const optimisticBackup = useRef(new Map<string, { quantity: number | string | null; lock: { lockedAt: string | null; unitId: string | null; unitCode: string | null } | null }>());
+  const optimisticBackup = useRef(new Map<string, { quantity: number | string | null; lock: { lockedAt: string | null } | null }>());
   const patchCachedRow = (itemId: string, quantity: number | string | null, lock: Partial<{ lockedAt: string | null; unitId: string | null; unitCode: string | null }>) => {
     queryClient.setQueriesData<OverviewRow[]>({ queryKey: ["shopping-list-overview"] }, (rows) => patchRowQuantity(rows, itemId, quantity));
     queryClient.setQueriesData<Map<string, { lockedAt: string | null; unitId: string | null; unitCode: string | null }>>({ queryKey: ["shopping-extras-locks"] }, (m) => patchLock(m, itemId, lock));
@@ -1138,7 +1138,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     if (!optimisticBackup.current.has(row.item_id))
       optimisticBackup.current.set(row.item_id, {
         quantity: row.decided_quantity,
-        lock: extra ? { lockedAt: extra.lockedAt ?? null, unitId: extra.unitId ?? null, unitCode: extra.unitCode ?? null } : null,
+        lock: extra ? { lockedAt: extra.lockedAt ?? null } : null,
       });
     patchCachedRow(row.item_id, quantity, {
       lockedAt: extra?.lockedAt ?? new Date().toISOString(),
