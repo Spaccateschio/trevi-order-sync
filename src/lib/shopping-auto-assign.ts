@@ -223,7 +223,7 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   const wantsMemory = !(options.onlyLinkId || options.preferLinkId);
   const memoryP = wantsMemory ? readMemories(companyId, [item.product_id as string]) : null;
   const manualStarP = wantsMemory
-    ? supabase.from("product_supplier_links").select("preferred_set_at").eq("product_id", item.product_id).not("preferred_set_by", "is", null).order("preferred_set_at", { ascending: false }).limit(1)
+    ? Promise.resolve(supabase.from("product_supplier_links").select("preferred_set_at").eq("product_id", item.product_id).not("preferred_set_by", "is", null).order("preferred_set_at", { ascending: false }).limit(1))
     : null;
   // Evita rifiuti non gestiti se si esce prima di usarle.
   memoryP?.catch(() => undefined);
