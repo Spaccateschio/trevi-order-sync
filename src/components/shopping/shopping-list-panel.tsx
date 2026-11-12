@@ -2074,7 +2074,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                     isFavorite={Boolean(entry.ownProductId && catalog.favorites.has(entry.ownProductId))}
                     favoriteDisabled={catalogActions.favorite.isPending || (Boolean(entry.ownProductId) && !catalog.favoritesReady)}
                     canAdd={ready.canPrepare || previewMode}
-                    adding={catalogActions.add.isPending}
+                    // Blocco condiviso solo mentre la prima conferma crea la Lista: dopo, ogni card attende solo il proprio salvataggio.
+                    adding={!list && catalogActions.add.isPending}
                     onToggleFavorite={stable(`${entry.key}:c:onToggleFavorite`, () =>
                       catalogActions.favorite.mutate({
                         entry,
@@ -2084,7 +2085,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                     draftValue={catalogValues[entry.key]?.raw ?? ""}
                     draftUnit={catalogValues[entry.key]?.unit ?? null}
                     onQuantityChange={stable(`${entry.key}:c:onQuantityChange`, (raw, unit) => setCatalogValues((current) => ({ ...current, [entry.key]: { raw, unit } })))}
-                    onDraftChange={stable(`${entry.key}:c:onDraftChange`, (dirty) => setCatalogDrafts((current) => { const next = new Set(current); if (dirty) next.add(entry.key); else next.delete(entry.key); return next; }))}
+                    onDraftChange={stable(`${entry.key}:c:onDraftChange`, (dirty) => setCatalogDrafts((current) => { if (current.has(entry.key) === dirty) return current; const next = new Set(current); if (dirty) next.add(entry.key); else next.delete(entry.key); return next; }))}
                     nonPurchase={catalogNotBuying.has(entry.key)}
                     onNonPurchase={stable(`${entry.key}:c:onNonPurchase`, () => setCatalogNotBuying((current) => new Set(current).add(entry.key)))}
                     onRestoreNonPurchase={stable(`${entry.key}:c:onRestoreNonPurchase`, () => setCatalogNotBuying((current) => { const next = new Set(current); next.delete(entry.key); return next; }))}
