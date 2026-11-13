@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRefreshBatcher, patchLock, patchRowQuantity } from "./shopping-optimistic";
+import { createKeyedChain, createRefreshBatcher, patchLock, patchRowQuantity } from "./shopping-optimistic";
 
 describe("conferma ottimistica della riga", () => {
   it("cambia solo la riga confermata", () => {
@@ -31,4 +31,30 @@ describe("ricarica unica in sottofondo", () => {
     expect(flush).toHaveBeenCalledTimes(1);
     expect(flush).toHaveBeenCalledWith(["a", "b"], true);
   });
+});
+
+
+it("coda per prodotto: stessa chiave in fila, chiavi diverse in parallelo", async () => {
+  const chain = createKeyedChain();
+  const order: string[] = [];
+  let releaseA!: () => void;
+  const a1 = chain.run("A", () => new Promise<void>((r) => { releaseA = () => { order.push("A1"); r(); }; }));
+  const a2 = chain.run("A", async () => { order.push("A2"); });
+  const b1 = chain.run("B", async () => { order.push("B1"); });
+  await b1;
+  expect(order).toEqual(["B1"]);
+  expect(chain.has("A")).toBe(true);
+  releaseA();
+  await Promise.all([a1, a2]);
+  expect(order).toEqual(["B1", "A1", "A2"]);
+  expect(chain.has("A")).toBe(false);
+});
+
+it("coda per prodotto: un errore viene restituito e non blocca l'operazione successiva", async () => {
+  const chain = createKeyedChain();
+  const failed = chain.run("A", async () => { throw new Error("rete"); });
+  const next = chain.run("A", async () => "ok");
+  await expect(failed).rejects.toThrow("rete");
+  await expect(next).resolves.toBe("ok");
+  expect(chain.has("A")).toBe(false);
 });

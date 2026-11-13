@@ -93,7 +93,7 @@ import {
   setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
 import { autoAssignItem, ITEM_COLUMNS, readMemories, type AutoAssignItemRow, type PlannedWrite } from "@/lib/shopping-auto-assign";
-import { createRefreshBatcher, patchLock, patchRowQuantity } from "@/lib/shopping-optimistic";
+import { createKeyedChain, createRefreshBatcher, patchLock, patchRowQuantity } from "@/lib/shopping-optimistic";
 import { shoppingInventoryTotals, type ShoppingCountRow } from "@/lib/shopping-inventory-total";
 import { createLatestQueue } from "@/lib/supplier-memory";
 import { factsFromRow, listCounters, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
@@ -1091,6 +1091,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const runAssignAuto = useServerFn(assignShoppingListSupplier);
   const runDirect = useServerFn(setShoppingListDirectQuota);
   const runCommit = useServerFn(commitShoppingListItemQuantity);
+  // Prodotti «Non in lista» confermati e in salvataggio in sottofondo (solo presentazione).
+  const catalogChain = useMemo(() => createKeyedChain(), []);
+  const [catalogSaving, setCatalogSaving] = useState<Record<string, { quantity: number; unitCode: string | null }>>({});
   const proposeSupplier = async (itemId: string, previousQuantity?: number | null) => {
     const res = await autoAssignItem(runAssignAuto, companyId, itemId, { previousQuantity: previousQuantity ?? null, direct: runDirect });
     if (res.kind === "assegnato" || res.kind === "aggiornato") {
@@ -2089,12 +2092,27 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                     nonPurchase={catalogNotBuying.has(entry.key)}
                     onNonPurchase={stable(`${entry.key}:c:onNonPurchase`, () => setCatalogNotBuying((current) => new Set(current).add(entry.key)))}
                     onRestoreNonPurchase={stable(`${entry.key}:c:onRestoreNonPurchase`, () => setCatalogNotBuying((current) => { const next = new Set(current); next.delete(entry.key); return next; }))}
+                    saving={catalogSaving[entry.key] ?? null}
                     onAdd={stable(`${entry.key}:c:onAdd`, async (quantity, unitCode) => {
-                      const added = await catalogActions.add.mutateAsync({ entry, quantity, unitCode });
-                      setEdits((current) => ({ ...current, [added.itemId]: String(quantity) }));
-                      setUnitEdits((current) => ({ ...current, [added.itemId]: { unitId: null, unitCode } }));
-                      await commitQuantity(added.itemId, { quantity, unitId: null, unitCode });
-                      setUnitEdits((current) => { const next = { ...current }; delete next[added.itemId]; return next; });
+                      const commitAdded = async (added: { itemId: string }) => {
+                        setEdits((current) => ({ ...current, [added.itemId]: String(quantity) }));
+                        setUnitEdits((current) => ({ ...current, [added.itemId]: { unitId: null, unitCode } }));
+                        await commitQuantity(added.itemId, { quantity, unitId: null, unitCode });
+                        setUnitEdits((current) => { const next = { ...current }; delete next[added.itemId]; return next; });
+                      };
+                      // Prima conferma: si attende solo la creazione della Lista e della riga; il resto va in sottofondo.
+                      const created = list ? null : await catalogActions.add.mutateAsync({ entry, quantity, unitCode });
+                      // Card liberata subito: la catena prosegue in coda per prodotto (mai doppie aggiunte).
+                      setCatalogSaving((current) => ({ ...current, [entry.key]: { quantity, unitCode } }));
+                      void catalogChain
+                        .run(entry.key, async () => commitAdded(created ?? (await catalogActions.add.mutateAsync({ entry, quantity, unitCode }))))
+                        .catch(() => {
+                          // Errore già segnalato: la quantità torna nel campo per riprovare (se non ne è stata scritta un'altra).
+                          setCatalogValues((current) => current[entry.key]?.raw.trim() ? current : { ...current, [entry.key]: { raw: String(quantity), unit: unitCode } });
+                        })
+                        .finally(() => {
+                          if (!catalogChain.has(entry.key)) setCatalogSaving((current) => { const next = { ...current }; delete next[entry.key]; return next; });
+                        });
                     })}
                   />
                   </div>

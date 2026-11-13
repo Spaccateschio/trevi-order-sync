@@ -51,3 +51,28 @@ export function createRefreshBatcher(flush: (itemIds: string[], wide: boolean) =
     get pending() { return pending; },
   };
 }
+
+/**
+ * Coda per chiave (es. prodotto «Non in lista»): ogni operazione parte dopo la precedente della stessa
+ * chiave, anche se quella è fallita; chiavi diverse procedono in parallelo.
+ */
+export function createKeyedChain() {
+  const tails = new Map<string, Promise<unknown>>();
+  const counts = new Map<string, number>();
+  return {
+    run<T>(key: string, task: () => Promise<T>): Promise<T> {
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      const done = () => {
+        const n = (counts.get(key) ?? 1) - 1;
+        if (n > 0) counts.set(key, n); else { counts.delete(key); tails.delete(key); }
+      };
+      const step = () => task().finally(done);
+      const prev = tails.get(key) ?? Promise.resolve();
+      const next = prev.then(step, step);
+      tails.set(key, next.then(() => undefined, () => undefined));
+      return next;
+    },
+    /** Vero finché c'è almeno un'operazione in attesa o in corso per la chiave. */
+    has(key: string) { return counts.has(key); },
+  };
+}
