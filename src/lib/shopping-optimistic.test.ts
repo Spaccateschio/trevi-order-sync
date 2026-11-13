@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRefreshBatcher, patchLock, patchRowQuantity } from "./shopping-optimistic";
+import { createKeyedChain, createRefreshBatcher, patchLock, patchRowQuantity } from "./shopping-optimistic";
 
 describe("conferma ottimistica della riga", () => {
   it("cambia solo la riga confermata", () => {
@@ -33,9 +33,8 @@ describe("ricarica unica in sottofondo", () => {
   });
 });
 
-import { createKeyedChain } from "./shopping-optimistic";
 
-test("coda per prodotto: stessa chiave in fila, chiavi diverse in parallelo", async () => {
+it("coda per prodotto: stessa chiave in fila, chiavi diverse in parallelo", async () => {
   const chain = createKeyedChain();
   const order: string[] = [];
   let releaseA!: () => void;
@@ -51,7 +50,7 @@ test("coda per prodotto: stessa chiave in fila, chiavi diverse in parallelo", as
   expect(chain.has("A")).toBe(false);
 });
 
-test("coda per prodotto: un errore viene restituito e non blocca l'operazione successiva", async () => {
+it("coda per prodotto: un errore viene restituito e non blocca l'operazione successiva", async () => {
   const chain = createKeyedChain();
   const failed = chain.run("A", async () => { throw new Error("rete"); });
   const next = chain.run("A", async () => "ok");
