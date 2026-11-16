@@ -165,10 +165,21 @@ function Account() {
       <section className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm sm:max-w-xl">
         <h2 className="font-display text-base font-semibold">Password</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Serve solo se vuoi cambiarla. L'email di accesso resta la stessa e le altre
-          sedi dove sei già entrato continuano a funzionare.
+          Per sicurezza, prima di salvare la nuova password verifichiamo quella attuale.
+          L'email di accesso resta la stessa.
         </p>
         <form onSubmit={handlePasswordChange} className="mt-5 space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="currentPassword">Password attuale</Label>
+            <PasswordInput
+              id="currentPassword"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+              disabled={passwordBusy}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="newPassword">Nuova password</Label>
             <PasswordInput
