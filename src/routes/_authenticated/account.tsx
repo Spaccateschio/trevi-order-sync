@@ -171,7 +171,8 @@ function Account() {
         <h2 className="font-display text-base font-semibold">Password</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Per sicurezza, prima di salvare la nuova password verifichiamo quella attuale.
-          L'email di accesso resta la stessa.
+          L'email di accesso resta la stessa. Dopo il cambio, le altre sedi in cui sei entrato
+          vengono scollegate: questo telefono o computer resta attivo.
         </p>
         <form onSubmit={handlePasswordChange} className="mt-5 space-y-4">
           <div className="space-y-1.5">
