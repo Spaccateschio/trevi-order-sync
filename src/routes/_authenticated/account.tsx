@@ -72,6 +72,25 @@ function Account() {
     queryClient.invalidateQueries({ queryKey: identityQueryKey });
   }
 
+  async function handlePasswordChange(event: React.FormEvent) {
+    event.preventDefault();
+    const checked = validateNewPassword({ password: newPassword, confirm: newPasswordConfirm });
+    if ("error" in checked) {
+      toast.error(checked.error);
+      return;
+    }
+    setPasswordBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: checked.value });
+    setPasswordBusy(false);
+    if (error) {
+      toast.error(passwordChangeErrorMessage(error.message));
+      return;
+    }
+    setNewPassword("");
+    setNewPasswordConfirm("");
+    toast.success("Password aggiornata");
+  }
+
   return (
     <AppShell title="Account" description="I dati della persona che accede.">
       <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:max-w-xl">
