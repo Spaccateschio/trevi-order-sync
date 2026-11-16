@@ -67,6 +67,30 @@ describe("passwordChangeErrorMessage", () => {
     );
   });
 
+  it("traduce il rifiuto della password attuale", () => {
+    expect(
+      passwordChangeErrorMessage("Current password required when setting new password."),
+    ).toBe("La password attuale non è corretta: riprova");
+  });
+
+  it("traduce la richiesta di riautenticazione", () => {
+    expect(passwordChangeErrorMessage("Password update requires reauthentication")).toBe(
+      "La sessione non è più recente: riaccendi e riprova",
+    );
+  });
+
+  it("traduce la nuova password identica alla vecchia", () => {
+    expect(
+      passwordChangeErrorMessage("New password should be different from the old password."),
+    ).toBe("La nuova password deve essere diversa da quella attuale");
+  });
+
+  it("traduce il fallimento interno del backend", () => {
+    expect(passwordChangeErrorMessage("Internal Server Error")).toBe(
+      "Il cambio password non è riuscito: riprova tra un momento",
+    );
+  });
+
   it("lascia invariati gli altri messaggi", () => {
     expect(passwordChangeErrorMessage("Qualcosa è andato storto")).toBe("Qualcosa è andato storto");
   });
