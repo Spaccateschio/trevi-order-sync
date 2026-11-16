@@ -7,8 +7,10 @@ import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { identityQueryKey, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import { passwordChangeErrorMessage, validateNewPassword } from "@/lib/password-change";
 import { validatePhone } from "@/lib/phone";
 
 export const Route = createFileRoute("/_authenticated/account")({
@@ -30,6 +32,9 @@ function Account() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [passwordBusy, setPasswordBusy] = useState(false);
 
   useEffect(() => {
     setFirstName(identity?.profile?.firstName ?? "");
