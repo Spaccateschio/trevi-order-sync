@@ -99,7 +99,12 @@ function Account() {
       toast.error(passwordChangeErrorMessage(verificationError.message));
       return;
     }
-    const { error } = await supabase.auth.updateUser({ password: checked.value });
+    // Il backend vuole la password attuale dentro la richiesta di aggiornamento:
+    // senza di essa rifiuta il cambio con un errore in inglese.
+    const { error } = await supabase.auth.updateUser({
+      password: checked.value,
+      current_password: currentPassword,
+    });
     setPasswordBusy(false);
     if (error) {
       toast.error(passwordChangeErrorMessage(error.message));

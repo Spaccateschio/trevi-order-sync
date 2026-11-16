@@ -32,6 +32,18 @@ export function validateNewPassword(input: {
 
 /** Messaggio leggibile per gli errori del backend sul cambio password. */
 export function passwordChangeErrorMessage(message: string): string {
+  // Il backend usa lo stesso testo sia quando la password attuale manca sia
+  // quando non è corretta: qui arriva solo il secondo caso, perché il campo è
+  // obbligatorio e viene sempre inviato.
+  if (/current password required/i.test(message)) {
+    return "La password attuale non è corretta: riprova";
+  }
+  if (/requires reauthentication/i.test(message)) {
+    return "La sessione non è più recente: riaccendi e riprova";
+  }
+  if (/should be different from the old password/i.test(message)) {
+    return "La nuova password deve essere diversa da quella attuale";
+  }
   if (/invalid.*credentials|invalid login/i.test(message)) {
     return "La password attuale non è corretta";
   }
