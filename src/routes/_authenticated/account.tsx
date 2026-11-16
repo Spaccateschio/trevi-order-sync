@@ -7,8 +7,10 @@ import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { identityQueryKey, useIdentity } from "@/hooks/use-identity";
 import { supabase } from "@/integrations/supabase/client";
+import { passwordChangeErrorMessage, validateNewPassword } from "@/lib/password-change";
 import { validatePhone } from "@/lib/phone";
 
 export const Route = createFileRoute("/_authenticated/account")({
@@ -30,6 +32,9 @@ function Account() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [passwordBusy, setPasswordBusy] = useState(false);
 
   useEffect(() => {
     setFirstName(identity?.profile?.firstName ?? "");
@@ -65,6 +70,25 @@ function Account() {
     }
     toast.success("Dati aggiornati");
     queryClient.invalidateQueries({ queryKey: identityQueryKey });
+  }
+
+  async function handlePasswordChange(event: React.FormEvent) {
+    event.preventDefault();
+    const checked = validateNewPassword({ password: newPassword, confirm: newPasswordConfirm });
+    if ("error" in checked) {
+      toast.error(checked.error);
+      return;
+    }
+    setPasswordBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: checked.value });
+    setPasswordBusy(false);
+    if (error) {
+      toast.error(passwordChangeErrorMessage(error.message));
+      return;
+    }
+    setNewPassword("");
+    setNewPasswordConfirm("");
+    toast.success("Password aggiornata");
   }
 
   return (
@@ -114,6 +138,43 @@ function Account() {
           </div>
           <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={busy}>
             Salva
+          </Button>
+        </form>
+      </section>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm sm:max-w-xl">
+        <h2 className="font-display text-base font-semibold">Password</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Serve solo se vuoi cambiarla. L'email di accesso resta la stessa e le altre
+          sedi dove sei già entrato continuano a funzionare.
+        </p>
+        <form onSubmit={handlePasswordChange} className="mt-5 space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="newPassword">Nuova password</Label>
+            <PasswordInput
+              id="newPassword"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="newPasswordConfirm">Conferma nuova password</Label>
+            <PasswordInput
+              id="newPasswordConfirm"
+              value={newPasswordConfirm}
+              onChange={(e) => setNewPasswordConfirm(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          <Button
+            type="submit"
+            size="lg"
+            variant="outline"
+            className="w-full sm:w-auto"
+            disabled={passwordBusy}
+          >
+            {passwordBusy ? "Salvataggio…" : "Aggiorna password"}
           </Button>
         </form>
       </section>
