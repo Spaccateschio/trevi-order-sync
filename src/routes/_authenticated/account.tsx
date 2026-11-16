@@ -32,6 +32,7 @@ function Account() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [passwordBusy, setPasswordBusy] = useState(false);
