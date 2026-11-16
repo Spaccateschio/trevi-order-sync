@@ -141,6 +141,43 @@ function Account() {
           </Button>
         </form>
       </section>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm sm:max-w-xl">
+        <h2 className="font-display text-base font-semibold">Password</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Serve solo se vuoi cambiarla. L'email di accesso resta la stessa e le altre
+          sedi dove sei già entrato continuano a funzionare.
+        </p>
+        <form onSubmit={handlePasswordChange} className="mt-5 space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="newPassword">Nuova password</Label>
+            <PasswordInput
+              id="newPassword"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="newPasswordConfirm">Conferma nuova password</Label>
+            <PasswordInput
+              id="newPasswordConfirm"
+              value={newPasswordConfirm}
+              onChange={(e) => setNewPasswordConfirm(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          <Button
+            type="submit"
+            size="lg"
+            variant="outline"
+            className="w-full sm:w-auto"
+            disabled={passwordBusy}
+          >
+            {passwordBusy ? "Salvataggio…" : "Aggiorna password"}
+          </Button>
+        </form>
+      </section>
     </AppShell>
   );
 }
