@@ -85,6 +85,12 @@ describe("passwordChangeErrorMessage", () => {
     ).toBe("La nuova password deve essere diversa da quella attuale");
   });
 
+  it("traduce il fallimento interno del backend", () => {
+    expect(passwordChangeErrorMessage("Internal Server Error")).toBe(
+      "Il cambio password non è riuscito: riprova tra un momento",
+    );
+  });
+
   it("lascia invariati gli altri messaggi", () => {
     expect(passwordChangeErrorMessage("Qualcosa è andato storto")).toBe("Qualcosa è andato storto");
   });

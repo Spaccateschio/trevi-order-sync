@@ -44,6 +44,9 @@ export function passwordChangeErrorMessage(message: string): string {
   if (/should be different from the old password/i.test(message)) {
     return "La nuova password deve essere diversa da quella attuale";
   }
+  if (/internal server error|unexpected_failure/i.test(message)) {
+    return "Il cambio password non è riuscito: riprova tra un momento";
+  }
   if (/invalid.*credentials|invalid login/i.test(message)) {
     return "La password attuale non è corretta";
   }
