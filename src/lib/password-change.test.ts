@@ -49,6 +49,12 @@ describe("validateNewPassword", () => {
 });
 
 describe("passwordChangeErrorMessage", () => {
+  it("segnala la password attuale errata", () => {
+    expect(passwordChangeErrorMessage("Invalid login credentials")).toBe(
+      "La password attuale non è corretta",
+    );
+  });
+
   it("traduce l'errore della password debole o trapelata", () => {
     expect(
       passwordChangeErrorMessage("Password is too weak: it has been found in leaked passwords"),

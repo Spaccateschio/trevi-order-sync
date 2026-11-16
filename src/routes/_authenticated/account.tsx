@@ -75,18 +75,37 @@ function Account() {
 
   async function handlePasswordChange(event: React.FormEvent) {
     event.preventDefault();
-    const checked = validateNewPassword({ password: newPassword, confirm: newPasswordConfirm });
+    const checked = validateNewPassword({
+      currentPassword,
+      password: newPassword,
+      confirm: newPasswordConfirm,
+    });
     if ("error" in checked) {
       toast.error(checked.error);
       return;
     }
+    if (!identity?.email) {
+      toast.error("La sessione non è più valida: riaccendi e riprova");
+      return;
+    }
     setPasswordBusy(true);
+    const { error: verificationError } = await supabase.auth.signInWithPassword({
+      email: identity.email,
+      password: currentPassword,
+    });
+    if (verificationError) {
+      setPasswordBusy(false);
+      setCurrentPassword("");
+      toast.error(passwordChangeErrorMessage(verificationError.message));
+      return;
+    }
     const { error } = await supabase.auth.updateUser({ password: checked.value });
     setPasswordBusy(false);
     if (error) {
       toast.error(passwordChangeErrorMessage(error.message));
       return;
     }
+    setCurrentPassword("");
     setNewPassword("");
     setNewPasswordConfirm("");
     toast.success("Password aggiornata");
