@@ -8,31 +8,53 @@ import {
 
 describe("validateNewPassword", () => {
   it("accetta due password identiche di almeno 8 caratteri", () => {
-    expect(validateNewPassword({ password: "arance2026", confirm: "arance2026" })).toEqual({
-      value: "arance2026",
-    });
+    expect(
+      validateNewPassword({
+        currentPassword: "vecchia2026",
+        password: "arance2026",
+        confirm: "arance2026",
+      }),
+    ).toEqual({ value: "arance2026" });
+  });
+
+  it("richiede la password attuale", () => {
+    expect(
+      validateNewPassword({ currentPassword: "", password: "arance2026", confirm: "arance2026" }),
+    ).toEqual({ error: "Inserisci la password attuale" });
   });
 
   it("rifiuta una password più corta di 8 caratteri", () => {
-    expect(validateNewPassword({ password: "arance2", confirm: "arance2" })).toEqual({
+    expect(
+      validateNewPassword({ currentPassword: "vecchia2026", password: "arance2", confirm: "arance2" }),
+    ).toEqual({
       error: `La nuova password deve avere almeno ${PASSWORD_MIN_LENGTH} caratteri`,
     });
   });
 
   it("rifiuta le due password diverse", () => {
-    expect(validateNewPassword({ password: "arance2026", confirm: "arance2027" })).toEqual({
-      error: "Le due password non coincidono",
-    });
+    expect(
+      validateNewPassword({
+        currentPassword: "vecchia2026",
+        password: "arance2026",
+        confirm: "arance2027",
+      }),
+    ).toEqual({ error: "Le due password non coincidono" });
   });
 
   it("rifiuta la password vuota", () => {
-    expect(validateNewPassword({ password: "", confirm: "" })).toEqual({
-      error: expect.any(String),
-    });
+    expect(
+      validateNewPassword({ currentPassword: "vecchia2026", password: "", confirm: "" }),
+    ).toEqual({ error: expect.any(String) });
   });
 });
 
 describe("passwordChangeErrorMessage", () => {
+  it("segnala la password attuale errata", () => {
+    expect(passwordChangeErrorMessage("Invalid login credentials")).toBe(
+      "La password attuale non è corretta",
+    );
+  });
+
   it("traduce l'errore della password debole o trapelata", () => {
     expect(
       passwordChangeErrorMessage("Password is too weak: it has been found in leaked passwords"),

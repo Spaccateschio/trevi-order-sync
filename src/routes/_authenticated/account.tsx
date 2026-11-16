@@ -32,6 +32,7 @@ function Account() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [passwordBusy, setPasswordBusy] = useState(false);
@@ -74,18 +75,37 @@ function Account() {
 
   async function handlePasswordChange(event: React.FormEvent) {
     event.preventDefault();
-    const checked = validateNewPassword({ password: newPassword, confirm: newPasswordConfirm });
+    const checked = validateNewPassword({
+      currentPassword,
+      password: newPassword,
+      confirm: newPasswordConfirm,
+    });
     if ("error" in checked) {
       toast.error(checked.error);
       return;
     }
+    if (!identity?.email) {
+      toast.error("La sessione non è più valida: riaccendi e riprova");
+      return;
+    }
     setPasswordBusy(true);
+    const { error: verificationError } = await supabase.auth.signInWithPassword({
+      email: identity.email,
+      password: currentPassword,
+    });
+    if (verificationError) {
+      setPasswordBusy(false);
+      setCurrentPassword("");
+      toast.error(passwordChangeErrorMessage(verificationError.message));
+      return;
+    }
     const { error } = await supabase.auth.updateUser({ password: checked.value });
     setPasswordBusy(false);
     if (error) {
       toast.error(passwordChangeErrorMessage(error.message));
       return;
     }
+    setCurrentPassword("");
     setNewPassword("");
     setNewPasswordConfirm("");
     toast.success("Password aggiornata");
@@ -145,10 +165,21 @@ function Account() {
       <section className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm sm:max-w-xl">
         <h2 className="font-display text-base font-semibold">Password</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Serve solo se vuoi cambiarla. L'email di accesso resta la stessa e le altre
-          sedi dove sei già entrato continuano a funzionare.
+          Per sicurezza, prima di salvare la nuova password verifichiamo quella attuale.
+          L'email di accesso resta la stessa.
         </p>
         <form onSubmit={handlePasswordChange} className="mt-5 space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="currentPassword">Password attuale</Label>
+            <PasswordInput
+              id="currentPassword"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+              disabled={passwordBusy}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="newPassword">Nuova password</Label>
             <PasswordInput

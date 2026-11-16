@@ -8,11 +8,13 @@ import { z } from "zod";
 export const PASSWORD_MIN_LENGTH = 8;
 
 export function validateNewPassword(input: {
+  currentPassword: string;
   password: string;
   confirm: string;
 }): { value: string } | { error: string } {
   const parsed = z
     .object({
+      currentPassword: z.string().min(1, { message: "Inserisci la password attuale" }),
       password: z.string().min(PASSWORD_MIN_LENGTH, {
         message: `La nuova password deve avere almeno ${PASSWORD_MIN_LENGTH} caratteri`,
       }),
@@ -30,6 +32,9 @@ export function validateNewPassword(input: {
 
 /** Messaggio leggibile per gli errori del backend sul cambio password. */
 export function passwordChangeErrorMessage(message: string): string {
+  if (/invalid.*credentials|invalid login/i.test(message)) {
+    return "La password attuale non è corretta";
+  }
   if (/password/i.test(message) && /weak|leaked|breached|compromised/i.test(message)) {
     return "Questa password è troppo debole o compare in elenchi di password trapelate: scegliane un'altra";
   }
