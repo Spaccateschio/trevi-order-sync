@@ -14,7 +14,7 @@ describe("validateNewPassword", () => {
   });
 
   it("rifiuta una password più corta di 8 caratteri", () => {
-    expect(validateNewPassword({ password: "arance20", confirm: "arance20" })).toEqual({
+    expect(validateNewPassword({ password: "arance2", confirm: "arance2" })).toEqual({
       error: `La nuova password deve avere almeno ${PASSWORD_MIN_LENGTH} caratteri`,
     });
   });
@@ -26,7 +26,9 @@ describe("validateNewPassword", () => {
   });
 
   it("rifiuta la password vuota", () => {
-    expect(validateNewPassword({ password: "", confirm: "" }).error).toBeTypeOf("string");
+    expect(validateNewPassword({ password: "", confirm: "" })).toEqual({
+      error: expect.any(String),
+    });
   });
 });
 
