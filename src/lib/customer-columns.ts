@@ -180,6 +180,27 @@ export function customerMatchesQuery(record: CustomerRecord, query: string) {
     .some((field) => String(field).toLowerCase().includes(needle));
 }
 
+export type CustomerSort = { key: CustomerColumnKey; asc: boolean };
+
+export type CustomerDerivedValues = Partial<
+  Record<CustomerColumnKey, (record: CustomerRecord) => string>
+>;
+
+/** Ordina sul testo mostrato: i valori uguali restano quindi uno accanto all'altro. */
+export function sortCustomerRecords(
+  records: CustomerRecord[],
+  sort: CustomerSort,
+  derivedValues: CustomerDerivedValues = {},
+): CustomerRecord[] {
+  const column = CUSTOMER_COLUMNS.find((item) => item.key === sort.key);
+  if (!column) return records;
+  const valueOf = derivedValues[column.key] ?? column.value;
+  return [...records].sort((a, b) => {
+    const result = valueOf(a).localeCompare(valueOf(b), "it", { numeric: true });
+    return sort.asc ? result : -result;
+  });
+}
+
 /** Sposta una colonna nella posizione di un'altra (trascinamento intestazioni). */
 export function moveCustomerColumn(
   keys: CustomerColumnKey[],

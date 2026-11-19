@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Download, FileSpreadsheet, Printer, SearchX } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { useIdentity } from "@/hooks/use-identity";
@@ -41,6 +41,7 @@ import {
   loadCustomerColumns,
   saveCustomerColumnWidths,
   saveCustomerColumns,
+  sortCustomerRecords,
   type CustomerColumnKey,
 } from "@/lib/customer-columns";
 import {
@@ -682,15 +683,14 @@ export function CustomerRecordsPanel({
     .map((key) => CUSTOMER_COLUMNS.find((column) => column.key === key))
     .filter((column): column is (typeof CUSTOMER_COLUMNS)[number] => Boolean(column));
 
-  const filtered = useMemo(() => {
-    const list = records.filter((record) => customerMatchesQuery(record, search));
-    const column = CUSTOMER_COLUMNS.find((c) => c.key === sort.key);
-    if (!column) return list;
-    return [...list].sort((a, b) => {
-      const result = column.value(a).localeCompare(column.value(b), "it", { numeric: true });
-      return sort.asc ? result : -result;
-    });
-  }, [records, search, sort]);
+  const filtered = sortCustomerRecords(
+    records.filter((record) => customerMatchesQuery(record, search)),
+    sort,
+    {
+      price_list: priceListText,
+      link: (record) => rowInfo(record).link.label,
+    },
+  );
 
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((record) => selectedIds.has(record.id));
