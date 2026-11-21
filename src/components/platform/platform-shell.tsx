@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
+  BarChart3,
   Building2,
   ClipboardList,
   LayoutDashboard,
@@ -26,8 +27,10 @@ const NAV_ITEMS: {
   icon: typeof LayoutDashboard;
   exact: boolean;
   section: PlatformSection | null;
+  superOnly?: boolean;
 }[] = [
   { to: "/piattaforma", label: "Pannello", icon: LayoutDashboard, exact: true, section: null },
+  { to: "/piattaforma/statistiche", label: "Statistiche", icon: BarChart3, exact: false, section: null, superOnly: true },
   { to: "/piattaforma/aziende", label: "Aziende", icon: Building2, exact: false, section: "aziende" },
   { to: "/piattaforma/richieste-vendo", label: "Richieste Vendo", icon: ClipboardList, exact: false, section: "aziende" },
   { to: "/piattaforma/utenti", label: "Utenti", icon: Users, exact: false, section: "utenti" },
@@ -63,7 +66,8 @@ export function PlatformShell({ children }: { children?: ReactNode }) {
   if (!access.isAdmin) return null;
 
   const visibleItems = NAV_ITEMS.filter(
-    (item) => (item.to !== "/piattaforma/richieste-vendo" || access.isSuper) && (
+    (item) => (item.superOnly !== true || access.isSuper) &&
+      (item.to !== "/piattaforma/richieste-vendo" || access.isSuper) && (
       item.section === null ||
       item.to === "/piattaforma/team" ||
       access.permissions[item.section] !== "nessuno"),
