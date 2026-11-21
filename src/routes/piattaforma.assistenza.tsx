@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PlatformSupportRequestsMockup } from "@/components/platform/platform-support-requests-mockup";
 import { MOCK_COMPANIES, MOCK_USERS, type MockUser } from "@/lib/platform-mock-data";
 
 export const Route = createFileRoute("/piattaforma/assistenza")({
@@ -49,9 +51,19 @@ function PlatformSupport() {
     <div className="space-y-4">
       <h1 className="font-display text-xl font-semibold">Assistenza utenti</h1>
       <p className="text-sm text-muted-foreground">
-        Cerca un utente o un'azienda per vedere cosa vede e aiutarlo. La vista è in sola
-        lettura: non puoi modificare i suoi dati.
+        Gestisci le richieste degli utenti oppure cerca un utente per guidarlo. La vista dell’utente è in sola lettura.
       </p>
+
+      <Tabs defaultValue="richieste">
+        <TabsList className="grid w-full max-w-lg grid-cols-2">
+          <TabsTrigger value="richieste">Richieste e suggerimenti</TabsTrigger>
+          <TabsTrigger value="utenti">Assistenza diretta</TabsTrigger>
+        </TabsList>
+        <TabsContent value="richieste" className="mt-4">
+          <PlatformSupportRequestsMockup />
+        </TabsContent>
+        <TabsContent value="utenti" className="mt-4 space-y-4">
+          <p className="text-sm text-muted-foreground">Cerca un utente o un'azienda per vedere cosa vede e aiutarlo, senza modificare i suoi dati.</p>
 
       <div className="relative">
         <Search
@@ -138,6 +150,8 @@ function PlatformSupport() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

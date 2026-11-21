@@ -1,5 +1,11 @@
 # Roadmap
 
+## 21/11 — Assistenza e proposte degli utenti
+- [x] Mockup: pulsante in ogni pagina aziendale per assistenza o miglioramento, schermata facoltativa e richieste locali dimostrative.
+- [x] Mockup super admin: filtri, dettaglio, risposta e stato delle richieste nella pagina Assistenza; nessun invio o dato reale.
+- [x] Quattro test superati; flusso utente desktop/mobile e gestione admin con permessi simulati verificati senza errori JavaScript.
+- [ ] Collegamento reale, notifiche e conservazione delle richieste: fase successiva soggetta ad approvazione.
+
 ## 30/10 — Barra laterale comprimibile
 - [x] Pulsante nella barra (schermi grandi): compressa a 72 px con sole icone e nomi al passaggio del mouse; preferenza locale del dispositivo (src/lib/sidebar-collapse.ts + app-shell.tsx). 7 test helper, build OK; anteprima autenticata Trevi: 240→72 px, sotto-voci della sezione in corso raggiungibili, preferenza conservata dopo ricaricamento e ritorno a 240 px. Corretto anche l'apertura automatica del gruppo quando una sezione è raggiunta dall'indirizzo (dipendenza dell'aggiornamento). Nessuna migrazione, nessuna pubblicazione.
 
