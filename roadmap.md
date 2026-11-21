@@ -349,4 +349,4 @@
 
 ## 21/11 — Statistiche di utilizzo area piattaforma
 - [x] Mockup con filtri e grafici per pagine visitate e comandi cliccati, includendo sia le aree aziendali sia l’area piattaforma. Verificato come super admin su computer e telefono; 5 prove automatiche superate, nessuna raccolta dati.
-- [ ] Collegamento ai dati reali approvato: raccolta anonima interna, tre suggerimenti scritti basati sui numeri, filtri e grafici reali; in implementazione, senza modificare dati operativi né pubblicare.
+- [x] Statistiche reali: raccolta anonima interna di aperture, tempi, errori e clic; filtri e grafici reali; tre consigli scritti con prova numerica e stato «Dati insufficienti» sotto soglia; accesso verificato solo per super admin. 18 test automatici superati, verifica desktop/mobile e permessi completata; eventi e ruolo temporaneo di collaudo eliminati. Nessun dato operativo modificato, nessuna pubblicazione.
