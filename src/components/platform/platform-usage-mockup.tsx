@@ -313,7 +313,7 @@ export function PlatformUsageMockup() {
         </CardHeader>
         <CardContent>
           <ChartContainer config={trendConfig} className="h-[280px] w-full aspect-none">
-            <LineChart data={snapshot.daily} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+            <LineChart data={snapshot.daily} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="label"
@@ -322,7 +322,7 @@ export function PlatformUsageMockup() {
                 minTickGap={32}
                 tickMargin={8}
               />
-              <YAxis tickLine={false} axisLine={false} width={48} />
+              <YAxis tickLine={false} axisLine={false} width={56} />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Line
                 type="monotone"

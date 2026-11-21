@@ -348,5 +348,5 @@
 - [x] Lista: conferma quantità veloce (ottimistico, ricarica in sottofondo, letture parallele)
 
 ## 21/11 — Statistiche di utilizzo area piattaforma
-- [ ] Mockup con filtri e grafici per pagine visitate e comandi cliccati, includendo sia le aree aziendali sia l’area piattaforma.
+- [x] Mockup con filtri e grafici per pagine visitate e comandi cliccati, includendo sia le aree aziendali sia l’area piattaforma. Verificato come super admin su computer e telefono; 5 prove automatiche superate, nessuna raccolta dati.
 - [ ] Collegamento ai dati reali solo in una fase successiva approvata; nessuna raccolta o modifica di dati operativi nel mockup.
