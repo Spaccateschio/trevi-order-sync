@@ -349,4 +349,4 @@
 
 ## 21/11 — Statistiche di utilizzo area piattaforma
 - [x] Mockup con filtri e grafici per pagine visitate e comandi cliccati, includendo sia le aree aziendali sia l’area piattaforma. Verificato come super admin su computer e telefono; 5 prove automatiche superate, nessuna raccolta dati.
-- [ ] Collegamento ai dati reali solo in una fase successiva approvata; nessuna raccolta o modifica di dati operativi nel mockup.
+- [ ] Collegamento ai dati reali approvato: raccolta anonima interna, tre suggerimenti scritti basati sui numeri, filtri e grafici reali; in implementazione, senza modificare dati operativi né pubblicare.

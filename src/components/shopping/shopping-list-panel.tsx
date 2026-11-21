@@ -39,6 +39,7 @@ import { DISPLAY_FIELDS, useCardDisplay } from "./card-display";
 import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { MemoCatalogProductCard, MemoShoppingListCard } from "./memo-cards";
 import { useStableCallbacks } from "@/lib/stable-props";
+import { trackPlatformUsageClick } from "@/lib/platform-usage-tracking";
 import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { CloseListDialog } from "./close-list-dialog";
 import { GenerateOrdersDialog } from "./generate-orders-dialog";
@@ -1263,6 +1264,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     const value = confirmationQuantity(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity));
     if (value === null) { toast.error("Inserisci una quantità valida prima di confermare"); return; }
     if (!confirmationGuard.current.start(row.item_id)) return;
+    trackPlatformUsageClick("lista-spesa", "confirm-quantity");
     try {
       if (value === 0) {
         await excludeItem(row.item_id, "exclude");

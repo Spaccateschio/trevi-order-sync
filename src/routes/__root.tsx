@@ -14,6 +14,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { getPlatformUsagePage, type PlatformUsagePageKey } from "../lib/platform-usage";
+import { trackPlatformUsageEvent } from "../lib/platform-usage-tracking";
 
 // ===== Auto-reload once on stale chunk load failures =====
 // After a new deployment the open browser tab may request an old JS chunk that
@@ -191,6 +193,60 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+
+  useEffect(() => {
+    let activePage: PlatformUsagePageKey | null = null;
+    let activeSince = performance.now();
+    let navigationStarted: number | null = null;
+    let lastViewPath = "";
+    let lastViewAt = 0;
+
+    const sendEngagement = () => {
+      if (!activePage) return;
+      const elapsed = Math.round(performance.now() - activeSince);
+      if (elapsed >= 250) trackPlatformUsageEvent("page_engagement", activePage, { metricValue: elapsed });
+      activeSince = performance.now();
+    };
+
+    const registerPage = (pathname: string, loadMs: number | null) => {
+      const now = performance.now();
+      if (pathname === lastViewPath && now - lastViewAt < 500) return;
+      lastViewPath = pathname;
+      lastViewAt = now;
+      const page = getPlatformUsagePage(pathname);
+      activePage = page?.key ?? null;
+      activeSince = now;
+      if (!page) return;
+      trackPlatformUsageEvent("page_view", page.key);
+      if (loadMs !== null && loadMs >= 0) {
+        trackPlatformUsageEvent("page_load", page.key, { metricValue: Math.round(loadMs) });
+      }
+    };
+
+    registerPage(window.location.pathname, performance.now());
+
+    const unsubscribeBefore = router.subscribe("onBeforeNavigate", (event) => {
+      if (!event.pathChanged) return;
+      sendEngagement();
+      activePage = null;
+      navigationStarted = performance.now();
+    });
+    const unsubscribeResolved = router.subscribe("onResolved", (event) => {
+      if (!event.pathChanged) return;
+      const started = navigationStarted;
+      navigationStarted = null;
+      registerPage(
+        event.toLocation.pathname,
+        started === null ? null : performance.now() - started,
+      );
+    });
+
+    return () => {
+      unsubscribeBefore();
+      unsubscribeResolved();
+      sendEngagement();
+    };
+  }, [router]);
 
   useEffect(() => {
     // A successful render clears the once-only reload guard, so a future

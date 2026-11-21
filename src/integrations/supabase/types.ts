@@ -3579,6 +3579,42 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_usage_events: {
+        Row: {
+          area: string
+          device: string
+          element_key: string | null
+          event_type: string
+          id: string
+          metric_value: number | null
+          occurred_at: string
+          page_key: string
+          visit_id: string
+        }
+        Insert: {
+          area: string
+          device: string
+          element_key?: string | null
+          event_type: string
+          id?: string
+          metric_value?: number | null
+          occurred_at?: string
+          page_key: string
+          visit_id: string
+        }
+        Update: {
+          area?: string
+          device?: string
+          element_key?: string | null
+          event_type?: string
+          id?: string
+          metric_value?: number | null
+          occurred_at?: string
+          page_key?: string
+          visit_id?: string
+        }
+        Relationships: []
+      }
       product_danea_supplier_matches: {
         Row: {
           company_id: string
@@ -8842,6 +8878,15 @@ export type Database = {
           vat_number: string
         }[]
       }
+      platform_usage_snapshot: {
+        Args: {
+          _area?: string
+          _days: number
+          _device?: string
+          _page_key?: string
+        }
+        Returns: Json
+      }
       preparation_actor_allowed: {
         Args: { _company_id: string }
         Returns: boolean
@@ -9094,6 +9139,17 @@ export type Database = {
           _unit_id?: string
         }
         Returns: string
+      }
+      record_platform_usage_event: {
+        Args: {
+          _device: string
+          _element_key: string
+          _event_type: string
+          _metric_value?: number
+          _page_key: string
+          _visit_id: string
+        }
+        Returns: undefined
       }
       record_price_observation: {
         Args: {

@@ -5,6 +5,7 @@ import { InventoryConfirmAllDialog } from "./inventory-confirm-all-dialog";
 import { inventoryResetAction, inventoryReopenQueryKeys } from "@/lib/inventory-reset";
 import { inventoryCompactBar } from "@/lib/inventory-scroll";
 import { createRefreshBatcher } from "@/lib/shopping-optimistic";
+import { trackPlatformUsageClick } from "@/lib/platform-usage-tracking";
 import { countedRowPatch, patchCardRow, restoreCardRow } from "@/lib/inventory-optimistic";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CYCLE_QUERY_KEY } from "@/components/shopping/inventory-to-evaluate";
@@ -1723,6 +1724,7 @@ export function InventoryCountPanel({
   const confirmRow = async (row: InventoryCountRow) => {
     const value = parseQuantity(draftsRef.current[rowKey(row)] ?? "");
     if (value === null) { toast.error("Inserisci una quantità valida"); return; }
+    trackPlatformUsageClick("inventario", "confirm-inventory-count");
     const chosen = selectedCardUnit(rowKey(row), row);
     let stockValue: number | null = row.stock_unit_code && chosen.code?.toLowerCase() === row.stock_unit_code.trim().toLowerCase() ? value : null;
     if (chosen.code?.toLowerCase() !== row.stock_unit_code?.trim().toLowerCase()) {

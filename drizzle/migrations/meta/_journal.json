@@ -729,6 +729,20 @@
       "when": 1795238760486,
       "tag": "0103_secure_selected_function_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1795239477131,
+      "tag": "0104_platform_usage_analytics",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1795239592475,
+      "tag": "0105_platform_usage_optional_element",
+      "breakpoints": true
     }
   ]
 }

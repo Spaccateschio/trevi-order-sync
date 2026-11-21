@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { PlatformUsageMockup } from "@/components/platform/platform-usage-mockup";
+import { PlatformUsagePanel } from "@/components/platform/platform-usage-mockup";
 
 export const Route = createFileRoute("/piattaforma/statistiche")({
   head: () => ({
@@ -8,8 +8,7 @@ export const Route = createFileRoute("/piattaforma/statistiche")({
       { title: "Statistiche di utilizzo — Amministrazione piattaforma" },
       {
         name: "description",
-        content:
-          "Mockup delle statistiche sulle pagine più visitate e sui comandi più cliccati nell'app.",
+        content: "Statistiche reali e suggerimenti per migliorare pagine, dispositivi e comandi dell'app.",
       },
       {
         property: "og:title",
@@ -17,12 +16,11 @@ export const Route = createFileRoute("/piattaforma/statistiche")({
       },
       {
         property: "og:description",
-        content:
-          "Mockup delle statistiche sulle pagine più visitate e sui comandi più cliccati nell'app.",
+        content: "Statistiche reali e suggerimenti per migliorare pagine, dispositivi e comandi dell'app.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: PlatformUsageMockup,
+  component: PlatformUsagePanel,
 });

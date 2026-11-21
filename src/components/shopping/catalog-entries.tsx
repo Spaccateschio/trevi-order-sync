@@ -33,6 +33,7 @@ import { getProductImageUrls } from "@/lib/product-images.functions";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
 import { cn } from "@/lib/utils";
 import { companyProductPurchaseUnitsOptions, productPurchaseDefault } from "@/lib/product-purchase-units";
+import { trackPlatformUsageClick } from "@/lib/platform-usage-tracking";
 
 const MANUAL = "__manuale__";
 
@@ -426,6 +427,7 @@ export function CatalogProductCard({
         return;
       }
       if (!ready) return;
+      trackPlatformUsageClick("lista-spesa", "add-catalog-product");
       setConfirming(true);
       try { await onAdd(quantity, unitCode); setQty(""); onDraftChange?.(false); if (mobileOpen) onToggleMobile?.(); }
       catch { /* Mutation reports error; keep the typed quantity for retry. */ }
