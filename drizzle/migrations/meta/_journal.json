@@ -722,6 +722,13 @@
       "when": 1794374212279,
       "tag": "0102_closed_network_invite_only",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1795238760486,
+      "tag": "0103_secure_selected_function_reads",
+      "breakpoints": true
     }
   ]
 }
