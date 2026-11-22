@@ -6,6 +6,7 @@ export type EntryCartLine = {
   quantity: string;
   unitCode: string | null;
   supplierNames?: string[];
+  supplierDetails?: string[];
   error?: string | null;
 };
 
@@ -66,6 +67,12 @@ export function entryCartMetrics(lines: Pick<EntryCartLine, "id" | "productId" |
     products: new Set(lines.map((line) => line.productId ?? line.id)).size,
     suppliers: new Set(lines.flatMap((line) => line.supplierNames ?? [])).size,
   };
+}
+
+/** Una riga confermata che viene modificata passa nelle bozze, senza comparire due volte. */
+export function confirmedLinesWithoutDrafts<T extends Pick<EntryCartLine, "id">>(confirmed: readonly T[], drafts: readonly Pick<EntryCartLine, "id">[]): T[] {
+  const draftIds = new Set(drafts.map((line) => line.id));
+  return confirmed.filter((line) => !draftIds.has(line.id));
 }
 
 /**

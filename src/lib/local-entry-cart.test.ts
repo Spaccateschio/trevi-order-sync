@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { clearEntryCartDraft, entryCartMetrics, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft } from "./local-entry-cart";
+import { clearEntryCartDraft, confirmedLinesWithoutDrafts, entryCartMetrics, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft } from "./local-entry-cart";
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -34,6 +34,15 @@ describe("bozza locale del carrello", () => {
       { id: "b", productId: "p1", supplierNames: ["F1"] },
       { id: "c", productId: "p2" },
     ])).toEqual({ products: 2, suppliers: 2 });
+  });
+
+  it("mostra i confermati e sposta nelle bozze solo la riga modificata", () => {
+    const confirmed = [
+      { id: "list:a", productId: "a", supplierNames: ["Fornitore 1"] },
+      { id: "list:b", productId: "b", supplierNames: ["Fornitore 2"] },
+    ];
+    expect(confirmedLinesWithoutDrafts(confirmed, [{ id: "list:a" }])).toEqual([confirmed[1]]);
+    expect(entryCartMetrics(confirmed)).toEqual({ products: 2, suppliers: 2 });
   });
 });
 

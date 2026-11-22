@@ -34,6 +34,11 @@ export function matchesShoppingFilters(p: ProductFilterFacts, f: ProductFilters)
   return failedShoppingFilters(p, f).length === 0;
 }
 
+/** Una bozza appena scritta non sparisce mentre la si corregge con «Da inserire» attivo. */
+export function visibleWhenFilteringMissing(onlyMissing: boolean, isMissing: boolean, hasLocalDraft: boolean): boolean {
+  return !onlyMissing || isMissing || hasLocalDraft;
+}
+
 /** Aprendo un mancante si tolgono solo i filtri che nascondono proprio quella card. */
 export function shoppingFiltersForMissingReveal(p: ProductFilterFacts, f: ProductFilters): ProductFilters {
   const failed = new Set(failedShoppingFilters(p, f));

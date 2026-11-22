@@ -365,3 +365,6 @@
 - [ ] Collaudo browser dei campi Inventario su 3 EMME: bloccato dal ciclo acquisti rosso esistente; serve un inventario aperto autorizzato, senza cambiare le regole del ciclo.
 - [x] Correzione mancanti: fuori Lista/sessione contare solo i preferiti; Carrello, chip e filtro allineati e verificati su 3 EMME (0/6 anche con Tutti; PATATE e ZENZERO esclusi), 22 test superati, senza modifiche DB.
 - [x] Tocco su un mancante: «Da inserire» attivo, rimossi solo i filtri che nascondono la card e limite esteso solo fino al prodotto; stessa regola nell'Inventario. 52 test superati e verifica 3 EMME senza scritture: BASILICO visibile ed evidenziato, PATATE/ZENZERO esclusi, secondo tocco sul chip funzionante.
+- [x] Controllo ultimi dati 3 EMME: Lista 22/11 aperta con 5 quantità salvate e BASILICO vuoto; zero ordini creati/inviati da questa Lista, ultimo ORD-2026-00013 del 17/11.
+- [x] La bozza resta visibile con «Da inserire» attivo; dopo il salvataggio il Carrello si riapre con articoli confermati, fornitori e quantità modificabili prima degli ordini.
+- [x] Il comando «Invia ordini per fornitore» apre il flusso esistente con una card per fornitore, senza creare/inviare alla sola apertura. Verifica 3 EMME: 5 prodotti · trevi srl, BASILICO 2 resta visibile, 35 test superati; nessuna scrittura o invio durante il controllo.

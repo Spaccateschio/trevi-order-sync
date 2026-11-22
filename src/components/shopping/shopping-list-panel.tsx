@@ -1,4 +1,4 @@
-import { catalogLimitForMissingReveal, matchesShoppingFilters, shoppingFiltersForMissingReveal, shoppingSortKey, type FilterFlag, type ProductFilterFacts, type SortKey } from "./shopping-list-filters";
+import { catalogLimitForMissingReveal, matchesShoppingFilters, shoppingFiltersForMissingReveal, shoppingSortKey, visibleWhenFilteringMissing, type FilterFlag, type ProductFilterFacts, type SortKey } from "./shopping-list-filters";
 import { selectShoppingPrintRows, type ShoppingPrintRow } from "./shopping-list-print-data";
 import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
@@ -272,6 +272,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [cartErrors, setCartErrors] = useState<Record<string, string>>({});
   const [cartSaving, setCartSaving] = useState(false);
   const [cartProgress, setCartProgress] = useState<EntryCartProgress>(null);
+  const [cartReviewSignal, setCartReviewSignal] = useState(0);
   // Card / Righe: scelta solo visuale, ricordata sul dispositivo.
   const [viewMode, setViewMode] = useState<"card" | "row">("card");
   useEffect(() => {
@@ -966,8 +967,15 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const missingCatalog = requiredCatalog.filter(isCatalogMissing);
   const missingEntryIds = new Set(missingEntries.map((entry) => entry.row.item_id));
   const missingCatalogKeys = new Set(missingCatalog.map((entry) => entry.key));
-  const entries = allEntries.filter((e) => matchesShoppingFilters(entryFacts(e), filters) && (!onlyMissing || missingEntryIds.has(e.row.item_id)));
-  const catalogFiltered = availableCatalog.filter((p) => matchesShoppingFilters(catalogFacts(p), filters) && (!onlyMissing || missingCatalogKeys.has(p.key)));
+  const entries = allEntries.filter((entry) => {
+    const hasLocalDraft = entry.kind === "pending"
+      ? evalValues[entry.row.product_id] !== undefined
+      : edits[entry.row.item_id] !== undefined || Boolean(unitEdits[entry.row.item_id]);
+    return matchesShoppingFilters(entryFacts(entry), filters)
+      && visibleWhenFilteringMissing(onlyMissing, missingEntryIds.has(entry.row.item_id), hasLocalDraft);
+  });
+  const catalogFiltered = availableCatalog.filter((entry) => matchesShoppingFilters(catalogFacts(entry), filters)
+    && visibleWhenFilteringMissing(onlyMissing, missingCatalogKeys.has(entry.key), catalogValues[entry.key] !== undefined));
   // Exclusions must be read before filtering (also used by print); no writes.
   // Un solo ordinamento per card della Lista e prodotti non in lista: la stella non sposta nulla.
   const merged = (() => {
@@ -1643,6 +1651,17 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   }, [allRows, edits, unitEdits, extras, pendingEntries, evalValues, availableCatalog, catalogValues, catalogNotBuying]);
   const invalidCartIds = new Set(cartLines.filter((line) => !line.quantity.trim() ? !line.id.startsWith("list:") : parseQuantity(line.quantity) === null).map((line) => line.id));
   const displayedCartLines = cartLines.map((line) => ({ ...line, error: cartErrors[line.id] ?? (invalidCartIds.has(line.id) ? "Quantità non valida" : null) }));
+  const confirmedCartLines = useMemo<EntryCartLine[]>(() => allRows.filter((row) =>
+    row.decided_quantity !== null && Number(row.decided_quantity) > 0 && !excludedQuery.data?.has(row.item_id),
+  ).map((row) => {
+    const suppliers = extras.get(row.item_id)?.suppliers ?? [];
+    return {
+      id: `list:${row.item_id}`, productId: row.product_id, label: row.description ?? row.code, detail: row.code,
+      quantity: qty(Number(row.decided_quantity)), unitCode: extras.get(row.item_id)?.decidedUnitCode ?? row.unit_code,
+      supplierNames: suppliers.map((supplier) => supplier.name),
+      supplierDetails: suppliers.map((supplier) => `${supplier.name} · ${supplier.purchaseQuantity === null ? "—" : qty(supplier.purchaseQuantity)} ${supplier.purchaseUnitCode ?? ""}`),
+    };
+  }), [allRows, extras, excludedQuery.data]);
   const cartMissing = useMemo<EntryCartMissing[]>(() => [
     ...missingEntries.map((entry) => ({ id: entry.row.item_id, label: entry.row.description ?? entry.row.code, detail: entry.row.code })),
     ...missingCatalog.map((entry) => ({ id: `catalog:${entry.key}`, label: entry.description ?? entry.code, detail: entry.code })),
@@ -1758,7 +1777,10 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       });
       const failed = Object.keys(nextErrors).length;
       if (failed) toast.warning(`${failed} ${failed === 1 ? "riga resta" : "righe restano"} nel Carrello con il suo errore`);
-      else toast.success("Carrello confermato");
+      else {
+        toast.success("Quantità confermate: nessun ordine è ancora stato inviato");
+        setCartReviewSignal((current) => current + 1);
+      }
       void refresh();
     } finally {
       setCartSaving(false);
@@ -1864,7 +1886,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 Bozze
               </Button>
               <Button type="button" size="sm" disabled={listMutation.isPending} onClick={openGeneration}>
-                Genera ordini
+                Invia ordini per fornitore
               </Button>
             </>
           ) : null}
@@ -2504,11 +2526,13 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       {(ready.canPrepare || previewMode || displayedCartLines.length) ? <EntryCartDock
         areaLabel="Lista della Spesa"
         lines={displayedCartLines}
+        confirmedLines={confirmedCartLines}
+        reviewSignal={cartReviewSignal}
         missing={cartMissing}
         progress={cartProgress}
         saving={cartSaving}
         confirmDisabled={!ready.canPrepare && !previewMode}
-        secondaryAction={list && editable && allRows.length ? { label: "Genera ordini", disabled: listMutation.isPending, onClick: openGeneration } : undefined}
+        secondaryAction={list && editable && allRows.length ? { label: "Invia ordini per fornitore", disabled: listMutation.isPending, onClick: openGeneration } : undefined}
         onQuantityChange={changeCartQuantity}
         onRemove={removeCartLine}
         onRevealMissing={revealMissing}

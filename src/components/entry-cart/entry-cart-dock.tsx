@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { entryCartMetrics, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
+import { confirmedLinesWithoutDrafts, entryCartMetrics, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 
 export function EntryCartDock({
   areaLabel,
   lines,
+  confirmedLines,
+  reviewSignal = 0,
   missing,
   progress,
   saving,
@@ -23,6 +25,8 @@ export function EntryCartDock({
 }: {
   areaLabel: string;
   lines: EntryCartLine[];
+  confirmedLines?: EntryCartLine[];
+  reviewSignal?: number;
   missing: EntryCartMissing[];
   progress: EntryCartProgress;
   saving: boolean;
@@ -51,7 +55,12 @@ export function EntryCartDock({
     window.addEventListener("offline", update);
     return () => { window.removeEventListener("online", update); window.removeEventListener("offline", update); };
   }, [online]);
-  const metrics = useMemo(() => entryCartMetrics(lines), [lines]);
+  useEffect(() => {
+    if (reviewSignal > 0) setCartOpen(true);
+  }, [reviewSignal]);
+  const visibleConfirmedLines = useMemo(() => confirmedLinesWithoutDrafts(confirmedLines ?? [], lines), [confirmedLines, lines]);
+  const summaryLines = lines.length ? lines : visibleConfirmedLines;
+  const metrics = useMemo(() => entryCartMetrics(summaryLines), [summaryLines]);
   const percentage = progress?.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   const requestConfirm = () => {
@@ -87,7 +96,7 @@ export function EntryCartDock({
       <DialogContent className="flex max-h-[85dvh] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Carrello · {areaLabel}</DialogTitle>
-          <DialogDescription>Le modifiche restano sul dispositivo finché non premi Conferma.</DialogDescription>
+          <DialogDescription>{lines.length ? "Le modifiche restano sul dispositivo finché non premi Conferma." : "Riepilogo delle quantità salvate: puoi modificarle prima di preparare gli ordini."}</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
           <section aria-label="Articoli inseriti">
@@ -101,9 +110,22 @@ export function EntryCartDock({
                 <Input inputMode="decimal" className="h-9 text-right text-base font-semibold" value={line.quantity} disabled={saving} onChange={(event) => onQuantityChange(line.id, event.target.value)} aria-label={`Quantità nel carrello di ${line.label}`} />
                 <span className="w-16 shrink-0 text-sm font-semibold">{line.unitCode ?? "—"}</span>
               </div>
+              {line.supplierDetails?.length ? <p className="mt-1 text-xs text-muted-foreground">{line.supplierDetails.join(" · ")}</p> : null}
               {line.error ? <p className="mt-2 flex items-start gap-1 text-xs text-destructive" role="alert"><AlertTriangle className="mt-0.5 size-3.5 shrink-0" />{line.error}</p> : null}
             </li>)}</ul> : <p className="text-sm text-muted-foreground">Nessuna nuova quantità inserita.</p>}
           </section>
+          {visibleConfirmedLines.length ? <section aria-label="Articoli confermati" className="border-t border-border pt-3">
+            <h3 className="mb-2 text-sm font-semibold">Confermati ({visibleConfirmedLines.length})</h3>
+            <ul className="space-y-2">{visibleConfirmedLines.map((line) => <li key={line.id} className="rounded-md border border-border p-2">
+              <p className="break-words text-sm font-semibold">{line.label}</p>
+              {line.detail ? <p className="text-xs text-muted-foreground">{line.detail}</p> : null}
+              <div className="mt-2 flex items-center gap-2">
+                <Input inputMode="decimal" className="h-9 text-right text-base font-semibold" value={line.quantity} disabled={saving} onChange={(event) => onQuantityChange(line.id, event.target.value)} aria-label={`Modifica quantità confermata di ${line.label}`} />
+                <span className="w-16 shrink-0 text-sm font-semibold">{line.unitCode ?? "—"}</span>
+              </div>
+              {line.supplierDetails?.length ? <p className="mt-1 text-xs text-muted-foreground">{line.supplierDetails.join(" · ")}</p> : null}
+            </li>)}</ul>
+          </section> : null}
           <section aria-label="Articoli mancanti" className="border-t border-border pt-3">
             <h3 className="mb-2 text-sm font-semibold">Mancanti ({missing.length})</h3>
             {missing.length ? <ul className="space-y-1">{missing.slice(0, 200).map((item) => <li key={item.id}><button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-muted" onClick={() => { setCartOpen(false); onRevealMissing(item.id); }}>
@@ -111,7 +133,10 @@ export function EntryCartDock({
             </button></li>)}</ul> : <p className="text-sm text-muted-foreground">Tutti gli articoli hanno una quantità.</p>}
           </section>
         </div>
-        <DialogFooter><Button disabled={saving || confirmDisabled} onClick={() => { setCartOpen(false); requestConfirm(); }}><CheckCheck /> Conferma</Button></DialogFooter>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" disabled={saving || confirmDisabled || !lines.length} onClick={() => { setCartOpen(false); requestConfirm(); }}><CheckCheck /> Conferma modifiche</Button>
+          {secondaryAction ? <Button disabled={saving || secondaryAction.disabled || lines.length > 0} onClick={() => { setCartOpen(false); secondaryAction.onClick(); }}>{secondaryAction.label}</Button> : null}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
 

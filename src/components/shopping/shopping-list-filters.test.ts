@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { catalogLimitForMissingReveal, matchesShoppingFilters, shoppingFiltersForMissingReveal, type FilterFlag, type ProductFilterFacts } from "./shopping-list-filters";
+import { catalogLimitForMissingReveal, matchesShoppingFilters, shoppingFiltersForMissingReveal, visibleWhenFilteringMissing, type FilterFlag, type ProductFilterFacts } from "./shopping-list-filters";
 import { catalogProductRequiresQuantity } from "./missing-quantities";
 const p: ProductFilterFacts = { id: "p1", code: "00-001", description: "Ananas", category: "Frutta", supplierIds: ["trevi"], supplierNames: ["Trevi"], favorite: true, b2b: true, nonB2b: false, assignment: null, ordered: false, confirmed: false, needsCheck: false, nonPurchase: false };
 const match = (flags: FilterFlag[], overrides: Partial<ProductFilterFacts> = {}) => matchesShoppingFilters({ ...p, ...overrides }, { search: "", category: "all", supplier: "all", flags: new Set(flags) });
@@ -29,6 +29,12 @@ describe("filtri prodotti Lista", () => {
     assert.equal(matchesShoppingFilters(p, { ...f, search: "pera" }), false);
   });
   it("nessun filtro include catalogo e stati sconosciuti", () => assert.equal(match([]), true));
+  it("con Da inserire attivo la quantità appena scritta resta visibile e correggibile", () => {
+    assert.equal(visibleWhenFilteringMissing(true, true, false), true);
+    assert.equal(visibleWhenFilteringMissing(true, false, true), true);
+    assert.equal(visibleWhenFilteringMissing(true, false, false), false);
+    assert.equal(visibleWhenFilteringMissing(false, false, false), true);
+  });
   it("tocco su un mancante: il preferito scelto è visibile, i non preferiti no e il limite non copre tutto il catalogo", () => {
     const products = Array.from({ length: 75 }, (_, index) => {
       const key = `p${index}`;
