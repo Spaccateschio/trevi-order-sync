@@ -743,6 +743,13 @@
       "when": 1795239592475,
       "tag": "0105_platform_usage_optional_element",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1795360947519,
+      "tag": "0106_make_decide_proposed_update_static",
+      "breakpoints": true
     }
   ]
 }
