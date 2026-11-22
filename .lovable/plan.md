@@ -1,33 +1,52 @@
-# Card dei prodotti con fornitore B2B — risposte e piano
+# Colore pastello per fornitore — risposte e piano
 
-Il piano precedente sulle unità di misura è annullato e non verrà implementato.
+Sostituisce il piano delle card gialle per il B2B (annullato) e quello sulle unità di misura (annullato).
 
 ## Risposte (sola lettura)
 
-**1. Da dove si capisce che c'è un fornitore B2B**
-- Tabella `product_supplier_links`, collegamento con `is_active = true` e `b2b_item_id` non vuoto (insieme a `supplier_company_id`). Questa è l'identità B2B ufficiale del collegamento (regola già esistente).
-- Il codice articolo da solo o l'origine «copiato dal catalogo» (`products.created_from_product_id`) non bastano e non vanno usati.
-- Nota: «collegato» non vuol dire «acquistabile oggi». Il colore segnerà il collegamento, non l'acquistabilità.
+**1. Dove sono i fornitori e quale chiave usare**
+- Ogni fornitore, B2B o manuale, ha la sua anagrafica nell'azienda che compra: `supplier_records` (azienda = `buyer_company_id`, nome = `legal_name`).
+- Fornitore B2B: la stessa anagrafica è collegata all'azienda venditrice tramite `supplier_customer_relations.supplier_record_id` (venditore = `seller_company_id` in `companies`).
+- Ogni prodotto si collega al fornitore con `product_supplier_links.supplier_record_id`.
+- Chiave stabile del colore: **`supplier_records.id`**. Vale per B2B e manuali ed è già propria di ogni azienda, quindi due aziende possono scegliere colori diversi per lo stesso fornitore.
 
-**2. Il dato è già letto?**
-- Lista della Spesa (card in lista): sì, già presente nella lettura unica `shopping_list_cards_bundle` (indicazione `is_b2b` per ogni fornitore). Nessuna lettura in più.
-- Lista, prodotti del catalogo non ancora in lista, e Inventario: no. L'Inventario legge già i collegamenti attivi in una sola richiesta per pagina (`inventory-count-panel.tsx`), ma senza `b2b_item_id`. Basta aggiungere quel campo alla richiesta esistente: nessuna richiesta nuova e nessuna per card. Per i prodotti del catalogo in Lista serve la stessa cosa: una sola richiesta per la pagina.
+**2. Dove salvare il colore**
+- Nessuna tabella nuova: un campo in `supplier_records`, nome `display_color` (testo, solo uno dei codici della tavolozza, es. `p03`; vuoto = colore automatico).
+- Relazione: già 1 riga per azienda e fornitore (`buyer_company_id`).
+- Accesso già esistente: lettura per i membri dell'azienda, modifica solo agli amministratori (`is_company_admin`). Nessuna nuova policy.
 
-**3. Colori di stato già presenti**
-- Verde (success): quantità assegnata / confermata.
-- Rosso (destructive): errori e blocchi.
-- Ocra (warning, uguale al giallo del tema): da completare, U.M. da scegliere, avvisi, e i **mancanti** nel Carrello e in «Cosa confermi» (sfondo ocra).
-- Blu notte (primary): card aperta / selezionata.
-- **Rischio da segnalare:** il giallo ocra è già il colore dei mancanti e degli avvisi. Uno sfondo ocra per il B2B si confonderebbe con «manca la quantità», soprattutto nel Carrello.
+**3. Fornitore principale di una card oggi**
+- Prima della quantità: stella (`product_supplier_links.is_preferred`); senza stella, l'unico fornitore valido; poi la memoria dell'ultima Lista chiusa (`chooseListDestinations`).
+- Con quantità: le quote in `shopping_list_item_suppliers` (righe con `deselected_at` vuoto).
+- Card divisa tra più fornitori: oggi un elenco di righe fornitore con spunta e quota ciascuna dentro la card; nessun colore.
+- Proposta di principale: quota più alta; a parità o senza quote, la stella; altrimenti il primo in elenco.
 
-## Proposta (dopo il tuo via libera)
+**4. Colori di stato da escludere**
+- Verde: assegnato / confermato. Rosso: errori e blocchi. Ocra: avvisi, U.M. da scegliere, mancanti (sfondo nel Carrello e in «Cosa confermi»). Blu notte: card aperta / selezionata.
 
-- Sfondo giallo ocra **molto chiaro**, nuovo colore dedicato «B2B» (più tenue dell'ocra dei mancanti), con una piccola etichetta «B2B» sulla card per non dipendere solo dal colore.
-- Gli stati restano su bordo e badge (verde, rosso, ocra pieno).
-- Lista (vista Card e Righe), Inventario, Carrello e «Cosa confermi».
-- Nei mancanti del Carrello/«Cosa confermi» lo sfondo ocra resta ai mancanti; il B2B lì si vede con l'etichetta, per non confondere.
-- Legenda piccola vicino ai filtri: «Giallo = fornitore B2B».
-- Tema chiaro e scuro con contrasto verificato.
-- Nessuna modifica a database, ciclo o salvataggio; nessuna chiamata per card.
+**5. Dati già letti**
+- Lista della Spesa: fornitori e quote già nella lettura unica della pagina; manca solo il colore → si aggiunge `display_color` alla lettura dei fornitori già esistente.
+- Inventario: già legge una volta per pagina i collegamenti attivi con il nome del fornitore; si aggiungono `supplier_record_id` e `display_color` a quella richiesta.
+- Carrello e «Cosa confermi»: usano i dati già caricati dalla pagina.
+- Ordini: il fornitore è già nella testata dell'ordine; si aggiunge il colore alla stessa lettura.
+- Nessuna richiesta per card.
 
-Se preferisci un altro colore di sfondo (per esempio azzurro chiaro) per evitare la confusione con i mancanti, dimmelo prima del via libera. Il file delle attività lo aggiorno appena approvi.
+## Piano (dopo il tuo via libera)
+
+1. **Tavolozza** di 12 pastello (azzurro, celeste, lavanda, lilla, rosa, pesca, sabbia, acqua, turchese, pervinca, grigio-blu, malva), senza rosso, verde e ocra. Ognuno ha una versione chiara e una scura, con testo leggibile in entrambi i temi.
+2. **Colore automatico e stabile**: calcolato dall'identificatore del fornitore, quindi sempre lo stesso senza salvare nulla. Se l'amministratore lo cambia nella scheda fornitore, vale la scelta salvata.
+3. **Scheda fornitore**: piccola scelta tra i 12 colori con anteprima.
+4. **Card** (Lista Card e Righe, Inventario, Carrello, «Cosa confermi», Ordini): tinta leggera del fornitore principale, fascia a sinistra e nome del fornitore. Più fornitori: fasce affiancate, tinta del principale.
+5. Gli stati restano solo su bordo e badge; nei mancanti del Carrello lo sfondo ocra resta ai mancanti e il fornitore si vede dalla fascia.
+6. **Legenda** vicino ai filtri con i fornitori della pagina; toccandone uno si filtrano le card di quel fornitore (filtro solo a schermo, non salvato).
+
+## Modifica al database (descritta, da non eseguire senza via libera)
+
+- Migrazione: aggiunge `supplier_records.display_color text` facoltativo, con controllo che accetti solo i 12 codici della tavolozza o vuoto.
+- RLS e permessi invariati (già attivi). Nessuna modifica a ciclo, quantità, ordini o salvataggi.
+- Nessun dato esistente da correggere: il colore automatico funziona anche con il campo vuoto.
+
+## Dettagli tecnici
+- Funzione pura per tavolozza e colore automatico, con test.
+- Colori come token in `src/styles.css`, nessun colore fisso nei componenti.
+- Il file delle attività verrà aggiornato appena approvi.
