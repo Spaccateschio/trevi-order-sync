@@ -381,4 +381,4 @@
 ## 22/11 — Ripresa prova e condivisione ordini esterni
 - [x] Lista 13:58 di 3 EMME recuperata in sola lettura: 6 quantità salvate e fornitore trevi srl, BASILICO A MAZZI e ANANAS vuoti, nessun ordine creato. Aperto soltanto il riepilogo «Genera ordini per fornitore»; nessuna generazione o invio.
 - [x] Verificati canali esterni esistenti: link, copia testo, email, WhatsApp e SMS nella finestra di condivisione dopo la generazione; il PDF non è un canale della finestra ordine.
-- [ ] Eventuale duplicazione in una nuova Lista: in attesa della scelta di Andrea; nessuna scrittura o invio effettuato.
+- [x] Andrea ha scelto di riutilizzare la Lista 13:58, senza duplicarla: apertura diretta verificata su telefono con 6 prodotti salvati e un fornitore nel Carrello, BASILICO A MAZZI e ANANAS ancora vuoti; nessuna scrittura, generazione o invio.
