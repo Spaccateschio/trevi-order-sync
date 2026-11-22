@@ -306,3 +306,43 @@
 html[data-keyboard-open] [data-hide-on-keyboard] {
   display: none !important;
 }
+
+/* Colori pastello dei fornitori (solo presentazione; niente rosso, verde o ocra pieni). */
+:root {
+  --supplier-p01: oklch(0.72 0.1 245);
+  --supplier-p02: oklch(0.78 0.08 220);
+  --supplier-p03: oklch(0.74 0.09 290);
+  --supplier-p04: oklch(0.74 0.1 315);
+  --supplier-p05: oklch(0.76 0.09 350);
+  --supplier-p06: oklch(0.8 0.08 45);
+  --supplier-p07: oklch(0.8 0.05 95);
+  --supplier-p08: oklch(0.8 0.07 190);
+  --supplier-p09: oklch(0.72 0.09 200);
+  --supplier-p10: oklch(0.7 0.1 270);
+  --supplier-p11: oklch(0.7 0.04 250);
+  --supplier-p12: oklch(0.7 0.07 330);
+  --supplier-tint-amount: 22%;
+}
+.dark {
+  --supplier-p01: oklch(0.66 0.1 245);
+  --supplier-p02: oklch(0.7 0.08 220);
+  --supplier-p03: oklch(0.67 0.09 290);
+  --supplier-p04: oklch(0.67 0.1 315);
+  --supplier-p05: oklch(0.68 0.09 350);
+  --supplier-p06: oklch(0.7 0.08 45);
+  --supplier-p07: oklch(0.7 0.05 95);
+  --supplier-p08: oklch(0.7 0.07 190);
+  --supplier-p09: oklch(0.65 0.09 200);
+  --supplier-p10: oklch(0.64 0.1 270);
+  --supplier-p11: oklch(0.64 0.04 250);
+  --supplier-p12: oklch(0.64 0.07 330);
+  --supplier-tint-amount: 30%;
+}
+
+/* Cornice: sostituisce lo sfondo card con la tinta leggera del fornitore principale (--supplier-tone). */
+@utility supplier-tint {
+  --card: color-mix(in oklch, var(--supplier-tone) var(--supplier-tint-amount), var(--background));
+  /* Anche sotto gli stati semitrasparenti delle card (bordo/badge restano dello stato). */
+  background-color: var(--card);
+  border-radius: var(--radius-md, 0.375rem);
+}

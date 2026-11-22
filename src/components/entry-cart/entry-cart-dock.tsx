@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { SupplierDot, supplierToneStyle } from "@/components/suppliers/supplier-color";
+import type { SupplierColorCode } from "@/lib/supplier-color";
 import { confirmedLinesWithoutDrafts, entryCartLinesBySupplier, entryCartMetrics, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 
 export function EntryCartDock({
@@ -23,6 +25,7 @@ export function EntryCartDock({
   onRevealMissing,
   onConfirm,
   onRetry,
+  supplierTone,
 }: {
   areaLabel: string;
   lines: EntryCartLine[];
@@ -38,7 +41,11 @@ export function EntryCartDock({
   onRevealMissing: (id: string) => void;
   onConfirm: () => void;
   onRetry?: (() => void) | undefined;
+  /** Colore del fornitore per nome (solo presentazione). */
+  supplierTone?: ((name: string | null | undefined) => { color: SupplierColorCode } | null) | undefined;
 }) {
+  const tone = (name: string | null | undefined) => supplierTone?.(name) ?? null;
+  const toneLi = (names?: string[]) => tone(names?.[0]) ? "supplier-tint rounded-md border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card p-2" : "rounded-md border border-border p-2";
   const [cartOpen, setCartOpen] = useState(false);
   const [missingOpen, setMissingOpen] = useState(false);
   const [online, setOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
@@ -104,7 +111,7 @@ export function EntryCartDock({
           {!lines.length && visibleConfirmedLines.length ? <p className="rounded-md border border-success/40 bg-success/10 p-2 text-sm font-medium" role="status">Queste sono le quantità confermate nella Lista. Nessun ordine è stato inviato.</p> : null}
           <section aria-label="Articoli inseriti">
             <h3 className="mb-2 text-sm font-semibold">Inseriti ({lines.length})</h3>
-            {lines.length ? <ul className="space-y-2">{lines.map((line) => <li key={line.id} className="rounded-md border border-border p-2">
+            {lines.length ? <ul className="space-y-2">{lines.map((line) => <li key={line.id} className={toneLi(line.supplierNames)} style={supplierToneStyle(tone(line.supplierNames?.[0]))}>
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{line.label}</p>{line.detail ? <p className="text-xs text-muted-foreground">{line.detail}</p> : null}</div>
                 <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0" disabled={saving} onClick={() => onRemove(line.id)} aria-label={`Togli ${line.label} dal carrello`}><Trash2 className="size-4" /></Button>
@@ -119,7 +126,7 @@ export function EntryCartDock({
           </section>
           {visibleConfirmedLines.length ? <section aria-label="Articoli confermati" className="border-t border-border pt-3">
             <h3 className="mb-2 text-sm font-semibold">Confermati ({visibleConfirmedLines.length})</h3>
-            <ul className="space-y-2">{visibleConfirmedLines.map((line) => <li key={line.id} className="rounded-md border border-border p-2">
+            <ul className="space-y-2">{visibleConfirmedLines.map((line) => <li key={line.id} className={toneLi(line.supplierNames)} style={supplierToneStyle(tone(line.supplierNames?.[0]))}>
               <p className="break-words text-sm font-semibold">{line.label}</p>
               {line.detail ? <p className="text-xs text-muted-foreground">{line.detail}</p> : null}
               <div className="mt-2 flex items-center gap-2">
@@ -154,9 +161,9 @@ export function EntryCartDock({
           <section aria-label="Quantità da confermare">
             <h3 className="mb-2 text-sm font-semibold">Quantità da confermare ({lines.length})</h3>
             <Accordion type="multiple" defaultValue={confirmationSupplierGroups.map((group) => group.supplier)} className="space-y-2">
-              {confirmationSupplierGroups.map((group) => <AccordionItem key={group.supplier} value={group.supplier} className="rounded-md border border-border px-3">
+              {confirmationSupplierGroups.map((group) => <AccordionItem key={group.supplier} value={group.supplier} className={tone(group.supplier) ? "supplier-tint rounded-md border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card px-3" : "rounded-md border border-border px-3"} style={supplierToneStyle(tone(group.supplier))}>
                 <AccordionTrigger className="gap-2 py-3 hover:no-underline">
-                  <span className="min-w-0 flex-1"><span className="block break-words font-semibold">{group.supplier}</span><span className="block text-xs font-normal text-muted-foreground">{group.lines.length} {group.lines.length === 1 ? "prodotto" : "prodotti"}</span></span>
+                  {tone(group.supplier) ? <SupplierDot color={tone(group.supplier)!.color} className="size-3" /> : null}<span className="min-w-0 flex-1"><span className="block break-words font-semibold">{group.supplier}</span><span className="block text-xs font-normal text-muted-foreground">{group.lines.length} {group.lines.length === 1 ? "prodotto" : "prodotti"}</span></span>
                 </AccordionTrigger>
                 <AccordionContent>
                   <ul className="space-y-2">{group.lines.map((line) => <li key={line.id} className="rounded-md bg-muted/40 p-2">

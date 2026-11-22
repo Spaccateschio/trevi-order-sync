@@ -6931,6 +6931,7 @@ export type Database = {
           delivery_month_day: number | null
           delivery_weekdays: number[]
           discounts: string | null
+          display_color: string | null
           email: string | null
           fax: string | null
           id: string
@@ -6969,6 +6970,7 @@ export type Database = {
           delivery_month_day?: number | null
           delivery_weekdays?: number[]
           discounts?: string | null
+          display_color?: string | null
           email?: string | null
           fax?: string | null
           id?: string
@@ -7007,6 +7009,7 @@ export type Database = {
           delivery_month_day?: number | null
           delivery_weekdays?: number[]
           discounts?: string | null
+          display_color?: string | null
           email?: string | null
           fax?: string | null
           id?: string

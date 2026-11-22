@@ -389,3 +389,13 @@
 - [x] Su BASILICO A MAZZI (00-005) il collegamento attivo trevi srl non offre unità d'acquisto: il menu U.M. resta vuoto, «Salva» non salva e nel database non è stata creata nessuna riga (verificato prima e dopo il tentativo). Stessa condizione su ANANAS ORSERO COSTARICA (00-022).
 - [x] Strade percorribili indicate ad Andrea: «+ Aggiungi fornitore» (fornitore manuale con la sua U.M.) oppure «Acquisto diretto (compro io)».
 - [ ] Decisione in corso con Andrea su cosa cambiare: mostrare il motivo del blocco con il tasto per la strada che funziona, oppure far diventare la spunta proposta una scelta vera, oppure lasciare così. Nessuna modifica finché non sceglie.
+
+## 22/11 — Colore pastello per fornitore (approvato 16:04)
+- [x] Campo supplier_records.display_color (p01–p12 o vuoto)
+- [x] Tavolozza token + funzione pura colore automatico con test
+- [x] Scelta colore nella scheda fornitore (solo amministratori)
+- [x] Tinta/fascia/nome su card Lista (Card e Righe), Inventario, Carrello, «Cosa confermi», Ordini
+- [x] Legenda fornitori con filtro a schermo
+- [x] Verifica telefono chiaro/scuro su 3 EMME senza scritture
+- Annullati: piano U.M. collegamenti B2B, piano card gialle B2B
+- Non verificati a schermo: vista Righe, pagina Ordini, scelta colore nella scheda fornitore

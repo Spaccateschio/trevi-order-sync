@@ -24,6 +24,7 @@ import { ORDER_STATUS_LABEL, SEND_STATUS_LABEL, type OrderOverviewRow } from "@/
 import { createPurchaseOrdersFromList } from "@/lib/purchase.functions";
 import { canReshareOrder } from "@/lib/b2b-order-sharing";
 import { B2bOrderShareDialog } from "./b2b-order-share-dialog";
+import { supplierToneStyle, useSupplierColors } from "@/components/suppliers/supplier-color";
 import { OrderShareDialog } from "./order-share-dialog";
 
 type ConfirmedList = { id: string; name: string; confirmed_at: string | null };
@@ -172,6 +173,7 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
   });
   const locations = locationsQuery.data ?? [];
   const prefs = useDeliveryPreferences(companyId);
+  const supplierColors = useSupplierColors(companyId);
   const today = localToday(prefs.data?.timezone ?? "Europe/Rome");
   const current = useMemo(
     () => orders.find((order) => order.order_id === selected) ?? null,
@@ -270,7 +272,7 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
             ) : (
               <div className="grid gap-2 md:grid-cols-2">
                 {group.rows.map((order) => (
-                  <div key={order.order_id} className="rounded-lg border border-border bg-card p-3">
+                  <div key={order.order_id} className={supplierColors.toneByName(order.supplier_name) ? "supplier-tint rounded-lg border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card p-3" : "rounded-lg border border-border bg-card p-3"} style={supplierToneStyle(supplierColors.toneByName(order.supplier_name))}>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold">{order.supplier_name}</span>
                       {(() => {

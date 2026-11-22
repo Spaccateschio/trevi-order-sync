@@ -7,6 +7,8 @@ import { inventoryCompactBar } from "@/lib/inventory-scroll";
 import { createRefreshBatcher } from "@/lib/shopping-optimistic";
 import { trackPlatformUsageClick } from "@/lib/platform-usage-tracking";
 import { EntryCartDock } from "@/components/entry-cart/entry-cart-dock";
+import { SupplierLegend, SupplierTintFrame, useSupplierColors } from "@/components/suppliers/supplier-color";
+import type { ProductSupplierTone } from "@/lib/supplier-color";
 import { clearEntryCartDraft, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 import { inventoryProductRequiresQuantity } from "@/components/shopping/missing-quantities";
 import { countedRowPatch, patchCardRow, restoreCardRow } from "@/lib/inventory-optimistic";
@@ -1962,6 +1964,7 @@ export function InventoryCountPanel({
     link_active: null, card_favorite: false, card_label: null,
   })), [sessionId, sessionCards, previewProducts, draftLocation, previewFavoriteQuery.data, stockHistoryQuery.data]);
   const displayRows = sessionId ? rows : allDisplayRows;
+  const cartSupplierColors = useSupplierColors(companyId);
   const inventoryRequiredCount = allDisplayRows.filter((row) => inventoryProductRequiresQuantity(Boolean(sessionId), row.is_favorite)).length;
   const inventoryMissing = useMemo<EntryCartMissing[]>(() => allDisplayRows.filter((row) => {
     if (!inventoryProductRequiresQuantity(Boolean(sessionId), row.is_favorite) || row.counted !== null) return false;
@@ -2404,6 +2407,7 @@ export function InventoryCountPanel({
             closing={closeMutation.isPending}
           />
           {acceptsDrafts && !screenOutdated ? <EntryCartDock
+            supplierTone={cartSupplierColors.toneByName}
             areaLabel="Inventario"
             lines={displayedInventoryCart}
             missing={inventoryMissing}
@@ -3231,7 +3235,22 @@ function PhysicalCount({
           .map((item) => item.subcategory?.trim() || NO_SUBCATEGORY),
       ])].sort().map((name) => ({ name, category: category ?? "", completed: 0, total: 0 }));
   // Il filtro fornitore è già applicato dalla regola unica delle card (selectInventoryCards).
-  const visibleRows = onlyMissing ? rows.filter((row) => missingKeys.has(rowKey(row))) : rows;
+  const supplierColors = useSupplierColors(companyId);
+  const [supplierTint, setSupplierTint] = useState<string | null>(null);
+  const rowTones = (row: InventoryCountRow): ProductSupplierTone[] => {
+    // Card con fornitore: quel fornitore; card senza collegamento scelto: i fornitori attivi del prodotto.
+    if (row.product_supplier_link_id) {
+      const color = row.supplier_record_id ? supplierColors.colorOf(row.supplier_record_id) : null;
+      if (row.supplier_record_id && color) return [{ recordId: row.supplier_record_id, name: row.supplier_name ?? "Fornitore", color }];
+      const t = supplierColors.toneByName(row.supplier_name);
+      return t ? [t] : [];
+    }
+    return supplierColors.tonesFor(row.product_id);
+  };
+  const baseVisibleRows = onlyMissing ? rows.filter((row) => missingKeys.has(rowKey(row))) : rows;
+  const legendTones = [...new Map(baseVisibleRows.flatMap(rowTones).map((t) => [t.recordId, t])).values()].sort((a, b) => a.name.localeCompare(b.name, "it"));
+  // Filtro colore solo a schermo: non cambia sessione, conteggi né Carrello.
+  const visibleRows = supplierTint ? baseVisibleRows.filter((row) => rowTones(row).some((t) => t.recordId === supplierTint)) : baseVisibleRows;
   const filteredSummary = summarizeCards(visibleRows);
 
   // Barra compatta (ricerca + filtri) mostrata solo quando la ricerca originale esce dallo schermo.
@@ -3513,6 +3532,7 @@ function PhysicalCount({
               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => window.location.reload()}>Ricarica</Button>
             </div>
           )}
+          <div className="px-2 pt-1"><SupplierLegend tones={legendTones} active={supplierTint} onToggle={setSupplierTint} /></div>
           {visibleRows.length || catalogCandidates.length ? (
             <div
               data-tour="inv.card"
@@ -3539,6 +3559,7 @@ function PhysicalCount({
                   description: row.description,
                   code: row.code,
                   node: (
+                    <SupplierTintFrame tones={rowTones(row)} className="flex h-full flex-col">
                     <ProductCard
                       layout={layout}
                       deferred
@@ -3562,6 +3583,7 @@ function PhysicalCount({
                       onOpenProduct={() => onOpenProduct(row)}
                       history={stockHistory ? (stockHistory.get(row.product_id) ?? null) : null}
                     />
+                    </SupplierTintFrame>
                   ),
                 })),
                 ...catalogCandidates.map((candidate) => ({

@@ -98,6 +98,8 @@ import { shoppingInventoryTotals, type ShoppingCountRow } from "@/lib/shopping-i
 import { createLatestQueue } from "@/lib/supplier-memory";
 import { factsFromRow, listCounters, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
 import { EntryCartDock } from "@/components/entry-cart/entry-cart-dock";
+import { SupplierLegend, SupplierTintFrame, useSupplierColors } from "@/components/suppliers/supplier-color";
+import type { ProductSupplierTone } from "@/lib/supplier-color";
 import { clearEntryCartDraft, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 
 /** Prodotto contato non ancora in Lista, mostrato con la stessa card: nessun dato della Lista inventato. */
@@ -994,6 +996,24 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
     return items.filter((item) => item.kind === "entry" || ++count <= catalogLimit);
   })();
   const catalogHidden = Math.max(0, catalogFiltered.length - catalogLimit);
+  // Colore fornitore: solo presentazione, letture condivise per pagina.
+  const supplierColors = useSupplierColors(companyId);
+  const [supplierTintFilter, setSupplierTintFilter] = useState<string | null>(null);
+  const itemTones = (item: (typeof merged)[number]): ProductSupplierTone[] => {
+    if (item.kind === "catalog") {
+      const own = supplierColors.tonesFor(item.value.ownProductId);
+      if (own.length) return own;
+      const byName = supplierColors.toneByName(item.value.supplierNames[0]);
+      return byName ? [byName] : [];
+    }
+    return supplierColors.tonesFor(item.value.row.product_id, (item.value.extra?.suppliers ?? []).map((s) => ({ recordId: s.supplierRecordId, quantity: s.purchaseQuantity ?? s.quantity })));
+  };
+  const legendTones = (() => {
+    const seen = new Map<string, ProductSupplierTone>();
+    for (const item of merged) for (const t of itemTones(item)) seen.set(t.recordId, t);
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name, "it"));
+  })();
+  const shownItems = supplierTintFilter ? merged.filter((item) => itemTones(item).some((t) => t.recordId === supplierTintFilter)) : merged;
   const catalogImages = useCatalogImages(merged.filter((i) => i.kind === "catalog").map((i) => i.value as CatalogEntry));
 
   const printRows = selectShoppingPrintRows([
@@ -2336,6 +2356,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
             </div>
           ) : null}
 
+          <SupplierLegend tones={legendTones} active={supplierTintFilter} onToggle={setSupplierTintFilter} />
           <div className="@container">
           <div
             data-tour="spesa.card"
@@ -2346,11 +2367,12 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
                 : "grid grid-cols-1 gap-1.5"
             }
           >
-            {merged.map((item) => {
+            {shownItems.map((item) => {
               if (item.kind === "catalog") {
                 const entry = item.value;
                 return (
                   <div key={`${list?.id ?? "next-purchase"}:${entry.key}`} id={`review-catalog-${entry.key}`} className="min-w-0">
+                  <SupplierTintFrame tones={itemTones(item)}>
                   <MemoCatalogProductCard
                     key={`${list?.id ?? "next-purchase"}:${entry.key}`}
                     mobileOpen={mobileOpenId === entry.key}
@@ -2403,11 +2425,12 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
                         });
                     })}
                   />
+                  </SupplierTintFrame>
                   </div>
                 );
               }
               const { kind, row, extra, stock } = item.value;
-              return kind === "pending" ? (
+              return <SupplierTintFrame key={row.item_id} tones={itemTones(item)}>{kind === "pending" ? (
                 <MemoShoppingListCard
                   key={row.item_id}
                   mobileOpen={mobileOpenId === row.item_id}
@@ -2492,7 +2515,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
                   setUnitEdits((current) => ({ ...current, [row.item_id]: { unitId, unitCode } }));
                 })}
               />
-              );
+              )}</SupplierTintFrame>;
             })}
           </div>
           </div>
@@ -2537,6 +2560,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       )}
 
       {acceptsDrafts && (ready.canPrepare || previewMode || displayedCartLines.length) ? <EntryCartDock
+        supplierTone={supplierColors.toneByName}
         areaLabel="Lista della Spesa"
         lines={displayedCartLines}
         confirmedLines={confirmedCartLines}

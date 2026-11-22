@@ -48,6 +48,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DANEA_EXTRA_GROUP_BY_LABEL } from "@/lib/customer-import";
 import { fetchDaneaArchives } from "@/lib/price-lists";
 import { linkStatusOf } from "@/lib/relation-link-status";
+import { SupplierColorPicker } from "@/components/suppliers/supplier-color";
 import {
   SUPPLIER_COLUMNS,
   LOCKED_SUPPLIER_COLUMN,
@@ -724,6 +725,7 @@ export function SupplierRecordsPanel({
             {!form.lead_time_days ? <p className="text-xs text-muted-foreground">Preavviso non impostato</p> : null}
           </div>
           {editing ? <ExtraFields record={editing} group="varie" /> : null}
+          {editing ? <SupplierColorPicker companyId={companyId} recordId={editing.id} isAdmin={isAdmin} /> : null}
           <div className="grid gap-1.5">
             <Label>Note</Label>
             <Textarea

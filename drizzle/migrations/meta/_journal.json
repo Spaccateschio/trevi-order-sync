@@ -750,6 +750,13 @@
       "when": 1795360947519,
       "tag": "0106_make_decide_proposed_update_static",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1795363466397,
+      "tag": "0107_supplier_display_color",
+      "breakpoints": true
     }
   ]
 }
