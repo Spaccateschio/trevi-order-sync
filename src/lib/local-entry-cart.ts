@@ -69,6 +69,20 @@ export function entryCartMetrics(lines: Pick<EntryCartLine, "id" | "productId" |
   };
 }
 
+/** Nel riepilogo una riga con più fornitori compare sotto ciascuno, sempre con la sua quantità totale. */
+export function entryCartLinesBySupplier<T extends Pick<EntryCartLine, "supplierNames">>(lines: readonly T[]) {
+  const groups = new Map<string, T[]>();
+  for (const line of lines) {
+    const names = [...new Set((line.supplierNames ?? []).map((name) => name.trim()).filter(Boolean))];
+    for (const supplier of names.length ? names : ["Fornitore da assegnare"]) {
+      groups.set(supplier, [...(groups.get(supplier) ?? []), line]);
+    }
+  }
+  return [...groups.entries()]
+    .map(([supplier, supplierLines]) => ({ supplier, lines: supplierLines }))
+    .sort((left, right) => left.supplier.localeCompare(right.supplier, "it"));
+}
+
 /** Una riga confermata che viene modificata passa nelle bozze, senza comparire due volte. */
 export function confirmedLinesWithoutDrafts<T extends Pick<EntryCartLine, "id">>(confirmed: readonly T[], drafts: readonly Pick<EntryCartLine, "id">[]): T[] {
   const draftIds = new Set(drafts.map((line) => line.id));

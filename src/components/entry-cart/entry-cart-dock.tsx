@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCheck, ChevronRight, ShoppingCart, Trash2, WifiOff } from "lucide-react";
 import { toast } from "sonner";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { confirmedLinesWithoutDrafts, entryCartMetrics, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
+import { confirmedLinesWithoutDrafts, entryCartLinesBySupplier, entryCartMetrics, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 
 export function EntryCartDock({
   areaLabel,
@@ -61,6 +62,7 @@ export function EntryCartDock({
   const visibleConfirmedLines = useMemo(() => confirmedLinesWithoutDrafts(confirmedLines ?? [], lines), [confirmedLines, lines]);
   const summaryLines = lines.length ? lines : visibleConfirmedLines;
   const metrics = useMemo(() => entryCartMetrics(summaryLines), [summaryLines]);
+  const confirmationSupplierGroups = useMemo(() => entryCartLinesBySupplier(lines), [lines]);
   const percentage = progress?.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   const requestConfirm = () => {
@@ -151,11 +153,20 @@ export function EntryCartDock({
           </section>
           <section aria-label="Quantità da confermare">
             <h3 className="mb-2 text-sm font-semibold">Quantità da confermare ({lines.length})</h3>
-            <ul className="space-y-2">{lines.map((line) => <li key={line.id} className="rounded-md border border-border p-2">
-              <p className="break-words text-sm font-semibold">{line.label}</p>
-              <p className="text-sm">Quantità: <strong>{line.quantity} {line.unitCode ?? ""}</strong></p>
-              {line.supplierDetails?.length || line.supplierNames?.length ? <p className="text-xs text-muted-foreground">Fornitore: {(line.supplierDetails ?? line.supplierNames)?.join(" · ")}</p> : null}
-            </li>)}</ul>
+            <Accordion type="multiple" defaultValue={confirmationSupplierGroups.map((group) => group.supplier)} className="space-y-2">
+              {confirmationSupplierGroups.map((group) => <AccordionItem key={group.supplier} value={group.supplier} className="rounded-md border border-border px-3">
+                <AccordionTrigger className="gap-2 py-3 hover:no-underline">
+                  <span className="min-w-0 flex-1"><span className="block break-words font-semibold">{group.supplier}</span><span className="block text-xs font-normal text-muted-foreground">{group.lines.length} {group.lines.length === 1 ? "prodotto" : "prodotti"}</span></span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <ul className="space-y-2">{group.lines.map((line) => <li key={line.id} className="rounded-md bg-muted/40 p-2">
+                    <p className="break-words text-sm font-semibold">{line.label}</p>
+                    {line.detail ? <p className="text-xs text-muted-foreground">{line.detail}</p> : null}
+                    <p className="text-sm">Quantità: <strong>{line.quantity} {line.unitCode ?? ""}</strong></p>
+                  </li>)}</ul>
+                </AccordionContent>
+              </AccordionItem>)}
+            </Accordion>
           </section>
         </div>
         <DialogFooter className="gap-2"><Button variant="outline" disabled={saving} onClick={() => setMissingOpen(false)}>Torna a inserire</Button><Button disabled={saving || !lines.length} onClick={() => { setMissingOpen(false); onConfirm(); }}>Conferma {metrics.products} {metrics.products === 1 ? "prodotto" : "prodotti"}</Button></DialogFooter>

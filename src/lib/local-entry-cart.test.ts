@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { clearEntryCartDraft, confirmedLinesWithoutDrafts, entryCartMetrics, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft } from "./local-entry-cart";
+import { clearEntryCartDraft, confirmedLinesWithoutDrafts, entryCartLinesBySupplier, entryCartMetrics, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft } from "./local-entry-cart";
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -34,6 +34,19 @@ describe("bozza locale del carrello", () => {
       { id: "b", productId: "p1", supplierNames: ["F1"] },
       { id: "c", productId: "p2" },
     ])).toEqual({ products: 2, suppliers: 2 });
+  });
+
+  it("divide il riepilogo per fornitore e ripete solo le righe con più fornitori", () => {
+    const groups = entryCartLinesBySupplier([
+      { id: "basilico", supplierNames: ["trevi srl"] },
+      { id: "aglio", supplierNames: ["Cartoleria Viva", "trevi srl"] },
+      { id: "uva", supplierNames: [] },
+    ]);
+    expect(groups.map((group) => [group.supplier, group.lines.map((line) => line.id)])).toEqual([
+      ["Cartoleria Viva", ["aglio"]],
+      ["Fornitore da assegnare", ["uva"]],
+      ["trevi srl", ["basilico", "aglio"]],
+    ]);
   });
 
   it("mostra i confermati e sposta nelle bozze solo la riga modificata", () => {
