@@ -45,7 +45,9 @@ export function EntryCartDock({
   supplierTone?: ((name: string | null | undefined) => { color: SupplierColorCode } | null) | undefined;
 }) {
   const tone = (name: string | null | undefined) => supplierTone?.(name) ?? null;
-  const toneLi = (names?: string[]) => tone(names?.[0]) ? "supplier-tint rounded-md border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card p-2" : "rounded-md border border-border p-2";
+  /** Righe senza quantità: sfondo giallo ocra, come in «Cosa confermi» (solo presentazione). */
+  const ocraLi = "rounded-md border border-accent/60 bg-accent/25 p-2";
+  const toneLi = (names?: string[], withoutQuantity = false) => withoutQuantity ? ocraLi : (tone(names?.[0]) ? "supplier-tint rounded-md border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card p-2" : "rounded-md border border-border p-2");
   const [cartOpen, setCartOpen] = useState(false);
   const [missingOpen, setMissingOpen] = useState(false);
   const [online, setOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
@@ -111,7 +113,7 @@ export function EntryCartDock({
           {!lines.length && visibleConfirmedLines.length ? <p className="rounded-md border border-success/40 bg-success/10 p-2 text-sm font-medium" role="status">Queste sono le quantità confermate nella Lista. Nessun ordine è stato inviato.</p> : null}
           <section aria-label="Articoli inseriti">
             <h3 className="mb-2 text-sm font-semibold">Inseriti ({lines.length})</h3>
-            {lines.length ? <ul className="space-y-2">{lines.map((line) => <li key={line.id} className={toneLi(line.supplierNames)} style={supplierToneStyle(tone(line.supplierNames?.[0]))}>
+            {lines.length ? <ul className="space-y-2">{lines.map((line) => <li key={line.id} className={toneLi(line.supplierNames, !line.quantity.trim())} style={supplierToneStyle(tone(line.supplierNames?.[0]))}>
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{line.label}</p>{line.detail ? <p className="text-xs text-muted-foreground">{line.detail}</p> : null}</div>
                 <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0" disabled={saving} onClick={() => onRemove(line.id)} aria-label={`Togli ${line.label} dal carrello`}><Trash2 className="size-4" /></Button>
@@ -138,7 +140,7 @@ export function EntryCartDock({
           </section> : null}
           <section aria-label="Articoli mancanti" className="border-t border-border pt-3">
             <h3 className="mb-2 text-sm font-semibold">Mancanti ({missing.length})</h3>
-            {missing.length ? <ul className="space-y-1">{missing.slice(0, 200).map((item) => <li key={item.id}><button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-muted" onClick={() => { setCartOpen(false); onRevealMissing(item.id); }}>
+            {missing.length ? <ul className="space-y-1">{missing.slice(0, 200).map((item) => <li key={item.id}><button type="button" className="flex w-full items-center gap-2 rounded-md border border-accent/60 bg-accent/25 px-2 py-1.5 text-left hover:bg-accent/40" onClick={() => { setCartOpen(false); onRevealMissing(item.id); }}>
               <span className="min-w-0 flex-1"><span className="block break-words text-sm">{item.label}</span>{item.detail ? <span className="block text-xs text-muted-foreground">{item.detail}</span> : null}</span><ChevronRight className="size-4 shrink-0" />
             </button></li>)}</ul> : <p className="text-sm text-muted-foreground">Tutti gli articoli hanno una quantità.</p>}
           </section>
