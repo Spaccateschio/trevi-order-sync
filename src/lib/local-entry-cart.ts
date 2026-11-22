@@ -7,6 +7,8 @@ export type EntryCartLine = {
   unitCode: string | null;
   supplierNames?: string[];
   supplierDetails?: string[];
+  /** Motivo esatto quando non esiste nessuna destinazione (solo presentazione). */
+  noSupplierReason?: string | null;
   error?: string | null;
 };
 
@@ -70,11 +72,11 @@ export function entryCartMetrics(lines: Pick<EntryCartLine, "id" | "productId" |
 }
 
 /** Nel riepilogo una riga con più fornitori compare sotto ciascuno, sempre con la sua quantità totale. */
-export function entryCartLinesBySupplier<T extends Pick<EntryCartLine, "supplierNames">>(lines: readonly T[]) {
+export function entryCartLinesBySupplier<T extends Pick<EntryCartLine, "supplierNames" | "noSupplierReason">>(lines: readonly T[]) {
   const groups = new Map<string, T[]>();
   for (const line of lines) {
     const names = [...new Set((line.supplierNames ?? []).map((name) => name.trim()).filter(Boolean))];
-    for (const supplier of names.length ? names : ["Fornitore da assegnare"]) {
+    for (const supplier of names.length ? names : [`Senza fornitore — ${line.noSupplierReason ?? "da scegliere sulla card"}`]) {
       groups.set(supplier, [...(groups.get(supplier) ?? []), line]);
     }
   }

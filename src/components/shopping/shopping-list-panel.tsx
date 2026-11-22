@@ -95,7 +95,9 @@ import {
 import { autoAssignItem, ITEM_COLUMNS, readMemories, type AutoAssignItemRow, type PlannedWrite } from "@/lib/shopping-auto-assign";
 import { createKeyedChain, createRefreshBatcher, patchLock, patchRowQuantity } from "@/lib/shopping-optimistic";
 import { shoppingInventoryTotals, type ShoppingCountRow } from "@/lib/shopping-inventory-total";
-import { createLatestQueue } from "@/lib/supplier-memory";
+import { chooseListDestinations, createLatestQueue, deselectedFor, proposedSupplierNames } from "@/lib/supplier-memory";
+import { readCardBundle, readCardDirectQuota, readCardPreference } from "@/lib/shopping-card-reads";
+import { pickFromCardReads } from "@/lib/supplier-brief";
 import { factsFromRow, listCounters, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
 import { EntryCartDock } from "@/components/entry-cart/entry-cart-dock";
 import { SupplierLegend, SupplierTintFrame, useSupplierColors } from "@/components/suppliers/supplier-color";
@@ -1660,6 +1662,36 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
     </>
   );
 
+  // Fornitore proposto per le righe senza quote: stesse letture raggruppate e stessa scelta della card (nessuna scrittura).
+  const proposalItemIds = useMemo(() => allRows.filter((row) =>
+    (Object.prototype.hasOwnProperty.call(edits, row.item_id) || unitEdits[row.item_id]) && !(extras.get(row.item_id)?.suppliers.length),
+  ).map((row) => row.item_id).sort(), [allRows, edits, unitEdits, extras]);
+  const cartProposalQuery = useQuery({
+    queryKey: ["shopping-cart-supplier-proposal", companyId, proposalItemIds, memoryQuery.dataUpdatedAt],
+    enabled: proposalItemIds.length > 0 && Boolean(companyId),
+    staleTime: 60_000,
+    queryFn: async () => {
+      const map = new Map<string, { names: string[]; reason: string | null }>();
+      await Promise.all(proposalItemIds.map(async (itemId) => {
+        const row = allRows.find((r) => r.item_id === itemId);
+        if (!row) return;
+        const [bundle, preference, directQuota] = await Promise.all([
+          readCardBundle(`${companyId}:${itemId}`), readCardPreference(`${companyId}:${row.product_id}`), readCardDirectQuota(itemId),
+        ]);
+        if (directQuota) { map.set(itemId, { names: ["Acquisto diretto"], reason: null }); return; }
+        if (!bundle || !preference) return;
+        const pool = pickFromCardReads(bundle.overview, bundle.b2b_options, bundle.supplier_units);
+        const deselected = new Set([...(extras.get(itemId)?.deselectedLinks ?? []), ...deselectedFor(itemId)]);
+        const choice = chooseListDestinations({
+          suppliers: pool, deselected, memory: memoryQuery.data?.get(row.product_id) ?? null,
+          manualStarAt: preference.manualStarAt, inventoryStarLinks: preference.stars, directStarred: preference.directStar,
+        });
+        map.set(itemId, proposedSupplierNames(pool, choice, deselected));
+      }));
+      return map;
+    },
+  });
+
   const cartLines = useMemo<EntryCartLine[]>(() => {
     const result: EntryCartLine[] = [];
     for (const row of allRows) {
@@ -1671,13 +1703,19 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         id: `list:${row.item_id}`, productId: row.product_id, label: row.description ?? row.code,
         detail: row.code, quantity: raw,
         unitCode: unitEdits[row.item_id]?.unitCode ?? extras.get(row.item_id)?.decidedUnitCode ?? row.unit_code,
-        supplierNames: (extras.get(row.item_id)?.suppliers ?? []).map((supplier) => supplier.name),
+        ...(() => {
+          const saved = (extras.get(row.item_id)?.suppliers ?? []).map((supplier) => supplier.name);
+          if (saved.length) return { supplierNames: saved };
+          const proposal = cartProposalQuery.data?.get(row.item_id);
+          return { supplierNames: proposal?.names ?? [], noSupplierReason: proposal ? proposal.reason : "in verifica" };
+        })(),
       });
     }
     for (const entry of pendingEntries) {
       const raw = evalValues[entry.row.product_id];
       if (raw === undefined || !raw.trim()) continue;
-      result.push({ id: `pending:${entry.row.product_id}`, productId: entry.row.product_id, label: entry.row.description ?? entry.row.code, detail: entry.row.code, quantity: raw, unitCode: entry.row.unit_code, supplierNames: [] });
+      result.push({ id: `pending:${entry.row.product_id}`, productId: entry.row.product_id, label: entry.row.description ?? entry.row.code, detail: entry.row.code, quantity: raw, unitCode: entry.row.unit_code,
+        supplierNames: catalog.entries.find((p) => p.ownProductId === entry.row.product_id)?.supplierNames ?? [], noSupplierReason: "nessun fornitore collegato" });
     }
     for (const entry of availableCatalog) {
       const draft = catalogValues[entry.key];
@@ -1685,7 +1723,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       result.push({ id: `catalog:${entry.key}`, productId: entry.ownProductId ?? entry.key, label: entry.description ?? entry.code, detail: entry.code, quantity: draft.raw, unitCode: draft.unit ?? entry.defaultUnit ?? entry.unitCodes[0] ?? null, supplierNames: entry.supplierNames });
     }
     return result;
-  }, [allRows, edits, unitEdits, extras, pendingEntries, evalValues, availableCatalog, catalogValues, catalogNotBuying]);
+  }, [allRows, edits, unitEdits, extras, pendingEntries, evalValues, availableCatalog, catalogValues, catalogNotBuying, cartProposalQuery.data, catalog.entries]);
   const invalidCartIds = new Set(cartLines.filter((line) => !line.quantity.trim() ? !line.id.startsWith("list:") : parseQuantity(line.quantity) === null).map((line) => line.id));
   const displayedCartLines = cartLines.map((line) => ({ ...line, error: cartErrors[line.id] ?? (invalidCartIds.has(line.id) ? "Quantità non valida" : null) }));
   const confirmedCartLines = useMemo<EntryCartLine[]>(() => allRows.filter((row) =>

@@ -27,7 +27,7 @@ import {
 import { evaluationBadge, type EvaluationBadgeStatus } from "@/lib/card-labels";
 import { dateTimeShort, qty } from "@/lib/inventory";
 import { type OverviewRow } from "@/lib/shopping-list";
-import { chooseListDestinations, deselectedFor, type SupplierMemory } from "@/lib/supplier-memory";
+import { chooseListDestinations, deselectedFor, proposedSupplierNames, type SupplierMemory } from "@/lib/supplier-memory";
 import { pickFromCardReads, supplierBriefText } from "@/lib/supplier-brief";
 import { factsFromRow, rowLabel } from "@/lib/supplier-selection";
 import { cn } from "@/lib/utils";
@@ -636,24 +636,25 @@ export function ShoppingListCard({
         readCardDirectQuota(row.item_id),
       ]);
       // Quota di «Acquisto diretto» già salvata: la sezione non propone nessuno, la card resta aperta.
-      if (!bundle || !preference || directQuota) return [] as string[];
+      if (!bundle || !preference || directQuota) return { names: [] as string[], reason: null as string | null };
       const pool = pickFromCardReads(bundle.overview, bundle.b2b_options, bundle.supplier_units);
+      const deselected = new Set([...(extra?.deselectedLinks ?? []), ...deselectedFor(row.item_id)]);
       const choice = chooseListDestinations({
         suppliers: pool,
-        deselected: new Set([...(extra?.deselectedLinks ?? []), ...deselectedFor(row.item_id)]),
+        deselected,
         memory: memory ?? null,
         manualStarAt: preference.manualStarAt,
         inventoryStarLinks: preference.stars,
         directStarred: preference.directStar,
       });
-      return choice.linkIds
-        .map((id) => pool.find((s) => s.linkId === id)?.name)
-        .filter((name): name is string => Boolean(name));
+      const proposal = proposedSupplierNames(pool, choice, deselected);
+      // Stella su «Acquisto diretto»: resta nella sezione già aperta, come prima.
+      return { names: proposal.names.slice(0, choice.linkIds.length), reason: proposal.reason };
     },
   });
   const supplierBrief = supplierBriefText([
     ...suppliers.map((s) => ({ name: s.name, quantity: s.purchaseQuantity, unitCode: s.purchaseUnitCode, note: "senza quantità" })),
-    ...(proposalQuery.data ?? []).map((name) => ({ name, quantity: null, note: "proposto" })),
+    ...(proposalQuery.data?.names ?? []).map((name) => ({ name, quantity: null, note: "proposto" })),
   ]);
   // Fornitori già organizzati o solo proposti: chiusi per default, si aprono con un tocco per cambiare qualcosa.
   const suppliersCollapsed = supplierBrief !== "" && !suppliersOpen;
@@ -674,6 +675,11 @@ export function ShoppingListCard({
           className="flex w-full items-center justify-end gap-1 text-[11px] text-muted-foreground">
           Chiudi fornitori <ChevronUp className="h-3.5 w-3.5" aria-hidden />
         </button>
+      ) : null}
+      {proposalQuery.data?.reason ? (
+        <p role="status" className="rounded-sm border border-warning bg-warning/10 px-2 py-1 text-xs font-medium">
+          Senza fornitore: {proposalQuery.data.reason}. Usa «+ Aggiungi fornitore» o «Acquisto diretto» qui sotto.
+        </p>
       ) : null}
     <CardSuppliers
       companyId={companyId}

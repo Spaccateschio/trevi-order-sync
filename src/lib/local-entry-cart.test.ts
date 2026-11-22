@@ -40,11 +40,11 @@ describe("bozza locale del carrello", () => {
     const groups = entryCartLinesBySupplier([
       { id: "basilico", supplierNames: ["trevi srl"] },
       { id: "aglio", supplierNames: ["Cartoleria Viva", "trevi srl"] },
-      { id: "uva", supplierNames: [] },
+      { id: "uva", supplierNames: [], noSupplierReason: "nessun fornitore collegato" },
     ]);
     expect(groups.map((group) => [group.supplier, group.lines.map((line) => line.id)])).toEqual([
       ["Cartoleria Viva", ["aglio"]],
-      ["Fornitore da assegnare", ["uva"]],
+      ["Senza fornitore — nessun fornitore collegato", ["uva"]],
       ["trevi srl", ["basilico", "aglio"]],
     ]);
   });

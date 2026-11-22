@@ -323,3 +323,28 @@ export function equalSplit(quantity: number, n: number): number[] {
   parts[n - 1] = Math.round((quantity - part * (n - 1)) * 1000) / 1000;
   return parts;
 }
+
+/** Motivo esatto quando la Lista non trova nessuna destinazione per il prodotto. */
+export function noDestinationReason(pool: readonly PickSupplier[], deselected: Iterable<string>): string {
+  if (!pool.length) return "nessun fornitore collegato";
+  const off = new Set(deselected);
+  const active = pool.filter((s) => !off.has(s.linkId));
+  if (!active.length) return "fornitori tolti da questa Lista";
+  if (active.every((s) => s.isB2B && !s.purchasable)) return "articolo non acquistabile dal fornitore";
+  if (active.every((s) => s.isB2B && !s.sourceLinked)) return "prodotto del fornitore non collegato";
+  return "più fornitori senza stella: scegli sulla card";
+}
+
+/**
+ * Nomi delle destinazioni proposte (stessa scelta della card e del Conferma) o motivo esatto se non ce ne sono.
+ * Sola presentazione: nessuna scrittura.
+ */
+export function proposedSupplierNames(
+  pool: readonly (PickSupplier & { name: string })[],
+  choice: { linkIds: readonly string[]; direct: boolean },
+  deselected: Iterable<string>,
+): { names: string[]; reason: string | null } {
+  const names = choice.linkIds.map((id) => pool.find((s) => s.linkId === id)?.name).filter((n): n is string => Boolean(n));
+  if (choice.direct) names.push("Acquisto diretto");
+  return names.length ? { names, reason: null } : { names: [], reason: noDestinationReason(pool, deselected) };
+}

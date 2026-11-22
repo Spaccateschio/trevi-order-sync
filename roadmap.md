@@ -399,3 +399,6 @@
 - [x] Verifica telefono chiaro/scuro su 3 EMME senza scritture
 - Annullati: piano U.M. collegamenti B2B, piano card gialle B2B
 - Non verificati a schermo: vista Righe, pagina Ordini, scelta colore nella scheda fornitore
+
+## 22/11 — Fornitore deciso prima del Conferma
+- [x] Carrello/«Cosa confermi» con fornitore proposto (chooseListDestinations), «Senza fornitore» solo se reale con motivo, card con motivo e tasti

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { listCounters, memoryStillValid, visualPick } from "@/lib/supplier-selection";
-import { chooseListDestinations, planFromMemory, type SupplierMemory } from "@/lib/supplier-memory";
+import { chooseListDestinations, planFromMemory, proposedSupplierNames, type SupplierMemory } from "@/lib/supplier-memory";
 
 const s = (linkId: string, o: Partial<{ isB2B: boolean; sourceLinked: boolean; purchasable: boolean; isPreferred: boolean }> = {}) => ({
   linkId, isB2B: false, sourceLinked: true, purchasable: true, isPreferred: false, ...o,
@@ -126,4 +126,13 @@ describe("stelle su più destinazioni", () => {
     const r = chooseListDestinations({ ...base, memory: mem, suppliers: [sup("a", true), sup("b", true)], directStarred: false });
     assert.equal(r.reason, "da_ripartire"); assert.equal(r.memory, null);
   });
+});
+
+describe("proposedSupplierNames", () => {
+  const sup = (linkId: string, extra: Record<string, unknown> = {}) => ({ linkId, name: linkId.toUpperCase(), isB2B: true, sourceLinked: true, purchasable: true, allowManual: false, units: [], isPreferred: false, ...extra });
+  it("fornitore scelto: nome, nessun motivo", () => assert.deepEqual(proposedSupplierNames([sup("trevi")], { linkIds: ["trevi"], direct: false }, []), { names: ["TREVI"], reason: null }));
+  it("nessun collegamento: motivo esatto", () => assert.equal(proposedSupplierNames([], { linkIds: [], direct: false }, []).reason, "nessun fornitore collegato"));
+  it("B2B non acquistabile: motivo esatto", () => assert.equal(proposedSupplierNames([sup("t", { purchasable: false })], { linkIds: [], direct: false }, []).reason, "articolo non acquistabile dal fornitore"));
+  it("fornitore tolto: motivo esatto", () => assert.equal(proposedSupplierNames([sup("t")], { linkIds: [], direct: false }, ["t"]).reason, "fornitori tolti da questa Lista"));
+  it("acquisto diretto conta come destinazione", () => assert.deepEqual(proposedSupplierNames([], { linkIds: [], direct: true }, []), { names: ["Acquisto diretto"], reason: null }));
 });
