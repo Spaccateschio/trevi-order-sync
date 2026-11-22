@@ -377,3 +377,8 @@
 - [x] Verifica Project monitoring: con «Da inserire» attivo BASILICO resta visibile dopo «1», «12» e cancellazione; protezione `visibleWhenFilteringMissing` già presente, 30 test superati e controllo mobile senza salvataggi. Segnalazione superata, nessuna modifica app.
 - [x] Finestra «Cosa confermi»: prodotti che restano senza quantità spostati sopra le quantità da salvare, con sfondo giallo ocra; verifica mobile 3 EMME con ALLORO/MELE sopra BASILICO 12 pz, ritorno all’inserimento senza salvataggi e build OK. Solo `entry-cart-dock.tsx` (sezioni riordinate e classi delle righe mancanti).
 - [x] Finestra «Cosa confermi»: quantità da salvare divise per fornitore in sezioni aperte e richiudibili; una riga con più fornitori compare sotto ciascuno con la quantità totale. 7 test superati; verifica mobile 3 EMME con «Fornitore da assegnare»/BASILICO 3 pz e «trevi srl»/AGLIO 2 kg, chiusura e riapertura senza salvataggi. Build OK.
+
+## 22/11 — Ripresa prova e condivisione ordini esterni
+- [x] Lista 13:58 di 3 EMME recuperata in sola lettura: 6 quantità salvate e fornitore trevi srl, BASILICO A MAZZI e ANANAS vuoti, nessun ordine creato. Aperto soltanto il riepilogo «Genera ordini per fornitore»; nessuna generazione o invio.
+- [x] Verificati canali esterni esistenti: link, copia testo, email, WhatsApp e SMS nella finestra di condivisione dopo la generazione; il PDF non è un canale della finestra ordine.
+- [ ] Eventuale duplicazione in una nuova Lista: in attesa della scelta di Andrea; nessuna scrittura o invio effettuato.
