@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { matchesShoppingFilters, type FilterFlag, type ProductFilterFacts } from "./shopping-list-filters";
+import { catalogLimitForMissingReveal, matchesShoppingFilters, shoppingFiltersForMissingReveal, type FilterFlag, type ProductFilterFacts } from "./shopping-list-filters";
+import { catalogProductRequiresQuantity } from "./missing-quantities";
 const p: ProductFilterFacts = { id: "p1", code: "00-001", description: "Ananas", category: "Frutta", supplierIds: ["trevi"], supplierNames: ["Trevi"], favorite: true, b2b: true, nonB2b: false, assignment: null, ordered: false, confirmed: false, needsCheck: false, nonPurchase: false };
 const match = (flags: FilterFlag[], overrides: Partial<ProductFilterFacts> = {}) => matchesShoppingFilters({ ...p, ...overrides }, { search: "", category: "all", supplier: "all", flags: new Set(flags) });
 describe("filtri prodotti Lista", () => {
@@ -28,4 +29,31 @@ describe("filtri prodotti Lista", () => {
     assert.equal(matchesShoppingFilters(p, { ...f, search: "pera" }), false);
   });
   it("nessun filtro include catalogo e stati sconosciuti", () => assert.equal(match([]), true));
+  it("tocco su un mancante: il preferito scelto è visibile, i non preferiti no e il limite non copre tutto il catalogo", () => {
+    const products = Array.from({ length: 75 }, (_, index) => {
+      const key = `p${index}`;
+      return { key, code: key, ownProductId: key, facts: { ...p, id: key, code: key, description: `Prodotto ${key}`, favorite: index !== 74 } };
+    });
+    const favorites = new Set(products.filter((product) => product.facts.favorite).map((product) => product.ownProductId));
+    const selected = products[1]!;
+    const current = { search: "non trovato", category: "Verdura", supplier: "trevi", flags: new Set<FilterFlag>(["preferiti"]) };
+    const next = shoppingFiltersForMissingReveal(selected.facts, current);
+    const required = products.filter((product) => catalogProductRequiresQuantity(product, favorites));
+    const limit = catalogLimitForMissingReveal(required, selected.key, next, "description", 60);
+    const visible = required.filter((product) => matchesShoppingFilters(product.facts, next));
+    assert.equal(matchesShoppingFilters(selected.facts, next), true);
+    assert.equal(visible.some((product) => product.key === selected.key), true);
+    assert.equal(visible.some((product) => product.key === "p74"), false);
+    assert.equal(next.search, "");
+    assert.equal(next.category, "all");
+    assert.equal(next.supplier, "trevi");
+    assert.equal(next.flags.has("preferiti"), true);
+    assert.equal(limit, 60);
+    assert.ok(limit < products.length);
+  });
+  it("tocco su un mancante oltre il limite: include solo le card necessarie fino al prodotto", () => {
+    const products = Array.from({ length: 75 }, (_, index) => ({ key: `p${index}`, code: `p${index}`, facts: { ...p, id: `p${index}`, code: `p${index}`, description: `Prodotto ${String(index).padStart(2, "0")}` } }));
+    const next = shoppingFiltersForMissingReveal(products[70]!.facts, { search: "", category: "all", supplier: "all", flags: new Set() });
+    assert.equal(catalogLimitForMissingReveal(products, "p70", next, "description", 60), 71);
+  });
 });

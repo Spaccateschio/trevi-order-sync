@@ -112,7 +112,7 @@ import {
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { cn } from "@/lib/utils";
 import {
-  buildInventoryPrintHtml, cardPercentage, findSearchElsewhere, isFavoriteCard, selectInventoryCards, summarizeCards,
+  buildInventoryPrintHtml, cardPercentage, failedFilters, findSearchElsewhere, isFavoriteCard, selectInventoryCards, summarizeCards,
   type CardFilterKey, type InventoryCardFilters, type InventoryPrintMode, type InventoryPrintRow, type SearchElsewhere,
 } from "@/lib/inventory-print";
 import { inventoryCardLocked, afterInventoryCardSave, canEditInventoryCard, inventoryCardEditorState } from "@/lib/inventory-card-lock";
@@ -1970,7 +1970,24 @@ export function InventoryCountPanel({
     else setDraftFirst((current) => { const next = { ...current }; delete next[key]; return next; });
   };
   const revealInventoryMissing = (key: string) => {
-    setOnlyMissing(false); setProductView("all"); setWorkFilter("all"); setCategory(null); setSubcategory(null); setSupplierFilter(null); setHabitualFilter(null); setSearch(""); setSelectedLocationId(null);
+    const selected = allDisplayRows.find((row) => rowKey(row) === key);
+    setOnlyMissing(true);
+    if (selected) {
+      const failed = new Set(failedFilters(selected, cardFilters, cardSupplierName));
+      // La ricerca sospende Preferiti e stati: dopo averla tolta riemergono, quindi vanno verificati di nuovo.
+      if (failed.has("search")) {
+        const afterSearch = { ...cardFilters, search: "", view: effectiveProductView, work: workFilter };
+        for (const key of failedFilters(selected, afterSearch, cardSupplierName)) failed.add(key);
+      }
+      if (failed.has("view")) setProductView("all");
+      if (failed.has("work")) setWorkFilter("all");
+      if (failed.has("search")) setSearch("");
+      if (failed.has("location")) setSelectedLocationId(null);
+      if (failed.has("category")) setCategory(null);
+      if (failed.has("subcategory")) setSubcategory(null);
+      if (failed.has("supplier")) setSupplierFilter(null);
+      if (!matchesHabitual(selected.product_id, habitualMap, habitualFilter)) setHabitualFilter(null);
+    }
     window.setTimeout(() => {
       const target = document.querySelector<HTMLElement>(`[data-inventory-card="${key}"]`);
       target?.scrollIntoView({ behavior: "smooth", block: "center" });

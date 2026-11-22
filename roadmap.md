@@ -364,3 +364,4 @@
 - [x] Card memorizzate e letture indipendenti in parallelo; 44 test superati. Lista verificata su 3 EMME con 10 inserimenti in 0,57 s, zero scritture durante la digitazione, ripristino dopo ricarica, offline, mancanti e rifiuti simulati.
 - [ ] Collaudo browser dei campi Inventario su 3 EMME: bloccato dal ciclo acquisti rosso esistente; serve un inventario aperto autorizzato, senza cambiare le regole del ciclo.
 - [x] Correzione mancanti: fuori Lista/sessione contare solo i preferiti; Carrello, chip e filtro allineati e verificati su 3 EMME (0/6 anche con Tutti; PATATE e ZENZERO esclusi), 22 test superati, senza modifiche DB.
+- [x] Tocco su un mancante: «Da inserire» attivo, rimossi solo i filtri che nascondono la card e limite esteso solo fino al prodotto; stessa regola nell'Inventario. 52 test superati e verifica 3 EMME senza scritture: BASILICO visibile ed evidenziato, PATATE/ZENZERO esclusi, secondo tocco sul chip funzionante.

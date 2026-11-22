@@ -1,4 +1,4 @@
-import { matchesShoppingFilters, shoppingSortKey, type FilterFlag, type ProductFilterFacts, type SortKey } from "./shopping-list-filters";
+import { catalogLimitForMissingReveal, matchesShoppingFilters, shoppingFiltersForMissingReveal, shoppingSortKey, type FilterFlag, type ProductFilterFacts, type SortKey } from "./shopping-list-filters";
 import { selectShoppingPrintRows, type ShoppingPrintRow } from "./shopping-list-print-data";
 import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
@@ -1675,22 +1675,29 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     }
   };
   const revealMissing = (id: string) => {
-    resetFilters();
+    const isCatalog = id.startsWith("catalog:");
+    const key = isCatalog ? id.slice(8) : id;
+    const catalogEntry = isCatalog ? availableCatalog.find((entry) => entry.key === key) : undefined;
+    const listEntry = isCatalog ? undefined : allEntries.find((entry) => entry.row.item_id === id);
+    const facts = catalogEntry ? catalogFacts(catalogEntry) : listEntry ? entryFacts(listEntry) : null;
+    const nextFilters = facts ? shoppingFiltersForMissingReveal(facts, filters) : filters;
+    setOnlyMissing(true);
+    setSearch(nextFilters.search);
+    setCategory(nextFilters.category);
+    setSupplierFilter(nextFilters.supplier);
+    setFlags(new Set(nextFilters.flags));
     setViewMode("card");
-    if (id.startsWith("catalog:")) {
-      const key = id.slice(8);
-      setCatalogLimit(Math.max(60, catalog.entries.length));
-      setMobileOpenId(key);
-      window.setTimeout(() => {
-        const target = document.getElementById(`review-catalog-${key}`);
-        target?.scrollIntoView({ behavior: "smooth", block: "center" });
-        target?.classList.add("ring-4", "ring-primary", "rounded-md");
-        window.setTimeout(() => target?.classList.remove("ring-4", "ring-primary", "rounded-md"), 2000);
-      }, 150);
-      return;
+    if (catalogEntry) {
+      const required = missingCatalog.map((entry) => ({ key: entry.key, code: entry.code, facts: catalogFacts(entry) }));
+      setCatalogLimit((current) => catalogLimitForMissingReveal(required, key, nextFilters, sortBy, current));
     }
-    setMobileOpenId(id);
-    revealItem(id);
+    setMobileOpenId(key);
+    window.setTimeout(() => {
+      const target = document.getElementById(isCatalog ? `review-catalog-${key}` : `item-${key}`);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.classList.add("ring-4", "ring-primary", "rounded-md");
+      window.setTimeout(() => target?.classList.remove("ring-4", "ring-primary", "rounded-md"), 2000);
+    }, 150);
   };
   const saveShoppingCart = async () => {
     if (cartSaving) return;
