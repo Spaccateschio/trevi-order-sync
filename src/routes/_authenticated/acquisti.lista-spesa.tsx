@@ -6,6 +6,8 @@ import { ShoppingListPanel } from "@/components/shopping/shopping-list-panel";
 import { activeCompany, companyBuys, useIdentity } from "@/hooks/use-identity";
 
 export const Route = createFileRoute("/_authenticated/acquisti/lista-spesa")({
+  validateSearch: (search: Record<string, unknown>): { lista?: string } =>
+    typeof search["lista"] === "string" && search["lista"] ? { lista: search["lista"] } : {},
   head: () => ({
     meta: [
       { title: "Lista della Spesa — Trevi Fruit" },
@@ -28,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/acquisti/lista-spesa")({
 });
 
 function ListaSpesa() {
+  const { lista } = Route.useSearch();
   const { data: identity, isLoading } = useIdentity();
   const company = activeCompany(identity);
 
@@ -47,7 +50,7 @@ function ListaSpesa() {
       guide="lista-spesa"
     >
       {company ? <SentOrdersBanner companyId={company.companyId} measuredScroll untilPickup /> : null}
-      {company ? <ShoppingListPanel companyId={company.companyId} /> : null}
+      {company ? <ShoppingListPanel companyId={company.companyId} initialListId={lista ?? null} /> : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
     </AppShell>
   );

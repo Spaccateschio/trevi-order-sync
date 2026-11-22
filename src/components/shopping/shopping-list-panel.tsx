@@ -14,7 +14,6 @@ import {
   ArrowDownAZ,
   CheckCheck,
   MoreHorizontal,
-  MoreVertical,
   Plus,
   LayoutGrid,
   Printer,
@@ -46,8 +45,8 @@ import { GenerateOrdersDialog } from "./generate-orders-dialog";
 import { MissingQuantitiesDialog } from "./missing-quantities-dialog";
 import { missingQuantities, hasEmptyCompletionQuantity, catalogQuantityReview, catalogProductRequiresQuantity, type CatalogReviewProduct } from "./missing-quantities";
 import { manageListExclusion } from "@/lib/order-generation.functions";
-import { ListHistoryDialog } from "./list-history-dialog";
-import { ListDeliveryDate, useProposeListDate } from "./list-delivery-date";
+import { ListDeliveryDate, listDateLabel, useProposeListDate } from "./list-delivery-date";
+import { shoppingListStatusMessage, type ShoppingListOrderStatus } from "./shopping-list-status";
 import { getCompanyHasFavorites, getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
 import { useShoppingListExtras, type RowExtras } from "./use-shopping-list-extras";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -70,10 +69,10 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { dateTimeShort, parseQuantity, qty } from "@/lib/inventory";
+import { addDays, localToday, useDeliveryPreferences } from "@/lib/delivery-preferences";
 import { getInventoryCycleStatus, manageInventoryEvaluation } from "@/lib/inventory-cycle.functions";
 import {
   ITEM_STATUS_LABEL,
-  LIST_STATUS_LABEL,
   type OverviewRow,
   type ShoppingListRow,
 } from "@/lib/shopping-list";
@@ -157,11 +156,6 @@ function B2BBadge() {
 /** Lista della Spesa operativa: suggerito e deciso separati, residuo sempre visibile. */
 const EMPTY_SET = new Set<string>();
 
-// «Storico liste» non compare più nelle barre azioni (né cellulare né computer), così
-// ricerca e card salgono subito. Le liste non sono cancellate: la finestra resta montata
-// e si apre ancora dallo stato «Nessuna lista in corso», e le stampe sono invariate.
-const SHOW_HISTORY_IN_ACTION_BARS = false;
-
 type ShoppingLocalDraft = {
   edits: Record<string, string>;
   unitEdits: Record<string, { unitId: string | null; unitCode: string | null }>;
@@ -203,10 +197,11 @@ function parseShoppingLocalDraft(value: unknown): ShoppingLocalDraft | null {
   };
 }
 
-export function ShoppingListPanel({ companyId }: { companyId: string }) {
+export function ShoppingListPanel({ companyId, initialListId = null }: { companyId: string; initialListId?: string | null }) {
   const queryClient = useQueryClient();
   const runList = useServerFn(manageShoppingList);
   const proposeListDate = useProposeListDate(companyId);
+  const deliveryPreferences = useDeliveryPreferences(companyId);
   const [closeOpen, setCloseOpen] = useState(false);
   const [missingOpen, setMissingOpen] = useState(false);
   const [bulkCompletionBusy, setBulkCompletionBusy] = useState(false);
@@ -217,7 +212,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [genOpen, setGenOpen] = useState<null | "genera" | "bozze">(null);
   const [genMounted, setGenMounted] = useState<string | null>(null);
   const [reviewCatalog, setReviewCatalog] = useState<CatalogReviewProduct[]>([]);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [newListOpen, setNewListOpen] = useState(false);
   const runQuantity = useServerFn(setShoppingListItemQuantity);
   const runRemove = useServerFn(removeShoppingListItem);
@@ -360,12 +354,12 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     // Explicit new confirmations/recovery keep using the current selection on later visits.
     try {
       const key = purchaseSelectionKey(identity.userId, companyId);
-      const selected = restorePurchaseSelection(window.localStorage.getItem(key));
+      const selected = initialListId ?? restorePurchaseSelection(window.localStorage.getItem(key));
       setSelectedListId(selected);
       window.localStorage.setItem(key, selected);
     } catch { setSelectedListId(NEXT_PURCHASE); }
     setSelectionReady(true);
-  }, [identity?.userId, companyId]);
+  }, [identity?.userId, companyId, initialListId]);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideTime, setOverrideTime] = useState("09:30");
   const overrideMutation = useMutation({
@@ -383,31 +377,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Errore nel salvataggio"),
   });
-
-  // Quale inventario ha originato ogni Lista (solo per le etichette del selettore).
-  const originsQuery = useQuery({
-    queryKey: ["shopping-list-origins", companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_sessions")
-        .select("purchase_list_id, finished_at, started_at")
-        .eq("company_id", companyId)
-        .not("purchase_list_id", "is", null);
-      if (error) throw new Error(error.message);
-      return new Map(
-        (data ?? []).map((row) => [row.purchase_list_id as string, (row.finished_at ?? row.started_at) as string | null]),
-      );
-    },
-  });
-  const listLabel = (row: ShoppingListRow) => {
-    if (row.number) return `${row.number} · ${new Date(row.confirmed_at ?? row.created_at).toLocaleDateString("it-IT")}`;
-    const origin = originsQuery.data?.get(row.id);
-    if (origin !== undefined || row.id === cycle?.list_id) {
-      const when = origin ?? cycle?.finished_at ?? null;
-      return `Da inventario ${when ? new Date(when).toLocaleDateString("it-IT") : ""}`.trim();
-    }
-    return `Straordinaria · ${new Date(row.created_at).toLocaleDateString("it-IT")}`;
-  };
 
   const evaluating = Boolean(cycle?.color === "rosso" && cycle.session_id && !cycle.evaluated_at);
   // Lista già collegata all'inventario in valutazione (se ancora in lavorazione).
@@ -483,10 +452,25 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     },
   });
 
+  const listOrdersQuery = useQuery({
+    queryKey: ["shopping-list-status-orders", list?.id],
+    enabled: Boolean(list?.id),
+    queryFn: async (): Promise<ShoppingListOrderStatus[]> => {
+      const { data, error } = await supabase
+        .from("purchase_orders")
+        .select("id, status, sent_at, seen_by_supplier_at")
+        .eq("shopping_list_id", list!.id)
+        .neq("status", "annullato");
+      if (error) throw new Error(error.message);
+      return (data ?? []) as ShoppingListOrderStatus[];
+    },
+  });
+
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["shopping-lists", companyId] }),
       queryClient.invalidateQueries({ queryKey: ["shopping-list-overview"] }),
+      queryClient.invalidateQueries({ queryKey: ["shopping-list-status-orders"] }),
       queryClient.invalidateQueries({ queryKey: ["shopping-extras-assignments"] }),
       queryClient.invalidateQueries({ queryKey: [CYCLE_QUERY_KEY, companyId] }),
     ]);
@@ -1450,10 +1434,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     if (entry === "drafts") { canLeaveDrafts(() => proceedGeneration(true)); return; }
     proceedGeneration();
   };
-  const selectListWithDraftGuard = (id: string | null) => {
-    const proceed = () => { ordinaryIdRef.current = null; setListId(id); };
-    if (canLeaveDrafts(proceed)) proceed();
-  };
   const requestNewList = () => {
     const proceed = () => {
       if (!archivesQuery.data?.length) {
@@ -1830,47 +1810,38 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     }
   };
 
+  const proposedDeliveryDate = addDays(localToday(deliveryPreferences.data?.timezone ?? "Europe/Rome"), deliveryPreferences.data?.day === "domani" ? 1 : 0);
+  const statusDateLabel = listDateLabel(list?.delivery_date ?? proposedDeliveryDate);
+  const statusMessage = shoppingListStatusMessage({
+    hasList: Boolean(list), productCount: allRows.length, orders: listOrdersQuery.data ?? [], proposedDateLabel: statusDateLabel,
+  });
+
   return (
     <div className="space-y-4 pb-32 max-md:-mt-2 max-md:space-y-2 lg:pb-24">
       <ShoppingListPrintPreview open={printOpen} onOpenChange={setPrintOpen} rows={printRows} filters={printFilterLabels} title={list?.number ? `Lista della Spesa · ${list.number}` : "Lista della Spesa"} />
+      <section aria-label="Stato della Lista" data-list-status className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0 space-y-0.5">
+            {list ? <ListDeliveryDate companyId={companyId} list={list} editable={editable} /> : null}
+            <p className="text-sm font-semibold">{statusMessage}</p>
+          </div>
+          <Button asChild type="button" size="sm" variant="outline" className="shrink-0">
+            <Link to="/acquisti/lista-spesa/storico">Tutte le liste</Link>
+          </Button>
+        </div>
+      </section>
       {/* Cellulare (<768 px): testata compatta con gli stessi comandi. */}
       <div className="space-y-1.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="min-w-0 flex-1 space-y-0.5 md:hidden">
-            {list ? <div className="text-xs"><ListDeliveryDate companyId={companyId} list={list} editable={editable} /></div> : null}
+        <div className="flex items-center justify-end gap-1.5 md:hidden">
+          <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
+            <Button type="button" size="sm" className="h-8 px-2 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => changeViewMode("card")}>
+              <LayoutGrid aria-hidden="true" /> Card
+            </Button>
+            <Button type="button" size="sm" className="h-8 px-2 text-xs" variant={viewMode === "row" ? "default" : "ghost"} aria-pressed={viewMode === "row"} onClick={() => changeViewMode("row")}>
+              <Rows3 aria-hidden="true" /> Righe
+            </Button>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" aria-label="Viste e opzioni lista">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-h-[70vh] overflow-y-auto">
-              <DropdownMenuItem onSelect={() => selectListWithDraftGuard(NEXT_PURCHASE)}>Nuovo acquisto</DropdownMenuItem>
-              {lists.length ? <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Acquisti precedenti</div> : null}
-              {lists.map((row) => <DropdownMenuItem key={row.id} onSelect={() => selectListWithDraftGuard(row.id)}>
-                {listLabel(row)} · {row.status === "aperta" ? "Da completare / bozze" : LIST_STATUS_LABEL[row.status]}
-              </DropdownMenuItem>)}
-              <DropdownMenuItem onSelect={() => changeViewMode("card")}>
-
-                <LayoutGrid className="mr-2 h-4 w-4" />Vista Card{viewMode === "card" ? " ✓" : ""}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => changeViewMode("row")}>
-                <Rows3 className="mr-2 h-4 w-4" />Vista Righe{viewMode === "row" ? " ✓" : ""}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setPrintOpen(true)}><Printer className="mr-2 h-4 w-4" />Stampa risultati</DropdownMenuItem>
-              {list?.number ? (
-                <>
-                  <DropdownMenuItem asChild>
-                    <Link to="/acquisti/lista-spesa/stampa/$listId" params={{ listId: list.id }} search={{ tipo: "completa" }}>Visualizza / Stampa</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/acquisti/lista-spesa/stampa/$listId" params={{ listId: list.id }} search={{ tipo: "diretti" }}>Stampa acquisti diretti</Link>
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button type="button" size="icon" variant="outline" className="size-9" aria-label="Stampa risultati" onClick={() => setPrintOpen(true)}><Printer aria-hidden="true" /></Button>
         </div>
         <div className="-mx-1 flex gap-1.5 overflow-x-auto md:hidden px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
           {editable ? (
@@ -1883,10 +1854,15 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               Chiudi lista
             </Button>
           ) : null}
-          {SHOW_HISTORY_IN_ACTION_BARS ? (
-            <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setHistoryOpen(true)}>
-              Storico liste
-            </Button>
+          {list?.number ? (
+            <>
+              <Button asChild type="button" size="sm" variant="outline" className="h-7 text-xs">
+                <Link to="/acquisti/lista-spesa/stampa/$listId" params={{ listId: list.id }} search={{ tipo: "completa" }}>Visualizza / Stampa</Link>
+              </Button>
+              <Button asChild type="button" size="sm" variant="outline" className="h-7 text-xs">
+                <Link to="/acquisti/lista-spesa/stampa/$listId" params={{ listId: list.id }} search={{ tipo: "diretti" }}>Stampa diretti</Link>
+              </Button>
+            </>
           ) : null}
           {list ? (
             <Button
@@ -1907,10 +1883,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           ) : null}
         </div>
       </div>
-      <div className="hidden flex-wrap items-center justify-between gap-2 md:flex">
-        <div className="flex flex-wrap items-center gap-2">
-          {list ? <span data-tour="spesa.data"><ListDeliveryDate companyId={companyId} list={list} editable={editable} /></span> : null}
-        </div>
+      <div className="hidden flex-wrap items-center justify-end gap-2 md:flex">
         <div className="flex flex-wrap gap-2">
           {editable ? (
             <>
@@ -1956,11 +1929,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 </Link>
               </Button>
             </>
-          ) : null}
-          {SHOW_HISTORY_IN_ACTION_BARS ? (
-            <Button type="button" size="sm" variant="outline" data-tour="spesa.storico" onClick={() => setHistoryOpen(true)}>
-              Storico liste
-            </Button>
           ) : null}
           {list ? (
             <Button
@@ -2049,8 +2017,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 {lastClosed.closed_at ? ` · chiusa il ${new Date(lastClosed.closed_at).toLocaleDateString("it-IT")}` : ""}
               </p>
             ) : null}
-            <Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => setHistoryOpen(true)}>
-              Storico liste
+            <Button asChild type="button" size="sm" variant="outline" className="mt-2">
+              <Link to="/acquisti/lista-spesa/storico">Tutte le liste</Link>
             </Button>
           </div>
         );
@@ -2116,7 +2084,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       {!ready.showProducts && !showPending ? (
         pendingPickup ? null : (
           <p className="text-sm text-muted-foreground">
-            Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure consulta lo Storico dal menu delle liste.
+            Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure apri «Tutte le liste».
           </p>
         )
       ) : (
@@ -2706,7 +2674,6 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </DialogContent>
       </Dialog>
 
-      <ListHistoryDialog companyId={companyId} open={historyOpen} onOpenChange={setHistoryOpen} />
 
       {copyOrigin ? (
         <CopyToOwnProductsFlow

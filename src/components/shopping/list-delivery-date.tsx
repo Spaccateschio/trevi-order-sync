@@ -72,7 +72,7 @@ export function ListDeliveryDate({
   return (
     <div className="flex items-center gap-2 text-sm max-md:gap-1 max-md:whitespace-nowrap max-md:text-xs">
       <span className="text-muted-foreground max-md:hidden">Per quando serve:</span>
-      <span className="text-muted-foreground md:hidden">Serve</span>
+      <span className="text-muted-foreground md:hidden">Per quando serve:</span>
       <span className="font-semibold">{listDateLabel(list.delivery_date)}</span>
       {editable ? (
         <Popover open={open} onOpenChange={setOpen}>

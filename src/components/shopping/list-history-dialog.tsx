@@ -1,31 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { useShoppingListHistory } from "./use-shopping-list-history";
 
 /** Storico delle Liste chiuse: solo lettura, dati dalla fotografia salvata alla chiusura. */
 export function ListHistoryDialog({ companyId, open, onOpenChange }: { companyId: string; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const query = useQuery({
-    queryKey: ["shopping-list-history", companyId],
-    enabled: open,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("shopping_lists")
-        .select("id, number, status, confirmed_at, confirmed_by, delivery_date, shopping_list_items(count), purchase_orders(id, supplier_record_id)")
-        .eq("company_id", companyId)
-        .not("number", "is", null)
-        .order("confirmed_at", { ascending: false });
-      if (error) throw new Error(error.message);
-      const ids = [...new Set((data ?? []).map((r) => r.confirmed_by).filter(Boolean))] as string[];
-      const { data: people } = ids.length
-        ? await supabase.from("profiles").select("user_id, first_name, last_name").in("user_id", ids)
-        : { data: [] };
-      const names = new Map((people ?? []).map((p) => [p.user_id, [p.first_name, p.last_name].filter(Boolean).join(" ")]));
-      return (data ?? []).map((r) => ({ ...r, who: r.confirmed_by ? (names.get(r.confirmed_by) ?? "—") : "—" }));
-    },
-  });
+  const query = useShoppingListHistory(companyId, open, true);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

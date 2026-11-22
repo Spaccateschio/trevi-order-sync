@@ -54,6 +54,7 @@ import { Route as AuthenticatedVenditeOrdiniClientiRouteImport } from './routes/
 import { Route as AuthenticatedVenditeProdottiRouteImport } from './routes/_authenticated/vendite_.prodotti'
 import { Route as PiattaformaAziendeAziendaIdRouteImport } from './routes/piattaforma.aziende.$aziendaId'
 import { Route as AuthenticatedAcquistiCatalogoIndexRouteImport } from './routes/_authenticated/acquisti.catalogo.index'
+import { Route as AuthenticatedAcquistiListaSpesaStoricoRouteImport } from './routes/_authenticated/acquisti.lista-spesa_.storico'
 import { Route as ApiPublicDaneaOrdersRouteImport } from './routes/api/public/danea/orders'
 import { Route as ApiPublicDaneaProductsRouteImport } from './routes/api/public/danea/products'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
@@ -306,6 +307,12 @@ const AuthenticatedAcquistiCatalogoIndexRoute =
     path: '/acquisti/catalogo/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAcquistiListaSpesaStoricoRoute =
+  AuthenticatedAcquistiListaSpesaStoricoRouteImport.update({
+    id: '/acquisti/lista-spesa_/storico',
+    path: '/acquisti/lista-spesa/storico',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiPublicDaneaOrdersRoute = ApiPublicDaneaOrdersRouteImport.update({
   id: '/api/public/danea/orders',
   path: '/api/public/danea/orders',
@@ -385,6 +392,7 @@ export interface FileRoutesByFullPath {
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/piattaforma/aziende/$aziendaId': typeof PiattaformaAziendeAziendaIdRoute
   '/acquisti/': typeof AuthenticatedAcquistiIndexRoute
+  '/acquisti/lista-spesa/storico': typeof AuthenticatedAcquistiListaSpesaStoricoRoute
   '/api/public/danea/orders': typeof ApiPublicDaneaOrdersRoute
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -436,6 +444,7 @@ export interface FileRoutesByTo {
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/piattaforma/aziende/$aziendaId': typeof PiattaformaAziendeAziendaIdRoute
   '/acquisti': typeof AuthenticatedAcquistiIndexRoute
+  '/acquisti/lista-spesa/storico': typeof AuthenticatedAcquistiListaSpesaStoricoRoute
   '/api/public/danea/orders': typeof ApiPublicDaneaOrdersRoute
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -490,6 +499,7 @@ export interface FileRoutesById {
   '/_authenticated/vendite_/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/piattaforma/aziende/$aziendaId': typeof PiattaformaAziendeAziendaIdRoute
   '/_authenticated/acquisti/': typeof AuthenticatedAcquistiIndexRoute
+  '/_authenticated/acquisti/lista-spesa_/storico': typeof AuthenticatedAcquistiListaSpesaStoricoRoute
   '/api/public/danea/orders': typeof ApiPublicDaneaOrdersRoute
   '/api/public/danea/products': typeof ApiPublicDaneaProductsRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -544,6 +554,7 @@ export interface FileRouteTypes {
     | '/vendite/prodotti'
     | '/piattaforma/aziende/$aziendaId'
     | '/acquisti/'
+    | '/acquisti/lista-spesa/storico'
     | '/api/public/danea/orders'
     | '/api/public/danea/products'
     | '/lovable/email/transactional/preview'
@@ -595,6 +606,7 @@ export interface FileRouteTypes {
     | '/vendite/prodotti'
     | '/piattaforma/aziende/$aziendaId'
     | '/acquisti'
+    | '/acquisti/lista-spesa/storico'
     | '/api/public/danea/orders'
     | '/api/public/danea/products'
     | '/lovable/email/transactional/preview'
@@ -648,6 +660,7 @@ export interface FileRouteTypes {
     | '/_authenticated/vendite_/prodotti'
     | '/piattaforma/aziende/$aziendaId'
     | '/_authenticated/acquisti/'
+    | '/_authenticated/acquisti/lista-spesa_/storico'
     | '/api/public/danea/orders'
     | '/api/public/danea/products'
     | '/lovable/email/transactional/preview'
@@ -988,6 +1001,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAcquistiCatalogoIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/acquisti/lista-spesa_/storico': {
+      id: '/_authenticated/acquisti/lista-spesa_/storico'
+      path: '/acquisti/lista-spesa/storico'
+      fullPath: '/acquisti/lista-spesa/storico'
+      preLoaderRoute: typeof AuthenticatedAcquistiListaSpesaStoricoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/danea/orders': {
       id: '/api/public/danea/orders'
       path: '/api/public/danea/orders'
@@ -1060,6 +1080,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedVenditeOrdiniClientiRoute: typeof AuthenticatedVenditeOrdiniClientiRoute
   AuthenticatedVenditeProdottiRoute: typeof AuthenticatedVenditeProdottiRoute
   AuthenticatedAcquistiIndexRoute: typeof AuthenticatedAcquistiIndexRoute
+  AuthenticatedAcquistiListaSpesaStoricoRoute: typeof AuthenticatedAcquistiListaSpesaStoricoRoute
   AuthenticatedAcquistiCatalogoIndexRoute: typeof AuthenticatedAcquistiCatalogoIndexRoute
   AuthenticatedAcquistiCatalogoSellerIdProductIdRoute: typeof AuthenticatedAcquistiCatalogoSellerIdProductIdRoute
   AuthenticatedAcquistiListaSpesaStampaListIdRoute: typeof AuthenticatedAcquistiListaSpesaStampaListIdRoute
@@ -1099,6 +1120,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedVenditeOrdiniClientiRoute,
   AuthenticatedVenditeProdottiRoute: AuthenticatedVenditeProdottiRoute,
   AuthenticatedAcquistiIndexRoute: AuthenticatedAcquistiIndexRoute,
+  AuthenticatedAcquistiListaSpesaStoricoRoute:
+    AuthenticatedAcquistiListaSpesaStoricoRoute,
   AuthenticatedAcquistiCatalogoIndexRoute:
     AuthenticatedAcquistiCatalogoIndexRoute,
   AuthenticatedAcquistiCatalogoSellerIdProductIdRoute:
