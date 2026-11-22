@@ -2,13 +2,28 @@ import { quantityHasDraft } from "./shopping-quantity-state";
 
 export type CatalogReviewProduct = { key: string; code: string; name: string; nonPurchase: boolean };
 
-/** Presentation only: use the full available catalog, not filtered/paginated cards or bulk inputs. */
+/** Fuori dalla Lista richiedono quantità solo i prodotti propri già preferiti. */
+export function catalogProductRequiresQuantity(
+  product: { ownProductId: string | null },
+  favoriteProductIds: ReadonlySet<string>,
+): boolean {
+  return Boolean(product.ownProductId && favoriteProductIds.has(product.ownProductId));
+}
+
+/** Senza sessione si contano solo i preferiti; nella sessione scelta servono tutte le sue righe. */
+export function inventoryProductRequiresQuantity(sessionActive: boolean, isFavorite: boolean): boolean {
+  return sessionActive || isFavorite;
+}
+
+/** Presentation only: full favorite catalog, not filtered/paginated cards or bulk inputs. */
 export function catalogQuantityReview(
-  products: readonly { key: string; code: string; description: string | null }[],
+  products: readonly { key: string; code: string; description: string | null; ownProductId: string | null }[],
   drafts: Readonly<Record<string, { raw: string }>>,
   notBuying: ReadonlySet<string>,
+  favoriteProductIds: ReadonlySet<string>,
 ): CatalogReviewProduct[] {
-  return products.filter((product) => notBuying.has(product.key) || !(drafts[product.key]?.raw ?? "").trim())
+  return products.filter((product) => catalogProductRequiresQuantity(product, favoriteProductIds))
+    .filter((product) => notBuying.has(product.key) || !(drafts[product.key]?.raw ?? "").trim())
     .map((product) => ({ key: product.key, code: product.code, name: product.description ?? product.code, nonPurchase: notBuying.has(product.key) }))
     .sort((a, b) => a.name.localeCompare(b.name, "it"));
 }

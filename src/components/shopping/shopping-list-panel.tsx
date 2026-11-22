@@ -44,7 +44,7 @@ import { SupplierSplitDialog } from "./supplier-split-dialog";
 import { CloseListDialog } from "./close-list-dialog";
 import { GenerateOrdersDialog } from "./generate-orders-dialog";
 import { MissingQuantitiesDialog } from "./missing-quantities-dialog";
-import { missingQuantities, hasEmptyCompletionQuantity, catalogQuantityReview, type CatalogReviewProduct } from "./missing-quantities";
+import { missingQuantities, hasEmptyCompletionQuantity, catalogQuantityReview, catalogProductRequiresQuantity, type CatalogReviewProduct } from "./missing-quantities";
 import { manageListExclusion } from "@/lib/order-generation.functions";
 import { ListHistoryDialog } from "./list-history-dialog";
 import { ListDeliveryDate, useProposeListDate } from "./list-delivery-date";
@@ -962,7 +962,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     return raw === undefined || !raw.trim() || parseQuantity(raw) === null;
   };
   const missingEntries = allEntries.filter(isEntryMissing);
-  const missingCatalog = availableCatalog.filter(isCatalogMissing);
+  const requiredCatalog = availableCatalog.filter((entry) => catalogProductRequiresQuantity(entry, catalog.favorites));
+  const missingCatalog = requiredCatalog.filter(isCatalogMissing);
   const missingEntryIds = new Set(missingEntries.map((entry) => entry.row.item_id));
   const missingCatalogKeys = new Set(missingCatalog.map((entry) => entry.key));
   const entries = allEntries.filter((e) => matchesShoppingFilters(entryFacts(e), filters) && (!onlyMissing || missingEntryIds.has(e.row.item_id)));
@@ -1412,7 +1413,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     const entry = generationEntryState({ fetching: overviewQuery.isFetching || excludedQuery.isFetching, hasUnconfirmedDrafts: hasUnconfirmed, missingQuantityCount: completionEntries.length });
     if (entry === "wait") { toast.info("Attendi l'aggiornamento della Lista"); return; }
     if (entry === "drafts" && !canLeaveDrafts()) return;
-    setReviewCatalog(catalogQuantityReview(availableCatalog, catalogValues, catalogNotBuying));
+    setReviewCatalog(catalogQuantityReview(availableCatalog, catalogValues, catalogNotBuying, catalog.favorites));
     setGenMounted(list?.id ?? null);
     setGenOpen("genera");
   };
@@ -2084,7 +2085,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               ★ Preferiti
             </Button>
             <Button type="button" size="sm" variant={onlyMissing ? "default" : "outline"} className="h-8 px-2 text-xs" aria-pressed={onlyMissing} onClick={() => setOnlyMissing((current) => !current)}>
-              {allEntries.length + availableCatalog.length - missingEntries.length - missingCatalog.length} / {allEntries.length + availableCatalog.length} · Da inserire
+              {allEntries.length + requiredCatalog.length - missingEntries.length - missingCatalog.length} / {allEntries.length + requiredCatalog.length} · Da inserire
             </Button>
             {/* Cellulare: «Tutti» spegne Preferiti; i 3 puntini gialli raccolgono tutti i filtri. */}
             <Button

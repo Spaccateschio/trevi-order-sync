@@ -8,6 +8,7 @@ import { createRefreshBatcher } from "@/lib/shopping-optimistic";
 import { trackPlatformUsageClick } from "@/lib/platform-usage-tracking";
 import { EntryCartDock } from "@/components/entry-cart/entry-cart-dock";
 import { entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
+import { inventoryProductRequiresQuantity } from "@/components/shopping/missing-quantities";
 import { countedRowPatch, patchCardRow, restoreCardRow } from "@/lib/inventory-optimistic";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CYCLE_QUERY_KEY } from "@/components/shopping/inventory-to-evaluate";
@@ -1942,8 +1943,9 @@ export function InventoryCountPanel({
     link_active: null, card_favorite: false, card_label: null,
   })), [sessionId, sessionCards, previewProducts, draftLocation, previewFavoriteQuery.data, stockHistoryQuery.data]);
   const displayRows = sessionId ? rows : allDisplayRows;
+  const inventoryRequiredCount = allDisplayRows.filter((row) => inventoryProductRequiresQuantity(Boolean(sessionId), row.is_favorite)).length;
   const inventoryMissing = useMemo<EntryCartMissing[]>(() => allDisplayRows.filter((row) => {
-    if (row.counted !== null) return false;
+    if (!inventoryProductRequiresQuantity(Boolean(sessionId), row.is_favorite) || row.counted !== null) return false;
     const raw = (sessionId ? drafts : draftFirst)[rowKey(row)];
     return raw === undefined || !raw.trim() || parseQuantity(raw) === null;
   }).map((row) => ({ id: rowKey(row), label: rowName(row), detail: `${row.code} · ${row.location_name}` })), [allDisplayRows, sessionId, drafts, draftFirst]);
@@ -2199,8 +2201,8 @@ export function InventoryCountPanel({
             onlyMissing={onlyMissing}
             onOnlyMissingChange={setOnlyMissing}
             missingKeys={inventoryMissingKeys}
-            insertedCount={allDisplayRows.length - inventoryMissing.length}
-            totalCount={allDisplayRows.length}
+            insertedCount={inventoryRequiredCount - inventoryMissing.length}
+            totalCount={inventoryRequiredCount}
             catalogCandidates={[]}
             cardMinWidth={cardMinWidth}
             extraSection={
