@@ -357,4 +357,9 @@
 - [x] Mockup con filtri e grafici per pagine visitate e comandi cliccati, includendo sia le aree aziendali sia l’area piattaforma. Verificato come super admin su computer e telefono; 5 prove automatiche superate, nessuna raccolta dati.
 - [x] Statistiche reali: raccolta anonima interna di aperture, tempi, errori e clic; filtri e grafici reali; tre consigli scritti con prova numerica e stato «Dati insufficienti» sotto soglia; accesso verificato solo per super admin. 18 test automatici superati, verifica desktop/mobile e permessi completata; eventi e ruolo temporaneo di collaudo eliminati. Nessun dato operativo modificato, nessuna pubblicazione.
 
-- [ ] Bozza locale + scrittura in blocco + card memorizzate in Lista e Inventario (richiesta 22/11) — in attesa di decisione sulla funzione DB in blocco
+## 22/11 — Bozza locale, Carrello e conferma finale
+- [x] Lista e Inventario: quantità e U.M. solo locali fino all'unico Conferma; bozza per utente+azienda+lista/conteggio, ripresa offline e righe rifiutate conservate.
+- [x] Carrello con modifica/rimozione e mancanti separati; chip «Da inserire», finestra mancanti non bloccante e scorrimento/evidenziazione della card.
+- [x] Salvataggio finale a gruppi paralleli con avanzamento, riusando esclusivamente le RPC e le regole del ciclo esistenti; nessuna modifica database.
+- [x] Card memorizzate e letture indipendenti in parallelo; 44 test superati. Lista verificata su 3 EMME con 10 inserimenti in 0,57 s, zero scritture durante la digitazione, ripristino dopo ricarica, offline, mancanti e rifiuti simulati.
+- [ ] Collaudo browser dei campi Inventario su 3 EMME: bloccato dal ciclo acquisti rosso esistente; serve un inventario aperto autorizzato, senza cambiare le regole del ciclo.

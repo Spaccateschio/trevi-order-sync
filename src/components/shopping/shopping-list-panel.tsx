@@ -98,6 +98,8 @@ import { createKeyedChain, createRefreshBatcher, patchLock, patchRowQuantity } f
 import { shoppingInventoryTotals, type ShoppingCountRow } from "@/lib/shopping-inventory-total";
 import { createLatestQueue } from "@/lib/supplier-memory";
 import { factsFromRow, listCounters, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
+import { EntryCartDock } from "@/components/entry-cart/entry-cart-dock";
+import { clearEntryCartDraft, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 
 /** Prodotto contato non ancora in Lista, mostrato con la stessa card: nessun dato della Lista inventato. */
 function pendingOverviewRow(row: CountedRow): OverviewRow {
@@ -159,6 +161,47 @@ const EMPTY_SET = new Set<string>();
 // ricerca e card salgono subito. Le liste non sono cancellate: la finestra resta montata
 // e si apre ancora dallo stato «Nessuna lista in corso», e le stampe sono invariate.
 const SHOW_HISTORY_IN_ACTION_BARS = false;
+
+type ShoppingLocalDraft = {
+  edits: Record<string, string>;
+  unitEdits: Record<string, { unitId: string | null; unitCode: string | null }>;
+  evalValues: Record<string, string>;
+  catalogValues: Record<string, { raw: string; unit: string | null }>;
+  catalogNotBuying: string[];
+  errors: Record<string, string>;
+};
+
+function stringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+}
+
+function parseShoppingLocalDraft(value: unknown): ShoppingLocalDraft | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const units: ShoppingLocalDraft["unitEdits"] = {};
+  if (raw["unitEdits"] && typeof raw["unitEdits"] === "object" && !Array.isArray(raw["unitEdits"])) {
+    for (const [key, entry] of Object.entries(raw["unitEdits"])) {
+      if (!entry || typeof entry !== "object") continue;
+      const unit = entry as Record<string, unknown>;
+      units[key] = { unitId: typeof unit["unitId"] === "string" ? unit["unitId"] : null, unitCode: typeof unit["unitCode"] === "string" ? unit["unitCode"] : null };
+    }
+  }
+  const catalogValues: ShoppingLocalDraft["catalogValues"] = {};
+  if (raw["catalogValues"] && typeof raw["catalogValues"] === "object" && !Array.isArray(raw["catalogValues"])) {
+    for (const [key, entry] of Object.entries(raw["catalogValues"])) {
+      if (!entry || typeof entry !== "object") continue;
+      const draft = entry as Record<string, unknown>;
+      if (typeof draft["raw"] !== "string") continue;
+      catalogValues[key] = { raw: draft["raw"], unit: typeof draft["unit"] === "string" ? draft["unit"] : null };
+    }
+  }
+  return {
+    edits: stringRecord(raw["edits"]), unitEdits: units, evalValues: stringRecord(raw["evalValues"]), catalogValues,
+    catalogNotBuying: Array.isArray(raw["catalogNotBuying"]) ? raw["catalogNotBuying"].filter((key): key is string => typeof key === "string") : [],
+    errors: stringRecord(raw["errors"]),
+  };
+}
 
 export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
@@ -225,6 +268,10 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [splitItem, setSplitItem] = useState<OverviewRow | null>(null);
   // Quantità scritte sui prodotti «Da valutare», non ancora aggiunte alla Lista.
   const [evalValues, setEvalValues] = useState<Record<string, string>>({});
+  const [onlyMissing, setOnlyMissing] = useState(false);
+  const [cartErrors, setCartErrors] = useState<Record<string, string>>({});
+  const [cartSaving, setCartSaving] = useState(false);
+  const [cartProgress, setCartProgress] = useState<EntryCartProgress>(null);
   // Card / Righe: scelta solo visuale, ricordata sul dispositivo.
   const [viewMode, setViewMode] = useState<"card" | "row">("card");
   useEffect(() => {
@@ -372,8 +419,30 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     () => selectionReady ? selectShoppingList(lists, listId, linkedList, previewMode) : null,
     [lists, listId, linkedList, previewMode, selectionReady],
   );
-  // Le decisioni «Non acquistare» valgono per la lista corrente: cambiando lista ripartono da zero.
-  useEffect(() => { setCatalogNotBuying(new Set()); setCatalogValues({}); }, [list?.id]);
+  // Bozza solo sul dispositivo: una chiave distinta per persona, azienda e Lista (o prossimo acquisto).
+  const draftStorageKey = identity?.userId ? entryCartStorageKey({ userId: identity.userId, companyId, area: "lista", referenceId: list?.id ?? NEXT_PURCHASE }) : null;
+  const loadedDraftKey = useRef<string | null>(null);
+  const skipDraftWriteRef = useRef(false);
+  useEffect(() => {
+    if (!draftStorageKey) return;
+    loadedDraftKey.current = draftStorageKey;
+    skipDraftWriteRef.current = true;
+    const restored = readEntryCartDraft(window.localStorage, draftStorageKey, parseShoppingLocalDraft);
+    setEdits(restored?.edits ?? {});
+    setUnitEdits(restored?.unitEdits ?? {});
+    setEvalValues(restored?.evalValues ?? {});
+    setCatalogValues(restored?.catalogValues ?? {});
+    setCatalogNotBuying(new Set(restored?.catalogNotBuying ?? []));
+    setCartErrors(restored?.errors ?? {});
+    setOnlyMissing(false);
+  }, [draftStorageKey]);
+  useEffect(() => {
+    if (!draftStorageKey || loadedDraftKey.current !== draftStorageKey) return;
+    if (skipDraftWriteRef.current) { skipDraftWriteRef.current = false; return; }
+    writeEntryCartDraft<ShoppingLocalDraft>(window.localStorage, draftStorageKey, {
+      edits, unitEdits, evalValues, catalogValues, catalogNotBuying: [...catalogNotBuying], errors: cartErrors,
+    });
+  }, [draftStorageKey, edits, unitEdits, evalValues, catalogValues, catalogNotBuying, cartErrors]);
   const editable = list?.status === "aperta";
   const currentList =
     linkedList ?? lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null;
@@ -853,14 +922,17 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         const info = result.get(product.id);
         if (info) info.stockUnit = product.stock_unit_id ? unitCodes.get(product.stock_unit_id) ?? null : null;
       }
-      for (const locationId of locations) {
-        const { data: stock, error: stockError } = await supabase.rpc("inventory_location_stock_list", {
+      const stockLists = await Promise.all([...locations].map(async (locationId) => {
+        const { data, error } = await supabase.rpc("inventory_location_stock_list", {
           _company_id: companyId,
           _archive_id: catalogArchiveId,
           _location_id: locationId,
         });
-        if (stockError) throw new Error(stockError.message);
-        for (const entry of (stock ?? []) as { product_id: string; has_count: boolean; quantity: number }[]) {
+        if (error) throw new Error(error.message);
+        return data ?? [];
+      }));
+      for (const stock of stockLists) {
+        for (const entry of stock as { product_id: string; has_count: boolean; quantity: number }[]) {
           const info = result.get(entry.product_id);
           if (info && entry.has_count) info.stock = (info.stock ?? 0) + Number(entry.quantity);
         }
@@ -873,10 +945,28 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [catalogLimit, setCatalogLimit] = useState(60);
   const categories = [...new Set([...extras.values()].map((r) => r.category).concat(pendingEntries.map((p) => p.extra?.category ?? null), catalog.entries.map((p) => p.category)).filter((c): c is string => Boolean(c)))].sort((a, b) => a.localeCompare(b, "it"));
   const allEntries: Entry[] = [...allRows.map((row) => ({ kind: "list" as const, row, extra: extras.get(row.item_id), stock: stockQuery.data?.get(row.product_id) })), ...pendingEntries];
-  const entries = allEntries.filter((e) => matchesShoppingFilters(entryFacts(e), filters));
   const shown = new Set([...allRows.map((r) => r.product_id), ...pendingEntries.map((p) => p.row.product_id)]);
   const availableCatalog = showCatalog ? catalog.entries.filter((p) => !p.ownProductId || !shown.has(p.ownProductId)) : [];
-  const catalogFiltered = availableCatalog.filter((p) => matchesShoppingFilters(catalogFacts(p), filters));
+  const isEntryMissing = (entry: Entry) => {
+    if (entry.kind === "list" && (excludedQuery.data?.has(entry.row.item_id) || entry.row.decided_quantity !== null)) return false;
+    if (entry.kind === "pending") {
+      const evaluation = savedEvaluations.get(entry.row.product_id);
+      if (evaluation?.status === "non_acquistare" || evaluation?.decided_quantity !== null && evaluation?.decided_quantity !== undefined) return false;
+    }
+    const raw = entry.kind === "pending" ? evalValues[entry.row.product_id] : edits[entry.row.item_id];
+    return raw === undefined || !raw.trim() || parseQuantity(raw) === null;
+  };
+  const isCatalogMissing = (entry: CatalogEntry) => {
+    if (catalogNotBuying.has(entry.key)) return false;
+    const raw = catalogValues[entry.key]?.raw;
+    return raw === undefined || !raw.trim() || parseQuantity(raw) === null;
+  };
+  const missingEntries = allEntries.filter(isEntryMissing);
+  const missingCatalog = availableCatalog.filter(isCatalogMissing);
+  const missingEntryIds = new Set(missingEntries.map((entry) => entry.row.item_id));
+  const missingCatalogKeys = new Set(missingCatalog.map((entry) => entry.key));
+  const entries = allEntries.filter((e) => matchesShoppingFilters(entryFacts(e), filters) && (!onlyMissing || missingEntryIds.has(e.row.item_id)));
+  const catalogFiltered = availableCatalog.filter((p) => matchesShoppingFilters(catalogFacts(p), filters) && (!onlyMissing || missingCatalogKeys.has(p.key)));
   // Exclusions must be read before filtering (also used by print); no writes.
   // Un solo ordinamento per card della Lista e prodotti non in lista: la stella non sposta nulla.
   const merged = (() => {
@@ -955,6 +1045,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const activeFilters = flags.size + (category !== "all" ? 1 : 0) + (supplierFilter !== "all" ? 1 : 0);
   const hiddenFields = DISPLAY_FIELDS.filter(([field]) => !display.prefs[field]).length;
   const resetFilters = () => {
+    setOnlyMissing(false);
     setFlags(new Set());
     setCategory("all");
     setSupplierFilter("all");
@@ -1011,14 +1102,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     <Input
       className={className}
       inputMode="decimal"
-      disabled={!editable || (Boolean(extras.get(row.item_id)?.lockedAt) && !unlockedIds.has(row.item_id)) || savingIds.has(row.item_id)}
+      disabled={!editable || savingIds.has(row.item_id)}
       value={edits[row.item_id] ?? (row.decided_quantity === null ? "" : String(row.decided_quantity))}
       aria-label={`Quantità decisa ${row.code}`}
       onFocus={stable(`${row.item_id}:qi:onFocus`, (event) => event.currentTarget.select())}
       onClick={stable(`${row.item_id}:qi:onClick`, (event) => event.currentTarget.select())}
       onChange={stable(`${row.item_id}:qi:onChange`, (event) => setEdits((current) => ({ ...current, [row.item_id]: event.target.value })))}
       onKeyDown={stable(`${row.item_id}:qi:onKeyDown`, (event) => {
-        if (event.key === "Enter") { event.preventDefault(); void toggleLock(row); }
+        if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); }
       })}
     />
   );
@@ -1046,7 +1137,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     <span className="flex min-w-0 flex-1 items-center gap-1">
     {savedEvaluations.get(row.product_id)?.status === "non_acquistare" ? null : (
     <Input
-      onKeyDown={stable(`${row.product_id}:pi:onKeyDown`, (event) => { if (event.key === "Enter") { event.preventDefault(); void confirmPending(row); } })}
+      onKeyDown={stable(`${row.product_id}:pi:onKeyDown`, (event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } })}
       className="h-9 max-md:h-8 min-w-0 flex-1 text-right text-base max-md:text-sm font-bold"
       inputMode="decimal"
       placeholder="—"
@@ -1117,6 +1208,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   type Commit = { quantity: number | null; unitId?: string | null; unitCode?: string | null };
   const workerRef = useRef<(itemId: string, c: Commit) => Promise<void>>(async () => undefined);
+  const commitErrors = useRef(new Map<string, string>());
   // U.M. del fornitore proposta dalla card per la prima quantità (usata solo se la riga non ha ancora quantità né U.M.).
   const proposedUnits = useRef(new Map<string, { unitId: string; code: string }>());
   // Ricarica unica in sottofondo, non attesa, quando non resta nessun salvataggio in corso.
@@ -1159,6 +1251,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     if (backup) patchCachedRow(itemId, backup.quantity, backup.lock ?? {});
   };
   workerRef.current = async (itemId, c) => {
+    commitErrors.current.delete(itemId);
     setSavingIds((cur) => new Set(cur).add(itemId));
     refreshBatcher.begin();
     let refreshWide = false;
@@ -1238,6 +1331,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       });
     } catch (e) {
       // Il valore scritto resta nel campo: si può riprovare uscendo di nuovo dal campo.
+      commitErrors.current.set(itemId, (e as Error).message);
       toast.error(`Quantità non salvata: ${(e as Error).message}`);
       // La riga torna com'era; la bozza resta nel campo per riprovare.
       if (commitQueue.isLatest(itemId)) restoreOptimistic(itemId);
@@ -1326,7 +1420,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   // «Da valutare» → Conferma: una sola operazione nel database (Lista + prodotto + quantità + blocco).
   const [confirmingIds, setConfirmingIds] = useState<Set<string>>(new Set());
   const confirmingRef = useRef<Set<string>>(new Set());
-  const confirmPending = async (row: OverviewRow, explicitQuantity?: number) => {
+  const confirmPending = async (row: OverviewRow, explicitQuantity?: number, rethrow = false) => {
     const quantity = explicitQuantity ?? parseQuantity(evalValues[row.product_id] ?? "");
     if (quantity === null || quantity < 0) {
       toast.error("Inserisci una quantità prima di confermare");
@@ -1368,6 +1462,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       setMobileOpenId((current) => finishMobileCard(current, row.item_id, true));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Conferma non riuscita");
+      if (rethrow) throw error;
     } finally {
       confirmingRef.current.delete(row.product_id);
       setConfirmingIds(new Set(confirmingRef.current));
@@ -1519,8 +1614,152 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     </>
   );
 
+  const cartLines = useMemo<EntryCartLine[]>(() => {
+    const result: EntryCartLine[] = [];
+    for (const row of allRows) {
+      const hasQuantity = Object.prototype.hasOwnProperty.call(edits, row.item_id);
+      if (!hasQuantity && !unitEdits[row.item_id]) continue;
+      const raw = hasQuantity ? edits[row.item_id]! : row.decided_quantity === null ? "" : String(row.decided_quantity);
+      if (!raw.trim() && row.decided_quantity === null && !unitEdits[row.item_id]) continue;
+      result.push({
+        id: `list:${row.item_id}`, productId: row.product_id, label: row.description ?? row.code,
+        detail: row.code, quantity: raw,
+        unitCode: unitEdits[row.item_id]?.unitCode ?? extras.get(row.item_id)?.decidedUnitCode ?? row.unit_code,
+        supplierNames: (extras.get(row.item_id)?.suppliers ?? []).map((supplier) => supplier.name),
+      });
+    }
+    for (const entry of pendingEntries) {
+      const raw = evalValues[entry.row.product_id];
+      if (raw === undefined || !raw.trim()) continue;
+      result.push({ id: `pending:${entry.row.product_id}`, productId: entry.row.product_id, label: entry.row.description ?? entry.row.code, detail: entry.row.code, quantity: raw, unitCode: entry.row.unit_code, supplierNames: [] });
+    }
+    for (const entry of availableCatalog) {
+      const draft = catalogValues[entry.key];
+      if (!draft?.raw.trim() || catalogNotBuying.has(entry.key)) continue;
+      result.push({ id: `catalog:${entry.key}`, productId: entry.ownProductId ?? entry.key, label: entry.description ?? entry.code, detail: entry.code, quantity: draft.raw, unitCode: draft.unit ?? entry.defaultUnit ?? entry.unitCodes[0] ?? null, supplierNames: entry.supplierNames });
+    }
+    return result;
+  }, [allRows, edits, unitEdits, extras, pendingEntries, evalValues, availableCatalog, catalogValues, catalogNotBuying]);
+  const invalidCartIds = new Set(cartLines.filter((line) => !line.quantity.trim() ? !line.id.startsWith("list:") : parseQuantity(line.quantity) === null).map((line) => line.id));
+  const displayedCartLines = cartLines.map((line) => ({ ...line, error: cartErrors[line.id] ?? (invalidCartIds.has(line.id) ? "Quantità non valida" : null) }));
+  const cartMissing = useMemo<EntryCartMissing[]>(() => [
+    ...missingEntries.map((entry) => ({ id: entry.row.item_id, label: entry.row.description ?? entry.row.code, detail: entry.row.code })),
+    ...missingCatalog.map((entry) => ({ id: `catalog:${entry.key}`, label: entry.description ?? entry.code, detail: entry.code })),
+  ], [missingEntries, missingCatalog]);
+  const changeCartQuantity = (id: string, quantity: string) => {
+    setCartErrors((current) => { const next = { ...current }; delete next[id]; return next; });
+    if (id.startsWith("list:")) {
+      const itemId = id.slice(5);
+      setEdits((current) => ({ ...current, [itemId]: quantity }));
+    } else if (id.startsWith("pending:")) {
+      const productId = id.slice(8);
+      setEvalValues((current) => ({ ...current, [productId]: quantity }));
+    } else if (id.startsWith("catalog:")) {
+      const key = id.slice(8);
+      setCatalogValues((current) => ({ ...current, [key]: { raw: quantity, unit: current[key]?.unit ?? null } }));
+    }
+  };
+  const removeCartLine = (id: string) => {
+    setCartErrors((current) => { const next = { ...current }; delete next[id]; return next; });
+    if (id.startsWith("list:")) {
+      const itemId = id.slice(5);
+      setEdits((current) => { const next = { ...current }; delete next[itemId]; return next; });
+      setUnitEdits((current) => { const next = { ...current }; delete next[itemId]; return next; });
+    } else if (id.startsWith("pending:")) {
+      const productId = id.slice(8);
+      setEvalValues((current) => { const next = { ...current }; delete next[productId]; return next; });
+    } else if (id.startsWith("catalog:")) {
+      const key = id.slice(8);
+      setCatalogValues((current) => { const next = { ...current }; delete next[key]; return next; });
+    }
+  };
+  const revealMissing = (id: string) => {
+    resetFilters();
+    setViewMode("card");
+    if (id.startsWith("catalog:")) {
+      const key = id.slice(8);
+      setCatalogLimit(Math.max(60, catalog.entries.length));
+      setMobileOpenId(key);
+      window.setTimeout(() => {
+        const target = document.getElementById(`review-catalog-${key}`);
+        target?.scrollIntoView({ behavior: "smooth", block: "center" });
+        target?.classList.add("ring-4", "ring-primary", "rounded-md");
+        window.setTimeout(() => target?.classList.remove("ring-4", "ring-primary", "rounded-md"), 2000);
+      }, 150);
+      return;
+    }
+    setMobileOpenId(id);
+    revealItem(id);
+  };
+  const saveShoppingCart = async () => {
+    if (cartSaving) return;
+    const initialErrors = Object.fromEntries([...invalidCartIds].map((id) => [id, "Quantità non valida"]));
+    const lines = cartLines.filter((line) => !invalidCartIds.has(line.id));
+    setCartErrors(initialErrors);
+    if (!lines.length) {
+      toast.info(Object.keys(initialErrors).length ? "Correggi le quantità non valide nel Carrello" : "Nessuna nuova quantità da salvare");
+      return;
+    }
+    setCartSaving(true);
+    setCartProgress({ done: 0, total: lines.length });
+    trackPlatformUsageClick("lista-spesa", "confirm-cart");
+    try {
+      const errors = await saveEntryCartInGroups({
+        lines, keyOf: (line) => line.id, groupSize: 4,
+        onProgress: (done, total) => setCartProgress({ done, total }),
+        worker: async (line) => {
+          const raw = line.quantity.trim();
+          const quantity = raw ? parseQuantity(raw) : null;
+          if (raw && quantity === null) throw new Error("Quantità non valida");
+          if (line.id.startsWith("list:")) {
+            const itemId = line.id.slice(5);
+            if (quantity === 0) { await excludeItem(itemId, "exclude"); return; }
+            await commitQuantity(itemId, { quantity, ...unitEdits[itemId] });
+            const error = commitErrors.current.get(itemId);
+            if (error) throw new Error(error);
+            setUnitEdits((current) => { const next = { ...current }; delete next[itemId]; return next; });
+            return;
+          }
+          if (line.id.startsWith("pending:")) {
+            const productId = line.id.slice(8);
+            const row = pendingEntries.find((entry) => entry.row.product_id === productId)?.row;
+            if (!row || quantity === null) throw new Error("Prodotto da valutare non trovato");
+            await confirmPending(row, quantity, true);
+            return;
+          }
+          const key = line.id.slice(8);
+          const entry = availableCatalog.find((item) => item.key === key);
+          if (!entry) throw new Error("Prodotto del catalogo non trovato");
+          if (quantity === 0) { setCatalogNotBuying((current) => new Set(current).add(key)); return; }
+          if (quantity === null) throw new Error("Quantità non valida");
+          await catalogChain.run(key, async () => {
+            const added = await catalogActions.add.mutateAsync({ entry, quantity, unitCode: line.unitCode });
+            await commitQuantity(added.itemId, { quantity, unitId: null, unitCode: line.unitCode });
+            const error = commitErrors.current.get(added.itemId);
+            if (error) throw new Error(error);
+          });
+        },
+      });
+      const nextErrors = { ...initialErrors, ...errors };
+      setCartErrors(nextErrors);
+      const successfulCatalog = lines.filter((line) => line.id.startsWith("catalog:") && !nextErrors[line.id]).map((line) => line.id.slice(8));
+      if (successfulCatalog.length) setCatalogValues((current) => {
+        const next = { ...current };
+        for (const key of successfulCatalog) delete next[key];
+        return next;
+      });
+      const failed = Object.keys(nextErrors).length;
+      if (failed) toast.warning(`${failed} ${failed === 1 ? "riga resta" : "righe restano"} nel Carrello con il suo errore`);
+      else toast.success("Carrello confermato");
+      void refresh();
+    } finally {
+      setCartSaving(false);
+      setCartProgress(null);
+    }
+  };
+
   return (
-    <div className="space-y-4 pb-24 max-md:-mt-2 max-md:space-y-2 lg:pb-16">
+    <div className="space-y-4 pb-32 max-md:-mt-2 max-md:space-y-2 lg:pb-24">
       <ShoppingListPrintPreview open={printOpen} onOpenChange={setPrintOpen} rows={printRows} filters={printFilterLabels} title={list?.number ? `Lista della Spesa · ${list.number}` : "Lista della Spesa"} />
       {/* Cellulare (<768 px): testata compatta con gli stessi comandi. */}
       <div className="space-y-1.5">
@@ -1844,6 +2083,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             >
               ★ Preferiti
             </Button>
+            <Button type="button" size="sm" variant={onlyMissing ? "default" : "outline"} className="h-8 px-2 text-xs" aria-pressed={onlyMissing} onClick={() => setOnlyMissing((current) => !current)}>
+              {allEntries.length + availableCatalog.length - missingEntries.length - missingCatalog.length} / {allEntries.length + availableCatalog.length} · Da inserire
+            </Button>
             {/* Cellulare: «Tutti» spegne Preferiti; i 3 puntini gialli raccolgono tutti i filtri. */}
             <Button
               type="button"
@@ -2081,6 +2323,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                     canAdd={ready.canPrepare || previewMode}
                     // Blocco condiviso solo mentre la prima conferma crea la Lista: dopo, ogni card attende solo il proprio salvataggio.
                     adding={!list && catalogActions.add.isPending}
+                    deferred
                     onToggleFavorite={stable(`${entry.key}:c:onToggleFavorite`, () =>
                       catalogActions.favorite.mutate({
                         entry,
@@ -2128,6 +2371,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                   onToggleMobile={stable(`${row.item_id}:p:onToggleMobile`, () => setMobileOpenId((current) => toggleMobileCard(current, row.item_id)))}
                   show={display.prefs}
                   pending
+                  deferred
                   layout={viewMode}
                   row={row}
                   extra={extra}
@@ -2155,6 +2399,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 show={display.prefs}
                 companyId={companyId}
                 layout={viewMode}
+                deferred
                 onQuickAdd={stable(`${row.item_id}:l:onQuickAdd`, (step) => quickAdd(row, step))}
                 row={row}
                 extra={unitEdits[row.item_id] && extra ? { ...extra, decidedUnitId: unitEdits[row.item_id]?.unitId ?? null, decidedUnitCode: unitEdits[row.item_id]?.unitCode ?? null } : extra}
@@ -2198,7 +2443,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
                 })}
                 onFixUnit={stable(`${row.item_id}:l:onFixUnit`, (unitId, unitCode, quantity) => {
                   setEdits((current) => ({ ...current, [row.item_id]: String(quantity) }));
-                  void commitQuantity(row.item_id, { quantity, unitId, unitCode });
+                  setUnitEdits((current) => ({ ...current, [row.item_id]: { unitId, unitCode } }));
                 })}
                 onUnitChange={stable(`${row.item_id}:l:onUnitChange`, (unitId, unitCode) => {
                   setUnitEdits((current) => ({ ...current, [row.item_id]: { unitId, unitCode } }));
@@ -2248,55 +2493,20 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </>
       )}
 
-      {/* Barra fissa: il comando resta sempre raggiungibile senza scorrere l'elenco */}
-      {list && editable && allRows.length ? (
-        <div data-tour="spesa.genera" data-hide-on-keyboard className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
-          <span className="min-w-0 text-center text-[11px] text-sidebar-foreground/70">
-            {summary.total} {summary.total === 1 ? "prodotto" : "prodotti"} · {summary.assigned}{" "}
-            {summary.assigned === 1 ? "assegnato" : "assegnati"}
-            {summary.partial ? ` · ${summary.partial} ${summary.partial === 1 ? "parziale" : "parziali"}` : ""}
-            {summary.toFix ? ` · ${summary.toFix} da sistemare` : ""}
-            {summary.excluded ? ` · ${summary.excluded} esclusi` : ""}
-          </span>
-          {/* Cellulare: l'orario di preparazione vive accanto a «Genera ordini». */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button type="button" className="inline-flex items-center gap-1 text-[11px] text-sidebar-foreground/80 underline md:hidden">
-                <AlarmClock className="size-3" aria-hidden="true" />
-                Preparazione: {scheduleQuery.isLoading ? "…" : describeOperationalSchedule(scheduleQuery.data)}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="center" side="top" className="w-64 space-y-3">
-              <p className="text-xs font-medium">Preparazione Lista della Spesa</p>
-              {isAdmin && scheduleQuery.data ? (
-                <>
-                  <TimeWheelPicker value={overrideTime} onChange={setOverrideTime} />
-                  <Button type="button" size="sm" className="w-full" disabled={overrideMutation.isPending} onClick={() => overrideMutation.mutate(overrideTime)}>
-                    Solo oggi
-                  </Button>
-                  {hasTodayOverride(scheduleQuery.data) ? (
-                    <Button type="button" size="sm" variant="ghost" className="w-full" disabled={overrideMutation.isPending} onClick={() => overrideMutation.mutate(null)}>
-                      Annulla l'eccezione di oggi
-                    </Button>
-                  ) : null}
-                </>
-              ) : null}
-              <Button asChild size="sm" variant="outline" className="w-full">
-                <Link to="/amministrazione" search={{ sezione: "preferenze" }}>Sempre (in Azienda → Preferenze)</Link>
-              </Button>
-            </PopoverContent>
-          </Popover>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="w-full max-w-md shrink-0 justify-center bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground"
-            disabled={listMutation.isPending}
-            onClick={openGeneration}
-          >
-            <CheckCheck /> Genera ordini
-          </Button>
-        </div>
-      ) : null}
+      {(ready.canPrepare || previewMode || displayedCartLines.length) ? <EntryCartDock
+        areaLabel="Lista della Spesa"
+        lines={displayedCartLines}
+        missing={cartMissing}
+        progress={cartProgress}
+        saving={cartSaving}
+        confirmDisabled={!ready.canPrepare && !previewMode}
+        secondaryAction={list && editable && allRows.length ? { label: "Genera ordini", disabled: listMutation.isPending, onClick: openGeneration } : undefined}
+        onQuantityChange={changeCartQuantity}
+        onRemove={removeCartLine}
+        onRevealMissing={revealMissing}
+        onConfirm={() => { void saveShoppingCart(); }}
+        onRetry={() => { void saveShoppingCart(); }}
+      /> : null}
 
       {addOpen && ready.showProducts ? (
         <AddProductsDialog
@@ -2352,7 +2562,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
             setListId(NEXT_PURCHASE);
             setEdits({}); setUnitEdits({}); setUnlockedIds(new Set());
             setCatalogValues({}); setCatalogDrafts(new Set()); setCatalogNotBuying(new Set());
-            setEvalValues({}); setMobileOpenId(null); setMissingOpen(false);
+            setEvalValues({}); setMobileOpenId(null); setMissingOpen(false); setCartErrors({});
+            if (draftStorageKey) clearEntryCartDraft(window.localStorage, draftStorageKey);
           }}
           onListClosed={() => {
             setGenOpen(null);

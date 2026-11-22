@@ -6,6 +6,8 @@ import { inventoryResetAction, inventoryReopenQueryKeys } from "@/lib/inventory-
 import { inventoryCompactBar } from "@/lib/inventory-scroll";
 import { createRefreshBatcher } from "@/lib/shopping-optimistic";
 import { trackPlatformUsageClick } from "@/lib/platform-usage-tracking";
+import { EntryCartDock } from "@/components/entry-cart/entry-cart-dock";
+import { entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 import { countedRowPatch, patchCardRow, restoreCardRow } from "@/lib/inventory-optimistic";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CYCLE_QUERY_KEY } from "@/components/shopping/inventory-to-evaluate";
@@ -45,7 +47,7 @@ import { FullInventoryStartButton, InventoryExtraCards } from "./inventory-add-c
 import { HabitualZoneControl, HabitualZonesProvider, useHabitualMap } from "./habitual-zone-control";
 import { pickCardMinWidth } from "@/lib/inventory-card-size";
 import { habitualFirst, matchesHabitual, NO_HABITUAL, type HabitualFilter } from "@/lib/habitual-locations";
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { PriceTrendIcon } from "@/components/pricing/price-trend-icon";
@@ -123,6 +125,7 @@ import { INVENTORY_SCREEN_VERSION, cardKey, cardTitle, compareCards, groupKey, p
 import { TomInventoryButton, type TomInventoryController } from "@/components/voice/tom-inventory";
 import { InventoryHistoryDialog, sessionAuthorName } from "@/components/inventory/inventory-history-dialog";
 import { InventoryProductDialog } from "@/components/inventory/inventory-product-dialog";
+import { useIdentity } from "@/hooks/use-identity";
 
 type ProductView = "favorites" | "all";
 type WorkFilter = "all" | "pending" | "completed" | "differences" | "not_comparable" | "recount" | "missing_unit";
@@ -263,6 +266,29 @@ const CycleLockContext = createContext<{
   unlockedAll?: boolean;
 }>({ locked: false, cycleSessionId: null, onCorrect: () => undefined });
 
+type InventoryLocalDraft = {
+  drafts: Record<string, string>;
+  chosenUnits: Record<string, string>;
+  draftFirst: Record<string, string>;
+  draftZoneId: string | null;
+  errors: Record<string, string>;
+};
+
+function inventoryStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+}
+
+function parseInventoryLocalDraft(value: unknown): InventoryLocalDraft | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  return {
+    drafts: inventoryStringRecord(raw["drafts"]), chosenUnits: inventoryStringRecord(raw["chosenUnits"]),
+    draftFirst: inventoryStringRecord(raw["draftFirst"]), draftZoneId: typeof raw["draftZoneId"] === "string" ? raw["draftZoneId"] : null,
+    errors: inventoryStringRecord(raw["errors"]),
+  };
+}
+
 export function InventoryCountPanel({
   companyId,
   archiveId,
@@ -275,6 +301,7 @@ export function InventoryCountPanel({
   initialTab?: "fabbisogno";
 }) {
   const queryClient = useQueryClient();
+  const { data: identity } = useIdentity();
   const navigate = useNavigate();
   const start = useServerFn(startGeneralInventory);
   const close = useServerFn(closeGeneralInventory);
@@ -388,6 +415,10 @@ export function InventoryCountPanel({
   // Conteggio immediato senza sessione aperta: bozze per prodotto e zona scelta
   const [draftFirst, setDraftFirst] = useState<Record<string, string>>({});
   const [draftZoneId, setDraftZoneId] = useState<string | null>(null);
+  const [onlyMissing, setOnlyMissing] = useState(false);
+  const [cartErrors, setCartErrors] = useState<Record<string, string>>({});
+  const [cartSaving, setCartSaving] = useState(false);
+  const [cartProgress, setCartProgress] = useState<EntryCartProgress>(null);
   // Segnalazioni: non conformità, proposta d'acquisto, storico
   const [compliance, setCompliance] = useState<InventoryCountRow | null>(null);
   const [complianceQuantity, setComplianceQuantity] = useState("");
@@ -460,6 +491,28 @@ export function InventoryCountPanel({
   const dirtyDraftKeys = useRef(new Set<string>());
   const draftWrites = useRef(new Map<string, Promise<unknown>>());
   const savedDraftUnits = useRef(new Map<string, string | null>());
+  const draftStorageKey = identity?.userId ? entryCartStorageKey({ userId: identity.userId, companyId, area: "inventario", referenceId: sessionId ?? "nuovo" }) : null;
+  const loadedDraftKey = useRef<string | null>(null);
+  const skipDraftWriteRef = useRef(false);
+  useEffect(() => {
+    if (!draftStorageKey) return;
+    loadedDraftKey.current = draftStorageKey;
+    skipDraftWriteRef.current = true;
+    const restored = readEntryCartDraft(window.localStorage, draftStorageKey, parseInventoryLocalDraft);
+    setDrafts(restored?.drafts ?? {});
+    setDraftFirst(restored?.draftFirst ?? {});
+    setDraftZoneId(restored?.draftZoneId ?? null);
+    setChosenUnits(restored?.chosenUnits ?? {});
+    chosenUnitsRef.current = restored?.chosenUnits ?? {};
+    setCartErrors(restored?.errors ?? {});
+    dirtyDraftKeys.current = new Set(Object.keys(restored?.drafts ?? {}));
+    setOnlyMissing(false);
+  }, [draftStorageKey]);
+  useEffect(() => {
+    if (!draftStorageKey || loadedDraftKey.current !== draftStorageKey) return;
+    if (skipDraftWriteRef.current) { skipDraftWriteRef.current = false; return; }
+    writeEntryCartDraft<InventoryLocalDraft>(window.localStorage, draftStorageKey, { drafts, chosenUnits, draftFirst, draftZoneId, errors: cartErrors });
+  }, [draftStorageKey, drafts, chosenUnits, draftFirst, draftZoneId, cartErrors]);
   const savedDraftsQuery = useQuery({
     queryKey: ["inventory-count-drafts", sessionId],
     enabled: Boolean(sessionId),
@@ -545,14 +598,13 @@ export function InventoryCountPanel({
     return write;
   }
 
-  // Await all writes, including requests already running. Failures preserve dirty values for retry.
+  // Le bozze sono locali fino al Conferma del Carrello: il passaggio di pagina non scrive sul database.
   async function flushDraftWrites() {
     for (const key of Object.keys(draftTimers.current)) {
       clearTimeout(draftTimers.current[key]);
       delete draftTimers.current[key];
     }
-    const writes = [...dirtyDraftKeys.current].map((key) => writeDraft(key, draftsRef.current[key] ?? ""));
-    await afterInventoryDraftWrites([...draftWrites.current.values(), ...writes], async () => undefined);
+    await afterInventoryDraftWrites([...draftWrites.current.values()], async () => undefined);
   }
   const flushRef = useRef<() => void>(() => undefined);
   flushRef.current = () => { void flushDraftWrites().catch(() => undefined); };
@@ -577,12 +629,9 @@ export function InventoryCountPanel({
     if (!sessionId) return;
     dirtyDraftKeys.current.add(key);
     draftsRef.current = { ...draftsRef.current, [key]: raw };
-    if (draftTimers.current[key]) clearTimeout(draftTimers.current[key]);
+    setDrafts((current) => ({ ...current, [key]: raw }));
+    setCartErrors((current) => { const next = { ...current }; delete next[key]; return next; });
     setSavedDraftKeys((current) => { const next = new Set(current); next.delete(key); return next; });
-    draftTimers.current[key] = setTimeout(() => {
-      delete draftTimers.current[key];
-      void writeDraft(key, raw).catch((error: Error) => toast.error(`Bozza non salvata: ${error.message}`));
-    }, 1000);
   }
 
   function clearDraftOnServer(key: string) {
@@ -1151,6 +1200,10 @@ export function InventoryCountPanel({
 
   async function requestCloseInventory() {
     if (!isAdmin || !sessionId) return;
+    if (Object.values(drafts).some((value) => value.trim())) {
+      toast.info("Ci sono quantità nel Carrello: confermale o rimuovile prima di chiudere l’inventario.");
+      return;
+    }
     try {
       await flushDraftWrites();
       const remaining = await savedDraftsQuery.refetch();
@@ -1666,7 +1719,7 @@ export function InventoryCountPanel({
     },
     confirmAll: async () => {
       setReviewError(null);
-      await confirmAll.mutateAsync();
+      if (await saveInventoryCart()) setConfirmAllOpen(false);
     },
     closeReview: () => setConfirmAllOpen(false),
   };
@@ -1876,6 +1929,109 @@ export function InventoryCountPanel({
       ? (activeLocations[0] ?? null)
       : (activeLocations.find((location) => location.id === draftZoneId) ?? null);
   const zoneProgress = new Map((progress?.zones ?? []).map((zone) => [zone.location_id, zone]));
+  const allDisplayRows = useMemo<InventoryCountRow[]>(() => sessionId ? sessionCards : previewProducts.map((product): InventoryCountRow => ({
+    product_id: product.id, location_id: draftLocation?.id ?? "", location_name: draftLocation?.name ?? "—",
+    code: product.code, description: product.description, danea_um: product.danea_um,
+    category: product.category, subcategory: product.subcategory, is_favorite: previewFavoriteQuery.data?.has(product.id) ?? false,
+    image_path: null, thumbnail_path: null, calculated: stockHistoryQuery.data?.get(product.id)?.stock ?? null, counted: null, difference: null,
+    counted_at: null, counted_by: null, note: null, recount_requested_at: null, non_compliant: false,
+    non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
+    min_stock: null, order_multiple: null, counted_unit_code: null, units_comparable: null,
+    stock_unit_code: stockUnitCodeOf(product), stock_unit_missing: !product.stock_unit_id,
+    product_supplier_link_id: null, supplier_record_id: null, supplier_name: null,
+    link_active: null, card_favorite: false, card_label: null,
+  })), [sessionId, sessionCards, previewProducts, draftLocation, previewFavoriteQuery.data, stockHistoryQuery.data]);
+  const displayRows = sessionId ? rows : allDisplayRows;
+  const inventoryMissing = useMemo<EntryCartMissing[]>(() => allDisplayRows.filter((row) => {
+    if (row.counted !== null) return false;
+    const raw = (sessionId ? drafts : draftFirst)[rowKey(row)];
+    return raw === undefined || !raw.trim() || parseQuantity(raw) === null;
+  }).map((row) => ({ id: rowKey(row), label: rowName(row), detail: `${row.code} · ${row.location_name}` })), [allDisplayRows, sessionId, drafts, draftFirst]);
+  const inventoryMissingKeys = useMemo(() => new Set(inventoryMissing.map((row) => row.id)), [inventoryMissing]);
+  const inventoryCartLines = useMemo<EntryCartLine[]>(() => {
+    const values = sessionId ? drafts : draftFirst;
+    return allDisplayRows.filter((row) => values[rowKey(row)]?.trim()).map((row) => ({
+      id: rowKey(row), productId: row.product_id, label: rowName(row), detail: `${row.code} · ${cardSupplierName(row)}`,
+      quantity: values[rowKey(row)]!, unitCode: selectedCardUnit(rowKey(row), row).code ?? rowUnit(row), supplierNames: [cardSupplierName(row)],
+    }));
+  }, [allDisplayRows, sessionId, drafts, draftFirst, chosenUnits, allowedUnitsQuery.data]);
+  const invalidInventoryCart = new Set(inventoryCartLines.filter((line) => parseQuantity(line.quantity) === null).map((line) => line.id));
+  const displayedInventoryCart = inventoryCartLines.map((line) => ({ ...line, error: cartErrors[line.id] ?? (invalidInventoryCart.has(line.id) ? "Quantità non valida" : null) }));
+  const changeInventoryCartQuantity = (key: string, value: string) => {
+    setCartErrors((current) => { const next = { ...current }; delete next[key]; return next; });
+    if (sessionId) { setDrafts((current) => ({ ...current, [key]: value })); scheduleDraftSave(key, value); }
+    else setDraftFirst((current) => ({ ...current, [key]: value }));
+  };
+  const removeInventoryCartLine = (key: string) => {
+    setCartErrors((current) => { const next = { ...current }; delete next[key]; return next; });
+    if (sessionId) setDrafts((current) => { const next = { ...current }; delete next[key]; return next; });
+    else setDraftFirst((current) => { const next = { ...current }; delete next[key]; return next; });
+  };
+  const revealInventoryMissing = (key: string) => {
+    setOnlyMissing(false); setProductView("all"); setWorkFilter("all"); setCategory(null); setSubcategory(null); setSupplierFilter(null); setHabitualFilter(null); setSearch(""); setSelectedLocationId(null);
+    window.setTimeout(() => {
+      const target = document.querySelector<HTMLElement>(`[data-inventory-card="${key}"]`);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.classList.add("ring-4", "ring-primary");
+      window.setTimeout(() => target?.classList.remove("ring-4", "ring-primary"), 2000);
+      target?.querySelector<HTMLInputElement>("[data-count-input]")?.focus({ preventScroll: true });
+    }, 150);
+  };
+  async function saveInventoryCart(): Promise<boolean> {
+    if (cartSaving) return false;
+    const initialErrors = Object.fromEntries([...invalidInventoryCart].map((key) => [key, "Quantità non valida"]));
+    const lines = inventoryCartLines.filter((line) => !invalidInventoryCart.has(line.id));
+    setCartErrors(initialErrors);
+    if (!lines.length) {
+      toast.info(Object.keys(initialErrors).length ? "Correggi le quantità non valide nel Carrello" : "Nessuna nuova quantità da salvare");
+      return Object.keys(initialErrors).length === 0;
+    }
+    if (!sessionId && (!archiveId || !activeLocations.length)) {
+      toast.error("Scegli archivio e zona prima di confermare");
+      return false;
+    }
+    setCartSaving(true); setCartProgress({ done: 0, total: lines.length });
+    trackPlatformUsageClick("inventario", "confirm-cart");
+    try {
+      const activeSessionId = sessionId ?? (await start({ data: { companyId, archiveId: archiveId!, name: null } })).id;
+      const errors = await saveEntryCartInGroups({
+        lines, keyOf: (line) => line.id, groupSize: 4,
+        onProgress: (done, total) => setCartProgress({ done, total }),
+        worker: async (line) => {
+          const row = allDisplayRows.find((entry) => rowKey(entry) === line.id);
+          const value = parseQuantity(line.quantity);
+          if (!row || value === null) throw new Error("Quantità o card non valida");
+          const unit = line.unitCode ?? rowUnit(row);
+          if (sessionId) await countMutation.mutateAsync({ row, value, unit, notes: null });
+          else {
+            await saveEntry({ data: {
+              companyId, sessionId: activeSessionId, productId: row.product_id, locationId: row.location_id || draftLocation?.id || defaultLocation?.id || "",
+              linkId: row.product_supplier_link_id, entryType: "conteggio", countedQuantity: value,
+              unitCode: unit || null, unitId: selectedCardUnit(line.id, row).id, notes: null, nonCompliant: null, nonCompliantQuantity: null,
+            } });
+            setDraftFirst((current) => { const next = { ...current }; delete next[line.id]; return next; });
+          }
+        },
+      });
+      const nextErrors = { ...initialErrors, ...errors };
+      setCartErrors(nextErrors);
+      const failed = Object.keys(nextErrors).length;
+      if (failed) toast.warning(`${failed} ${failed === 1 ? "riga resta" : "righe restano"} nel Carrello con il suo errore`);
+      else toast.success("Carrello confermato");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory-rows"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory-progress"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory-count-drafts"] }),
+      ]);
+      return failed === 0;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Salvataggio non riuscito");
+      return false;
+    } finally {
+      setCartSaving(false); setCartProgress(null);
+    }
+  }
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="space-y-2">
@@ -2039,19 +2195,12 @@ export function InventoryCountPanel({
               progress: zoneProgress.get(location.id),
             }))}
             selectedLocation={selectedLocation ? { id: selectedLocation.id, name: selectedLocation.name } : null}
-            rows={sessionId ? rows : previewProducts.map((product): InventoryCountRow => ({
-              product_id: product.id, location_id: draftLocation?.id ?? "", location_name: draftLocation?.name ?? "—",
-              code: product.code, description: product.description, danea_um: product.danea_um,
-              category: product.category, subcategory: product.subcategory, is_favorite: previewFavoriteQuery.data?.has(product.id) ?? false,
-              image_path: null, thumbnail_path: null, calculated: stockHistoryQuery.data?.get(product.id)?.stock ?? null, counted: null, difference: null,
-              counted_at: null, counted_by: null, note: null, recount_requested_at: null, non_compliant: false,
-              non_compliant_quantity: null, non_compliant_note: null, proposal_status: null, proposal_flagged_at: null,
-              min_stock: null, order_multiple: null, counted_unit_code: null, units_comparable: null,
-              stock_unit_code: stockUnitCodeOf(product), stock_unit_missing: !product.stock_unit_id,
-              // Senza inventario aperto le card non esistono ancora: riga del prodotto.
-              product_supplier_link_id: null, supplier_record_id: null, supplier_name: null,
-              link_active: null, card_favorite: false, card_label: null,
-            }))}
+            rows={displayRows}
+            onlyMissing={onlyMissing}
+            onOnlyMissingChange={setOnlyMissing}
+            missingKeys={inventoryMissingKeys}
+            insertedCount={allDisplayRows.length - inventoryMissing.length}
+            totalCount={allDisplayRows.length}
             catalogCandidates={[]}
             cardMinWidth={cardMinWidth}
             extraSection={
@@ -2125,19 +2274,6 @@ export function InventoryCountPanel({
                 return;
               }
               setDraftFirst((current) => ({ ...current, [key]: value }));
-              if (!autoStartRef.current && archiveId && activeLocations.length) {
-                autoStartRef.current = true;
-                void start({ data: { companyId, archiveId, name: null } })
-                  .then(async () => {
-                    setAutoStartPending(true);
-                    await queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] });
-                    toast.success("Inventario generale aperto: le quantità vengono salvate come bozza");
-                  })
-                  .catch((error: Error) => {
-                    autoStartRef.current = false;
-                    toast.error(error.message);
-                  });
-              }
             }}
             onConfirm={(row) => {
               if (sessionId) {
@@ -2223,6 +2359,20 @@ export function InventoryCountPanel({
 
             onHideCompletion={() => setShowCompletion(false)}
             closing={closeMutation.isPending}
+          />
+          <EntryCartDock
+            areaLabel="Inventario"
+            lines={displayedInventoryCart}
+            missing={inventoryMissing}
+            progress={cartProgress}
+            saving={cartSaving}
+            confirmDisabled={screenOutdated || closeMutation.isPending}
+            secondaryAction={sessionId && isAdmin ? { label: "Chiudi inventario", disabled: closeMutation.isPending, onClick: () => { void requestCloseInventory(); } } : undefined}
+            onQuantityChange={changeInventoryCartQuantity}
+            onRemove={removeInventoryCartLine}
+            onRevealMissing={revealInventoryMissing}
+            onConfirm={() => { void saveInventoryCart(); }}
+            onRetry={() => { void saveInventoryCart(); }}
           />
           </CycleLockContext.Provider>
           </HabitualZonesProvider>
@@ -2703,8 +2853,8 @@ export function InventoryCountPanel({
 
       <InventoryConfirmAllDialog
         open={confirmAllOpen} onOpenChange={setConfirmAllOpen} review={bulkReview}
-        loading={reviewLoading} pending={confirmAll.isPending} error={reviewError} skipped={bulkSkipped}
-        onConfirm={() => { setReviewError(null); confirmAll.mutate(); }}
+        loading={reviewLoading} pending={confirmAll.isPending || cartSaving} error={reviewError} skipped={bulkSkipped}
+        onConfirm={() => { setReviewError(null); void saveInventoryCart().then((saved) => { if (saved) setConfirmAllOpen(false); }); }}
         onCorrect={() => { setConfirmAllOpen(false); setTab("conteggio"); }}
       />
 
@@ -2840,6 +2990,11 @@ function PhysicalCount({
   locations,
   selectedLocation,
   rows,
+  onlyMissing,
+  onOnlyMissingChange,
+  missingKeys,
+  insertedCount,
+  totalCount,
   catalogCandidates,
   excludedCatalogCount,
   catalogImages,
@@ -2908,6 +3063,11 @@ function PhysicalCount({
   locations: { id: string; name: string; progress: { completed: number; total: number } | undefined }[];
   selectedLocation: { id: string; name: string } | null;
   rows: InventoryCountRow[];
+  onlyMissing: boolean;
+  onOnlyMissingChange: (value: boolean) => void;
+  missingKeys: Set<string>;
+  insertedCount: number;
+  totalCount: number;
   catalogCandidates: CatalogCandidate[];
   excludedCatalogCount: number;
   catalogImages: Map<string, string>;
@@ -3028,7 +3188,7 @@ function PhysicalCount({
           .map((item) => item.subcategory?.trim() || NO_SUBCATEGORY),
       ])].sort().map((name) => ({ name, category: category ?? "", completed: 0, total: 0 }));
   // Il filtro fornitore è già applicato dalla regola unica delle card (selectInventoryCards).
-  const visibleRows = rows;
+  const visibleRows = onlyMissing ? rows.filter((row) => missingKeys.has(rowKey(row))) : rows;
   const filteredSummary = summarizeCards(visibleRows);
 
   // Barra compatta (ricerca + filtri) mostrata solo quando la ricerca originale esce dallo schermo.
@@ -3075,6 +3235,9 @@ function PhysicalCount({
                 Tutti
               </Button>
             </div>
+            <Button size="sm" variant={onlyMissing ? "default" : "outline"} className="h-8 px-2 text-xs" aria-pressed={onlyMissing} onClick={() => onOnlyMissingChange(!onlyMissing)}>
+              {insertedCount} / {totalCount} · Da inserire
+            </Button>
             <Button size="sm" variant="destructive" className="h-8 text-xs" onClick={onClearDrafts}>
               {!sessionActive && cycleLock.locked ? "Rifai inventario" : "Svuota"}
             </Button>
@@ -3335,6 +3498,7 @@ function PhysicalCount({
                   node: (
                     <ProductCard
                       layout={layout}
+                      deferred
                       companyId={companyId}
                       row={row}
                       imageUrl={imageUrls.get(row.product_id)}
@@ -3413,25 +3577,7 @@ function PhysicalCount({
 
           {extraSection}
 
-          <div data-tour="inv.conferma" data-hide-on-keyboard className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 grid justify-items-center gap-1.5 border-t border-sidebar-border bg-sidebar px-3 py-2 sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
-            {savedDraftCount ? (
-              <span className="min-w-0 text-center text-[11px] text-sidebar-foreground/70">
-                Bozza salvata · {savedDraftCount} {savedDraftCount === 1 ? "quantità non confermata" : "quantità non confermate"}
-              </span>
-            ) : null}
-            <Button
-              size="sm"
-              variant="ghost"
-              className="w-full max-w-md shrink-0 justify-center bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground"
-              onClick={onConfirmAll}
-              disabled={!sessionActive || !cardLockState.canSave || cardLockState.pending || cardLockState.saving.size > 0 || closing}
-            >
-              <CheckCheck /> Conferma tutto
-            </Button>
-            {sessionActive && isAdmin ? <Button size="sm" variant="outline" className="w-full max-w-md" disabled={closing || cardLockState.pending || cardLockState.saving.size > 0 || !cardLockState.canSave} onClick={onCloseInventory}>
-              <Lock /> Chiudi inventario
-            </Button> : null}
-          </div>
+
         </div>
       </div>
 
@@ -3471,8 +3617,9 @@ type StockHistory = {
   edits: PhysicalEdit[];
 };
 
-function ProductCard({
+const ProductCard = memo(function ProductCard({
   layout = "cards",
+  deferred = false,
   companyId,
   row,
   imageUrl,
@@ -3494,6 +3641,7 @@ function ProductCard({
   history,
 }: {
   layout?: "cards" | "rows";
+  deferred?: boolean;
   companyId: string;
   row: InventoryCountRow;
   imageUrl: string | undefined;
@@ -3545,7 +3693,7 @@ function ProductCard({
   const tomMarks = useContext(TomMarksContext);
   const locked = inventoryCardLocked(row.counted !== null, cardLock.unlocked.has(rowKey(row)), cycleLocked, correcting);
   const editable = cardLock.canSave
-    && canEditInventoryCard(locked, correction.pending || cardLock.pending || cardLock.saving.has(rowKey(row)), row.stock_unit_missing);
+    && canEditInventoryCard(deferred ? cycleLocked : locked, correction.pending || cardLock.pending || cardLock.saving.has(rowKey(row)), row.stock_unit_missing);
   const showCard = actionsEnabled && (cardLock.groupSize.get(groupKey(row)) ?? 0) > 0;
   const changeQuantity = (next: string) => {
     if (!editable) return;
@@ -3615,6 +3763,7 @@ function ProductCard({
   return (
     <article
       data-tom-card={rowKey(row)}
+      data-inventory-card={rowKey(row)}
       className={cn(
         "relative",
         rowLayout ? "@container grid grid-cols-1 items-center gap-1 rounded-md border bg-card px-2 py-1.5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)] lg:gap-3" : "@container flex h-full flex-col rounded-md border-2 bg-card p-2",
@@ -3867,7 +4016,7 @@ function ProductCard({
               onKeyDown={(event) => {
                 if (event.key === "Enter" && editable) {
                   event.currentTarget.blur();
-                  confirmQuantity();
+                  if (!deferred) confirmQuantity();
                 }
               }}
               aria-label={`Quantità fisica ${name}`}
@@ -3914,10 +4063,10 @@ function ProductCard({
             {difference === null ? "—" : `${difference > 0 ? "+" : ""}${formatQuantity(difference, row.stock_unit_code ?? "")}`}
           </p>
         </div>
-        <Button className={rowLayout ? "h-8 shrink-0 px-2 text-[11px]" : "col-span-full h-10 w-full px-2 text-[11px] @[340px]:col-span-1 @[340px]:w-auto sm:px-3"} variant={isConfirmed ? "secondary" : "default"} onClick={confirmQuantity} disabled={!editable}>
+        {deferred ? null : <Button className={rowLayout ? "h-8 shrink-0 px-2 text-[11px]" : "col-span-full h-10 w-full px-2 text-[11px] @[340px]:col-span-1 @[340px]:w-auto sm:px-3"} variant={isConfirmed ? "secondary" : "default"} onClick={confirmQuantity} disabled={!editable}>
           <Check className="size-4" />
           <span>Conferma</span>
-        </Button>
+        </Button>}
       </div>
 
       <div className={rowLayout ? "hidden" : "mt-1.5 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-2"}>
@@ -3961,7 +4110,17 @@ function ProductCard({
       ) : null}
     </article>
   );
-}
+}, (previous, next) => previous.row === next.row
+  && previous.value === next.value
+  && previous.layout === next.layout
+  && previous.deferred === next.deferred
+  && previous.imageUrl === next.imageUrl
+  && previous.isAdmin === next.isAdmin
+  && previous.actionsEnabled === next.actionsEnabled
+  && previous.supplier === next.supplier
+  && previous.priceSeries === next.priceSeries
+  && previous.isVisible === next.isVisible
+  && previous.history === next.history);
 
 function CatalogProductCard({
   candidate,

@@ -3,16 +3,16 @@ import { Check, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /** Shared purchase controls only: no inventory writes or unit conversions. */
-export function ShoppingQuantityEditor({ input, quick, details, editable, locked = false, busy = false, ready, name, onConfirm }: {
+export function ShoppingQuantityEditor({ input, quick, details, editable, locked = false, busy = false, ready, name, onConfirm, hideConfirm = false }: {
   input: ReactNode; quick?: ReactNode; details?: ReactNode;
   editable: boolean; locked?: boolean; busy?: boolean; ready: boolean;
-  name: string; onConfirm: () => void;
+  name: string; onConfirm: () => void; hideConfirm?: boolean;
 }) {
   return <div className="min-w-0 space-y-1.5 max-md:space-y-1">
     <p className="text-[10px] font-semibold uppercase text-muted-foreground">Quantità da acquistare</p>
     {input}
     {details}
-    {editable ? <Button type="button" size="sm" variant={locked ? "secondary" : "default"}
+    {editable && !hideConfirm ? <Button type="button" size="sm" variant={locked ? "secondary" : "default"}
       className="h-9 max-md:h-8 w-full gap-1 text-xs" disabled={busy || (!locked && !ready)}
       aria-label={locked ? `Sblocca quantità di ${name}` : `Conferma quantità di ${name}`}
       title={locked ? "Modifica quantità" : "Conferma quantità"} onClick={onConfirm}>

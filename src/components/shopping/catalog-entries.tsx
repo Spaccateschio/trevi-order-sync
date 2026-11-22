@@ -128,11 +128,7 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
   const cataloguesQuery = useQuery({
     queryKey: ["shopping-add-catalogues", companyId, sellerKey],
     enabled: enabled && sellers.length > 0,
-    queryFn: async () => {
-      const result = [];
-      for (const seller of sellers) result.push({ ...seller, products: await fetchSellerCatalogue(seller.sellerId) });
-      return result;
-    },
+    queryFn: async () => Promise.all(sellers.map(async (seller) => ({ ...seller, products: await fetchSellerCatalogue(seller.sellerId) }))),
   });
 
   const entries = useMemo<CatalogEntry[]>(() => {
@@ -366,6 +362,7 @@ export function CatalogProductCard({
   layout,
   canAdd,
   adding,
+  deferred = false,
   onToggleFavorite,
   onAdd,
   onDraftChange,
@@ -393,6 +390,8 @@ export function CatalogProductCard({
   layout: "card" | "row";
   canAdd: boolean;
   adding: boolean;
+  /** Bozza locale: il Conferma è soltanto nel Carrello. */
+  deferred?: boolean;
   onToggleFavorite: () => void;
   onAdd: (quantity: number, unitCode: string | null) => Promise<unknown>;
   onDraftChange?: (dirty: boolean) => void;
@@ -502,8 +501,8 @@ export function CatalogProductCard({
     </div>
   ) : null;
   const controls = nonPurchase ? nonPurchaseBlock : canAdd ? (
-    <ShoppingQuantityEditor editable ready={ready || quantity === 0} busy={adding || confirming} name={name} onConfirm={() => void confirm()} input={<div className="flex min-w-0 items-center gap-1">
-      <Input className="h-9 min-w-0 flex-1 text-right text-base font-bold" inputMode="decimal" placeholder="Q.tà" value={qty} aria-label={`Quantità ${entry.code}`} onChange={(e) => setQty(e.target.value)} disabled={confirming} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void confirm(); } }} />
+    <ShoppingQuantityEditor editable hideConfirm={deferred} ready={ready || quantity === 0} busy={adding || confirming} name={name} onConfirm={() => void confirm()} input={<div className="flex min-w-0 items-center gap-1">
+      <Input className="h-9 min-w-0 flex-1 text-right text-base font-bold" inputMode="decimal" placeholder="Q.tà" value={qty} aria-label={`Quantità ${entry.code}`} onChange={(e) => setQty(e.target.value)} disabled={confirming} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); if (!deferred) void confirm(); } }} />
       <Select value={unit} onValueChange={setUnit}>
         <SelectTrigger className="h-8 w-24 text-xs" aria-label={`U.M. acquisto ${entry.code}`}>
           <SelectValue placeholder={entry.baseUm ?? "U.M."} />
