@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { Pencil, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { openedCardScrollDelta } from "@/lib/opened-card-scroll";
 
 /** One mounted set of existing controls. Opening/closing never invokes a persistence callback. */
 export function ShoppingMobileCard({ id, name, open, onToggle, header, summary, supplier, suggested, warnings, children, locked, recheck, busy }: {
@@ -16,29 +17,24 @@ export function ShoppingMobileCard({ id, name, open, onToggle, header, summary, 
     const reveal = () => {
       const card = ref.current;
       if (!card) return;
-      const active = document.activeElement;
-      const input = active instanceof HTMLElement && card.contains(active) ? active : card.querySelector<HTMLElement>("input:not(:disabled)");
-      const box = (input ?? card).getBoundingClientRect();
+      const box = card.getBoundingClientRect();
       const toolbar = document.querySelector('[data-tour="spesa.barra"]')?.getBoundingClientRect();
       const top = Math.max((viewport?.offsetTop ?? 0) + 76, (toolbar?.bottom ?? 0) + 8);
       // Leave space for the existing fixed navigation and the inline Confirm control.
       const bottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight) - 160;
-      const delta = !input || box.top < top ? box.top - top : box.bottom > bottom ? box.bottom - bottom : 0;
-      if (delta) window.scrollBy({ top: delta, behavior: "instant" });
+      const delta = openedCardScrollDelta(box.top, box.bottom, top, bottom);
+      if (delta) window.scrollBy({ top: delta, behavior: "smooth" });
     };
-    const frame = requestAnimationFrame(() => {
-      ref.current?.scrollIntoView({ block: "start", behavior: "instant" });
-      ref.current?.querySelector<HTMLInputElement>("input:not(:disabled)")?.focus({ preventScroll: true });
-      reveal();
-    });
-    viewport?.addEventListener("resize", reveal);
-    viewport?.addEventListener("scroll", reveal);
-    ref.current?.addEventListener("focusin", reveal);
     const element = ref.current;
+    const frame = requestAnimationFrame(() => {
+      element?.querySelector<HTMLInputElement>("input:not(:disabled)")?.focus({ preventScroll: true });
+      reveal();
+      viewport?.addEventListener("resize", reveal);
+      element?.addEventListener("focusin", reveal);
+    });
     return () => {
       cancelAnimationFrame(frame);
       viewport?.removeEventListener("resize", reveal);
-      viewport?.removeEventListener("scroll", reveal);
       element?.removeEventListener("focusin", reveal);
     };
   }, [open]);
