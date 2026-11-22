@@ -84,8 +84,8 @@ export function EntryCartDock({
             <span className="flex items-center gap-1.5 text-xs font-bold"><ShoppingCart className="size-4" /> CARRELLO</span>
             <span className="truncate text-[11px] font-normal text-sidebar-foreground/75">{metrics.products} {metrics.products === 1 ? "prodotto" : "prodotti"} · {metrics.suppliers} {metrics.suppliers === 1 ? "fornitore" : "fornitori"}</span>
           </Button>
-          <Button type="button" className="shrink-0" disabled={saving || confirmDisabled} onClick={requestConfirm}>
-            <CheckCheck /> {saving ? "Salvataggio…" : online ? "CONFERMA" : "RIPROVA"}
+          <Button type="button" className="shrink-0" disabled={saving || confirmDisabled || !lines.length} onClick={requestConfirm}>
+            <CheckCheck /> {saving ? "Salvataggio…" : online ? (lines.length ? "CONFERMA" : visibleConfirmedLines.length ? "SALVATO" : "CONFERMA") : "RIPROVA"}
           </Button>
           {secondaryAction ? <Button type="button" variant="outline" className="hidden shrink-0 sm:inline-flex" disabled={saving || secondaryAction.disabled} onClick={secondaryAction.onClick}>{secondaryAction.label}</Button> : null}
         </div>
@@ -99,6 +99,7 @@ export function EntryCartDock({
           <DialogDescription>{lines.length ? "Le modifiche restano sul dispositivo finché non premi Conferma." : "Riepilogo delle quantità salvate: puoi modificarle prima di preparare gli ordini."}</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
+          {!lines.length && visibleConfirmedLines.length ? <p className="rounded-md border border-success/40 bg-success/10 p-2 text-sm font-medium" role="status">Queste sono le quantità confermate nella Lista. Nessun ordine è stato inviato.</p> : null}
           <section aria-label="Articoli inseriti">
             <h3 className="mb-2 text-sm font-semibold">Inseriti ({lines.length})</h3>
             {lines.length ? <ul className="space-y-2">{lines.map((line) => <li key={line.id} className="rounded-md border border-border p-2">
@@ -142,9 +143,22 @@ export function EntryCartDock({
 
     <Dialog open={missingOpen} onOpenChange={(open) => { if (!saving) setMissingOpen(open); }}>
       <DialogContent className="flex max-h-[85dvh] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden sm:max-w-xl">
-        <DialogHeader><DialogTitle>Articoli senza quantità</DialogTitle><DialogDescription>Puoi completarli oppure confermare soltanto il carrello. I mancanti non diventano zero.</DialogDescription></DialogHeader>
-        <div className="min-h-0 overflow-y-auto"><ul className="space-y-1">{missing.slice(0, 200).map((item) => <li key={item.id}><button type="button" className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-left hover:bg-muted" onClick={() => { setMissingOpen(false); onRevealMissing(item.id); }}><span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold">{item.label}</span>{item.detail ? <span className="block text-xs text-muted-foreground">{item.detail}</span> : null}</span><ChevronRight className="size-4 shrink-0" /></button></li>)}</ul></div>
-        <DialogFooter className="gap-2"><Button variant="outline" disabled={saving} onClick={() => setMissingOpen(false)}>Torna a inserire</Button><Button disabled={saving} onClick={() => { setMissingOpen(false); onConfirm(); }}>Conferma lo stesso</Button></DialogFooter>
+        <DialogHeader><DialogTitle>Cosa confermi</DialogTitle><DialogDescription>Controlla le quantità da salvare. I {missing.length} articoli mancanti restano vuoti e nessun ordine viene inviato.</DialogDescription></DialogHeader>
+        <div className="min-h-0 space-y-4 overflow-y-auto">
+          <section aria-label="Quantità da confermare">
+            <h3 className="mb-2 text-sm font-semibold">Quantità da confermare ({lines.length})</h3>
+            <ul className="space-y-2">{lines.map((line) => <li key={line.id} className="rounded-md border border-border p-2">
+              <p className="break-words text-sm font-semibold">{line.label}</p>
+              <p className="text-sm">Quantità: <strong>{line.quantity} {line.unitCode ?? ""}</strong></p>
+              {line.supplierDetails?.length || line.supplierNames?.length ? <p className="text-xs text-muted-foreground">Fornitore: {(line.supplierDetails ?? line.supplierNames)?.join(" · ")}</p> : null}
+            </li>)}</ul>
+          </section>
+          <section aria-label="Articoli che restano senza quantità">
+            <h3 className="mb-2 text-sm font-semibold">Restano senza quantità ({missing.length})</h3>
+            <ul className="space-y-1">{missing.slice(0, 200).map((item) => <li key={item.id}><button type="button" className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-left hover:bg-muted" onClick={() => { setMissingOpen(false); onRevealMissing(item.id); }}><span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold">{item.label}</span>{item.detail ? <span className="block text-xs text-muted-foreground">{item.detail}</span> : null}</span><ChevronRight className="size-4 shrink-0" /></button></li>)}</ul>
+          </section>
+        </div>
+        <DialogFooter className="gap-2"><Button variant="outline" disabled={saving} onClick={() => setMissingOpen(false)}>Torna a inserire</Button><Button disabled={saving || !lines.length} onClick={() => { setMissingOpen(false); onConfirm(); }}>Conferma {metrics.products} {metrics.products === 1 ? "prodotto" : "prodotti"}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   </>;

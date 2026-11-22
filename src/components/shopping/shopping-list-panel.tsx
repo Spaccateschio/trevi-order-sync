@@ -1797,13 +1797,13 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         for (const key of successfulCatalog) delete next[key];
         return next;
       });
+      await refresh();
       const failed = Object.keys(nextErrors).length;
       if (failed) toast.warning(`${failed} ${failed === 1 ? "riga resta" : "righe restano"} nel Carrello con il suo errore`);
       else {
         toast.success("Quantità confermate: nessun ordine è ancora stato inviato");
         setCartReviewSignal((current) => current + 1);
       }
-      void refresh();
     } finally {
       setCartSaving(false);
       setCartProgress(null);
