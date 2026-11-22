@@ -61,6 +61,11 @@ export function catalogLimitForMissingReveal<T extends { key: string; code: stri
   return position < 0 ? currentLimit : Math.max(currentLimit, position + 1);
 }
 
+/** «Tutti» toglie anche il limite iniziale delle card, non soltanto il filtro Preferiti. */
+export function catalogLimitForAllProducts(catalogSize: number) {
+  return Math.max(60, catalogSize);
+}
+
 export function shoppingSortKey(p: ProductFilterFacts, sort: SortKey) {
   const name = p.description ?? p.code;
   if (sort === "code") return p.code;

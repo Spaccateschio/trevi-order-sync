@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { catalogLimitForMissingReveal, matchesShoppingFilters, shoppingFiltersForMissingReveal, visibleWhenFilteringMissing, type FilterFlag, type ProductFilterFacts } from "./shopping-list-filters";
+import { catalogLimitForAllProducts, catalogLimitForMissingReveal, matchesShoppingFilters, shoppingFiltersForMissingReveal, visibleWhenFilteringMissing, type FilterFlag, type ProductFilterFacts } from "./shopping-list-filters";
 import { catalogProductRequiresQuantity } from "./missing-quantities";
 const p: ProductFilterFacts = { id: "p1", code: "00-001", description: "Ananas", category: "Frutta", supplierIds: ["trevi"], supplierNames: ["Trevi"], favorite: true, b2b: true, nonB2b: false, assignment: null, ordered: false, confirmed: false, needsCheck: false, nonPurchase: false };
 const match = (flags: FilterFlag[], overrides: Partial<ProductFilterFacts> = {}) => matchesShoppingFilters({ ...p, ...overrides }, { search: "", category: "all", supplier: "all", flags: new Set(flags) });
@@ -61,5 +61,9 @@ describe("filtri prodotti Lista", () => {
     const products = Array.from({ length: 75 }, (_, index) => ({ key: `p${index}`, code: `p${index}`, facts: { ...p, id: `p${index}`, code: `p${index}`, description: `Prodotto ${String(index).padStart(2, "0")}` } }));
     const next = shoppingFiltersForMissingReveal(products[70]!.facts, { search: "", category: "all", supplier: "all", flags: new Set() });
     assert.equal(catalogLimitForMissingReveal(products, "p70", next, "description", 60), 71);
+  });
+  it("Tutti include l'intero catalogo invece di fermarsi alle prime 60 card", () => {
+    assert.equal(catalogLimitForAllProducts(132), 132);
+    assert.equal(catalogLimitForAllProducts(6), 60);
   });
 });

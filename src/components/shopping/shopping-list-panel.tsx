@@ -1,4 +1,4 @@
-import { catalogLimitForMissingReveal, matchesShoppingFilters, shoppingFiltersForMissingReveal, shoppingSortKey, visibleWhenFilteringMissing, type FilterFlag, type ProductFilterFacts, type SortKey } from "./shopping-list-filters";
+import { catalogLimitForAllProducts, catalogLimitForMissingReveal, matchesShoppingFilters, shoppingFiltersForMissingReveal, shoppingSortKey, visibleWhenFilteringMissing, type FilterFlag, type ProductFilterFacts, type SortKey } from "./shopping-list-filters";
 import { selectShoppingPrintRows, type ShoppingPrintRow } from "./shopping-list-print-data";
 import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
@@ -2133,7 +2133,10 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
               variant={flags.has("preferiti") ? "outline" : "default"}
               className="h-8 px-3 text-xs md:hidden"
               aria-pressed={!flags.has("preferiti")}
-              onClick={() => toggleFlag("preferiti", false)}
+              onClick={() => {
+                toggleFlag("preferiti", false);
+                setCatalogLimit(catalogLimitForAllProducts(catalog.entries.length));
+              }}
             >
               Tutti
             </Button>
