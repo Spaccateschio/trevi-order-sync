@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.normalize_vat(text) TO authenticated;

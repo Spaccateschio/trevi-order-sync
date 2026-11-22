@@ -757,6 +757,13 @@
       "when": 1795363466397,
       "tag": "0107_supplier_display_color",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1795365178361,
+      "tag": "0108_allow_authenticated_vat_normalization",
+      "breakpoints": true
     }
   ]
 }
