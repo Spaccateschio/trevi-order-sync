@@ -1,52 +1,39 @@
-# Colore pastello per fornitore — risposte e piano
+# Fornitore deciso prima del Conferma
 
-Sostituisce il piano delle card gialle per il B2B (annullato) e quello sulle unità di misura (annullato).
+## Risposte (sola lettura, 3 EMME)
 
-## Risposte (sola lettura)
+**1. Da dove arriva il fornitore proposto**
+- Collegamento: `product_supplier_links` attivo; stella `is_preferred` (messa in automatico se il collegamento è uno solo); anagrafica `supplier_record_id`; articolo B2B `b2b_item_id`.
+- Quote scritte: `shopping_list_item_suppliers` (righe con `deselected_at` nullo). Si scrivono solo al Conferma, insieme alla quantità.
+- Su 3 EMME, nelle Liste aperte, **tutte** le righe senza quote hanno un collegamento attivo, preferito e B2B (trevi). Esempi: 00-005 BASILICO A MAZZI, 00-022 ANANAS ORSERO, 00-014 ALLORO, 00-013 AGLIO (2 collegamenti, 1 stella). **Non c'è nessun prodotto senza fornitore.**
+- Causa vera di «Fornitore da assegnare»: il Carrello e «Cosa confermi» prendono il nome del fornitore solo dalle quote già salvate. Prima del Conferma le quote non esistono ancora, quindi la riga finisce sotto «Fornitore da assegnare», anche se la card mostra già trevi spuntato. Al Conferma il fornitore viene comunque assegnato in automatico.
 
-**1. Dove sono i fornitori e quale chiave usare**
-- Ogni fornitore, B2B o manuale, ha la sua anagrafica nell'azienda che compra: `supplier_records` (azienda = `buyer_company_id`, nome = `legal_name`).
-- Fornitore B2B: la stessa anagrafica è collegata all'azienda venditrice tramite `supplier_customer_relations.supplier_record_id` (venditore = `seller_company_id` in `companies`).
-- Ogni prodotto si collega al fornitore con `product_supplier_links.supplier_record_id`.
-- Chiave stabile del colore: **`supplier_records.id`**. Vale per B2B e manuali ed è già propria di ogni azienda, quindi due aziende possono scegliere colori diversi per lo stesso fornitore.
+**2. Dove si decide nel codice**
+- Proposta sulla card: `visualPick` (`src/lib/supplier-selection.ts`) e `chooseListDestinations` (`src/lib/supplier-memory.ts`), usati in `card-suppliers.tsx` (~riga 685) e `shopping-list-card.tsx` (~641).
+- Blocchi reali: `card-suppliers.tsx` ~709-792 (`notPurchasable`, `noUnits`, «Non in catalogo del fornitore»).
+- Scritta «Fornitore da assegnare»: `entryCartLinesBySupplier` (`src/lib/local-entry-cart.ts:77`) quando `supplierNames` è vuoto. I nomi vengono riempiti in `shopping-list-panel.tsx` `cartLines` (~1662-1687): righe in Lista solo dalle quote salvate, prodotti «in attesa» sempre vuoti.
 
-**2. Dove salvare il colore**
-- Nessuna tabella nuova: un campo in `supplier_records`, nome `display_color` (testo, solo uno dei codici della tavolozza, es. `p03`; vuoto = colore automatico).
-- Relazione: già 1 riga per azienda e fornitore (`buyer_company_id`).
-- Accesso già esistente: lettura per i membri dell'azienda, modifica solo agli amministratori (`is_company_admin`). Nessuna nuova policy.
+**3. Pannello esistente**
+- Sulla card c'è già la zona fornitori: spunta = acquisto in questa Lista, quota e U.M. per ciascuno, stella, «+ Aggiungi fornitore», «Acquisto diretto (compro io)», «Togli da questa Lista», «Scollega».
+- Con un solo fornitore la quota segue tutta la quantità. Il prezzo B2B si legge e non si modifica.
+- Rispetto a Efficio mancano: confronto prezzi affiancato e «Nuovo fornitore rapido». Sono fuori da questo piano, a meno che tu non li chieda.
 
-**3. Fornitore principale di una card oggi**
-- Prima della quantità: stella (`product_supplier_links.is_preferred`); senza stella, l'unico fornitore valido; poi la memoria dell'ultima Lista chiusa (`chooseListDestinations`).
-- Con quantità: le quote in `shopping_list_item_suppliers` (righe con `deselected_at` vuoto).
-- Card divisa tra più fornitori: oggi un elenco di righe fornitore con spunta e quota ciascuna dentro la card; nessun colore.
-- Proposta di principale: quota più alta; a parità o senza quote, la stella; altrimenti il primo in elenco.
+**4. Memoria fornitore**
+- Fonte: ultima Lista chiusa (`shopping_list_item_suppliers`). Ricorda fornitore, U.M. e proporzioni, mai le quantità. Si applica alle righe senza quote. La stella cambiata a mano dopo quella Lista ha la precedenza.
+- Copertura: le regole 1, 2 e 5 sono già coperte (la 5 solo dopo la chiusura della Lista). La 3 è coperta in parte: il motivo compare solo per i blocchi B2B. La 4 **manca**: è il difetto descritto sopra.
 
-**4. Colori di stato da escludere**
-- Verde: assegnato / confermato. Rosso: errori e blocchi. Ocra: avvisi, U.M. da scegliere, mancanti (sfondo nel Carrello e in «Cosa confermi»). Blu notte: card aperta / selezionata.
+## Piano (solo schermata, nessuna modifica a DB, ciclo, quantità o salvataggio)
 
-**5. Dati già letti**
-- Lista della Spesa: fornitori e quote già nella lettura unica della pagina; manca solo il colore → si aggiunge `display_color` alla lettura dei fornitori già esistente.
-- Inventario: già legge una volta per pagina i collegamenti attivi con il nome del fornitore; si aggiungono `supplier_record_id` e `display_color` a quella richiesta.
-- Carrello e «Cosa confermi»: usano i dati già caricati dalla pagina.
-- Ordini: il fornitore è già nella testata dell'ordine; si aggiunge il colore alla stessa lettura.
-- Nessuna richiesta per card.
+1. **Carrello e «Cosa confermi» con il fornitore già deciso.** In `cartLines` (shopping-list-panel.tsx), per le righe senza quote salvate si usano i nomi del fornitore proposto dalla stessa `chooseListDestinations` usata dalla card. Per le righe «in attesa» si usano i fornitori collegati già letti. Quello che si vede è esattamente ciò che il Conferma assegnerà. Nessuna lettura nuova: i dati sono già nella lettura unica della pagina.
+2. **«Fornitore da assegnare» solo se è vero.** Il gruppo resta solo quando `chooseListDestinations` non trova nessuna destinazione. Il nome diventa «Senza fornitore», con il motivo esatto: nessun collegamento, articolo non acquistabile, U.M. non disponibili oppure più fornitori con stella da ripartire.
+3. **Card senza fornitore valido.** Mostra subito il motivo e i due tasti «+ Aggiungi fornitore» e «Acquisto diretto», riusando quelli che esistono già. Non serve aspettare il Conferma.
+4. **Regole 1, 2 e 5:** si riusano proposta, pannello e memoria esistenti, senza modifiche.
 
-## Piano (dopo il tuo via libera)
+### File toccati
+- `src/components/shopping/shopping-list-panel.tsx` (cartLines, confirmedCartLines invariato)
+- `src/lib/local-entry-cart.ts` (etichetta e motivo del gruppo)
+- `src/components/shopping/card-suppliers.tsx` (riga motivo + tasti quando non c'è destinazione)
+- Nuovo helper puro `proposedSupplierNames` in `src/lib/supplier-memory.ts`, con test in `list-preselection.test.ts`
 
-1. **Tavolozza** di 12 pastello (azzurro, celeste, lavanda, lilla, rosa, pesca, sabbia, acqua, turchese, pervinca, grigio-blu, malva), senza rosso, verde e ocra. Ognuno ha una versione chiara e una scura, con testo leggibile in entrambi i temi.
-2. **Colore automatico e stabile**: calcolato dall'identificatore del fornitore, quindi sempre lo stesso senza salvare nulla. Se l'amministratore lo cambia nella scheda fornitore, vale la scelta salvata.
-3. **Scheda fornitore**: piccola scelta tra i 12 colori con anteprima.
-4. **Card** (Lista Card e Righe, Inventario, Carrello, «Cosa confermi», Ordini): tinta leggera del fornitore principale, fascia a sinistra e nome del fornitore. Più fornitori: fasce affiancate, tinta del principale.
-5. Gli stati restano solo su bordo e badge; nei mancanti del Carrello lo sfondo ocra resta ai mancanti e il fornitore si vede dalla fascia.
-6. **Legenda** vicino ai filtri con i fornitori della pagina; toccandone uno si filtrano le card di quel fornitore (filtro solo a schermo, non salvato).
-
-## Modifica al database (descritta, da non eseguire senza via libera)
-
-- Migrazione: aggiunge `supplier_records.display_color text` facoltativo, con controllo che accetti solo i 12 codici della tavolozza o vuoto.
-- RLS e permessi invariati (già attivi). Nessuna modifica a ciclo, quantità, ordini o salvataggi.
-- Nessun dato esistente da correggere: il colore automatico funziona anche con il campo vuoto.
-
-## Dettagli tecnici
-- Funzione pura per tavolozza e colore automatico, con test.
-- Colori come token in `src/styles.css`, nessun colore fisso nei componenti.
-- Il file delle attività verrà aggiornato appena approvi.
+### Verifica
+Su 3 EMME, da telefono e senza confermare: BASILICO 00-005 e ANANAS 00-022 nel gruppo trevi srl in Carrello e «Cosa confermi»; AGLIO con trevi; nessun «Fornitore da assegnare».
