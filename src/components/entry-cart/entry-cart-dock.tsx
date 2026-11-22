@@ -81,7 +81,7 @@ export function EntryCartDock({
   };
 
   return <>
-    <div data-entry-cart={areaLabel} data-hide-on-keyboard className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 border-t border-sidebar-border bg-sidebar px-3 py-2 text-sidebar-foreground sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
+    <div data-entry-cart={areaLabel} data-hide-on-keyboard className="fixed inset-x-0 bottom-[calc(3rem+env(safe-area-inset-bottom))] z-20 border-t border-sidebar-border bg-sidebar px-3 py-1.5 text-sidebar-foreground sm:px-5 lg:bottom-0 lg:left-60 lg:px-4">
       <div className="mx-auto grid w-full max-w-3xl gap-1.5">
         {!online ? <p className="flex items-center justify-center gap-1 text-[11px] font-semibold text-warning" role="status"><WifiOff className="size-3.5" /> Da sincronizzare · la bozza resta su questo dispositivo</p> : null}
         {progress ? <div className="space-y-1" aria-live="polite">
@@ -89,14 +89,14 @@ export function EntryCartDock({
           <Progress value={percentage} className="h-1.5" aria-label="Avanzamento salvataggio" />
         </div> : null}
         <div className="flex min-w-0 items-stretch gap-2">
-          <Button type="button" variant="ghost" className="h-auto min-w-0 flex-1 flex-col items-start bg-sidebar-accent px-3 py-1.5 text-left text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground" onClick={() => setCartOpen(true)} aria-label={`Apri carrello ${areaLabel}`}>
-            <span className="flex items-center gap-1.5 text-xs font-bold"><ShoppingCart className="size-4" /> CARRELLO</span>
-            <span className="truncate text-[11px] font-normal text-sidebar-foreground/75">{metrics.products} {metrics.products === 1 ? "prodotto" : "prodotti"} · {metrics.suppliers} {metrics.suppliers === 1 ? "fornitore" : "fornitori"}</span>
+          <Button type="button" variant="ghost" className="h-10 min-w-0 flex-1 items-center gap-1.5 bg-sidebar-accent px-3 py-0 text-left text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground" onClick={() => setCartOpen(true)} aria-label={`Apri carrello ${areaLabel}`}>
+            <span className="flex shrink-0 items-center gap-1.5 text-xs font-bold"><ShoppingCart className="size-4" /> CARRELLO</span>
+            <span className="min-w-0 truncate text-[11px] font-normal text-sidebar-foreground/75">{metrics.products} {metrics.products === 1 ? "prodotto" : "prodotti"} · {metrics.suppliers} {metrics.suppliers === 1 ? "fornitore" : "fornitori"}</span>
           </Button>
-          <Button type="button" className="shrink-0" disabled={saving || confirmDisabled || !lines.length} onClick={requestConfirm}>
+          <Button type="button" className="h-10 shrink-0 px-3" disabled={saving || confirmDisabled || !lines.length} onClick={requestConfirm}>
             <CheckCheck /> {saving ? "Salvataggio…" : online ? (lines.length ? "CONFERMA" : visibleConfirmedLines.length ? "SALVATO" : "CONFERMA") : "RIPROVA"}
           </Button>
-          {secondaryAction ? <Button type="button" variant="outline" className="hidden shrink-0 sm:inline-flex" disabled={saving || secondaryAction.disabled} onClick={secondaryAction.onClick}>{secondaryAction.label}</Button> : null}
+          {secondaryAction ? <Button type="button" variant="outline" className="hidden h-10 shrink-0 sm:inline-flex" disabled={saving || secondaryAction.disabled} onClick={secondaryAction.onClick}>{secondaryAction.label}</Button> : null}
         </div>
       </div>
     </div>

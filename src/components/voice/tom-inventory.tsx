@@ -479,7 +479,7 @@ export function TomInventoryButton({ companyId, controller }: { companyId: strin
         : status === "hearing" ? "Ti sento…" : "Tom ascolta…";
 
   return (
-    <div data-hide-on-keyboard className="fixed right-3 bottom-[calc(9.5rem+env(safe-area-inset-bottom))] z-30 flex max-w-[min(20rem,calc(100vw-1.5rem))] flex-col items-end gap-2 lg:bottom-28">
+    <div data-hide-on-keyboard className="fixed right-3 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-30 flex max-w-[min(20rem,calc(100vw-1.5rem))] flex-col items-end gap-2 lg:bottom-28">
       {status !== "idle" || caption ? (
         <div className="rounded-lg border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-lg" aria-live="polite">
           <p className="font-semibold">{label}</p>
