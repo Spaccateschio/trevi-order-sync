@@ -32,8 +32,9 @@ function isChunkLoadError(message: string): boolean {
 function reloadOnceForChunkError(): boolean {
   if (typeof window === "undefined" || !isBrowserReloadSafe()) return false;
   try {
-    if (window.sessionStorage.getItem(CHUNK_RELOAD_FLAG)) return false;
-    window.sessionStorage.setItem(CHUNK_RELOAD_FLAG, "1");
+    const last = Number(window.sessionStorage.getItem(CHUNK_RELOAD_FLAG) || 0);
+    if (Date.now() - last < 30_000) return false;
+    window.sessionStorage.setItem(CHUNK_RELOAD_FLAG, String(Date.now()));
   } catch {
     return false;
   }
@@ -45,7 +46,6 @@ function isBrowserReloadSafe(): boolean {
   try {
     // Skip while the document is still loading (initial boot), and inside
     // iframes used for printing.
-    if (document.readyState === "loading") return false;
     if (window.self !== window.top) return false;
     return true;
   } catch {
@@ -68,6 +68,14 @@ if (typeof window !== "undefined") {
     },
     true,
   );
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason;
+    const message = reason instanceof Error ? reason.message : String(reason ?? "");
+    if (isChunkLoadError(message)) {
+      event.preventDefault();
+      reloadOnceForChunkError();
+    }
+  });
   window.addEventListener("vite:preloadError", (event) => {
     event.preventDefault();
     reloadOnceForChunkError();
