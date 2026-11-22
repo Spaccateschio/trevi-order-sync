@@ -382,3 +382,10 @@
 - [x] Lista 13:58 di 3 EMME recuperata in sola lettura: 6 quantità salvate e fornitore trevi srl, BASILICO A MAZZI e ANANAS vuoti, nessun ordine creato. Aperto soltanto il riepilogo «Genera ordini per fornitore»; nessuna generazione o invio.
 - [x] Verificati canali esterni esistenti: link, copia testo, email, WhatsApp e SMS nella finestra di condivisione dopo la generazione; il PDF non è un canale della finestra ordine.
 - [x] Andrea ha scelto di riutilizzare la Lista 13:58, senza duplicarla: apertura diretta verificata su telefono con 6 prodotti salvati e un fornitore nel Carrello, BASILICO A MAZZI e ANANAS ancora vuoti; nessuna scrittura, generazione o invio.
+
+## 22/11 — «Fornitore da assegnare»: dove si imposta e perché è bloccato
+- [x] Diagnosi verificata su 3 EMME: nella finestra «Cosa confermi» «Fornitore da assegnare» è solo un raggruppamento di lettura (riga con quantità ma nessun fornitore scelto) e non contiene comandi; il fornitore si imposta solo nella card, zona «SPUNTA = ACQUISTO IN QUESTA LISTA».
+- [x] La spunta del fornitore proposto appare già messa e toccandola si scrive la deselezione («trevi srl tolto da questa Lista»): durante la verifica è stata tolta per sbaglio su BASILICO A MAZZI e la riga è stata rimossa, riportando la lista com'era (nessuna quantità, nessun ordine toccato).
+- [x] Su BASILICO A MAZZI (00-005) il collegamento attivo trevi srl non offre unità d'acquisto: il menu U.M. resta vuoto, «Salva» non salva e nel database non è stata creata nessuna riga (verificato prima e dopo il tentativo). Stessa condizione su ANANAS ORSERO COSTARICA (00-022).
+- [x] Strade percorribili indicate ad Andrea: «+ Aggiungi fornitore» (fornitore manuale con la sua U.M.) oppure «Acquisto diretto (compro io)».
+- [ ] Decisione in corso con Andrea su cosa cambiare: mostrare il motivo del blocco con il tasto per la strada che funziona, oppure far diventare la spunta proposta una scelta vera, oppure lasciare così. Nessuna modifica finché non sceglie.
