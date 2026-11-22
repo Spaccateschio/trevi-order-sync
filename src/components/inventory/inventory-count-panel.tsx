@@ -2,12 +2,12 @@ import { resolveDraftTarget } from "@/lib/inventory-draft-transfer";
 import { inventorySnapshotQuantity, type InventoryQuantitySnapshot } from "@/lib/inventory-snapshot";
 import { afterInventoryDraftWrites, confirmAllSummary, inventoryBulkReview, inventoryDraftQuantity, type ConfirmAllResult, type InventoryBulkReview, type InventoryReviewCard } from "@/lib/inventory-confirm-all";
 import { InventoryConfirmAllDialog } from "./inventory-confirm-all-dialog";
-import { inventoryResetAction, inventoryReopenQueryKeys } from "@/lib/inventory-reset";
+import { inventoryAcceptsDrafts, inventoryResetAction, inventoryReopenQueryKeys } from "@/lib/inventory-reset";
 import { inventoryCompactBar } from "@/lib/inventory-scroll";
 import { createRefreshBatcher } from "@/lib/shopping-optimistic";
 import { trackPlatformUsageClick } from "@/lib/platform-usage-tracking";
 import { EntryCartDock } from "@/components/entry-cart/entry-cart-dock";
-import { entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
+import { clearEntryCartDraft, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 import { inventoryProductRequiresQuantity } from "@/components/shopping/missing-quantities";
 import { countedRowPatch, patchCardRow, restoreCardRow } from "@/lib/inventory-optimistic";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,7 +48,7 @@ import { FullInventoryStartButton, InventoryExtraCards } from "./inventory-add-c
 import { HabitualZoneControl, HabitualZonesProvider, useHabitualMap } from "./habitual-zone-control";
 import { pickCardMinWidth } from "@/lib/inventory-card-size";
 import { habitualFirst, matchesHabitual, NO_HABITUAL, type HabitualFilter } from "@/lib/habitual-locations";
-import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { PriceTrendIcon } from "@/components/pricing/price-trend-icon";
@@ -493,12 +493,30 @@ export function InventoryCountPanel({
   const draftWrites = useRef(new Map<string, Promise<unknown>>());
   const savedDraftUnits = useRef(new Map<string, string | null>());
   const draftStorageKey = identity?.userId ? entryCartStorageKey({ userId: identity.userId, companyId, area: "inventario", referenceId: sessionId ?? "nuovo" }) : null;
+  const acceptsDrafts = inventoryAcceptsDrafts(Boolean(sessionId), cycleColor === "rosso");
   const loadedDraftKey = useRef<string | null>(null);
   const skipDraftWriteRef = useRef(false);
+  const clearInventoryDraft = useCallback(() => {
+    skipDraftWriteRef.current = true;
+    if (draftStorageKey) clearEntryCartDraft(window.localStorage, draftStorageKey);
+    Object.values(draftTimers.current).forEach(clearTimeout);
+    draftTimers.current = {};
+    dirtyDraftKeys.current.clear();
+    savedDraftUnits.current.clear();
+    draftsRef.current = {};
+    setDrafts({});
+    setDraftFirst({});
+    setDraftZoneId(null);
+    setCartErrors({});
+  }, [draftStorageKey]);
   useEffect(() => {
     if (!draftStorageKey) return;
     loadedDraftKey.current = draftStorageKey;
     skipDraftWriteRef.current = true;
+    if (!acceptsDrafts) {
+      clearInventoryDraft();
+      return;
+    }
     const restored = readEntryCartDraft(window.localStorage, draftStorageKey, parseInventoryLocalDraft);
     setDrafts(restored?.drafts ?? {});
     setDraftFirst(restored?.draftFirst ?? {});
@@ -508,12 +526,12 @@ export function InventoryCountPanel({
     setCartErrors(restored?.errors ?? {});
     dirtyDraftKeys.current = new Set(Object.keys(restored?.drafts ?? {}));
     setOnlyMissing(false);
-  }, [draftStorageKey]);
+  }, [draftStorageKey, acceptsDrafts, clearInventoryDraft]);
   useEffect(() => {
-    if (!draftStorageKey || loadedDraftKey.current !== draftStorageKey) return;
+    if (!acceptsDrafts || !draftStorageKey || loadedDraftKey.current !== draftStorageKey) return;
     if (skipDraftWriteRef.current) { skipDraftWriteRef.current = false; return; }
     writeEntryCartDraft<InventoryLocalDraft>(window.localStorage, draftStorageKey, { drafts, chosenUnits, draftFirst, draftZoneId, errors: cartErrors });
-  }, [draftStorageKey, drafts, chosenUnits, draftFirst, draftZoneId, cartErrors]);
+  }, [acceptsDrafts, draftStorageKey, drafts, chosenUnits, draftFirst, draftZoneId, cartErrors]);
   const savedDraftsQuery = useQuery({
     queryKey: ["inventory-count-drafts", sessionId],
     enabled: Boolean(sessionId),
@@ -1630,6 +1648,7 @@ export function InventoryCountPanel({
       return close({ data: { companyId, sessionId } });
     },
     onSuccess: async (summary) => {
+      clearInventoryDraft();
       await queryClient.invalidateQueries({ queryKey: ["inventory-general-session", companyId, archiveId] });
       await refresh();
       toast.success(
@@ -1998,6 +2017,11 @@ export function InventoryCountPanel({
   };
   async function saveInventoryCart(): Promise<boolean> {
     if (cartSaving) return false;
+    if (!acceptsDrafts) {
+      clearInventoryDraft();
+      toast.info("Questo inventario non è modificabile: la bozza locale è stata scartata");
+      return false;
+    }
     const initialErrors = Object.fromEntries([...invalidInventoryCart].map((key) => [key, "Quantità non valida"]));
     const lines = inventoryCartLines.filter((line) => !invalidInventoryCart.has(line.id));
     setCartErrors(initialErrors);
@@ -2379,7 +2403,7 @@ export function InventoryCountPanel({
             onHideCompletion={() => setShowCompletion(false)}
             closing={closeMutation.isPending}
           />
-          <EntryCartDock
+          {acceptsDrafts && !screenOutdated ? <EntryCartDock
             areaLabel="Inventario"
             lines={displayedInventoryCart}
             missing={inventoryMissing}
@@ -2392,7 +2416,7 @@ export function InventoryCountPanel({
             onRevealMissing={revealInventoryMissing}
             onConfirm={() => { void saveInventoryCart(); }}
             onRetry={() => { void saveInventoryCart(); }}
-          />
+          /> : null}
           </CycleLockContext.Provider>
           </HabitualZonesProvider>
           </UnitChoiceContext.Provider>

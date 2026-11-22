@@ -6,6 +6,11 @@ export function inventoryResetAction(sessionActive: boolean, cycleLocked: boolea
   return !sessionActive && cycleLocked ? "reopen" : "clear_open";
 }
 
+/** Senza sessione, il semaforo rosso è sola consultazione: niente Carrello o bozza attiva. */
+export function inventoryAcceptsDrafts(sessionActive: boolean, cycleLocked: boolean) {
+  return sessionActive || !cycleLocked;
+}
+
 export function inventoryReopenQueryKeys(companyId: string, archiveId: string | null, sessionId: string) {
   return [
     ["inventory-general-session", companyId, archiveId],

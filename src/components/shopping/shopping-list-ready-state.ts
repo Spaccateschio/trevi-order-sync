@@ -29,6 +29,15 @@ export function shoppingReadyState(list: { status: string } | null, archiveId: s
   };
 }
 
+/** Il prossimo acquisto e le liste aperte accettano bozze; confermate e Storico no. */
+export function shoppingListAcceptsDrafts(list: { status: string } | null) {
+  return !list || list.status === "aperta";
+}
+
+export function canLeaveShoppingDrafts(list: { status: string } | null, hasUnconfirmed: boolean) {
+  return !shoppingListAcceptsDrafts(list) || !hasUnconfirmed;
+}
+
 /** Called only by an explicit save; simultaneous cards share the same creation. */
 export function resolveOrdinaryList(
   activeId: string | null,

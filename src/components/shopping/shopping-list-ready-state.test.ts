@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { generationCompleted, generationEntryState, initialGenerationStep, resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
+import { canLeaveShoppingDrafts, generationCompleted, generationEntryState, initialGenerationStep, resolveOrdinaryList, shoppingListAcceptsDrafts, shoppingReadyState } from "./shopping-list-ready-state";
 
 describe("Genera ordini: prima il riepilogo", () => {
   it("una quantità mancante non apre il completamento automaticamente", () => {
@@ -39,6 +39,21 @@ describe("nuovo acquisto indipendente dagli ordini precedenti", () => {
   });
   it("lo storico resta consultabile ma non modificabile", () => {
     assert.equal(shoppingReadyState({ status: "chiusa" }, "archivio").canPrepare, false);
+  });
+  it("dopo invio e chiusura una bozza pendente non blocca il nuovo acquisto", () => {
+    assert.equal(generationCompleted([{ kind: "inviato" }]), true);
+    assert.equal(shoppingListAcceptsDrafts({ status: "chiusa" }), false);
+    assert.equal(canLeaveShoppingDrafts({ status: "chiusa" }, true), true);
+  });
+  it("cambiando lista una bozza vera offre lo scarto prima di proseguire", () => {
+    assert.equal(canLeaveShoppingDrafts({ status: "aperta" }, true), false);
+    assert.equal(canLeaveShoppingDrafts({ status: "aperta" }, false), true);
+    assert.equal(canLeaveShoppingDrafts(null, true), false);
+  });
+  it("Storico e lista confermata ignorano le bozze residue", () => {
+    assert.equal(canLeaveShoppingDrafts({ status: "confermata" }, true), true);
+    assert.equal(canLeaveShoppingDrafts({ status: "chiusa" }, true), true);
+    assert.equal(shoppingListAcceptsDrafts({ status: "confermata" }), false);
   });
   it("non crea una lista alla lettura dello stato o al cambio vista", () => {
     const flight = { current: null };

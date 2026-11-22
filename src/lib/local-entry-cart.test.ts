@@ -17,7 +17,7 @@ describe("bozza locale del carrello", () => {
     expect(key).not.toBe(entryCartStorageKey({ userId: "u1", companyId: "c1", area: "inventario", referenceId: "l1" }));
   });
 
-  it("scrive, rilegge e cancella una bozza valida", () => {
+  it("scarta la bozza e cancella la copia locale prima di continuare", () => {
     const storage = memoryStorage();
     expect(writeEntryCartDraft(storage, "k", { drafts: { a: "2" } })).toBe(true);
     expect(readEntryCartDraft(storage, "k", (value) => {

@@ -3,7 +3,7 @@ import { selectShoppingPrintRows, type ShoppingPrintRow } from "./shopping-list-
 import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { finishMobileCard, toggleMobileCard, unlockSelectedProduct } from "./shopping-mobile-card-state";
-import { generationEntryState, resolveOrdinaryList, shoppingReadyState } from "./shopping-list-ready-state";
+import { canLeaveShoppingDrafts, generationEntryState, resolveOrdinaryList, shoppingListAcceptsDrafts, shoppingReadyState } from "./shopping-list-ready-state";
 import { NEXT_PURCHASE, purchaseSelectionKey, restorePurchaseSelection, selectShoppingList } from "./shopping-list-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -422,12 +422,30 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   );
   // Bozza solo sul dispositivo: una chiave distinta per persona, azienda e Lista (o prossimo acquisto).
   const draftStorageKey = identity?.userId ? entryCartStorageKey({ userId: identity.userId, companyId, area: "lista", referenceId: list?.id ?? NEXT_PURCHASE }) : null;
+  const editable = list?.status === "aperta";
+  const acceptsDrafts = shoppingListAcceptsDrafts(list);
   const loadedDraftKey = useRef<string | null>(null);
   const skipDraftWriteRef = useRef(false);
+  const clearShoppingDraft = useCallback(() => {
+    skipDraftWriteRef.current = true;
+    if (draftStorageKey) clearEntryCartDraft(window.localStorage, draftStorageKey);
+    setEdits({});
+    setUnitEdits({});
+    setEvalValues({});
+    setCatalogValues({});
+    setCatalogDrafts(new Set());
+    setCatalogNotBuying(new Set());
+    setCartErrors({});
+    setUnlockedIds(new Set());
+  }, [draftStorageKey]);
   useEffect(() => {
     if (!draftStorageKey) return;
     loadedDraftKey.current = draftStorageKey;
     skipDraftWriteRef.current = true;
+    if (!acceptsDrafts) {
+      clearShoppingDraft();
+      return;
+    }
     const restored = readEntryCartDraft(window.localStorage, draftStorageKey, parseShoppingLocalDraft);
     setEdits(restored?.edits ?? {});
     setUnitEdits(restored?.unitEdits ?? {});
@@ -436,15 +454,14 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
     setCatalogNotBuying(new Set(restored?.catalogNotBuying ?? []));
     setCartErrors(restored?.errors ?? {});
     setOnlyMissing(false);
-  }, [draftStorageKey]);
+  }, [draftStorageKey, acceptsDrafts, clearShoppingDraft]);
   useEffect(() => {
-    if (!draftStorageKey || loadedDraftKey.current !== draftStorageKey) return;
+    if (!acceptsDrafts || !draftStorageKey || loadedDraftKey.current !== draftStorageKey) return;
     if (skipDraftWriteRef.current) { skipDraftWriteRef.current = false; return; }
     writeEntryCartDraft<ShoppingLocalDraft>(window.localStorage, draftStorageKey, {
       edits, unitEdits, evalValues, catalogValues, catalogNotBuying: [...catalogNotBuying], errors: cartErrors,
     });
-  }, [draftStorageKey, edits, unitEdits, evalValues, catalogValues, catalogNotBuying, cartErrors]);
-  const editable = list?.status === "aperta";
+  }, [acceptsDrafts, draftStorageKey, edits, unitEdits, evalValues, catalogValues, catalogNotBuying, cartErrors]);
   const currentList =
     linkedList ?? lists.find((row) => row.status === "aperta") ?? lists.find((row) => row.status === "confermata") ?? null;
   const ready = shoppingReadyState(list, selectionReady ? list?.archive_id ?? archivesQuery.data?.[0]?.id ?? "" : "");
@@ -543,6 +560,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       }),
     onSuccess: async (result, action) => {
       if (action === "open") await proposeListDate(result.id);
+      else clearShoppingDraft();
       await refresh();
       if (action === "open") setListId(result.id);
       toast.success(
@@ -1401,29 +1419,50 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       window.setTimeout(() => el.classList.remove("ring-4", "ring-destructive", "rounded-lg"), 3000);
     }, 150);
   };
-  const canLeaveDrafts = () => {
-    if (!hasUnconfirmed) return true;
+  const canLeaveDrafts = (onDiscard: () => void) => {
+    if (canLeaveShoppingDrafts(list, hasUnconfirmed)) return true;
+    let message = "Ci sono quantità scritte su prodotti del catalogo non ancora confermate.";
     const draft = allRows.find(isDraftRow);
     if (draft) {
       const others = allRows.filter(isDraftRow).length - 1;
-      toast.warning(`Quantità non confermata: ${draft.description ?? draft.code}${others > 0 ? ` (e altre ${others})` : ""}. Premi «Conferma» sulla card evidenziata.`);
+      message = `Quantità non confermata: ${draft.description ?? draft.code}${others > 0 ? ` (e altre ${others})` : ""}.`;
       setMobileOpenId(draft.item_id);
       revealItem(draft.item_id);
     } else if (evalPending) {
-      toast.warning("Ci sono quantità scritte in «Da inventario» non ancora aggiunte: premi «Aggiungi» nel riquadro in alto.");
+      message = "Ci sono quantità scritte in «Da inventario» non ancora aggiunte.";
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } else {
-      toast.warning("Ci sono quantità scritte su prodotti del catalogo non ancora confermate.");
     }
+    toast.warning(message, {
+      duration: 12000,
+      action: { label: "Scarta bozza e continua", onClick: () => { clearShoppingDraft(); onDiscard(); } },
+      cancel: { label: "Torna a inserire", onClick: () => undefined },
+    });
     return false;
+  };
+  const proceedGeneration = (discardedDrafts = false) => {
+    setReviewCatalog(catalogQuantityReview(availableCatalog, discardedDrafts ? {} : catalogValues, discardedDrafts ? new Set<string>() : catalogNotBuying, catalog.favorites));
+    setGenMounted(list?.id ?? null);
+    setGenOpen("genera");
   };
   const openGeneration = () => {
     const entry = generationEntryState({ fetching: overviewQuery.isFetching || excludedQuery.isFetching, hasUnconfirmedDrafts: hasUnconfirmed, missingQuantityCount: completionEntries.length });
     if (entry === "wait") { toast.info("Attendi l'aggiornamento della Lista"); return; }
-    if (entry === "drafts" && !canLeaveDrafts()) return;
-    setReviewCatalog(catalogQuantityReview(availableCatalog, catalogValues, catalogNotBuying, catalog.favorites));
-    setGenMounted(list?.id ?? null);
-    setGenOpen("genera");
+    if (entry === "drafts") { canLeaveDrafts(() => proceedGeneration(true)); return; }
+    proceedGeneration();
+  };
+  const selectListWithDraftGuard = (id: string | null) => {
+    const proceed = () => { ordinaryIdRef.current = null; setListId(id); };
+    if (canLeaveDrafts(proceed)) proceed();
+  };
+  const requestNewList = () => {
+    const proceed = () => {
+      if (!archivesQuery.data?.length) {
+        toast.error(archivesQuery.isLoading ? "Attendi il caricamento degli archivi attivi" : "Nessun archivio attivo: configura un archivio prima di creare una lista");
+        return;
+      }
+      setNewListOpen(true);
+    };
+    if (canLeaveDrafts(proceed)) proceed();
   };
 
   // «Da valutare» → Conferma: una sola operazione nel database (Lista + prodotto + quantità + blocco).
@@ -1565,10 +1604,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
       toast.info("Conferma le quantità già inserite prima di continuare.");
       return;
     }
-    if (!canLeaveDrafts()) return;
     setMissingOpen(false);
-    setGenMounted(list?.id ?? null);
-    setGenOpen("genera");
+    openGeneration();
   }, [completionContinueRequested, bulkCompletionBusy, overviewQuery.isFetching, excludedQuery.isFetching, completionEntries, list?.id]);
 
   const statusBadge = (row: OverviewRow) => (
@@ -1720,6 +1757,11 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
   };
   const saveShoppingCart = async () => {
     if (cartSaving) return;
+    if (!acceptsDrafts) {
+      clearShoppingDraft();
+      toast.info("Questa lista non è modificabile: la bozza locale è stata scartata");
+      return;
+    }
     const initialErrors = Object.fromEntries([...invalidCartIds].map((id) => [id, "Quantità non valida"]));
     const lines = cartLines.filter((line) => !invalidCartIds.has(line.id));
     setCartErrors(initialErrors);
@@ -1804,9 +1846,9 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="max-h-[70vh] overflow-y-auto">
-              <DropdownMenuItem onSelect={() => { if (canLeaveDrafts()) { ordinaryIdRef.current = null; setListId(NEXT_PURCHASE); } }}>Nuovo acquisto</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => selectListWithDraftGuard(NEXT_PURCHASE)}>Nuovo acquisto</DropdownMenuItem>
               {lists.length ? <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Acquisti precedenti</div> : null}
-              {lists.map((row) => <DropdownMenuItem key={row.id} onSelect={() => { if (canLeaveDrafts()) setListId(row.id); }}>
+              {lists.map((row) => <DropdownMenuItem key={row.id} onSelect={() => selectListWithDraftGuard(row.id)}>
                 {listLabel(row)} · {row.status === "aperta" ? "Da completare / bozze" : LIST_STATUS_LABEL[row.status]}
               </DropdownMenuItem>)}
               <DropdownMenuItem onSelect={() => changeViewMode("card")}>
@@ -1852,8 +1894,8 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               size="sm"
               variant="outline"
               className="h-7 text-xs"
-              disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
-              onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
+              disabled={listMutation.isPending || createListMutation.isPending}
+              onClick={requestNewList}
             >
               <Plus aria-hidden="true" />Nuova lista
             </Button>
@@ -1928,7 +1970,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
               data-tour="spesa.nuova-lista"
               disabled={listMutation.isPending || createListMutation.isPending || !archivesQuery.data?.length}
               title="Lista straordinaria, non collegata all'inventario"
-              onClick={() => { if (canLeaveDrafts()) setNewListOpen(true); }}
+              onClick={requestNewList}
             >
               <Plus aria-hidden="true" />
               Nuova lista
@@ -2523,7 +2565,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
         </>
       )}
 
-      {(ready.canPrepare || previewMode || displayedCartLines.length) ? <EntryCartDock
+      {acceptsDrafts && (ready.canPrepare || previewMode || displayedCartLines.length) ? <EntryCartDock
         areaLabel="Lista della Spesa"
         lines={displayedCartLines}
         confirmedLines={confirmedCartLines}
@@ -2591,13 +2633,13 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           onGenerated={() => {
             if (listId === NEXT_PURCHASE) return;
             ordinaryIdRef.current = null;
+            clearShoppingDraft();
             setListId(NEXT_PURCHASE);
-            setEdits({}); setUnitEdits({}); setUnlockedIds(new Set());
-            setCatalogValues({}); setCatalogDrafts(new Set()); setCatalogNotBuying(new Set());
-            setEvalValues({}); setMobileOpenId(null); setMissingOpen(false); setCartErrors({});
-            if (draftStorageKey) clearEntryCartDraft(window.localStorage, draftStorageKey);
+            setMobileOpenId(null);
+            setMissingOpen(false);
           }}
           onListClosed={() => {
+            clearShoppingDraft();
             setGenOpen(null);
             setGenMounted(null);
             ordinaryIdRef.current = null;
@@ -2612,6 +2654,7 @@ export function ShoppingListPanel({ companyId }: { companyId: string }) {
           open={closeOpen}
           onOpenChange={setCloseOpen}
           onClosed={() => {
+            clearShoppingDraft();
             setCloseOpen(false);
             // Area operativa pulita: la prossima azione crea una nuova Lista.
             setListId(null);
