@@ -2623,7 +2623,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         onQuantityChange={changeCartQuantity}
         onRemove={removeCartLine}
         onRevealMissing={revealMissing}
-        onConfirm={() => { void saveShoppingCart(); }}
+        onConfirm={() => { if (ORDERS_SEND_MOCKUP) setSupplierOrdersOpen(true); else void saveShoppingCart(); }}
         onRetry={() => { void saveShoppingCart(); }}
       /> : null}
 
