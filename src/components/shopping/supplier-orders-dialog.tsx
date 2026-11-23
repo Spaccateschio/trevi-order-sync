@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, CalendarClock, Check, Loader2, MapPin, Pencil, Save, Send } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarClock, Check, Loader2, MapPin, Pencil, Save, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -71,7 +71,7 @@ function HalfHourTimeSelect({ label, value, onChange }: { label: string; value: 
 }
 
 /** Stessa presentazione approvata, alimentata dalle bozze e dagli ordini reali della Lista. */
-export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, supplierTone, saveErrors = [], onGoToItem, onListClosed }: {
+export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, supplierTone, saveErrors = [], onGoToItem, onListClosed, onBack }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   companyId: string;
@@ -80,6 +80,8 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
   saveErrors?: { id: string; label: string; message: string }[];
   onGoToItem: (itemId: string) => void;
   onListClosed: () => void;
+  /** Riapre il Carrello senza salvare nulla. */
+  onBack?: (() => void) | undefined;
 }) {
   const queryClient = useQueryClient();
   const readPreview = useServerFn(getGenerationPreview);
@@ -387,7 +389,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
             })}
           </Accordion> : <p className="text-sm text-muted-foreground">Nessun prodotto con quantità confermata e fornitore assegnato.</p>}
         </div>
-        <DialogFooter className="items-center gap-2"><p className="mr-auto text-xs text-muted-foreground">{sentCount} di {groups.length} inviati<br />Chiudere non invia né annulla ordini. Salva conserva l'ordine senza inviarlo.</p><Button variant="outline" disabled={bulkPending} onClick={() => onOpenChange(false)}>Chiudi finestra</Button></DialogFooter>
+        <DialogFooter className="items-center gap-2"><p className="mr-auto text-xs text-muted-foreground">{sentCount} di {groups.length} inviati<br />Chiudere non invia né annulla ordini. Salva conserva l'ordine senza inviarlo.</p>{onBack ? <Button variant="outline" disabled={bulkPending} onClick={onBack}><ArrowLeft className="size-4" /> Torna indietro</Button> : null}<Button variant="outline" disabled={bulkPending} onClick={() => onOpenChange(false)}>Chiudi finestra</Button></DialogFooter>
       </DialogContent>
     </Dialog>
 

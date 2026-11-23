@@ -15,6 +15,7 @@ export function EntryCartDock({
   lines,
   confirmedLines,
   reviewSignal = 0,
+  openReviewSignal = 0,
   missing,
   progress,
   saving,
@@ -32,6 +33,8 @@ export function EntryCartDock({
   lines: EntryCartLine[];
   confirmedLines?: EntryCartLine[];
   reviewSignal?: number;
+  /** Riapre «Cosa confermi» quando il numero cresce (usato dal pulsante Torna indietro). */
+  openReviewSignal?: number;
   missing: EntryCartMissing[];
   progress: EntryCartProgress;
   saving: boolean;
@@ -71,6 +74,9 @@ export function EntryCartDock({
   useEffect(() => {
     if (reviewSignal > 0) setCartOpen(true);
   }, [reviewSignal]);
+  useEffect(() => {
+    if (openReviewSignal > 0) setMissingOpen(true);
+  }, [openReviewSignal]);
   const visibleConfirmedLines = useMemo(() => confirmedLinesWithoutDrafts(confirmedLines ?? [], lines), [confirmedLines, lines]);
   const summaryLines = lines.length ? lines : visibleConfirmedLines;
   const metrics = useMemo(() => entryCartMetrics(summaryLines), [summaryLines]);

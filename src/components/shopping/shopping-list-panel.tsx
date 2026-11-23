@@ -275,6 +275,8 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   const [cartProgress, setCartProgress] = useState<EntryCartProgress>(null);
   const [cartReviewSignal] = useState(0);
   const [supplierOrdersOpen, setSupplierOrdersOpen] = useState(false);
+  /** Cresce a ogni «Torna indietro»: riapre «Cosa confermi» nel Carrello. */
+  const [cartBackSignal, setCartBackSignal] = useState(0);
   // Card / Righe: scelta solo visuale, ricordata sul dispositivo.
   const [viewMode, setViewMode] = useState<"card" | "row">("card");
   useEffect(() => {
@@ -2605,6 +2607,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         lines={displayedCartLines}
         confirmedLines={confirmedCartLines}
         reviewSignal={cartReviewSignal}
+        openReviewSignal={cartBackSignal}
         missing={cartMissing}
         progress={cartProgress}
         saving={cartSaving}
@@ -2619,6 +2622,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       /> : null}
 
       {list ? <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} companyId={companyId} listId={list.id} supplierTone={supplierColors.toneByName}
+        onBack={() => { setSupplierOrdersOpen(false); setCartBackSignal((current) => current + 1); }}
         saveErrors={displayedCartLines.filter((line) => line.error).map((line) => ({ id: line.id, label: line.label, message: line.error! }))}
         onGoToItem={(itemId) => {
           setSupplierOrdersOpen(false);
