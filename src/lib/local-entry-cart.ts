@@ -90,6 +90,11 @@ export function bulkB2bSupplierNames(groups: readonly { supplier: string }[], b2
   return groups.map((group) => group.supplier).filter((supplier) => b2bSuppliers.has(supplier));
 }
 
+/** Nell'invio multiplo reale entrano solo ordini B2B non ancora inviati: nessun doppio invio. */
+export function bulkUnsentB2bSupplierIds(groups: readonly { supplierId: string; isB2b: boolean; sentAt: string | null }[]) {
+  return groups.filter((group) => group.isB2b && !group.sentAt).map((group) => group.supplierId);
+}
+
 /** Una riga confermata che viene modificata passa nelle bozze, senza comparire due volte. */
 export function confirmedLinesWithoutDrafts<T extends Pick<EntryCartLine, "id">>(confirmed: readonly T[], drafts: readonly Pick<EntryCartLine, "id">[]): T[] {
   const draftIds = new Set(drafts.map((line) => line.id));

@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useServerFn } from '@tanstack/react-start';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Copy, Link2, Send } from 'lucide-react';
+import { Copy, Link2, Printer, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -52,13 +52,25 @@ export function OrderShareDialog({ orderId, mode = 'first', onClose, onConfirmed
     if(href) { if(channel==='whatsapp') window.open(href,'_blank','noopener,noreferrer'); else window.location.href=href; }
     setPerformed(true);
   };
+  const print = () => {
+    const popup = window.open('', '_blank', 'width=800,height=900');
+    if (!popup) { toast.error('Consenti le finestre popup per stampare o salvare il PDF'); return; }
+    popup.document.title = `Ordine ${d?.order.number ?? ''}`;
+    const content = popup.document.createElement('pre');
+    content.style.cssText = 'white-space:pre-wrap;font:14px/1.5 Arial,sans-serif;padding:24px';
+    content.textContent = text;
+    popup.document.body.appendChild(content);
+    popup.document.close();
+    popup.focus();
+    popup.print();
+  };
   return <Dialog open onOpenChange={next => { if(!next && !save.isPending && !share.isPending) onClose(); }}><DialogContent className="max-w-xl max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{mode==='resend'?'Rimanda ordine':'Invia ordine'} {d?.order.number}</DialogTitle><DialogDescription>{d?.supplier.legal_name ?? 'Fornitore'}</DialogDescription></DialogHeader>
     {data.isPending ? <p>Caricamento…</p> : data.isError ? <p className="text-destructive">{data.error.message}</p> : <>
       <Label>Canale<Select value={channel} onValueChange={v=>{setChannel(v as ShareChannel);setPerformed(false);}} disabled={save.isPending}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{SHARE_CHANNELS.map(c=><SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent></Select></Label>
       {channel==='email' ? <Label>Email destinatario<Input value={email} type="email" disabled={save.isPending} onChange={e=>{setEmailEdit(e.target.value);setPerformed(false);}} /></Label> : ['whatsapp','sms','telefono'].includes(channel) ? <Label>Telefono destinatario<Input value={phone} type="tel" disabled={save.isPending} onChange={e=>{setPhoneEdit(e.target.value);setPerformed(false);}} /></Label> : null}
       <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words border border-border rounded-md bg-muted p-3 text-sm font-sans">{text}</pre>
       {validLink ? <div className="text-xs space-y-2"><p>Link valido fino al {new Date(validLink.expiresAt).toLocaleString('it-IT')}</p><Button variant="outline" size="sm" onClick={async()=>{try { await navigator.clipboard.writeText(validLink.url); if (channel==='email') setChannel('altro'); setPerformed(true); toast.success('Link copiato: ora puoi confermare l’invio'); } catch {toast.error('Copia non riuscita');}}}><Copy className="size-4" /> Copia link</Button></div> : <div className="space-y-2 text-xs">{Boolean(d?.links.length) && <p>Esiste già un link valido. L’indirizzo non è recuperabile; un link aggiuntivo non revoca il precedente.</p>}<Button variant="outline" size="sm" disabled={share.isPending || save.isPending} onClick={()=>share.mutate()}><Link2 className="size-4" /> {d?.links.length ? 'Crea link aggiuntivo per condividere' : 'Crea link per condividere'}</Button></div>}
-      <Button variant="outline" disabled={save.isPending || share.isPending} onClick={()=>void launch()}><Send className="size-4" /> {channel==='copia_testo'?'Copia testo': ['telefono','di_persona','altro'].includes(channel)?'Ho comunicato l’ordine':`Apri ${SHARE_CHANNELS.find(c=>c.value===channel)?.label}`}</Button>
+      <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={save.isPending || share.isPending} onClick={()=>void launch()}><Send className="size-4" /> {channel==='copia_testo'?'Copia testo': ['telefono','di_persona','altro'].includes(channel)?'Ho comunicato l’ordine':`Apri ${SHARE_CHANNELS.find(c=>c.value===channel)?.label}`}</Button><Button variant="outline" disabled={save.isPending || share.isPending} onClick={print}><Printer className="size-4" /> Stampa / PDF</Button></div>
       <p className="text-xs text-muted-foreground">La conferma è una dichiarazione manuale, non una prova di consegna o lettura.</p>
       <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={save.isPending || share.isPending} onClick={onClose}>Chiudi</Button><Button disabled={!performed || save.isPending || share.isPending} onClick={()=>save.mutate()}>Confermo: ordine inviato</Button></div>
     </>}

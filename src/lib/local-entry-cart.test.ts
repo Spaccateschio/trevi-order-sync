@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { bulkB2bSupplierNames, clearEntryCartDraft, confirmedLinesWithoutDrafts, entryCartLinesBySupplier, entryCartMetrics, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft } from "./local-entry-cart";
+import { bulkB2bSupplierNames, bulkUnsentB2bSupplierIds, clearEntryCartDraft, confirmedLinesWithoutDrafts, entryCartLinesBySupplier, entryCartMetrics, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft } from "./local-entry-cart";
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -52,6 +52,14 @@ describe("bozza locale del carrello", () => {
   it("include nell'invio multiplo soltanto i fornitori B2B", () => {
     const groups = [{ supplier: "Caffetteria Bianco&Nero" }, { supplier: "Cartoleria Viva" }, { supplier: "trevi srl" }];
     expect(bulkB2bSupplierNames(groups, new Set(["trevi srl"]))).toEqual(["trevi srl"]);
+  });
+
+  it("nell'invio multiplo reale esclude non B2B e ordini già inviati", () => {
+    expect(bulkUnsentB2bSupplierIds([
+      { supplierId: "b2b-da-inviare", isB2b: true, sentAt: null },
+      { supplierId: "esterno-da-inviare", isB2b: false, sentAt: null },
+      { supplierId: "b2b-gia-inviato", isB2b: true, sentAt: "2026-11-23T06:00:00Z" },
+    ])).toEqual(["b2b-da-inviare"]);
   });
 
   it("mostra i confermati e sposta nelle bozze solo la riga modificata", () => {

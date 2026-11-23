@@ -3,7 +3,7 @@ import { selectShoppingPrintRows, type ShoppingPrintRow } from "./shopping-list-
 import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { finishMobileCard, toggleMobileCard, unlockSelectedProduct } from "./shopping-mobile-card-state";
-import { canLeaveShoppingDrafts, generationEntryState, resolveOrdinaryList, shoppingListAcceptsDrafts, shoppingReadyState } from "./shopping-list-ready-state";
+import { canLeaveShoppingDrafts, resolveOrdinaryList, shoppingListAcceptsDrafts, shoppingReadyState } from "./shopping-list-ready-state";
 import { NEXT_PURCHASE, purchaseSelectionKey, restorePurchaseSelection, selectShoppingList } from "./shopping-list-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -101,12 +101,9 @@ import { pickFromCardReads } from "@/lib/supplier-brief";
 import { factsFromRow, listCounters, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
 import { EntryCartDock } from "@/components/entry-cart/entry-cart-dock";
 import { SupplierOrdersDialog } from "@/components/shopping/supplier-orders-dialog";
-
-/** Finché Andrea non approva il mockup, l'invio ordini resta solo grafico. */
-const ORDERS_SEND_MOCKUP = true;
 import { SupplierLegend, SupplierTintFrame, useSupplierColors } from "@/components/suppliers/supplier-color";
 import type { ProductSupplierTone } from "@/lib/supplier-color";
-import { clearEntryCartDraft, confirmedLinesWithoutDrafts, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
+import { clearEntryCartDraft, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 
 /** Prodotto contato non ancora in Lista, mostrato con la stessa card: nessun dato della Lista inventato. */
 function pendingOverviewRow(row: CountedRow): OverviewRow {
@@ -1447,18 +1444,10 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
     setDraftLeave({ message, onDiscard });
     return false;
   };
-  const proceedGeneration = (discardedDrafts = false) => {
-    setReviewCatalog(catalogQuantityReview(availableCatalog, discardedDrafts ? {} : catalogValues, discardedDrafts ? new Set<string>() : catalogNotBuying, catalog.favorites));
-    setGenMounted(list?.id ?? null);
-    setGenOpen("genera");
-  };
   const openGeneration = () => {
-    // Fase mockup: «Invia ordini per fornitore» apre solo l'anteprima grafica, nessun ordine generato o inviato.
-    if (ORDERS_SEND_MOCKUP) { setSupplierOrdersOpen(true); return; }
-    const entry = generationEntryState({ fetching: overviewQuery.isFetching || excludedQuery.isFetching, hasUnconfirmedDrafts: hasUnconfirmed, missingQuantityCount: completionEntries.length });
-    if (entry === "wait") { toast.info("Attendi l'aggiornamento della Lista"); return; }
-    if (entry === "drafts") { canLeaveDrafts(() => proceedGeneration(true)); return; }
-    proceedGeneration();
+    if (!list) return;
+    if (hasUnconfirmed) { toast.info("Prima conferma le quantità nel Carrello"); return; }
+    setSupplierOrdersOpen(true);
   };
   const requestNewList = () => {
     const proceed = () => {
@@ -1741,14 +1730,6 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       supplierDetails: suppliers.map((supplier) => `${supplier.name} · ${supplier.purchaseQuantity === null ? "—" : qty(supplier.purchaseQuantity)} ${supplier.purchaseUnitCode ?? ""}`),
     };
   }), [allRows, extras, excludedQuery.data]);
-  // Anteprima: quantità confermate + quantità ancora nel Carrello (solo lettura, nulla viene salvato).
-  const mockupOrderLines = useMemo(() => {
-    const drafts = cartLines.filter((line) => line.quantity.trim() && !invalidCartIds.has(line.id));
-    return [...confirmedLinesWithoutDrafts(confirmedCartLines, drafts), ...drafts];
-  }, [cartLines, confirmedCartLines, invalidCartIds]);
-  const confirmedB2bSuppliers = useMemo(() => new Set(allRows.flatMap((row) =>
-    (extras.get(row.item_id)?.suppliers ?? []).filter((supplier) => supplier.isB2B).map((supplier) => supplier.name),
-  )), [allRows, extras]);
   const cartMissing = useMemo<EntryCartMissing[]>(() => [
     ...missingEntries.map((entry) => ({ id: entry.row.item_id, label: entry.row.description ?? entry.row.code, detail: entry.row.code })),
     ...missingCatalog.map((entry) => ({ id: `catalog:${entry.key}`, label: entry.description ?? entry.code, detail: entry.code })),
@@ -2619,15 +2600,21 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         progress={cartProgress}
         saving={cartSaving}
         confirmDisabled={!ready.canPrepare && !previewMode}
-        secondaryAction={ORDERS_SEND_MOCKUP ? (mockupOrderLines.length ? { label: "Invia ordini per fornitore", onClick: () => setSupplierOrdersOpen(true) } : undefined) : list && editable && allRows.length ? { label: "Invia ordini per fornitore", disabled: listMutation.isPending, onClick: openGeneration } : undefined}
+        secondaryAction={list && editable && allRows.length ? { label: "Invia ordini per fornitore", disabled: listMutation.isPending, onClick: openGeneration } : undefined}
         onQuantityChange={changeCartQuantity}
         onRemove={removeCartLine}
         onRevealMissing={revealMissing}
-        onConfirm={() => { if (ORDERS_SEND_MOCKUP) setSupplierOrdersOpen(true); else void saveShoppingCart(); }}
+        onConfirm={() => { void saveShoppingCart(); }}
         onRetry={() => { void saveShoppingCart(); }}
       /> : null}
 
-      <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} listId={list?.id ?? null} lines={mockupOrderLines} supplierTone={supplierColors.toneByName} b2bSuppliers={confirmedB2bSuppliers} />
+      {list ? <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} listId={list.id} supplierTone={supplierColors.toneByName} onListClosed={() => {
+        clearShoppingDraft();
+        setSupplierOrdersOpen(false);
+        ordinaryIdRef.current = null;
+        setListId(NEXT_PURCHASE);
+        setMobileOpenId(null);
+      }} /> : null}
 
       {addOpen && ready.showProducts ? (
         <AddProductsDialog

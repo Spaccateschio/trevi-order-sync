@@ -1,5 +1,10 @@
 # Roadmap
 
+## 23/11 — Ordini per fornitore dal Carrello
+- [x] Mantenere la schermata approvata e ricollegare il salvataggio del Conferma, la generazione del singolo ordine, l'invio B2B/multiplo e la condivisione non B2B con note e consegna reali.
+- [x] Verificare compilazione, 51 test e schermata reale desktop/mobile su 3 EMME senza creare ordini né inviare comunicazioni.
+- [ ] Collaudo operativo finale di Andrea su 3 EMME: il primo aeroplanino crea e invia davvero l'ordine; nessuna prova automatica dell'assistente.
+
 ## 21/11 — Assistenza e proposte degli utenti
 - [x] Mockup: pulsante in ogni pagina aziendale per assistenza o miglioramento, schermata facoltativa e richieste locali dimostrative.
 - [x] Mockup super admin: filtri, dettaglio, risposta e stato delle richieste nella pagina Assistenza; nessun invio o dato reale.
