@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, CalendarClock, Check, Loader2, MapPin, Pencil, Send } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, Loader2, MapPin, Pencil, Save, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -272,6 +272,21 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
     }
   };
 
+  /** Salva l'ordine senza inviarlo, così un'altra persona può controllarlo e inviarlo. */
+  const saveOne = async (group: SupplierGroup) => {
+    if (pending.has(group.supplierId) || bulkPending || group.order?.sent_at) return;
+    setBusy(group.supplierId, true);
+    try {
+      await ensureOrder(group);
+      await refresh();
+      toast.success(`Ordine per ${group.name} salvato: non è stato inviato`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Salvataggio non riuscito");
+    } finally {
+      setBusy(group.supplierId, false);
+    }
+  };
+
   const sendBulkB2b = async () => {
     if (bulkPending || pending.size || !bulkIds.length) return;
     setBulkPending(true);
@@ -343,8 +358,9 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
                         {when ? <span className="inline-flex items-center gap-1"><CalendarClock className="size-3" />{when}</span> : null}
                       </span>
                     </span>
-                    {isSent ? <Badge variant="outline" className="border-success/60 text-xs"><Check className="size-3" /> Inviato</Badge> : null}
+                    {isSent ? <Badge variant="outline" className="border-success/60 text-xs"><Check className="size-3" /> Inviato</Badge> : group.order ? <Badge variant="outline" className="text-xs"><Save className="size-3" /> Salvato</Badge> : null}
                   </AccordionTrigger>
+                  {!isSent ? <Button type="button" size="icon" variant="outline" className="size-9 shrink-0" disabled={busy} onClick={() => void saveOne(group)} aria-label={`Salva senza inviare l'ordine di ${group.name}`} title="Salva senza inviare">{<Save className="size-4" />}</Button> : null}
                   <Button type="button" size="icon" variant={isSent ? "outline" : "default"} className="size-9 shrink-0" disabled={busy} onClick={() => void sendOne(group)} aria-label={`${isSent ? "Rinvia" : "Invia"} ordine a ${group.name}`}>{busy && !isSent ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}</Button>
                 </div>
                 <AccordionContent className="space-y-3">
@@ -371,7 +387,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
             })}
           </Accordion> : <p className="text-sm text-muted-foreground">Nessun prodotto con quantità confermata e fornitore assegnato.</p>}
         </div>
-        <DialogFooter className="items-center gap-2"><p className="mr-auto text-xs text-muted-foreground">{sentCount} di {groups.length} inviati<br />Chiudere non invia né annulla ordini.</p><Button variant="outline" disabled={bulkPending} onClick={() => onOpenChange(false)}>Chiudi finestra</Button></DialogFooter>
+        <DialogFooter className="items-center gap-2"><p className="mr-auto text-xs text-muted-foreground">{sentCount} di {groups.length} inviati<br />Chiudere non invia né annulla ordini. Salva conserva l'ordine senza inviarlo.</p><Button variant="outline" disabled={bulkPending} onClick={() => onOpenChange(false)}>Chiudi finestra</Button></DialogFooter>
       </DialogContent>
     </Dialog>
 

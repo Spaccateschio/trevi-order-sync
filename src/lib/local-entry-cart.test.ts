@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { bulkB2bSupplierNames, bulkUnsentB2bSupplierIds, clearEntryCartDraft, confirmedLinesWithoutDrafts, entryCartLinesBySupplier, entryCartMetrics, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft } from "./local-entry-cart";
+import { entryCartReviewLines, shoppingCardQuantityLocked, bulkB2bSupplierNames, bulkUnsentB2bSupplierIds, clearEntryCartDraft, confirmedLinesWithoutDrafts, entryCartLinesBySupplier, entryCartMetrics, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft } from "./local-entry-cart";
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -100,5 +100,20 @@ describe("salvataggio finale a gruppi paralleli", () => {
     release.slice(2).forEach((resolve) => resolve());
     await pending;
     expect(maximum).toBe(2);
+  });
+});
+
+describe("card modificabili fino all'ordine", () => {
+  it("una quantità confermata ma non ancora in ordine resta modificabile", () => {
+    expect(shoppingCardQuantityLocked({ lockedAt: "2026-11-23T08:00:00Z", orderState: "da_ordinare", unlocked: false })).toBe(false);
+  });
+  it("si blocca quando il prodotto è in un ordine", () => {
+    expect(shoppingCardQuantityLocked({ lockedAt: "2026-11-23T08:00:00Z", orderState: "ordinato", unlocked: false })).toBe(true);
+    expect(shoppingCardQuantityLocked({ lockedAt: "2026-11-23T08:00:00Z", orderState: "in_parte", unlocked: false })).toBe(true);
+  });
+  it("Cosa confermi mostra nuove e salvate non ordinate, senza doppioni", () => {
+    const drafts = [{ id: "list:a" }];
+    const confirmed = [{ id: "list:a" }, { id: "list:b" }, { id: "list:c", ordered: true }];
+    expect(entryCartReviewLines(drafts, confirmed).map((line) => line.id)).toEqual(["list:a", "list:b"]);
   });
 });

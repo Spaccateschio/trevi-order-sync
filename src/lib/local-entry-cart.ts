@@ -9,6 +9,8 @@ export type EntryCartLine = {
   supplierDetails?: string[];
   /** Motivo esatto quando non esiste nessuna destinazione (solo presentazione). */
   noSupplierReason?: string | null;
+  /** Prodotto già in un ordine (salvato o inviato): non torna nel passaggio verso gli ordini. */
+  ordered?: boolean;
   error?: string | null;
 };
 
@@ -93,6 +95,19 @@ export function bulkB2bSupplierNames(groups: readonly { supplier: string }[], b2
 /** Nell'invio multiplo reale entrano solo ordini B2B non ancora inviati: nessun doppio invio. */
 export function bulkUnsentB2bSupplierIds(groups: readonly { supplierId: string; isB2b: boolean; sentAt: string | null }[]) {
   return groups.filter((group) => group.isB2b && !group.sentAt).map((group) => group.supplierId);
+}
+
+/**
+ * La card resta modificabile anche dopo il Conferma: si blocca solo quando il prodotto
+ * è in un ordine (salvato o inviato), come già fa il database sulle quote in ordine.
+ */
+export function shoppingCardQuantityLocked(args: { lockedAt: string | null | undefined; orderState: "ordinato" | "in_parte" | "da_ordinare" | null | undefined; unlocked: boolean }) {
+  return Boolean(args.lockedAt) && Boolean(args.orderState) && args.orderState !== "da_ordinare" && !args.unlocked;
+}
+
+/** «Cosa confermi»: nuove quantità + quantità già salvate non ancora in un ordine, senza doppioni. */
+export function entryCartReviewLines<T extends Pick<EntryCartLine, "id" | "ordered">>(drafts: readonly T[], confirmed: readonly T[]): T[] {
+  return [...drafts, ...confirmedLinesWithoutDrafts(confirmed, drafts).filter((line) => !line.ordered)];
 }
 
 /** Una riga confermata che viene modificata passa nelle bozze, senza comparire due volte. */

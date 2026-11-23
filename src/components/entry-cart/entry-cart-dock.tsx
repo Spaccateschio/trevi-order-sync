@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { SupplierDot, supplierToneStyle } from "@/components/suppliers/supplier-color";
 import type { SupplierColorCode } from "@/lib/supplier-color";
-import { confirmedLinesWithoutDrafts, entryCartLinesBySupplier, entryCartMetrics, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
+import { confirmedLinesWithoutDrafts, entryCartLinesBySupplier, entryCartReviewLines, entryCartMetrics, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 
 export function EntryCartDock({
   areaLabel,
@@ -24,6 +24,7 @@ export function EntryCartDock({
   onRemove,
   onRevealMissing,
   onConfirm,
+  onContinue,
   onRetry,
   supplierTone,
 }: {
@@ -40,6 +41,8 @@ export function EntryCartDock({
   onRemove: (id: string) => void;
   onRevealMissing: (id: string) => void;
   onConfirm: () => void;
+  /** Nessuna nuova quantità: si passa agli ordini per fornitore senza salvare nulla. */
+  onContinue?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   /** Colore del fornitore per nome (solo presentazione). */
   supplierTone?: ((name: string | null | undefined) => { color: SupplierColorCode } | null) | undefined;
@@ -71,7 +74,11 @@ export function EntryCartDock({
   const visibleConfirmedLines = useMemo(() => confirmedLinesWithoutDrafts(confirmedLines ?? [], lines), [confirmedLines, lines]);
   const summaryLines = lines.length ? lines : visibleConfirmedLines;
   const metrics = useMemo(() => entryCartMetrics(summaryLines), [summaryLines]);
-  const confirmationSupplierGroups = useMemo(() => entryCartLinesBySupplier(lines), [lines]);
+  // «Cosa confermi»: sempre nuove quantità + quantità salvate non ancora in un ordine.
+  const reviewLines = useMemo(() => entryCartReviewLines(lines, confirmedLines ?? []), [lines, confirmedLines]);
+  const reviewMetrics = useMemo(() => entryCartMetrics(reviewLines), [reviewLines]);
+  const draftIds = useMemo(() => new Set(lines.map((line) => line.id)), [lines]);
+  const confirmationSupplierGroups = useMemo(() => entryCartLinesBySupplier(reviewLines), [reviewLines]);
   const percentage = progress?.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   const requestConfirm = () => {
@@ -161,7 +168,8 @@ export function EntryCartDock({
             <ul className="space-y-1">{missing.slice(0, 200).map((item) => <li key={item.id}><button type="button" className="flex w-full items-center gap-2 rounded-md border border-accent/60 bg-accent/25 px-3 py-2 text-left hover:bg-accent/40" onClick={() => { setMissingOpen(false); onRevealMissing(item.id); }}><span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold">{item.label}</span>{item.detail ? <span className="block text-xs text-muted-foreground">{item.detail}</span> : null}</span><ChevronRight className="size-4 shrink-0" /></button></li>)}</ul>
           </section>
           <section aria-label="Quantità da confermare">
-            <h3 className="mb-2 text-sm font-semibold">Quantità da confermare ({lines.length})</h3>
+            <h3 className="mb-2 text-sm font-semibold">Prodotti con quantità ({reviewLines.length})</h3>
+            {!reviewLines.length ? <p className="text-sm text-muted-foreground">Nessun prodotto con quantità.</p> : null}
             <Accordion type="multiple" defaultValue={confirmationSupplierGroups.map((group) => group.supplier)} className="space-y-2">
               {confirmationSupplierGroups.map((group) => <AccordionItem key={group.supplier} value={group.supplier} className={tone(group.supplier) ? "supplier-tint rounded-md border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card px-3" : "rounded-md border border-border px-3"} style={supplierToneStyle(tone(group.supplier))}>
                 <AccordionTrigger className="gap-2 py-3 hover:no-underline">
@@ -171,14 +179,14 @@ export function EntryCartDock({
                   <ul className="space-y-2">{group.lines.map((line) => <li key={line.id} className="rounded-md bg-muted/40 p-2">
                     <p className="break-words text-sm font-semibold">{line.label}</p>
                     {line.detail ? <p className="text-xs text-muted-foreground">{line.detail}</p> : null}
-                    <p className="text-sm">Quantità: <strong>{line.quantity} {line.unitCode ?? ""}</strong></p>
+                    <p className="text-sm">Quantità: <strong>{line.quantity} {line.unitCode ?? ""}</strong>{draftIds.has(line.id) ? <span className="ml-2 text-xs text-muted-foreground">nuova</span> : <span className="ml-2 text-xs text-muted-foreground">già salvata · modificabile</span>}</p>
                   </li>)}</ul>
                 </AccordionContent>
               </AccordionItem>)}
             </Accordion>
           </section>
         </div>
-        <DialogFooter className="gap-2"><Button variant="outline" disabled={saving} onClick={() => setMissingOpen(false)}>Torna a inserire</Button><Button disabled={saving || !lines.length} onClick={() => { setMissingOpen(false); onConfirm(); }}>Conferma {metrics.products} {metrics.products === 1 ? "prodotto" : "prodotti"}</Button></DialogFooter>
+        <DialogFooter className="gap-2"><Button variant="outline" disabled={saving} onClick={() => setMissingOpen(false)}>Torna a inserire</Button><Button disabled={saving || confirmDisabled || (!lines.length && (!onContinue || !reviewLines.length))} onClick={() => { setMissingOpen(false); if (lines.length) onConfirm(); else onContinue?.(); }}>{lines.length ? `Conferma ${reviewMetrics.products} ${reviewMetrics.products === 1 ? "prodotto" : "prodotti"}` : "Vai agli ordini per fornitore"}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   </>;

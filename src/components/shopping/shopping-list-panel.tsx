@@ -104,7 +104,7 @@ import { EntryCartDock } from "@/components/entry-cart/entry-cart-dock";
 import { SupplierOrdersDialog } from "@/components/shopping/supplier-orders-dialog";
 import { SupplierLegend, SupplierTintFrame, useSupplierColors } from "@/components/suppliers/supplier-color";
 import type { ProductSupplierTone } from "@/lib/supplier-color";
-import { clearEntryCartDraft, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
+import { clearEntryCartDraft, entryCartStorageKey, shoppingCardQuantityLocked, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 
 /** Prodotto contato non ancora in Lista, mostrato con la stessa card: nessun dato della Lista inventato. */
 function pendingOverviewRow(row: CountedRow): OverviewRow {
@@ -1394,7 +1394,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   };
   // Explicit confirmation uses the existing atomic quantity + confirmation + quota queue.
   const toggleLock = async (row: OverviewRow) => {
-    const locked = Boolean(extras.get(row.item_id)?.lockedAt) && !unlockedIds.has(row.item_id);
+    const locked = shoppingCardQuantityLocked({ lockedAt: extras.get(row.item_id)?.lockedAt, orderState: extras.get(row.item_id)?.orderState, unlocked: unlockedIds.has(row.item_id) });
     if (locked) {
       setUnlockedIds((current) => new Set(current).add(row.item_id));
       return;
@@ -1736,6 +1736,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       quantity: qty(Number(row.decided_quantity)), unitCode: extras.get(row.item_id)?.decidedUnitCode ?? row.unit_code,
       supplierNames: suppliers.map((supplier) => supplier.name),
       supplierDetails: suppliers.map((supplier) => `${supplier.name} · ${supplier.purchaseQuantity === null ? "—" : qty(supplier.purchaseQuantity)} ${supplier.purchaseUnitCode ?? ""}`),
+      ordered: (extras.get(row.item_id)?.orderState ?? "da_ordinare") !== "da_ordinare",
     };
   }), [allRows, extras, excludedQuery.data]);
   const cartMissing = useMemo<EntryCartMissing[]>(() => [
@@ -2533,7 +2534,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
                 )}
                 onToggleLock={stable(`${row.item_id}:l:onToggleLock`, () => void toggleLock(row))}
                 draftQuantity={confirmationQuantity(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity))}
-                quantityLocked={Boolean(extra?.lockedAt) && !unlockedIds.has(row.item_id)}
+                quantityLocked={shoppingCardQuantityLocked({ lockedAt: extra?.lockedAt, orderState: extra?.orderState, unlocked: unlockedIds.has(row.item_id) })}
                 excluded={excludedQuery.data?.has(row.item_id) ?? false}
                 onRestore={stable(`${row.item_id}:l:onRestore`, () => void excludeItem(row.item_id, "restore").catch(() => undefined))}
                 saving={savingIds.has(row.item_id)}
@@ -2613,6 +2614,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         onRemove={removeCartLine}
         onRevealMissing={revealMissing}
         onConfirm={() => { void saveShoppingCart(); }}
+        onContinue={list ? () => setSupplierOrdersOpen(true) : undefined}
         onRetry={() => { void saveShoppingCart(); }}
       /> : null}
 
