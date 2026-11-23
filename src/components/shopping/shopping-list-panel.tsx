@@ -68,6 +68,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { supplierUnitIdForCode } from "@/lib/product-purchase-units";
 import { dateTimeShort, parseQuantity, qty } from "@/lib/inventory";
 import { addDays, localToday, useDeliveryPreferences } from "@/lib/delivery-preferences";
 import { getInventoryCycleStatus, manageInventoryEvaluation } from "@/lib/inventory-cycle.functions";
@@ -1384,6 +1385,13 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   };
   const commitQueue = useMemo(() => createLatestQueue<Commit>((itemId, c) => workerRef.current(itemId, c)), []);
   const commitQuantity = (itemId: string, c: Commit) => commitQueue.push(itemId, c);
+  /** Prodotto appena aggiunto dalla card: la U.M. scelta (es. pezzo, mazzo) va salvata col suo id, letto dai fornitori della riga. */
+  const addedItemUnitId = async (itemId: string, unitCode: string | null | undefined) => {
+    if (!unitCode) return null;
+    const { data, error } = await supabase.rpc("shopping_item_supplier_units", { _item_id: itemId });
+    if (error) throw new Error(error.message);
+    return supplierUnitIdForCode(data, unitCode);
+  };
   // Explicit confirmation uses the existing atomic quantity + confirmation + quota queue.
   const toggleLock = async (row: OverviewRow) => {
     const locked = Boolean(extras.get(row.item_id)?.lockedAt) && !unlockedIds.has(row.item_id);
@@ -1834,7 +1842,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
           if (quantity === null) throw new Error("Quantità non valida");
           await catalogChain.run(key, async () => {
             const added = await catalogActions.add.mutateAsync({ entry, quantity, unitCode: line.unitCode });
-            await commitQuantity(added.itemId, { quantity, unitId: (line.unitCode && entry.unitIds?.[line.unitCode]) || null, unitCode: line.unitCode });
+            await commitQuantity(added.itemId, { quantity, unitId: await addedItemUnitId(added.itemId, line.unitCode), unitCode: line.unitCode });
             const error = commitErrors.current.get(added.itemId);
             if (error) throw new Error(error);
           });
@@ -1851,10 +1859,9 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       await refresh();
       const failed = Object.keys(nextErrors).length;
       if (failed) toast.warning(`${failed} ${failed === 1 ? "riga resta" : "righe restano"} nel Carrello con il suo errore`);
-      else {
-        toast.success("Quantità confermate: nessun ordine è ancora stato inviato");
-        setSupplierOrdersOpen(true);
-      }
+      else toast.success("Quantità confermate: nessun ordine è ancora stato inviato");
+      // I fornitori dei prodotti salvati si vedono subito; le righe con errore restano nel Carrello.
+      if (Object.keys(errors).length < lines.length) setSupplierOrdersOpen(true);
     } finally {
       setCartSaving(false);
       setCartProgress(null);
@@ -2437,7 +2444,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
                     onAdd={stable(`${entry.key}:c:onAdd`, async (quantity, unitCode) => {
                       const commitAdded = async (added: { itemId: string }) => {
                         setEdits((current) => ({ ...current, [added.itemId]: String(quantity) }));
-                        const unitId = (unitCode && entry.unitIds?.[unitCode]) || null;
+                        const unitId = await addedItemUnitId(added.itemId, unitCode);
                         setUnitEdits((current) => ({ ...current, [added.itemId]: { unitId, unitCode } }));
                         await commitQuantity(added.itemId, { quantity, unitId, unitCode });
                         setUnitEdits((current) => { const next = { ...current }; delete next[added.itemId]; return next; });

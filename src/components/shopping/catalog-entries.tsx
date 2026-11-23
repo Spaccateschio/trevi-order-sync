@@ -32,7 +32,7 @@ import {
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
 import { cn } from "@/lib/utils";
-import { companyProductPurchaseUnitsOptions, ownCatalogUnitIds, ownCatalogUnitSelection } from "@/lib/product-purchase-units";
+import { companyProductPurchaseUnitsOptions, ownCatalogUnitSelection } from "@/lib/product-purchase-units";
 import { trackPlatformUsageClick } from "@/lib/platform-usage-tracking";
 
 const MANUAL = "__manuale__";
@@ -58,8 +58,6 @@ export type CatalogEntry = {
   unitCodes: string[];
   /** U.M. proposta: la predefinita del venditore B2B (o l'unica), altrimenti la prima. */
   defaultUnit: string | null;
-  /** Codice → id delle U.M. di acquisto del prodotto (solo non B2B): il DB le accetta solo per id. */
-  unitIds?: Record<string, string>;
   /** Solo U.M. pubblicate dal venditore: niente «Altra U.M.». */
   unitsLocked: boolean;
   isB2b: boolean;
@@ -107,7 +105,6 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
       return (data ?? []) as unknown as {
         product_id: string;
         supplier_record_id: string | null;
-        purchase_unit_id: string | null;
         b2b_item_id: string | null;
         is_active: boolean;
         supplier_records: { legal_name: string } | null;
@@ -181,11 +178,6 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
         unitCodes: selection.codes,
         defaultUnit: selection.defaultUnit,
         unitsLocked: selection.unitsLocked,
-        unitIds: selection.unitsLocked ? {} : ownCatalogUnitIds(
-          (linksQuery.data ?? []).filter((link) => link.is_active && link.product_id === p.id && !link.b2b_item_id)
-            .map((link) => ({ id: link.purchase_unit_id, code: link.units_of_measure?.code ?? null })),
-          ownUnits,
-        ),
         isB2b: false,
         hasB2b: b2bOf.has(p.id),
         hasNonB2b: (linksQuery.data ?? []).some((l) => l.is_active && l.product_id === p.id && !l.b2b_item_id && Boolean(l.supplier_record_id)),

@@ -45,12 +45,19 @@ export function ownCatalogUnitSelection(
   };
 }
 
-/** Codice → id delle U.M. di acquisto non B2B: il DB accetta le U.M. del prodotto solo per id, mai come testo libero. */
-export function ownCatalogUnitIds(linkUnits: { id: string | null; code: string | null }[], ownUnits: ProductPurchaseUnitCode[]) {
-  const ids: Record<string, string> = {};
-  for (const unit of linkUnits) if (unit.id && unit.code) ids[unit.code] = unit.id;
-  for (const unit of ownUnits) if (unit.units_of_measure?.code) ids[unit.units_of_measure.code] = unit.unit_id;
-  return ids;
+/**
+ * Codice U.M. scelto sulla card → id accettato dal DB, letto dalle U.M. dei fornitori della riga
+ * (shopping_item_supplier_units: venditore per B2B, prodotto/referenza per non B2B). Mai testo libero inventato.
+ */
+export function supplierUnitIdForCode(rows: { units: unknown }[] | null | undefined, code: string | null | undefined) {
+  const wanted = code?.trim().toLowerCase();
+  if (!wanted) return null;
+  for (const row of rows ?? []) {
+    for (const unit of Array.isArray(row.units) ? row.units as { unit_id?: string | null; code?: string | null }[] : []) {
+      if (unit.unit_id && unit.code?.trim().toLowerCase() === wanted) return unit.unit_id;
+    }
+  }
+  return null;
 }
 
 /**
