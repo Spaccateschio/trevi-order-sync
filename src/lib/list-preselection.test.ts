@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { listCounters, memoryStillValid, visualPick } from "@/lib/supplier-selection";
+import { confirmedQuantityForSupplier, listCounters, memoryStillValid, visualPick } from "@/lib/supplier-selection";
 import { chooseListDestinations, planFromMemory, proposedSupplierNames, type SupplierMemory } from "@/lib/supplier-memory";
 
 const s = (linkId: string, o: Partial<{ isB2B: boolean; sourceLinked: boolean; purchasable: boolean; isPreferred: boolean }> = {}) => ({
@@ -15,6 +15,15 @@ describe("spunta visiva prima della quantità", () => {
   it("★ tolta: resta solo l'altro fornitore, come nell'assegnazione", () => assert.equal(visualPick([s("a", { isPreferred: true }), s("b")], ["a"]), "b"));
   it("deselezione volontaria prevale sul fornitore unico", () => assert.equal(visualPick([s("a")], ["a"]), null));
   it("B2B non acquistabile mai spuntato", () => assert.equal(visualPick([s("a", { isB2B: true, purchasable: false })], []), null));
+});
+
+describe("quantità assegnabile con card riaperta", () => {
+  it("una quantità confermata resta disponibile per il fornitore", () =>
+    assert.equal(confirmedQuantityForSupplier(5, "2026-11-23T07:06:52Z"), 5));
+  it("senza conferma non assegna automaticamente la quantità", () =>
+    assert.equal(confirmedQuantityForSupplier(5, null), null));
+  it("senza quantità non inventa un valore", () =>
+    assert.equal(confirmedQuantityForSupplier(null, "2026-11-23T07:06:52Z"), null));
 });
 
 describe("memoria e stella", () => {

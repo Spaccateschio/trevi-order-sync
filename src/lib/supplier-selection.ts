@@ -318,6 +318,11 @@ export function visualPick(
   return valid.length === 1 && suppliers.filter((s) => !off.has(s.linkId)).length === 1 ? valid[0]!.linkId : null;
 }
 
+/** La quantità salvata resta assegnabile ai fornitori anche quando la card è riaperta solo per modificarla. */
+export function confirmedQuantityForSupplier(quantity: number | null, confirmedAt: string | null): number | null {
+  return confirmedAt ? quantity : null;
+}
+
 /** La memoria dell'ultima Lista chiusa vale solo se la stella NON è stata cambiata a mano dopo quella Lista. */
 export function memoryStillValid(memoryClosedAt: string, manualStarAt: string | null): boolean {
   if (!manualStarAt) return true;

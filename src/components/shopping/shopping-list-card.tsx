@@ -29,7 +29,7 @@ import { dateTimeShort, qty } from "@/lib/inventory";
 import { type OverviewRow } from "@/lib/shopping-list";
 import { chooseListDestinations, deselectedFor, proposedSupplierNames, type SupplierMemory } from "@/lib/supplier-memory";
 import { pickFromCardReads, supplierBriefText } from "@/lib/supplier-brief";
-import { factsFromRow, rowLabel } from "@/lib/supplier-selection";
+import { confirmedQuantityForSupplier, factsFromRow, rowLabel } from "@/lib/supplier-selection";
 import { cn } from "@/lib/utils";
 import { companyProductPurchaseUnitsOptions, productPurchaseDefault, productUnitsReplaceLinkUnits } from "@/lib/product-purchase-units";
 
@@ -688,7 +688,7 @@ export function ShoppingListCard({
       editable={editable}
       assignments={suppliers}
       show={show}
-      target={locked ? target : null}
+      target={confirmedQuantityForSupplier(target, extra?.lockedAt ?? null)}
       decidedUnitId={otherUnit ? (extra?.decidedUnitId ?? null) : null}
       decidedCode={decidedCode}
       lockedAt={extra?.lockedAt ?? null}
