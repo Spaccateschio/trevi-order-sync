@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sharedPurchaseUnitChoices, addProductPurchaseUnit, allowedPurchaseUnits, validatePurchaseSelection, productPurchaseDefault, mergeManualPurchaseUnits, type ProductPurchaseUnitCode } from "./product-purchase-units";
+import { sharedPurchaseUnitChoices, addProductPurchaseUnit, allowedPurchaseUnits, validatePurchaseSelection, productPurchaseDefault, mergeManualPurchaseUnits, ownCatalogUnitSelection, type ProductPurchaseUnitCode } from "./product-purchase-units";
 const units = [
   { id: "kg", company_id: "a", status: "attivo", usage: "acquisto" },
   { id: "cs", company_id: "a", status: "attivo", usage: "entrambi" },
@@ -27,6 +27,14 @@ describe("U.M. proprie del prodotto", () => {
   it("fornitore manuale usa solo le U.M. della tab Acquisto (mazzo della referenza escluso)", () => expect(mergeManualPurchaseUnits(linked, own, "1847", false)).toEqual([{ unitId: "cs", code: "cassa", conversionFactor: null, conversionType: null, isDefault: true }]));
   it("senza U.M. del prodotto restano quelle della referenza", () => expect(mergeManualPurchaseUnits(linked, [], "1847", false)).toEqual(linked));
   it("B2B mantiene solo le unità del venditore", () => expect(mergeManualPurchaseUnits(linked, own, "1847", true)).toEqual(linked));
+  it("AGLIO SPAGNA collegato a trevi mostra solo kg, pz e cs pubblicati, senza cassa o Altra U.M.", () => {
+    expect(ownCatalogUnitSelection({ codes: ["kg", "pz", "cs"], def: "kg" }, ["kg", "cassa"], own, "1847"))
+      .toEqual({ codes: ["kg", "pz", "cs"], defaultUnit: "kg", unitsLocked: true });
+  });
+  it("senza articolo B2B la card conserva le U.M. interne e dei fornitori normali", () => {
+    expect(ownCatalogUnitSelection(undefined, ["kg", "mazzo"], own, "1847"))
+      .toEqual({ codes: ["kg", "mazzo", "cassa"], defaultUnit: "cassa", unitsLocked: false });
+  });
   it("non duplica né altera la conversione della referenza", () => {
     const existing = [{ unitId: "cs", code: "cassa", conversionFactor: 10, conversionType: "esatta" }];
     expect(mergeManualPurchaseUnits(existing, own, "1847", false)).toEqual([{ ...existing[0], isDefault: true }]);

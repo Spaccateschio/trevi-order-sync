@@ -32,7 +32,7 @@ import {
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
 import { cn } from "@/lib/utils";
-import { companyProductPurchaseUnitsOptions, productPurchaseDefault } from "@/lib/product-purchase-units";
+import { companyProductPurchaseUnitsOptions, ownCatalogUnitSelection } from "@/lib/product-purchase-units";
 import { trackPlatformUsageClick } from "@/lib/platform-usage-tracking";
 
 const MANUAL = "__manuale__";
@@ -162,8 +162,7 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
       const b2bId = b2bOf.get(p.id);
       const pub = b2bId ? published.get(b2bId) : undefined;
       const ownUnits = (ownUnitsQuery.data ?? []).filter((u) => u.product_id === p.id);
-      const ownCodes = ownUnits.flatMap((u) => u.units_of_measure?.code ? [u.units_of_measure.code] : []);
-      const codes = [...new Set([...(pub && pub.codes.length ? pub.codes : [...units]), ...ownCodes])];
+      const selection = ownCatalogUnitSelection(pub, [...units], ownUnits, p.id);
       return {
         key: `own:${p.id}`,
         ownProductId: p.id,
@@ -176,9 +175,9 @@ export function useCatalogEntries({ companyId, archiveId, enabled }: { companyId
         baseUm: p.danea_um,
         supplierRecordIds: [...(l?.ids ?? [])],
         supplierNames: [...(l?.names ?? [])],
-        unitCodes: codes,
-        defaultUnit: productPurchaseDefault(ownUnits, p.id)?.code ?? (pub && pub.codes.length ? pub.def || null : null),
-        unitsLocked: Boolean(pub && pub.codes.length && !ownCodes.length),
+        unitCodes: selection.codes,
+        defaultUnit: selection.defaultUnit,
+        unitsLocked: selection.unitsLocked,
         isB2b: false,
         hasB2b: b2bOf.has(p.id),
         hasNonB2b: (linksQuery.data ?? []).some((l) => l.is_active && l.product_id === p.id && !l.b2b_item_id && Boolean(l.supplier_record_id)),

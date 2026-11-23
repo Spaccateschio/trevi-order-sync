@@ -24,6 +24,22 @@ export function productPurchaseDefault(units: ProductPurchaseUnitCode[], product
   return preferred?.units_of_measure ? { unitId: preferred.unit_id, code: preferred.units_of_measure.code } : null;
 }
 
+/** Prodotti propri non ancora in Lista: se esiste un articolo B2B pubblicato, solo le sue U.M. e la sua predefinita. */
+export function ownCatalogUnitSelection(
+  published: { codes: string[]; def: string } | undefined,
+  linkedCodes: string[],
+  ownUnits: ProductPurchaseUnitCode[],
+  productId: string,
+) {
+  if (published?.codes.length) return { codes: [...new Set(published.codes)], defaultUnit: published.def || null, unitsLocked: true };
+  const ownCodes = ownUnits.flatMap((u) => u.units_of_measure?.code ? [u.units_of_measure.code] : []);
+  return {
+    codes: [...new Set([...linkedCodes, ...ownCodes])],
+    defaultUnit: productPurchaseDefault(ownUnits, productId)?.code ?? null,
+    unitsLocked: false,
+  };
+}
+
 /**
  * Fornitori non B2B: se il prodotto ha U.M. d'acquisto (tab Acquisto) si usano SOLO quelle,
  * riusando la conversione della referenza quando è la stessa U.M. (mai inventata).
