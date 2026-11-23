@@ -91,7 +91,7 @@ export function EntryCartDock({
           <Progress value={percentage} className="h-1.5" aria-label="Avanzamento salvataggio" />
         </div> : null}
         <div className="flex min-w-0 items-stretch gap-2">
-          <Button type="button" variant="ghost" className="h-10 min-w-0 flex-1 items-center gap-1.5 bg-sidebar-accent px-3 py-0 text-left text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground" onClick={() => setCartOpen(true)} aria-label={`Apri carrello ${areaLabel}`}>
+          <Button type="button" variant="ghost" className="h-10 min-w-0 flex-1 items-center gap-1.5 bg-sidebar-accent px-3 py-0 text-left text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground" onClick={() => setMissingOpen(true)} aria-label={`Apri carrello ${areaLabel}`}>
             <span className="flex shrink-0 items-center gap-1.5 text-xs font-bold"><ShoppingCart className="size-4" /> CARRELLO</span>
             <span className="min-w-0 truncate text-[11px] font-normal text-sidebar-foreground/75">{metrics.products} {metrics.products === 1 ? "prodotto" : "prodotti"} · {metrics.suppliers} {metrics.suppliers === 1 ? "fornitore" : "fornitori"}</span>
           </Button>
