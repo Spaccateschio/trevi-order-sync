@@ -24,6 +24,11 @@ export function productPurchaseDefault(units: ProductPurchaseUnitCode[], product
   return preferred?.units_of_measure ? { unitId: preferred.unit_id, code: preferred.units_of_measure.code } : null;
 }
 
+/** La conversione si aggancia solo alla stessa U.M. attiva della referenza; se manca va creata esplicitamente. */
+export function purchaseUnitConversionTarget<T extends { unit_id: string; is_active: boolean }>(assigned: T[], unitId: string) {
+  return assigned.find((unit) => unit.unit_id === unitId && unit.is_active) ?? null;
+}
+
 /** Prodotti propri non ancora in Lista: se esiste un articolo B2B pubblicato, solo le sue U.M. e la sua predefinita. */
 export function ownCatalogUnitSelection(
   published: { codes: string[]; def: string } | undefined,

@@ -17,7 +17,7 @@ import { SupplierConversionsSection } from "./stock-unit-config";
 import { DEFAULT_SCHEDULE, deliveryScheduleSummary, type DeliverySchedule } from "@/lib/delivery-schedule";
 import { dateTime, euro } from "@/lib/product-grid";
 import { useDeliverySchedules } from "@/lib/use-delivery-schedules";
-import { allowedPurchaseUnits, companyProductPurchaseUnitsOptions, sharedPurchaseUnitChoices, productPurchaseUnitsOptions } from "@/lib/product-purchase-units";
+import { allowedPurchaseUnits, companyProductPurchaseUnitsOptions, sharedPurchaseUnitChoices, productPurchaseUnitsOptions, purchaseUnitConversionTarget } from "@/lib/product-purchase-units";
 import { supplierLinkPatch } from "@/lib/supplier-link-patch";
 import type { CompanyUnit } from "./sales-unit-manager";
 
@@ -725,7 +725,7 @@ export function PurchaseUnitsEditor({ companyId, productId, linkId, assigned, un
   const inherited = sharedPurchaseUnitChoices(assigned, shared.data ?? [], productId, isB2B)
     .filter(u => productOnly || !assigned.some(a => a.is_active && a.unit_id === u.unit_id));
   const mutation = useMutation({
-    mutationFn: async (input: {unitId:string; action:"remove"|"set_default"|"clear_default"}) => {
+    mutationFn: async (input: {unitId:string; action:"add"|"remove"|"set_default"|"clear_default"}) => {
       const {error}=await supabase.rpc("manage_product_supplier_link_unit",{_company_id:companyId,_link_id:linkId,_unit_id:input.unitId,_action:input.action});
       if(error) throw new Error(error.message);
     }, onSuccess: async()=>{await onChanged();toast.success("U.M. aggiornata");}, onError:(e:Error)=>toast.error(e.message)
@@ -733,7 +733,16 @@ export function PurchaseUnitsEditor({ companyId, productId, linkId, assigned, un
   if (!isB2B && inherited.length) {
     return <div className="space-y-2">
       <Label>U.M. usate</Label>
-      {inherited.map(u => <div key={u.unit_id} className="flex items-center gap-2 border-b border-border py-2"><span className="font-medium">{u.code}</span>{u.is_default ? <Star className="size-4 fill-primary text-primary" aria-label="U.M. preferita del prodotto" /> : null}<Badge variant="secondary">Del prodotto</Badge></div>)}
+      {inherited.map(u => {
+        const conversionTarget = purchaseUnitConversionTarget(assigned, u.unit_id);
+        return <div key={u.unit_id} className="border-b border-border py-2">
+          <div className="flex items-center gap-2"><span className="font-medium">{u.code}</span>{u.is_default ? <Star className="size-4 fill-primary text-primary" aria-label="U.M. preferita del prodotto" /> : null}<Badge variant="secondary">Del prodotto</Badge></div>
+          {conversionTarget ? <SupplierConversionsSection productId={productId} units={units} editable={!disabled} linkUnitId={conversionTarget.id}/> : <div className="mt-2 rounded-md border border-dashed border-border p-2">
+            <p className="text-xs text-muted-foreground">Per registrare pezzi e peso effettivo, attiva la conversione e poi scegli «Variabile» con la matita.</p>
+            <Button type="button" size="sm" variant="outline" className="mt-2" disabled={disabled || mutation.isPending} onClick={() => mutation.mutate({ unitId: u.unit_id, action: "add" })}><Plus/>Attiva conversione</Button>
+          </div>}
+        </div>;
+      })}
       <p className="text-sm text-muted-foreground">Si cambiano dalla tab Acquisto del prodotto; le confezioni (es. cassa = 10 kg) sono quelle del prodotto.</p>
     </div>;
   }

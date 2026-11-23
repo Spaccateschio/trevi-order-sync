@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sharedPurchaseUnitChoices, addProductPurchaseUnit, allowedPurchaseUnits, validatePurchaseSelection, productPurchaseDefault, mergeManualPurchaseUnits, ownCatalogUnitSelection, type ProductPurchaseUnitCode } from "./product-purchase-units";
+import { sharedPurchaseUnitChoices, addProductPurchaseUnit, allowedPurchaseUnits, validatePurchaseSelection, productPurchaseDefault, mergeManualPurchaseUnits, ownCatalogUnitSelection, purchaseUnitConversionTarget, type ProductPurchaseUnitCode } from "./product-purchase-units";
 const units = [
   { id: "kg", company_id: "a", status: "attivo", usage: "acquisto" },
   { id: "cs", company_id: "a", status: "attivo", usage: "entrambi" },
@@ -38,6 +38,13 @@ describe("U.M. proprie del prodotto", () => {
   it("non duplica né altera la conversione della referenza", () => {
     const existing = [{ unitId: "cs", code: "cassa", conversionFactor: 10, conversionType: "esatta" }];
     expect(mergeManualPurchaseUnits(existing, own, "1847", false)).toEqual([{ ...existing[0], isDefault: true }]);
+  });
+  it("pz ereditato usa solo la riga attiva dello stesso fornitore per la conversione variabile in kg", () => {
+    const assigned = [{ id: "riga-pz", unit_id: "pz", is_active: true }, { id: "riga-kg", unit_id: "kg", is_active: true }];
+    expect(purchaseUnitConversionTarget(assigned, "pz")?.id).toBe("riga-pz");
+  });
+  it("senza la riga pz attiva non inventa una conversione: va attivata esplicitamente", () => {
+    expect(purchaseUnitConversionTarget([{ id: "riga-pz", unit_id: "pz", is_active: false }], "pz")).toBeNull();
   });
   it("la prima U.M. acquisto cassa diventa automaticamente preferita", () => expect(addProductPurchaseUnit({ ids: [], defaultId: null }, "cs")).toEqual({ ids: ["cs"], defaultId: "cs" }));
   it("aggiungere un'altra U.M. mantiene la preferita scelta", () => expect(addProductPurchaseUnit({ ids: ["cs"], defaultId: "cs" }, "kg")).toEqual({ ids: ["cs", "kg"], defaultId: "cs" }));
