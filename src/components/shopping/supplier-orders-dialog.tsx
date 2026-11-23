@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CalendarClock, Check, Loader2, MapPin, Pencil, Send } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, Loader2, MapPin, Pencil, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { bulkUnsentB2bSupplierIds } from "@/lib/local-entry-cart";
 import { qty } from "@/lib/inventory";
 import { addDays, localToday, useDeliveryPreferences } from "@/lib/delivery-preferences";
 import { deliveryDefaults, halfHourTime } from "@/lib/order-delivery-defaults";
+import { supplierOrderIssueReason } from "@/lib/supplier-order-issues";
 import { generateSupplierOrder, getGenerationPreview, updateDraftOrder, type GenerationLine } from "@/lib/order-generation.functions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import type { SupplierColorCode } from "@/lib/supplier-color";
@@ -70,12 +71,14 @@ function HalfHourTimeSelect({ label, value, onChange }: { label: string; value: 
 }
 
 /** Stessa presentazione approvata, alimentata dalle bozze e dagli ordini reali della Lista. */
-export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, supplierTone, onListClosed }: {
+export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, supplierTone, saveErrors = [], onGoToItem, onListClosed }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   companyId: string;
   listId: string;
   supplierTone?: ((name: string | null | undefined) => { color: SupplierColorCode } | null) | undefined;
+  saveErrors?: { id: string; label: string; message: string }[];
+  onGoToItem: (itemId: string) => void;
   onListClosed: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -305,8 +308,21 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
           <DialogDescription>Fornitori e prodotti restano quelli del riepilogo. Usa l'aeroplanino per il singolo ordine oppure l'invio multiplo per i soli B2B.</DialogDescription>
         </DialogHeader>
         {bulkIds.length ? <Button type="button" variant="outline" className="w-full" disabled={bulkPending || pending.size > 0} onClick={() => void sendBulkB2b()}>{bulkPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Invia tutti gli ordini B2B ({bulkIds.length})</Button> : null}
-        <div className="min-h-0 overflow-y-auto pr-1">
-          {preview.isPending || orders.isPending ? <p className="text-sm text-muted-foreground">Caricamento ordini…</p> : preview.isError || orders.isError ? <p className="text-sm text-destructive">{(preview.error ?? orders.error)?.message}</p> : groups.length ? <Accordion type="multiple" defaultValue={groups.map((group) => group.supplierId)} className="space-y-2">
+        <div className="min-h-0 space-y-3 overflow-y-auto pr-1">
+          {saveErrors.length ? <section aria-label="Errori di salvataggio" className="rounded-md border border-destructive/40 bg-destructive/10 p-3" role="alert">
+            <h3 className="flex items-center gap-2 text-sm font-semibold"><AlertTriangle className="size-4" /> Prodotti non salvati ({saveErrors.length})</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Restano nel Carrello e non sono stati inclusi negli ordini. Correggi l’errore e premi di nuovo Conferma.</p>
+            <ul className="mt-2 space-y-2">{saveErrors.map((line) => <li key={line.id} className="text-sm"><strong>{line.label}</strong><span className="block text-destructive">{line.message}</span></li>)}</ul>
+          </section> : null}
+          {preview.data?.issues.length ? <section aria-label="Prodotti da sistemare" className="rounded-md border border-warning/50 bg-warning/10 p-3">
+            <h3 className="flex items-center gap-2 text-sm font-semibold"><AlertTriangle className="size-4" /> Non inclusi negli ordini ({preview.data.issues.length})</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Non sono spariti: restano nella Lista. Sistema il prodotto per far comparire il relativo fornitore.</p>
+            <ul className="mt-2 space-y-2">{preview.data.issues.map((issue) => <li key={issue.item_id} className="flex items-start gap-2 rounded-md bg-background/60 p-2">
+              <div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{issue.code ? `${issue.code} · ` : ""}{issue.name}</p><p className="text-xs text-muted-foreground">{supplierOrderIssueReason(issue)}</p></div>
+              <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => onGoToItem(issue.item_id)}>Sistema</Button>
+            </li>)}</ul>
+          </section> : null}
+          {preview.isPending || orders.isPending ? <p className="text-sm text-muted-foreground">Caricamento ordini…</p> : preview.isError || orders.isError ? <p className="text-sm text-destructive" role="alert">{(preview.error ?? orders.error)?.message}</p> : groups.length ? <Accordion type="multiple" defaultValue={groups.map((group) => group.supplierId)} className="space-y-2">
             {groups.map((group) => {
               const t = tone(group.name);
               const isSent = Boolean(group.order?.sent_at);
@@ -355,7 +371,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
             })}
           </Accordion> : <p className="text-sm text-muted-foreground">Nessun prodotto con quantità confermata e fornitore assegnato.</p>}
         </div>
-        <DialogFooter><p className="mr-auto self-center text-xs text-muted-foreground">{sentCount} di {groups.length} inviati</p><Button variant="outline" disabled={bulkPending} onClick={() => onOpenChange(false)}>Chiudi</Button></DialogFooter>
+        <DialogFooter className="items-center gap-2"><p className="mr-auto text-xs text-muted-foreground">{sentCount} di {groups.length} inviati<br />Chiudere non invia né annulla ordini.</p><Button variant="outline" disabled={bulkPending} onClick={() => onOpenChange(false)}>Chiudi finestra</Button></DialogFooter>
       </DialogContent>
     </Dialog>
 

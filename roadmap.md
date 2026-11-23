@@ -4,6 +4,7 @@
 - [x] Mantenere la schermata approvata e ricollegare il salvataggio del Conferma, la generazione del singolo ordine, l'invio B2B/multiplo e la condivisione non B2B con note e consegna reali.
 - [x] Verificare compilazione, 51 test e schermata reale desktop/mobile su 3 EMME senza creare ordini né inviare comunicazioni.
 - [x] Orari della modifica consegna a passi di 30 minuti; ultimo orario del fornitore riproposto nel prossimo ordine, altrimenti preferenze aziendali. 10 test superati e selettore verificato desktop/mobile su copia grafica non inviata, senza scritture.
+- [x] Nella finestra fornitori: prodotti omessi con motivo, errori di salvataggio, comando per correggere la card e chiarimento che Chiudi non invia né annulla. Verifica reale 3 EMME: AGLIO SPAGNA 5 kg senza assegnazione visibile; due fornitori pronti; Sistema/Chiudi e mobile verificati senza scritture o invii.
 - [ ] Collaudo operativo finale di Andrea su 3 EMME: il primo aeroplanino crea e invia davvero l'ordine; nessuna prova automatica dell'assistente.
 
 ## 21/11 — Assistenza e proposte degli utenti

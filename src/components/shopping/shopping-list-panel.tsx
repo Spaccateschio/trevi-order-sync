@@ -2616,7 +2616,15 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         onRetry={() => { void saveShoppingCart(); }}
       /> : null}
 
-      {list ? <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} companyId={companyId} listId={list.id} supplierTone={supplierColors.toneByName} onListClosed={() => {
+      {list ? <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} companyId={companyId} listId={list.id} supplierTone={supplierColors.toneByName}
+        saveErrors={displayedCartLines.filter((line) => line.error).map((line) => ({ id: line.id, label: line.label, message: line.error! }))}
+        onGoToItem={(itemId) => {
+          setSupplierOrdersOpen(false);
+          setUnlockedIds((current) => unlockSelectedProduct(current, itemId));
+          setMobileOpenId(itemId);
+          revealItem(itemId);
+        }}
+        onListClosed={() => {
         clearShoppingDraft();
         setSupplierOrdersOpen(false);
         ordinaryIdRef.current = null;
