@@ -402,3 +402,4 @@
 
 ## 22/11 — Fornitore deciso prima del Conferma
 - [x] Carrello/«Cosa confermi» con fornitore proposto (chooseListDestinations), «Senza fornitore» solo se reale con motivo, card con motivo e tasti
+- [x] Carrello: Mancanti sopra; dopo Conferma finestra «Ordini per fornitore» (visiva): riga espandibile, note, orario/luogo della Lista, matita solo orario, aeroplanino con scelte invio, verde «Inviato» e rinvio.

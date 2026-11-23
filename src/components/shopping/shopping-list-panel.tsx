@@ -100,6 +100,7 @@ import { readCardBundle, readCardDirectQuota, readCardPreference } from "@/lib/s
 import { pickFromCardReads } from "@/lib/supplier-brief";
 import { factsFromRow, listCounters, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
 import { EntryCartDock } from "@/components/entry-cart/entry-cart-dock";
+import { SupplierOrdersDialog } from "@/components/shopping/supplier-orders-dialog";
 import { SupplierLegend, SupplierTintFrame, useSupplierColors } from "@/components/suppliers/supplier-color";
 import type { ProductSupplierTone } from "@/lib/supplier-color";
 import { clearEntryCartDraft, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
@@ -270,7 +271,8 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   const [cartErrors, setCartErrors] = useState<Record<string, string>>({});
   const [cartSaving, setCartSaving] = useState(false);
   const [cartProgress, setCartProgress] = useState<EntryCartProgress>(null);
-  const [cartReviewSignal, setCartReviewSignal] = useState(0);
+  const [cartReviewSignal] = useState(0);
+  const [supplierOrdersOpen, setSupplierOrdersOpen] = useState(false);
   // Card / Righe: scelta solo visuale, ricordata sul dispositivo.
   const [viewMode, setViewMode] = useState<"card" | "row">("card");
   useEffect(() => {
@@ -1860,7 +1862,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       if (failed) toast.warning(`${failed} ${failed === 1 ? "riga resta" : "righe restano"} nel Carrello con il suo errore`);
       else {
         toast.success("Quantità confermate: nessun ordine è ancora stato inviato");
-        setCartReviewSignal((current) => current + 1);
+        setSupplierOrdersOpen(true);
       }
     } finally {
       setCartSaving(false);
@@ -2614,6 +2616,8 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         onConfirm={() => { void saveShoppingCart(); }}
         onRetry={() => { void saveShoppingCart(); }}
       /> : null}
+
+      <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} listId={list?.id ?? null} lines={confirmedCartLines} supplierTone={supplierColors.toneByName} />
 
       {addOpen && ready.showProducts ? (
         <AddProductsDialog

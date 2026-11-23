@@ -111,7 +111,13 @@ export function EntryCartDock({
         </DialogHeader>
         <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
           {!lines.length && visibleConfirmedLines.length ? <p className="rounded-md border border-success/40 bg-success/10 p-2 text-sm font-medium" role="status">Queste sono le quantità confermate nella Lista. Nessun ordine è stato inviato.</p> : null}
-          <section aria-label="Articoli inseriti">
+          <section aria-label="Articoli mancanti">
+            <h3 className="mb-2 text-sm font-semibold">Mancanti ({missing.length})</h3>
+            {missing.length ? <ul className="space-y-1">{missing.slice(0, 200).map((item) => <li key={item.id}><button type="button" className="flex w-full items-center gap-2 rounded-md border border-accent/60 bg-accent/25 px-2 py-1.5 text-left hover:bg-accent/40" onClick={() => { setCartOpen(false); onRevealMissing(item.id); }}>
+              <span className="min-w-0 flex-1"><span className="block break-words text-sm">{item.label}</span>{item.detail ? <span className="block text-xs text-muted-foreground">{item.detail}</span> : null}</span><ChevronRight className="size-4 shrink-0" />
+            </button></li>)}</ul> : <p className="text-sm text-muted-foreground">Tutti gli articoli hanno una quantità.</p>}
+          </section>
+          <section aria-label="Articoli inseriti" className="border-t border-border pt-3">
             <h3 className="mb-2 text-sm font-semibold">Inseriti ({lines.length})</h3>
             {lines.length ? <ul className="space-y-2">{lines.map((line) => <li key={line.id} className={toneLi(line.supplierNames, !line.quantity.trim())} style={supplierToneStyle(tone(line.supplierNames?.[0]))}>
               <div className="flex items-start gap-2">
@@ -138,12 +144,6 @@ export function EntryCartDock({
               {line.supplierDetails?.length ? <p className="mt-1 text-xs text-muted-foreground">{line.supplierDetails.join(" · ")}</p> : null}
             </li>)}</ul>
           </section> : null}
-          <section aria-label="Articoli mancanti" className="border-t border-border pt-3">
-            <h3 className="mb-2 text-sm font-semibold">Mancanti ({missing.length})</h3>
-            {missing.length ? <ul className="space-y-1">{missing.slice(0, 200).map((item) => <li key={item.id}><button type="button" className="flex w-full items-center gap-2 rounded-md border border-accent/60 bg-accent/25 px-2 py-1.5 text-left hover:bg-accent/40" onClick={() => { setCartOpen(false); onRevealMissing(item.id); }}>
-              <span className="min-w-0 flex-1"><span className="block break-words text-sm">{item.label}</span>{item.detail ? <span className="block text-xs text-muted-foreground">{item.detail}</span> : null}</span><ChevronRight className="size-4 shrink-0" />
-            </button></li>)}</ul> : <p className="text-sm text-muted-foreground">Tutti gli articoli hanno una quantità.</p>}
-          </section>
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" disabled={saving || confirmDisabled || !lines.length} onClick={() => { setCartOpen(false); requestConfirm(); }}><CheckCheck /> Conferma modifiche</Button>
