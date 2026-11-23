@@ -101,9 +101,12 @@ import { pickFromCardReads } from "@/lib/supplier-brief";
 import { factsFromRow, listCounters, quotaSaveError, rowLabel, summarizeRows } from "@/lib/supplier-selection";
 import { EntryCartDock } from "@/components/entry-cart/entry-cart-dock";
 import { SupplierOrdersDialog } from "@/components/shopping/supplier-orders-dialog";
+
+/** Finché Andrea non approva il mockup, l'invio ordini resta solo grafico. */
+const ORDERS_SEND_MOCKUP = true;
 import { SupplierLegend, SupplierTintFrame, useSupplierColors } from "@/components/suppliers/supplier-color";
 import type { ProductSupplierTone } from "@/lib/supplier-color";
-import { clearEntryCartDraft, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
+import { clearEntryCartDraft, confirmedLinesWithoutDrafts, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft, type EntryCartLine, type EntryCartMissing, type EntryCartProgress } from "@/lib/local-entry-cart";
 
 /** Prodotto contato non ancora in Lista, mostrato con la stessa card: nessun dato della Lista inventato. */
 function pendingOverviewRow(row: CountedRow): OverviewRow {
@@ -1450,6 +1453,8 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
     setGenOpen("genera");
   };
   const openGeneration = () => {
+    // Fase mockup: «Invia ordini per fornitore» apre solo l'anteprima grafica, nessun ordine generato o inviato.
+    if (ORDERS_SEND_MOCKUP) { setSupplierOrdersOpen(true); return; }
     const entry = generationEntryState({ fetching: overviewQuery.isFetching || excludedQuery.isFetching, hasUnconfirmedDrafts: hasUnconfirmed, missingQuantityCount: completionEntries.length });
     if (entry === "wait") { toast.info("Attendi l'aggiornamento della Lista"); return; }
     if (entry === "drafts") { canLeaveDrafts(() => proceedGeneration(true)); return; }
@@ -1736,6 +1741,11 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       supplierDetails: suppliers.map((supplier) => `${supplier.name} · ${supplier.purchaseQuantity === null ? "—" : qty(supplier.purchaseQuantity)} ${supplier.purchaseUnitCode ?? ""}`),
     };
   }), [allRows, extras, excludedQuery.data]);
+  // Anteprima: quantità confermate + quantità ancora nel Carrello (solo lettura, nulla viene salvato).
+  const mockupOrderLines = useMemo(() => {
+    const drafts = cartLines.filter((line) => line.quantity.trim() && !invalidCartIds.has(line.id));
+    return [...confirmedLinesWithoutDrafts(confirmedCartLines, drafts), ...drafts];
+  }, [cartLines, confirmedCartLines, invalidCartIds]);
   const confirmedB2bSuppliers = useMemo(() => new Set(allRows.flatMap((row) =>
     (extras.get(row.item_id)?.suppliers ?? []).filter((supplier) => supplier.isB2B).map((supplier) => supplier.name),
   )), [allRows, extras]);
@@ -2609,7 +2619,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         progress={cartProgress}
         saving={cartSaving}
         confirmDisabled={!ready.canPrepare && !previewMode}
-        secondaryAction={list && editable && allRows.length ? { label: "Invia ordini per fornitore", disabled: listMutation.isPending, onClick: openGeneration } : undefined}
+        secondaryAction={ORDERS_SEND_MOCKUP ? (mockupOrderLines.length ? { label: "Invia ordini per fornitore", onClick: () => setSupplierOrdersOpen(true) } : undefined) : list && editable && allRows.length ? { label: "Invia ordini per fornitore", disabled: listMutation.isPending, onClick: openGeneration } : undefined}
         onQuantityChange={changeCartQuantity}
         onRemove={removeCartLine}
         onRevealMissing={revealMissing}
@@ -2617,7 +2627,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         onRetry={() => { void saveShoppingCart(); }}
       /> : null}
 
-      <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} listId={list?.id ?? null} lines={confirmedCartLines} supplierTone={supplierColors.toneByName} b2bSuppliers={confirmedB2bSuppliers} />
+      <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} listId={list?.id ?? null} lines={mockupOrderLines} supplierTone={supplierColors.toneByName} b2bSuppliers={confirmedB2bSuppliers} />
 
       {addOpen && ready.showProducts ? (
         <AddProductsDialog
