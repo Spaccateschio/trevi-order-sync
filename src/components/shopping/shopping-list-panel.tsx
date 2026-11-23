@@ -79,7 +79,7 @@ import {
 import { describeOperationalSchedule, hasTodayOverride, type OperationalScheduleRow } from "@/lib/operational-schedule";
 import { TimeWheelPicker } from "@/components/company/time-wheel";
 import { hasRole, useIdentity } from "@/hooks/use-identity";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   addShoppingListItems,
   assignShoppingListSupplier,
@@ -218,6 +218,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   const [genMounted, setGenMounted] = useState<string | null>(null);
   const [reviewCatalog, setReviewCatalog] = useState<CatalogReviewProduct[]>([]);
   const [newListOpen, setNewListOpen] = useState(false);
+  const [draftLeave, setDraftLeave] = useState<{ message: string; onDiscard: () => void } | null>(null);
   const runQuantity = useServerFn(setShoppingListItemQuantity);
   const runRemove = useServerFn(removeShoppingListItem);
   const runLock = useServerFn(setShoppingListItemQuantityLock);
@@ -1440,11 +1441,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       message = "Ci sono quantità scritte in «Da inventario» non ancora aggiunte.";
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-    toast.warning(message, {
-      duration: 12000,
-      action: { label: "Scarta bozza e continua", onClick: () => { clearShoppingDraft(); onDiscard(); } },
-      cancel: { label: "Torna a inserire", onClick: () => undefined },
-    });
+    setDraftLeave({ message, onDiscard });
     return false;
   };
   const proceedGeneration = (discardedDrafts = false) => {
@@ -2702,6 +2699,19 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
           }}
         />
       ) : null}
+      <Dialog open={Boolean(draftLeave)} onOpenChange={(open) => { if (!open) setDraftLeave(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Quantità non confermate</DialogTitle>
+            <DialogDescription>{draftLeave?.message}</DialogDescription>
+          </DialogHeader>
+          <p className="rounded-md border border-accent/60 bg-accent/25 p-3 text-sm">Puoi scartare soltanto le bozze e continuare. Le quantità già confermate non cambiano.</p>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={() => setDraftLeave(null)}>Torna a inserire</Button>
+            <Button type="button" onClick={() => { const pending = draftLeave; setDraftLeave(null); if (pending) { clearShoppingDraft(); pending.onDiscard(); } }}>Scarta bozza e continua</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={newListOpen} onOpenChange={(open) => { if (!createListMutation.isPending) setNewListOpen(open); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
