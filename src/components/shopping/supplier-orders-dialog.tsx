@@ -319,7 +319,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
 
   return <>
     <Dialog open={open} onOpenChange={(next) => { if (!bulkPending) onOpenChange(next); }}>
-      <DialogContent className="flex max-h-[85dvh] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden sm:max-w-2xl">
+      <DialogContent className="flex max-h-[85dvh] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden sm:max-w-2xl" overlayClassName="bg-black">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Send className="size-4" /> Ordini per fornitore</DialogTitle>
           <DialogDescription>Fornitori e prodotti restano quelli del riepilogo. Usa l'aeroplanino per il singolo ordine oppure l'invio multiplo per i soli B2B.</DialogDescription>
