@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { deliveryDefaults } from "./order-delivery-defaults";
+import { deliveryDefaults, halfHourTime } from "./order-delivery-defaults";
 
 const today = "2026-10-14";
 const company = { date: "2026-10-15", from: "06:00", to: "10:00", address: "Magazzino" };
@@ -39,5 +39,16 @@ describe("deliveryDefaults", () => {
   it("preferenze con indirizzo scelto prima del principale", () => {
     const r = deliveryDefaults({ today, list: null, lastOrder: null, company: { addressId: "a-sede" }, addresses, mainDeliveryAddressId: "a-cons" });
     assert.equal(r.addressId, "a-sede");
+  });
+});
+
+describe("halfHourTime", () => {
+  it("riporta 08:02 e 11:59 ai passi 08:00 e 11:30", () => {
+    assert.equal(halfHourTime("08:02:00"), "08:00");
+    assert.equal(halfHourTime("11:59"), "11:30");
+  });
+  it("conserva 08:30 e scarta un orario non valido", () => {
+    assert.equal(halfHourTime("08:30"), "08:30");
+    assert.equal(halfHourTime("25:10"), "");
   });
 });

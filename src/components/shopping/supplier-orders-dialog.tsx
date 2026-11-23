@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SupplierDot, supplierToneStyle } from "@/components/suppliers/supplier-color";
 import { B2bOrderShareDialog } from "@/components/purchase/b2b-order-share-dialog";
@@ -16,6 +17,8 @@ import { OrderShareDialog } from "@/components/purchase/order-share-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { bulkUnsentB2bSupplierIds } from "@/lib/local-entry-cart";
 import { qty } from "@/lib/inventory";
+import { addDays, localToday, useDeliveryPreferences } from "@/lib/delivery-preferences";
+import { deliveryDefaults, halfHourTime } from "@/lib/order-delivery-defaults";
 import { generateSupplierOrder, getGenerationPreview, updateDraftOrder, type GenerationLine } from "@/lib/order-generation.functions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import type { SupplierColorCode } from "@/lib/supplier-color";
@@ -54,10 +57,23 @@ export function scheduleLabel(s: Schedule) {
   return [dateLabel(s.date), time].filter(Boolean).join(" · ");
 }
 
+const NO_TIME = "__non_impostato__";
+const HALF_HOUR_TIMES = Array.from({ length: 48 }, (_, index) => `${String(Math.floor(index / 2)).padStart(2, "0")}:${index % 2 ? "30" : "00"}`);
+function HalfHourTimeSelect({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <Select value={value || NO_TIME} onValueChange={(next) => onChange(next === NO_TIME ? "" : next)}>
+    <SelectTrigger aria-label={label}><SelectValue /></SelectTrigger>
+    <SelectContent>
+      <SelectItem value={NO_TIME}>Non impostato</SelectItem>
+      {HALF_HOUR_TIMES.map((time) => <SelectItem key={time} value={time}>{time}</SelectItem>)}
+    </SelectContent>
+  </Select>;
+}
+
 /** Stessa presentazione approvata, alimentata dalle bozze e dagli ordini reali della Lista. */
-export function SupplierOrdersDialog({ open, onOpenChange, listId, supplierTone, onListClosed }: {
+export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, supplierTone, onListClosed }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  companyId: string;
   listId: string;
   supplierTone?: ((name: string | null | undefined) => { color: SupplierColorCode } | null) | undefined;
   onListClosed: () => void;
@@ -120,19 +136,51 @@ export function SupplierOrdersDialog({ open, onOpenChange, listId, supplierTone,
     }).filter((group) => group.lines.length > 0).sort((a, b) => a.name.localeCompare(b.name, "it"));
   }, [orders.data, preview.data]);
 
-  const base: Schedule = {
-    date: preview.data?.delivery.date ?? "",
-    from: hhmm(preview.data?.delivery.time_from),
-    to: hhmm(preview.data?.delivery.time_to),
+  const prefs = useDeliveryPreferences(open ? companyId : null);
+  const supplierIds = groups.map((group) => group.supplierId).sort();
+  // Come nel flusso precedente: l'ultimo ordine del fornitore ripropone orario e luogo, mai la data.
+  const lastOrders = useQuery({
+    queryKey: ["last-orders-delivery", companyId, supplierIds.join(",")],
+    enabled: open && supplierIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("purchase_orders")
+        .select("supplier_record_id, destination_address_id, delivery_time_from, delivery_time_to, delivery_address_text, created_at")
+        .eq("company_id", companyId)
+        .in("supplier_record_id", supplierIds)
+        .neq("status", "annullato")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw new Error(error.message);
+      const map: Record<string, { from: string | null; to: string | null; address: string | null; addressId: string | null }> = {};
+      for (const order of data ?? []) {
+        if (!order.supplier_record_id || map[order.supplier_record_id]) continue;
+        map[order.supplier_record_id] = { from: order.delivery_time_from, to: order.delivery_time_to, address: order.delivery_address_text, addressId: order.destination_address_id };
+      }
+      return map;
+    },
+  });
+  const proposedDelivery = (group: SupplierGroup) => {
+    const p = prefs.data;
+    const today = localToday(p?.timezone ?? "Europe/Rome");
+    const addresses = p?.addresses ?? [];
+    const values = deliveryDefaults({
+      today,
+      list: preview.data ? { date: preview.data.delivery.date, from: preview.data.delivery.time_from, to: preview.data.delivery.time_to, address: preview.data.delivery.address_text, addressId: preview.data.delivery.address_id } : null,
+      lastOrder: lastOrders.data?.[group.supplierId] ?? null,
+      company: p ? { date: p.day === "domani" ? addDays(today, 1) : today, from: p.timeFrom, to: p.timeTo, addressId: p.addressId } : null,
+      addresses,
+      mainDeliveryAddressId: addresses.find((address) => address.functions.includes("consegna"))?.id ?? null,
+    });
+    return { ...values, from: halfHourTime(values.from), to: halfHourTime(values.to) };
   };
-  const place = preview.data?.delivery.address_text ?? "";
   const tone = (name: string) => supplierTone?.(name) ?? null;
   const groupById = (id: string) => groups.find((group) => group.supplierId === id);
   const scheduleOf = (group: SupplierGroup): Schedule => overrides[group.supplierId] ?? (group.order ? {
     date: group.order.delivery_date ?? "",
     from: hhmm(group.order.delivery_time_from),
     to: hhmm(group.order.delivery_time_to),
-  } : base);
+  } : proposedDelivery(group));
   const noteOf = (group: SupplierGroup) => notes[group.supplierId] ?? group.order?.supplier_notes ?? "";
   const bulkIds = bulkUnsentB2bSupplierIds(groups.map((group) => ({ supplierId: group.supplierId, isB2b: group.isB2b, sentAt: group.order?.sent_at ?? null })));
   const sentCount = groups.filter((group) => group.order?.sent_at).length;
@@ -169,11 +217,12 @@ export function SupplierOrdersDialog({ open, onOpenChange, listId, supplierTone,
   /** Crea una sola bozza per fornitore; su una bozza esistente salva note e consegna prima dell'invio. */
   const ensureOrder = async (group: SupplierGroup) => {
     const schedule = scheduleOf(group);
+    const proposed = proposedDelivery(group);
     const delivery = {
       date: schedule.date || null,
       time_from: schedule.from || null,
       time_to: schedule.to || null,
-      address_text: group.order?.delivery_address_text ?? (place.trim() || null),
+      address_text: group.order?.delivery_address_text ?? (proposed.address.trim() || null),
       notes: noteOf(group).trim() || null,
     };
     if (group.order) {
@@ -186,7 +235,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, listId, supplierTone,
         listId,
         supplierRecordId: group.supplierId,
         generationKey,
-        delivery: { ...delivery, address_id: preview.data?.delivery.address_id ?? null },
+        delivery: { ...delivery, address_id: proposed.addressId },
         assignmentIds: group.previewLines.map((line) => line.assignment_id),
       },
     });
@@ -263,7 +312,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, listId, supplierTone,
               const isSent = Boolean(group.order?.sent_at);
               const busy = bulkPending || pending.has(group.supplierId);
               const when = scheduleLabel(scheduleOf(group));
-              const address = group.order?.delivery_address_text ?? place;
+              const address = group.order?.delivery_address_text ?? proposedDelivery(group).address;
               return <AccordionItem key={group.supplierId} value={group.supplierId} data-sent={isSent || undefined}
                 className={isSent ? "rounded-md border border-success/50 bg-success/15 px-3" : t ? "supplier-tint rounded-md border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card px-3" : "rounded-md border border-border px-3"}
                 style={isSent ? undefined : supplierToneStyle(t)}>
@@ -294,7 +343,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, listId, supplierTone,
                         <p className="flex items-center gap-1"><CalendarClock className="size-3.5 shrink-0" /> {when || <span className="text-muted-foreground">Data e orario non impostati (facoltativi)</span>}</p>
                         <p className="flex items-center gap-1"><MapPin className="size-3.5 shrink-0" /> {address || <span className="text-muted-foreground">Luogo non impostato</span>}</p>
                       </div>
-                      {!isSent ? <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0" disabled={busy} onClick={() => { setDraft(scheduleOf(group)); setEditing(group.supplierId); }} aria-label={`Modifica data e orario per ${group.name}`}><Pencil className="size-4" /></Button> : null}
+                      {!isSent ? <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0" disabled={busy} onClick={() => { const schedule = scheduleOf(group); setDraft({ ...schedule, from: halfHourTime(schedule.from), to: halfHourTime(schedule.to) }); setEditing(group.supplierId); }} aria-label={`Modifica data e orario per ${group.name}`}><Pencil className="size-4" /></Button> : null}
                     </div>
                   </div>
                   <div className="space-y-1">
@@ -312,15 +361,15 @@ export function SupplierOrdersDialog({ open, onOpenChange, listId, supplierTone,
 
     <Dialog open={editing !== null} onOpenChange={(next) => { if (!next) setEditing(null); }}>
       <DialogContent className="max-w-[calc(100vw-1.5rem)] sm:max-w-sm">
-        <DialogHeader><DialogTitle>Data e orario di consegna</DialogTitle><DialogDescription>{editing ? groupById(editing)?.name : ""} · facoltativi, salvati con l'invio e validi solo per questo ordine.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Data e orario di consegna</DialogTitle><DialogDescription>{editing ? groupById(editing)?.name : ""} · salvati con l'invio. L'orario verrà riproposto nel prossimo ordine di questo fornitore.</DialogDescription></DialogHeader>
         <div className="grid gap-2">
           <Label className="text-xs">Giorno<Input type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} /></Label>
           <div className="grid grid-cols-2 gap-2">
-            <Label className="text-xs">Dalle<Input type="time" value={draft.from} onChange={(event) => setDraft({ ...draft, from: event.target.value })} /></Label>
-            <Label className="text-xs">Alle<Input type="time" value={draft.to} onChange={(event) => setDraft({ ...draft, to: event.target.value })} /></Label>
+            <div className="space-y-2"><Label className="text-xs">Dalle</Label><HalfHourTimeSelect label="Dalle" value={draft.from} onChange={(from) => setDraft({ ...draft, from })} /></div>
+            <div className="space-y-2"><Label className="text-xs">Alle</Label><HalfHourTimeSelect label="Alle" value={draft.to} onChange={(to) => setDraft({ ...draft, to })} /></div>
           </div>
         </div>
-        <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setEditing(null)}>Annulla</Button><Button onClick={() => { if (editing) setOverrides((current) => ({ ...current, [editing]: draft })); setEditing(null); }}>Usa data e orario</Button></DialogFooter>
+        <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setEditing(null)}>Annulla</Button><Button onClick={() => { if (editing) setOverrides((current) => ({ ...current, [editing]: { ...draft, from: halfHourTime(draft.from), to: halfHourTime(draft.to) } })); setEditing(null); }}>Usa data e orario</Button></DialogFooter>
       </DialogContent>
     </Dialog>
 

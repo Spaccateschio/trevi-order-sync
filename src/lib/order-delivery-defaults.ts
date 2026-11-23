@@ -14,6 +14,14 @@ const time = (v: string | null | undefined) => {
   const t = (v ?? "").slice(0, 5);
   return TIME.test(t) ? t : "";
 };
+
+/** Orari dell'editor ordini: soltanto :00 e :30; un valore precedente fuori passo scende al passo più vicino. */
+export function halfHourTime(value: string | null | undefined): string {
+  const valid = time(value);
+  if (!valid) return "";
+  const [hours, minutes] = valid.split(":").map(Number);
+  return `${String(hours).padStart(2, "0")}:${minutes! >= 30 ? "30" : "00"}`;
+}
 const text = (v: string | null | undefined) => (v ?? "").trim();
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const norm = (v: string) => v.trim().toLowerCase().replace(/\s+/g, " ");

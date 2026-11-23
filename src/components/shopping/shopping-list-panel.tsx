@@ -2616,7 +2616,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         onRetry={() => { void saveShoppingCart(); }}
       /> : null}
 
-      {list ? <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} listId={list.id} supplierTone={supplierColors.toneByName} onListClosed={() => {
+      {list ? <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} companyId={companyId} listId={list.id} supplierTone={supplierColors.toneByName} onListClosed={() => {
         clearShoppingDraft();
         setSupplierOrdersOpen(false);
         ordinaryIdRef.current = null;
