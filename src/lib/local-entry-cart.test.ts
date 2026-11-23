@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { clearEntryCartDraft, confirmedLinesWithoutDrafts, entryCartLinesBySupplier, entryCartMetrics, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft } from "./local-entry-cart";
+import { bulkB2bSupplierNames, clearEntryCartDraft, confirmedLinesWithoutDrafts, entryCartLinesBySupplier, entryCartMetrics, entryCartStorageKey, readEntryCartDraft, saveEntryCartInGroups, writeEntryCartDraft } from "./local-entry-cart";
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -47,6 +47,11 @@ describe("bozza locale del carrello", () => {
       ["Senza fornitore — nessun fornitore collegato", ["uva"]],
       ["trevi srl", ["basilico", "aglio"]],
     ]);
+  });
+
+  it("include nell'invio multiplo soltanto i fornitori B2B", () => {
+    const groups = [{ supplier: "Caffetteria Bianco&Nero" }, { supplier: "Cartoleria Viva" }, { supplier: "trevi srl" }];
+    expect(bulkB2bSupplierNames(groups, new Set(["trevi srl"]))).toEqual(["trevi srl"]);
   });
 
   it("mostra i confermati e sposta nelle bozze solo la riga modificata", () => {

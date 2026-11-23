@@ -85,6 +85,11 @@ export function entryCartLinesBySupplier<T extends Pick<EntryCartLine, "supplier
     .sort((left, right) => left.supplier.localeCompare(right.supplier, "it"));
 }
 
+/** Nell'anteprima l'invio multiplo comprende esclusivamente i fornitori B2B. */
+export function bulkB2bSupplierNames(groups: readonly { supplier: string }[], b2bSuppliers: ReadonlySet<string>) {
+  return groups.map((group) => group.supplier).filter((supplier) => b2bSuppliers.has(supplier));
+}
+
 /** Una riga confermata che viene modificata passa nelle bozze, senza comparire due volte. */
 export function confirmedLinesWithoutDrafts<T extends Pick<EntryCartLine, "id">>(confirmed: readonly T[], drafts: readonly Pick<EntryCartLine, "id">[]): T[] {
   const draftIds = new Set(drafts.map((line) => line.id));

@@ -1736,6 +1736,9 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       supplierDetails: suppliers.map((supplier) => `${supplier.name} · ${supplier.purchaseQuantity === null ? "—" : qty(supplier.purchaseQuantity)} ${supplier.purchaseUnitCode ?? ""}`),
     };
   }), [allRows, extras, excludedQuery.data]);
+  const confirmedB2bSuppliers = useMemo(() => new Set(allRows.flatMap((row) =>
+    (extras.get(row.item_id)?.suppliers ?? []).filter((supplier) => supplier.isB2B).map((supplier) => supplier.name),
+  )), [allRows, extras]);
   const cartMissing = useMemo<EntryCartMissing[]>(() => [
     ...missingEntries.map((entry) => ({ id: entry.row.item_id, label: entry.row.description ?? entry.row.code, detail: entry.row.code })),
     ...missingCatalog.map((entry) => ({ id: `catalog:${entry.key}`, label: entry.description ?? entry.code, detail: entry.code })),
@@ -2614,7 +2617,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         onRetry={() => { void saveShoppingCart(); }}
       /> : null}
 
-      <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} listId={list?.id ?? null} lines={confirmedCartLines} supplierTone={supplierColors.toneByName} />
+      <SupplierOrdersDialog open={supplierOrdersOpen} onOpenChange={setSupplierOrdersOpen} listId={list?.id ?? null} lines={confirmedCartLines} supplierTone={supplierColors.toneByName} b2bSuppliers={confirmedB2bSuppliers} />
 
       {addOpen && ready.showProducts ? (
         <AddProductsDialog
