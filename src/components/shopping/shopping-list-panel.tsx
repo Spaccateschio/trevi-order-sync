@@ -1834,7 +1834,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
           if (quantity === null) throw new Error("Quantità non valida");
           await catalogChain.run(key, async () => {
             const added = await catalogActions.add.mutateAsync({ entry, quantity, unitCode: line.unitCode });
-            await commitQuantity(added.itemId, { quantity, unitId: null, unitCode: line.unitCode });
+            await commitQuantity(added.itemId, { quantity, unitId: (line.unitCode && entry.unitIds?.[line.unitCode]) || null, unitCode: line.unitCode });
             const error = commitErrors.current.get(added.itemId);
             if (error) throw new Error(error);
           });
@@ -2437,8 +2437,9 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
                     onAdd={stable(`${entry.key}:c:onAdd`, async (quantity, unitCode) => {
                       const commitAdded = async (added: { itemId: string }) => {
                         setEdits((current) => ({ ...current, [added.itemId]: String(quantity) }));
-                        setUnitEdits((current) => ({ ...current, [added.itemId]: { unitId: null, unitCode } }));
-                        await commitQuantity(added.itemId, { quantity, unitId: null, unitCode });
+                        const unitId = (unitCode && entry.unitIds?.[unitCode]) || null;
+                        setUnitEdits((current) => ({ ...current, [added.itemId]: { unitId, unitCode } }));
+                        await commitQuantity(added.itemId, { quantity, unitId, unitCode });
                         setUnitEdits((current) => { const next = { ...current }; delete next[added.itemId]; return next; });
                       };
                       // Prima conferma: si attende solo la creazione della Lista e della riga; il resto va in sottofondo.

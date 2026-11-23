@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sharedPurchaseUnitChoices, addProductPurchaseUnit, allowedPurchaseUnits, validatePurchaseSelection, productPurchaseDefault, mergeManualPurchaseUnits, ownCatalogUnitSelection, purchaseUnitConversionTarget, type ProductPurchaseUnitCode } from "./product-purchase-units";
+import { sharedPurchaseUnitChoices, addProductPurchaseUnit, allowedPurchaseUnits, validatePurchaseSelection, productPurchaseDefault, mergeManualPurchaseUnits, ownCatalogUnitSelection, ownCatalogUnitIds, purchaseUnitConversionTarget, type ProductPurchaseUnitCode } from "./product-purchase-units";
 const units = [
   { id: "kg", company_id: "a", status: "attivo", usage: "acquisto" },
   { id: "cs", company_id: "a", status: "attivo", usage: "entrambi" },
@@ -54,4 +54,11 @@ describe("U.M. proprie del prodotto", () => {
   it("salva senza richiedere alcun fornitore", () => expect(validatePurchaseSelection(units, "a", ["kg", "cs"], "cs")).toEqual(["kg", "cs"]));
   it("rifiuta U.M. esterne o inventate", () => expect(() => validatePurchaseSelection(units, "a", ["inventata"], null)).toThrow());
   it("consente rimozione della configurazione senza unità sostitutive", () => expect(validatePurchaseSelection(units, "a", [], null)).toEqual([]));
+});
+
+describe("ownCatalogUnitIds", () => {
+  it("anguria a pezzi: il codice pezzo diventa l'id della U.M. del prodotto, non testo libero", () => {
+    const own = [{ unit_id: "id-pezzo", is_default: true, product_id: "anguria", units_of_measure: { code: "pezzo", status: "attivo", usage: "acquisto" } }] as ProductPurchaseUnitCode[];
+    expect(ownCatalogUnitIds([{ id: "id-kg", code: "kg" }, { id: null, code: null }], own)).toEqual({ kg: "id-kg", pezzo: "id-pezzo" });
+  });
 });

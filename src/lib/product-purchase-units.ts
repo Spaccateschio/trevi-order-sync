@@ -45,6 +45,14 @@ export function ownCatalogUnitSelection(
   };
 }
 
+/** Codice → id delle U.M. di acquisto non B2B: il DB accetta le U.M. del prodotto solo per id, mai come testo libero. */
+export function ownCatalogUnitIds(linkUnits: { id: string | null; code: string | null }[], ownUnits: ProductPurchaseUnitCode[]) {
+  const ids: Record<string, string> = {};
+  for (const unit of linkUnits) if (unit.id && unit.code) ids[unit.code] = unit.id;
+  for (const unit of ownUnits) if (unit.units_of_measure?.code) ids[unit.units_of_measure.code] = unit.unit_id;
+  return ids;
+}
+
 /**
  * Fornitori non B2B: se il prodotto ha U.M. d'acquisto (tab Acquisto) si usano SOLO quelle,
  * riusando la conversione della referenza quando è la stessa U.M. (mai inventata).
