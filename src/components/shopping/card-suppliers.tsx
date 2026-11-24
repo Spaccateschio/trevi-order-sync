@@ -778,7 +778,7 @@ export function CardSuppliers({
         <p className="text-[11px] leading-relaxed text-muted-foreground">
           {timings[s.linkId] ? deliveryScheduleSummary(timings[s.linkId]) : "Consegna: caricamento giorni…"}
         </p>
-        {show.price && details && s.price ? <PriceLine price={s.price} /> : null}
+        {show.price ? (s.price ? <PriceLine price={s.price} /> : <p className="text-[11px] leading-tight text-muted-foreground">Prezzo su richiesta</p>) : null}
         {b2bBlocked ? (
           <p className="flex items-center gap-1 text-[11px] font-medium text-destructive">
             <AlertTriangle className="size-3" aria-hidden="true" />{" "}
