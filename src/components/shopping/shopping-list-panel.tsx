@@ -2089,11 +2089,11 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           Stai consultando una lista dello Storico.
           {currentList ? (
-            <Button size="sm" variant="link" className="h-auto p-0 text-xs" onClick={() => setListId(currentList.id)}>
+            <Button size="sm" variant="link" className="h-auto p-0 text-xs font-bold text-destructive" onClick={() => setListId(currentList.id)}>
               Torna alla Lista in lavorazione
             </Button>
           ) : (
-            <Button size="sm" variant="link" className="h-auto p-0 text-xs" onClick={() => setListId(null)}>
+            <Button size="sm" variant="link" className="h-auto p-0 text-xs font-bold text-destructive" onClick={() => setListId(null)}>
               Chiudi consultazione
             </Button>
           )}
