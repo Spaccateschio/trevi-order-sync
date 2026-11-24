@@ -34,7 +34,7 @@ import { AddProductsDialog, Thumb } from "./add-products-dialog";
 import { CatalogProductCard, useCatalogActions, useCatalogEntries, useCatalogImages, type CatalogEntry } from "./catalog-entries";
 import { CYCLE_QUERY_KEY, EvaluationDecision, InventoryEvaluation, useEvaluationRows, useInventoryCountedRows, useSaveEvaluation, type CountedRow } from "./inventory-to-evaluate";
 import { statusFromQuantity, type EvaluationStatus } from "@/lib/inventory-evaluation";
-import { DISPLAY_FIELDS, useCardDisplay } from "./card-display";
+import { DISPLAY_FIELDS, MENU_DISPLAY_FIELDS, useCardDisplay } from "./card-display";
 import { ShoppingListCard, type StockInfo } from "./shopping-list-card";
 import { MemoCatalogProductCard, MemoShoppingListCard } from "./memo-cards";
 import { useStableCallbacks } from "@/lib/stable-props";
@@ -1082,7 +1082,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
     ? `${summary.open} prodott${summary.open === 1 ? "o" : "i"} senza fornitore, quantità e U.M. d'acquisto`
     : undefined;
   const activeFilters = flags.size + (category !== "all" ? 1 : 0) + (supplierFilter !== "all" ? 1 : 0);
-  const hiddenFields = DISPLAY_FIELDS.filter(([field]) => !display.prefs[field]).length;
+  const hiddenFields = MENU_DISPLAY_FIELDS.filter(([field]) => !display.prefs[field]).length;
   const resetFilters = () => {
     setOnlyMissing(false);
     setFlags(new Set());
@@ -2253,7 +2253,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
                 ))}
                 <div>
                   <p className="px-1 text-[10px] font-semibold uppercase text-muted-foreground">Cosa vedere nelle card</p>
-                  {DISPLAY_FIELDS.map(([field, label]) => (
+                  {MENU_DISPLAY_FIELDS.map(([field, label]) => (
                     <label key={field} className="flex items-center gap-2 rounded px-1 py-1 text-xs hover:bg-muted">
                       <Checkbox checked={display.prefs[field]} onCheckedChange={(checked) => display.setField(field, checked === true)} />
                       {label}
@@ -2346,7 +2346,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
                   Cosa vedere dentro le card. Non nasconde prodotti e non modifica dati.
                 </p>
                 <div className="grid max-h-80 gap-0.5 overflow-y-auto">
-                  {DISPLAY_FIELDS.map(([field, label]) => (
+                  {MENU_DISPLAY_FIELDS.map(([field, label]) => (
                     <label key={field} className="flex items-center gap-2 rounded px-1 py-1 text-xs hover:bg-muted">
                       <Checkbox checked={display.prefs[field]} onCheckedChange={(checked) => display.setField(field, checked === true)} />
                       {label}

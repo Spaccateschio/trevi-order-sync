@@ -49,3 +49,6 @@ export function useCardDisplay() {
   };
   return { prefs, setField: (key: DisplayField, value: boolean) => update({ ...prefs, [key]: value }), reset: () => update(ALL_VISIBLE) };
 }
+
+/** Voci mostrate nel menu: «Giacenza» è confluita in «Totale inventario» (24/11). */
+export const MENU_DISPLAY_FIELDS = DISPLAY_FIELDS.filter(([field]) => field !== "stock");
