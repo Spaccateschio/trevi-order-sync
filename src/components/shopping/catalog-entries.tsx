@@ -530,19 +530,32 @@ export function CatalogProductCard({
     enabled: show.price,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      if (entry.ownProductId) {
-        const c = await readCardDaneaCost(entry.ownProductId);
-        return c?.net != null ? { net: c.net, unit: c.unit } : null;
-      }
+      // Prezzo aggiornato del catalogo fornitore: ultima osservazione commerciale (sola lettura).
+      let q = supabase.from("supplier_price_series")
+        .select("current_net_price, current_gross_price, current_price_unit_code, current_observed_at")
+        .eq("kind", "observed_price");
+      if (companyId) q = q.eq("company_id", companyId);
+      if (entry.ownProductId) q = q.eq("product_id", entry.ownProductId);
+      else if (entry.sellerProductId) q = q.eq("supplier_product_id", entry.sellerProductId);
+      else return null;
+      const { data, error } = await q.order("current_observed_at", { ascending: false, nullsFirst: false }).limit(1);
+      if (error) throw new Error(error.message);
+      const row = data?.[0];
+      const net = row ? (row.current_net_price ?? row.current_gross_price) : null;
+      if (row && net != null) return { net: Number(net), unit: row.current_price_unit_code as string | null, gross: row.current_net_price == null };
       if (entry.sellerId && entry.sellerProductId) {
         const b = await readCardB2BPrice(entry.sellerId, entry.sellerProductId);
-        return b?.net != null ? { net: b.net, unit: null as string | null } : null;
+        if (b?.net != null) return { net: b.net, unit: null as string | null, gross: false };
+      }
+      if (entry.ownProductId) {
+        const c = await readCardDaneaCost(entry.ownProductId);
+        if (c?.net != null) return { net: c.net, unit: c.unit, gross: false };
       }
       return null;
     },
   });
   const priceText = priceQuery.data
-    ? `Prezzo ${new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(priceQuery.data.net)}${priceQuery.data.unit ? ` / ${priceQuery.data.unit}` : ""} netto (indicativo)`
+    ? `Prezzo ${new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(priceQuery.data.net)}${priceQuery.data.unit ? ` / ${priceQuery.data.unit}` : ""} ${priceQuery.data.gross ? "lordo" : "netto"} (indicativo)`
     : priceQuery.isLoading ? "Prezzo…" : "Prezzo su richiesta";
   const inventorySummary = <div className="space-y-0.5 text-xs font-normal text-muted-foreground">
     {show.lastCount ? <p>Totale inventario {stock?.total != null ? `${formatQuantity(stock.total)} ${stock.totalUnit ?? ""}` : stock?.totalReason === "um_diverse" ? "U.M. diverse" : "—"}</p> : null}
