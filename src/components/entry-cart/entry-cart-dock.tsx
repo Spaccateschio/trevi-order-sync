@@ -56,6 +56,14 @@ export function EntryCartDock({
   const toneLi = (names?: string[], withoutQuantity = false) => withoutQuantity ? ocraLi : (tone(names?.[0]) ? "supplier-tint rounded-md border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card p-2" : "rounded-md border border-border p-2");
   const [cartOpen, setCartOpen] = useState(false);
   const [missingOpen, setMissingOpen] = useState(false);
+  const wasSaving = useRef(false);
+  useEffect(() => {
+    if (wasSaving.current && !saving) {
+      setCartOpen(false);
+      setMissingOpen(false);
+    }
+    wasSaving.current = saving;
+  }, [saving]);
   const [online, setOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
   const linesRef = useRef(lines);
   const retryRef = useRef(onRetry);
@@ -117,7 +125,7 @@ export function EntryCartDock({
     </div>
 
     <Dialog open={cartOpen} onOpenChange={(open) => { if (!saving) setCartOpen(open); }}>
-      <DialogContent className="flex max-h-[85dvh] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden sm:max-w-2xl">
+      <DialogContent className="flex max-h-[85dvh] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden sm:max-w-2xl" overlayClassName="bg-sidebar data-[state=open]:animate-none data-[state=closed]:animate-none">
         <DialogHeader>
           <DialogTitle>Carrello · {areaLabel}</DialogTitle>
           <DialogDescription>{lines.length ? "Le modifiche restano sul dispositivo finché non premi Conferma." : "Riepilogo delle quantità salvate: puoi modificarle prima di preparare gli ordini."}</DialogDescription>
@@ -166,7 +174,7 @@ export function EntryCartDock({
     </Dialog>
 
     <Dialog open={missingOpen} onOpenChange={(open) => { if (!saving) setMissingOpen(open); }}>
-      <DialogContent className="flex max-h-[85dvh] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden sm:max-w-xl">
+      <DialogContent className="flex max-h-[85dvh] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden sm:max-w-xl" overlayClassName="bg-sidebar data-[state=open]:animate-none data-[state=closed]:animate-none">
         <DialogHeader><DialogTitle>Cosa confermi</DialogTitle><DialogDescription>Controlla le quantità da salvare. I {missing.length} articoli mancanti restano vuoti e nessun ordine viene inviato.</DialogDescription></DialogHeader>
         <div className="min-h-0 space-y-4 overflow-y-auto">
           <section aria-label="Articoli che restano senza quantità">
@@ -192,7 +200,7 @@ export function EntryCartDock({
             </Accordion>
           </section>
         </div>
-        <DialogFooter className="gap-2"><Button variant="outline" disabled={saving} onClick={() => setMissingOpen(false)}>Torna a inserire</Button><Button disabled={saving || confirmDisabled || (!lines.length && (!onContinue || !reviewLines.length))} onClick={() => { setMissingOpen(false); if (lines.length) onConfirm(); else onContinue?.(); }}>{lines.length ? `Conferma ${reviewMetrics.products} ${reviewMetrics.products === 1 ? "prodotto" : "prodotti"}` : "Vai agli ordini per fornitore"}</Button></DialogFooter>
+        <DialogFooter className="gap-2"><Button variant="outline" disabled={saving} onClick={() => setMissingOpen(false)}>Torna a inserire</Button><Button disabled={saving || confirmDisabled || (!lines.length && (!onContinue || !reviewLines.length))} onClick={() => { if (lines.length) onConfirm(); else { setMissingOpen(false); onContinue?.(); } }}>{saving ? "Salvataggio…" : lines.length ? `Conferma ${reviewMetrics.products} ${reviewMetrics.products === 1 ? "prodotto" : "prodotti"}` : "Vai agli ordini per fornitore"}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   </>;
