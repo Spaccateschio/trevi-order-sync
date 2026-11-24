@@ -585,7 +585,10 @@ export function ShoppingListCard({
     ) : null;
 
   // «Totale inventario»: somma delle card contate del prodotto, mai una conversione inventata.
-  const inventoryTotalText = stock?.total !== null && stock?.total !== undefined
+  // Andrea 24/11: un solo numero = ultimo inventario + entrate − uscite (giacenza DB), altrimenti il conteggio.
+  const inventoryTotalText = stock?.stock !== null && stock?.stock !== undefined
+    ? `${qty(stock.stock)} ${stock.stockUnit ?? unit}`
+    : stock?.total !== null && stock?.total !== undefined
     ? `${qty(stock.total)} ${stock.totalUnit ?? unit}`
     : stock?.totalReason === "um_diverse"
       ? "U.M. diverse"
@@ -739,7 +742,7 @@ export function ShoppingListCard({
       </>}
       summary={<span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
         {show.lastCount ? <span className="w-full text-xs font-normal text-muted-foreground">Totale inventario {inventoryTotalText}</span> : null}
-        {show.stock ? <span className="text-xs font-normal text-muted-foreground">Giacenza {stock?.stock != null ? `${qty(stock.stock)} ${stock.stockUnit ?? unit}` : "—"}{show.toBuy ? " ·" : ""}</span> : null}
+        {false && show.stock ? <span className="text-xs font-normal text-muted-foreground">Giacenza {stock?.stock != null ? `${qty(stock.stock)} ${stock.stockUnit ?? unit}` : "—"}{show.toBuy ? " ·" : ""}</span> : null}
         {show.toBuy ? <span className="text-base font-bold text-foreground">{excluded ? "Non acquistare" : `Da acquistare ${displayedQuantity === null ? "—" : `${qty(displayedQuantity)} ${decidedCode}`}`}</span> : null}
       </span>}
       supplier={show.suppliers && !excluded ? <span className="min-w-0 break-words">Fornitore: <span className="font-medium text-foreground">{suppliers[0]?.name ?? "—"}{suppliers.length > 1 ? ` + ${suppliers.length - 1}` : ""}</span></span> : null}
@@ -759,7 +762,7 @@ export function ShoppingListCard({
     const rowMeta = [
       show.category ? extra?.category ?? "—" : null,
       show.suggested ? `Suggerita ${suggested !== null && suggested !== undefined ? `${qty(suggested)} ${unit}` : "—"}` : null,
-      show.stock && stock?.stock !== null && stock?.stock !== undefined ? `Giacenza ${qty(stock.stock)} ${stock.stockUnit ?? unit}` : null,
+      false && show.stock && stock?.stock !== null && stock?.stock !== undefined ? `Giacenza ${qty(stock.stock)} ${stock.stockUnit ?? unit}` : null,
       show.lastCount ? `Totale inventario ${inventoryTotalText}` : null,
     ].filter(Boolean);
     return (
@@ -834,7 +837,7 @@ export function ShoppingListCard({
               <dd className="truncate font-semibold">{inventoryTotalText}</dd>
             </div>
           ) : null}
-          {show.stock ? (
+          {false && show.stock ? (
             <div className="min-w-0">
               <dt className="truncate text-muted-foreground">Giacenza</dt>
               <dd className="truncate font-semibold">{stock?.stock !== null && stock?.stock !== undefined ? `${qty(stock.stock)} ${stock.stockUnit ?? unit}` : "—"}</dd>
