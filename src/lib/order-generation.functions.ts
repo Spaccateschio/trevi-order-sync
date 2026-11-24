@@ -103,6 +103,18 @@ export const updateDraftOrder = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const saveSupplierOrderDeliveryPlace = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ listId: uuid, text: z.string().trim().min(1).max(300) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc("save_shopping_list_delivery_place", {
+      _list_id: data.listId,
+      _text: data.text,
+    });
+    if (error) throw new Error(error.message);
+    return result as unknown as { id: string; text: string };
+  });
+
 export const changeDraftSupplier = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>

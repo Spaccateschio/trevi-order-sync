@@ -771,6 +771,13 @@
       "when": 1795494403069,
       "tag": "0109_notify_supplier_delivery_declared",
       "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1795499036749,
+      "tag": "0110_supplier_order_delivery_place_presets",
+      "breakpoints": true
     }
   ]
 }

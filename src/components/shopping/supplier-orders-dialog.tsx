@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,12 +20,24 @@ import { bulkUnsentB2bSupplierIds } from "@/lib/local-entry-cart";
 import { qty } from "@/lib/inventory";
 import { addDays, localToday, useDeliveryPreferences } from "@/lib/delivery-preferences";
 import { deliveryDefaults, halfHourTime } from "@/lib/order-delivery-defaults";
+import {
+  DELIVERY_PLACE_MANUAL,
+  DELIVERY_PLACE_PICKUP,
+  DELIVERY_PLACE_PICKUP_TEXT,
+  DELIVERY_PLACE_SAVED_PREFIX,
+  deliveryPlaceFromSelection,
+  deliveryPlaceSelectValue,
+  normalizeDeliveryPlace,
+  shouldSaveDeliveryPlace,
+  type SavedDeliveryPlace,
+} from "@/lib/order-delivery-place";
 import { supplierOrderIssueReason } from "@/lib/supplier-order-issues";
-import { confirmAssignmentCoverage, generateSupplierOrder, getGenerationPreview, updateDraftOrder, type GenerationLine } from "@/lib/order-generation.functions";
+import { confirmAssignmentCoverage, generateSupplierOrder, getGenerationPreview, saveSupplierOrderDeliveryPlace, updateDraftOrder, type GenerationLine } from "@/lib/order-generation.functions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import type { SupplierColorCode } from "@/lib/supplier-color";
 
 type Schedule = { date: string; from: string; to: string };
+type DeliveryOverride = Schedule & { address: string; addressId: string | null; savePlace: boolean };
 type OrderItem = { id: string; product_name: string | null; product_code: string | null; purchase_quantity: number | null; purchase_unit_code: string | null };
 type SupplierOrder = {
   id: string;
@@ -37,6 +50,7 @@ type SupplierOrder = {
   delivery_time_from: string | null;
   delivery_time_to: string | null;
   delivery_address_text: string | null;
+  destination_address_id: string | null;
   supplier_notes: string | null;
   supplier_records: { legal_name: string | null } | null;
   purchase_order_items: OrderItem[];
@@ -87,6 +101,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
   const readPreview = useServerFn(getGenerationPreview);
   const runGenerate = useServerFn(generateSupplierOrder);
   const runUpdate = useServerFn(updateDraftOrder);
+  const runSavePlace = useServerFn(saveSupplierOrderDeliveryPlace);
   const runSend = useServerFn(managePurchaseOrder);
   const runCoverage = useServerFn(confirmAssignmentCoverage);
   // Popup «Da sistemare»: mostra il punto che blocca l'invio di un fornitore.
@@ -96,11 +111,11 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
   const [openItems, setOpenItems] = useState<string[] | null>(null);
   const generationKeys = useRef<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [overrides, setOverrides] = useState<Record<string, Schedule>>({});
+  const [overrides, setOverrides] = useState<Record<string, DeliveryOverride>>({});
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Schedule>({ date: "", from: "", to: "" });
+  const [draft, setDraft] = useState<DeliveryOverride>({ date: "", from: "", to: "", address: "", addressId: null, savePlace: false });
   const [sharing, setSharing] = useState<{ orderId: string; mode: "first" | "resend" } | null>(null);
   const [sharingB2b, setSharingB2b] = useState<{ orderId: string; number: string; supplier: string } | null>(null);
 
@@ -115,7 +130,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
     queryFn: async (): Promise<SupplierOrder[]> => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("id, number, supplier_record_id, relation_id, status, sent_at, delivery_date, delivery_time_from, delivery_time_to, delivery_address_text, supplier_notes, supplier_records(legal_name), purchase_order_items(id, product_name, product_code, purchase_quantity, purchase_unit_code)")
+        .select("id, number, supplier_record_id, relation_id, status, sent_at, delivery_date, delivery_time_from, delivery_time_to, delivery_address_text, destination_address_id, supplier_notes, supplier_records(legal_name), purchase_order_items(id, product_name, product_code, purchase_quantity, purchase_unit_code)")
         .eq("shopping_list_id", listId)
         .neq("status", "annullato")
         .order("created_at", { ascending: false });
@@ -148,6 +163,15 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
   }, [orders.data, preview.data]);
 
   const prefs = useDeliveryPreferences(open ? companyId : null);
+  const savedPlaces = useQuery({
+    queryKey: ["company-delivery-places", companyId],
+    enabled: open,
+    queryFn: async (): Promise<SavedDeliveryPlace[]> => {
+      const { data, error } = await supabase.from("company_delivery_places").select("id, text").eq("company_id", companyId).order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
   const supplierIds = groups.map((group) => group.supplierId).sort();
   // Come nel flusso precedente: l'ultimo ordine del fornitore ripropone orario e luogo, mai la data.
   const lastOrders = useQuery({
@@ -192,6 +216,13 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
     from: hhmm(group.order.delivery_time_from),
     to: hhmm(group.order.delivery_time_to),
   } : proposedDelivery(group));
+  const placeOf = (group: SupplierGroup): Pick<DeliveryOverride, "address" | "addressId" | "savePlace"> => {
+    const override = overrides[group.supplierId];
+    if (override) return { address: override.address, addressId: override.addressId, savePlace: override.savePlace };
+    if (group.order) return { address: group.order.delivery_address_text ?? "", addressId: group.order.destination_address_id, savePlace: false };
+    const proposed = proposedDelivery(group);
+    return { address: proposed.address, addressId: proposed.addressId, savePlace: false };
+  };
   const noteOf = (group: SupplierGroup) => notes[group.supplierId] ?? group.order?.supplier_notes ?? "";
   const bulkIds = bulkUnsentB2bSupplierIds(groups.map((group) => ({ supplierId: group.supplierId, isB2b: group.isB2b, sentAt: group.order?.sent_at ?? null })));
   const sentCount = groups.filter((group) => group.order?.sent_at).length;
@@ -228,12 +259,17 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
   /** Crea una sola bozza per fornitore; su una bozza esistente salva note e consegna prima dell'invio. */
   const ensureOrder = async (group: SupplierGroup) => {
     const schedule = scheduleOf(group);
-    const proposed = proposedDelivery(group);
+    const place = placeOf(group);
+    if (shouldSaveDeliveryPlace(place)) {
+      await runSavePlace({ data: { listId, text: normalizeDeliveryPlace(place.address) } });
+      await queryClient.invalidateQueries({ queryKey: ["company-delivery-places", companyId] });
+    }
     const delivery = {
       date: schedule.date || null,
       time_from: schedule.from || null,
       time_to: schedule.to || null,
-      address_text: group.order?.delivery_address_text ?? (proposed.address.trim() || null),
+      address_text: normalizeDeliveryPlace(place.address) || null,
+      address_id: place.addressId,
       notes: noteOf(group).trim() || null,
     };
     if (group.order) {
@@ -246,10 +282,14 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
         listId,
         supplierRecordId: group.supplierId,
         generationKey,
-        delivery: { ...delivery, address_id: proposed.addressId },
+        delivery,
         assignmentIds: group.previewLines.map((line) => line.assignment_id),
       },
     });
+    // Come nell'altro percorso di generazione: un luogo manuale/ritiro non eredita il collegamento della Lista.
+    if (!result.already_exists && place.addressId === null && preview.data?.delivery.address_id) {
+      await runUpdate({ data: { orderId: result.order_id, lines: [], delivery } });
+    }
     return result.order_id;
   };
 
@@ -341,6 +381,8 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
     finishIfClosed(closed);
   };
 
+  const draftPlaceSelection = deliveryPlaceSelectValue(draft, prefs.data?.addresses ?? [], savedPlaces.data ?? []);
+
   return <>
     <Dialog open={open} onOpenChange={(next) => { if (!bulkPending) onOpenChange(next); }}>
       <DialogContent className="flex max-h-[85dvh] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden sm:max-w-2xl" overlayClassName="bg-black">
@@ -369,7 +411,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
               const isSent = Boolean(group.order?.sent_at);
               const busy = bulkPending || pending.has(group.supplierId);
               const when = scheduleLabel(scheduleOf(group));
-              const address = group.order?.delivery_address_text ?? proposedDelivery(group).address;
+              const address = placeOf(group).address;
               return <AccordionItem key={group.supplierId} value={group.supplierId} data-sent={isSent || undefined}
                 className={isSent ? "rounded-md border border-success/50 bg-success/15 px-3" : t ? "supplier-tint rounded-md border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card px-3" : "rounded-md border border-border px-3"}
                 style={isSent ? undefined : supplierToneStyle(t)}>
@@ -401,7 +443,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
                         <p className="flex items-center gap-1"><CalendarClock className="size-3.5 shrink-0" /> {when || <span className="text-muted-foreground">Data e orario non impostati (facoltativi)</span>}</p>
                         <p className="flex items-center gap-1"><MapPin className="size-3.5 shrink-0" /> {address || <span className="text-muted-foreground">Luogo non impostato</span>}</p>
                       </div>
-                      {!isSent ? <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0" disabled={busy} onClick={() => { const schedule = scheduleOf(group); setDraft({ ...schedule, from: halfHourTime(schedule.from), to: halfHourTime(schedule.to) }); setEditing(group.supplierId); }} aria-label={`Modifica data e orario per ${group.name}`}><Pencil className="size-4" /></Button> : null}
+                      {!isSent ? <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0" disabled={busy} onClick={() => { const schedule = scheduleOf(group); const place = placeOf(group); setDraft({ ...schedule, ...place, from: halfHourTime(schedule.from), to: halfHourTime(schedule.to) }); setEditing(group.supplierId); }} aria-label={`Modifica consegna o ritiro per ${group.name}`}><Pencil className="size-4" /></Button> : null}
                     </div>
                   </div>
                   <div className="space-y-1">
@@ -418,16 +460,39 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
     </Dialog>
 
     <Dialog open={editing !== null} onOpenChange={(next) => { if (!next) setEditing(null); }}>
-      <DialogContent className="max-w-[calc(100vw-1.5rem)] sm:max-w-sm">
-        <DialogHeader><DialogTitle>Data e orario di consegna</DialogTitle><DialogDescription>{editing ? groupById(editing)?.name : ""} · salvati con l'invio. L'orario verrà riproposto nel prossimo ordine di questo fornitore.</DialogDescription></DialogHeader>
-        <div className="grid gap-2">
-          <Label className="text-xs">Giorno<Input type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} /></Label>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-2"><Label className="text-xs">Dalle</Label><HalfHourTimeSelect label="Dalle" value={draft.from} onChange={(from) => setDraft({ ...draft, from })} /></div>
-            <div className="space-y-2"><Label className="text-xs">Alle</Label><HalfHourTimeSelect label="Alle" value={draft.to} onChange={(to) => setDraft({ ...draft, to })} /></div>
+      <DialogContent className="max-h-[90dvh] max-w-[calc(100vw-1.5rem)] overflow-y-auto sm:max-w-md">
+        <DialogHeader><DialogTitle>Data, orario e luogo</DialogTitle><DialogDescription>{editing ? groupById(editing)?.name : ""} · le modifiche si salvano con Salva o con l'invio. L'orario verrà riproposto nel prossimo ordine di questo fornitore.</DialogDescription></DialogHeader>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label className="text-xs">Giorno<Input type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} /></Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2"><Label className="text-xs">Dalle</Label><HalfHourTimeSelect label="Dalle" value={draft.from} onChange={(from) => setDraft({ ...draft, from })} /></div>
+              <div className="space-y-2"><Label className="text-xs">Alle</Label><HalfHourTimeSelect label="Alle" value={draft.to} onChange={(to) => setDraft({ ...draft, to })} /></div>
+            </div>
+          </div>
+          <div className="space-y-2 rounded-md border border-border p-3">
+            <Label className="text-xs">Dove consegnare o ritirare</Label>
+            <Select value={draftPlaceSelection} onValueChange={(selection) => setDraft((current) => ({ ...current, ...deliveryPlaceFromSelection(selection, current, prefs.data?.addresses ?? [], savedPlaces.data ?? []) }))}>
+              <SelectTrigger aria-label="Luogo o indicazione" className="h-auto min-h-9 whitespace-normal"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(prefs.data?.addresses ?? []).map((address) => <SelectItem key={address.id} value={address.id}>{address.text || "Indirizzo senza descrizione"}</SelectItem>)}
+                <SelectItem value={DELIVERY_PLACE_PICKUP}>{DELIVERY_PLACE_PICKUP_TEXT}</SelectItem>
+                {(savedPlaces.data ?? []).map((place) => <SelectItem key={place.id} value={`${DELIVERY_PLACE_SAVED_PREFIX}${place.id}`}>{place.text}</SelectItem>)}
+                <SelectItem value={DELIVERY_PLACE_MANUAL}>Scrivi un indirizzo o una frase…</SelectItem>
+              </SelectContent>
+            </Select>
+            {draftPlaceSelection === DELIVERY_PLACE_MANUAL ? <div className="space-y-2">
+              <Textarea aria-label="Indirizzo o frase libera" rows={2} maxLength={300} value={draft.address} onChange={(event) => setDraft({ ...draft, address: event.target.value, addressId: null })} placeholder="Es. Passo io a prenderle, oppure scrivi un altro indirizzo" />
+              <div className="flex items-start gap-2">
+                <Checkbox id="save-delivery-place" checked={draft.savePlace} onCheckedChange={(checked) => setDraft({ ...draft, savePlace: checked === true })} />
+                <Label htmlFor="save-delivery-place" className="text-xs font-normal leading-5">Salva per i prossimi ordini</Label>
+              </div>
+              {draft.savePlace ? <p className="text-xs text-muted-foreground">Il testo sarà riutilizzabile quando salvi o invii questo ordine.</p> : null}
+            </div> : null}
+            {savedPlaces.isError ? <p className="text-xs text-destructive">Le frasi salvate non sono disponibili; puoi comunque scrivere un testo per questo ordine.</p> : null}
           </div>
         </div>
-        <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setEditing(null)}>Annulla</Button><Button onClick={() => { if (editing) setOverrides((current) => ({ ...current, [editing]: { ...draft, from: halfHourTime(draft.from), to: halfHourTime(draft.to) } })); setEditing(null); }}>Usa data e orario</Button></DialogFooter>
+        <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setEditing(null)}>Annulla</Button><Button disabled={draftPlaceSelection === DELIVERY_PLACE_MANUAL && draft.savePlace && !normalizeDeliveryPlace(draft.address)} onClick={() => { if (editing) setOverrides((current) => ({ ...current, [editing]: { ...draft, address: normalizeDeliveryPlace(draft.address), from: halfHourTime(draft.from), to: halfHourTime(draft.to) } })); setEditing(null); }}>Usa questi dati</Button></DialogFooter>
       </DialogContent>
     </Dialog>
 

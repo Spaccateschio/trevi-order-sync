@@ -566,6 +566,38 @@ export type Database = {
           },
         ]
       }
+      company_delivery_places: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string
+          id: string
+          text: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          text: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_delivery_places_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_features: {
         Row: {
           company_id: string
@@ -9336,6 +9368,22 @@ export type Database = {
             }
             Returns: undefined
           }
+      save_shopping_list_delivery_place: {
+        Args: { _list_id: string; _text: string }
+        Returns: {
+          company_id: string
+          created_at: string
+          created_by: string
+          id: string
+          text: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "company_delivery_places"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       search_companies: {
         Args: { _query: string; _role: string }
         Returns: {

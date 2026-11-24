@@ -1,5 +1,9 @@
 # Roadmap
 
+## 24/11 — Luogo e frasi negli ordini fornitore
+- [x] Nella matita del singolo ordine: indirizzi aziendali attivi, ritiro, testo libero e salvataggio facoltativo per gli ordini successivi; ordini inviati e impostazioni aziendali invariati. Il testo manuale non eredita il collegamento dell'indirizzo della Lista.
+- [x] 15 test superati e verifica desktop/mobile su 3 EMME delle scelte locali, senza premere Salva, creare ordini o inviare comunicazioni.
+
 ## 23/11 — Ordini per fornitore dal Carrello
 - [x] Mantenere la schermata approvata e ricollegare il salvataggio del Conferma, la generazione del singolo ordine, l'invio B2B/multiplo e la condivisione non B2B con note e consegna reali.
 - [x] Verificare compilazione, 51 test e schermata reale desktop/mobile su 3 EMME senza creare ordini né inviare comunicazioni.
