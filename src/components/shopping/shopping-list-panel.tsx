@@ -1938,7 +1938,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
             </Button>
           ) : null}
           {editable ? (
-            <Button type="button" size="sm" variant="outline" className="h-7 text-xs text-destructive" disabled={listMutation.isPending} onClick={() => listMutation.mutate("cancel")}>
+            <Button type="button" size="sm" variant="destructive" className="h-7 text-xs" disabled={listMutation.isPending} onClick={() => listMutation.mutate("cancel")}>
               Annulla lista
             </Button>
           ) : null}
@@ -1951,7 +1951,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="destructive"
                 data-tour="spesa.annulla"
                 disabled={listMutation.isPending}
                 onClick={() => listMutation.mutate("cancel")}
@@ -2103,6 +2103,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       {/* Unica scelta Card/Righe: vale sia per «Da inventario» sia per la Lista. */}
       {(evaluating && cycle) || ready.showProducts ? (
         <div className="hidden items-center justify-end gap-2 md:flex">
+        {(listOrdersQuery.data ?? []).some((order) => order.sent_at) ? <span className="mr-auto flex-1 text-center text-sm font-bold uppercase text-destructive" role="status">Ordine inviato</span> : null}
         <span className="text-xs text-muted-foreground">Vista prodotti</span>
           <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
             <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => changeViewMode("card")}>
