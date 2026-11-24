@@ -1,7 +1,7 @@
 import { ShoppingQuantityEditor } from "./shopping-quantity-editor";
 import { ShoppingMobileCard } from "./shopping-mobile-card";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Check, ChevronDown, ChevronUp, Copy, Lock, MoreVertical, Package, Plus, Star, StickyNote, Trash2, TriangleAlert, Truck, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ChevronUp, Copy, Lock, MoreVertical, Package, Plus, Star, StickyNote, Trash2, TriangleAlert, Truck, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { readCardBundle, readCardDirectQuota, readCardPreference } from "@/lib/shopping-card-reads";
 import { useEffect, useState, type ReactNode } from "react";
@@ -221,6 +221,8 @@ export function ShoppingListCard({
   const unit = row.unit_code ?? "";
   const suppliers = extra?.suppliers ?? [];
   const [suppliersOpen, setSuppliersOpen] = useState(false);
+  // Sezione «Fornitori» apribile: chiusa di default, stato solo locale (nessun salvataggio).
+  const [supplierSectionOpen, setSupplierSectionOpen] = useState(false);
   const ownUnitsQuery = useQuery(companyProductPurchaseUnitsOptions(companyId));
   const ownUnits = (ownUnitsQuery.data ?? []).filter((u) => u.product_id === row.product_id);
   const decided = useDecidedUnitOptions(
@@ -862,10 +864,17 @@ export function ShoppingListCard({
 
       {show.suppliers && !excluded ? (
         <div className="space-y-1 border-t border-border pt-1.5">
-          <p className="text-[10px] font-semibold uppercase text-muted-foreground">Fornitori</p>
+          <button type="button" onClick={() => setSupplierSectionOpen((o) => !o)} aria-expanded={supplierSectionOpen}
+            className="flex w-full items-center gap-1 text-left">
+            <span className="text-[10px] font-semibold uppercase text-muted-foreground">Fornitori</span>
+            <ChevronRight className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", supplierSectionOpen && "rotate-90")} aria-hidden="true" />
+            {supplierSectionOpen ? null : <span className="min-w-0 truncate text-[11px] text-muted-foreground">{supplierBrief || "nessun fornitore"}</span>}
+          </button>
+          {supplierSectionOpen ? (<>
           {splitSummary}
           {show.splits ? totals : null}
           {orderState}
+          </>) : null}
         </div>
       ) : null}
     </article>
