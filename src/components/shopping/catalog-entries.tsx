@@ -32,6 +32,7 @@ import {
 import { getProductImageUrls } from "@/lib/product-images.functions";
 import { addShoppingListItems } from "@/lib/shopping-list.functions";
 import { cn } from "@/lib/utils";
+import { readCardB2BPrice, readCardDaneaCost } from "@/lib/shopping-card-reads";
 import { companyProductPurchaseUnitsOptions, ownCatalogUnitSelection } from "@/lib/product-purchase-units";
 import { trackPlatformUsageClick } from "@/lib/platform-usage-tracking";
 
@@ -524,9 +525,29 @@ export function CatalogProductCard({
       </Button>)}</div>} />
   ) : null;
   const meta = [entry.code, entry.category, entry.subcategory, entry.baseUm].filter(Boolean).join(" · ");
+  const priceQuery = useQuery({
+    queryKey: ["shopping-catalog-card-price", entry.key],
+    enabled: show.price,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      if (entry.ownProductId) {
+        const c = await readCardDaneaCost(entry.ownProductId);
+        return c?.net != null ? { net: c.net, unit: c.unit } : null;
+      }
+      if (entry.sellerId && entry.sellerProductId) {
+        const b = await readCardB2BPrice(entry.sellerId, entry.sellerProductId);
+        return b?.net != null ? { net: b.net, unit: null as string | null } : null;
+      }
+      return null;
+    },
+  });
+  const priceText = priceQuery.data
+    ? `Prezzo ${new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(priceQuery.data.net)}${priceQuery.data.unit ? ` / ${priceQuery.data.unit}` : ""} netto (indicativo)`
+    : priceQuery.isLoading ? "Prezzo…" : "Prezzo su richiesta";
   const inventorySummary = <div className="space-y-0.5 text-xs font-normal text-muted-foreground">
     {show.lastCount ? <p>Totale inventario {stock?.total != null ? `${formatQuantity(stock.total)} ${stock.totalUnit ?? ""}` : stock?.totalReason === "um_diverse" ? "U.M. diverse" : "—"}</p> : null}
     {show.stock ? <p>Giacenza {stock?.stock != null ? `${formatQuantity(stock.stock)} ${stock.stockUnit ?? ""}` : "—"}</p> : null}
+    {show.price ? <p className="font-medium text-foreground">{priceText}</p> : null}
   </div>;
 
   if (isMobile && layout === "card" && onToggleMobile) {
