@@ -1,5 +1,8 @@
 # Roadmap
 
+## 24/11 — U.M. configurate nella card fornitore
+- [x] U.M. configurate prima del testo manuale; KG riassociato al suo ID solo con Salva esplicito, quantità e ordini esistenti invariati. 63 test superati; su 3 EMME la modifica propone «Chilogrammo (kg)», verificata senza salvare.
+
 ## 24/11 — Luogo e frasi negli ordini fornitore
 - [x] Frasi e indirizzi liberi salvati separatamente per singolo fornitore, senza mostrarli negli ordini degli altri fornitori; 16 test superati, nessuna scrittura operativa o invio.
 - [x] Nella matita del singolo ordine: indirizzi aziendali attivi, ritiro, testo libero e salvataggio facoltativo per gli ordini successivi; ordini inviati e impostazioni aziendali invariati. Il testo manuale non eredita il collegamento dell'indirizzo della Lista.

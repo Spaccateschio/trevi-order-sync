@@ -28,7 +28,14 @@ export function quickUnitFor(s: PickSupplier, decidedUnitId: string | null, deci
   if (!code) return null;
   const hit = s.units.find((u) => norm(u.code) === code);
   if (hit) return { unitId: hit.unitId, manual: null };
-  return s.allowManual ? { unitId: null, manual: code } : null;
+  // Le U.M. configurate hanno precedenza: mai proporre testo manuale al loro posto.
+  return s.allowManual && s.units.length === 0 ? { unitId: null, manual: code } : null;
+}
+
+/** Un codice manuale identico a UNA U.M. del fornitore usa il suo ID al prossimo Salva esplicito. */
+export function configuredUnitForManual(units: PickUnit[], code: string): string | null {
+  const matches = units.filter((u) => norm(u.code) === norm(code) && norm(code) !== "");
+  return matches.length === 1 ? matches[0]?.unitId ?? null : null;
 }
 
 export type AutoPick =

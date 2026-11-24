@@ -19,7 +19,7 @@ import { manualPriceLabel, type ManualPriceIndication } from "@/lib/manual-price
 import { type OverviewRow } from "@/lib/shopping-list";
 import { autoAssignItem, planDirectQuotaRescale } from "@/lib/shopping-auto-assign";
 import { chooseListDestinations, matchesMemory, type SupplierMemory, clearDeselected, deselectedFor, markDeselected } from "@/lib/supplier-memory";
-import { defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, rowLabel, splitEvenly } from "@/lib/supplier-selection";
+import { configuredUnitForManual, defaultUnitOf, factsFromRow, friendlyAssignError, isWholeNumber, quickUnitFor, rowLabel, splitEvenly } from "@/lib/supplier-selection";
 import { readCardBundle, readCardDirectQuota, readCardDaneaCost, readCardB2BPrice, readCardPreference } from "@/lib/shopping-card-reads";
 import { Checkbox } from "@/components/ui/checkbox";
 import { deliveryDelaySummary, deliveryScheduleSummary, formatDeliveryDay, lateFirstDelivery } from "@/lib/delivery-schedule";
@@ -365,9 +365,9 @@ export function CardSuppliers({
           purchaseQuantity: input.packs,
           minWarningAccepted: input.accepted,
           notes: null,
-          purchaseUnitId: input.unitId,
+          purchaseUnitId: input.unitId ?? configuredUnitForManual(suppliers.find((s) => s.linkId === input.linkId)?.units ?? [], input.manualUnitCode ?? ""),
           assignmentId: input.assignmentId,
-          manualUnitCode: input.manualUnitCode,
+          manualUnitCode: input.unitId || configuredUnitForManual(suppliers.find((s) => s.linkId === input.linkId)?.units ?? [], input.manualUnitCode ?? "") ? null : input.manualUnitCode,
         },
       }),
     onSuccess: async (_data, input) => {
@@ -430,6 +430,7 @@ export function CardSuppliers({
       if (e.quantity.trim() && (packs === null || packs <= 0)) throw new Error("Quantità non valida");
       if (e.assignmentId && !packs) throw new Error("Indica la quantità");
       const isManual = e.unit === MANUAL;
+      const configuredId = !s.isB2B && isManual ? configuredUnitForManual(s.units, e.manual) : null;
       if (packs && !isManual && !e.unit) throw new Error("Scegli l'U.M. d'acquisto");
       if (isManual && !e.manual.trim()) throw new Error("Scrivi l'U.M. d'acquisto");
       if (!s.isB2B) {
@@ -455,9 +456,9 @@ export function CardSuppliers({
             purchaseQuantity: packs,
             minWarningAccepted: true,
             notes: null,
-            purchaseUnitId: isManual ? null : e.unit,
+            purchaseUnitId: isManual ? configuredId : e.unit,
             assignmentId: e.assignmentId,
-            manualUnitCode: isManual ? e.manual : null,
+            manualUnitCode: isManual && !configuredId ? e.manual : null,
           },
         });
       }
@@ -480,11 +481,12 @@ export function CardSuppliers({
 
   const startEdit = (s: CardSupplier, assignment: RowSupplier | null) => {
     const single = s.units.length === 1 && !s.allowManual;
+    const configuredId = assignment && !assignment.purchaseUnitId ? configuredUnitForManual(s.units, assignment.purchaseUnitCode ?? "") : null;
     setEditing({
       linkId: s.linkId,
       assignmentId: assignment?.id ?? null,
       quantity: assignment?.purchaseQuantity != null ? String(assignment.purchaseQuantity) : "",
-      unit: assignment ? (assignment.purchaseUnitId ?? MANUAL) : single ? s.units[0]!.unitId : "",
+      unit: assignment ? (assignment.purchaseUnitId ?? configuredId ?? MANUAL) : single ? s.units[0]?.unitId ?? "" : defaultUnitOf(s.units) ?? "",
       manual: assignment && !assignment.purchaseUnitId ? (assignment.purchaseUnitCode ?? "") : "",
       price: s.manualCost === null ? "" : String(s.manualCost).replace(".", ","),
       priceUnit: s.priceUnitId ?? NO_PRICE_UNIT,
@@ -569,16 +571,7 @@ export function CardSuppliers({
   // U.M. per l'assegnazione con un tocco: la stessa di «Da acquistare», solo se il fornitore la offre
   // (B2B: tra le pubblicate; non B2B: U.M. del collegamento o testo manuale). Nessuna conversione.
   const quickFor = (s: CardSupplier): { unitId: string | null; manual: string | null } | null => {
-    if (s.isB2B && (!s.sourceLinked || !s.purchasable)) return null;
-    if (decidedUnitId) {
-      const hit = s.units.find((u) => u.unitId === decidedUnitId);
-      return hit ? { unitId: hit.unitId, manual: null } : null;
-    }
-    const code = decidedCode.trim().toUpperCase();
-    if (!code) return null;
-    const hit = s.units.find((u) => u.code.trim().toUpperCase() === code);
-    if (hit) return { unitId: hit.unitId, manual: null };
-    return s.allowManual ? { unitId: null, manual: code } : null;
+    return quickUnitFor(s, decidedUnitId, decidedCode);
   };
   // Spunta: sceglie/toglie il fornitore SOLO in questa Lista (il collegamento al prodotto resta).
   // Più spunte con la stessa U.M.: parti uguali (prima si riducono le altre, poi si aggiunge: mai oltre il totale).

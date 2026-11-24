@@ -5,6 +5,7 @@ import {
   friendlyAssignError,
   issueReason,
   quickUnitFor,
+  configuredUnitForManual,
   rebalanceShares,
   rowLabel,
   splitEvenly,
@@ -19,6 +20,20 @@ const sup = (linkId: string, p: Partial<PickSupplier> = {}): PickSupplier => ({
 });
 
 describe("proposta automatica del fornitore", () => {
+  it("KG configurato usa l'ID del fornitore, non testo manuale", () => {
+    assert.deepEqual(quickUnitFor(sup("cartoleria", { allowManual: true, units: [kg, cs] }), null, "KG"), { unitId: "u-kg", manual: null });
+    assert.equal(configuredUnitForManual([kg, cs], " KG "), "u-kg");
+  });
+  it("con U.M. configurate non propone automaticamente Altra U.M.", () => {
+    assert.equal(quickUnitFor(sup("cartoleria", { allowManual: true, units: [cs] }), null, "KG"), null);
+  });
+  it("testo manuale diverso o ambiguo non viene abbinato né convertito", () => {
+    assert.equal(configuredUnitForManual([cs], "KG"), null);
+    assert.equal(configuredUnitForManual([kg, { unitId: "altro-kg", code: "KG" }], "kg"), null);
+  });
+  it("senza U.M. configurate conserva l'acquisto manuale facoltativo", () => {
+    assert.deepEqual(quickUnitFor(sup("manuale", { allowManual: true, units: [] }), null, "KG"), { unitId: null, manual: "KG" });
+  });
   it("unico fornitore idoneo: scelto (AGLIO SPAGNA 10 kg)", () => {
     assert.deepEqual(autoPickSupplier([sup("a")], null, "kg", []), { kind: "pick", linkId: "a", reason: "unico" });
   });
