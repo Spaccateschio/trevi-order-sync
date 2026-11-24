@@ -568,7 +568,7 @@ export function CatalogProductCard({
       locked={false} recheck={false} busy={adding || confirming}
       header={<div className="flex min-w-0 items-start gap-2">{image}<div className="min-w-0 flex-1"><p className="break-words font-display text-base font-bold uppercase leading-tight">{name}</p><Badge variant="outline" className="mt-0.5 text-[10px]">{nonPurchase ? "Non acquistare" : saving ? "In salvataggio" : "Non in lista"}</Badge></div>{star}{menu}</div>}
       summary={<span className="block">{inventorySummary}<span className="text-base font-bold">{nonPurchase ? "Non acquistare" : `Da acquistare ${quantity !== null ? `${quantity} ${unitCode ?? ""}` : saving ? `${saving.quantity} ${saving.unitCode ?? ""}` : "—"}`}</span></span>}
-      supplier={<span>Fornitore: {supplier}</span>} suggested={null} warnings={null}>
+      supplier={show.suppliers ? <span>Fornitore: {supplier}</span> : null} suggested={null} warnings={null}>
       <p className="text-xs text-muted-foreground">{meta}</p>{controls}{addSupplier}
     </ShoppingMobileCard>;
   }
@@ -605,7 +605,7 @@ export function CatalogProductCard({
       <Badge variant="outline" className="w-fit text-[10px]">{nonPurchase ? "Non acquistare" : "Non in lista"}</Badge>
       {inventorySummary}
       {controls}
-      <div className="space-y-1 border-t border-border pt-1.5">
+      {show.suppliers ? <div className="space-y-1 border-t border-border pt-1.5">
         <p className="text-[10px] font-semibold uppercase text-muted-foreground">Fornitori</p>
         {entry.isB2b ? (
           <p className="truncate text-xs text-muted-foreground">{supplier}</p>
@@ -632,7 +632,7 @@ export function CatalogProductCard({
             {suppliersOpen ? addSupplier : null}
           </>
         )}
-      </div>
+      </div> : null}
     </article>
   );
 }
