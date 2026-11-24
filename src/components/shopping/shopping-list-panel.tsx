@@ -2612,7 +2612,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
         progress={cartProgress}
         saving={cartSaving}
         confirmDisabled={!ready.canPrepare && !previewMode}
-        secondaryAction={list && editable && allRows.length ? { label: "Invia ordini per fornitore", disabled: listMutation.isPending, onClick: openGeneration } : undefined}
+        secondaryAction={list && editable && allRows.length ? { label: (listOrdersQuery.data ?? []).some((order) => order.sent_at) ? "Ordini inviati" : "Invia ordini per fornitore", highlight: (listOrdersQuery.data ?? []).some((order) => order.sent_at), disabled: listMutation.isPending, onClick: openGeneration } : undefined}
         onQuantityChange={changeCartQuantity}
         onRemove={removeCartLine}
         onRevealMissing={revealMissing}

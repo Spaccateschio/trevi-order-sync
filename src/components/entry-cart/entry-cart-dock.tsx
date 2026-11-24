@@ -39,7 +39,7 @@ export function EntryCartDock({
   progress: EntryCartProgress;
   saving: boolean;
   confirmDisabled?: boolean;
-  secondaryAction?: { label: string; disabled?: boolean; onClick: () => void } | undefined;
+  secondaryAction?: { label: string; disabled?: boolean; highlight?: boolean; onClick: () => void } | undefined;
   onQuantityChange: (id: string, quantity: string) => void;
   onRemove: (id: string) => void;
   onRevealMissing: (id: string) => void;
@@ -119,7 +119,7 @@ export function EntryCartDock({
           <Button type="button" className="h-10 shrink-0 px-3" disabled={saving || confirmDisabled || !lines.length} onClick={requestConfirm}>
             <CheckCheck /> {saving ? "Salvataggio…" : online ? (lines.length ? "CONFERMA" : visibleConfirmedLines.length ? "SALVATO" : "CONFERMA") : "RIPROVA"}
           </Button>
-          {secondaryAction ? <Button type="button" variant="outline" className="hidden h-10 shrink-0 sm:inline-flex" disabled={saving || secondaryAction.disabled} onClick={secondaryAction.onClick}>{secondaryAction.label}</Button> : null}
+          {secondaryAction ? <Button type="button" variant="outline" className={`hidden h-10 shrink-0 sm:inline-flex${secondaryAction.highlight ? " border-accent bg-accent font-bold text-accent-foreground hover:bg-accent/90" : ""}`} disabled={secondaryAction.highlight ? secondaryAction.disabled : saving || secondaryAction.disabled} onClick={secondaryAction.onClick}>{secondaryAction.label}</Button> : null}
         </div>
       </div>
     </div>
