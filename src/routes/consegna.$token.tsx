@@ -256,14 +256,14 @@ function ConsegnaEsterna() {
           <section className="space-y-2">
             <h2 className="text-base font-semibold">Comunica la consegna</h2>
             <p className="text-sm text-muted-foreground">
-              Spunta i prodotti che consegni e indica la quantità. Tocca la freccia per aggiungere
+              Spunta i prodotti che consegni e indica la quantità. Sotto ogni prodotto puoi aggiungere
               prezzo, pesi, lotto e note (facoltativi).
             </p>
             <div className="space-y-2">
               {(draft?.items ?? []).map((item) => {
                 const edit = editFor(item);
                 const unit = item.purchase_unit_code ?? item.unit_code ?? "";
-                const open = expanded[item.id] ?? false;
+                const open = expanded[item.id] ?? true;
                 const on = isChecked(item);
                 return (
                   <div
