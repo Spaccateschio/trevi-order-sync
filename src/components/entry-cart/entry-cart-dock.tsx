@@ -114,7 +114,7 @@ export function EntryCartDock({
           <Progress value={percentage} className="h-1.5" aria-label="Avanzamento salvataggio" />
         </div> : null}
         <div className="flex min-w-0 items-stretch gap-2">
-          <Button type="button" variant="ghost" className="h-10 min-w-0 flex-1 items-center gap-1.5 bg-sidebar-accent px-3 py-0 text-left text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground" onClick={() => setMissingOpen(true)} aria-label={`Apri carrello ${areaLabel}`}>
+          <Button type="button" variant="ghost" className="h-10 min-w-0 flex-1 items-center gap-1.5 bg-sidebar-accent px-3 py-0 text-left text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground" onClick={() => { if (lines.some((line) => line.error)) setCartOpen(true); else setMissingOpen(true); }} aria-label={`Apri carrello ${areaLabel}`}>
             <span className="flex shrink-0 items-center gap-1.5 text-xs font-bold"><ShoppingCart className="size-4" /> CARRELLO</span>
             <span className="min-w-0 truncate text-[11px] font-normal text-sidebar-foreground/75">{barMetrics.products} {barMetrics.products === 1 ? "prodotto" : "prodotti"} · {barMetrics.suppliers} {barMetrics.suppliers === 1 ? "fornitore" : "fornitori"}</span>
           </Button>
@@ -202,7 +202,7 @@ export function EntryCartDock({
             </Accordion>
           </section>
         </div>
-        <DialogFooter className="gap-2"><Button variant="outline" disabled={saving} onClick={() => setMissingOpen(false)}>Torna a inserire</Button><Button disabled={saving || confirmDisabled || (!lines.length && (!onContinue || !reviewLines.length))} onClick={() => { if (lines.length) onConfirm(); else { setMissingOpen(false); onContinue?.(); } }}>{saving ? "Salvataggio…" : lines.length ? `Conferma ${reviewMetrics.products} ${reviewMetrics.products === 1 ? "prodotto" : "prodotti"}` : "Vai agli ordini per fornitore"}</Button></DialogFooter>
+        <DialogFooter className="gap-2"><Button variant="outline" disabled={saving} onClick={() => { setMissingOpen(false); setCartOpen(true); }}>Modifica o togli</Button><Button variant="outline" disabled={saving} onClick={() => setMissingOpen(false)}>Torna a inserire</Button><Button disabled={saving || confirmDisabled || (!lines.length && (!onContinue || !reviewLines.length))} onClick={() => { if (lines.length) onConfirm(); else { setMissingOpen(false); onContinue?.(); } }}>{saving ? "Salvataggio…" : lines.length ? `Conferma ${reviewMetrics.products} ${reviewMetrics.products === 1 ? "prodotto" : "prodotti"}` : "Vai agli ordini per fornitore"}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   </>;
