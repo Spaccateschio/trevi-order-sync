@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, ChevronDown, ChevronUp, MapPin, CalendarDays, FileText, User } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, MapPin, CalendarDays, FileText, User, Printer } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -179,6 +179,31 @@ function ConsegnaEsterna() {
       </main>
     );
   }
+
+  // Foglio stampabile per il fornitore, con i valori inseriti finora (vuoti da compilare a mano).
+  const printSheet = () => {
+    const popup = window.open("", "_blank", "width=1000,height=900");
+    if (!popup || !draft) return;
+    const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+    const rows = draft.items.map((item) => {
+      const e = editFor(item);
+      return `<tr><td>${esc(item.products?.code)}</td><td><b>${esc(item.products?.description)}</b></td><td>${esc(item.purchase_unit_code ?? item.unit_code)}</td><td class="r">${esc(e.quantity)}</td><td class="r">${esc(e.gross)}</td><td class="r">${esc(e.tare)}</td><td class="r">${esc(e.net)}</td><td class="r">${esc(e.price)}</td><td>${esc(e.lot)}</td><td>${esc(e.notes)}</td></tr>`;
+    }).join("");
+    const date = draft.deliveryDate ? new Date(`${draft.deliveryDate}T00:00:00`).toLocaleDateString("it-IT") : "Da concordare";
+    popup.document.write(`<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Ordine ${esc(draft.orderNumber)}</title><style>
+      @page{size:A4 landscape;margin:12mm}body{font:12px/1.4 Arial,sans-serif;color:#111;margin:0}
+      header{display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:12px}h1{font-size:18px;margin:0}
+      table{width:100%;border-collapse:collapse}th,td{border:1px solid #777;padding:6px;height:22px;vertical-align:top}th{background:#eee;text-align:left;font-size:11px}.r{text-align:right}
+      .sign{display:flex;justify-content:space-between;margin-top:28px}.sign span{border-top:1px solid #111;width:40%;padding-top:4px;text-align:center}
+    </style></head><body>
+      <header><div><b>Cliente:</b> ${esc(draft.buyerName)}<br><b>Consegna:</b> ${esc(date)} — ${esc(draft.deliveryAddress || "Non indicato")}${draft.orderNotes ? `<br><b>Note:</b> ${esc(draft.orderNotes)}` : ""}</div><h1>Ordine ${esc(draft.orderNumber)}</h1></header>
+      <table><thead><tr><th>Codice</th><th>Prodotto</th><th>U.M.</th><th>Q.tà consegnata</th><th>Peso lordo (kg)</th><th>Tara (kg)</th><th>Peso netto (kg)</th><th>Prezzo (€)</th><th>Lotto</th><th>Note</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="sign"><span>Firma fornitore${name.trim() ? ` (${esc(name.trim())})` : ""}</span><span>Firma ricevente</span></div>
+    </body></html>`);
+    popup.document.close();
+    popup.focus();
+    setTimeout(() => popup.print(), 300);
+  };
 
   return (
     <main className="mx-auto max-w-3xl space-y-5 p-4 pb-16">
@@ -377,6 +402,9 @@ function ConsegnaEsterna() {
             disabled={submit.isPending || !draft || checkedCount === 0}
           >
             Invia la comunicazione{checkedCount > 0 ? ` (${checkedCount} ${checkedCount === 1 ? "prodotto" : "prodotti"})` : ""}
+          </Button>
+          <Button type="button" variant="outline" className="w-full" disabled={!draft} onClick={printSheet}>
+            <Printer className="h-4 w-4" /> Stampa foglio d'ordine
           </Button>
         </>
       )}
