@@ -572,6 +572,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          supplier_record_id: string | null
           text: string
         }
         Insert: {
@@ -579,6 +580,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          supplier_record_id?: string | null
           text: string
         }
         Update: {
@@ -586,6 +588,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          supplier_record_id?: string | null
           text?: string
         }
         Relationships: [
@@ -594,6 +597,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_delivery_places_supplier_record_id_fkey"
+            columns: ["supplier_record_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_records"
             referencedColumns: ["id"]
           },
         ]
@@ -9368,22 +9378,45 @@ export type Database = {
             }
             Returns: undefined
           }
-      save_shopping_list_delivery_place: {
-        Args: { _list_id: string; _text: string }
-        Returns: {
-          company_id: string
-          created_at: string
-          created_by: string
-          id: string
-          text: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "company_delivery_places"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      save_shopping_list_delivery_place:
+        | {
+            Args: {
+              _list_id: string
+              _supplier_record_id: string
+              _text: string
+            }
+            Returns: {
+              company_id: string
+              created_at: string
+              created_by: string
+              id: string
+              supplier_record_id: string | null
+              text: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "company_delivery_places"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: { _list_id: string; _text: string }
+            Returns: {
+              company_id: string
+              created_at: string
+              created_by: string
+              id: string
+              supplier_record_id: string | null
+              text: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "company_delivery_places"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       search_companies: {
         Args: { _query: string; _role: string }
         Returns: {

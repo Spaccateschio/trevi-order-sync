@@ -778,6 +778,13 @@
       "when": 1795499036749,
       "tag": "0110_supplier_order_delivery_place_presets",
       "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "7",
+      "when": 1795499405733,
+      "tag": "0111_supplier_specific_delivery_places",
+      "breakpoints": true
     }
   ]
 }

@@ -26,6 +26,7 @@ import {
   DELIVERY_PLACE_PICKUP_TEXT,
   DELIVERY_PLACE_SAVED_PREFIX,
   deliveryPlaceFromSelection,
+  deliveryPlacesForSupplier,
   deliveryPlaceSelectValue,
   normalizeDeliveryPlace,
   shouldSaveDeliveryPlace,
@@ -167,7 +168,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
     queryKey: ["company-delivery-places", companyId],
     enabled: open,
     queryFn: async (): Promise<SavedDeliveryPlace[]> => {
-      const { data, error } = await supabase.from("company_delivery_places").select("id, text").eq("company_id", companyId).order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("company_delivery_places").select("id, text, supplier_record_id").eq("company_id", companyId).order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
       return data ?? [];
     },
@@ -211,6 +212,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
   };
   const tone = (name: string) => supplierTone?.(name) ?? null;
   const groupById = (id: string) => groups.find((group) => group.supplierId === id);
+  const editingSavedPlaces = deliveryPlacesForSupplier(savedPlaces.data ?? [], editing);
   const scheduleOf = (group: SupplierGroup): Schedule => overrides[group.supplierId] ?? (group.order ? {
     date: group.order.delivery_date ?? "",
     from: hhmm(group.order.delivery_time_from),
@@ -261,7 +263,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
     const schedule = scheduleOf(group);
     const place = placeOf(group);
     if (shouldSaveDeliveryPlace(place)) {
-      await runSavePlace({ data: { listId, text: normalizeDeliveryPlace(place.address) } });
+      await runSavePlace({ data: { listId, supplierRecordId: group.supplierId, text: normalizeDeliveryPlace(place.address) } });
       await queryClient.invalidateQueries({ queryKey: ["company-delivery-places", companyId] });
     }
     const delivery = {
@@ -381,7 +383,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
     finishIfClosed(closed);
   };
 
-  const draftPlaceSelection = deliveryPlaceSelectValue(draft, prefs.data?.addresses ?? [], savedPlaces.data ?? []);
+  const draftPlaceSelection = deliveryPlaceSelectValue(draft, prefs.data?.addresses ?? [], editingSavedPlaces);
 
   return <>
     <Dialog open={open} onOpenChange={(next) => { if (!bulkPending) onOpenChange(next); }}>
@@ -472,12 +474,12 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
           </div>
           <div className="space-y-2 rounded-md border border-border p-3">
             <Label className="text-xs">Dove consegnare o ritirare</Label>
-            <Select value={draftPlaceSelection} onValueChange={(selection) => setDraft((current) => ({ ...current, ...deliveryPlaceFromSelection(selection, current, prefs.data?.addresses ?? [], savedPlaces.data ?? []) }))}>
+            <Select value={draftPlaceSelection} onValueChange={(selection) => setDraft((current) => ({ ...current, ...deliveryPlaceFromSelection(selection, current, prefs.data?.addresses ?? [], editingSavedPlaces) }))}>
               <SelectTrigger aria-label="Luogo o indicazione" className="h-auto min-h-9 whitespace-normal"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(prefs.data?.addresses ?? []).map((address) => <SelectItem key={address.id} value={address.id}>{address.text || "Indirizzo senza descrizione"}</SelectItem>)}
                 <SelectItem value={DELIVERY_PLACE_PICKUP}>{DELIVERY_PLACE_PICKUP_TEXT}</SelectItem>
-                {(savedPlaces.data ?? []).map((place) => <SelectItem key={place.id} value={`${DELIVERY_PLACE_SAVED_PREFIX}${place.id}`}>{place.text}</SelectItem>)}
+                {(editingSavedPlaces).map((place) => <SelectItem key={place.id} value={`${DELIVERY_PLACE_SAVED_PREFIX}${place.id}`}>{place.text}</SelectItem>)}
                 <SelectItem value={DELIVERY_PLACE_MANUAL}>Scrivi un indirizzo o una frase…</SelectItem>
               </SelectContent>
             </Select>
@@ -485,9 +487,9 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
               <Textarea aria-label="Indirizzo o frase libera" rows={2} maxLength={300} value={draft.address} onChange={(event) => setDraft({ ...draft, address: event.target.value, addressId: null })} placeholder="Es. Passo io a prenderle, oppure scrivi un altro indirizzo" />
               <div className="flex items-start gap-2">
                 <Checkbox id="save-delivery-place" checked={draft.savePlace} onCheckedChange={(checked) => setDraft({ ...draft, savePlace: checked === true })} />
-                <Label htmlFor="save-delivery-place" className="text-xs font-normal leading-5">Salva per i prossimi ordini</Label>
+                <Label htmlFor="save-delivery-place" className="text-xs font-normal leading-5">Salva per i prossimi ordini di questo fornitore</Label>
               </div>
-              {draft.savePlace ? <p className="text-xs text-muted-foreground">Il testo sarà riutilizzabile quando salvi o invii questo ordine.</p> : null}
+              {draft.savePlace ? <p className="text-xs text-muted-foreground">Il testo sarà riutilizzabile solo per questo fornitore quando salvi o invii questo ordine.</p> : null}
             </div> : null}
             {savedPlaces.isError ? <p className="text-xs text-destructive">Le frasi salvate non sono disponibili; puoi comunque scrivere un testo per questo ordine.</p> : null}
           </div>

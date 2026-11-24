@@ -11,7 +11,13 @@ export type DeliveryPlaceDraft = {
   savePlace: boolean;
 };
 
-export type SavedDeliveryPlace = { id: string; text: string };
+export type SavedDeliveryPlace = { id: string; text: string; supplier_record_id: string | null };
+
+/** Le indicazioni salvate appartengono al solo fornitore per cui sono state scritte. */
+export function deliveryPlacesForSupplier(places: SavedDeliveryPlace[], supplierId: string | null): SavedDeliveryPlace[] {
+  if (!supplierId) return [];
+  return places.filter((place) => place.supplier_record_id === supplierId);
+}
 
 export function normalizeDeliveryPlace(value: string): string {
   return value.trim().replace(/\s+/g, " ");

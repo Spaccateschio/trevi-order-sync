@@ -1,6 +1,7 @@
 # Roadmap
 
 ## 24/11 — Luogo e frasi negli ordini fornitore
+- [x] Frasi e indirizzi liberi salvati separatamente per singolo fornitore, senza mostrarli negli ordini degli altri fornitori; 16 test superati, nessuna scrittura operativa o invio.
 - [x] Nella matita del singolo ordine: indirizzi aziendali attivi, ritiro, testo libero e salvataggio facoltativo per gli ordini successivi; ordini inviati e impostazioni aziendali invariati. Il testo manuale non eredita il collegamento dell'indirizzo della Lista.
 - [x] 15 test superati e verifica desktop/mobile su 3 EMME delle scelte locali, senza premere Salva, creare ordini o inviare comunicazioni.
 

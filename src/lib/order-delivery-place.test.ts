@@ -5,15 +5,22 @@ import {
   DELIVERY_PLACE_PICKUP,
   DELIVERY_PLACE_PICKUP_TEXT,
   deliveryPlaceFromSelection,
+  deliveryPlacesForSupplier,
   deliveryPlaceSelectValue,
   normalizeDeliveryPlace,
   shouldSaveDeliveryPlace,
 } from "./order-delivery-place";
 
 const addresses = [{ id: "sede-1", text: "Magazzino — Via Roma 10, Frosinone", functions: ["consegna"] }];
-const savedPlaces = [{ id: "frase-1", text: "Consegna al banco laterale" }];
+const savedPlaces = [{ id: "frase-1", text: "Consegna al banco laterale", supplier_record_id: "fornitore-1" }];
 
 describe("luogo dell'ordine fornitore", () => {
+  it("mostra le frasi salvate solo al fornitore per cui sono state scritte", () => {
+    const places = [...savedPlaces, { id: "frase-2", text: "Ritiro nel pomeriggio", supplier_record_id: "fornitore-2" }];
+    assert.deepEqual(deliveryPlacesForSupplier(places, "fornitore-1").map((place) => place.id), ["frase-1"]);
+    assert.deepEqual(deliveryPlacesForSupplier(places, "fornitore-2").map((place) => place.id), ["frase-2"]);
+    assert.deepEqual(deliveryPlacesForSupplier(places, null), []);
+  });
   it("un indirizzo delle impostazioni conserva il collegamento e il testo aggiornato", () => {
     const result = deliveryPlaceFromSelection("sede-1", { address: "Vecchio", addressId: null, savePlace: true }, addresses, savedPlaces);
     assert.deepEqual(result, { address: "Magazzino — Via Roma 10, Frosinone", addressId: "sede-1", savePlace: false });
