@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SupplierDot, supplierToneStyle } from "@/components/suppliers/supplier-color";
 import { B2bOrderShareDialog } from "@/components/purchase/b2b-order-share-dialog";
 import { OrderShareDialog } from "@/components/purchase/order-share-dialog";
+import { ProductsWorkspace } from "@/components/products/products-workspace";
 import { supabase } from "@/integrations/supabase/client";
 import { bulkUnsentB2bSupplierIds } from "@/lib/local-entry-cart";
 import { qty } from "@/lib/inventory";
@@ -108,6 +109,8 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
   // Popup «Da sistemare»: mostra il punto che blocca l'invio di un fornitore.
   const [fixing, setFixing] = useState<{ supplierId: string; message: string | null } | null>(null);
   const [coveragePending, setCoveragePending] = useState<string | null>(null);
+  const [configuringItem, setConfiguringItem] = useState<string | null>(null);
+  const [configuration, setConfiguration] = useState<{ productId: string; name: string } | null>(null);
   // Righe aperte: all'inizio solo i fornitori non ancora inviati; dopo un invio la riga si chiude da sola.
   const [openItems, setOpenItems] = useState<string[] | null>(null);
   const generationKeys = useRef<Record<string, string>>({});
@@ -341,6 +344,19 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
 
   const collapse = (supplierId: string) => setOpenItems((current) => (current ?? groups.filter((group) => !group.order?.sent_at).map((group) => group.supplierId)).filter((id) => id !== supplierId));
   const coverageLines = (group: SupplierGroup) => group.previewLines.filter((line) => line.needs_coverage && !line.coverage_confirmed);
+  const openConfiguration = async (line: GenerationLine) => {
+    setConfiguringItem(line.item_id);
+    try {
+      const { data, error } = await supabase.from("shopping_list_items").select("product_id").eq("id", line.item_id).eq("list_id", listId).single();
+      if (error) throw new Error(error.message);
+      if (!data.product_id) throw new Error("Prodotto non disponibile: torna alla Lista per controllarlo.");
+      setConfiguration({ productId: data.product_id, name: line.name });
+    } catch (error) {
+      setFixing((current) => current ? { ...current, message: error instanceof Error ? error.message : "Impostazioni non disponibili" } : current);
+    } finally {
+      setConfiguringItem(null);
+    }
+  };
   const confirmCoverage = async (assignmentId: string) => {
     setCoveragePending(assignmentId);
     try {
@@ -508,15 +524,22 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
             {lines.map((line) => <div key={line.assignment_id} className="rounded-md border border-accent/60 bg-accent/20 p-3 text-sm">
               <p className="font-semibold">{line.name}</p>
               <p className="text-xs text-muted-foreground">Ordini {qty(Number(line.quantity))} {line.unit_code ?? ""}, ma non c'è una conversione fissa con l'U.M. di magazzino. Conferma che vuoi proprio questa quantità.</p>
-              <Button size="sm" className="mt-2" disabled={coveragePending !== null} onClick={() => void confirmCoverage(line.assignment_id)}>{coveragePending === line.assignment_id ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Confermo la quantità</Button>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button size="sm" disabled={coveragePending !== null || configuringItem !== null} onClick={() => void confirmCoverage(line.assignment_id)}>{coveragePending === line.assignment_id ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Confermo la quantità</Button>
+                <Button variant="outline" size="sm" disabled={coveragePending !== null || configuringItem !== null} onClick={() => void openConfiguration(line)}>{configuringItem === line.item_id ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />} Imposta</Button>
+              </div>
             </div>)}
-            {fixing?.message && !lines.length ? <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">{fixing.message}</p> : null}
+            {fixing?.message ? <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm" role="alert"><p>{fixing.message}</p>{!lines.length ? group?.previewLines.map((line) => <div key={line.assignment_id} className="flex items-center justify-between gap-2"><span>{line.name}</span><Button variant="outline" size="sm" disabled={configuringItem !== null} onClick={() => void openConfiguration(line)}><Pencil className="size-4" /> Imposta</Button></div>) : null}</div> : null}
             {!lines.length && !fixing?.message ? <p className="text-sm text-muted-foreground">Tutto sistemato: puoi inviare.</p> : null}
           </div>
           <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setFixing(null)}>Chiudi</Button>{group && !lines.length ? <Button onClick={() => { setFixing(null); void sendOne(group); }}><Send className="size-4" /> Riprova invio</Button> : null}</DialogFooter>
         </DialogContent>
       </Dialog>;
     })()}
+
+    {configuration ? <ProductsWorkspace key={configuration.productId} gridKey="acquisti.prodotti" prodottoParam={configuration.productId} initialTab="acquisto" sheetOnly
+      sheetBanner={<p className="mb-3 text-sm font-semibold">Imposta · {configuration.name} · {fixing ? groupById(fixing.supplierId)?.name : ""}</p>}
+      onSheetClose={() => { setConfiguration(null); void refresh(); }} /> : null}
 
     {sharing ? <OrderShareDialog orderId={sharing.orderId} mode={sharing.mode} onClose={() => setSharing(null)} onConfirmed={async (closed) => { const sentGroup = groups.find((group) => group.order?.id === sharing.orderId); await refresh(); if (sentGroup) collapse(sentGroup.supplierId); finishIfClosed(closed); }} /> : null}
     {sharingB2b ? <B2bOrderShareDialog orderId={sharingB2b.orderId} number={sharingB2b.number} supplier={sharingB2b.supplier} onClose={() => setSharingB2b(null)} /> : null}
