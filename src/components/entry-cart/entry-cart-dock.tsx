@@ -92,6 +92,8 @@ export function EntryCartDock({
   const reviewLines = useMemo(() => entryCartReviewLines(lines, confirmedLines ?? []), [lines, confirmedLines]);
   const reviewMetrics = useMemo(() => entryCartMetrics(reviewLines), [reviewLines]);
   const draftIds = useMemo(() => new Set(lines.map((line) => line.id)), [lines]);
+  // Barra: tutti i prodotti impostati della Lista, compresi quelli già in un ordine inviato.
+  const barMetrics = useMemo(() => entryCartMetrics([...lines, ...visibleConfirmedLines]), [lines, visibleConfirmedLines]);
   const confirmationSupplierGroups = useMemo(() => entryCartLinesBySupplier(reviewLines), [reviewLines]);
   const percentage = progress?.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
@@ -114,7 +116,7 @@ export function EntryCartDock({
         <div className="flex min-w-0 items-stretch gap-2">
           <Button type="button" variant="ghost" className="h-10 min-w-0 flex-1 items-center gap-1.5 bg-sidebar-accent px-3 py-0 text-left text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground" onClick={() => setMissingOpen(true)} aria-label={`Apri carrello ${areaLabel}`}>
             <span className="flex shrink-0 items-center gap-1.5 text-xs font-bold"><ShoppingCart className="size-4" /> CARRELLO</span>
-            <span className="min-w-0 truncate text-[11px] font-normal text-sidebar-foreground/75">{reviewMetrics.products} {reviewMetrics.products === 1 ? "prodotto" : "prodotti"} · {reviewMetrics.suppliers} {reviewMetrics.suppliers === 1 ? "fornitore" : "fornitori"}</span>
+            <span className="min-w-0 truncate text-[11px] font-normal text-sidebar-foreground/75">{barMetrics.products} {barMetrics.products === 1 ? "prodotto" : "prodotti"} · {barMetrics.suppliers} {barMetrics.suppliers === 1 ? "fornitore" : "fornitori"}</span>
           </Button>
           <Button type="button" className="h-10 shrink-0 px-3" disabled={saving || confirmDisabled || !lines.length} onClick={requestConfirm}>
             <CheckCheck /> {saving ? "Salvataggio…" : online ? (lines.length ? "CONFERMA" : visibleConfirmedLines.length ? "SALVATO" : "CONFERMA") : "RIPROVA"}
