@@ -305,9 +305,9 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
       else setSharing({ orderId: group.order.id, mode: "resend" });
       return;
     }
-    if (coverageLines(group).length) { setFixing({ supplierId: group.supplierId, message: null }); return; }
     setBusy(group.supplierId, true);
     try {
+      await confirmVisibleQuantities(group);
       const orderId = await ensureOrder(group);
       if (group.isB2b) {
         await runSend({ data: { orderId, action: "send", destinationLocationId: null, notes: null, sendChannel: null } });
@@ -343,6 +343,10 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
   };
 
   const collapse = (supplierId: string) => setOpenItems((current) => (current ?? groups.filter((group) => !group.order?.sent_at).map((group) => group.supplierId)).filter((id) => id !== supplierId));
+  /** Peso variabile: premere l'aeroplanino vale come conferma esplicita della quantità mostrata nella riga. */
+  const confirmVisibleQuantities = async (group: SupplierGroup) => {
+    for (const line of coverageLines(group)) await runCoverage({ data: { assignmentId: line.assignment_id, confirm: true } });
+  };
   const coverageLines = (group: SupplierGroup) => group.previewLines.filter((line) => line.needs_coverage && !line.coverage_confirmed);
   const openConfiguration = async (line: GenerationLine) => {
     setConfiguringItem(line.item_id);
@@ -381,6 +385,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
       if (!group) continue;
       setBusy(supplierId, true);
       try {
+        await confirmVisibleQuantities(group);
         const orderId = await ensureOrder(group);
         await runSend({ data: { orderId, action: "send", destinationLocationId: null, notes: null, sendChannel: null } });
         sent += 1;
