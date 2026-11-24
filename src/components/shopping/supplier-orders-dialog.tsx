@@ -20,7 +20,7 @@ import { qty } from "@/lib/inventory";
 import { addDays, localToday, useDeliveryPreferences } from "@/lib/delivery-preferences";
 import { deliveryDefaults, halfHourTime } from "@/lib/order-delivery-defaults";
 import { supplierOrderIssueReason } from "@/lib/supplier-order-issues";
-import { generateSupplierOrder, getGenerationPreview, updateDraftOrder, type GenerationLine } from "@/lib/order-generation.functions";
+import { confirmAssignmentCoverage, generateSupplierOrder, getGenerationPreview, updateDraftOrder, type GenerationLine } from "@/lib/order-generation.functions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import type { SupplierColorCode } from "@/lib/supplier-color";
 
@@ -88,6 +88,10 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
   const runGenerate = useServerFn(generateSupplierOrder);
   const runUpdate = useServerFn(updateDraftOrder);
   const runSend = useServerFn(managePurchaseOrder);
+  const runCoverage = useServerFn(confirmAssignmentCoverage);
+  // Popup «Da sistemare»: mostra il punto che blocca l'invio di un fornitore.
+  const [fixing, setFixing] = useState<{ supplierId: string; message: string | null } | null>(null);
+  const [coveragePending, setCoveragePending] = useState<string | null>(null);
   const generationKeys = useRef<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [overrides, setOverrides] = useState<Record<string, Schedule>>({});
@@ -254,6 +258,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
       else setSharing({ orderId: group.order.id, mode: "resend" });
       return;
     }
+    if (coverageLines(group).length) { setFixing({ supplierId: group.supplierId, message: null }); return; }
     setBusy(group.supplierId, true);
     try {
       const orderId = await ensureOrder(group);
@@ -268,7 +273,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
         setSharing({ orderId, mode: "first" });
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Invio non riuscito");
+      setFixing({ supplierId: group.supplierId, message: error instanceof Error ? error.message : "Invio non riuscito" });
     } finally {
       setBusy(group.supplierId, false);
     }
@@ -286,6 +291,20 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
       toast.error(error instanceof Error ? error.message : "Salvataggio non riuscito");
     } finally {
       setBusy(group.supplierId, false);
+    }
+  };
+
+  const coverageLines = (group: SupplierGroup) => group.previewLines.filter((line) => line.needs_coverage && !line.coverage_confirmed);
+  const confirmCoverage = async (assignmentId: string) => {
+    setCoveragePending(assignmentId);
+    try {
+      await runCoverage({ data: { assignmentId, confirm: true } });
+      await refresh();
+      setFixing((current) => current ? { ...current, message: null } : current);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Conferma non riuscita");
+    } finally {
+      setCoveragePending(null);
     }
   };
 
@@ -406,6 +425,26 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
         <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setEditing(null)}>Annulla</Button><Button onClick={() => { if (editing) setOverrides((current) => ({ ...current, [editing]: { ...draft, from: halfHourTime(draft.from), to: halfHourTime(draft.to) } })); setEditing(null); }}>Usa data e orario</Button></DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {(() => {
+      const group = fixing ? groupById(fixing.supplierId) : undefined;
+      const lines = group ? coverageLines(group) : [];
+      return <Dialog open={fixing !== null} onOpenChange={(next) => { if (!next) setFixing(null); }}>
+        <DialogContent className="max-w-[calc(100vw-1.5rem)] sm:max-w-md">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><AlertTriangle className="size-4" /> Da sistemare prima dell'invio</DialogTitle><DialogDescription>{group?.name ?? ""}: sistema il punto qui sotto, poi riprova l'invio.</DialogDescription></DialogHeader>
+          <div className="space-y-2">
+            {lines.map((line) => <div key={line.assignment_id} className="rounded-md border border-accent/60 bg-accent/20 p-3 text-sm">
+              <p className="font-semibold">{line.name}</p>
+              <p className="text-xs text-muted-foreground">Ordini {qty(Number(line.quantity))} {line.unit_code ?? ""}, ma non c'è una conversione fissa con l'U.M. di magazzino. Conferma che vuoi proprio questa quantità.</p>
+              <Button size="sm" className="mt-2" disabled={coveragePending !== null} onClick={() => void confirmCoverage(line.assignment_id)}>{coveragePending === line.assignment_id ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Confermo la quantità</Button>
+            </div>)}
+            {fixing?.message && !lines.length ? <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">{fixing.message}</p> : null}
+            {!lines.length && !fixing?.message ? <p className="text-sm text-muted-foreground">Tutto sistemato: puoi inviare.</p> : null}
+          </div>
+          <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setFixing(null)}>Chiudi</Button>{group && !lines.length ? <Button onClick={() => { setFixing(null); void sendOne(group); }}><Send className="size-4" /> Riprova invio</Button> : null}</DialogFooter>
+        </DialogContent>
+      </Dialog>;
+    })()}
 
     {sharing ? <OrderShareDialog orderId={sharing.orderId} mode={sharing.mode} onClose={() => setSharing(null)} onConfirmed={async (closed) => { await refresh(); finishIfClosed(closed); }} /> : null}
     {sharingB2b ? <B2bOrderShareDialog orderId={sharingB2b.orderId} number={sharingB2b.number} supplier={sharingB2b.supplier} onClose={() => setSharingB2b(null)} /> : null}
