@@ -559,7 +559,7 @@ export function CatalogProductCard({
     : priceQuery.isLoading ? "Prezzo…" : "Prezzo su richiesta";
   const inventorySummary = <div className="space-y-0.5 text-xs font-normal text-muted-foreground">
     {show.lastCount ? <p>Totale inventario {stock?.stock != null ? `${formatQuantity(stock.stock)} ${stock.stockUnit ?? ""}` : stock?.total != null ? `${formatQuantity(stock.total)} ${stock.totalUnit ?? ""}` : stock?.totalReason === "um_diverse" ? "U.M. diverse" : "—"}</p> : null}
-    {false && show.stock ? <p>Giacenza {stock?.stock != null ? `${formatQuantity(stock.stock)} ${stock.stockUnit ?? ""}` : "—"}</p> : null}
+    {(false as boolean) && show.stock ? <p>Giacenza {stock?.stock != null ? `${formatQuantity(stock.stock)} ${stock.stockUnit ?? ""}` : "—"}</p> : null}
     {show.price ? <p className="font-medium text-foreground">{priceText}</p> : null}
   </div>;
 

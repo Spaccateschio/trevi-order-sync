@@ -742,7 +742,7 @@ export function ShoppingListCard({
       </>}
       summary={<span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
         {show.lastCount ? <span className="w-full text-xs font-normal text-muted-foreground">Totale inventario {inventoryTotalText}</span> : null}
-        {false && show.stock ? <span className="text-xs font-normal text-muted-foreground">Giacenza {stock?.stock != null ? `${qty(stock.stock)} ${stock.stockUnit ?? unit}` : "—"}{show.toBuy ? " ·" : ""}</span> : null}
+        {(false as boolean) && show.stock ? <span className="text-xs font-normal text-muted-foreground">Giacenza {stock?.stock != null ? `${qty(stock.stock)} ${stock.stockUnit ?? unit}` : "—"}{show.toBuy ? " ·" : ""}</span> : null}
         {show.toBuy ? <span className="text-base font-bold text-foreground">{excluded ? "Non acquistare" : `Da acquistare ${displayedQuantity === null ? "—" : `${qty(displayedQuantity)} ${decidedCode}`}`}</span> : null}
       </span>}
       supplier={show.suppliers && !excluded ? <span className="min-w-0 break-words">Fornitore: <span className="font-medium text-foreground">{suppliers[0]?.name ?? "—"}{suppliers.length > 1 ? ` + ${suppliers.length - 1}` : ""}</span></span> : null}
@@ -762,7 +762,7 @@ export function ShoppingListCard({
     const rowMeta = [
       show.category ? extra?.category ?? "—" : null,
       show.suggested ? `Suggerita ${suggested !== null && suggested !== undefined ? `${qty(suggested)} ${unit}` : "—"}` : null,
-      false && show.stock && stock?.stock !== null && stock?.stock !== undefined ? `Giacenza ${qty(stock.stock)} ${stock.stockUnit ?? unit}` : null,
+      (false as boolean) && show.stock && stock?.stock !== null && stock?.stock !== undefined ? `Giacenza ${qty(stock.stock)} ${stock.stockUnit ?? unit}` : null,
       show.lastCount ? `Totale inventario ${inventoryTotalText}` : null,
     ].filter(Boolean);
     return (
@@ -837,7 +837,7 @@ export function ShoppingListCard({
               <dd className="truncate font-semibold">{inventoryTotalText}</dd>
             </div>
           ) : null}
-          {false && show.stock ? (
+          {(false as boolean) && show.stock ? (
             <div className="min-w-0">
               <dt className="truncate text-muted-foreground">Giacenza</dt>
               <dd className="truncate font-semibold">{stock?.stock !== null && stock?.stock !== undefined ? `${qty(stock.stock)} ${stock.stockUnit ?? unit}` : "—"}</dd>
