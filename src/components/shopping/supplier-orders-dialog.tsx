@@ -92,6 +92,8 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
   // Popup «Da sistemare»: mostra il punto che blocca l'invio di un fornitore.
   const [fixing, setFixing] = useState<{ supplierId: string; message: string | null } | null>(null);
   const [coveragePending, setCoveragePending] = useState<string | null>(null);
+  // Righe aperte: all'inizio solo i fornitori non ancora inviati; dopo un invio la riga si chiude da sola.
+  const [openItems, setOpenItems] = useState<string[] | null>(null);
   const generationKeys = useRef<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [overrides, setOverrides] = useState<Record<string, Schedule>>({});
@@ -266,6 +268,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
         await runSend({ data: { orderId, action: "send", destinationLocationId: null, notes: null, sendChannel: null } });
         const closed = await listClosedNow();
         await refresh();
+        collapse(group.supplierId);
         toast.success(`Ordine inviato a ${group.name}`);
         finishIfClosed(closed);
       } else {
@@ -294,6 +297,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
     }
   };
 
+  const collapse = (supplierId: string) => setOpenItems((current) => (current ?? groups.filter((group) => !group.order?.sent_at).map((group) => group.supplierId)).filter((id) => id !== supplierId));
   const coverageLines = (group: SupplierGroup) => group.previewLines.filter((line) => line.needs_coverage && !line.coverage_confirmed);
   const confirmCoverage = async (assignmentId: string) => {
     setCoveragePending(assignmentId);
@@ -322,6 +326,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
         const orderId = await ensureOrder(group);
         await runSend({ data: { orderId, action: "send", destinationLocationId: null, notes: null, sendChannel: null } });
         sent += 1;
+        collapse(supplierId);
         closed = await listClosedNow();
       } catch (error) {
         errors.push(`${group.name}: ${error instanceof Error ? error.message : "invio non riuscito"}`);
@@ -358,7 +363,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
               <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => onGoToItem(issue.item_id)}>Sistema</Button>
             </li>)}</ul>
           </section> : null}
-          {preview.isPending || orders.isPending ? <p className="text-sm text-muted-foreground">Caricamento ordini…</p> : preview.isError || orders.isError ? <p className="text-sm text-destructive" role="alert">{(preview.error ?? orders.error)?.message}</p> : groups.length ? <Accordion type="multiple" defaultValue={groups.map((group) => group.supplierId)} className="space-y-2">
+          {preview.isPending || orders.isPending ? <p className="text-sm text-muted-foreground">Caricamento ordini…</p> : preview.isError || orders.isError ? <p className="text-sm text-destructive" role="alert">{(preview.error ?? orders.error)?.message}</p> : groups.length ? <Accordion type="multiple" value={openItems ?? groups.filter((group) => !group.order?.sent_at).map((group) => group.supplierId)} onValueChange={setOpenItems} className="space-y-2">
             {groups.map((group) => {
               const t = tone(group.name);
               const isSent = Boolean(group.order?.sent_at);
@@ -446,7 +451,7 @@ export function SupplierOrdersDialog({ open, onOpenChange, companyId, listId, su
       </Dialog>;
     })()}
 
-    {sharing ? <OrderShareDialog orderId={sharing.orderId} mode={sharing.mode} onClose={() => setSharing(null)} onConfirmed={async (closed) => { await refresh(); finishIfClosed(closed); }} /> : null}
+    {sharing ? <OrderShareDialog orderId={sharing.orderId} mode={sharing.mode} onClose={() => setSharing(null)} onConfirmed={async (closed) => { const sentGroup = groups.find((group) => group.order?.id === sharing.orderId); await refresh(); if (sentGroup) collapse(sentGroup.supplierId); finishIfClosed(closed); }} /> : null}
     {sharingB2b ? <B2bOrderShareDialog orderId={sharingB2b.orderId} number={sharingB2b.number} supplier={sharingB2b.supplier} onClose={() => setSharingB2b(null)} /> : null}
   </>;
 }
