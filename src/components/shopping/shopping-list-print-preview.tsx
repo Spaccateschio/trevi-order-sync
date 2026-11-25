@@ -1,8 +1,9 @@
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
+import { useState } from "react";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { printQuantity, type ShoppingPrintRow } from "./shopping-list-print-data";
+import { hasEnteredQuantity, printQuantity, type ShoppingPrintRow } from "./shopping-list-print-data";
 
 function PrintContent({ rows, filters, title }: { rows: ShoppingPrintRow[]; filters: string[]; title: string }) {
   return <div className="space-y-3 bg-background text-foreground">
@@ -26,14 +27,25 @@ function PrintContent({ rows, filters, title }: { rows: ShoppingPrintRow[]; filt
 export function ShoppingListPrintPreview({ open, onOpenChange, rows, filters, title }: {
   open: boolean; onOpenChange: (value: boolean) => void; rows: ShoppingPrintRow[]; filters: string[]; title: string;
 }) {
+  const [quantityOnly, setQuantityOnly] = useState(false);
+  const quantityRows = rows.filter(hasEnteredQuantity);
+  const shown = quantityOnly ? quantityRows : rows;
+  const shownFilters = quantityOnly ? [...filters, "Solo con quantità inserite"] : filters;
+  /** Il foglio di stampa deve essere già aggiornato prima che il browser apra la stampa. */
+  const print = (next: boolean) => { flushSync(() => setQuantityOnly(next)); window.print(); };
+  const handleOpenChange = (value: boolean) => { if (!value) setQuantityOnly(false); onOpenChange(value); };
+
   return <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="flex max-h-[90dvh] w-[calc(100%-1rem)] max-w-6xl flex-col print:hidden">
         <DialogHeader><DialogTitle>Stampa risultati</DialogTitle><DialogDescription>{rows.length} prodotti corrispondenti ai filtri impostati</DialogDescription></DialogHeader>
-        <Button className="w-fit shrink-0" disabled={!rows.length} onClick={() => window.print()}><Printer aria-hidden="true" />Stampa / PDF</Button>
-        <div className="min-h-0 overflow-auto"><div className="min-w-[720px]"><PrintContent rows={rows} filters={filters} title={title} /></div></div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button className="w-fit" disabled={!rows.length} onClick={() => print(false)}><Printer aria-hidden="true" />Stampa / PDF</Button>
+          <Button className="w-fit" variant="outline" disabled={!quantityRows.length} onClick={() => print(true)}><Printer aria-hidden="true" />Stampa solo con quantità inserite ({quantityRows.length})</Button>
+        </div>
+        <div className="min-h-0 overflow-auto"><div className="min-w-[720px]"><PrintContent rows={shown} filters={shownFilters} title={title} /></div></div>
       </DialogContent>
     </Dialog>
-    {open && typeof document !== "undefined" ? createPortal(<div id="product-print-area" className="hidden print:block"><PrintContent rows={rows} filters={filters} title={title} /></div>, document.body) : null}
+    {open && typeof document !== "undefined" ? createPortal(<div id="product-print-area" className="hidden print:block"><PrintContent rows={shown} filters={shownFilters} title={title} /></div>, document.body) : null}
   </>;
 }

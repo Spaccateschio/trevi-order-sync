@@ -14,3 +14,8 @@ export function selectShoppingPrintRows(rows: ShoppingPrintRow[], filters: Produ
 export function printQuantity(quantity: number | null, unit: string | null) {
   return quantity === null ? "—" : `${quantity.toLocaleString("it-IT", { maximumFractionDigits: 3 })}${unit ? ` ${unit}` : ""}`;
 }
+
+/** Stessa regola del filtro «Con quantità da acquistare»: bozza o confermata, mai zero o «Non acquistare». */
+export function hasEnteredQuantity(row: ShoppingPrintRow): boolean {
+  return !row.nonPurchase && row.quantity != null && Number.isFinite(row.quantity) && row.quantity > 0;
+}
