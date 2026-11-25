@@ -113,7 +113,7 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("id, relation_id, seen_by_supplier_at, cancel_reason")
+        .select("id, relation_id, seen_by_supplier_at, cancel_reason, shopping_lists(status)")
         .eq("company_id", companyId);
       if (error) throw new Error(error.message);
       const rows = data ?? [];
@@ -144,6 +144,8 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
   });
   const seenMap = new Map<string, string | null>();
   const seenRelation = new Set<string>();
+  // Bozze nate da una Lista annullata: non più inviabili, si mostrano tra gli annullati (nessun dato cambiato).
+  const deadDrafts = new Set<string>();
   const phoneMap = new Map<string, string | null>();
   const requestMap = new Map<string, { status: string; decision_note: string | null } | null>();
   for (const r of seenQuery.data ?? []) {
@@ -151,6 +153,7 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
     phoneMap.set(r.id, r.phone);
     requestMap.set(r.id, r.request);
     if (r.relation_id) seenRelation.add(r.id);
+    if ((r as { shopping_lists?: { status?: string } | null }).shopping_lists?.status === "annullata") deadDrafts.add(r.id);
   }
   const [editing, setEditing] = useState<OrderOverviewRow | null>(null);
   const [cancelling, setCancelling] = useState<OrderOverviewRow | null>(null);
@@ -181,14 +184,15 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
   );
   // Raggruppamento per stato di invio; ordini annullati restano tra gli inviati/storico.
   const groups = useMemo(() => {
-    const live = orders.filter((o) => o.status !== "annullato");
+    const isDead = (o: OrderOverviewRow) => o.status === "annullato" || (o.status === "bozza" && deadDrafts.has(o.order_id));
+    const live = orders.filter((o) => !isDead(o));
     return [
       { key: "da_inviare", title: "Ordini da inviare", rows: live.filter((o) => o.send_status === "da_inviare") },
       { key: "errore_invio", title: "Errore invio", rows: live.filter((o) => o.send_status === "errore_invio") },
       { key: "inviato", title: "Inviati", rows: live.filter((o) => o.send_status === "inviato") },
-      { key: "annullati", title: "Annullati", rows: orders.filter((o) => o.status === "annullato") },
+      { key: "annullati", title: "Annullati", rows: orders.filter(isDead) },
     ];
-  }, [orders]);
+  }, [orders, seenQuery.data]);
 
   if (current) {
     return (
