@@ -8,6 +8,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { ChevronDown, ChevronUp, ImageOff, MoreVertical, Plus, Star } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AddSupplierInline } from "./add-supplier-inline";
+import { CatalogDestinationPicker } from "./catalog-destination-picker";
+import type { CatalogDestination } from "@/lib/catalog-destination";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -378,7 +380,12 @@ export function CatalogProductCard({
   stock,
   show = ALL_VISIBLE,
   companyId,
+  destination = null,
+  onDestinationChange,
 }: {
+  /** Destinazione scelta in bozza (solo prodotti propri): salvata al Conferma del Carrello. */
+  destination?: CatalogDestination | null;
+  onDestinationChange?: (dest: CatalogDestination) => void;
   /** Serve a ⋮ → «Aggiungi fornitore» (collegamento reale prodotto ↔ fornitore). */
   companyId?: string;
   stock?: StockInfo | undefined;
@@ -620,7 +627,9 @@ export function CatalogProductCard({
               <span className="truncate">{supplier}</span>
               {suppliersOpen ? <ChevronUp className="size-3.5 shrink-0" aria-hidden="true" /> : <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />}
             </button>
-            {suppliersOpen ? (
+            {suppliersOpen && entry.ownProductId && companyId && onDestinationChange && entry.supplierNames.length > 0 ? (
+              <CatalogDestinationPicker companyId={companyId} productId={entry.ownProductId} value={destination} onChange={onDestinationChange} />
+            ) : suppliersOpen ? (
               <ul className="space-y-0.5 text-xs">
                 {entry.supplierNames.length === 0 ? (
                   <li className="text-muted-foreground">Nessun fornitore collegato</li>

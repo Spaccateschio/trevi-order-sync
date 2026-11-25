@@ -91,6 +91,10 @@ export type AutoAssignOptions = {
   unitCode?: string | null;
   /** Riga già letta dal chiamante (stesse colonne di ITEM_COLUMNS): evita di rileggerla. */
   item?: AutoAssignItemRow;
+  /** Fornitori tolti nella bozza di una card «Non in lista»: non vengono considerati. */
+  extraDeselected?: string[];
+  /** «Acquisto diretto (compro io)» scelto nella bozza: tutta la quantità come acquisto diretto. */
+  forceDirect?: boolean;
 };
 
 /** Colonne della riga lette da autoAssignItem: il chiamante che passa `item` deve leggere almeno queste. */
@@ -265,6 +269,23 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   });
   const decidedUnitId = (item.decided_unit_id as string | null) ?? null;
   const decidedCode = ((item.decided_unit_code as string | null) ?? (decidedUnitId ? "" : (item.unit_code as string | null))) ?? "";
+  if (options.extraDeselected?.length) {
+    const off = new Set(options.extraDeselected);
+    suppliers = suppliers.filter((s) => !off.has(s.linkId));
+  }
+  // Acquisto diretto scelto nella bozza: solo su righe ancora senza destinazioni.
+  if (options.forceDirect && !rows.length && directQuota === null) {
+    const w = { kind: "diretto" as const, quantity, unitId: decidedUnitId, unitCode: decidedCode || null };
+    if (options.collect) options.collect.push(w);
+    else if (options.direct) {
+      try {
+        await options.direct({ data: { companyId, itemId, quantity: w.quantity, unitId: w.unitId, unitCode: w.unitCode } });
+      } catch (e) {
+        return { kind: "saltato", reason: quotaSaveError("l'acquisto diretto", (e as Error).message) };
+      }
+    } else return { kind: "da_scegliere", reason: "Acquisto diretto da inserire a mano" };
+    return { kind: "assegnato", supplierName: "acquisto diretto" };
+  }
 
   // Giorni di consegna: solo per righe ancora senza destinazioni e senza scelta esplicita.
   // Mai su quote già presenti (manuali o confermate); mai blocchi.

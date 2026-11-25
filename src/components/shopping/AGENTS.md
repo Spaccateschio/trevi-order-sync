@@ -38,3 +38,4 @@
 - Supplier-send issue «Imposta» opens the existing ProductsWorkspace sheet above the review, preserving its permissions and save commands; closing refreshes the preview without confirming coverage or retrying sending automatically.
 - Supplier-card quick proposals use quickUnitFor; configured units never fall back to automatic manual text. Explicit saves resolve a unique matching manual code to its configured ID; historical assignments never change on reading.
 - Invio ordine fornitore: l'aeroplanino conferma da sé le quantità a peso variabile mostrate nella riga; il popup «Da sistemare» compare solo per blocchi reali.
+- Card «Non in lista»: spunte fornitori e «Acquisto diretto» solo in bozza locale (catalog-destination.ts); al Conferma passano a autoAssignItem (extraDeselected/preferLinkId/forceDirect) nella stessa commit_shopping_list_item_quantity: nessuna scrittura prima, nessun effetto su mancanti o ciclo.

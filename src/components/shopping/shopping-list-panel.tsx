@@ -93,6 +93,7 @@ import {
   setShoppingListItemNotes,
   setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
+import { autoAssignOverrides, parseCatalogDestination, type CatalogDestination } from "@/lib/catalog-destination";
 import { autoAssignItem, ITEM_COLUMNS, readMemories, type AutoAssignItemRow, type PlannedWrite } from "@/lib/shopping-auto-assign";
 import { createKeyedChain, createRefreshBatcher, patchLock, patchRowQuantity } from "@/lib/shopping-optimistic";
 import { shoppingInventoryTotals, type ShoppingCountRow } from "@/lib/shopping-inventory-total";
@@ -162,11 +163,14 @@ function B2BBadge() {
 /** Lista della Spesa operativa: suggerito e deciso separati, residuo sempre visibile. */
 const EMPTY_SET = new Set<string>();
 
+/** Bozza di una card «Non in lista»: quantità, U.M. e (facoltativa) destinazione scelta. */
+type CatalogDraftValue = { raw: string; unit: string | null; dest?: CatalogDestination };
+
 type ShoppingLocalDraft = {
   edits: Record<string, string>;
   unitEdits: Record<string, { unitId: string | null; unitCode: string | null }>;
   evalValues: Record<string, string>;
-  catalogValues: Record<string, { raw: string; unit: string | null }>;
+  catalogValues: Record<string, CatalogDraftValue>;
   catalogNotBuying: string[];
   errors: Record<string, string>;
 };
@@ -193,7 +197,8 @@ function parseShoppingLocalDraft(value: unknown): ShoppingLocalDraft | null {
       if (!entry || typeof entry !== "object") continue;
       const draft = entry as Record<string, unknown>;
       if (typeof draft["raw"] !== "string") continue;
-      catalogValues[key] = { raw: draft["raw"], unit: typeof draft["unit"] === "string" ? draft["unit"] : null };
+      const dest = parseCatalogDestination(draft["dest"]);
+      catalogValues[key] = { raw: draft["raw"], unit: typeof draft["unit"] === "string" ? draft["unit"] : null, ...(dest ? { dest } : {}) };
     }
   }
   return {
@@ -251,7 +256,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   };
   const [search, setSearch] = useState("");
   const [printOpen, setPrintOpen] = useState(false);
-  const [catalogValues, setCatalogValues] = useState<Record<string, { raw: string; unit: string | null }>>({});
+  const [catalogValues, setCatalogValues] = useState<Record<string, CatalogDraftValue>>({});
   const [category, setCategory] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [flags, setFlags] = useState<Set<FilterFlag>>(new Set());
@@ -1251,7 +1256,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   // Una sola scrittura alla volta per riga, vince sempre l'ultimo valore inserito.
   // Riusa le funzioni esistenti: sblocco (se serve) → quantità → conferma → proposta fornitore.
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
-  type Commit = { quantity: number | null; unitId?: string | null; unitCode?: string | null };
+  type Commit = { quantity: number | null; unitId?: string | null; unitCode?: string | null; dest?: CatalogDestination };
   const workerRef = useRef<(itemId: string, c: Commit) => Promise<void>>(async () => undefined);
   const commitErrors = useRef(new Map<string, string>());
   // U.M. del fornitore proposta dalla card per la prima quantità (usata solo se la riga non ha ancora quantità né U.M.).
@@ -1332,6 +1337,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
           plannedResult = await autoAssignItem(runAssignAuto, companyId, itemId, {
             collect: planned, quantity: c.quantity, unitId, unitCode, previousQuantity: changed ? prev : null, direct: runDirect,
             item: item as unknown as AutoAssignItemRow,
+            ...autoAssignOverrides(c.dest),
           });
         }
         const send = (withQuotas: boolean) =>
@@ -1729,7 +1735,8 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
     for (const entry of availableCatalog) {
       const draft = catalogValues[entry.key];
       if (!draft?.raw.trim() || catalogNotBuying.has(entry.key)) continue;
-      result.push({ id: `catalog:${entry.key}`, productId: entry.ownProductId ?? entry.key, label: entry.description ?? entry.code, detail: entry.code, quantity: draft.raw, unitCode: draft.unit ?? entry.defaultUnit ?? entry.unitCodes[0] ?? null, supplierNames: entry.supplierNames });
+      result.push({ id: `catalog:${entry.key}`, productId: entry.ownProductId ?? entry.key, label: entry.description ?? entry.code, detail: entry.code, quantity: draft.raw, unitCode: draft.unit ?? entry.defaultUnit ?? entry.unitCodes[0] ?? null,
+        ...(draft.dest ? { supplierNames: draft.dest.labels, noSupplierReason: draft.dest.labels.length ? null : "nessun fornitore spuntato" } : { supplierNames: entry.supplierNames }) });
     }
     return result;
   }, [allRows, edits, unitEdits, extras, pendingEntries, evalValues, availableCatalog, catalogValues, catalogNotBuying, cartProposalQuery.data, catalog.entries]);
@@ -1761,7 +1768,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       setEvalValues((current) => ({ ...current, [productId]: quantity }));
     } else if (id.startsWith("catalog:")) {
       const key = id.slice(8);
-      setCatalogValues((current) => ({ ...current, [key]: { raw: quantity, unit: current[key]?.unit ?? null } }));
+      setCatalogValues((current) => ({ ...current, [key]: { ...current[key], raw: quantity, unit: current[key]?.unit ?? null } }));
     }
   };
   const removeCartLine = (id: string) => {
@@ -1851,7 +1858,8 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
           if (quantity === null) throw new Error("Quantità non valida");
           await catalogChain.run(key, async () => {
             const added = await catalogActions.add.mutateAsync({ entry, quantity, unitCode: line.unitCode });
-            await commitQuantity(added.itemId, { quantity, unitId: await addedItemUnitId(added.itemId, line.unitCode), unitCode: line.unitCode });
+            const dest = catalogValues[key]?.dest;
+            await commitQuantity(added.itemId, { quantity, unitId: await addedItemUnitId(added.itemId, line.unitCode), unitCode: line.unitCode, ...(dest ? { dest } : {}) });
             const error = commitErrors.current.get(added.itemId);
             if (error) throw new Error(error);
           });
@@ -2445,7 +2453,9 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
                     )}
                     draftValue={catalogValues[entry.key]?.raw ?? ""}
                     draftUnit={catalogValues[entry.key]?.unit ?? null}
-                    onQuantityChange={stable(`${entry.key}:c:onQuantityChange`, (raw, unit) => setCatalogValues((current) => ({ ...current, [entry.key]: { raw, unit } })))}
+                    onQuantityChange={stable(`${entry.key}:c:onQuantityChange`, (raw, unit) => setCatalogValues((current) => ({ ...current, [entry.key]: { ...current[entry.key], raw, unit } })))}
+                    destination={catalogValues[entry.key]?.dest ?? null}
+                    onDestinationChange={stable(`${entry.key}:c:onDestinationChange`, (dest: CatalogDestination) => setCatalogValues((current) => ({ ...current, [entry.key]: { raw: current[entry.key]?.raw ?? "", unit: current[entry.key]?.unit ?? null, dest } })))}
                     onDraftChange={stable(`${entry.key}:c:onDraftChange`, (dirty) => setCatalogDrafts((current) => { if (current.has(entry.key) === dirty) return current; const next = new Set(current); if (dirty) next.add(entry.key); else next.delete(entry.key); return next; }))}
                     nonPurchase={catalogNotBuying.has(entry.key)}
                     onNonPurchase={stable(`${entry.key}:c:onNonPurchase`, () => setCatalogNotBuying((current) => new Set(current).add(entry.key)))}
