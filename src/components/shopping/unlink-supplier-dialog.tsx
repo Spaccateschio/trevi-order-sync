@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Ban } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "@tanstack/react-router";
 
 import {
   AlertDialog,
@@ -99,7 +100,11 @@ export function UnlinkSupplierDialog({
                   <ul className="list-disc pl-6 text-xs">
                     {blocked.map((l) => (
                       <li key={l.list_id}>
-                        {listLabel(l)} · {l.status === "confermata" ? "confermata" : "aperta"}
+                        {listLabel(l)} · {l.status === "confermata" ? "confermata" : "aperta"}{" "}
+                        <Link to="/acquisti/lista-spesa" search={{ lista: l.list_id }} onClick={onClose}
+                          className="ml-1 font-semibold text-primary underline underline-offset-2">
+                          Apri la Lista
+                        </Link>
                       </li>
                     ))}
                   </ul>
