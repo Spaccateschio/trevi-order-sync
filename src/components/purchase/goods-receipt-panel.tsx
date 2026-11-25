@@ -156,25 +156,9 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
 
   const confirm = useMutation({
     mutationFn: async () => {
-      for (const row of itemsQuery.data ?? []) {
-        if (!unchecked[row.id]) continue;
-        if (Number(row.verified_quantity) === 0) continue;
-        await runSet({
-          data: {
-            receiptItemId: row.id,
-            verifiedQuantity: 0,
-            producerName: row.producer_name ?? null,
-            producerLotCode: row.producer_lot_code ?? null,
-            expiryDate: row.expiry_date ?? null,
-            unitCost: row.unit_cost ?? null,
-            notes: row.notes ?? null,
-            priceUnitId: row.price_unit_id ?? null,
-            priceUnitCode: row.price_unit_code ?? null,
-            clearPriceUnit: false,
-            priceQuantity: row.price_quantity ?? null,
-            clearPriceQuantity: false,
-          },
-        });
+      // In attesa della ricezione parziale: i non spuntati restano da ricevere, quindi niente conferma parziale.
+      if ((itemsQuery.data ?? []).some((row) => unchecked[row.id])) {
+        throw new Error("Per ora conferma solo con tutti i prodotti spuntati: la ricezione parziale arriva a breve.");
       }
       return runConfirm({ data: { receiptId } });
     },
