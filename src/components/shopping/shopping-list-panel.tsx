@@ -1,5 +1,5 @@
 import { catalogLimitForAllProducts, catalogLimitForMissingReveal, matchesShoppingFilters, shoppingFiltersForMissingReveal, shoppingSortKey, visibleWhenFilteringMissing, type FilterFlag, type ProductFilterFacts, type SortKey } from "./shopping-list-filters";
-import { selectShoppingPrintRows, type ShoppingPrintRow } from "./shopping-list-print-data";
+import { hasEnteredQuantity, selectShoppingPrintRows, type ShoppingPrintRow } from "./shopping-list-print-data";
 import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { finishMobileCard, toggleMobileCard, unlockSelectedProduct } from "./shopping-mobile-card-state";
@@ -1027,7 +1027,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   const shownItems = supplierTintFilter ? merged.filter((item) => itemTones(item).some((t) => t.recordId === supplierTintFilter)) : merged;
   const catalogImages = useCatalogImages(merged.filter((i) => i.kind === "catalog").map((i) => i.value as CatalogEntry));
 
-  const printRows = selectShoppingPrintRows([
+  const allPrintRows: ShoppingPrintRow[] = [
     ...allEntries.map((e): ShoppingPrintRow => {
       const f = entryFacts(e); const raw = e.kind === "pending" ? evalValues[e.row.product_id] : edits[e.row.item_id];
       return { ...f, stock: e.stock?.stock ?? null, stockUnit: e.stock?.stockUnit ?? null,
@@ -1043,7 +1043,10 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       draft: Boolean(catalogValues[p.key]?.raw.trim()) && !catalogNotBuying.has(p.key),
       state: catalogNotBuying.has(p.key) ? "Non acquistare" : "Non in lista", splits: [],
     })),
-  ], filters, sortBy);
+  ];
+  const printRows = selectShoppingPrintRows(allPrintRows, filters, sortBy);
+  /** «Solo con quantità inserite» ignora i filtri (anche Preferiti): tutti i prodotti con quantità scritta. */
+  const quantityPrintRows = selectShoppingPrintRows(allPrintRows.filter(hasEnteredQuantity), { search: "", category: "all", supplier: "all", flags: new Set() }, sortBy);
   const printFilterLabels = [
     ...FILTER_GROUPS.flatMap(([, group]) => group).filter(([flag]) => flags.has(flag)).map(([, label]) => label),
     ...(search.trim() ? [`Ricerca: ${search.trim()}`] : []), ...(category !== "all" ? [`Categoria: ${category}`] : []),
@@ -1882,7 +1885,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
 
   return (
     <div className="space-y-4 pb-32 max-md:-mt-2 max-md:space-y-2 lg:pb-24">
-      <ShoppingListPrintPreview open={printOpen} onOpenChange={setPrintOpen} rows={printRows} filters={printFilterLabels} title={list?.number ? `Lista della Spesa · ${list.number}` : "Lista della Spesa"} />
+      <ShoppingListPrintPreview open={printOpen} onOpenChange={setPrintOpen} rows={printRows} quantityRows={quantityPrintRows} filters={printFilterLabels} title={list?.number ? `Lista della Spesa · ${list.number}` : "Lista della Spesa"} />
       <section aria-label="Stato della Lista" data-list-status className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 space-y-0.5">

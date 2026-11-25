@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { hasEnteredQuantity, printQuantity, type ShoppingPrintRow } from "./shopping-list-print-data";
+import { printQuantity, type ShoppingPrintRow } from "./shopping-list-print-data";
 
 function PrintContent({ rows, filters, title }: { rows: ShoppingPrintRow[]; filters: string[]; title: string }) {
   return <div className="space-y-3 bg-background text-foreground">
@@ -24,13 +24,12 @@ function PrintContent({ rows, filters, title }: { rows: ShoppingPrintRow[]; filt
   </div>;
 }
 
-export function ShoppingListPrintPreview({ open, onOpenChange, rows, filters, title }: {
-  open: boolean; onOpenChange: (value: boolean) => void; rows: ShoppingPrintRow[]; filters: string[]; title: string;
+export function ShoppingListPrintPreview({ open, onOpenChange, rows, quantityRows, filters, title }: {
+  open: boolean; onOpenChange: (value: boolean) => void; rows: ShoppingPrintRow[]; quantityRows: ShoppingPrintRow[]; filters: string[]; title: string;
 }) {
   const [quantityOnly, setQuantityOnly] = useState(false);
-  const quantityRows = rows.filter(hasEnteredQuantity);
   const shown = quantityOnly ? quantityRows : rows;
-  const shownFilters = quantityOnly ? [...filters, "Solo con quantità inserite"] : filters;
+  const shownFilters = quantityOnly ? ["Solo con quantità inserite (tutti i prodotti, filtri ignorati)"] : filters;
   /** Il foglio di stampa deve essere già aggiornato prima che il browser apra la stampa. */
   const print = (next: boolean) => { flushSync(() => setQuantityOnly(next)); window.print(); };
   const handleOpenChange = (value: boolean) => { if (!value) setQuantityOnly(false); onOpenChange(value); };
