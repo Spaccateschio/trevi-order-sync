@@ -200,8 +200,13 @@ export function daneaExportLineDecision(
   let unit: string | null | undefined;
   let highlight: string | null = null;
   const lpNew = toNum(ep.list_price);
-  const puNew = ep.price_unit_code?.trim() || null;
-  if (ep.reason === "um_diversa" && ordered && !ordered.reexport && lpNew !== null && lpNew > 0 && puNew) {
+  // U.M. del prezzo: quella del listino; se manca, quella fotografata sulla riga d'ordine del cliente.
+  const puNew = ep.price_unit_code?.trim() || ep.customer_price_unit_code?.trim() || null;
+  const firstExport = ep.reason === "um_diversa" && ordered && !ordered.reexport && lpNew !== null && lpNew > 0 && puNew;
+  if (firstExport && sameUnit(ordered.unit, puNew)) {
+    // Stessa U.M.: riga normale col prezzo del listino.
+    price = lpNew;
+  } else if (firstExport) {
     // U.M. del cliente diversa: prezzo e U.M. del listino, quantità invariata, ordinato in evidenza.
     price = lpNew;
     unit = puNew;
