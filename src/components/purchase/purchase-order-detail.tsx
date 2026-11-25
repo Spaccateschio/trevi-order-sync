@@ -437,8 +437,8 @@ export function PurchaseOrderDetail({
         ) : null}
         {order.status === "inviato" || order.status === "parzialmente_consegnato" ? (
           <>
-            <Button variant="secondary" onClick={() => newDelivery.mutate()}>
-              <Truck className="mr-1 h-4 w-4" /> Registra consegna dichiarata
+            <Button onClick={() => newDelivery.mutate()} className="font-semibold">
+              <Truck className="mr-1 h-4 w-4" /> Registra consegna
             </Button>
             <Button variant="outline" onClick={() => share.mutate()}>
               <Link2 className="mr-1 h-4 w-4" /> Crea link per fornitore esterno
