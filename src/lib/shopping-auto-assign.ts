@@ -95,6 +95,8 @@ export type AutoAssignOptions = {
   extraDeselected?: string[];
   /** «Acquisto diretto (compro io)» scelto nella bozza: tutta la quantità come acquisto diretto. */
   forceDirect?: boolean;
+  /** 2+ destinazioni con quantità e U.M. scelte nella bozza («direct» = acquisto diretto). */
+  explicitQuotas?: { target: string; quantity: number; unitCode: string | null }[];
 };
 
 /** Colonne della riga lette da autoAssignItem: il chiamante che passa `item` deve leggere almeno queste. */
@@ -269,8 +271,12 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   });
   const decidedUnitId = (item.decided_unit_id as string | null) ?? null;
   const decidedCode = ((item.decided_unit_code as string | null) ?? (decidedUnitId ? "" : (item.unit_code as string | null))) ?? "";
+  // «b2b-source»: fornitore B2B di un articolo copiato al Conferma (il collegamento non esisteva nella bozza).
+  const b2bSource = suppliers.find((s) => s.isB2B && s.sourceLinked)?.linkId ?? null;
+  const resolveTarget = (id: string) => (id === "b2b-source" ? (b2bSource ?? id) : id);
+  if (options.preferLinkId) options = { ...options, preferLinkId: resolveTarget(options.preferLinkId) };
   if (options.extraDeselected?.length) {
-    const off = new Set(options.extraDeselected);
+    const off = new Set(options.extraDeselected.map(resolveTarget));
     suppliers = suppliers.filter((s) => !off.has(s.linkId));
   }
   // Acquisto diretto scelto nella bozza: solo su righe ancora senza destinazioni.
@@ -291,7 +297,7 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
   // Mai su quote già presenti (manuali o confermate); mai blocchi.
   // Più stelle: le destinazioni con stella restano tutte proposte (anche se in ritardo, con avviso nella card).
   const multiStar = suppliers.filter((s) => s.isPreferred).length + (directStarred ? 1 : 0) >= 2;
-  if (!multiStar && !rows.length && directQuota === null && !options.onlyLinkId && !options.preferLinkId && suppliers.length) {
+  if (!multiStar && !rows.length && directQuota === null && !options.onlyLinkId && !options.preferLinkId && !options.explicitQuotas?.length && suppliers.length) {
     const inTime = await readLinksInTime(item.list_id as string, item.product_id as string);
     if (inTime) {
       const timely = suppliers.filter((s) => inTime.has(s.linkId));
@@ -367,6 +373,29 @@ async function run(assign: AssignFn, companyId: string, itemId: string, options:
       }
     }
   };
+
+  // Quote scelte nella bozza della card «Non in lista»: solo su righe ancora senza destinazioni.
+  if (options.explicitQuotas?.length && !rows.length && directQuota === null) {
+    const writes: Parameters<typeof writeAll>[0] = [];
+    for (const q of options.explicitQuotas) {
+      if (q.target === "direct") {
+        const same = (q.unitCode ?? "").trim().toUpperCase() === decidedCode.trim().toUpperCase();
+        writes.push({ kind: "diretto", quantity: q.quantity, unitId: same ? decidedUnitId : null, unitCode: q.unitCode });
+        continue;
+      }
+      const s = suppliers.find((x) => x.linkId === resolveTarget(q.target));
+      if (!s) return { kind: "verifica", reason: "Da verificare: fornitore scelto non più collegato" };
+      const t = quotaFor(s, null, q.unitCode ?? "", q.quantity, stockUnitId, conversions[s.linkId] ?? []);
+      if (!t) return { kind: "verifica", reason: `Da verificare: ${s.name} non offre l'U.M. ${q.unitCode ?? ""}` };
+      writes.push({ kind: "fornitore", linkId: s.linkId, assignmentId: null, target: t });
+    }
+    try {
+      await writeAll(writes);
+    } catch (e) {
+      return { kind: "saltato", reason: quotaSaveError("la ripartizione", (e as Error).message) };
+    }
+    return { kind: "assegnato", supplierName: options.explicitQuotas.length > 1 ? "le destinazioni scelte" : "la destinazione scelta" };
+  }
 
   // Più destinazioni: ricalcolo solo se le quote sono ancora quelle automatiche sulla quantità precedente.
   if (rows.length + (directQuota !== null && rows.length ? 1 : 0) > 1 && options.previousQuantity) {

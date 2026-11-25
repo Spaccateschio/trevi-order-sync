@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { fetchSellerCatalogue } from "@/lib/catalog";
+import { pickLinkToReactivate } from "@/lib/supplier-relink";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { parseQuantity } from "@/lib/inventory";
@@ -119,6 +121,26 @@ export function AddSupplierInline({
     mutationFn: async () => {
       if (!chosen) throw new Error("Scegli un fornitore");
       const unitId: string | null = null;
+      // Fornitore già collegato in passato: si riattiva quel collegamento (con il suo articolo B2B), mai un doppione.
+      const { data: inactive, error: inactiveError } = await supabase.from("product_supplier_links")
+        .select("id, b2b_item_id, supplier_company_id, created_at")
+        .eq("company_id", companyId).eq("product_id", productId).eq("supplier_record_id", chosen.id).eq("is_active", false);
+      if (inactiveError) throw new Error(inactiveError.message);
+      const previous = pickLinkToReactivate(inactive ?? []);
+      if (previous) {
+        if (previous.b2b_item_id) {
+          const sellerId = previous.supplier_company_id ?? b2b.data?.get(chosen.id) ?? null;
+          if (!sellerId) throw new Error("Rapporto con il fornitore B2B non attivo: collegamento non riattivato");
+          // Stesse condizioni del Catalogo: l'articolo deve essere ancora pubblicato e acquistabile.
+          const catalogue = await fetchSellerCatalogue(sellerId);
+          if (!catalogue.some((p) => p.id === previous.b2b_item_id)) throw new Error("L'articolo del fornitore non è più acquistabile: collegamento non riattivato");
+        }
+        const { error: activateError } = await supabase.rpc("manage_product_supplier_link", {
+          _company_id: companyId, _action: "activate", _link_id: previous.id,
+        });
+        if (activateError) throw new Error(activateError.message);
+        return { linkId: previous.id, unitId, reactivated: true };
+      }
       const { data: linkId, error } = await supabase.rpc("manage_product_supplier_link", {
         _company_id: companyId,
         _action: "create",
@@ -127,14 +149,14 @@ export function AddSupplierInline({
         ...(daneaUm ? { _conversion_reference_um: daneaUm } : {}),
       });
       if (error) throw new Error(error.message);
-      return { linkId: (linkId as string | null) ?? null, unitId };
+      return { linkId: (linkId as string | null) ?? null, unitId, reactivated: false };
     },
     onSuccess: async (result) => {
       const name = chosen?.legal_name ?? "Fornitore";
       reset();
       await refreshProductSuppliers(queryClient, productId, itemId);
       if (result.linkId) onLinked?.(result.linkId, result.unitId);
-      toast.success(`${name} collegato al prodotto`);
+      toast.success(result.reactivated ? `${name} ricollegato al prodotto` : `${name} collegato al prodotto`);
     },
     onError: (error: Error) => toast.error(error.message),
   });

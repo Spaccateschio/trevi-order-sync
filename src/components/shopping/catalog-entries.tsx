@@ -9,6 +9,7 @@ import { ChevronDown, ChevronUp, ImageOff, MoreVertical, Plus, Star } from "luci
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AddSupplierInline } from "./add-supplier-inline";
 import { CatalogDestinationPicker } from "./catalog-destination-picker";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import type { CatalogDestination } from "@/lib/catalog-destination";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -464,7 +465,77 @@ export function CatalogProductCard({
       onLinked={() => { setAddingSupplier(false); void queryClient.invalidateQueries({ queryKey: ["shopping-add-links", companyId] }); }}
     />
   ) : null;
-  const menu = canLinkSupplier ? (
+  // Articoli B2B non ancora miei: azioni esplicite e immediate sul prodotto (mai sulla Lista).
+  const [b2bAction, setB2bAction] = useState<"save" | "unlink" | null>(null);
+  const [b2bBusy, setB2bBusy] = useState(false);
+  const runB2bAction = async (action: "save" | "unlink") => {
+    if (!companyId || !entry.sellerId || !entry.sellerProductId) return;
+    setB2bBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("add_catalog_product_to_own_products", {
+        _buyer_company_id: companyId, _seller_company_id: entry.sellerId, _seller_product_id: entry.sellerProductId,
+      });
+      if (error) throw new Error(error.message);
+      const res = (data ?? {}) as { product_id?: string; status?: string; message?: string };
+      if (res.status === "choose_candidate") throw new Error("Esistono più copie: scegli quale usare dal Catalogo");
+      if (res.status === "link_identity_uncertain") throw new Error(res.message ?? "Collegamento esistente senza codice articolo: verificalo prima di procedere");
+      if (!res.product_id) throw new Error(`Prodotto non creato per ${entry.code}`);
+      if (action === "unlink") {
+        const { data: link, error: linkError } = await supabase.from("product_supplier_links").select("id")
+          .eq("company_id", companyId).eq("product_id", res.product_id).eq("b2b_item_id", entry.sellerProductId).eq("is_active", true).maybeSingle();
+        if (linkError) throw new Error(linkError.message);
+        if (link) {
+          const { error: unlinkError } = await supabase.rpc("unlink_b2b_catalog_item", { _company_id: companyId, _link_id: link.id });
+          if (unlinkError) throw new Error(`Articolo salvato nei Prodotti, ma il fornitore non è stato scollegato: ${unlinkError.message}`);
+        }
+      }
+      toast.success(action === "save" ? "Articolo salvato nella pagina Prodotti" : `Articolo salvato nei Prodotti e ${supplier} scollegato`);
+      setB2bAction(null);
+      await Promise.all([["shopping-add-products"], ["shopping-add-links", companyId], ["shopping-add-catalogues"]].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setB2bBusy(false);
+    }
+  };
+  const b2bDialog = entry.isB2b && companyId ? (
+    <AlertDialog open={b2bAction !== null} onOpenChange={(open) => { if (!open && !b2bBusy) setB2bAction(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{b2bAction === "unlink" ? `Scollegare ${supplier}?` : "Salvare l'articolo nei tuoi Prodotti?"}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {b2bAction === "unlink"
+              ? `Faccio due cose: 1) copio «${name}» nella tua pagina Prodotti; 2) tolgo ${supplier} come fornitore di questo prodotto. Il prodotto resta tuo e potrai ricollegare ${supplier} da «Aggiungi fornitore».`
+              : `Copio «${name}» nella tua pagina Prodotti, con ${supplier} come fornitore collegato.`}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={b2bBusy}>Annulla</AlertDialogCancel>
+          <AlertDialogAction disabled={b2bBusy} onClick={(e) => { e.preventDefault(); if (b2bAction) void runB2bAction(b2bAction); }}>
+            {b2bBusy ? "Salvo…" : b2bAction === "unlink" ? "Salva e scollega" : "Salva"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  ) : null;
+  const menu = entry.isB2b && companyId ? (
+    <>
+    {b2bDialog}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" size="sm" variant="ghost" className="h-7 w-7 shrink-0 px-0" aria-label={`Altre azioni ${entry.code}`}>
+          <MoreVertical aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => setB2bAction("save")}>
+          <Plus aria-hidden="true" />
+          Salva l'articolo nella pagina Prodotti
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+    </>
+  ) : canLinkSupplier ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button type="button" size="sm" variant="ghost" className="h-7 w-7 shrink-0 px-0" aria-label={`Altre azioni ${entry.code}`}>
@@ -614,7 +685,19 @@ export function CatalogProductCard({
       {controls}
       {show.suppliers ? <div className="space-y-1 border-t border-border pt-1.5">
         <p className="text-[10px] font-semibold uppercase text-muted-foreground">Fornitori</p>
-        {entry.isB2b ? (
+        {entry.isB2b && companyId && onDestinationChange ? (
+          <>
+            <button type="button" aria-expanded={suppliersOpen} className="flex w-full items-center justify-between gap-1 text-left text-xs text-muted-foreground"
+              onClick={() => setSuppliersOpen((v) => !v)}>
+              <span className="truncate">{supplier}</span>
+              {suppliersOpen ? <ChevronUp className="size-3.5 shrink-0" aria-hidden="true" /> : <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />}
+            </button>
+            {suppliersOpen ? (
+              <CatalogDestinationPicker companyId={companyId} productId={null} sellerName={supplier} value={destination} onChange={onDestinationChange}
+                total={quantity} totalUnit={unitCode} unitCodes={entry.unitCodes} onUnlinkB2bSource={() => setB2bAction("unlink")} />
+            ) : null}
+          </>
+        ) : entry.isB2b ? (
           <p className="truncate text-xs text-muted-foreground">{supplier}</p>
         ) : (
           <>
@@ -628,7 +711,8 @@ export function CatalogProductCard({
               {suppliersOpen ? <ChevronUp className="size-3.5 shrink-0" aria-hidden="true" /> : <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />}
             </button>
             {suppliersOpen && entry.ownProductId && companyId && onDestinationChange && entry.supplierNames.length > 0 ? (
-              <CatalogDestinationPicker companyId={companyId} productId={entry.ownProductId} value={destination} onChange={onDestinationChange} />
+              <CatalogDestinationPicker companyId={companyId} productId={entry.ownProductId} value={destination} onChange={onDestinationChange}
+                total={quantity} totalUnit={unitCode} unitCodes={entry.unitCodes} />
             ) : suppliersOpen ? (
               <ul className="space-y-0.5 text-xs">
                 {entry.supplierNames.length === 0 ? (

@@ -424,7 +424,7 @@
 - [x] Spunte fornitori + «Acquisto diretto» in bozza, salvati solo al Conferma tramite autoAssignItem; Carrello mostra la destinazione
 
 ## 25/11 — Card «Non in lista»: scollega, quote divise, B2B salvato
-- [x] Verifica ricollegamento B2B: NON funziona (Aggiungi fornitore crea collegamento non B2B o restituisce quello disattivato) — in attesa di Andrea
-- [ ] X scollega (own: dialog esistente; cat: copia + scollega)
-- [ ] «Salva l'articolo nella pagina Prodotti» nel ⋮ delle card cat:
-- [ ] Più destinazioni con quote e controllo somma, bozza fino al Conferma
+- [x] Verifica ricollegamento B2B: risolto con riattivazione del collegamento spento (opzione 1)
+- [x] X scollega (own: dialog esistente; cat: copia + scollega)
+- [x] «Salva l'articolo nella pagina Prodotti» nel ⋮ delle card cat:
+- [x] Più destinazioni con quote e controllo somma, bozza fino al Conferma

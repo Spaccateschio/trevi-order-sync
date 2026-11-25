@@ -93,7 +93,7 @@ import {
   setShoppingListItemNotes,
   setShoppingListItemQuantityLock,
 } from "@/lib/shopping-list.functions";
-import { autoAssignOverrides, parseCatalogDestination, type CatalogDestination } from "@/lib/catalog-destination";
+import { autoAssignOverrides, parseCatalogDestination, quotaCartError, type CatalogDestination } from "@/lib/catalog-destination";
 import { autoAssignItem, ITEM_COLUMNS, readMemories, type AutoAssignItemRow, type PlannedWrite } from "@/lib/shopping-auto-assign";
 import { createKeyedChain, createRefreshBatcher, patchLock, patchRowQuantity } from "@/lib/shopping-optimistic";
 import { shoppingInventoryTotals, type ShoppingCountRow } from "@/lib/shopping-inventory-total";
@@ -1740,8 +1740,14 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
     }
     return result;
   }, [allRows, edits, unitEdits, extras, pendingEntries, evalValues, availableCatalog, catalogValues, catalogNotBuying, cartProposalQuery.data, catalog.entries]);
-  const invalidCartIds = new Set(cartLines.filter((line) => !line.quantity.trim() ? !line.id.startsWith("list:") : parseQuantity(line.quantity) === null).map((line) => line.id));
-  const displayedCartLines = cartLines.map((line) => ({ ...line, error: cartErrors[line.id] ?? (invalidCartIds.has(line.id) ? "Quantità non valida" : null) }));
+  // Quote divise nella bozza: somma diversa o quota vuota bloccano solo quel prodotto.
+  const quotaErrors = new Map(cartLines.flatMap((line) => {
+    if (!line.id.startsWith("catalog:")) return [];
+    const message = quotaCartError(catalogValues[line.id.slice(8)]?.dest, parseQuantity(line.quantity), line.unitCode);
+    return message ? [[line.id, message] as const] : [];
+  }));
+  const invalidCartIds = new Set([...cartLines.filter((line) => !line.quantity.trim() ? !line.id.startsWith("list:") : parseQuantity(line.quantity) === null).map((line) => line.id), ...quotaErrors.keys()]);
+  const displayedCartLines = cartLines.map((line) => ({ ...line, error: cartErrors[line.id] ?? quotaErrors.get(line.id) ?? (invalidCartIds.has(line.id) ? "Quantità non valida" : null) }));
   const confirmedCartLines = useMemo<EntryCartLine[]>(() => allRows.filter((row) =>
     row.decided_quantity !== null && Number(row.decided_quantity) > 0 && !excludedQuery.data?.has(row.item_id),
   ).map((row) => {
@@ -1817,7 +1823,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       toast.info("Questa lista non è modificabile: la bozza locale è stata scartata");
       return;
     }
-    const initialErrors = Object.fromEntries([...invalidCartIds].map((id) => [id, "Quantità non valida"]));
+    const initialErrors = Object.fromEntries([...invalidCartIds].map((id) => [id, quotaErrors.get(id) ?? "Quantità non valida"]));
     const lines = cartLines.filter((line) => !invalidCartIds.has(line.id));
     setCartErrors(initialErrors);
     if (!lines.length) {
