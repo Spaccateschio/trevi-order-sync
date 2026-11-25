@@ -38,6 +38,21 @@ test("ordine valido: XML EasyfattDocuments con ordine cliente C", () => {
   assert.deepEqual(r.exportedIds, ["o1"]);
 });
 
+test("ogni riga al primo scarico inizia con quantità e U.M. ordinate dal cliente", () => {
+  const r = buildDaneaOrdersXml(null, [order({ lines: [
+    line(),
+    line({ item_id: "i2", seller_code: "0013", description: "AGLIO", quantity: 1, unit: "cassa", price: 3, price_unit: "cassa" }),
+  ] })]);
+  const rows = parse(r.xml).Documents.Document[0].Rows.Row;
+  assert.equal(rows[0].Notes, "3 kg");
+  assert.equal(rows[1].Notes, "1 cassa");
+});
+
+test("riscarico: nessuna nota aggiunta, resta solo quella del cliente", () => {
+  const r = buildDaneaOrdersXml(null, [order({ already_exported: true, lines: [line({ notes: "Nota riga" })] })]);
+  assert.equal(parse(r.xml).Documents.Document[0].Rows.Row[0].Notes, "Nota riga");
+});
+
 test("U.M. ordinata diversa da U.M. prezzo: niente Price, nota indicativa", () => {
   const d = daneaLinePrice({ price: 2.7, price_unit: "kg", unit: "cs" });
   assert.equal(d.price, null);

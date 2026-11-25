@@ -25,6 +25,7 @@ const row = (xml: string) =>
 test("allo scarico va in Danea il prezzo del listino in vigore (2,50), non quello visto all'ordine (2,20)", () => {
   const r = row(buildDaneaOrdersXml(null, [order(ep())]).xml);
   assert.equal(r.Price, 2.5);
+  assert.equal(r.Notes, "3 kg – Prezzo visto dal cliente all'ordine 2,20 €/kg");
   assert.match(String(r.Notes), /2,20/);
 });
 
@@ -40,12 +41,12 @@ test("rapporto sospeso: nessun prezzo, nota «Prezzo da verificare»", () => {
   assert.match(String(d.note), /Prezzo da verificare/);
 });
 
-test("U.M. cliente diversa dal listino: prezzo e U.M. del listino, Qty invariata, ORDINATO in evidenza", () => {
+test("U.M. cliente diversa dal listino: prezzo e U.M. del listino, Qty invariata, ordinato in testa alla nota", () => {
   const r = row(buildDaneaOrdersXml(null, [order(ep({ reason: "um_diversa", price: null, list_price: 12, price_unit_code: "cs" }))]).xml);
   assert.equal(r.Price, 12);
   assert.equal(r.Um, "cs");
   assert.equal(r.Qty, 3);
-  assert.match(String(r.Notes), /^>>> ORDINATO: 3 kg <<</);
+  assert.equal(r.Notes, "3 kg – Prezzo visto dal cliente all'ordine 2,20 €/kg");
   assert.doesNotMatch(String(r.Notes), /da pesare/);
 });
 
@@ -53,17 +54,17 @@ test("U.M. listino vuota, prezzo cliente a kg, ordinato kg: riga normale", () =>
   const r = row(buildDaneaOrdersXml(null, [order(ep({ reason: "um_diversa", price: null, list_price: 3.8, price_unit_code: null, customer_price: 3.8 }))]).xml);
   assert.equal(r.Price, 3.8);
   assert.equal(r.Um, "kg");
-  assert.equal(r.Notes, undefined);
+  assert.equal(r.Notes, "3 kg");
 });
 
-test("U.M. listino vuota, prezzo cliente a kg, ordinato cs: prezzo, Um kg, ORDINATO 3 cs", () => {
+test("U.M. listino vuota, prezzo cliente a kg, ordinato cs: prezzo, Um kg, «3 cs» in testa alla nota", () => {
   const o = order(ep({ reason: "um_diversa", price: null, list_price: 3, price_unit_code: null, customer_price: 3 }));
   o.lines[0]!.unit = "cs";
   const r = row(buildDaneaOrdersXml(null, [o]).xml);
   assert.equal(r.Price, 3);
   assert.equal(r.Um, "kg");
   assert.equal(r.Qty, 3);
-  assert.match(String(r.Notes), /^>>> ORDINATO: 3 cs <<</);
+  assert.equal(r.Notes, "3 cs");
 });
 
 test("riscarico con U.M. listino vuota: resta come prima", () => {
@@ -71,13 +72,14 @@ test("riscarico con U.M. listino vuota: resta come prima", () => {
   const r = row(buildDaneaOrdersXml(null, [o]).xml);
   assert.equal(r.Price, undefined);
   assert.match(String(r.Notes), /da pesare/);
+  assert.doesNotMatch(String(r.Notes), /^3 kg/);
 });
 
 test("U.M. diversa senza U.M. del listino né del cliente: nessun prezzo, «da pesare»", () => {
   const r = row(buildDaneaOrdersXml(null, [order(ep({ reason: "um_diversa", price: null, price_unit_code: null, customer_price_unit_code: null }))]).xml);
   assert.equal(r.Price, undefined);
   assert.equal(r.Um, "kg");
-  assert.match(String(r.Notes), /U\.M\. prezzo diversa – da pesare/);
+  assert.match(String(r.Notes), /^3 kg – U\.M\. prezzo diversa – da pesare/);
 });
 
 test("riscarico di un ordine già esportato con U.M. diversa: resta come prima", () => {
@@ -86,6 +88,7 @@ test("riscarico di un ordine già esportato con U.M. diversa: resta come prima",
   assert.equal(r.Price, undefined);
   assert.equal(r.Um, "kg");
   assert.match(String(r.Notes), /da pesare/);
+  assert.doesNotMatch(String(r.Notes), /^3 kg/);
 });
 
 test("prezzo mancante nel listino del cliente: mai 0, «Prezzo su richiesta»", () => {
@@ -100,6 +103,30 @@ test("prezzo zero registrato non viene mai inviato", () => {
 
 test("ordini scaricati prima dei prezzi da listino: restano col prezzo dell'ordine", () => {
   assert.equal(row(buildDaneaOrdersXml(null, [order(null)]).xml).Price, 2.2);
+});
+
+test("riga senza prezzi da listino: «3 kg» in testa alla nota anche a U.M. uguale", () => {
+  const r = row(buildDaneaOrdersXml(null, [order(null)]).xml);
+  assert.equal(r.Price, 2.2);
+  assert.equal(r.Notes, "3 kg");
+});
+
+test("quantità decimali e U.M. con spazi: il prefisso resta leggibile", () => {
+  const o = order(null);
+  o.lines[0]!.quantity = 1.5;
+  o.lines[0]!.unit = " mazzo ";
+  o.lines[0]!.price_unit = "mazzo";
+  const r = row(buildDaneaOrdersXml(null, [o]).xml);
+  assert.equal(r.Notes, "1.5 mazzo");
+});
+
+test("U.M. del listino diversa da quella ordinata: il prefisso resta quello del cliente", () => {
+  const o = order(ep({ reason: "um_diversa", price: null, list_price: 12, price_unit_code: "cs" }));
+  o.lines[0]!.quantity = 10;
+  o.lines[0]!.unit = "pz";
+  const r = row(buildDaneaOrdersXml(null, [o]).xml);
+  assert.equal(r.Um, "cs");
+  assert.equal(r.Notes, "10 pz – Prezzo visto dal cliente all'ordine 2,20 €/kg");
 });
 
 test("avviso: aggiornamento abituale 18:00, ultimo aggiornamento ieri → listino non aggiornato oggi", () => {

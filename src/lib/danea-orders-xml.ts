@@ -13,6 +13,9 @@
  *   una sola volta prima dello scarico: clienti diversi non collidono. Ordini
  *   già scaricati senza danea_number usano la parte numerica dell'ORD
  *   (compatibilità); il numero completo resta in InternalComment.
+ * - Notes riga: al primo scarico inizia sempre con quello che ha ordinato il
+ *   cliente in forma breve («<quantità> <U.M. del cliente>», es. 10 pz), poi le
+ *   note già esistenti. Nei riscarichi nessun prefisso, XML come prima.
  * - Filtri di Danea (firstdate/lastdate/firstnum/lastnum) applicati.
  */
 
@@ -172,7 +175,7 @@ export function validateDaneaOrder(order: DaneaOrderCandidate): string[] {
   return reasons;
 }
 
-export type LinePriceDecision = { price: number | null; note: string | null; unit?: string | null; highlight?: string | null };
+export type LinePriceDecision = { price: number | null; note: string | null; unit?: string | null };
 
 const euro = (n: number) =>
   n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
@@ -198,7 +201,6 @@ export function daneaExportLineDecision(
   const notes: string[] = [];
   let price: number | null = null;
   let unit: string | null | undefined;
-  let highlight: string | null = null;
   const lpNew = toNum(ep.list_price);
   // U.M. del prezzo: quella del listino; se manca, quella fotografata sulla riga d'ordine del cliente.
   const puNew = ep.price_unit_code?.trim() || ep.customer_price_unit_code?.trim() || null;
@@ -207,11 +209,9 @@ export function daneaExportLineDecision(
     // Stessa U.M.: riga normale col prezzo del listino.
     price = lpNew;
   } else if (firstExport) {
-    // U.M. del cliente diversa: prezzo e U.M. del listino, quantità invariata, ordinato in evidenza.
+    // U.M. del cliente diversa: prezzo e U.M. del listino, quantità invariata.
     price = lpNew;
     unit = puNew;
-    const q = toNum(ordered.quantity);
-    highlight = `>>> ORDINATO: ${q === null ? "" : fmtNum(q)} ${ordered.unit ?? ""} <<<`.replace(/\s+/g, " ");
   } else if (ep.reason === null && p !== null && p > 0) {
     price = p;
   } else if (ep.reason === "rapporto_non_attivo") {
@@ -228,7 +228,7 @@ export function daneaExportLineDecision(
     const cu = ep.customer_price_unit_code ? `/${ep.customer_price_unit_code}` : "";
     notes.push(`Prezzo visto dal cliente all'ordine ${euro(cp)} €${cu}`);
   }
-  return { price, note: notes.length ? notes.join(" – ") : null, ...(unit ? { unit } : {}), ...(highlight ? { highlight } : {}) };
+  return { price, note: notes.length ? notes.join(" – ") : null, ...(unit ? { unit } : {}) };
 }
 
 export function escapeXml(value: string): string {
@@ -244,6 +244,18 @@ const el = (tag: string, value: string | number | null | undefined, indent: stri
   value === null || value === undefined || value === "" ? "" : `${indent}<${tag}>${escapeXml(String(value))}</${tag}>\n`;
 
 const fmtNum = (n: number) => String(Number(n.toFixed(6)));
+
+/**
+ * Prefisso di ogni riga al primo scarico: quello che ha ordinato il cliente,
+ * in forma breve «<quantità> <U.M. scelta dal cliente>» (es. 10 pz, 1 cassa).
+ * Nessuna conversione, nessuna U.M. del listino: solo la riga d'ordine.
+ */
+export function daneaOrderedNote(line: Pick<DaneaOrderLine, "quantity" | "unit">): string | null {
+  const q = toNum(line.quantity);
+  const unit = line.unit?.trim();
+  if (q === null || q <= 0 || !unit) return null;
+  return `${fmtNum(q)} ${unit}`;
+}
 
 function footNotes(order: DaneaOrderCandidate): string | null {
   const parts: string[] = [];
@@ -288,7 +300,9 @@ function documentXml(order: DaneaOrderCandidate): string {
     const decision = line.export_price
       ? daneaExportLineDecision(line.export_price, { quantity: line.quantity, unit: line.unit, reexport: order.already_exported === true })
       : daneaLinePrice(line);
-    const notes = [decision.highlight, line.notes, decision.note].filter(Boolean).join(" – ");
+    // Riscarichi: nessun prefisso, l'XML resta identico a quello già inviato.
+    const ordered = order.already_exported === true ? null : daneaOrderedNote(line);
+    const notes = [ordered, line.notes, decision.note].filter(Boolean).join(" – ");
     x += "        <Row>\n";
     x += el("Code", line.seller_code, r);
     x += el("Description", line.description, r);
