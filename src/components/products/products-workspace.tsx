@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
+import { SupplierCatalogView } from "@/components/catalog/supplier-catalog-view";
 import { AppShell } from "@/components/app-shell";
 import { ProductDetailPanel } from "@/components/products/product-detail-panel";
 import { ProductDetailSheet, type ProductDetailTab } from "@/components/products/product-detail-sheet";
@@ -141,6 +142,8 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
   const [sorting, setSorting] = useState<SortingState>(defaults.sorting);
   const [preferencesReady, setPreferencesReady] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  // Scheda «Catalogo fornitori collegati»: stato solo locale, solo vista Acquisti.
+  const [showCatalog, setShowCatalog] = useState(false);
   const [printTarget, setPrintTarget] = useState<HTMLElement | null>(null);
 
   // A direct body child lets print CSS remove the application layout entirely.
@@ -564,6 +567,14 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
 
   const columnsMenu = (iconOnly: boolean) => <DropdownMenu><DropdownMenuTrigger asChild>{iconOnly ? <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Colonne"><Columns3 /></Button> : <Button variant="outline" size="sm"><Columns3 />Colonne</Button>}</DropdownMenuTrigger><DropdownMenuContent align="end" className="max-h-[70vh] w-64 overflow-y-auto"><DropdownMenuLabel>{deviceClass === "smartphone" ? "Campi visibili nelle card" : "Colonne visibili"}</DropdownMenuLabel>{columnGroups.map((group, index) => <div key={group.label}>{index > 0 ? <><DropdownMenuSeparator /><DropdownMenuLabel className="text-xs text-muted-foreground">{group.label}</DropdownMenuLabel></> : null}{group.columns.map((column) => <DropdownMenuCheckboxItem key={column.id} checked={visibility[column.id] !== false} onSelect={(event) => event.preventDefault()} onCheckedChange={(checked) => setVisibility((current) => ({ ...current, [column.id]: checked }))}>{columnLabel(column, listName)}</DropdownMenuCheckboxItem>)}</div>)}<DropdownMenuSeparator /><DropdownMenuItem onSelect={resetPreferences}><RotateCcw />Ripristina predefinite</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
 
+  const catalogTab = view === "acquisti" ? <div className="flex flex-wrap items-center gap-2">
+    {viewSwitch}
+    <Button size="sm" className="h-8 text-xs" variant={showCatalog ? "default" : "outline"} aria-pressed={showCatalog} onClick={() => setShowCatalog((current) => !current)}>Catalogo fornitori collegati</Button>
+  </div> : null;
+  if (view === "acquisti" && showCatalog) return <AppShell title="Prodotti" compact wide>
+    <div className="space-y-3">{catalogTab}<SupplierCatalogView embedded /></div>
+  </AppShell>;
+
   return <AppShell title="Prodotti" compact wide>
     <div className="space-y-2">
       {/* Smartphone: barra operativa compatta sticky, visibile appena si inizia a scorrere. */}
@@ -585,7 +596,7 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
             <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Seleziona prodotti"><SquareCheckBig /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setSelectedIds(new Set(visible.map((product) => product.id)))}>Seleziona questa pagina ({visible.length})</DropdownMenuItem><DropdownMenuItem onSelect={() => setSelectedIds(new Set(sortedFiltered.map((product) => product.id)))}>Seleziona tutti i risultati ({sortedFiltered.length})</DropdownMenuItem><DropdownMenuItem disabled={!selectedIds.size} onSelect={() => setSelectedIds(new Set())}>Azzera selezione</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
           </div>
           <div className="col-span-2 flex min-w-0 gap-2 overflow-x-auto xl:col-span-1 xl:flex-1">
-            {viewSwitch}
+            {view === "acquisti" ? catalogTab : viewSwitch}
             {filterSelects(false)}
           </div>
         </div>
