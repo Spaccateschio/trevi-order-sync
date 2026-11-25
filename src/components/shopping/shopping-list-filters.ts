@@ -1,10 +1,11 @@
-export type FilterFlag = "preferiti" | "b2b" | "non_b2b" | "senza_fornitore" | "da_assegnare" | "parziale" | "assegnata" | "in_ordine" | "da_ordinare" | "da_confermare" | "confermati" | "da_controllare";
+export type FilterFlag = "preferiti" | "b2b" | "non_b2b" | "senza_fornitore" | "da_assegnare" | "parziale" | "assegnata" | "in_ordine" | "da_ordinare" | "da_confermare" | "confermati" | "da_controllare" | "con_quantita";
 export type SortKey = "description" | "code" | "category" | "supplier";
 export type ProductFilterFacts = {
   id: string; code: string; description: string | null; category: string | null;
   supplierIds: string[]; supplierNames: string[]; favorite: boolean;
   b2b: boolean; nonB2b: boolean; assignment: string | null;
   ordered: boolean; confirmed: boolean; needsCheck: boolean; nonPurchase: boolean;
+  quantity?: number | null;
 };
 export type ProductFilters = { search: string; category: string; supplier: string; flags: ReadonlySet<FilterFlag> };
 export type ShoppingFilterKey = "search" | "category" | "supplier" | "flags";
@@ -21,6 +22,7 @@ export function failedShoppingFilters(p: ProductFilterFacts, f: ProductFilters):
     return selected.length === 0 || selected.some(([, match]) => match);
   };
   const flagsFailed = (f.flags.has("preferiti") && !p.favorite)
+    || (f.flags.has("con_quantita") && (p.nonPurchase || p.quantity == null || !Number.isFinite(p.quantity) || p.quantity <= 0))
     || (f.flags.has("senza_fornitore") && p.supplierIds.length > 0)
     || !group([["b2b", p.b2b], ["non_b2b", p.nonB2b]])
     || !group([["da_assegnare", p.assignment === "da_assegnare"], ["parziale", p.assignment === "parziale"], ["assegnata", p.assignment === "assegnata"]])

@@ -143,7 +143,7 @@ type Archive = { id: string; name: string; is_default: boolean };
 /** «Filtra card»: decide quali prodotti si vedono. */
 const FILTER_GROUPS: [string, [FilterFlag, string][]][] = [
   ["Prodotto", [["preferiti", "★ Preferiti"], ["b2b", "B2B"], ["non_b2b", "Non B2B"]]],
-  ["Quantità", [["da_controllare", "Da controllare"], ["da_confermare", "Quantità da confermare"], ["confermati", "Quantità confermata"]]],
+  ["Quantità", [["con_quantita", "Con quantità da acquistare"], ["da_controllare", "Da controllare"], ["da_confermare", "Quantità da confermare"], ["confermati", "Quantità confermata"]]],
   [
     "Fornitore / assegnazione",
     [["senza_fornitore", "Nessun fornitore assegnato / collegato"], ["da_assegnare", "Da assegnare"], ["parziale", "Parzialmente assegnati"], ["assegnata", "Assegnati"]],
@@ -859,7 +859,9 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
     const suppliers = extra?.suppliers ?? [];
     const nonPurchase = kind === "pending" ? savedEvaluations.get(row.product_id)?.status === "non_acquistare" : excludedQuery.data?.has(row.item_id) ?? false;
     const draft = kind === "pending" ? Boolean(evalValues[row.product_id]?.trim()) : unlockedIds.has(row.item_id) || Boolean(unitEdits[row.item_id]) || quantityHasDraft(edits[row.item_id], row.decided_quantity === null ? null : Number(row.decided_quantity));
+    const raw = kind === "pending" ? evalValues[row.product_id] : edits[row.item_id];
     return {
+      quantity: raw !== undefined ? parseQuantity(raw) : row.decided_quantity === null ? null : Number(row.decided_quantity),
       id: row.item_id, code: row.code, description: row.description, category: extra?.category ?? linked?.category ?? null,
       supplierIds: [...new Set([...suppliers.map((p) => p.supplierRecordId), ...(linked?.supplierRecordIds ?? []), ...(productLinksQuery.data?.get(row.product_id) ?? [])])],
       supplierNames: [...new Set([...suppliers.map((p) => p.name), ...(linked?.supplierNames ?? [])])],
@@ -871,6 +873,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
     };
   };
   const catalogFacts = (p: CatalogEntry): ProductFilterFacts => ({
+    quantity: parseQuantity(catalogValues[p.key]?.raw ?? ""),
     id: p.key, code: p.code, description: p.description, category: p.category,
     supplierIds: p.supplierRecordIds, supplierNames: p.supplierNames,
     favorite: Boolean(p.ownProductId && catalog.favorites.has(p.ownProductId)),

@@ -14,6 +14,22 @@ describe("stampa risultati filtrati", () => {
   it("ordinamento numerico completo", () => assert.deepEqual(selectShoppingPrintRows(rows, all, "code").slice(0, 3).map((r) => r.code), ["0", "1", "2"]));
   it("senza corrispondenze nessun prodotto stampato", () => assert.equal(selectShoppingPrintRows(rows, { ...all, search: "ananas" }, "code").length, 0));
   it("dato mancante non diventa zero", () => assert.equal(printQuantity(null, "kg"), "—"));
+  it("stampa solo le quantità positive, incluse le bozze senza confermarle", () => {
+    const first = rows[0];
+    assert.ok(first);
+    const input: ShoppingPrintRow[] = [
+      { ...first, id: "bozza", quantity: 3, draft: true },
+      { ...first, id: "confermato", quantity: 0.5, confirmed: true },
+      { ...first, id: "vuoto", quantity: null },
+      { ...first, id: "zero", quantity: 0 },
+      { ...first, id: "escluso", quantity: 3, nonPurchase: true },
+    ];
+    const before = JSON.stringify(input);
+    const output = selectShoppingPrintRows(input, { ...all, flags: new Set<FilterFlag>(["con_quantita"]) }, "code");
+    assert.deepEqual(output.map((r) => r.id).sort(), ["bozza", "confermato"]);
+    assert.equal(output.find((r) => r.id === "bozza")?.draft, true);
+    assert.equal(JSON.stringify(input), before);
+  });
   it("quantità e U.M. mantenute", () => assert.equal(printQuantity(2.5, "casse"), "2,5 casse"));
   it("bozza mantenuta senza conferma o mutazione", () => {
     const first = rows[0];

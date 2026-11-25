@@ -29,6 +29,24 @@ describe("filtri prodotti Lista", () => {
     assert.equal(matchesShoppingFilters(p, { ...f, search: "pera" }), false);
   });
   it("nessun filtro include catalogo e stati sconosciuti", () => assert.equal(match([]), true));
+  it("quantità positiva include la bozza e la quantità confermata", () => {
+    assert.equal(match(["con_quantita"], { quantity: 3, confirmed: false }), true);
+    assert.equal(match(["con_quantita"], { quantity: 0.5, confirmed: true }), true);
+  });
+  it("quantità vuota, zero, negativa o non valida non viene inclusa", () => {
+    for (const quantity of [null, 0, -1, NaN, Infinity]) {
+      assert.equal(match(["con_quantita"], { quantity }), false);
+    }
+    assert.equal(match(["con_quantita"]), false);
+  });
+  it("Non acquistare resta escluso anche con una vecchia quantità positiva", () => {
+    assert.equal(match(["con_quantita"], { quantity: 3, nonPurchase: true }), false);
+  });
+  it("quantità positiva si interseca con gli altri filtri", () => {
+    assert.equal(match(["con_quantita", "confermati"], { quantity: 3, confirmed: false }), false);
+    assert.equal(match(["con_quantita", "da_confermare"], { quantity: 3, confirmed: false }), true);
+    assert.equal(match(["con_quantita", "preferiti"], { quantity: 3, favorite: false }), false);
+  });
   it("con Da inserire attivo la quantità appena scritta resta visibile e correggibile", () => {
     assert.equal(visibleWhenFilteringMissing(true, true, false), true);
     assert.equal(visibleWhenFilteringMissing(true, false, true), true);
