@@ -8,6 +8,7 @@ import { DeliveryComparisonPanel } from "./delivery-comparison-panel";
 import { DeliveryDeclarationPanel } from "./delivery-declaration-panel";
 import { GoodsReceiptPanel } from "./goods-receipt-panel";
 import { OrderDeliverySection } from "./order-delivery-section";
+import { sortOrderItemsAlphabetically } from "./order-items-sort";
 import { SendOrderDialog, type SendChannel } from "./send-order-dialog";
 import { OrderShareDialog } from "./order-share-dialog";
 import { hasRole, useIdentity } from "@/hooks/use-identity";
@@ -245,12 +246,14 @@ export function PurchaseOrderDetail({
   const [itemFilter, setItemFilter] = useState("");
   const visibleItems = useMemo(() => {
     const needle = itemFilter.trim().toLowerCase();
-    if (!needle) return items;
-    return items.filter((item) =>
-      [item.products?.code, item.products?.description, item.supplier_product_code]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    );
+    const rows = needle
+      ? items.filter((item) =>
+          [item.products?.code, item.products?.description, item.supplier_product_code]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(needle)),
+        )
+      : items;
+    return sortOrderItemsAlphabetically(rows);
   }, [items, itemFilter]);
   const undo = useMutation({
     mutationFn: () => {
