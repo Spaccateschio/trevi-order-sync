@@ -172,7 +172,7 @@ export function validateDaneaOrder(order: DaneaOrderCandidate): string[] {
   return reasons;
 }
 
-export type LinePriceDecision = { price: number | null; note: string | null };
+export type LinePriceDecision = { price: number | null; note: string | null; unit?: string | null; highlight?: string | null };
 
 const euro = (n: number) =>
   n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
@@ -190,11 +190,24 @@ export function daneaLinePrice(line: Pick<DaneaOrderLine, "price" | "price_unit"
  * Prezzo da listino registrato allo scarico: già scelto dal database
  * (listino del cliente, stesso archivio, U.M. verificata). Mai 0, mai un altro listino.
  */
-export function daneaExportLineDecision(ep: DaneaExportPrice): LinePriceDecision {
+export function daneaExportLineDecision(
+  ep: DaneaExportPrice,
+  ordered?: { quantity: number | string | null; unit: string | null; reexport?: boolean },
+): LinePriceDecision {
   const p = toNum(ep.price);
   const notes: string[] = [];
   let price: number | null = null;
-  if (ep.reason === null && p !== null && p > 0) {
+  let unit: string | null | undefined;
+  let highlight: string | null = null;
+  const lpNew = toNum(ep.list_price);
+  const puNew = ep.price_unit_code?.trim() || null;
+  if (ep.reason === "um_diversa" && ordered && !ordered.reexport && lpNew !== null && lpNew > 0 && puNew) {
+    // U.M. del cliente diversa: prezzo e U.M. del listino, quantità invariata, ordinato in evidenza.
+    price = lpNew;
+    unit = puNew;
+    const q = toNum(ordered.quantity);
+    highlight = `>>> ORDINATO: ${q === null ? "" : fmtNum(q)} ${ordered.unit ?? ""} <<<`.replace(/\s+/g, " ");
+  } else if (ep.reason === null && p !== null && p > 0) {
     price = p;
   } else if (ep.reason === "rapporto_non_attivo") {
     notes.push("Prezzo da verificare");
@@ -210,7 +223,7 @@ export function daneaExportLineDecision(ep: DaneaExportPrice): LinePriceDecision
     const cu = ep.customer_price_unit_code ? `/${ep.customer_price_unit_code}` : "";
     notes.push(`Prezzo visto dal cliente all'ordine ${euro(cp)} €${cu}`);
   }
-  return { price, note: notes.length ? notes.join(" – ") : null };
+  return { price, note: notes.length ? notes.join(" – ") : null, ...(unit ? { unit } : {}), ...(highlight ? { highlight } : {}) };
 }
 
 export function escapeXml(value: string): string {
@@ -267,13 +280,15 @@ function documentXml(order: DaneaOrderCandidate): string {
   x += `${i}<Rows>\n`;
   const r = "          ";
   for (const line of order.lines) {
-    const decision = line.export_price ? daneaExportLineDecision(line.export_price) : daneaLinePrice(line);
-    const notes = [line.notes, decision.note].filter(Boolean).join(" – ");
+    const decision = line.export_price
+      ? daneaExportLineDecision(line.export_price, { quantity: line.quantity, unit: line.unit, reexport: order.already_exported === true })
+      : daneaLinePrice(line);
+    const notes = [decision.highlight, line.notes, decision.note].filter(Boolean).join(" – ");
     x += "        <Row>\n";
     x += el("Code", line.seller_code, r);
     x += el("Description", line.description, r);
     x += el("Qty", fmtNum(toNum(line.quantity)!), r);
-    x += el("Um", line.unit, r);
+    x += el("Um", decision.unit ?? line.unit, r);
     if (decision.price !== null) x += el("Price", fmtNum(decision.price), r);
     x += el("VatCode", line.vat_code, r);
     x += el("Notes", notes || null, r);
