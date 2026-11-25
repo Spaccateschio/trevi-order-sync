@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { PackageCheck } from "lucide-react";
+import { ChevronRight, PackageCheck } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -28,6 +29,9 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
   const [costs, setCosts] = useState<Record<string, string>>({});
   const [priceUnits, setPriceUnits] = useState<Record<string, string>>({});
   const [priceQuantities, setPriceQuantities] = useState<Record<string, string>>({});
+  // Spunte locali: tutti arrivati di default; i non spuntati si registrano come non arrivati (0).
+  const [unchecked, setUnchecked] = useState<Record<string, boolean>>({});
+  const [openFix, setOpenFix] = useState<Record<string, boolean>>({});
 
   const receiptQuery = useQuery({
     queryKey: ["goods-receipt", receiptId],
@@ -151,7 +155,29 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
   });
 
   const confirm = useMutation({
-    mutationFn: () => runConfirm({ data: { receiptId } }),
+    mutationFn: async () => {
+      for (const row of itemsQuery.data ?? []) {
+        if (!unchecked[row.id]) continue;
+        if (Number(row.verified_quantity) === 0) continue;
+        await runSet({
+          data: {
+            receiptItemId: row.id,
+            verifiedQuantity: 0,
+            producerName: row.producer_name ?? null,
+            producerLotCode: row.producer_lot_code ?? null,
+            expiryDate: row.expiry_date ?? null,
+            unitCost: row.unit_cost ?? null,
+            notes: row.notes ?? null,
+            priceUnitId: row.price_unit_id ?? null,
+            priceUnitCode: row.price_unit_code ?? null,
+            clearPriceUnit: false,
+            priceQuantity: row.price_quantity ?? null,
+            clearPriceQuantity: false,
+          },
+        });
+      }
+      return runConfirm({ data: { receiptId } });
+    },
     onSuccess: async () => {
       await refresh();
       toast.success("Carico confermato: provenienze e giacenza aggiornate");
@@ -162,6 +188,8 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
   const receipt = receiptQuery.data;
   const rows = itemsQuery.data ?? [];
   const editable = receipt?.status === "bozza";
+  const checkedCount = rows.filter((row) => !unchecked[row.id]).length;
+  const allChecked = rows.length > 0 && checkedCount === rows.length;
 
   return (
     <div className="space-y-3">
@@ -176,17 +204,46 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
           </span>
         ) : null}
       </div>
-      <p className="text-xs text-muted-foreground">
-        Dichiarato e verificato restano due valori distinti: la giacenza nasce dal verificato, solo
-        alla conferma.
-      </p>
+      {editable && rows.length > 0 ? (
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <Checkbox
+            checked={allChecked}
+            onCheckedChange={(value) =>
+              setUnchecked(value ? {} : Object.fromEntries(rows.map((row) => [row.id, true])))
+            }
+          />
+          Seleziona tutti ({checkedCount}/{rows.length})
+        </label>
+      ) : null}
 
       {rows.map((row) => (
         <div key={row.id} className="rounded-lg border border-border p-3">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="font-medium">{row.products?.code}</span>
-            <span className="text-xs text-muted-foreground">{row.products?.description}</span>
+          <div className="flex items-start gap-3">
+            {editable ? (
+              <Checkbox
+                className="mt-1"
+                aria-label={`Arrivato ${row.products?.description ?? ""}`}
+                checked={!unchecked[row.id]}
+                onCheckedChange={(value) => setUnchecked((prev) => ({ ...prev, [row.id]: !value }))}
+              />
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="font-medium">{row.products?.code}</span>
+                <span className="text-sm">{row.products?.description}</span>
+              </div>
+              <p className="text-sm font-semibold">
+                {editable && unchecked[row.id] ? "Non arrivato" : `${qty(Number(row.verified_quantity))} ${row.unit_code ?? ""}`}
+                {row.producer_lot_code ? <span className="ml-2 text-xs font-normal text-muted-foreground">Lotto {row.producer_lot_code}</span> : null}
+              </p>
+            </div>
+            {editable ? (
+              <Button size="sm" variant="ghost" onClick={() => setOpenFix((prev) => ({ ...prev, [row.id]: !prev[row.id] }))}>
+                Correggi <ChevronRight className={`ml-1 h-4 w-4 transition-transform ${openFix[row.id] ? "rotate-90" : ""}`} />
+              </Button>
+            ) : null}
           </div>
+          {editable && openFix[row.id] ? (<>
           <p className="mt-1 text-xs text-muted-foreground">
             {row.declared === null && row.declaredPurchase !== null ? (
               <>Dichiarate: {qty(row.declaredPurchase)} {row.purchaseUnit}</>
@@ -271,12 +328,13 @@ export function GoodsReceiptPanel({ receiptId }: { receiptId: string }) {
               ) : null}
             </div>
           </div>
+          </>) : null}
         </div>
       ))}
 
       {editable ? (
-        <Button onClick={() => confirm.mutate()} disabled={confirm.isPending || rows.length === 0}>
-          <PackageCheck className="mr-1 h-4 w-4" /> Conferma il carico merce
+        <Button className="font-bold" onClick={() => confirm.mutate()} disabled={confirm.isPending || rows.length === 0}>
+          <PackageCheck className="mr-1 h-4 w-4" /> Conferma arrivo ({checkedCount} prodotti)
         </Button>
       ) : null}
     </div>
