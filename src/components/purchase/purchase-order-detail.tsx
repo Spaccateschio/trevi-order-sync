@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, Link2, PackagePlus, Send, Truck } from "lucide-react";
+import { ChevronRight, Copy, Link2, PackagePlus, Send, Truck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -269,6 +269,9 @@ export function PurchaseOrderDetail({
   const links = linksQuery.data ?? [];
   const activeLink = links.find((link) => !link.revoked_at);
   const draft = order.status === "bozza";
+  // Dettagli secondari chiusi di default sugli ordini inviati: stato solo locale.
+  const [showDetails, setShowDetails] = useState(false);
+  const details = draft || showDetails;
   const shareUrl = token ? `${window.location.origin}/consegna/${token}` : null;
 
   return (
@@ -282,7 +285,14 @@ export function PurchaseOrderDetail({
         ) : null}
       </div>
 
-      <OrderDeliverySection order={order} companyId={companyId} />
+      {!draft ? (
+        <button type="button" onClick={() => setShowDetails((v) => !v)} aria-expanded={showDetails} className="flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-foreground">
+          <ChevronRight className={`h-4 w-4 transition-transform ${showDetails ? "rotate-90" : ""}`} />
+          {showDetails ? "Nascondi dettagli ordine" : "Dettagli ordine (fornitore, consegna, note, prezzi)"}
+        </button>
+      ) : null}
+
+      {details ? <OrderDeliverySection order={order} companyId={companyId} /> : null}
 
       {draft ? (
         <div className="rounded-lg border border-border p-3 text-sm">
@@ -310,12 +320,12 @@ export function PurchaseOrderDetail({
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-border p-3 text-sm">
+      {details ? <div className="rounded-lg border border-border p-3 text-sm">
         <p className="text-xs text-muted-foreground">Quantità</p>
         <p className="mt-1">Ordinato: {qty(order.ordered_total)}</p>
         <p>Dichiarato: {qty(order.declared_total)}</p>
         <p>Caricato in magazzino: {qty(order.received_total)}</p>
-      </div>
+      </div> : null}
 
       <section className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -339,7 +349,7 @@ export function PurchaseOrderDetail({
                 <th className="px-3 py-2 font-medium">Codice</th>
                 <th className="px-3 py-2 font-medium">Descrizione</th>
                 <th className="px-3 py-2 text-right font-medium">Quantità</th>
-                <th className="px-3 py-2 text-right font-medium">Prezzo indicativo</th>
+                {details ? <th className="px-3 py-2 text-right font-medium">Prezzo indicativo</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -376,7 +386,7 @@ export function PurchaseOrderDetail({
                         </span>
                       ) : null}
                     </td>
-                    <td className="px-3 py-2 align-top text-right whitespace-nowrap text-muted-foreground">
+                    {details ? <td className="px-3 py-2 align-top text-right whitespace-nowrap text-muted-foreground">
                       {/* Prezzo fotografato sull'ordine, con la sua U.M. (indipendente dalla U.M. d'ordine). */}
                       {note ? (
                         <>
@@ -387,7 +397,7 @@ export function PurchaseOrderDetail({
                       {priceUnitDiffers(item.price_unit_code, item.purchase_unit_code ?? item.unit_code) ? (
                         <span className="block text-xs">U.M. prezzo diversa</span>
                       ) : null}
-                    </td>
+                    </td> : null}
                   </tr>
                 );
               })}
@@ -403,7 +413,7 @@ export function PurchaseOrderDetail({
         </div>
       </section>
 
-      {relationQuery.data === true ? (
+      {details && relationQuery.data === true ? (
         <PriceInfoNotice
           sellerCompanyId={
             (itemsQuery.data ?? []).find((i) => i.product_supplier_links?.supplier_company_id)
