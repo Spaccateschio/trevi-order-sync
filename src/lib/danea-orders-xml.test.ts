@@ -44,8 +44,34 @@ test("ogni riga al primo scarico inizia con quantità e U.M. ordinate dal client
     line({ item_id: "i2", seller_code: "0013", description: "AGLIO", quantity: 1, unit: "cassa", price: 3, price_unit: "cassa" }),
   ] })]);
   const rows = parse(r.xml).Documents.Document[0].Rows.Row;
-  assert.equal(rows[0].Notes, "3 kg");
-  assert.equal(rows[1].Notes, "1 cassa");
+  assert.equal(rows[0].Notes, "1 cassa");
+  assert.equal(rows[1].Notes, "3 kg");
+});
+
+test("righe in ordine alfabetico di descrizione, a parità per codice", () => {
+  const r = buildDaneaOrdersXml(null, [order({ lines: [
+    line({ item_id: "i1", seller_code: "0050", description: "ZENZERO" }),
+    line({ item_id: "i2", seller_code: "0020", description: "aglio" }),
+    line({ item_id: "i3", seller_code: "0030", description: "ANGURIA" }),
+    line({ item_id: "i4", seller_code: "0010", description: "AGLIO" }),
+  ] })]);
+  const rows = parse(r.xml).Documents.Document[0].Rows.Row;
+  assert.deepEqual(
+    rows.map((x: { Code: string }) => String(x.Code).padStart(4, "0")),
+    ["0010", "0020", "0030", "0050"],
+  );
+});
+
+test("riscarico: le righe restano nell'ordine in cui erano state inviate", () => {
+  const r = buildDaneaOrdersXml(null, [order({ already_exported: true, lines: [
+    line({ item_id: "i1", seller_code: "0050", description: "ZENZERO" }),
+    line({ item_id: "i2", seller_code: "0010", description: "AGLIO" }),
+  ] })]);
+  const rows = parse(r.xml).Documents.Document[0].Rows.Row;
+  assert.deepEqual(
+    rows.map((x: { Code: string }) => String(x.Code).padStart(4, "0")),
+    ["0050", "0010"],
+  );
 });
 
 test("riscarico: nessuna nota aggiunta, resta solo quella del cliente", () => {

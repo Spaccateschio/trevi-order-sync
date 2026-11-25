@@ -16,6 +16,9 @@
  * - Notes riga: al primo scarico inizia sempre con quello che ha ordinato il
  *   cliente in forma breve («<quantità> <U.M. del cliente>», es. 10 pz), poi le
  *   note già esistenti. Nei riscarichi nessun prefisso, XML come prima.
+ * - Ordine righe <Rows>: al primo scarico alfabetico per descrizione (italiano,
+ *   maiuscole/minuscole ignorate), a parità per codice. Nei riscarichi le righe
+ *   restano nell'ordine con cui erano state inviate.
  * - Filtri di Danea (firstdate/lastdate/firstnum/lastnum) applicati.
  */
 
@@ -245,6 +248,22 @@ const el = (tag: string, value: string | number | null | undefined, indent: stri
 
 const fmtNum = (n: number) => String(Number(n.toFixed(6)));
 
+const itCollator = new Intl.Collator("it", { sensitivity: "base" });
+
+/**
+ * Ordine di scrittura delle righe: alfabetico per descrizione (italiano,
+ * maiuscole/minuscole ignorate), a parità per codice articolo.
+ * Vale solo per il primo scarico: nei riscarichi le righe restano nell'ordine
+ * con cui erano state inviate.
+ */
+export function daneaSortedLines(lines: DaneaOrderLine[]): DaneaOrderLine[] {
+  return [...lines].sort((a, b) => {
+    const byDescription = itCollator.compare(a.description ?? "", b.description ?? "");
+    if (byDescription !== 0) return byDescription;
+    return itCollator.compare(a.seller_code ?? "", b.seller_code ?? "");
+  });
+}
+
 /**
  * Prefisso di ogni riga al primo scarico: quello che ha ordinato il cliente,
  * in forma breve «<quantità> <U.M. scelta dal cliente>» (es. 10 pz, 1 cassa).
@@ -296,7 +315,9 @@ function documentXml(order: DaneaOrderCandidate): string {
   x += el("FootNotes", footNotes(order), i);
   x += `${i}<Rows>\n`;
   const r = "          ";
-  for (const line of order.lines) {
+  // Riscarichi: ordine righe invariato; primo scarico: righe in ordine alfabetico.
+  const rows = order.already_exported === true ? order.lines : daneaSortedLines(order.lines);
+  for (const line of rows) {
     const decision = line.export_price
       ? daneaExportLineDecision(line.export_price, { quantity: line.quantity, unit: line.unit, reexport: order.already_exported === true })
       : daneaLinePrice(line);
