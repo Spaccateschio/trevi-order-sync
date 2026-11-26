@@ -61,6 +61,7 @@ import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/l
 import { Route as AuthenticatedAcquistiCatalogoSellerIdIndexRouteImport } from './routes/_authenticated/acquisti.catalogo.$sellerId.index'
 import { Route as AuthenticatedAcquistiCatalogoSellerIdProductIdRouteImport } from './routes/_authenticated/acquisti.catalogo.$sellerId.$productId'
 import { Route as AuthenticatedAcquistiListaSpesaStampaListIdRouteImport } from './routes/_authenticated/acquisti.lista-spesa_.stampa.$listId'
+import { Route as ApiPublicIntegrationsTreviIncassiDocumentsRouteImport } from './routes/api/public/integrations/trevi-incassi/documents'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -347,6 +348,12 @@ const AuthenticatedAcquistiListaSpesaStampaListIdRoute =
     path: '/acquisti/lista-spesa/stampa/$listId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicIntegrationsTreviIncassiDocumentsRoute =
+  ApiPublicIntegrationsTreviIncassiDocumentsRouteImport.update({
+    id: '/api/public/integrations/trevi-incassi/documents',
+    path: '/api/public/integrations/trevi-incassi/documents',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -399,6 +406,7 @@ export interface FileRoutesByFullPath {
   '/acquisti/catalogo/': typeof AuthenticatedAcquistiCatalogoIndexRoute
   '/acquisti/catalogo/$sellerId/$productId': typeof AuthenticatedAcquistiCatalogoSellerIdProductIdRoute
   '/acquisti/lista-spesa/stampa/$listId': typeof AuthenticatedAcquistiListaSpesaStampaListIdRoute
+  '/api/public/integrations/trevi-incassi/documents': typeof ApiPublicIntegrationsTreviIncassiDocumentsRoute
   '/acquisti/catalogo/$sellerId/': typeof AuthenticatedAcquistiCatalogoSellerIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -451,6 +459,7 @@ export interface FileRoutesByTo {
   '/acquisti/catalogo': typeof AuthenticatedAcquistiCatalogoIndexRoute
   '/acquisti/catalogo/$sellerId/$productId': typeof AuthenticatedAcquistiCatalogoSellerIdProductIdRoute
   '/acquisti/lista-spesa/stampa/$listId': typeof AuthenticatedAcquistiListaSpesaStampaListIdRoute
+  '/api/public/integrations/trevi-incassi/documents': typeof ApiPublicIntegrationsTreviIncassiDocumentsRoute
   '/acquisti/catalogo/$sellerId': typeof AuthenticatedAcquistiCatalogoSellerIdIndexRoute
 }
 export interface FileRoutesById {
@@ -506,6 +515,7 @@ export interface FileRoutesById {
   '/_authenticated/acquisti/catalogo/': typeof AuthenticatedAcquistiCatalogoIndexRoute
   '/_authenticated/acquisti/catalogo/$sellerId/$productId': typeof AuthenticatedAcquistiCatalogoSellerIdProductIdRoute
   '/_authenticated/acquisti/lista-spesa_/stampa/$listId': typeof AuthenticatedAcquistiListaSpesaStampaListIdRoute
+  '/api/public/integrations/trevi-incassi/documents': typeof ApiPublicIntegrationsTreviIncassiDocumentsRoute
   '/_authenticated/acquisti/catalogo/$sellerId/': typeof AuthenticatedAcquistiCatalogoSellerIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -561,6 +571,7 @@ export interface FileRouteTypes {
     | '/acquisti/catalogo/'
     | '/acquisti/catalogo/$sellerId/$productId'
     | '/acquisti/lista-spesa/stampa/$listId'
+    | '/api/public/integrations/trevi-incassi/documents'
     | '/acquisti/catalogo/$sellerId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -613,6 +624,7 @@ export interface FileRouteTypes {
     | '/acquisti/catalogo'
     | '/acquisti/catalogo/$sellerId/$productId'
     | '/acquisti/lista-spesa/stampa/$listId'
+    | '/api/public/integrations/trevi-incassi/documents'
     | '/acquisti/catalogo/$sellerId'
   id:
     | '__root__'
@@ -667,6 +679,7 @@ export interface FileRouteTypes {
     | '/_authenticated/acquisti/catalogo/'
     | '/_authenticated/acquisti/catalogo/$sellerId/$productId'
     | '/_authenticated/acquisti/lista-spesa_/stampa/$listId'
+    | '/api/public/integrations/trevi-incassi/documents'
     | '/_authenticated/acquisti/catalogo/$sellerId/'
   fileRoutesById: FileRoutesById
 }
@@ -682,6 +695,7 @@ export interface RootRouteChildren {
   ApiPublicDaneaOrdersRoute: typeof ApiPublicDaneaOrdersRoute
   ApiPublicDaneaProductsRoute: typeof ApiPublicDaneaProductsRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
+  ApiPublicIntegrationsTreviIncassiDocumentsRoute: typeof ApiPublicIntegrationsTreviIncassiDocumentsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1050,6 +1064,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAcquistiListaSpesaStampaListIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/integrations/trevi-incassi/documents': {
+      id: '/api/public/integrations/trevi-incassi/documents'
+      path: '/api/public/integrations/trevi-incassi/documents'
+      fullPath: '/api/public/integrations/trevi-incassi/documents'
+      preLoaderRoute: typeof ApiPublicIntegrationsTreviIncassiDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1186,6 +1207,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicDaneaOrdersRoute: ApiPublicDaneaOrdersRoute,
   ApiPublicDaneaProductsRoute: ApiPublicDaneaProductsRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
+  ApiPublicIntegrationsTreviIncassiDocumentsRoute:
+    ApiPublicIntegrationsTreviIncassiDocumentsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

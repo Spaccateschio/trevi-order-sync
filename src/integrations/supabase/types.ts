@@ -6641,6 +6641,103 @@ export type Database = {
           },
         ]
       }
+      supplier_delivery_documents: {
+        Row: {
+          buyer_company_id: string | null
+          consegna_at: string | null
+          consegna_stato: string | null
+          customer_code: string | null
+          doc_date: string | null
+          doc_number: string | null
+          doc_type: string
+          external_id: string
+          has_lines_to_review: boolean
+          id: string
+          in_carico_at: string | null
+          lines: Json
+          link_reason: string | null
+          link_status: string
+          notes_raw: string | null
+          order_ref: string | null
+          prepared_at: string | null
+          purchase_order_id: string | null
+          received_at: string
+          seller_company_id: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          buyer_company_id?: string | null
+          consegna_at?: string | null
+          consegna_stato?: string | null
+          customer_code?: string | null
+          doc_date?: string | null
+          doc_number?: string | null
+          doc_type: string
+          external_id: string
+          has_lines_to_review?: boolean
+          id?: string
+          in_carico_at?: string | null
+          lines?: Json
+          link_reason?: string | null
+          link_status?: string
+          notes_raw?: string | null
+          order_ref?: string | null
+          prepared_at?: string | null
+          purchase_order_id?: string | null
+          received_at?: string
+          seller_company_id: string
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          buyer_company_id?: string | null
+          consegna_at?: string | null
+          consegna_stato?: string | null
+          customer_code?: string | null
+          doc_date?: string | null
+          doc_number?: string | null
+          doc_type?: string
+          external_id?: string
+          has_lines_to_review?: boolean
+          id?: string
+          in_carico_at?: string | null
+          lines?: Json
+          link_reason?: string | null
+          link_status?: string
+          notes_raw?: string | null
+          order_ref?: string | null
+          prepared_at?: string | null
+          purchase_order_id?: string | null
+          received_at?: string
+          seller_company_id?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_delivery_documents_buyer_company_id_fkey"
+            columns: ["buyer_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_delivery_documents_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_delivery_documents_seller_company_id_fkey"
+            columns: ["seller_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_price_observations: {
         Row: {
           company_id: string
@@ -8195,6 +8292,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      incassi_find_orders: {
+        Args: { _customer_code: string; _order_ref: string; _seller: string }
+        Returns: {
+          buyer_company_id: string
+          order_id: string
+        }[]
+      }
       initial_stock_unit_options: {
         Args: { _link_id: string; _product_id: string }
         Returns: Json
@@ -8891,6 +8995,16 @@ export type Database = {
           opened_by: string
           opened_note: string
           product_id: string
+        }[]
+      }
+      order_delivery_progress: {
+        Args: { _order_ids: string[] }
+        Returns: {
+          consegna_at: string
+          consegna_stato: string
+          in_carico_at: string
+          order_id: string
+          prepared_at: string
         }[]
       }
       order_share_history: { Args: { _order_id: string }; Returns: Json }

@@ -6,6 +6,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleString("it-IT", { day: "2-dig
 export function OrderTimelineBar({ timeline }: { timeline: OrderTimeline }) {
   return <div className="space-y-2">
     <p className="text-sm">A che punto è: <span className="font-semibold">{timeline.currentLabel}</span>
+      {timeline.notDelivered ? <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-destructive-foreground">Non consegnato</span> : null}
       {timeline.contested ? <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-destructive-foreground">Contestato</span> : null}</p>
     <ol className="grid grid-cols-1 gap-2 sm:grid-cols-7">
       {timeline.steps.map((s, i) => <li key={s.key} aria-current={s.current ? "step" : undefined}

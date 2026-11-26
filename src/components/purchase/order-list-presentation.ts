@@ -53,9 +53,10 @@ export type OrderTimelineFacts = {
   shipped_at?: string | null;
   delivered_at?: string | null;
   contested?: boolean;
+  not_delivered?: boolean;
 };
 export type TimelineStep = { key: string; label: string; color: string; reachedAt: string | null; reached: boolean; current: boolean };
-export type OrderTimeline = { steps: TimelineStep[]; currentLabel: string; currentColor: string; contested: boolean };
+export type OrderTimeline = { steps: TimelineStep[]; currentLabel: string; currentColor: string; contested: boolean; notDelivered: boolean };
 const STEP_DEFS = [
   ['inviato', 'Inviato', 'bg-chart-1'],
   ['visto', 'Visto dal fornitore', 'bg-chart-2'],
@@ -79,5 +80,5 @@ export function orderTimeline(f: OrderTimelineFacts): OrderTimeline {
   let currentColor = currentIdx >= 0 ? STEP_DEFS[currentIdx]![2] : 'bg-muted-foreground';
   if (f.status === 'annullato') { currentLabel = 'Annullato'; currentColor = 'bg-muted-foreground'; }
   else if (f.status === 'parzialmente_consegnato') { currentLabel = 'Ricevuto in parte'; currentColor = 'bg-warning'; }
-  return { steps, currentLabel, currentColor, contested };
+  return { steps, currentLabel, currentColor, contested, notDelivered: Boolean(f.not_delivered) && !f.delivered_at };
 }

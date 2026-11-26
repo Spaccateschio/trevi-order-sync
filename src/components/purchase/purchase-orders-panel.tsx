@@ -11,6 +11,7 @@ import { PurchaseOrderDetail } from "./purchase-order-detail";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DirectPurchaseCard, DirectPurchaseOpener, useDirectPurchases, type OpenDirectPurchase } from "./direct-purchases-section";
+import { deliveryTimelineFacts } from "@/lib/incassi/incassi-link";
 import { compareDirectPurchases, showsDirectPurchases, compareOrderList, isAwaitingGoods, matchesOrderListFilter, orderMainAction, orderTimeline, type OrderListFilter } from "./order-list-presentation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -146,8 +147,11 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
         .order("requested_at", { ascending: false });
       const lastReq = new Map<string, { status: string; decision_note: string | null }>();
       for (const r of reqs ?? []) if (!lastReq.has(r.order_id)) lastReq.set(r.order_id, r);
+      const { data: prog } = rows.length ? await supabase.rpc("order_delivery_progress", { _order_ids: rows.map((r) => r.id) }) : { data: [] };
+      const progMap = new Map((prog ?? []).map((p) => [p.order_id, p]));
       return rows.map((r) => ({
         ...r,
+        progress: progMap.get(r.id) ?? null,
         phone: r.relation_id ? (phoneByRel.get(r.relation_id) ?? null) : null,
         request: lastReq.get(r.id) ?? null,
       }));
@@ -158,11 +162,11 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
   // Bozze nate da una Lista annullata: non più inviabili, si mostrano tra gli annullati (nessun dato cambiato).
   const deadDrafts = new Set<string>();
   const phoneMap = new Map<string, string | null>();
-  const timelineFacts = new Map<string, { sent_at: string | null; seen_by_supplier_at: string | null; supplier_received_at: string | null; contested: boolean }>();
+  const timelineFacts = new Map<string, { sent_at: string | null; seen_by_supplier_at: string | null; supplier_received_at: string | null; contested: boolean } & ReturnType<typeof deliveryTimelineFacts>>();
   const requestMap = new Map<string, { status: string; decision_note: string | null } | null>();
   for (const r of seenQuery.data ?? []) {
     seenMap.set(r.id, r.seen_by_supplier_at);
-    timelineFacts.set(r.id, { sent_at: r.sent_at, seen_by_supplier_at: r.seen_by_supplier_at, supplier_received_at: r.danea_exported_at, contested: ((r as { purchase_deliveries?: { status: string }[] | null }).purchase_deliveries ?? []).some((d) => d.status === "in_contestazione") });
+    timelineFacts.set(r.id, { sent_at: r.sent_at, seen_by_supplier_at: r.seen_by_supplier_at, supplier_received_at: r.danea_exported_at, contested: ((r as { purchase_deliveries?: { status: string }[] | null }).purchase_deliveries ?? []).some((d) => d.status === "in_contestazione"), ...deliveryTimelineFacts(r.progress) });
     phoneMap.set(r.id, r.phone);
     requestMap.set(r.id, r.request);
     if (r.relation_id) seenRelation.add(r.id);
@@ -318,7 +322,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
               <div className="min-w-0">
                 <p className="flex items-center gap-2 font-semibold"><span className="break-words">{order.supplier_name}</span></p>
                 <p className="text-sm font-medium">{order.number}</p>
-                {(() => { const t = orderTimeline({ status: dead ? "annullato" : order.status, ...(timelineFacts.get(order.order_id) ?? { sent_at: null, seen_by_supplier_at: null, supplier_received_at: null, contested: false }) }); return <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-medium"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.currentColor}`} aria-hidden="true" /><span>{t.currentLabel}</span>{t.contested && !dead ? <span className="inline-flex items-center gap-1 text-destructive"><span className="h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden="true" />Contestato</span> : null}</p>; })()}
+                {(() => { const t = orderTimeline({ status: dead ? "annullato" : order.status, ...(timelineFacts.get(order.order_id) ?? { sent_at: null, seen_by_supplier_at: null, supplier_received_at: null, contested: false }) }); return <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-medium"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.currentColor}`} aria-hidden="true" /><span>{t.currentLabel}</span>{t.notDelivered && !dead ? <span className="inline-flex items-center gap-1 text-destructive"><span className="h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden="true" />Non consegnato</span> : null}{t.contested && !dead ? <span className="inline-flex items-center gap-1 text-destructive"><span className="h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden="true" />Contestato</span> : null}</p>; })()}
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={`Azioni ${order.number}`} title="Azioni ordine"><MoreVertical className="size-4" /></Button></DropdownMenuTrigger>
