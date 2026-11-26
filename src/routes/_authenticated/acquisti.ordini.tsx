@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { PurchaseOrdersPanel } from "@/components/purchase/purchase-orders-panel";
-import { DirectPurchasesSection } from "@/components/purchase/direct-purchases-section";
 import { SentOrdersBanner } from "@/components/purchase/sent-orders-banner";
 import { activeCompany, companyBuys, useIdentity } from "@/hooks/use-identity";
 
@@ -26,6 +26,7 @@ export const Route = createFileRoute("/_authenticated/acquisti/ordini")({
 function OrdiniFornitore() {
   const { data: identity, isLoading } = useIdentity();
   const company = activeCompany(identity);
+  const [detailOpen, setDetailOpen] = useState(false);
   if (!isLoading && !companyBuys(identity)) {
     return (
       <AppShell title="Ordini fornitore" description="Area riservata alle aziende che acquistano.">
@@ -42,9 +43,8 @@ function OrdiniFornitore() {
       description="L'ordine non è giacenza: il magazzino si muove solo quando confermi il carico merce."
     >
       <div className="space-y-4">
-        {company ? <SentOrdersBanner companyId={company.companyId} measuredScroll /> : null}
-        {company ? <PurchaseOrdersPanel companyId={company.companyId} /> : null}
-        {company ? <DirectPurchasesSection companyId={company.companyId} /> : null}
+        {company && !detailOpen ? <SentOrdersBanner companyId={company.companyId} measuredScroll /> : null}
+        {company ? <PurchaseOrdersPanel companyId={company.companyId} onDetailChange={setDetailOpen} /> : null}
       </div>
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
     </AppShell>

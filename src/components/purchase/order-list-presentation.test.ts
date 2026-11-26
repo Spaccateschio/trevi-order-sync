@@ -22,3 +22,15 @@ describe('supplier order list presentation', () => {
   it('pending orders sort by delivery date', () => expect(compareOrderList(order,{...order,delivery_date:'2026-11-28'})).toBeLessThan(0));
   it('ties sort newest creation first', () => expect(compareOrderList(order,{...order,created_at:'2026-11-25'})).toBeLessThan(0));
 });
+
+import { showsDirectPurchases as _show } from './order-list-presentation';
+import { matchesOrderListFilter as _match } from './order-list-presentation';
+import { describe as _d, it as _it, expect as _e } from 'vitest';
+_d('acquisti diretti nella lista', () => {
+  _it('compaiono solo in Tutti e Acquisti diretti', () => {
+    _e(_show('tutti')).toBe(true); _e(_show('acquisti_diretti')).toBe(true); _e(_show('in_attesa')).toBe(false);
+  });
+  _it('il filtro Acquisti diretti esclude gli ordini', () => {
+    _e(_match({ status: 'inviato', send_status: 'inviato', delivery_date: null, created_at: '' }, 'acquisti_diretti')).toBe(false);
+  });
+});

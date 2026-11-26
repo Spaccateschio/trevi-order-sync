@@ -4,13 +4,14 @@ import { ArrowLeft, Copy, FilePlus2, MoreVertical, MessageSquare, Pencil, Phone,
 import { Link } from "@tanstack/react-router";
 import { ChangeRequestDialog, OrderEditDialog, OrderCancelDialog, orderLabel } from "./order-customer-actions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PurchaseOrderDetail } from "./purchase-order-detail";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { compareOrderList, isAwaitingGoods, matchesOrderListFilter, orderMainAction, orderStateDot, type OrderListFilter } from "./order-list-presentation";
+import { DirectPurchaseCard, DirectPurchaseOpener, useDirectPurchases, type OpenDirectPurchase } from "./direct-purchases-section";
+import { compareDirectPurchases, showsDirectPurchases, compareOrderList, isAwaitingGoods, matchesOrderListFilter, orderMainAction, orderStateDot, type OrderListFilter } from "./order-list-presentation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -34,13 +35,15 @@ import { OrderShareDialog } from "./order-share-dialog";
 type ConfirmedList = { id: string; name: string; confirmed_at: string | null };
 
 /** Ordini fornitore: l'ordine non è giacenza, la giacenza arriva solo col carico merce. */
-export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti" }: { companyId: string; initialFilter?: OrderListFilter }) {
+export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDetailChange }: { companyId: string; initialFilter?: OrderListFilter; onDetailChange?: (open: boolean) => void }) {
   const [filter, setFilter] = useState<OrderListFilter>(initialFilter);
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [calling, setCalling] = useState<string | null>(null);
   const runCreate = useServerFn(createPurchaseOrdersFromList);
   const [selected, setSelected] = useState<string | null>(null);
+  const [openDirect, setOpenDirect] = useState<OpenDirectPurchase | null>(null);
+  const directQuery = useDirectPurchases(companyId);
   const [resharing, setResharing] = useState<OrderOverviewRow | null>(null);
   const [listId, setListId] = useState("");
   const [locationId, setLocationId] = useState("");
@@ -206,6 +209,22 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti" }: { co
     },
   });
 
+  const detailOpen = Boolean(current || openDirect);
+  useEffect(() => { onDetailChange?.(detailOpen); }, [detailOpen, onDetailChange]);
+  const directRows = showsDirectPurchases(filter) ? [...(directQuery.data ?? [])].sort(compareDirectPurchases) : [];
+  const directCount = directQuery.data?.length ?? 0;
+
+  if (openDirect) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" onClick={() => setOpenDirect(null)}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> Torna agli ordini
+        </Button>
+        <DirectPurchaseOpener companyId={companyId} open={openDirect} onClose={() => setOpenDirect(null)} onChanged={() => directQuery.refetch()} />
+      </div>
+    );
+  }
+
   if (current) {
     return (
       <div className="space-y-4">
@@ -277,7 +296,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti" }: { co
       <div className="flex flex-wrap gap-2" aria-label="Filtri ordini">
         {([
           ["tutti", "Tutti"], ["da_inviare", "Da inviare"],
-          ["in_attesa", `In attesa merce (${pendingCount})`], ["ricevuti", "Ricevuti"],
+          ["in_attesa", `In attesa merce (${pendingCount})`], ["ricevuti", "Ricevuti"], ["acquisti_diretti", `Acquisti diretti (${directCount})`],
         ] as const).map(([value, label]) => <Button key={value} size="sm" variant={filter === value ? "default" : "outline"} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</Button>)}
       </div>
       {ordersQuery.isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
@@ -328,8 +347,11 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti" }: { co
             <Button size="sm" className="font-semibold" onClick={() => setSelected(order.order_id)}>{orderMainAction(order, dead)}</Button>
           </article>;
         })}
+        {directRows.map(row => <DirectPurchaseCard key={row.id} row={row} onOpen={() => setOpenDirect({ id: row.id, listId: row.shopping_list_id, status: row.status })} />)}
       </div>
-      {!ordersQuery.isLoading && visibleOrders.length === 0 && orders.length > 0 ? <p className="text-sm text-muted-foreground">Nessun ordine per questo filtro.</p> : null}
+      {directQuery.isError ? <p className="text-sm text-destructive">{directQuery.error.message}</p> : null}
+      {filter === "acquisti_diretti" && !directQuery.isLoading && directCount === 0 ? <p className="text-sm text-muted-foreground">Nessun acquisto diretto.</p> : null}
+      {filter !== "acquisti_diretti" && !ordersQuery.isLoading && visibleOrders.length === 0 && orders.length > 0 ? <p className="text-sm text-muted-foreground">Nessun ordine per questo filtro.</p> : null}
       {orders.length === 0 && !ordersQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">Nessun ordine fornitore.</p>
       ) : null}

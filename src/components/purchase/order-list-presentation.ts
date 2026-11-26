@@ -1,11 +1,12 @@
 /** Presentation only: never derives receipt quantities or writes order state. */
 export type OrderListFacts = { status: string; send_status: string; delivery_date: string | null; created_at: string };
-export type OrderListFilter = 'tutti' | 'da_inviare' | 'in_attesa' | 'ricevuti';
+export type OrderListFilter = 'tutti' | 'da_inviare' | 'in_attesa' | 'ricevuti' | 'acquisti_diretti';
 export function isAwaitingGoods(o: OrderListFacts): boolean {
   return o.send_status === 'inviato' && (o.status === 'inviato' || o.status === 'parzialmente_consegnato');
 }
 export function matchesOrderListFilter(o: OrderListFacts, filter: OrderListFilter, cancelled = false): boolean {
   if (filter === 'tutti') return true;
+  if (filter === 'acquisti_diretti') return false;
   if (cancelled || o.status === 'annullato') return false;
   if (filter === 'in_attesa') return isAwaitingGoods(o);
   if (filter === 'ricevuti') return o.status === 'consegnato' || o.status === 'chiuso';
@@ -32,4 +33,12 @@ export function orderStateDot(o: OrderListFacts, cancelled = false): string {
   if (o.status === 'consegnato' || o.status === 'chiuso') return 'bg-success';
   if (o.status === 'inviato') return 'bg-chart-2';
   return 'bg-muted-foreground';
+}
+/** Direct purchases (AD) stay separate documents: shown only in «Tutti» and «Acquisti diretti». */
+export function showsDirectPurchases(filter: OrderListFilter): boolean {
+  return filter === 'tutti' || filter === 'acquisti_diretti';
+}
+export function compareDirectPurchases(a: { status: string; purchase_date: string | null; created_at: string }, b: { status: string; purchase_date: string | null; created_at: string }): number {
+  const cancelled = Number(a.status === 'annullato') - Number(b.status === 'annullato');
+  return cancelled || (b.purchase_date ?? b.created_at).localeCompare(a.purchase_date ?? a.created_at);
 }
