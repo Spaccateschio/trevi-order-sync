@@ -50,6 +50,7 @@ import { shoppingListStatusMessage, type ShoppingListOrderStatus } from "./shopp
 import { getCompanyHasFavorites, getFavoriteProductIds, manageCompanyProductFavorite } from "@/lib/inventory-count.functions";
 import { useShoppingListExtras, type RowExtras } from "./use-shopping-list-extras";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1906,9 +1907,33 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
             {list ? <ListDeliveryDate companyId={companyId} list={list} editable={editable} /> : null}
             <p className="text-sm font-semibold">{statusMessage}</p>
           </div>
-          <Button asChild type="button" size="sm" variant="outline" className="shrink-0">
-            <Link to="/acquisti/lista-spesa/storico">Tutte le liste</Link>
-          </Button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {list && editable && allRows.length ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" size="sm" variant="outline">Svuota quantità</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Svuotare tutte le quantità?</AlertDialogTitle>
+                    <AlertDialogDescription>Le quantità di tutte le card tornano vuote, così compili la Lista da capo. U.M., fornitori e prodotti già in un ordine non cambiano. Niente viene salvato finché non premi Conferma nel Carrello.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annulla</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => {
+                      const ids = allRows.filter((row) => extras.get(row.item_id)?.orderState !== "ordinato" && !excludedQuery.data?.has(row.item_id)).map((row) => row.item_id);
+                      setEdits((current) => { const next = { ...current }; for (const id of ids) next[id] = ""; return next; });
+                      setUnlockedIds((current) => { const next = new Set(current); for (const id of ids) next.add(id); return next; });
+                      toast.success(`Quantità svuotate su ${ids.length} card`);
+                    }}>Svuota</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : null}
+            <Button asChild type="button" size="sm" variant="outline">
+              <Link to="/acquisti/lista-spesa/storico">Tutte le liste</Link>
+            </Button>
+          </div>
         </div>
       </section>
       {/* Cellulare (<768 px): testata compatta con gli stessi comandi. */}
