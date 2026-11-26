@@ -428,3 +428,7 @@
 - [x] X scollega (own: dialog esistente; cat: copia + scollega)
 - [x] «Salva l'articolo nella pagina Prodotti» nel ⋮ delle card cat:
 - [x] Più destinazioni con quote e controllo somma, bozza fino al Conferma
+
+## 26/11 — Pagina Ordini fornitore unica
+- [x] Filtri unici, card con prodotti e menu azioni; nessuna modifica operativa.
+- [x] 12 test superati; filtri, menu e dettaglio verificati su 3 EMME in sola lettura, telefono senza overflow; build OK. Diagnosi: manage_purchase_order/send non aggiorna send_status, overview lo normalizza.

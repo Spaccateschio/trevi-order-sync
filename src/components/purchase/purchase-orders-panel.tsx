@@ -1,15 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, FilePlus2, Lock, MessageSquare, Pencil, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, FilePlus2, MoreVertical, MessageSquare, Pencil, Phone, Send, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { CallSupplierButton, ChangeRequestDialog, OrderEditDialog, OrderCancelDialog, orderLabel } from "./order-customer-actions";
+import { ChangeRequestDialog, OrderEditDialog, OrderCancelDialog, orderLabel } from "./order-customer-actions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PurchaseOrderDetail } from "./purchase-order-detail";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { compareOrderList, isAwaitingGoods, matchesOrderListFilter, orderMainAction, orderStateDot, type OrderListFilter } from "./order-list-presentation";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Select,
   SelectContent,
@@ -19,8 +23,8 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { deliveryDateLabel, localToday, timeRangeLabel, useDeliveryPreferences } from "@/lib/delivery-preferences";
-import { dateTimeShort, qty, type LocationRow } from "@/lib/inventory";
-import { ORDER_STATUS_LABEL, SEND_STATUS_LABEL, type OrderOverviewRow } from "@/lib/purchase";
+import { qty, type LocationRow } from "@/lib/inventory";
+import { type OrderOverviewRow } from "@/lib/purchase";
 import { createPurchaseOrdersFromList } from "@/lib/purchase.functions";
 import { canReshareOrder } from "@/lib/b2b-order-sharing";
 import { B2bOrderShareDialog } from "./b2b-order-share-dialog";
@@ -30,8 +34,11 @@ import { OrderShareDialog } from "./order-share-dialog";
 type ConfirmedList = { id: string; name: string; confirmed_at: string | null };
 
 /** Ordini fornitore: l'ordine non è giacenza, la giacenza arriva solo col carico merce. */
-export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
+export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti" }: { companyId: string; initialFilter?: OrderListFilter }) {
+  const [filter, setFilter] = useState<OrderListFilter>(initialFilter);
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
+  const [calling, setCalling] = useState<string | null>(null);
   const runCreate = useServerFn(createPurchaseOrdersFromList);
   const [selected, setSelected] = useState<string | null>(null);
   const [resharing, setResharing] = useState<OrderOverviewRow | null>(null);
@@ -182,17 +189,22 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
     () => orders.find((order) => order.order_id === selected) ?? null,
     [orders, selected],
   );
-  // Raggruppamento per stato di invio; ordini annullati restano tra gli inviati/storico.
-  const groups = useMemo(() => {
-    const isDead = (o: OrderOverviewRow) => o.status === "annullato" || (o.status === "bozza" && deadDrafts.has(o.order_id));
-    const live = orders.filter((o) => !isDead(o));
-    return [
-      { key: "da_inviare", title: "Ordini da inviare", rows: live.filter((o) => o.send_status === "da_inviare") },
-      { key: "errore_invio", title: "Errore invio", rows: live.filter((o) => o.send_status === "errore_invio") },
-      { key: "inviato", title: "Inviati", rows: live.filter((o) => o.send_status === "inviato") },
-      { key: "annullati", title: "Annullati", rows: orders.filter(isDead) },
-    ];
-  }, [orders, seenQuery.data]);
+  const isDead = (o: OrderOverviewRow) => o.status === "annullato" || (o.status === "bozza" && deadDrafts.has(o.order_id));
+  const pendingCount = orders.filter(isAwaitingGoods).length;
+  const visibleOrders = orders.filter(o => matchesOrderListFilter(o, filter, isDead(o))).sort((a, b) =>
+    Number(isDead(a)) - Number(isDead(b)) || compareOrderList(a, b));
+  const visibleIds = visibleOrders.map(o => o.order_id);
+  const linesQuery = useQuery({
+    queryKey: ["supplier-order-card-lines", companyId, visibleIds.join(",")],
+    enabled: visibleIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("purchase_order_items")
+        .select("id, order_id, product_name, product_code, purchase_quantity, purchase_unit_code, ordered_quantity, unit_code, products(code, description)")
+        .in("order_id", visibleIds).order("product_name");
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
 
   if (current) {
     return (
@@ -212,6 +224,12 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
       ) : (
         <OrderShareDialog orderId={resharing.order_id} mode="resend" onClose={() => setResharing(null)} onConfirmed={async () => { await refreshOrders(); await queryClient.invalidateQueries({ queryKey: ['order-share-history', resharing.order_id] }); }} />
       ) : null}
+      <Dialog open={Boolean(calling)} onOpenChange={open => { if (!open) setCalling(null); }}>
+        <DialogContent><DialogHeader><DialogTitle>Numero del fornitore</DialogTitle></DialogHeader>
+          <p className="text-2xl font-semibold">{calling}</p>
+          <DialogFooter><Button onClick={async () => { if (calling) { await navigator.clipboard.writeText(calling); toast.success("Numero copiato"); } }}><Copy className="mr-1 size-4" />Copia</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
       <OrderEditDialog order={editing} onClose={() => setEditing(null)} onSaved={refreshOrders} />
       <ChangeRequestDialog order={requesting} onClose={() => setRequesting(null)} onSent={refreshOrders} />
       <OrderCancelDialog
@@ -256,124 +274,62 @@ export function PurchaseOrdersPanel({ companyId }: { companyId: string }) {
         </div>
       </section>
 
-      {groups.map((group) =>
-        group.rows.length || group.key === "da_inviare" ? (
-          <section
-            key={group.key}
-            className={
-              group.key === "da_inviare"
-                ? "space-y-2 rounded-lg border-2 border-primary bg-primary/5 p-3"
-                : group.key === "errore_invio"
-                  ? "space-y-2 rounded-lg border-2 border-destructive p-3"
-                  : "space-y-2"
-            }
-          >
-            <h2 className="text-base font-bold">
-              {group.title} — {group.rows.length}
-            </h2>
-            {group.rows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nessun ordine da inviare.</p>
-            ) : (
-              <div className="grid gap-2 md:grid-cols-2">
-                {group.rows.map((order) => (
-                  <div key={order.order_id} className={supplierColors.toneByName(order.supplier_name) ? "supplier-tint rounded-lg border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card p-3" : "rounded-lg border border-border bg-card p-3"} style={supplierToneStyle(supplierColors.toneByName(order.supplier_name))}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">{order.supplier_name}</span>
-                      {(() => {
-                        const s = orderLabel(order, seenMap.get(order.order_id) ?? null);
-                        return (
-                          <Badge variant={s.variant}>
-                            {s.locked ? <Lock className="mr-1 h-3 w-3" /> : null}
-                            {s.label}
-                          </Badge>
-                        );
-                      })()}
-                      {order.open_disputes > 0 ? (
-                        <Badge variant="destructive">{order.open_disputes} da risolvere</Badge>
-                      ) : null}
-                    </div>
-                    <p className="text-sm">
-                      {order.number} · {order.lines} prodotti
-                      {order.shopping_list_number ? ` · da ${order.shopping_list_number}` : ""}
-                    </p>
-                    <p className="mt-1 text-sm font-medium">
-                      Consegna: {deliveryDateLabel(order.delivery_date, today).replace(" — ", " · ")}
-                    </p>
-                    <p className="text-sm font-medium">{timeRangeLabel(order.delivery_time_from, order.delivery_time_to)}</p>
-                    <p className="text-sm">{order.delivery_address_text || "Luogo non indicato"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {order.sent_at ? `Inviato il ${dateTimeShort(order.sent_at)}` : `Creato il ${dateTimeShort(order.created_at)}`}
-                      {order.status !== "bozza" ? ` · ordinato ${qty(order.ordered_total)} · caricato ${qty(order.received_total)}` : ""}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setSelected(order.order_id)}>
-                        Visualizza ordine
-                      </Button>
-                      {canReshareOrder(order.status) ? (
-                        <Button size="sm" variant="outline" disabled={!seenQuery.isSuccess} onClick={() => setResharing(order)}>
-                          <Send className="mr-1 h-4 w-4" /> Rimanda ordine
-                        </Button>
-                      ) : null}
-                      {order.status === "inviato" && seenRelation.has(order.order_id) ? (
-                        seenMap.get(order.order_id) ? (
-                          <div className="w-full space-y-2">
-                            <p className="text-xs text-muted-foreground">
-                              <Lock className="mr-1 inline h-3 w-3" />
-                              Ordine preso in carico dal fornitore. Per modifiche chiama il fornitore oppure crea un nuovo ordine.
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              <Button size="sm" variant="outline" disabled>
-                                <Pencil className="mr-1 h-4 w-4" /> Modifica
-                              </Button>
-                              {requestMap.get(order.order_id)?.status === "in_attesa" ? (
-                                <span className="self-center text-xs text-muted-foreground">Richiesta di modifica in attesa</span>
-                              ) : (
-                                <Button size="sm" variant="outline" onClick={() => setRequesting(order)}>
-                                  <MessageSquare className="mr-1 h-4 w-4" /> Chiedi modifica
-                                </Button>
-                              )}
-                              <CallSupplierButton phone={phoneMap.get(order.order_id)} label="Chiama" />
-                              <Button size="sm" variant="outline" asChild>
-                                <Link to="/acquisti/lista-spesa">
-                                  <FilePlus2 className="mr-1 h-4 w-4" /> Nuovo ordine
-                                </Link>
-                              </Button>
-                            </div>
-                            {requestMap.get(order.order_id)?.status === "rifiutata" ? (
-                              <p className="text-xs text-destructive">
-                                Richiesta rifiutata{requestMap.get(order.order_id)?.decision_note ? `: ${requestMap.get(order.order_id)?.decision_note}` : ""}
-                              </p>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <>
-                            <Button size="sm" variant="outline" onClick={() => setEditing(order)}>
-                              <Pencil className="mr-1 h-4 w-4" /> Modifica
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              aria-label="Annulla ordine"
-                              onClick={() => setCancelling(order)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )
-                      ) : null}
-                      {order.status === "annullato" && seenQuery.data?.find((r) => r.id === order.order_id)?.cancel_reason ? (
-                        <p className="w-full text-xs text-destructive">
-                          Motivo: {seenQuery.data?.find((r) => r.id === order.order_id)?.cancel_reason}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
+      <div className="flex flex-wrap gap-2" aria-label="Filtri ordini">
+        {([
+          ["tutti", "Tutti"], ["da_inviare", "Da inviare"],
+          ["in_attesa", `In attesa merce (${pendingCount})`], ["ricevuti", "Ricevuti"],
+        ] as const).map(([value, label]) => <Button key={value} size="sm" variant={filter === value ? "default" : "outline"} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</Button>)}
+      </div>
+      {ordersQuery.isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
+      {ordersQuery.isError ? <p className="text-sm text-destructive">{ordersQuery.error.message}</p> : null}
+      {linesQuery.isError ? <p className="text-sm text-destructive">{linesQuery.error.message}</p> : null}
+      <div className="grid gap-3 md:grid-cols-2">
+        {visibleOrders.map(order => {
+          const dead = isDead(order);
+          const state = dead ? { label: "Annullato", locked: false } : orderLabel(order, seenMap.get(order.order_id) ?? null);
+          const b2bSent = order.status === "inviato" && seenRelation.has(order.order_id);
+          const locked = Boolean(seenMap.get(order.order_id));
+          const phone = phoneMap.get(order.order_id);
+          const request = requestMap.get(order.order_id);
+          const lines = (linesQuery.data ?? []).filter(l => l.order_id === order.order_id);
+          return <article key={order.order_id} className={supplierColors.toneByName(order.supplier_name) ? "supplier-tint min-w-0 rounded-lg border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card p-3" : "min-w-0 rounded-lg border border-border bg-card p-3"} style={supplierToneStyle(supplierColors.toneByName(order.supplier_name))}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 font-semibold"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${orderStateDot(order, dead)}`} role="img" aria-label={state.label} title={state.label} /><span className="break-words">{order.supplier_name}</span></p>
+                <p className="text-sm font-medium">{order.number}</p>
               </div>
-            )}
-          </section>
-        ) : null,
-      )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={`Azioni ${order.number}`} title="Azioni ordine"><MoreVertical className="size-4" /></Button></DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setSelected(order.order_id)}>Visualizza ordine</DropdownMenuItem>
+                  {!dead && canReshareOrder(order.status) ? <DropdownMenuItem disabled={!seenQuery.isSuccess} onSelect={() => setResharing(order)}><Send className="mr-2 size-4" />Rimanda ordine</DropdownMenuItem> : null}
+                  {b2bSent ? <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled={locked} onSelect={() => setEditing(order)}><Pencil className="mr-2 size-4" />Modifica</DropdownMenuItem>
+                    {locked ? <>
+                      {request?.status !== "in_attesa" ? <DropdownMenuItem onSelect={() => setRequesting(order)}><MessageSquare className="mr-2 size-4" />Chiedi modifica</DropdownMenuItem> : null}
+                      {phone?.trim() ? isMobile ? <DropdownMenuItem asChild><a href={`tel:${phone.replace(/[^\d+]/g, "")}`}><Phone className="mr-2 size-4" />Chiama</a></DropdownMenuItem> : <DropdownMenuItem onSelect={() => setCalling(phone)}><Phone className="mr-2 size-4" />Chiama</DropdownMenuItem> : null}
+                      <DropdownMenuItem asChild><Link to="/acquisti/lista-spesa"><FilePlus2 className="mr-2 size-4" />Nuovo ordine</Link></DropdownMenuItem>
+                    </> : <DropdownMenuItem onSelect={() => setCancelling(order)} className="text-destructive"><Trash2 className="mr-2 size-4" />Annulla ordine</DropdownMenuItem>}
+                  </> : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <p className="mt-2 text-sm font-medium">Consegna prevista: {deliveryDateLabel(order.delivery_date, today).replace(" — ", " · ")}</p>
+            <p className="text-sm text-muted-foreground">{timeRangeLabel(order.delivery_time_from, order.delivery_time_to)}</p>
+            <ul className="my-3 space-y-1 text-sm">
+              {lines.map(line => <li key={line.id} className="flex items-start justify-between gap-3"><span className="min-w-0 break-words">{line.product_name ?? line.products?.description ?? line.product_code ?? line.products?.code ?? "Prodotto"}</span><span className="shrink-0 font-medium">{line.purchase_quantity != null ? `${qty(line.purchase_quantity)} ${line.purchase_unit_code ?? ""}` : line.ordered_quantity != null ? `${qty(line.ordered_quantity)} ${line.unit_code ?? ""}` : "—"}</span></li>)}
+              {linesQuery.isLoading ? <li className="text-muted-foreground">Caricamento prodotti…</li> : null}
+            </ul>
+            {order.open_disputes > 0 ? <Badge variant="destructive" className="mb-2">{order.open_disputes} da risolvere</Badge> : null}
+            {request?.status === "in_attesa" ? <p className="mb-2 text-xs text-muted-foreground">Richiesta di modifica in attesa</p> : null}
+            {request?.status === "rifiutata" ? <p className="mb-2 text-xs text-destructive">Richiesta rifiutata{request.decision_note ? `: ${request.decision_note}` : ""}</p> : null}
+            {dead && seenQuery.data?.find(r => r.id === order.order_id)?.cancel_reason ? <p className="mb-2 text-xs text-destructive">Motivo: {seenQuery.data?.find(r => r.id === order.order_id)?.cancel_reason}</p> : null}
+            <Button size="sm" className="font-semibold" onClick={() => setSelected(order.order_id)}>{orderMainAction(order, dead)}</Button>
+          </article>;
+        })}
+      </div>
+      {!ordersQuery.isLoading && visibleOrders.length === 0 && orders.length > 0 ? <p className="text-sm text-muted-foreground">Nessun ordine per questo filtro.</p> : null}
       {orders.length === 0 && !ordersQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">Nessun ordine fornitore.</p>
       ) : null}
