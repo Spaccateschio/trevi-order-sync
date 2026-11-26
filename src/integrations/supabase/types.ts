@@ -9114,6 +9114,18 @@ export type Database = {
           reference_id: string
         }[]
       }
+      receive_purchase_order: {
+        Args: {
+          _delivery_id?: string
+          _delivery_version?: string
+          _lines: Json
+          _notes?: string
+          _order_id: string
+          _order_version: string
+          _request_key: string
+        }
+        Returns: Json
+      }
       record_b2b_price_for_buyer: {
         Args: {
           _buyer_company_id: string

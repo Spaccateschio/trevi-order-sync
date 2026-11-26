@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { DeliveryComparisonPanel } from "./delivery-comparison-panel";
 import { DeliveryDeclarationPanel } from "./delivery-declaration-panel";
 import { GoodsReceiptPanel } from "./goods-receipt-panel";
+import { ReceiveGoodsPanel } from "./receive-goods-panel";
 import { OrderDeliverySection } from "./order-delivery-section";
 import { sortOrderItemsAlphabetically } from "./order-items-sort";
 import { SendOrderDialog, type SendChannel } from "./send-order-dialog";
@@ -64,10 +65,12 @@ export function PurchaseOrderDetail({
   order,
   companyId,
   locations,
+  initialReceiving = false,
 }: {
   order: OrderOverviewRow;
   companyId: string;
   locations: LocationRow[];
+  initialReceiving?: boolean;
 }) {
   const queryClient = useQueryClient();
   const runOrder = useServerFn(managePurchaseOrder);
@@ -88,6 +91,7 @@ export function PurchaseOrderDetail({
   const [sendOpen, setSendOpen] = useState(false);
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [receiving, setReceiving] = useState<{ deliveryId: string | null } | null>(initialReceiving ? { deliveryId: null } : null);
 
   const itemsQuery = useQuery({
     queryKey: ["order-items", order.order_id],
@@ -267,6 +271,13 @@ export function PurchaseOrderDetail({
   const details = draft || showDetails;
   const shareUrl = token ? `${window.location.origin}/consegna/${token}` : null;
 
+  if (receiving) {
+    return <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2"><span className="font-semibold">{order.number}</span><Badge variant="outline">{order.supplier_name}</Badge></div>
+      <ReceiveGoodsPanel key={receiving.deliveryId ?? 'new'} orderId={order.order_id} deliveryId={receiving.deliveryId} onDone={() => { setReceiving(null); void refresh(); }} />
+    </div>;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
@@ -439,8 +450,8 @@ export function PurchaseOrderDetail({
         ) : null}
         {order.status === "inviato" || order.status === "parzialmente_consegnato" ? (
           <>
-            <Button onClick={() => newDelivery.mutate()} className="font-semibold">
-              <Truck className="mr-1 h-4 w-4" /> Registra consegna
+            <Button onClick={() => setReceiving({ deliveryId: null })} className="font-semibold">
+              <Truck className="mr-1 h-4 w-4" /> Registra arrivo merce
             </Button>
             <Button variant="outline" onClick={() => share.mutate()}>
               <Link2 className="mr-1 h-4 w-4" /> Crea link per fornitore esterno
@@ -514,7 +525,9 @@ export function PurchaseOrderDetail({
               ) : null}
             </div>
 
-            {delivery.status === "bozza" ? (
+            {!receipts.some(row => row.delivery_id === delivery.id && row.status === 'confermato') ? <Button className="mt-3 font-semibold" onClick={() => setReceiving({ deliveryId: delivery.id })}><Truck className="mr-1 size-4" />Continua ricezione</Button> : null}
+
+            {details && delivery.status === "bozza" ? (
               <div className="mt-3">
                 {openDeliveryId === delivery.id ? (
                   <DeliveryDeclarationPanel
@@ -532,7 +545,7 @@ export function PurchaseOrderDetail({
                   </Button>
                 )}
               </div>
-            ) : (
+            ) : details || receipts.some(row => row.delivery_id === delivery.id && row.status === 'confermato') ? (
               <div className="mt-3 space-y-3">
                 <DeliveryComparisonPanel
                   deliveryId={delivery.id}
@@ -557,7 +570,7 @@ export function PurchaseOrderDetail({
                   })()
                 ) : null}
               </div>
-            )}
+            ) : null}
           </div>
         ))}
         {deliveries.length === 0 ? (

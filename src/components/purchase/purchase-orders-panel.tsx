@@ -42,6 +42,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
   const [calling, setCalling] = useState<string | null>(null);
   const runCreate = useServerFn(createPurchaseOrdersFromList);
   const [selected, setSelected] = useState<string | null>(null);
+  const [receiveOnOpen, setReceiveOnOpen] = useState(false);
   const [openDirect, setOpenDirect] = useState<OpenDirectPurchase | null>(null);
   const directQuery = useDirectPurchases(companyId);
   const [resharing, setResharing] = useState<OrderOverviewRow | null>(null);
@@ -228,10 +229,10 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
   if (current) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
+        <Button variant="ghost" size="sm" onClick={() => { setSelected(null); setReceiveOnOpen(false); }}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Torna agli ordini
         </Button>
-        <PurchaseOrderDetail order={current} companyId={companyId} locations={locations} />
+        <PurchaseOrderDetail order={current} companyId={companyId} locations={locations} initialReceiving={receiveOnOpen} />
       </div>
     );
   }
@@ -320,7 +321,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={`Azioni ${order.number}`} title="Azioni ordine"><MoreVertical className="size-4" /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => setSelected(order.order_id)}>Visualizza ordine</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => { setReceiveOnOpen(false); setSelected(order.order_id); }}>Visualizza ordine</DropdownMenuItem>
                   {!dead && canReshareOrder(order.status) ? <DropdownMenuItem disabled={!seenQuery.isSuccess} onSelect={() => setResharing(order)}><Send className="mr-2 size-4" />Rimanda ordine</DropdownMenuItem> : null}
                   {b2bSent ? <>
                     <DropdownMenuSeparator />
@@ -344,7 +345,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
             {request?.status === "in_attesa" ? <p className="mb-2 text-xs text-muted-foreground">Richiesta di modifica in attesa</p> : null}
             {request?.status === "rifiutata" ? <p className="mb-2 text-xs text-destructive">Richiesta rifiutata{request.decision_note ? `: ${request.decision_note}` : ""}</p> : null}
             {dead && seenQuery.data?.find(r => r.id === order.order_id)?.cancel_reason ? <p className="mb-2 text-xs text-destructive">Motivo: {seenQuery.data?.find(r => r.id === order.order_id)?.cancel_reason}</p> : null}
-            <Button size="sm" className="font-semibold" onClick={() => setSelected(order.order_id)}>{orderMainAction(order, dead)}</Button>
+            <Button size="sm" className="font-semibold" onClick={() => { setReceiveOnOpen(!dead && (order.status === 'inviato' || order.status === 'parzialmente_consegnato')); setSelected(order.order_id); }}>{orderMainAction(order, dead)}</Button>
           </article>;
         })}
         {directRows.map(row => <DirectPurchaseCard key={row.id} row={row} onOpen={() => setOpenDirect({ id: row.id, listId: row.shopping_list_id, status: row.status })} />)}

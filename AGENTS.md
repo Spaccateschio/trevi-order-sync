@@ -55,3 +55,4 @@
 - Sidebar collapse: local presentation only (per-device localStorage via src/lib/sidebar-collapse.ts, never shared/DB); rail width and content padding come from sidebarRailClass/sidebarMainClass; collapsed mode keeps the current section's sub-views reachable.
 
 - Supplier order list presentation lives in order-list-presentation.ts; the receiving panel delegates to the unified list so filters never duplicate receipt-state logic.
+- Unified receiving uses read-only getReceivePurchaseOrder plus one authenticated receive_purchase_order transaction; local outcomes never write until final confirmation, supplier declarations are immutable, stock/purchase/price quantities remain separate, and request keys prevent duplicate receipts.

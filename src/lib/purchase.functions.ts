@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { isClosedListUndoError } from "@/lib/order-sharing";
+import type { ReceiveBundle, ReceiveLine } from "@/components/purchase/receive-outcomes";
 
 /**
  * Tutte le scritture degli acquisti passano dal server.
@@ -10,6 +11,110 @@ import { isClosedListUndoError } from "@/lib/order-sharing";
  */
 
 const uuid = z.string().uuid();
+
+/** Read-only bundle: opening receipt never creates a delivery or a CAR. */
+export const getReceivePurchaseOrder = createServerFn({ method: 'POST' })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ orderId: uuid, deliveryId: uuid.nullable() }).parse(input))
+  .handler(async ({ data, context }): Promise<ReceiveBundle> => {
+    const db = context.supabase;
+    const { data: order, error } = await db.from('purchase_orders').select('id, company_id, archive_id, status, updated_at').eq('id', data.orderId).single();
+    if (error || !order) throw new Error(error?.message ?? 'Ordine non trovato');
+    const { data: member, error: memberError } = await db.rpc('is_company_member', { _company_id: order.company_id });
+    if (memberError || !member) throw new Error('Ricezione riservata all’azienda acquirente');
+    const [orderRows, deliveryRows, receiptRows] = await Promise.all([
+      db.from('purchase_order_items').select('*, products(code, description)').eq('order_id', order.id).order('created_at'),
+      db.from('purchase_deliveries').select('*').eq('order_id', order.id).order('sequence'),
+      db.from('goods_receipts').select('id, delivery_id, status, updated_at, goods_receipt_items(id, updated_at, order_item_id, verified_quantity, delivery_item_id, unit_cost, price_unit_id, price_unit_code, price_quantity, producer_name, producer_lot_code, expiry_date)').eq('order_id', order.id),
+    ]);
+    for (const result of [orderRows, deliveryRows, receiptRows]) if (result.error) throw new Error(result.error.message);
+    const receipts = receiptRows.data ?? [];
+    const available = (deliveryRows.data ?? []).filter(d => !receipts.some(r => r.delivery_id === d.id && r.status === 'confermato'));
+    const delivery = data.deliveryId ? available.find(d => d.id === data.deliveryId) : available[0];
+    if (data.deliveryId && !delivery) throw new Error('Consegna già caricata o non appartenente a questo ordine');
+    const orderItems = orderRows.data ?? [];
+    const deliveryIds = (deliveryRows.data ?? []).map(d => d.id);
+    const { data: historyItems, error: historyError } = deliveryIds.length ? await db.from('purchase_delivery_items').select('id, order_item_id, accepted_purchase_quantity').in('delivery_id', deliveryIds) : { data: [], error: null };
+    if (historyError) throw new Error(historyError.message);
+    const received = (itemId: string, hasPurchase: boolean) => receipts.filter(r => r.status === 'confermato').flatMap(r => r.goods_receipt_items).filter(r => r.order_item_id === itemId && (historyItems ?? []).some(d => d.id === r.delivery_item_id && d.order_item_id === itemId)).reduce((total, r) => {
+      const purchase = (historyItems ?? []).find(d => d.id === r.delivery_item_id)?.accepted_purchase_quantity;
+      return total + (hasPurchase ? purchase ?? 0 : r.verified_quantity);
+    }, 0);
+    const pendingReceipt = receipts.find(r => r.delivery_id === delivery?.id && r.status === 'bozza');
+    let lines: ReceiveLine[];
+    if (delivery) {
+      const { data: rows, error: rowsError } = await db.from('purchase_delivery_items').select('*, products(code, description)').eq('delivery_id', delivery.id).order('created_at');
+      if (rowsError) throw new Error(rowsError.message);
+      lines = (rows ?? []).map(row => {
+        const oi = orderItems.find(i => i.id === row.order_item_id);
+        const ri = pendingReceipt?.goods_receipt_items.find(i => i.delivery_item_id === row.id);
+        const purchase = row.declared_purchase_quantity != null;
+        const unit = purchase ? row.purchase_unit_code : row.unit_code;
+        return {
+          key: row.id, orderItemId: row.order_item_id, deliveryItemId: row.id, productId: row.product_id,
+          code: row.products?.code ?? oi?.product_code ?? '', name: row.products?.description ?? oi?.product_name ?? 'Prodotto',
+          version: row.updated_at, ordered: oi?.purchase_quantity ?? oi?.ordered_quantity ?? null,
+          baseline: delivery.status === 'accettata' || delivery.status === 'chiusa_con_rifiuti' ? row.accepted_purchase_quantity ?? row.accepted_quantity ?? row.declared_purchase_quantity ?? row.declared_quantity ?? 0 : purchase ? row.declared_purchase_quantity ?? 0 : row.declared_quantity ?? 0,
+          unitCode: unit, stockUnitCode: row.unit_code, sameUnit: Boolean(unit && row.unit_code && unit.toLowerCase() === row.unit_code.toLowerCase()),
+          declaredStock: row.declared_quantity, declaredPurchase: row.declared_purchase_quantity, lineType: row.line_type,
+          producer: ri?.producer_name ?? row.declared_producer, lot: ri?.producer_lot_code ?? row.declared_producer_lot,
+          expiry: ri?.expiry_date ?? row.declared_expiry, unitCost: ri?.unit_cost ?? row.declared_unit_price,
+          priceUnitCode: ri?.price_unit_code ?? oi?.price_unit_code ?? null, priceUnitId: ri?.price_unit_id ?? oi?.price_unit_id ?? null,
+          verifiedStock: ri?.verified_quantity ?? null, priceQuantity: ri?.price_quantity ?? null,
+          receiptId: pendingReceipt?.id ?? null, receiptItemId: ri?.id ?? null,
+          receiptVersion: pendingReceipt?.updated_at ?? null, receiptItemVersion: ri?.updated_at ?? null,
+        };
+      });
+    } else {
+      lines = orderItems.map(oi => {
+        const unit = oi.purchase_quantity != null ? oi.purchase_unit_code : oi.unit_code;
+        return {
+          key: oi.id, orderItemId: oi.id, deliveryItemId: null, productId: oi.product_id,
+          code: oi.products?.code ?? oi.product_code ?? '', name: oi.products?.description ?? oi.product_name ?? 'Prodotto',
+          version: oi.updated_at, ordered: oi.purchase_quantity ?? oi.ordered_quantity,
+          baseline: Math.max(0, (oi.purchase_quantity ?? oi.ordered_quantity ?? 0) - received(oi.id, oi.purchase_quantity != null)),
+          unitCode: unit, stockUnitCode: oi.unit_code, sameUnit: Boolean(unit && oi.unit_code && unit.toLowerCase() === oi.unit_code.toLowerCase()),
+          declaredStock: null, declaredPurchase: null, lineType: 'ordinata', producer: null, lot: null, expiry: null,
+          unitCost: null, priceUnitCode: oi.price_unit_code, priceUnitId: oi.price_unit_id, verifiedStock: null, priceQuantity: null,
+        };
+      }).filter(line => line.baseline > 0);
+    }
+    return {
+      companyId: order.company_id, archiveId: order.archive_id, orderVersion: order.updated_at,
+      delivery: delivery ? { id: delivery.id, origin: delivery.origin, status: delivery.status, version: delivery.updated_at } : null,
+      receiptId: pendingReceipt?.id ?? null, lines: lines.sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })),
+    };
+  });
+
+const receiveLineSchema = z.object({
+  order_item_id: uuid.nullable(), delivery_item_id: uuid.nullable(), version: z.string(),
+  receipt_id: uuid.nullable(), receipt_item_id: uuid.nullable(), receipt_version: z.string().nullable(), receipt_item_version: z.string().nullable(),
+  outcome: z.enum(['ok', 'parziale', 'mancante', 'danneggiato']), quantity: z.number().finite().nonnegative(),
+  arrived_quantity: z.number().finite().nonnegative(), declared_stock_quantity: z.number().finite().nonnegative().nullable(),
+  verified_quantity: z.number().finite().nonnegative(), missing_reason: z.string().max(300).nullable(),
+  reason: z.enum(['quantita_inferiore', 'quantita_superiore', 'non_consegnato', 'non_ordinato', 'qualita', 'pezzatura', 'altro']),
+  notes: z.string().max(1000).nullable(), producer: z.string().max(160).nullable(), lot: z.string().max(120).nullable(),
+  expiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(), unit_cost: z.number().finite().nonnegative().nullable(),
+  price_unit_code: z.string().max(20).nullable(), price_quantity: z.number().finite().positive().nullable(),
+  substitute_product_id: uuid.nullable(), substitute_quantity: z.number().finite().positive().nullable(),
+});
+export const receivePurchaseOrder = createServerFn({ method: 'POST' })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ orderId: uuid, deliveryId: uuid.nullable(), orderVersion: z.string(), deliveryVersion: z.string().nullable(), key: uuid, lines: z.array(receiveLineSchema).min(1).max(500), notes: z.string().max(1000).nullable() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await context.supabase.rpc('receive_purchase_order', {
+      _order_id: data.orderId, _order_version: data.orderVersion,
+      ...(data.deliveryId ? { _delivery_id: data.deliveryId } : {}),
+      ...(data.deliveryVersion ? { _delivery_version: data.deliveryVersion } : {}),
+      ...(data.notes != null ? { _notes: data.notes } : {}),
+      _request_key: data.key, _lines: data.lines,
+    });
+    if (error) {
+      if (error.message.includes('sr.name')) throw new Error('La contestazione è bloccata da un errore nella notifica del fornitore. Nessun carico è stato registrato.');
+      throw new Error(error.message);
+    }
+    return result as { receipt_id: string; delivery_id: string; duplicate: boolean };
+  });
 
 export const confirmNonB2bOrderShare = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

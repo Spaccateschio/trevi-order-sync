@@ -432,3 +432,10 @@
 ## 26/11 — Pagina Ordini fornitore unica
 - [x] Filtri unici, card con prodotti e menu azioni; nessuna modifica operativa.
 - [x] 12 test superati; filtri, menu e dettaglio verificati su 3 EMME in sola lettura, telefono senza overflow; build OK. Diagnosi: manage_purchase_order/send non aggiorna send_status, overview lo normalizza.
+
+## 26/11 — Ricezione merce unica (approvata)
+- [x] Schermata unica con esiti locali, dichiarato fornitore distinto e dettagli riga; verificata computer/telefono su 3 EMME senza salvare.
+- [x] Conferma atomica autenticata con snapshot, controllo doppio clic e quantità separate; nessuna scrittura all’apertura.
+- [x] 25 test superati; conferma completa e mista su ORD-00026 con rollback autenticato: 9 tabelle identiche prima/dopo, nessun carico o notifica persistente; comando temporaneo di test rimosso.
+- [ ] Contestazioni dichiarato fornitore: attende approvazione per correggere _notify_delivery_declared, che legge supplier_records.name inesistente invece di legal_name; prova ORD-00014 annullata interamente.
+- [ ] Collaudo con carico persistente riservato ad Andrea su 3 EMME.

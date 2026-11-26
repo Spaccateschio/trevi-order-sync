@@ -785,6 +785,48 @@
       "when": 1795499405733,
       "tag": "0111_supplier_specific_delivery_places",
       "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "7",
+      "when": 1795681769425,
+      "tag": "0112_receive_purchase_order_atomic",
+      "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1795682060545,
+      "tag": "0113_harden_atomic_receipt_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1795682144205,
+      "tag": "0114_preserve_receipt_residuals_and_substitute_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1795682182289,
+      "tag": "0115_preserve_supplier_substitution_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1795682205792,
+      "tag": "0116_temporary_receipt_rollback_test",
+      "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1795682311061,
+      "tag": "0117_remove_temporary_receipt_rollback_test",
+      "breakpoints": true
     }
   ]
 }
