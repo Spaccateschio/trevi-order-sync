@@ -1,5 +1,10 @@
 # Roadmap
 
+## 26/11 — Liste già scaricate in Danea
+- [x] Escludere dalla Lista operativa le liste già scaricate, conservando residui, acquisti diretti da completare e storico; nessuna scrittura operativa.
+- [x] 37 test superati e build OK; nessuna modifica a database, RPC, Danea, invii o ricezione.
+- [ ] Controllo a schermo su 3 EMME: manca una sessione autorizzata dell'azienda di prova; lasciato ad Andrea, nessuna prova su ALDER o Trevi.
+
 ## 24/11 — U.M. configurate nella card fornitore
 - [x] U.M. configurate prima del testo manuale; KG riassociato al suo ID solo con Salva esplicito, quantità e ordini esistenti invariati. 63 test superati; su 3 EMME la modifica propone «Chilogrammo (kg)», verificata senza salvare.
 

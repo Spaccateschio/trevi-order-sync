@@ -4,7 +4,7 @@ import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { finishMobileCard, toggleMobileCard, unlockSelectedProduct } from "./shopping-mobile-card-state";
 import { canLeaveShoppingDrafts, resolveOrdinaryList, shoppingListAcceptsDrafts, shoppingReadyState } from "./shopping-list-ready-state";
-import { NEXT_PURCHASE, purchaseSelectionKey, restorePurchaseSelection, selectShoppingList } from "./shopping-list-selection";
+import { NEXT_PURCHASE, purchaseSelectionKey, restorePurchaseSelection, selectShoppingList, shoppingListDownloaded } from "./shopping-list-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -309,14 +309,14 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
 
   const listsQuery = useQuery({
     queryKey: ["shopping-lists", companyId],
-    queryFn: async (): Promise<ShoppingListRow[]> => {
+    queryFn: async (): Promise<(ShoppingListRow & Parameters<typeof shoppingListDownloaded>[0])[]> => {
       const { data, error } = await supabase
         .from("shopping_lists")
-        .select("id, name, number, status, archive_id, notes, created_at, confirmed_at, closed_at, delivery_date")
+        .select("id, name, number, status, archive_id, notes, created_at, confirmed_at, closed_at, delivery_date, purchase_orders(status, danea_exported_at, purchase_order_items(source_assignment_id)), shopping_list_items(excluded_at, decided_quantity, decided_unit_id, decided_unit_code, manual_purchase_quantity, manual_purchase_done_at, shopping_list_item_suppliers(id, deselected_at, assigned_quantity))")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
-      return (data ?? []) as ShoppingListRow[];
+      return (data ?? []) as (ShoppingListRow & Parameters<typeof shoppingListDownloaded>[0])[];
     },
   });
 
@@ -338,7 +338,8 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   const pendingPickup = pendingPickupQuery.isPending ? true : (pendingPickupQuery.data ?? false);
   const [showInventoryEvaluation, setShowInventoryEvaluation] = useState(false);
 
-  const lists = listsQuery.data ?? [];
+  // Keep the unfiltered read available for reference cleanup; history uses its own query.
+  const lists = useMemo(() => (listsQuery.data ?? []).filter((row) => !shoppingListDownloaded(row)), [listsQuery.data]);
   const cycleQuery = useQuery({
     queryKey: [CYCLE_QUERY_KEY, companyId],
     queryFn: () => readCycle({ data: { companyId } }),
@@ -453,10 +454,10 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   const ordinaryCreatingRef = useRef<Promise<string | null> | null>(null);
   const ordinaryIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (listId === NEXT_PURCHASE) ordinaryIdRef.current = null;
+    if (listId === NEXT_PURCHASE || listsQuery.data?.some((row) => row.id === listId && shoppingListDownloaded(row))) ordinaryIdRef.current = null;
     else if (list) ordinaryIdRef.current = list.status === "aperta" ? list.id : null;
     // Keep an explicitly created id while the lists query is refreshing.
-  }, [listId, list?.id, list?.status]);
+  }, [listId, list?.id, list?.status, listsQuery.data]);
 
   const overviewQuery = useQuery({
     queryKey: ["shopping-list-overview", list?.id],
