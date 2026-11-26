@@ -1898,6 +1898,30 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
     hasList: Boolean(list), productCount: allRows.length, orders: listOrdersQuery.data ?? [], proposedDateLabel: statusDateLabel,
   });
 
+  // «Svuota quantità» sta accanto alla scelta Card/Righe, vicino ai prodotti a cui si riferisce.
+  const clearQuantitiesControl = list && editable && allRows.length ? (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button type="button" size="sm" variant="outline" className="h-8 px-2 text-xs">Svuota quantità</Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Svuotare tutte le quantità?</AlertDialogTitle>
+          <AlertDialogDescription>Le quantità di tutte le card tornano vuote, così compili la Lista da capo. U.M., fornitori e prodotti già in un ordine non cambiano. Niente viene salvato finché non premi Conferma nel Carrello.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Annulla</AlertDialogCancel>
+          <AlertDialogAction onClick={() => {
+            const ids = allRows.filter((row) => extras.get(row.item_id)?.orderState !== "ordinato" && !excludedQuery.data?.has(row.item_id)).map((row) => row.item_id);
+            setEdits((current) => { const next = { ...current }; for (const id of ids) next[id] = ""; return next; });
+            setUnlockedIds((current) => { const next = new Set(current); for (const id of ids) next.add(id); return next; });
+            toast.success(`Quantità svuotate su ${ids.length} card`);
+          }}>Svuota</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  ) : null;
+
   return (
     <div className="space-y-4 pb-32 max-md:-mt-2 max-md:space-y-2 lg:pb-24">
       <ShoppingListPrintPreview open={printOpen} onOpenChange={setPrintOpen} rows={printRows} quantityRows={quantityPrintRows} filters={printFilterLabels} title={list?.number ? `Lista della Spesa · ${list.number}` : "Lista della Spesa"} />
@@ -1908,28 +1932,6 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
             <p className="text-sm font-semibold">{statusMessage}</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
-            {list && editable && allRows.length ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button type="button" size="sm" variant="outline">Svuota quantità</Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Svuotare tutte le quantità?</AlertDialogTitle>
-                    <AlertDialogDescription>Le quantità di tutte le card tornano vuote, così compili la Lista da capo. U.M., fornitori e prodotti già in un ordine non cambiano. Niente viene salvato finché non premi Conferma nel Carrello.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annulla</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => {
-                      const ids = allRows.filter((row) => extras.get(row.item_id)?.orderState !== "ordinato" && !excludedQuery.data?.has(row.item_id)).map((row) => row.item_id);
-                      setEdits((current) => { const next = { ...current }; for (const id of ids) next[id] = ""; return next; });
-                      setUnlockedIds((current) => { const next = new Set(current); for (const id of ids) next.add(id); return next; });
-                      toast.success(`Quantità svuotate su ${ids.length} card`);
-                    }}>Svuota</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            ) : null}
             <Button asChild type="button" size="sm" variant="outline">
               <Link to="/acquisti/lista-spesa/storico">Tutte le liste</Link>
             </Button>
@@ -1939,6 +1941,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       {/* Cellulare (<768 px): testata compatta con gli stessi comandi. */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-end gap-1.5 md:hidden">
+          {clearQuantitiesControl}
           <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
             <Button type="button" size="sm" className="h-8 px-2 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => changeViewMode("card")}>
               <LayoutGrid aria-hidden="true" /> Card
@@ -2158,6 +2161,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
               <Rows3 aria-hidden="true" /> Righe
             </Button>
           </div>
+          {clearQuantitiesControl}
         </div>
       ) : null}
 

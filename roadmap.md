@@ -439,3 +439,7 @@
 - [x] 25 test superati; conferma completa e mista su ORD-00026 con rollback autenticato: 9 tabelle identiche prima/dopo, nessun carico o notifica persistente; comando temporaneo di test rimosso.
 - [x] Corretto solo supplier_records.legal_name in _notify_delivery_declared (0118); prova autenticata ORD-00014 sul dichiarato fornitore: una contestazione qualità e carico completati nella transazione annullata, dichiarato invariato, nome nella notifica verificato; 15 tabelle identiche prima/dopo. Comando temporaneo di test rimosso (0120), nessun carico o notifica persistente.
 - [ ] Collaudo con carico persistente riservato ad Andrea su 3 EMME.
+
+## 26/11 — «Svuota quantità» vicino a Card e Righe
+- [x] Pulsante spostato dal riquadro di stato alla barra con la scelta Card/Righe (computer e cellulare); stessa finestra di conferma, stesse regole (solo righe non ordinate e non escluse, nessun salvataggio prima del Carrello).
+- [x] Verificato a schermo su ALDER con lista aperta: pulsante adiacente a Card/Righe su computer e telefono, finestra che si apre e si annulla senza scrivere nulla.
