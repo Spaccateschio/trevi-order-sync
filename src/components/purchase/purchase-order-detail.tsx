@@ -1,3 +1,5 @@
+import { OrderTimelineBar } from "./order-timeline-bar";
+import { orderTimeline } from "./order-list-presentation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight, Copy, Link2, PackagePlus, Send, Truck } from "lucide-react";
@@ -105,6 +107,15 @@ export function PurchaseOrderDetail({
         .order("created_at");
       if (error) throw new Error(error.message);
       return (data ?? []) as unknown as OrderItemRow[];
+    },
+  });
+
+  const progressQuery = useQuery({
+    queryKey: ["order-progress", order.order_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("purchase_orders").select("sent_at, seen_by_supplier_at, danea_exported_at").eq("id", order.order_id).maybeSingle();
+      if (error) throw new Error(error.message);
+      return data;
     },
   });
 
@@ -287,6 +298,7 @@ export function PurchaseOrderDetail({
           <span className="text-sm text-muted-foreground">da {order.shopping_list_number}</span>
         ) : null}
       </div>
+      {!draft && progressQuery.data ? <OrderTimelineBar timeline={orderTimeline({ status: order.status, sent_at: progressQuery.data.sent_at, seen_by_supplier_at: progressQuery.data.seen_by_supplier_at, supplier_received_at: progressQuery.data.danea_exported_at, contested: (deliveriesQuery.data ?? []).some((d) => d.status === "in_contestazione") })} /> : null}
 
       {!draft ? (
         <button type="button" onClick={() => setShowDetails((v) => !v)} aria-expanded={showDetails} className="flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-foreground">

@@ -42,3 +42,42 @@ export function compareDirectPurchases(a: { status: string; purchase_date: strin
   const cancelled = Number(a.status === 'annullato') - Number(b.status === 'annullato');
   return cancelled || (b.purchase_date ?? b.created_at).localeCompare(a.purchase_date ?? a.created_at);
 }
+
+/** Facts for the 7-step timeline. Steps 4-6 have no source yet: always absent today. */
+export type OrderTimelineFacts = {
+  status: string;
+  sent_at: string | null;
+  seen_by_supplier_at: string | null;
+  supplier_received_at: string | null;
+  prepared_at?: string | null;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
+  contested?: boolean;
+};
+export type TimelineStep = { key: string; label: string; color: string; reachedAt: string | null; reached: boolean; current: boolean };
+export type OrderTimeline = { steps: TimelineStep[]; currentLabel: string; currentColor: string; contested: boolean };
+const STEP_DEFS = [
+  ['inviato', 'Inviato', 'bg-chart-1'],
+  ['visto', 'Visto dal fornitore', 'bg-chart-2'],
+  ['ricevuto', 'Ordine ricevuto', 'bg-chart-3'],
+  ['preparato', 'Ordine preparato', 'bg-chart-4'],
+  ['in_consegna', 'In consegna', 'bg-chart-5'],
+  ['consegnato', 'Consegnato', 'bg-primary'],
+  ['completato', 'Completato', 'bg-success'],
+] as const;
+export function orderTimeline(f: OrderTimelineFacts): OrderTimeline {
+  const done = f.status === 'consegnato' || f.status === 'chiuso';
+  const facts: (string | null | undefined | true)[] = [f.sent_at, f.seen_by_supplier_at, f.supplier_received_at, f.prepared_at, f.shipped_at, f.delivered_at, done ? true : null];
+  let currentIdx = -1;
+  facts.forEach((v, i) => { if (v) currentIdx = i; });
+  const steps = STEP_DEFS.map(([key, label, color], i) => {
+    const v = facts[i];
+    return { key, label, color: v ? color : 'bg-muted', reachedAt: typeof v === 'string' ? v : null, reached: Boolean(v), current: i === currentIdx };
+  });
+  const contested = Boolean(f.contested);
+  let currentLabel = currentIdx >= 0 ? STEP_DEFS[currentIdx]![1] : 'Da inviare';
+  let currentColor = currentIdx >= 0 ? STEP_DEFS[currentIdx]![2] : 'bg-muted-foreground';
+  if (f.status === 'annullato') { currentLabel = 'Annullato'; currentColor = 'bg-muted-foreground'; }
+  else if (f.status === 'parzialmente_consegnato') { currentLabel = 'Ricevuto in parte'; currentColor = 'bg-warning'; }
+  return { steps, currentLabel, currentColor, contested };
+}

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Copy, FilePlus2, MoreVertical, MessageSquare, Pencil, Phone, Send, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { ChangeRequestDialog, OrderEditDialog, OrderCancelDialog, orderLabel } from "./order-customer-actions";
+import { ChangeRequestDialog, OrderEditDialog, OrderCancelDialog } from "./order-customer-actions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import { PurchaseOrderDetail } from "./purchase-order-detail";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DirectPurchaseCard, DirectPurchaseOpener, useDirectPurchases, type OpenDirectPurchase } from "./direct-purchases-section";
-import { compareDirectPurchases, showsDirectPurchases, compareOrderList, isAwaitingGoods, matchesOrderListFilter, orderMainAction, orderStateDot, type OrderListFilter } from "./order-list-presentation";
+import { compareDirectPurchases, showsDirectPurchases, compareOrderList, isAwaitingGoods, matchesOrderListFilter, orderMainAction, orderTimeline, type OrderListFilter } from "./order-list-presentation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -124,7 +124,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("id, relation_id, seen_by_supplier_at, cancel_reason, shopping_lists(status)")
+        .select("id, relation_id, sent_at, seen_by_supplier_at, danea_exported_at, cancel_reason, shopping_lists(status), purchase_deliveries(status)")
         .eq("company_id", companyId);
       if (error) throw new Error(error.message);
       const rows = data ?? [];
@@ -158,9 +158,11 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
   // Bozze nate da una Lista annullata: non più inviabili, si mostrano tra gli annullati (nessun dato cambiato).
   const deadDrafts = new Set<string>();
   const phoneMap = new Map<string, string | null>();
+  const timelineFacts = new Map<string, { sent_at: string | null; seen_by_supplier_at: string | null; supplier_received_at: string | null; contested: boolean }>();
   const requestMap = new Map<string, { status: string; decision_note: string | null } | null>();
   for (const r of seenQuery.data ?? []) {
     seenMap.set(r.id, r.seen_by_supplier_at);
+    timelineFacts.set(r.id, { sent_at: r.sent_at, seen_by_supplier_at: r.seen_by_supplier_at, supplier_received_at: r.danea_exported_at, contested: ((r as { purchase_deliveries?: { status: string }[] | null }).purchase_deliveries ?? []).some((d) => d.status === "in_contestazione") });
     phoneMap.set(r.id, r.phone);
     requestMap.set(r.id, r.request);
     if (r.relation_id) seenRelation.add(r.id);
@@ -306,7 +308,6 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
       <div className="grid gap-3 md:grid-cols-2">
         {visibleOrders.map(order => {
           const dead = isDead(order);
-          const state = dead ? { label: "Annullato", locked: false } : orderLabel(order, seenMap.get(order.order_id) ?? null);
           const b2bSent = order.status === "inviato" && seenRelation.has(order.order_id);
           const locked = Boolean(seenMap.get(order.order_id));
           const phone = phoneMap.get(order.order_id);
@@ -315,8 +316,9 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
           return <article key={order.order_id} className={supplierColors.toneByName(order.supplier_name) ? "supplier-tint min-w-0 rounded-lg border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card p-3" : "min-w-0 rounded-lg border border-border bg-card p-3"} style={supplierToneStyle(supplierColors.toneByName(order.supplier_name))}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="flex items-center gap-2 font-semibold"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${orderStateDot(order, dead)}`} role="img" aria-label={state.label} title={state.label} /><span className="break-words">{order.supplier_name}</span></p>
+                <p className="flex items-center gap-2 font-semibold"><span className="break-words">{order.supplier_name}</span></p>
                 <p className="text-sm font-medium">{order.number}</p>
+                {(() => { const t = orderTimeline({ status: dead ? "annullato" : order.status, ...(timelineFacts.get(order.order_id) ?? { sent_at: null, seen_by_supplier_at: null, supplier_received_at: null, contested: false }) }); return <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-medium"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.currentColor}`} aria-hidden="true" /><span>{t.currentLabel}</span>{t.contested && !dead ? <span className="inline-flex items-center gap-1 text-destructive"><span className="h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden="true" />Contestato</span> : null}</p>; })()}
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={`Azioni ${order.number}`} title="Azioni ordine"><MoreVertical className="size-4" /></Button></DropdownMenuTrigger>

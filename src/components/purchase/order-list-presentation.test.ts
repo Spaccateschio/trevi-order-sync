@@ -34,3 +34,17 @@ _d('acquisti diretti nella lista', () => {
     _e(_match({ status: 'inviato', send_status: 'inviato', delivery_date: null, created_at: '' }, 'acquisti_diretti')).toBe(false);
   });
 });
+
+import { orderTimeline } from './order-list-presentation';
+describe('orderTimeline', () => {
+  const base = { status: 'inviato', sent_at: '2026-11-25T10:00:00Z', seen_by_supplier_at: null, supplier_received_at: null };
+  it('only sent', () => { const t = orderTimeline(base); expect(t.currentLabel).toBe('Inviato'); expect(t.steps.filter(s => s.reached).length).toBe(1); });
+  it('seen', () => expect(orderTimeline({ ...base, seen_by_supplier_at: '2026-11-25T11:00:00Z' }).currentLabel).toBe('Visto dal fornitore'));
+  it('received by supplier', () => { const t = orderTimeline({ ...base, seen_by_supplier_at: 'x', supplier_received_at: '2026-11-25T12:00:00Z' }); expect(t.currentLabel).toBe('Ordine ricevuto'); expect(t.steps[2]?.reachedAt).toBe('2026-11-25T12:00:00Z'); });
+  it('delivered or closed reach step 7', () => { for (const status of ['consegnato', 'chiuso']) { const t = orderTimeline({ ...base, status }); expect(t.currentLabel).toBe('Completato'); expect(t.steps[6]?.current).toBe(true); } });
+  it('partial shows received in part, step 7 not reached', () => { const t = orderTimeline({ ...base, status: 'parzialmente_consegnato' }); expect(t.currentLabel).toBe('Ricevuto in parte'); expect(t.steps[6]?.reached).toBe(false); });
+  it('steps 4-6 stay grey today', () => { const t = orderTimeline({ ...base, status: 'chiuso', seen_by_supplier_at: 'x', supplier_received_at: 'y' }); for (const i of [3, 4, 5]) { expect(t.steps[i]?.reached).toBe(false); expect(t.steps[i]?.color).toBe('bg-muted'); } });
+  it('open dispute flags contested', () => expect(orderTimeline({ ...base, contested: true }).contested).toBe(true));
+  it('requeued order switches step 3 off', () => expect(orderTimeline({ ...base, seen_by_supplier_at: 'x', supplier_received_at: null }).steps[2]?.reached).toBe(false));
+  it('each step has a distinct colour', () => { const t = orderTimeline({ status: 'chiuso', sent_at: 'a', seen_by_supplier_at: 'b', supplier_received_at: 'c', prepared_at: 'd', shipped_at: 'e', delivered_at: 'f' }); expect(new Set(t.steps.map(s => s.color)).size).toBe(7); });
+});
