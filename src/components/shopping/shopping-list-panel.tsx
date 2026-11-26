@@ -3,7 +3,7 @@ import { hasEnteredQuantity, selectShoppingPrintRows, type ShoppingPrintRow } fr
 import { ShoppingListPrintPreview } from "./shopping-list-print-preview";
 import { confirmationQuantity, quantityHasDraft, createConfirmationGuard } from "./shopping-quantity-state";
 import { finishMobileCard, toggleMobileCard, unlockSelectedProduct } from "./shopping-mobile-card-state";
-import { canLeaveShoppingDrafts, resolveOrdinaryList, shoppingListAcceptsDrafts, shoppingReadyState } from "./shopping-list-ready-state";
+import { canClearShoppingQuantities, clearCatalogQuantityDrafts, canLeaveShoppingDrafts, resolveOrdinaryList, shoppingListAcceptsDrafts, shoppingReadyState } from "./shopping-list-ready-state";
 import { NEXT_PURCHASE, purchaseSelectionKey, restorePurchaseSelection, selectShoppingList, shoppingListDownloaded } from "./shopping-list-selection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -1900,10 +1900,10 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   });
 
   // «Svuota quantità» sta accanto alla scelta Card/Righe, vicino ai prodotti a cui si riferisce.
-  const clearQuantitiesControl = list && editable && allRows.length ? (
+  const clearQuantitiesControl = canClearShoppingQuantities(list, ready.showProducts || previewMode) ? (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button type="button" size="sm" variant="outline" className="h-8 px-2 text-xs">Svuota quantità</Button>
+        <Button type="button" size="sm" variant="outline" className="h-8 shrink-0 px-2 text-xs" disabled={cartSaving}>Svuota quantità</Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -1916,7 +1916,11 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
             const ids = allRows.filter((row) => extras.get(row.item_id)?.orderState !== "ordinato" && !excludedQuery.data?.has(row.item_id)).map((row) => row.item_id);
             setEdits((current) => { const next = { ...current }; for (const id of ids) next[id] = ""; return next; });
             setUnlockedIds((current) => { const next = new Set(current); for (const id of ids) next.add(id); return next; });
-            toast.success(`Quantità svuotate su ${ids.length} card`);
+            setCatalogValues((current) => clearCatalogQuantityDrafts(current));
+            setCatalogDrafts(new Set());
+            setEvalValues((current) => Object.fromEntries(Object.keys(current).map((id) => [id, ""])));
+            setCartErrors({});
+            toast.success("Quantità svuotate");
           }}>Svuota</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -1941,7 +1945,7 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       </section>
       {/* Cellulare (<768 px): testata compatta con gli stessi comandi. */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-end gap-1.5 md:hidden">
+        <div className="flex flex-wrap items-center justify-end gap-1.5 md:hidden">
           {clearQuantitiesControl}
           <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione prodotti">
             <Button type="button" size="sm" className="h-8 px-2 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => changeViewMode("card")}>

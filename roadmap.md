@@ -1,5 +1,9 @@
 # Roadmap
 
+## 26/11 — Svuota quantità senza lista salvata
+- [x] Rendere il comando disponibile anche prima del primo salvataggio; conferma obbligatoria, quantità locali vuote e U.M./fornitori invariati.
+- [x] 40 test superati e build OK; su 3 EMME pulsante visibile su telefono/computer, conferma apribile/annullabile e bozza locale 5 svuotata con conferma senza salvare acquisti.
+
 ## 26/11 — Liste già scaricate in Danea
 - [x] Escludere dalla Lista operativa le liste già scaricate, conservando residui, acquisti diretti da completare e storico; nessuna scrittura operativa.
 - [x] 37 test superati e build OK; nessuna modifica a database, RPC, Danea, invii o ricezione.

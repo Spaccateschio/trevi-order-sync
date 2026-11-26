@@ -1,6 +1,24 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { canLeaveShoppingDrafts, generationCompleted, generationEntryState, initialGenerationStep, resolveOrdinaryList, shoppingListAcceptsDrafts, shoppingReadyState } from "./shopping-list-ready-state";
+import { canClearShoppingQuantities, clearCatalogQuantityDrafts, canLeaveShoppingDrafts, generationCompleted, generationEntryState, initialGenerationStep, resolveOrdinaryList, shoppingListAcceptsDrafts, shoppingReadyState } from "./shopping-list-ready-state";
+
+describe("svuota quantità prima della creazione della Lista", () => {
+  it("consente lo svuotamento senza lista salvata quando ci sono prodotti disponibili", () => {
+    assert.equal(canClearShoppingQuantities(null, true), true);
+    assert.equal(canClearShoppingQuantities(null, false), false);
+  });
+  it("consente liste aperte ma non confermate o storiche", () => {
+    assert.equal(canClearShoppingQuantities({ status: "aperta" }, true), true);
+    assert.equal(canClearShoppingQuantities({ status: "confermata" }, true), false);
+    assert.equal(canClearShoppingQuantities({ status: "chiusa" }, true), false);
+  });
+  it("svuota 5 kg e le quote 2+3 senza cambiare unità o fornitori né mutare la bozza originale", () => {
+    const drafts = { aglio: { raw: "5", unit: "kg", dest: { labels: ["A", "B"], quotas: [{ target: "a", quantity: "2", unitCode: "kg" }, { target: "b", quantity: "3", unitCode: "kg" }] } } };
+    assert.deepEqual(clearCatalogQuantityDrafts(drafts), { aglio: { raw: "", unit: "kg", dest: { labels: ["A", "B"], quotas: [{ target: "a", quantity: "", unitCode: "kg" }, { target: "b", quantity: "", unitCode: "kg" }] } } });
+    assert.equal(drafts.aglio.raw, "5");
+    assert.equal(drafts.aglio.dest.quotas[0]?.quantity, "2");
+  });
+});
 
 describe("Genera ordini: prima il riepilogo", () => {
   it("una quantità mancante non apre il completamento automaticamente", () => {

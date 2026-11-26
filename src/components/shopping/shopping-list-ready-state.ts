@@ -34,6 +34,18 @@ export function shoppingListAcceptsDrafts(list: { status: string } | null) {
   return !list || list.status === "aperta";
 }
 
+export function canClearShoppingQuantities(list: { status: string } | null, productsAvailable: boolean) {
+  return shoppingListAcceptsDrafts(list) && productsAvailable;
+}
+
+/** Reset local quantity drafts only; units and selected destinations are preserved. */
+export function clearCatalogQuantityDrafts<T extends { raw: string; dest?: { quotas?: { quantity: string }[] } }>(drafts: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(Object.entries(drafts).map(([key, draft]) => [key, {
+    ...draft, raw: "",
+    ...(draft.dest?.quotas ? { dest: { ...draft.dest, quotas: draft.dest.quotas.map((quota) => ({ ...quota, quantity: "" })) } } : {}),
+  }]));
+}
+
 export function canLeaveShoppingDrafts(list: { status: string } | null, hasUnconfirmed: boolean) {
   return !shoppingListAcceptsDrafts(list) || !hasUnconfirmed;
 }

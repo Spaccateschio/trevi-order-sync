@@ -57,3 +57,4 @@
 - Supplier order list presentation lives in order-list-presentation.ts; the receiving panel delegates to the unified list so filters never duplicate receipt-state logic.
 - Unified receiving uses read-only getReceivePurchaseOrder plus one authenticated receive_purchase_order transaction; local outcomes never write until final confirmation, supplier declarations are immutable, stock/purchase/price quantities remain separate, and request keys prevent duplicate receipts.
 - Current shopping reads filter completed Danea downloads via shoppingListDownloaded; preserve unresolved work and unfiltered history to separate current purchases without writing document/list status.
+- Shopping quantity reset uses canClearShoppingQuantities/clearCatalogQuantityDrafts for both open lists and pre-list drafts; preserve units/destinations and never write operational data so the same command works before first confirmation.
