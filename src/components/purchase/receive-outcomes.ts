@@ -1,11 +1,11 @@
-import { parseQuantity } from '@/lib/inventory';
+import { parseQuantity, qty } from '@/lib/inventory';
 import type { DisputeReason, DeliveryOrigin, DeliveryStatus } from '@/lib/purchase';
 
 export type ReceiveOutcome = 'ok' | 'parziale' | 'mancante' | 'danneggiato';
 export type ReceiveLine = {
   key: string; orderItemId: string | null; deliveryItemId: string | null;
   productId: string; code: string; name: string; version: string;
-  ordered: number | null; baseline: number; unitCode: string | null;
+  ordered: number | null; baseline: number; unitCode: string | null; orderedUnitCode?: string | null;
   stockUnitCode: string | null; sameUnit: boolean; declaredStock: number | null;
   declaredPurchase: number | null; lineType: string;
   producer: string | null; lot: string | null; expiry: string | null;
@@ -97,4 +97,15 @@ export function receivePayload(line: ReceiveLine, draft: ReceiveDraft, supplierD
     price_quantity: priceQuantity, substitute_product_id: substitute,
     substitute_quantity: substitute ? numeric(draft.substituteQuantity, 'Quantità sostitutiva in magazzino') : null,
   };
+}
+const withUnit = (value: number, unit: string | null | undefined) => unit ? `${qty(value)} ${unit}` : qty(value);
+/** Pure presentation of the three columns; never invents quantities or prices. */
+export function receiveLineColumns(line: ReceiveLine) {
+  const orderedUnit = line.orderedUnitCode ?? line.unitCode;
+  const ordered = line.ordered == null ? '—' : withUnit(line.ordered, orderedUnit);
+  const arrived = line.declaredPurchase != null ? withUnit(line.declaredPurchase, line.unitCode)
+    : line.declaredStock != null ? withUnit(line.declaredStock, line.stockUnitCode) : null;
+  const arrivedStock = line.declaredPurchase != null && line.declaredStock != null && !line.sameUnit ? withUnit(line.declaredStock, line.stockUnitCode) : null;
+  const price = line.unitCost == null ? null : `${line.unitCost.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}${line.priceUnitCode ? ` / ${line.priceUnitCode}` : ''}`;
+  return { ordered, arrived, arrivedStock, price };
 }

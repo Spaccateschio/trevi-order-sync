@@ -54,6 +54,7 @@ export const getReceivePurchaseOrder = createServerFn({ method: 'POST' })
           key: row.id, orderItemId: row.order_item_id, deliveryItemId: row.id, productId: row.product_id,
           code: row.products?.code ?? oi?.product_code ?? '', name: row.products?.description ?? oi?.product_name ?? 'Prodotto',
           version: row.updated_at, ordered: oi?.purchase_quantity ?? oi?.ordered_quantity ?? null,
+          orderedUnitCode: oi ? (oi.purchase_quantity != null ? oi.purchase_unit_code : oi.unit_code) : null,
           baseline: delivery.status === 'accettata' || delivery.status === 'chiusa_con_rifiuti' ? row.accepted_purchase_quantity ?? row.accepted_quantity ?? row.declared_purchase_quantity ?? row.declared_quantity ?? 0 : purchase ? row.declared_purchase_quantity ?? 0 : row.declared_quantity ?? 0,
           unitCode: unit, stockUnitCode: row.unit_code, sameUnit: Boolean(unit && row.unit_code && unit.toLowerCase() === row.unit_code.toLowerCase()),
           declaredStock: row.declared_quantity, declaredPurchase: row.declared_purchase_quantity, lineType: row.line_type,
@@ -71,7 +72,7 @@ export const getReceivePurchaseOrder = createServerFn({ method: 'POST' })
         return {
           key: oi.id, orderItemId: oi.id, deliveryItemId: null, productId: oi.product_id,
           code: oi.products?.code ?? oi.product_code ?? '', name: oi.products?.description ?? oi.product_name ?? 'Prodotto',
-          version: oi.updated_at, ordered: oi.purchase_quantity ?? oi.ordered_quantity,
+          version: oi.updated_at, ordered: oi.purchase_quantity ?? oi.ordered_quantity, orderedUnitCode: unit,
           baseline: Math.max(0, (oi.purchase_quantity ?? oi.ordered_quantity ?? 0) - received(oi.id, oi.purchase_quantity != null)),
           unitCode: unit, stockUnitCode: oi.unit_code, sameUnit: Boolean(unit && oi.unit_code && unit.toLowerCase() === oi.unit_code.toLowerCase()),
           declaredStock: null, declaredPurchase: null, lineType: 'ordinata', producer: null, lot: null, expiry: null,

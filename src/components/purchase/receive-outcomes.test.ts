@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { confirmUntouched, initialReceiveDraft, receivePayload, receiveSummary, type ReceiveLine } from './receive-outcomes';
+import { confirmUntouched, initialReceiveDraft, receivePayload, receiveSummary, receiveLineColumns, type ReceiveLine } from './receive-outcomes';
 
 const line: ReceiveLine = { key: 'a', orderItemId: 'a', deliveryItemId: null, productId: 'p', code: 'A', name: 'Aglio', version: 'v', ordered: 10, baseline: 10, unitCode: 'kg', stockUnitCode: 'kg', sameUnit: true, declaredStock: null, declaredPurchase: null, lineType: 'ordinata', producer: null, lot: null, expiry: null, unitCost: null, priceUnitCode: null, priceUnitId: null, verifiedStock: null, priceQuantity: null };
 describe('ricezione unica', () => {
@@ -50,5 +50,22 @@ describe('ricezione unica', () => {
     const payload = receivePayload(existing, { ...initialReceiveDraft(existing), outcome: 'ok' }, true);
     expect(payload.receipt_item_version).toBe('2026-11-26T08:01:00Z');
     expect(payload.receipt_version).toBe('2026-11-26T08:00:00Z');
+  });
+});
+describe('receiveLineColumns', () => {
+  it('mostra ordinato e dichiarato con le loro unità', () => {
+    const c = receiveLineColumns({ ...line, ordered: 2, orderedUnitCode: 'pz', unitCode: 'kg', stockUnitCode: 'cs', sameUnit: false, declaredPurchase: 0.2, declaredStock: 1 });
+    expect(c.ordered).toBe('2 pz');
+    expect(c.arrived).toBe('0,2 kg');
+    expect(c.arrivedStock).toBe('1 cs');
+  });
+  it('senza dichiarazione arrivato è assente', () => {
+    expect(receiveLineColumns(line).arrived).toBeNull();
+  });
+  it('senza prezzo non mostra nulla', () => {
+    expect(receiveLineColumns(line).price).toBeNull();
+  });
+  it('prezzo con la sua unità', () => {
+    expect(receiveLineColumns({ ...line, unitCost: 3.5, priceUnitCode: 'kg' }).price).toMatch(/3,50.*€ \/ kg/);
   });
 });

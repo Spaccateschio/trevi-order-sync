@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getReceivePurchaseOrder, receivePurchaseOrder } from '@/lib/purchase.functions';
 import { DISPUTE_REASON_LABEL, type DisputeReason } from '@/lib/purchase';
 import { qty } from '@/lib/inventory';
-import { OUTCOMES, confirmUntouched, initialReceiveDraft, receivePayload, receiveSummary, type ReceiveDraft } from './receive-outcomes';
+import { OUTCOMES, confirmUntouched, initialReceiveDraft, receivePayload, receiveSummary, receiveLineColumns, type ReceiveDraft } from './receive-outcomes';
 
 /** Local draft until one atomic final confirmation. Supplier declarations remain read-only. */
 export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orderId: string; deliveryId?: string | null; onDone: () => void }) {
@@ -68,12 +68,14 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orde
       const draft = drafts[line.key] ?? initial;
       const checked = draft.outcome;
       const details = openDetails[line.key] ?? false;
+      const cols = receiveLineColumns(line);
       const replacement = products.data?.find(p => p.id === draft.substituteProductId);
       return <article key={line.key} className="min-w-0 border-b border-border pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0"><p className="text-xs text-muted-foreground">{line.code}</p><h4 className="break-words font-semibold">{line.name}</h4>{line.lineType === 'sostituzione' ? <Badge variant="outline">Sostituzione</Badge> : line.lineType === 'aggiunta_fornitore' ? <Badge variant="outline">Aggiunto dal fornitore</Badge> : null}</div>
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm"><div><span className="block text-xs text-muted-foreground">Ordinato</span><strong>{line.ordered == null ? '—' : qty(line.ordered)} {line.unitCode}</strong>{!frozenDeclaration && line.ordered !== line.baseline ? <span className="block text-xs">Da ricevere: {qty(line.baseline)} {line.unitCode}</span> : null}</div>
-          {frozenDeclaration ? <div><span className="block text-xs text-muted-foreground">{supplierDeclared ? 'Dichiarato dal fornitore' : 'Dichiarato'}</span><strong>{qty(line.baseline)} {line.unitCode}</strong>{line.lot ? <span className="block text-xs text-muted-foreground">Lotto {line.lot}</span> : null}</div> : null}</div>
+          <div className="grid w-full grid-cols-3 gap-3 text-sm sm:w-auto sm:gap-6"><div className="min-w-0"><span className="block text-xs text-muted-foreground">Ordinato</span><strong className="break-words">{cols.ordered}</strong>{!frozenDeclaration && line.ordered !== line.baseline ? <span className="block text-xs">Da ricevere: {qty(line.baseline)} {line.unitCode}</span> : null}</div>
+          <div className="min-w-0"><span className="block text-xs text-muted-foreground">{supplierDeclared ? 'Arrivato (fornitore)' : 'Arrivato'}</span>{cols.arrived ? <strong className="break-words">{cols.arrived}</strong> : <span className="text-xs text-muted-foreground">In attesa del documento</span>}{cols.arrivedStock ? <span className="block text-xs text-muted-foreground">= {cols.arrivedStock}</span> : null}{line.lot ? <span className="block text-xs text-muted-foreground">Lotto {line.lot}</span> : null}</div>
+          {cols.price ? <div className="min-w-0"><span className="block text-xs text-muted-foreground">Prezzo</span><strong className="break-words">{cols.price}</strong></div> : <div />}</div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {OUTCOMES.map(([value, label]) => <Button key={value} size="sm" variant={checked === value ? 'default' : 'outline'} aria-pressed={checked === value} disabled={confirm.isPending || supplierDraft} onClick={() => change(line.key, initial, { outcome: value })}>{checked === value ? <Check className="mr-1 size-3.5" /> : null}{label}</Button>)}
