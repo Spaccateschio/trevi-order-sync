@@ -827,6 +827,27 @@
       "when": 1795682311061,
       "tag": "0117_remove_temporary_receipt_rollback_test",
       "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1795682687699,
+      "tag": "0118_fix_supplier_name_delivery_notification",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1795682715430,
+      "tag": "0119_temporary_supplier_dispute_rollback_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1795682784255,
+      "tag": "0120_remove_supplier_dispute_rollback_check",
+      "breakpoints": true
     }
   ]
 }

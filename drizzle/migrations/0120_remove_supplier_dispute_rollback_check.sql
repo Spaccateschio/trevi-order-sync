@@ -1,0 +1,1 @@
+DROP FUNCTION public.test_receive_purchase_order_rollback(jsonb);

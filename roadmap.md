@@ -437,5 +437,5 @@
 - [x] Schermata unica con esiti locali, dichiarato fornitore distinto e dettagli riga; verificata computer/telefono su 3 EMME senza salvare.
 - [x] Conferma atomica autenticata con snapshot, controllo doppio clic e quantità separate; nessuna scrittura all’apertura.
 - [x] 25 test superati; conferma completa e mista su ORD-00026 con rollback autenticato: 9 tabelle identiche prima/dopo, nessun carico o notifica persistente; comando temporaneo di test rimosso.
-- [ ] Contestazioni dichiarato fornitore: attende approvazione per correggere _notify_delivery_declared, che legge supplier_records.name inesistente invece di legal_name; prova ORD-00014 annullata interamente.
+- [x] Corretto solo supplier_records.legal_name in _notify_delivery_declared (0118); prova autenticata ORD-00014 sul dichiarato fornitore: una contestazione qualità e carico completati nella transazione annullata, dichiarato invariato, nome nella notifica verificato; 15 tabelle identiche prima/dopo. Comando temporaneo di test rimosso (0120), nessun carico o notifica persistente.
 - [ ] Collaudo con carico persistente riservato ad Andrea su 3 EMME.
