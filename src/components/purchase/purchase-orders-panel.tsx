@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Copy, FilePlus2, MoreVertical, MessageSquare, Pencil, Phone, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, LayoutGrid, MoreHorizontal, Rows3, Copy, FilePlus2, MoreVertical, MessageSquare, Pencil, Phone, Send, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { ChangeRequestDialog, OrderEditDialog, OrderCancelDialog } from "./order-customer-actions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
@@ -9,10 +9,10 @@ import { toast } from "sonner";
 
 import { PurchaseOrderDetail } from "./purchase-order-detail";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DirectPurchaseCard, DirectPurchaseOpener, useDirectPurchases, type OpenDirectPurchase } from "./direct-purchases-section";
 import { deliveryTimelineFacts } from "@/lib/incassi/incassi-link";
-import { compareDirectPurchases, showsDirectPurchases, compareOrderList, isAwaitingGoods, matchesOrderListFilter, orderMainAction, orderTimeline, type OrderListFilter } from "./order-list-presentation";
+import { ORDER_FILTER_LABELS, compareOrderStage, initialOrderFilter, isLateOrder, orderStageRank, compareDirectPurchases, showsDirectPurchases, matchesOrderListFilter, orderMainAction, orderTimeline, type OrderListFilter } from "./order-list-presentation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -36,8 +36,11 @@ import { OrderShareDialog } from "./order-share-dialog";
 type ConfirmedList = { id: string; name: string; confirmed_at: string | null };
 
 /** Ordini fornitore: l'ordine non è giacenza, la giacenza arriva solo col carico merce. */
-export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDetailChange }: { companyId: string; initialFilter?: OrderListFilter; onDetailChange?: (open: boolean) => void }) {
-  const [filter, setFilter] = useState<OrderListFilter>(initialFilter);
+export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }: { companyId: string; initialFilter?: OrderListFilter; onDetailChange?: (open: boolean) => void }) {
+  const [chosenFilter, setFilter] = useState<OrderListFilter | null>(initialFilter ?? null);
+  const [destinationFilter, setDestinationFilter] = useState("tutte");
+  const [viewChoice, setViewMode] = useState<"card" | "row" | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [calling, setCalling] = useState<string | null>(null);
@@ -200,9 +203,15 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
     [orders, selected],
   );
   const isDead = (o: OrderOverviewRow) => o.status === "annullato" || (o.status === "bozza" && deadDrafts.has(o.order_id));
-  const pendingCount = orders.filter(isAwaitingGoods).length;
-  const visibleOrders = orders.filter(o => matchesOrderListFilter(o, filter, isDead(o))).sort((a, b) =>
-    Number(isDead(a)) - Number(isDead(b)) || compareOrderList(a, b));
+  // Presentazione: rango dello stato unico (orderTimeline) per scheda e ordinamento.
+  const factsOf = (o: OrderOverviewRow) => timelineFacts.get(o.order_id) ?? { sent_at: null, seen_by_supplier_at: null, supplier_received_at: null, contested: false };
+  const ranked = orders.map((o) => ({ o, cancelled: isDead(o), rank: orderStageRank(o, orderTimeline({ status: o.status, ...factsOf(o) }), isDead(o)) }));
+  const filter: OrderListFilter = chosenFilter ?? (ordersQuery.isSuccess ? initialOrderFilter(ranked) : "in_arrivo");
+  const viewMode = viewChoice ?? (isMobile ? "row" : "card");
+  const multiDestination = (locationsQuery.data?.length ?? 0) > 1;
+  const byDestination = (o: OrderOverviewRow) => !multiDestination || destinationFilter === "tutte" || o.destination_location_id === destinationFilter;
+  const tabCount = (f: OrderListFilter) => f === "acquisti_diretti" ? (directQuery.data?.length ?? 0) : ranked.filter(({ o, cancelled }) => byDestination(o) && matchesOrderListFilter(o, f, cancelled)).length;
+  const visibleOrders = ranked.filter(({ o, cancelled }) => byDestination(o) && matchesOrderListFilter(o, filter, cancelled)).sort(compareOrderStage).map(({ o }) => o);
   const visibleIds = visibleOrders.map(o => o.order_id);
   const linesQuery = useQuery({
     queryKey: ["supplier-order-card-lines", companyId, visibleIds.join(",")],
@@ -264,52 +273,49 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
         onClose={() => setCancelling(null)}
         onConfirm={(o) => cancelOrder.mutate(o)}
       />
-      <section className="rounded-lg border border-dashed border-border p-3">
-        <p className="text-sm font-medium">Genera gli ordini da una Lista della Spesa confermata</p>
-        <p className="text-xs text-muted-foreground">
-          Un ordine per fornitore, con una sola destinazione di ricezione.
-        </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-[2fr_1fr_auto]">
-          <Select value={listId} onValueChange={setListId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Lista confermata" />
-            </SelectTrigger>
-            <SelectContent>
-              {(listsQuery.data ?? []).map((list) => (
-                <SelectItem key={list.id} value={list.id}>
-                  {list.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={locationId} onValueChange={setLocationId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Destinazione" />
-            </SelectTrigger>
-            <SelectContent>
-              {locations.map((location) => (
-                <SelectItem key={location.id} value={location.id}>
-                  {location.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={() => create.mutate()} disabled={create.isPending}>
-            <FilePlus2 className="mr-1 h-4 w-4" /> Genera
-          </Button>
-        </div>
-      </section>
 
-      <div className="flex flex-wrap gap-2" aria-label="Filtri ordini">
-        {([
-          ["tutti", "Tutti"], ["da_inviare", "Da inviare"],
-          ["in_attesa", `In attesa merce (${pendingCount})`], ["ricevuti", "Ricevuti"], ["acquisti_diretti", `Acquisti diretti (${directCount})`],
-        ] as const).map(([value, label]) => <Button key={value} size="sm" variant={filter === value ? "default" : "outline"} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</Button>)}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {isMobile ? (
+          <div className="flex min-w-0 items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button size="icon" className="bg-accent text-accent-foreground hover:bg-accent/90" aria-label="Scegli scheda e filtri"><MoreHorizontal className="size-5" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-60">
+                <DropdownMenuRadioGroup value={filter} onValueChange={(v) => setFilter(v as OrderListFilter)}>
+                  {(Object.keys(ORDER_FILTER_LABELS) as OrderListFilter[]).map((f) => <DropdownMenuRadioItem key={f} value={f}>{ORDER_FILTER_LABELS[f]} ({tabCount(f)})</DropdownMenuRadioItem>)}
+                </DropdownMenuRadioGroup>
+                {multiDestination ? <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Destinazione</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup value={destinationFilter} onValueChange={setDestinationFilter}>
+                    <DropdownMenuRadioItem value="tutte">Tutte</DropdownMenuRadioItem>
+                    {(locationsQuery.data ?? []).map((l) => <DropdownMenuRadioItem key={l.id} value={l.id}>{l.name}</DropdownMenuRadioItem>)}
+                  </DropdownMenuRadioGroup>
+                </> : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <p className="min-w-0 truncate text-sm font-semibold">{ORDER_FILTER_LABELS[filter]} · {tabCount(filter)}</p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2" aria-label="Schede ordini">
+            {(Object.keys(ORDER_FILTER_LABELS) as OrderListFilter[]).map((f) => <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} aria-pressed={filter === f} onClick={() => setFilter(f)}>{ORDER_FILTER_LABELS[f]} ({tabCount(f)})</Button>)}
+            {multiDestination ? <Select value={destinationFilter} onValueChange={setDestinationFilter}>
+              <SelectTrigger className="h-9 w-48" aria-label="Destinazione"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tutte">Tutte le destinazioni</SelectItem>
+                {(locationsQuery.data ?? []).map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+              </SelectContent>
+            </Select> : null}
+          </div>
+        )}
+        <div className="grid grid-cols-2 rounded-md border border-border p-0.5" role="group" aria-label="Visualizzazione ordini">
+          <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "card" ? "default" : "ghost"} aria-pressed={viewMode === "card"} onClick={() => setViewMode("card")}><LayoutGrid aria-hidden="true" /> Card</Button>
+          <Button type="button" size="sm" className="h-8 text-xs" variant={viewMode === "row" ? "default" : "ghost"} aria-pressed={viewMode === "row"} onClick={() => setViewMode("row")}><Rows3 aria-hidden="true" /> Righe</Button>
+        </div>
       </div>
       {ordersQuery.isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
       {ordersQuery.isError ? <p className="text-sm text-destructive">{ordersQuery.error.message}</p> : null}
       {linesQuery.isError ? <p className="text-sm text-destructive">{linesQuery.error.message}</p> : null}
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className={viewMode === "row" ? "grid gap-2" : "grid gap-3 md:grid-cols-2"}>
         {visibleOrders.map(order => {
           const dead = isDead(order);
           const b2bSent = order.status === "inviato" && seenRelation.has(order.order_id);
@@ -317,6 +323,18 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
           const phone = phoneMap.get(order.order_id);
           const request = requestMap.get(order.order_id);
           const lines = (linesQuery.data ?? []).filter(l => l.order_id === order.order_id);
+          const late = isLateOrder(order, today, dead);
+          const stage = orderTimeline({ status: dead ? "annullato" : order.status, ...factsOf(order) });
+          const toggle = () => setExpanded((cur) => { const next = new Set(cur); if (next.has(order.order_id)) next.delete(order.order_id); else next.add(order.order_id); return next; });
+          if (viewMode === "row" && !expanded.has(order.order_id)) return <button key={order.order_id} type="button" onClick={toggle} aria-expanded={false} className={`flex w-full min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left ${supplierColors.toneByName(order.supplier_name) ? "supplier-tint border-l-[6px] border-l-[var(--supplier-tone)]" : ""}`} style={supplierToneStyle(supplierColors.toneByName(order.supplier_name))}>
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${stage.currentColor}`} aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold">{order.supplier_name}</span>
+              <span className="block truncate text-xs text-muted-foreground">{order.number} · {stage.currentLabel} · {deliveryDateLabel(order.delivery_date, today).replace(" — ", " · ")}</span>
+              {late ? <span className="block text-xs font-semibold text-destructive">In ritardo</span> : null}
+            </span>
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </button>;
           return <article key={order.order_id} className={supplierColors.toneByName(order.supplier_name) ? "supplier-tint min-w-0 rounded-lg border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card p-3" : "min-w-0 rounded-lg border border-border bg-card p-3"} style={supplierToneStyle(supplierColors.toneByName(order.supplier_name))}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -324,6 +342,8 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
                 <p className="text-sm font-medium">{order.number}</p>
                 {(() => { const t = orderTimeline({ status: dead ? "annullato" : order.status, ...(timelineFacts.get(order.order_id) ?? { sent_at: null, seen_by_supplier_at: null, supplier_received_at: null, contested: false }) }); return <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-medium"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.currentColor}`} aria-hidden="true" /><span>{t.currentLabel}</span>{t.notDelivered && !dead ? <span className="inline-flex items-center gap-1 text-destructive"><span className="h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden="true" />Non consegnato</span> : null}{t.contested && !dead ? <span className="inline-flex items-center gap-1 text-destructive"><span className="h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden="true" />Contestato</span> : null}</p>; })()}
               </div>
+              <div className="flex shrink-0 items-center">
+              {viewMode === "row" ? <Button variant="ghost" size="icon" aria-label="Chiudi riga" aria-expanded onClick={toggle}><ChevronDown className="size-4 rotate-180" /></Button> : null}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={`Azioni ${order.number}`} title="Azioni ordine"><MoreVertical className="size-4" /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -340,7 +360,9 @@ export function PurchaseOrdersPanel({ companyId, initialFilter = "tutti", onDeta
                   </> : null}
                 </DropdownMenuContent>
               </DropdownMenu>
+              </div>
             </div>
+            {late ? <p className="mt-2 text-xs font-semibold text-destructive">In ritardo</p> : null}
             <p className="mt-2 text-sm font-medium">Consegna prevista: {deliveryDateLabel(order.delivery_date, today).replace(" — ", " · ")}</p>
             <p className="text-sm text-muted-foreground">{timeRangeLabel(order.delivery_time_from, order.delivery_time_to)}</p>
             <ul className="my-3 space-y-1 text-sm">

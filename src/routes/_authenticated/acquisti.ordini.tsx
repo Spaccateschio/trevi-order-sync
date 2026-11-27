@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { Info } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { AppShell } from "@/components/app-shell";
 import { PurchaseOrdersPanel } from "@/components/purchase/purchase-orders-panel";
@@ -40,10 +44,17 @@ function OrdiniFornitore() {
   return (
     <AppShell
       title="Ordini fornitore"
-      description="L'ordine non è giacenza: il magazzino si muove solo quando confermi il carico merce."
+      actions={
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Informazioni sugli ordini"><Info className="size-5" /></Button>
+          </PopoverTrigger>
+          <PopoverContent className="text-sm">L'ordine non è giacenza: il magazzino si muove solo quando confermi il carico merce.</PopoverContent>
+        </Popover>
+      }
     >
       <div className="space-y-4">
-        {company && !detailOpen ? <SentOrdersBanner companyId={company.companyId} measuredScroll /> : null}
+        {company && !detailOpen ? <SentOrdersBanner companyId={company.companyId} measuredScroll autoHideMs={6000} /> : null}
         {company ? <PurchaseOrdersPanel companyId={company.companyId} onDetailChange={setDetailOpen} /> : null}
       </div>
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}

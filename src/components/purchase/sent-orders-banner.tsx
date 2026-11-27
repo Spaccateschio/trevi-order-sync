@@ -29,11 +29,13 @@ function readDismissed(): Set<string> {
  * Un solo banner sottile che scorre con l'ultimo ordine inviato dalla Lista della Spesa.
  * La freccia apre l'elenco degli altri ordini; la ✕ lo chiude (scelta salvata sul dispositivo).
  */
-export function SentOrdersBanner({ companyId, measuredScroll = false, untilPickup = false }: { companyId: string; measuredScroll?: boolean; untilPickup?: boolean }) {
+export function SentOrdersBanner({ companyId, measuredScroll = false, untilPickup = false, autoHideMs }: { companyId: string; measuredScroll?: boolean; untilPickup?: boolean; autoHideMs?: number }) {
   const queryClient = useQueryClient();
   const rules = bannerRules(untilPickup);
   const [dismissed, setDismissed] = useState<Set<string>>(() => (typeof window === "undefined" ? new Set() : readDismissed()));
   const [open, setOpen] = useState(false);
+  // Facoltativo: l'avviso sparisce da solo (solo a schermo, nessun dato scritto).
+  const [autoHidden, setAutoHidden] = useState(false);
 
   const ordersQuery = useQuery({
     queryKey: untilPickup ? ["sent-orders-banner", companyId, "until-pickup"] : ["sent-orders-banner", companyId],
@@ -79,8 +81,16 @@ export function SentOrdersBanner({ companyId, measuredScroll = false, untilPicku
     if (!orders.length) setOpen(false);
   }, [orders.length]);
 
+  const firstId = orders[0]?.id;
+  useEffect(() => {
+    if (!autoHideMs || !firstId) return;
+    setAutoHidden(false);
+    const timer = window.setTimeout(() => setAutoHidden(true), autoHideMs);
+    return () => window.clearTimeout(timer);
+  }, [autoHideMs, firstId]);
+
   const first = orders[0];
-  if (!first) return null;
+  if (!first || autoHidden) return null;
   const rest = orders.slice(1);
   const label = (order: SentOrder) =>
     `Ordine ${order.number ?? ""} inviato${order.supplier ? ` a ${order.supplier}` : ""}`;

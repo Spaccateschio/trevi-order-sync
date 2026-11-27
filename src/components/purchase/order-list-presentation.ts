@@ -1,6 +1,6 @@
 /** Presentation only: never derives receipt quantities or writes order state. */
 export type OrderListFacts = { status: string; send_status: string; delivery_date: string | null; created_at: string };
-export type OrderListFilter = 'tutti' | 'da_inviare' | 'in_attesa' | 'ricevuti' | 'acquisti_diretti';
+export type OrderListFilter = 'da_inviare' | 'in_arrivo' | 'ricevuti' | 'tutti' | 'acquisti_diretti';
 export function isAwaitingGoods(o: OrderListFacts): boolean {
   return o.send_status === 'inviato' && (o.status === 'inviato' || o.status === 'parzialmente_consegnato');
 }
@@ -8,7 +8,7 @@ export function matchesOrderListFilter(o: OrderListFacts, filter: OrderListFilte
   if (filter === 'tutti') return true;
   if (filter === 'acquisti_diretti') return false;
   if (cancelled || o.status === 'annullato') return false;
-  if (filter === 'in_attesa') return isAwaitingGoods(o);
+  if (filter === 'in_arrivo') return isAwaitingGoods(o);
   if (filter === 'ricevuti') return o.status === 'consegnato' || o.status === 'chiuso';
   return o.send_status === 'da_inviare' || o.send_status === 'errore_invio';
 }
@@ -60,8 +60,8 @@ export type OrderTimeline = { steps: TimelineStep[]; currentLabel: string; curre
 const STEP_DEFS = [
   ['inviato', 'Inviato', 'bg-chart-1'],
   ['visto', 'Visto dal fornitore', 'bg-chart-2'],
-  ['ricevuto', 'Ordine ricevuto', 'bg-chart-3'],
-  ['preparato', 'Ordine preparato', 'bg-chart-4'],
+  ['ricevuto', 'In lavorazione', 'bg-chart-3'],
+  ['preparato', 'Pronto per la consegna', 'bg-chart-4'],
   ['in_consegna', 'In consegna', 'bg-chart-5'],
   ['consegnato', 'Consegnato', 'bg-primary'],
   ['completato', 'Completato', 'bg-success'],
@@ -76,9 +76,36 @@ export function orderTimeline(f: OrderTimelineFacts): OrderTimeline {
     return { key, label, color: v ? color : 'bg-muted', reachedAt: typeof v === 'string' ? v : null, reached: Boolean(v), current: i === currentIdx };
   });
   const contested = Boolean(f.contested);
-  let currentLabel = currentIdx >= 0 ? STEP_DEFS[currentIdx]![1] : 'Da inviare';
+  let currentLabel = currentIdx === 1 ? 'Inviato' : currentIdx >= 0 ? STEP_DEFS[currentIdx]![1] : 'Da inviare';
   let currentColor = currentIdx >= 0 ? STEP_DEFS[currentIdx]![2] : 'bg-muted-foreground';
   if (f.status === 'annullato') { currentLabel = 'Annullato'; currentColor = 'bg-muted-foreground'; }
   else if (f.status === 'parzialmente_consegnato') { currentLabel = 'Ricevuto in parte'; currentColor = 'bg-warning'; }
   return { steps, currentLabel, currentColor, contested, notDelivered: Boolean(f.not_delivered) && !f.delivered_at };
 }
+
+/** Display rank of the unified stage vocabulary (lower first). */
+export function orderStageRank(o: OrderListFacts, t: OrderTimeline, cancelled = false): number {
+  if (cancelled || o.status === 'annullato') return 9;
+  if (o.status === 'chiuso' || o.status === 'consegnato') return 8;
+  if (o.send_status === 'da_inviare' || o.send_status === 'errore_invio') return 0;
+  const key = t.steps.find((s) => s.current)?.key;
+  if (o.status === 'parzialmente_consegnato' || key === 'in_consegna') return 1;
+  if (key === 'consegnato') return 1;
+  if (key === 'preparato') return 2;
+  if (key === 'ricevuto') return 3;
+  return 4;
+}
+export function compareOrderStage(a: { o: OrderListFacts; rank: number }, b: { o: OrderListFacts; rank: number }): number {
+  return a.rank - b.rank
+    || (a.o.delivery_date ?? '9999-12-31').localeCompare(b.o.delivery_date ?? '9999-12-31')
+    || b.o.created_at.localeCompare(a.o.created_at);
+}
+/** Sent but not delivered, with the expected date already past: never hidden, shown as «In ritardo». */
+export function isLateOrder(o: OrderListFacts, today: string, cancelled = false): boolean {
+  return !cancelled && isAwaitingGoods(o) && Boolean(o.delivery_date) && o.delivery_date! < today;
+}
+/** Opening tab: «Da inviare» when something is unsent, otherwise «In arrivo». */
+export function initialOrderFilter(orders: { o: OrderListFacts; cancelled: boolean }[]): OrderListFilter {
+  return orders.some(({ o, cancelled }) => matchesOrderListFilter(o, 'da_inviare', cancelled)) ? 'da_inviare' : 'in_arrivo';
+}
+export const ORDER_FILTER_LABELS: Record<OrderListFilter, string> = { da_inviare: 'Da inviare', in_arrivo: 'In arrivo', ricevuti: 'Ricevuti', tutti: 'Tutti', acquisti_diretti: 'Acquisti diretti' };
