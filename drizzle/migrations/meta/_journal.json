@@ -855,6 +855,13 @@
       "when": 1795708974845,
       "tag": "0121_trevi_incassi_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1795769755938,
+      "tag": "0122_relations_supplier_only_activation",
+      "breakpoints": true
     }
   ]
 }

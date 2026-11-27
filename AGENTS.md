@@ -58,3 +58,5 @@
 - Unified receiving uses read-only getReceivePurchaseOrder plus one authenticated receive_purchase_order transaction; local outcomes never write until final confirmation, supplier declarations are immutable, stock/purchase/price quantities remain separate, and request keys prevent duplicate receipts.
 - Current shopping reads filter completed Danea downloads via shoppingListDownloaded; preserve unresolved work and unfiltered history to separate current purchases without writing document/list status.
 - Shopping quantity reset uses canClearShoppingQuantities/clearCatalogQuantityDrafts for both open lists and pre-list drafts; preserve units/destinations and never write operational data so the same command works before first confirmation.
+
+- Supplier↔customer relations: no direct INSERT/UPDATE for anon/authenticated; writes only via SECURITY DEFINER RPCs (request/invite/decide/revoke/accept). Customer requests start in_attesa with permissions off; only the counterpart admin activates, so a buyer can never self-activate.
