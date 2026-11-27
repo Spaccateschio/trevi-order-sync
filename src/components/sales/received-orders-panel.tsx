@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { readSupplierOrder } from "@/lib/b2b-order-sharing";
 import { isReceivedOrder } from "@/lib/received-orders";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { initialSellerFilter, matchesSellerFilter, SELLER_FILTER_LABELS, SELLER_FILTERS, sellerOrderTimeline, sortSellerOrders, type SellerOrderFilter } from "./received-order-presentation";
 
 /** Separate from the operational panel: only SELECT and the read-only supplier check. */
 export function SupplierOrderConsultation({ orderId, userId }: { orderId: string; userId: string }) {
@@ -59,6 +61,7 @@ type OrderRow = {
   seen_at: string | null;
   danea_exported_at: string | null;
   cancel_reason: string | null;
+  contested: boolean;
 };
 
 type ItemRow = {
@@ -105,7 +108,7 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
     queryFn: async (): Promise<OrderRow[]> => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("id,number,status,created_at,sent_at,delivery_date,delivery_time_from,delivery_time_to,delivery_address_text,notes,seen_by_supplier_at,customer_modified_at,danea_exported_at,cancel_reason,companies!purchase_orders_company_id_fkey(legal_name),supplier_customer_relations!inner(seller_company_id)")
+        .select("id,number,status,created_at,sent_at,delivery_date,delivery_time_from,delivery_time_to,delivery_address_text,notes,seen_by_supplier_at,customer_modified_at,danea_exported_at,cancel_reason,purchase_deliveries(status),companies!purchase_orders_company_id_fkey(legal_name),supplier_customer_relations!inner(seller_company_id)")
         .eq("supplier_customer_relations.seller_company_id", companyId)
         .neq("status", "bozza")
         .order("created_at", { ascending: false });
@@ -127,6 +130,7 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
         seen_at: o.seen_by_supplier_at,
         danea_exported_at: o.danea_exported_at,
         cancel_reason: o.cancel_reason,
+        contested: ((o as { purchase_deliveries?: { status: string }[] | null }).purchase_deliveries ?? []).some((d) => d.status === "in_contestazione"),
         buyer: (o.companies as { legal_name: string | null } | null)?.legal_name ?? "Cliente",
       }));
     },
@@ -199,7 +203,21 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const orders = ordersQuery.data ?? [];
+  const allOrders = ordersQuery.data ?? [];
+  const progressQuery = useQuery({
+    queryKey: ["received-orders-progress", companyId, allOrders.map((o) => o.id).join(",")],
+    enabled: allOrders.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("order_delivery_progress", { _order_ids: allOrders.map((o) => o.id) });
+      if (error) throw error;
+      return new Map((data ?? []).map((d) => [d.order_id, d]));
+    },
+  });
+  const facts = (o: OrderRow) => ({ ...o, progress: progressQuery.data?.get(o.id) ?? null });
+  const [filterChoice, setFilterChoice] = useState<SellerOrderFilter | null>(null);
+  const filter = filterChoice ?? initialSellerFilter(allOrders.map(facts));
+  const orders = sortSellerOrders(allOrders.map(facts).filter((o) => matchesSellerFilter(o, filter)));
+  const counts = Object.fromEntries(SELLER_FILTERS.map((f) => [f, allOrders.filter((o) => matchesSellerFilter(facts(o), f)).length])) as Record<SellerOrderFilter, number>;
   const itemsByOrder = new Map<string, ItemRow[]>();
   for (const it of itemsQuery.data ?? []) {
     const list = itemsByOrder.get(it.order_id) ?? [];
@@ -213,7 +231,7 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
   if (ordersQuery.error) {
     return <p className="text-sm text-destructive">Errore nel caricamento degli ordini ricevuti.</p>;
   }
-  if (orders.length === 0) {
+  if (allOrders.length === 0) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
@@ -229,6 +247,20 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
 
   return (
     <div className="space-y-2">
+      <div className="hidden flex-wrap gap-2 sm:flex" role="tablist" aria-label="Filtra ordini">
+        {SELLER_FILTERS.map((f) => (
+          <Button key={f} role="tab" aria-selected={filter === f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilterChoice(f)}>
+            {SELLER_FILTER_LABELS[f]} ({counts[f]})
+          </Button>
+        ))}
+      </div>
+      <div className="sm:hidden">
+        <Select value={filter} onValueChange={(v) => setFilterChoice(v as SellerOrderFilter)}>
+          <SelectTrigger aria-label="Filtra ordini"><SelectValue /></SelectTrigger>
+          <SelectContent>{SELLER_FILTERS.map((f) => <SelectItem key={f} value={f}>{SELLER_FILTER_LABELS[f]} ({counts[f]})</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+      {orders.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">Nessun ordine in questa scheda.</p> : null}
       <Dialog open={Boolean(cancelling)} onOpenChange={(v) => (!v ? setCancelling(null) : null)}>
         <DialogContent>
           <DialogHeader>
@@ -292,7 +324,11 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{o.number ?? "Ordine"}</span>
-                  <Badge variant={STATUS_VARIANT[o.status] ?? "outline"}>{STATUS_LABEL[o.status] ?? o.status}</Badge>
+                  {(() => { const t = sellerOrderTimeline(facts(o)); const dead = o.status === "annullato"; return <>
+                    <Badge variant={dead ? "destructive" : "outline"} className="gap-1.5"><span className={`h-2 w-2 shrink-0 rounded-full ${t.currentColor}`} aria-hidden="true" />{t.currentLabel}</Badge>
+                    {t.contested && !dead ? <Badge variant="destructive">Contestato</Badge> : null}
+                    {t.notDelivered && !dead ? <Badge variant="destructive">Non consegnato</Badge> : null}
+                  </>; })()}
                   {o.modified_at && !o.seen_at && o.status === "inviato" ? (
                     <Badge variant="outline" className="border-warning text-warning-foreground bg-warning/20">Modificato</Badge>
                   ) : null}

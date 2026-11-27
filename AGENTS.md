@@ -60,3 +60,4 @@
 - Shopping quantity reset uses canClearShoppingQuantities/clearCatalogQuantityDrafts for both open lists and pre-list drafts; preserve units/destinations and never write operational data so the same command works before first confirmation.
 
 - Supplier↔customer relations: no direct INSERT/UPDATE for anon/authenticated; writes only via SECURITY DEFINER RPCs (request/invite/decide/revoke/accept). Customer requests start in_attesa with permissions off; only the counterpart admin activates, so a buyer can never self-activate.
+- Supplier «Ordini clienti» states reuse orderTimeline via received-order-presentation.ts (same facts as buyer: order_delivery_progress + contested deliveries); Danea download is a separate badge, never a state, so both sides share one vocabulary.
