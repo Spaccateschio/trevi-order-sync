@@ -4,12 +4,17 @@ export type OrderListFilter = 'da_inviare' | 'in_arrivo' | 'ricevuti' | 'tutti' 
 export function isAwaitingGoods(o: OrderListFacts): boolean {
   return o.send_status === 'inviato' && (o.status === 'inviato' || o.status === 'parzialmente_consegnato');
 }
-export function matchesOrderListFilter(o: OrderListFacts, filter: OrderListFilter, cancelled = false): boolean {
+/** Unified stage reached Consegnato (step 6) or Completato (step 7). */
+export function orderUnifiedDelivered(t: { steps: { key: string; current: boolean }[] } | undefined): boolean {
+  const key = t?.steps.find((s) => s.current)?.key;
+  return key === 'consegnato' || key === 'completato';
+}
+export function matchesOrderListFilter(o: OrderListFacts, filter: OrderListFilter, cancelled = false, timeline?: { steps: { key: string; current: boolean }[] }): boolean {
   if (filter === 'tutti') return true;
   if (filter === 'acquisti_diretti') return false;
   if (cancelled || o.status === 'annullato') return false;
-  if (filter === 'in_arrivo') return isAwaitingGoods(o);
-  if (filter === 'ricevuti') return o.status === 'consegnato' || o.status === 'chiuso';
+  if (filter === 'in_arrivo') return isAwaitingGoods(o) && !orderUnifiedDelivered(timeline);
+  if (filter === 'ricevuti') return o.status === 'consegnato' || o.status === 'chiuso' || (o.send_status === 'inviato' && orderUnifiedDelivered(timeline));
   return o.send_status === 'da_inviare' || o.send_status === 'errore_invio';
 }
 export function compareOrderList(a: OrderListFacts, b: OrderListFacts): number {
@@ -101,8 +106,8 @@ export function compareOrderStage(a: { o: OrderListFacts; rank: number }, b: { o
     || b.o.created_at.localeCompare(a.o.created_at);
 }
 /** Sent but not delivered, with the expected date already past: never hidden, shown as «In ritardo». */
-export function isLateOrder(o: OrderListFacts, today: string, cancelled = false): boolean {
-  return !cancelled && isAwaitingGoods(o) && Boolean(o.delivery_date) && o.delivery_date! < today;
+export function isLateOrder(o: OrderListFacts, today: string, cancelled = false, timeline?: { steps: { key: string; current: boolean }[] }): boolean {
+  return !cancelled && isAwaitingGoods(o) && !orderUnifiedDelivered(timeline) && Boolean(o.delivery_date) && o.delivery_date! < today;
 }
 /** Opening tab: «Da inviare» when something is unsent, otherwise «In arrivo». */
 export function initialOrderFilter(orders: { o: OrderListFacts; cancelled: boolean }[]): OrderListFilter {

@@ -79,3 +79,36 @@ describe('unified order stages', () => {
     expect(isLateOrder({ ...base, status: 'consegnato', delivery_date: '2026-11-20' }, '2026-11-27')).toBe(false);
   });
 });
+
+import { orderUnifiedDelivered } from './order-list-presentation';
+describe('schede e ritardo dallo stato unico', () => {
+  const sent = { status: 'inviato', send_status: 'inviato', delivery_date: '2026-11-20', created_at: '2026-11-19' };
+  const base = { status: 'inviato', sent_at: 'a', seen_by_supplier_at: 'b', supplier_received_at: 'c', contested: false };
+  const delivered = tl({ ...base, prepared_at: 'd', shipped_at: 'e', delivered_at: 'f' });
+  const shipping = tl({ ...base, prepared_at: 'd', shipped_at: 'e' });
+  const ready = tl({ ...base, prepared_at: 'd' });
+  it('Consegnato da Incassi con status inviato va in Ricevuti, non In arrivo né In ritardo', () => {
+    expect(orderUnifiedDelivered(delivered)).toBe(true);
+    expect(matchesOrderListFilter(sent, 'ricevuti', false, delivered)).toBe(true);
+    expect(matchesOrderListFilter(sent, 'in_arrivo', false, delivered)).toBe(false);
+    expect(isLateOrder(sent, '2026-11-27', false, delivered)).toBe(false);
+    expect(orderMainAction(sent)).toBe('Registra arrivo merce');
+  });
+  it('Completato va in Ricevuti', () => {
+    const o = { ...sent, status: 'consegnato' };
+    expect(matchesOrderListFilter(o, 'ricevuti', false, tl({ ...base, status: 'consegnato' }))).toBe(true);
+  });
+  it('Pronto o In consegna con data passata restano In arrivo e In ritardo', () => {
+    for (const t of [ready, shipping]) {
+      expect(matchesOrderListFilter(sent, 'in_arrivo', false, t)).toBe(true);
+      expect(isLateOrder(sent, '2026-11-27', false, t)).toBe(true);
+    }
+  });
+  it('Annullato fuori da In arrivo e Ricevuti, presente in Tutti', () => {
+    const o = { ...sent, status: 'annullato' };
+    const t = tl({ ...base, status: 'annullato', delivered_at: 'f' });
+    expect(matchesOrderListFilter(o, 'in_arrivo', false, t)).toBe(false);
+    expect(matchesOrderListFilter(o, 'ricevuti', false, t)).toBe(false);
+    expect(matchesOrderListFilter(o, 'tutti', false, t)).toBe(true);
+  });
+});

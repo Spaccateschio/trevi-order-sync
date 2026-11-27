@@ -205,13 +205,13 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
   const isDead = (o: OrderOverviewRow) => o.status === "annullato" || (o.status === "bozza" && deadDrafts.has(o.order_id));
   // Presentazione: rango dello stato unico (orderTimeline) per scheda e ordinamento.
   const factsOf = (o: OrderOverviewRow) => timelineFacts.get(o.order_id) ?? { sent_at: null, seen_by_supplier_at: null, supplier_received_at: null, contested: false };
-  const ranked = orders.map((o) => ({ o, cancelled: isDead(o), rank: orderStageRank(o, orderTimeline({ status: o.status, ...factsOf(o) }), isDead(o)) }));
+  const ranked = orders.map((o) => { const t = orderTimeline({ status: o.status, ...factsOf(o) }); return { o, t, cancelled: isDead(o), rank: orderStageRank(o, t, isDead(o)) }; });
   const filter: OrderListFilter = chosenFilter ?? (ordersQuery.isSuccess ? initialOrderFilter(ranked) : "in_arrivo");
   const viewMode = viewChoice ?? (isMobile ? "row" : "card");
   const multiDestination = (locationsQuery.data?.length ?? 0) > 1;
   const byDestination = (o: OrderOverviewRow) => !multiDestination || destinationFilter === "tutte" || o.destination_location_id === destinationFilter;
-  const tabCount = (f: OrderListFilter) => f === "acquisti_diretti" ? (directQuery.data?.length ?? 0) : ranked.filter(({ o, cancelled }) => byDestination(o) && matchesOrderListFilter(o, f, cancelled)).length;
-  const visibleOrders = ranked.filter(({ o, cancelled }) => byDestination(o) && matchesOrderListFilter(o, filter, cancelled)).sort(compareOrderStage).map(({ o }) => o);
+  const tabCount = (f: OrderListFilter) => f === "acquisti_diretti" ? (directQuery.data?.length ?? 0) : ranked.filter(({ o, t, cancelled }) => byDestination(o) && matchesOrderListFilter(o, f, cancelled, t)).length;
+  const visibleOrders = ranked.filter(({ o, t, cancelled }) => byDestination(o) && matchesOrderListFilter(o, filter, cancelled, t)).sort(compareOrderStage).map(({ o }) => o);
   const visibleIds = visibleOrders.map(o => o.order_id);
   const linesQuery = useQuery({
     queryKey: ["supplier-order-card-lines", companyId, visibleIds.join(",")],
@@ -323,8 +323,8 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
           const phone = phoneMap.get(order.order_id);
           const request = requestMap.get(order.order_id);
           const lines = (linesQuery.data ?? []).filter(l => l.order_id === order.order_id);
-          const late = isLateOrder(order, today, dead);
           const stage = orderTimeline({ status: dead ? "annullato" : order.status, ...factsOf(order) });
+          const late = isLateOrder(order, today, dead, stage);
           const toggle = () => setExpanded((cur) => { const next = new Set(cur); if (next.has(order.order_id)) next.delete(order.order_id); else next.add(order.order_id); return next; });
           if (viewMode === "row" && !expanded.has(order.order_id)) return <button key={order.order_id} type="button" onClick={toggle} aria-expanded={false} className={`flex w-full min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left ${supplierColors.toneByName(order.supplier_name) ? "supplier-tint border-l-[6px] border-l-[var(--supplier-tone)]" : ""}`} style={supplierToneStyle(supplierColors.toneByName(order.supplier_name))}>
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${stage.currentColor}`} aria-hidden="true" />
