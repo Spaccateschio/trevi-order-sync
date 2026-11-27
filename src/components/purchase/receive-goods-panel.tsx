@@ -63,6 +63,7 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orde
       <Button variant="outline" disabled={confirm.isPending || supplierDraft || !lines.length} onClick={() => setDrafts(prev => confirmUntouched(lines, prev))}><CheckCheck className="mr-2 size-4" />Conferma tutte come arrivate</Button>
     </div>
     {supplierDraft ? <p className="text-sm text-muted-foreground">Il fornitore sta ancora compilando la consegna. Attendi il suo dichiarato.</p> : null}
+    {bundle.data?.incassiDocuments?.length ? <p className="text-sm text-muted-foreground">Merce dichiarata dal fornitore nel documento {bundle.data.incassiDocuments.map(d => `DDT ${d.docNumber ?? ''}`).join(', ')}: controlla e conferma riga per riga. Niente va in magazzino finché non premi «Conferma carico».</p> : null}
     {lines.map(line => {
       const initial = initialReceiveDraft(line);
       const draft = drafts[line.key] ?? initial;
@@ -74,7 +75,7 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orde
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0"><p className="text-xs text-muted-foreground">{line.code}</p><h4 className="break-words font-semibold">{line.name}</h4>{line.lineType === 'sostituzione' ? <Badge variant="outline">Sostituzione</Badge> : line.lineType === 'aggiunta_fornitore' ? <Badge variant="outline">Aggiunto dal fornitore</Badge> : null}</div>
           <div className="grid w-full grid-cols-3 gap-3 text-sm sm:w-auto sm:gap-6"><div className="min-w-0"><span className="block text-xs text-muted-foreground">Ordinato</span><strong className="break-words">{cols.ordered}</strong>{!frozenDeclaration && line.ordered !== line.baseline ? <span className="block text-xs">Da ricevere: {qty(line.baseline)} {line.unitCode}</span> : null}</div>
-          <div className="min-w-0"><span className="block text-xs text-muted-foreground">{supplierDeclared ? 'Arrivato (fornitore)' : 'Arrivato'}</span>{cols.arrived ? <strong className="break-words">{cols.arrived}</strong> : <span className="text-xs text-muted-foreground">In attesa del documento</span>}{cols.arrivedStock ? <span className="block text-xs text-muted-foreground">= {cols.arrivedStock}</span> : null}{line.lot ? <span className="block text-xs text-muted-foreground">Lotto {line.lot}</span> : null}</div>
+          <div className="min-w-0"><span className="block text-xs text-muted-foreground">{supplierDeclared ? 'Arrivato (fornitore)' : cols.ddt ? `Arrivato (DDT ${cols.ddt.docNumber ?? ''})` : 'Arrivato'}</span>{cols.arrived ? <strong className={`break-words ${cols.ddt?.status === 'differenza' ? 'text-destructive' : ''}`}>{cols.arrived}</strong> : <span className="text-xs text-muted-foreground">{cols.ddt ? 'Da controllare' : 'In attesa del documento'}</span>}{cols.ddt && cols.ddt.status !== 'abbinata' ? <span className={`block text-xs ${cols.ddt.status === 'differenza' ? 'text-destructive' : 'text-muted-foreground'}`}>{cols.ddt.status === 'differenza' ? `Ordinati ${cols.ordered} · sul documento ${cols.arrived}` : `Da controllare: ${cols.ddt.reason ?? ''}`}</span> : null}{cols.arrivedStock ? <span className="block text-xs text-muted-foreground">= {cols.arrivedStock}</span> : null}{line.lot ? <span className="block text-xs text-muted-foreground">Lotto {line.lot}</span> : null}</div>
           {cols.price ? <div className="min-w-0"><span className="block text-xs text-muted-foreground">Prezzo</span><strong className="break-words">{cols.price}</strong></div> : <div />}</div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -95,6 +96,7 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orde
         </div> : null}
       </article>;
     })}
+    {bundle.data?.incassiUnmatched?.length ? <div className="rounded-md border border-border p-3 text-sm"><p className="font-medium">Righe del documento non abbinate · da controllare</p><ul className="mt-1 space-y-1 text-muted-foreground">{bundle.data.incassiUnmatched.map((l, i) => <li key={i} className="break-words">{l.code ?? '—'} {l.description ?? ''} · {l.qty ?? '—'} {l.um ?? ''}{l.price != null ? ` · ${l.price.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}` : ''}</li>)}</ul></div> : null}
     {!lines.length ? <p className="text-sm text-muted-foreground">Nessun prodotto da ricevere.</p> : null}
     <div className="sticky bottom-20 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background py-3 lg:bottom-2">
       <p className="text-sm">{summary.ok} OK · {summary.parziale} parziali · {summary.mancante} mancanti · {summary.danneggiato} danneggiati{summary.untouched ? <span className="block text-xs text-muted-foreground">{summary.untouched} da verificare</span> : null}</p>

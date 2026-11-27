@@ -1,4 +1,5 @@
 import { parseQuantity, qty } from '@/lib/inventory';
+import type { IncassiDocLine, IncassiLineMatch, IncassiReceiveDoc } from '@/lib/incassi/incassi-receive';
 import type { DisputeReason, DeliveryOrigin, DeliveryStatus } from '@/lib/purchase';
 
 export type ReceiveOutcome = 'ok' | 'parziale' | 'mancante' | 'danneggiato';
@@ -12,11 +13,13 @@ export type ReceiveLine = {
   unitCost: number | null; priceUnitCode: string | null; priceUnitId: string | null;
   verifiedStock: number | null; priceQuantity: number | null;
   receiptId?: string | null; receiptItemId?: string | null; receiptVersion?: string | null; receiptItemVersion?: string | null;
+  incassi?: IncassiLineMatch;
 };
 export type ReceiveBundle = {
   companyId: string; archiveId: string; orderVersion: string;
   delivery: { id: string; origin: DeliveryOrigin; status: DeliveryStatus; version: string } | null;
   receiptId: string | null; lines: ReceiveLine[];
+  incassiDocuments?: IncassiReceiveDoc[]; incassiUnmatched?: IncassiDocLine[];
 };
 export type ReceiveDraft = {
   outcome: ReceiveOutcome | null; quantity: string; goodQuantity: string;
@@ -27,13 +30,16 @@ export type ReceiveDraft = {
 };
 export const OUTCOMES = [['ok', 'OK'], ['parziale', 'Parziale'], ['mancante', 'Mancante'], ['danneggiato', 'Danneggiato']] as const;
 const str = (value: number | null) => value == null ? '' : String(value);
+/** DDT quantity prefilled only for a reliable match not above what is still to receive. */
+const ddtQty = (line: ReceiveLine) => line.incassi && line.incassi.status !== 'da_controllare' && line.incassi.qty != null && line.incassi.qty <= line.baseline ? line.incassi.qty : null;
 export function initialReceiveDraft(line: ReceiveLine): ReceiveDraft {
   return {
-    outcome: null, quantity: str(line.baseline), goodQuantity: str(line.baseline),
+    outcome: null, quantity: str(ddtQty(line) ?? line.baseline), goodQuantity: str(ddtQty(line) ?? line.baseline),
     stockQuantity: str(line.sameUnit ? line.baseline : line.verifiedStock ?? line.declaredStock),
     goodStockQuantity: str(line.sameUnit ? line.baseline : line.verifiedStock ?? line.declaredStock),
     missingReason: '', reason: 'qualita', producer: line.producer ?? '', lot: line.lot ?? '', expiry: line.expiry ?? '',
-    unitCost: str(line.unitCost), priceUnitCode: line.priceUnitCode ?? '', priceQuantity: str(line.priceQuantity),
+    unitCost: str(line.unitCost ?? (line.incassi && line.incassi.status !== 'da_controllare' ? line.incassi.price : null)),
+    priceUnitCode: line.priceUnitCode ?? '', priceQuantity: str(line.priceQuantity),
     substituteProductId: '', substituteQuantity: '',
   };
 }
@@ -103,9 +109,15 @@ const withUnit = (value: number, unit: string | null | undefined) => unit ? `${q
 export function receiveLineColumns(line: ReceiveLine) {
   const orderedUnit = line.orderedUnitCode ?? line.unitCode;
   const ordered = line.ordered == null ? '—' : withUnit(line.ordered, orderedUnit);
+  const ddt = line.incassi;
   const arrived = line.declaredPurchase != null ? withUnit(line.declaredPurchase, line.unitCode)
-    : line.declaredStock != null ? withUnit(line.declaredStock, line.stockUnitCode) : null;
+    : line.declaredStock != null ? withUnit(line.declaredStock, line.stockUnitCode)
+    : ddt && ddt.qty != null ? withUnit(ddt.qty, ddt.unit) : null;
   const arrivedStock = line.declaredPurchase != null && line.declaredStock != null && !line.sameUnit ? withUnit(line.declaredStock, line.stockUnitCode) : null;
+  if (line.unitCost == null && ddt && ddt.price != null) {
+    const ddtPrice = `${ddt.price.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}${ddt.unit ? ` / ${ddt.unit}` : ''}`;
+    return { ordered, arrived, arrivedStock, price: ddtPrice, ddt };
+  }
   const price = line.unitCost == null ? null : `${line.unitCost.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}${line.priceUnitCode ? ` / ${line.priceUnitCode}` : ''}`;
-  return { ordered, arrived, arrivedStock, price };
+  return { ordered, arrived, arrivedStock, price, ddt: ddt ?? null };
 }

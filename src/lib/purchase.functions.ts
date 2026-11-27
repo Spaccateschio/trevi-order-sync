@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { isClosedListUndoError } from "@/lib/order-sharing";
 import type { ReceiveBundle, ReceiveLine } from "@/components/purchase/receive-outcomes";
+import { matchIncassiLines, type IncassiDocLine, type IncassiReceiveDoc } from "@/lib/incassi/incassi-receive";
 
 /**
  * Tutte le scritture degli acquisti passano dal server.
@@ -42,6 +43,7 @@ export const getReceivePurchaseOrder = createServerFn({ method: 'POST' })
     }, 0);
     const pendingReceipt = receipts.find(r => r.delivery_id === delivery?.id && r.status === 'bozza');
     let lines: ReceiveLine[];
+    let incassiUnmatched: IncassiDocLine[] = [];
     if (delivery) {
       const { data: rows, error: rowsError } = await db.from('purchase_delivery_items').select('*, products(code, description)').eq('delivery_id', delivery.id).order('created_at');
       if (rowsError) throw new Error(rowsError.message);
@@ -80,7 +82,24 @@ export const getReceivePurchaseOrder = createServerFn({ method: 'POST' })
         };
       }).filter(line => line.baseline > 0);
     }
+    let incassiDocuments: IncassiReceiveDoc[] = [];
+    if (!delivery) {
+      // Read-only: the order above was read with the caller's session, so the DDT belong to an order they can see.
+      const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+      const { data: docs, error: docsError } = await supabaseAdmin.from('supplier_delivery_documents')
+        .select('id, doc_number, doc_date, consegna_stato, lines').eq('purchase_order_id', order.id).eq('buyer_company_id', order.company_id);
+      if (docsError) throw new Error(docsError.message);
+      incassiDocuments = (docs ?? []).map(d => ({ id: d.id, docNumber: d.doc_number, docDate: d.doc_date, consegnaStato: d.consegna_stato,
+        lines: (Array.isArray(d.lines) ? d.lines as IncassiDocLine[] : []).map(l => ({ code: l.code ?? null, description: l.description ?? null, qty: l.qty ?? null, um: l.um ?? null, price: l.price ?? null })) }));
+      const match = matchIncassiLines(lines.map(l => {
+        const oi = orderItems.find(i => i.id === l.orderItemId);
+        return { key: l.key, supplierCode: oi?.supplier_product_code ?? null, ordered: l.ordered, orderedUnitCode: l.orderedUnitCode ?? null };
+      }), incassiDocuments);
+      lines = lines.map(l => match.byKey[l.key] ? { ...l, incassi: match.byKey[l.key]! } : l);
+      incassiUnmatched = match.unmatched;
+    }
     return {
+      incassiDocuments, incassiUnmatched,
       companyId: order.company_id, archiveId: order.archive_id, orderVersion: order.updated_at,
       delivery: delivery ? { id: delivery.id, origin: delivery.origin, status: delivery.status, version: delivery.updated_at } : null,
       receiptId: pendingReceipt?.id ?? null, lines: lines.sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })),
