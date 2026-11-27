@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deliveryTimelineFacts, extractOrderRef, mergeDocument, normalizeIncassiUnit, normalizeLines, resolveOrderLink } from './incassi-link';
+import { deliveryTimelineFacts, extractOrderRef, mergeDocument, normalizeIncassiUnit, resolveDocType, normalizeLines, resolveOrderLink } from './incassi-link';
 import { orderTimeline } from '../../components/purchase/order-list-presentation';
 
 describe('collegamento', () => {
@@ -50,5 +50,15 @@ describe('passi 4-6', () => {
   it('senza documento tutto grigio', () => {
     const t = orderTimeline({ ...base, ...deliveryTimelineFacts(null) });
     expect(t.steps.slice(3, 6).every((s) => !s.reached)).toBe(true);
+  });
+});
+
+describe('aggiornamenti parziali', () => {
+  const saved = mergeDocument(null, { doc_type: 'ddt', doc_number: '16724', customer_code: 'C1', notes_raw: 'ORD-2026-00026', prepared_at: '2026-11-26T07:00:00Z', lines: normalizeLines([{ code: 'A', qty: 2, um: 'kg' }]) });
+  it('senza doc_type su documento esistente: usa quello salvato', () => expect(resolveDocType(saved, undefined)).toBe('ddt'));
+  it('senza doc_type su documento nuovo: rifiutato', () => expect(resolveDocType(null, undefined)).toBeNull());
+  it('solo consegna: gli altri campi restano', () => {
+    const m = mergeDocument(saved, { doc_type: resolveDocType(saved, undefined)!, consegna_stato: 'consegnato', consegna_at: '2026-11-27T08:00:00Z', lines: [] });
+    expect(m).toEqual({ ...saved, consegna_stato: 'consegnato', consegna_at: '2026-11-27T08:00:00Z' });
   });
 });

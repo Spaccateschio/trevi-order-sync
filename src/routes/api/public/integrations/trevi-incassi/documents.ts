@@ -4,7 +4,7 @@ import { z } from "zod";
 const iso = z.string().datetime({ offset: true }).nullable().optional();
 const Body = z.object({
   external_id: z.string().trim().min(1).max(120),
-  doc_type: z.enum(["ddt", "preventivo"]),
+  doc_type: z.enum(["ddt", "preventivo"]).optional(),
   doc_number: z.string().max(60).nullable().optional(),
   doc_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   customer_code: z.string().max(60).nullable().optional(),
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/api/public/integrations/trevi-incassi/doc
         if (!parsed.success) return json({ error: "dati_non_validi", details: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) }, 400);
         const b = parsed.data;
 
-        const { extractOrderRef, mergeDocument, normalizeLines, resolveOrderLink } = await import("@/lib/incassi/incassi-link");
+        const { extractOrderRef, mergeDocument, resolveDocType, normalizeLines, resolveOrderLink } = await import("@/lib/incassi/incassi-link");
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const source = "trevi_incassi";
 
@@ -57,10 +57,13 @@ export const Route = createFileRoute("/api/public/integrations/trevi-incassi/doc
           .eq("source", source).eq("external_id", b.external_id).maybeSingle();
         if (readErr) return json({ error: "errore_interno" }, 500);
 
+        const docType = resolveDocType(existing as never, b.doc_type);
+        if (!docType) return json({ error: "dati_non_validi", details: ["doc_type: obbligatorio per un documento nuovo"] }, 400);
+
         const { data: units } = await supabaseAdmin.from("units_of_measure").select("code").eq("company_id", seller);
         const known = (units ?? []).map((u) => String((u as { code: string }).code));
         const merged = mergeDocument(existing as never, {
-          doc_type: b.doc_type, doc_number: b.doc_number ?? null, doc_date: b.doc_date ?? null, customer_code: b.customer_code ?? null,
+          doc_type: docType, doc_number: b.doc_number ?? null, doc_date: b.doc_date ?? null, customer_code: b.customer_code ?? null,
           notes_raw: b.notes ?? null, prepared_at: b.prepared_at ?? null, in_carico_at: b.in_carico_at ?? null,
           consegna_stato: b.consegna?.stato ?? null, consegna_at: b.consegna?.at ?? null,
           lines: b.lines ? normalizeLines(b.lines, known) : [],

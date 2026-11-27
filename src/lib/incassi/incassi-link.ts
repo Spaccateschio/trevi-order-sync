@@ -44,6 +44,10 @@ export type DocState = {
   doc_type: 'ddt' | 'preventivo'; doc_number: string | null; doc_date: string | null; customer_code: string | null; notes_raw: string | null;
   prepared_at: string | null; in_carico_at: string | null; consegna_stato: 'consegnato' | 'non_consegnato' | null; consegna_at: string | null; lines: IncassiLine[];
 };
+/** doc_type may be omitted on updates: reuse the stored one; a new document without it is rejected (null). */
+export function resolveDocType(existing: Pick<DocState, 'doc_type'> | null, incoming: DocState['doc_type'] | null | undefined): DocState['doc_type'] | null {
+  return incoming ?? existing?.doc_type ?? null;
+}
 /** Same document twice = same result; an empty incoming field never erases a stored value. */
 export function mergeDocument(existing: DocState | null, incoming: Partial<DocState> & { doc_type: DocState['doc_type'] }): DocState {
   const pick = <K extends keyof DocState>(k: K): DocState[K] => {
