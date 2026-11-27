@@ -1,5 +1,9 @@
 # Roadmap
 
+## 27/11 — Chiusura riga all'estremo destro
+- [x] Nella vista Righe degli Ordini fornitore i tre puntini passano prima e la freccia «Chiudi riga» resta l'ultimo pulsante a destra, così il tocco per richiudere non apre il menu azioni.
+- [x] 43 test vitest + 10 node:test superati, build OK; su telefono (392 px) freccia a x=323 contro x=287 dei tre puntini, menu azioni ancora apribile e riga richiusa con un tocco, nessuna scrittura.
+
 ## 26/11 — Svuota quantità senza lista salvata
 - [x] Rendere il comando disponibile anche prima del primo salvataggio; conferma obbligatoria, quantità locali vuote e U.M./fornitori invariati.
 - [x] 40 test superati e build OK; su 3 EMME pulsante visibile su telefono/computer, conferma apribile/annullabile e bozza locale 5 svuotata con conferma senza salvare acquisti.

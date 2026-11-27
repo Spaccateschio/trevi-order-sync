@@ -343,7 +343,6 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
                 {(() => { const t = orderTimeline({ status: dead ? "annullato" : order.status, ...(timelineFacts.get(order.order_id) ?? { sent_at: null, seen_by_supplier_at: null, supplier_received_at: null, contested: false }) }); return <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-medium"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.currentColor}`} aria-hidden="true" /><span>{t.currentLabel}</span>{t.notDelivered && !dead ? <span className="inline-flex items-center gap-1 text-destructive"><span className="h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden="true" />Non consegnato</span> : null}{t.contested && !dead ? <span className="inline-flex items-center gap-1 text-destructive"><span className="h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden="true" />Contestato</span> : null}</p>; })()}
               </div>
               <div className="flex shrink-0 items-center">
-              {viewMode === "row" ? <Button variant="ghost" size="icon" aria-label="Chiudi riga" aria-expanded onClick={toggle}><ChevronDown className="size-4 rotate-180" /></Button> : null}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={`Azioni ${order.number}`} title="Azioni ordine"><MoreVertical className="size-4" /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -360,6 +359,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
                   </> : null}
                 </DropdownMenuContent>
               </DropdownMenu>
+              {viewMode === "row" ? <Button variant="ghost" size="icon" className="min-w-11" aria-label="Chiudi riga" aria-expanded onClick={toggle}><ChevronDown className="size-4 rotate-180" /></Button> : null}
               </div>
             </div>
             {late ? <p className="mt-2 text-xs font-semibold text-destructive">In ritardo</p> : null}
