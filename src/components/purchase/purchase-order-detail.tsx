@@ -75,7 +75,7 @@ export function PurchaseOrderDetail({
   companyId: string;
   locations: LocationRow[];
   initialReceiving?: boolean;
-  onReceived?: () => void;
+  onReceived?: (() => void) | undefined;
 }) {
   const queryClient = useQueryClient();
   const runOrder = useServerFn(managePurchaseOrder);

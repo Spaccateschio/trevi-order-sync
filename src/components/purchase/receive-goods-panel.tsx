@@ -19,7 +19,7 @@ import { chooseReceiveOutcome, chooseOkDraft, canConfirmReceipt, confirmUntouche
 /** Local draft until one atomic final confirmation. Supplier declarations remain read-only. */
 const itDate = (iso: string | null) => iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString('it-IT') : null;
 
-export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone, onConfirmed, orderNumber = null, supplierName = null }: { orderId: string; deliveryId?: string | null; onDone: () => void; onConfirmed?: () => void; orderNumber?: string | null; supplierName?: string | null }) {
+export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone, onConfirmed, orderNumber = null, supplierName = null }: { orderId: string; deliveryId?: string | null; onDone: () => void; onConfirmed?: (() => void) | undefined; orderNumber?: string | null; supplierName?: string | null }) {
   const read = useServerFn(getReceivePurchaseOrder);
   const receive = useServerFn(receivePurchaseOrder);
   const cache = useQueryClient();
