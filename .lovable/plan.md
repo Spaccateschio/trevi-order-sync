@@ -8,39 +8,54 @@
 ## 2. «Ordini fornitore»
 No. La pagina elenca solo `purchase_orders` del cliente. Un DDT senza ordine non crea nessuna riga, quindi lì non compare niente.
 
-## 3. Proposta
-Un nuovo tipo di ordine con provenienza «Inserito dal fornitore», creato a partire dal DDT. Dopo la creazione si comporta come gli altri ordini: righe, prezzi, timeline, ricezione e carico.
+## 3. Proposta (con le tue scelte)
+Gli ordini con ORD nelle note restano collegati in automatico, come oggi. Per un DDT senza ORD l'ordine nasce solo dopo la conferma di Trevi.
 
-Flusso:
 ```text
-DDT senza ORD → codice cliente → collegamento attivo e unico (customer_records.internal_reference)
-   ├─ nessun collegamento / più collegamenti → resta «da controllare» (come oggi)
-   └─ collegamento trovato → ordine «Inserito dal fornitore» (automatico o dopo conferma di Trevi)
-          righe: codice Danea → articolo del collegamento del cliente
-          DDT collegato (link_status collegato) → passi 4–6 e ricezione con «Arrivato/Prezzo» dal DDT
+DDT senza ORD → codice cliente (customer_records.internal_reference) → collegamento attivo e unico?
+   ├─ no  → resta «da controllare» come oggi (nel riquadro: «cliente non riconosciuto»)
+   └─ sì  → riquadro «DDT da abbinare (n)» in «Ordini clienti» del fornitore
+              → Trevi abbina le eventuali righe mancanti → «Crea ordine telefonico»
+              → ordine «Ordine telefonico» visibile al cliente in «Ordini fornitore»
+              → DDT collegato: passi 4–6 e ricezione con Arrivato/Prezzo dal DDT, come oggi
 ```
-- Per ogni riga: quantità e U.M. del DDT; prezzo indicativo dal DDT, perché il costo vero si stabilisce comunque al carico; ordine con `status = inviato`.
-- Numero ORD nuovo, come per tutti gli ordini. Un DDT può avere al massimo un ordine, garantito da un vincolo unico sul documento.
-- Se poi Incassi rimanda lo stesso DDT (stesso `external_id`), aggiorna il documento, non l'ordine.
 
-### Rischi e come si coprono
-- **Duplicati**: il cliente ha già fatto l'ordine nell'app, ma Trevi non ha scritto l'ORD. Si creerebbe un secondo ordine. Protezione: se esiste già un ordine aperto dello stesso cliente con consegna in quella data, nessuna creazione automatica: va a «da controllare» con un avviso. Anche i doppi invii di Incassi vanno coperti: un vincolo unico DDT→ordine e la creazione sotto lock.
-- **Prodotti del DDT senza corrispondenza** nel catalogo del cliente (codice Danea senza collegamento/prodotto): la riga non si abbina mai a caso. Vedi la scelta C.
-- **DDT modificato dopo**: finché la merce non è caricata, quantità e prezzi dell'ordine si allineano al DDT e ogni cambio va in `purchase_order_changes`. Dopo il carico l'ordine non cambia più: la differenza appare solo come avviso.
-- **DDT annullato**: l'ordine va ad «Annullato» solo se non ci sono carichi. Con un carico già fatto resta com'è, con un avviso per Trevi e per il cliente.
-- **Ordine inviato dal cliente dopo il DDT**: si crea un doppione per la stessa merce. Al cliente compare l'avviso «C'è già un ordine inserito dal fornitore per questa consegna». Non c'è nessuna fusione automatica.
-- **Danea**: l'ordine nasce da un documento che in Danea esiste già. Va escluso dallo scarico ordini verso Danea, altrimenti in Danea finirebbe due volte.
-- **Sicurezza**: la creazione avviene solo nel server, dopo la verifica della chiave Incassi, ed è limitata al fornitore `TREVI_INCASSI_SELLER_COMPANY_ID` e a collegamenti attivi con permessi accesi.
+### Riquadro «DDT da abbinare (n)» (solo account fornitore)
+- Si trova in alto nella pagina «Ordini clienti». Compare solo se ci sono DDT da confermare e solo agli utenti del fornitore: il cliente non lo vede mai.
+- Ogni DDT mostra: il cliente (dal codice Danea), il numero e la data del DDT, le righe (codice, descrizione, quantità, U.M., prezzo), l'importo del documento e le righe non abbinate in evidenza.
+- Se il cliente ha già un ordine aperto per quella data compare l'avviso «Il cliente ha già l'ordine ORD-… per questa data». È solo un avviso e non blocca la creazione.
+- Le righe non abbinate hanno un selettore per scegliere l'articolo del fornitore collegato al cliente. La scelta vale solo per quel DDT: non cambia il catalogo e non salva abbinamenti permanenti.
+- Il pulsante «Crea ordine telefonico» è attivo solo quando tutte le righe sono abbinate e hanno quantità e U.M. riconosciute.
 
-### Scelte che spettano a te
-- **A. Creazione**: automatica all'arrivo del DDT, oppure dopo conferma di Trevi da un nuovo elenco «DDT da abbinare» (suggerito per l'inizio).
-- **B. Etichetta** visibile al cliente: «Inserito dal fornitore», «Ordine telefonico» o altro testo.
-- **C. Righe non abbinate**: (1) entrano come righe solo descrittive, visibili ma non caricabili in giacenza finché non vengono abbinate; (2) bloccano la creazione dell'ordine finché Trevi non le abbina; (3) vengono escluse, con un avviso.
-- **D. Doppione con un ordine già esistente**: chiedere sempre a Trevi (suggerito) oppure abbinare in automatico se la data e il cliente coincidono.
-- **E. Prezzo mostrato**: prezzo del DDT oppure listino B2B del cliente (`applicable_b2b_price`), come negli ordini normali.
+### L'ordine creato
+- Etichetta «Ordine telefonico», visibile al cliente e al fornitore. Numero ORD nuovo, `status = inviato`, stesso collegamento cliente-fornitore.
+- Righe con la quantità, l'U.M. e il **prezzo del DDT** (prezzo indicativo, come per gli altri ordini). Il costo reale resta quello del carico.
+- Timeline, schede, ricezione e carico sono gli stessi degli altri ordini.
+- **Fuori da Danea**: questo ordine non viene mai scaricato verso Danea, perché il documento in Danea esiste già.
 
-## Dettagli tecnici (fase successiva, solo dopo la tua approvazione)
-- Migrazione: `purchase_orders.origin` (es. `cliente` | `fornitore_ddt`), riferimento univoco `source_document_id` → `supplier_delivery_documents`, e la RPC `create_order_from_incassi_document` (SECURITY DEFINER, solo service_role, lock per documento). Esclusione `origin = 'fornitore_ddt'` dagli scarichi Danea.
-- Endpoint: abbinamento del cliente via codice anche senza ORD (nuova `incassi_find_relation`), poi creazione o «da controllare» secondo la scelta A.
-- Pure helper + vitest: risoluzione cliente, abbinamento righe, regole su duplicati, annullamento e modifica.
-- Test SQL in rollback su 3 EMME, nessuna prova su Trevi reale. Il collegamento resta spento finché non lo decidi tu.
+### Rischi e coperture
+- **Un DDT, al massimo un ordine**: è l'unico vincolo (riferimento unico al documento + creazione sotto lock). Un secondo clic o un doppio invio di Incassi non crea un altro ordine.
+- **Ordine dall'app + telefonata**: è ammesso, con il solo avviso descritto sopra. Il controllo del doppione resta a Trevi.
+- **Righe senza corrispondenza**: bloccano la creazione finché Trevi non le abbina. Nessun abbinamento a caso.
+- **DDT reinviato da Incassi con modifiche** (stesso `external_id`): il documento si aggiorna come oggi. Prima della creazione il riquadro mostra i dati nuovi. Dopo la creazione l'ordine non viene riscritto in automatico: nella ricezione «Arrivato/Prezzo» seguono già il DDT aggiornato.
+- **DDT annullato in Incassi**: prima della creazione esce dal riquadro. Dopo la creazione compare solo un avviso al fornitore e nessun cambio automatico. Annullare resta un'azione esplicita con `supplier_cancel_order`, che già oggi blocca gli ordini caricati.
+- **Sicurezza**: crea l'ordine solo un amministratore del fornitore autenticato, con una RPC che verifica `auth.uid()` e che il DDT appartenga al suo fornitore. Il browser non sceglie né l'azienda né il cliente.
+
+### Non si toccano
+Danea, contestazioni, ponte Incassi (endpoint, abbinamento automatico con ORD) e `receive_purchase_order`. `TREVI_INCASSI_ENABLED` resta spento finché non lo decidi tu.
+
+## Dettagli tecnici (fase successiva, dopo approvazione; mockup prima dei dati reali)
+1. **Mockup**: riquadro «DDT da abbinare» con dati finti in stato React locale, nella pagina «Ordini clienti».
+2. **Migrazione**:
+   - `purchase_orders.origin` text default `'cliente'` (valori `cliente`, `telefonico_ddt`)
+   - `purchase_orders.source_document_id` uuid unico → `supplier_delivery_documents`
+   - nuova `incassi_pending_documents()`, in sola lettura: DDT del fornitore senza ordine, con il cliente risolto dal codice e un avviso se esiste un ordine aperto per la data
+   - nuova `create_phone_order_from_document(_document_id, _line_matches jsonb)`: SECURITY DEFINER, admin del fornitore, lock sul documento, crea l'ordine e le righe e collega il DDT (`link_status = collegato`, `purchase_order_id`, `buyer_company_id`), poi registra `purchase_order_changes`
+   - esclusione di `origin = 'telefonico_ddt'` dalle funzioni di scarico ordini verso Danea, solo come filtro
+3. **Codice**: helper puri per la risoluzione del cliente, l'abbinamento delle righe, l'abilitazione del pulsante e l'avviso, con i loro test vitest. Etichetta «Ordine telefonico» nelle liste degli ordini.
+4. **Test SQL in rollback su 3 EMME**:
+   - un DDT crea un solo ordine
+   - righe non abbinate rifiutate
+   - nessun accesso al cliente o a un altro fornitore
+   - nessuno scarico verso Danea
+   - ordine esistente per la stessa data: solo avviso
