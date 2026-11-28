@@ -2202,7 +2202,12 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
       {!ready.showProducts && !showPending ? (
         pendingPickup ? null : (
           <p className="text-sm text-muted-foreground">
-            Nessuna Lista in lavorazione. Usa «+ Nuova lista» oppure apri «Tutte le liste».
+            {archivesQuery.isSuccess && (archivesQuery.data?.length ?? 0) === 0 ? (
+              <>
+                Non hai ancora prodotti tuoi. Aggiungili dal catalogo dei fornitori: compariranno qui con i filtri.{" "}
+                <Link className="font-semibold text-foreground underline" to="/acquisti/catalogo">Apri il Catalogo fornitori</Link>
+              </>
+            ) : "Nessuna Lista in lavorazione. Apri «Tutte le liste»."}
           </p>
         )
       ) : (
