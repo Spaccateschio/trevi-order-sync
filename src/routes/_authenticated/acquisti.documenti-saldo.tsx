@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
-import { DocumentsBalanceMockup } from "@/components/sales-mockup/documents-balance-mockup";
+import { CustomerDocumentsPage } from "@/components/purchase-documents/customer-documents-page";
 
 export const Route = createFileRoute("/_authenticated/acquisti/documenti-saldo")({
   head: () => ({
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/acquisti/documenti-saldo")
   }),
   component: () => (
     <AppShell title="Documenti e saldo">
-      <DocumentsBalanceMockup customerView />
+      <CustomerDocumentsPage />
     </AppShell>
   ),
 });
