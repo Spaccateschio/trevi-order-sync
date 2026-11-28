@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { confirmUntouched, initialReceiveDraft, receivePayload, receiveSummary, receiveLineColumns, type ReceiveLine } from './receive-outcomes';
+import { confirmUntouched, initialReceiveDraft, receivePayload, receiveSummary, receiveLineColumns, chooseReceiveOutcome, canReceiveExcess, type ReceiveLine } from './receive-outcomes';
 
 const line: ReceiveLine = { key: 'a', orderItemId: 'a', deliveryItemId: null, productId: 'p', code: 'A', name: 'Aglio', version: 'v', ordered: 10, baseline: 10, unitCode: 'kg', stockUnitCode: 'kg', sameUnit: true, declaredStock: null, declaredPurchase: null, lineType: 'ordinata', producer: null, lot: null, expiry: null, unitCost: null, priceUnitCode: null, priceUnitId: null, verifiedStock: null, priceQuantity: null };
 describe('ricezione unica', () => {
@@ -39,7 +39,7 @@ describe('ricezione unica', () => {
   it('impedisce di confermare una riga senza esito', () => expect(() => receivePayload(line, initialReceiveDraft(line), false)).toThrow('esito'));
   it('riepiloga ogni esito senza confondere i mancanti con gli OK', () => {
     const summary = receiveSummary([line, { ...line, key: 'b' }], { a: { ...initialReceiveDraft(line), outcome: 'mancante' } });
-    expect(summary).toEqual({ ok: 0, parziale: 0, mancante: 1, danneggiato: 0, untouched: 1 });
+    expect(summary).toEqual({ ok: 0, parziale: 0, mancante: 1, danneggiato: 0, eccedenza: 0, untouched: 1 });
   });
   it('non produce un costo se manca la quantità nella U.M. prezzo diversa', () => {
     const payload = receivePayload(line, { ...initialReceiveDraft(line), outcome: 'ok', unitCost: '3', priceUnitCode: 'cassa' }, false);
@@ -67,5 +67,35 @@ describe('receiveLineColumns', () => {
   });
   it('prezzo con la sua unità', () => {
     expect(receiveLineColumns({ ...line, unitCost: 3.5, priceUnitCode: 'kg' }).price).toMatch(/3,50.*€ \/ kg/);
+  });
+});
+
+const excessLine: ReceiveLine = { ...line, ordered: 1, baseline: 1, incassi: { status: 'eccedenza', documentId: 'd1', docNumber: '42', qty: 1.55, unit: 'kg', price: 3.5, reason: null } };
+describe('eccedenza DDT kg', () => {
+  it('propone 1,55 kg senza esito né scrittura', () => { const d = initialReceiveDraft(excessLine); expect(d.quantity).toBe('1.55'); expect(d.outcome).toBeNull(); });
+  it('eccedenza esplicita carica 1,55 kg con prezzo DDT e documento', () => {
+    const p = receivePayload(excessLine, { ...initialReceiveDraft(excessLine), outcome: 'eccedenza', unitCost: '99' }, false);
+    expect(p.quantity).toBe(1.55); expect(p.verified_quantity).toBe(1.55); expect(p.declared_stock_quantity).toBe(1.55);
+    expect(p.unit_cost).toBe(3.5); expect(p.price_quantity).toBe(1.55); expect(p.price_unit_code).toBe('kg'); expect(p.excess_confirmed).toBe(true); expect(p.ddt_document_id).toBe('d1');
+  });
+  it('OK resta 1 kg esatto', () => { const p = receivePayload(excessLine, { ...initialReceiveDraft(excessLine), outcome: 'ok' }, false); expect(p.quantity).toBe(1); expect(p.excess_confirmed).toBe(false); });
+  it('conferma collettiva non accetta automaticamente l’eccedenza', () => { const d = confirmUntouched([excessLine], {})['a']; if (!d) throw Error('Bozza assente'); expect(receivePayload(excessLine, d, false).quantity).toBe(1); });
+  it('pz non possono usare eccedenza', () => { const l = { ...excessLine, unitCode: 'pz', stockUnitCode: 'pz' }; expect(canReceiveExcess(l)).toBe(false); expect(() => receivePayload(l, { ...initialReceiveDraft(l), outcome: 'eccedenza', quantity: '2' }, false)).toThrow('eccedenza'); });
+  it('unità diverse non possono usare eccedenza', () => expect(canReceiveExcess({ ...excessLine, stockUnitCode: 'cs', sameUnit: false })).toBe(false));
+  it('dichiarazione fornitore resta invariata', () => { expect(canReceiveExcess(excessLine, true)).toBe(false); expect(canReceiveExcess({ ...excessLine, deliveryItemId: 'd' })).toBe(false); expect(() => receivePayload(excessLine, { ...initialReceiveDraft(excessLine), outcome: 'eccedenza' }, true)).toThrow('eccedenza'); });
+  it('1,60 kg sopra DDT 1,55 è rifiutato', () => expect(() => receivePayload(excessLine, { ...initialReceiveDraft(excessLine), outcome: 'eccedenza', quantity: '1.60' }, false)).toThrow('eccedenza'));
+  it('eccedenza pari all’ordinato è rifiutata', () => expect(() => receivePayload(excessLine, { ...initialReceiveDraft(excessLine), outcome: 'eccedenza', quantity: '1' }, false)).toThrow('eccedenza'));
+});
+
+describe('cambio esito dopo eccedenza', () => {
+  it('ritorno a OK ripristina 1 kg anche per la quantità prezzo', () => {
+    const l = { ...excessLine, priceUnitCode: 'kg' };
+    const d = chooseReceiveOutcome(l, { ...initialReceiveDraft(l), outcome: 'eccedenza', priceQuantity: '1.55' }, 'ok');
+    const p = receivePayload(l, d, false);
+    expect(p.quantity).toBe(1); expect(p.price_quantity).toBe(1); expect(p.unit_cost).toBe(3.5);
+  });
+  it('1,20 kg confermati entro il DDT usano 1,20 come quantità prezzo', () => {
+    const p = receivePayload(excessLine, { ...initialReceiveDraft(excessLine), outcome: 'eccedenza', quantity: '1.20' }, false);
+    expect(p.verified_quantity).toBe(1.2); expect(p.price_quantity).toBe(1.2); expect(p.unit_cost).toBe(3.5);
   });
 });

@@ -2,7 +2,7 @@ import { parseQuantity, qty } from '@/lib/inventory';
 import type { IncassiDocLine, IncassiLineMatch, IncassiReceiveDoc } from '@/lib/incassi/incassi-receive';
 import type { DisputeReason, DeliveryOrigin, DeliveryStatus } from '@/lib/purchase';
 
-export type ReceiveOutcome = 'ok' | 'parziale' | 'mancante' | 'danneggiato';
+export type ReceiveOutcome = 'ok' | 'parziale' | 'mancante' | 'danneggiato' | 'eccedenza';
 export type ReceiveLine = {
   key: string; orderItemId: string | null; deliveryItemId: string | null;
   productId: string; code: string; name: string; version: string;
@@ -30,8 +30,15 @@ export type ReceiveDraft = {
 };
 export const OUTCOMES = [['ok', 'OK'], ['parziale', 'Parziale'], ['mancante', 'Mancante'], ['danneggiato', 'Danneggiato']] as const;
 const str = (value: number | null) => value == null ? '' : String(value);
-/** DDT quantity prefilled only for a reliable match not above what is still to receive. */
-const ddtQty = (line: ReceiveLine) => line.incassi && line.incassi.status !== 'da_controllare' && line.incassi.qty != null && line.incassi.qty <= line.baseline ? line.incassi.qty : null;
+/** Explicit excess is available only without a delivery/declaration and in kg/kg. */
+export function canReceiveExcess(line: ReceiveLine, hasDelivery = false): boolean {
+  return !hasDelivery && line.deliveryItemId == null && line.declaredPurchase == null && line.declaredStock == null
+    && line.sameUnit && line.unitCode?.trim().toLowerCase() === 'kg' && line.stockUnitCode?.trim().toLowerCase() === 'kg'
+    && line.incassi?.status === 'eccedenza' && Boolean(line.incassi.documentId)
+    && line.incassi.qty != null && line.incassi.qty > line.baseline;
+}
+/** DDT proposals remain local until final confirmation. */
+const ddtQty = (line: ReceiveLine) => line.incassi && line.incassi.status !== 'da_controllare' && line.incassi.qty != null && (line.incassi.qty <= line.baseline || canReceiveExcess(line)) ? line.incassi.qty : null;
 export function initialReceiveDraft(line: ReceiveLine): ReceiveDraft {
   return {
     outcome: null, quantity: str(ddtQty(line) ?? line.baseline), goodQuantity: str(ddtQty(line) ?? line.baseline),
@@ -43,6 +50,12 @@ export function initialReceiveDraft(line: ReceiveLine): ReceiveDraft {
     substituteProductId: '', substituteQuantity: '',
   };
 }
+/** Leaving excess restores the original price basis, never the excess weight as an OK price quantity. */
+export function chooseReceiveOutcome(line: ReceiveLine, draft: ReceiveDraft, outcome: ReceiveOutcome): ReceiveDraft {
+  if (draft.outcome !== 'eccedenza' || outcome === 'eccedenza') return { ...draft, outcome };
+  const initial = initialReceiveDraft(line);
+  return { ...draft, outcome, quantity: str(line.baseline), unitCost: initial.unitCost, priceUnitCode: initial.priceUnitCode, priceQuantity: initial.priceQuantity };
+}
 /** Bulk OK never replaces a row already checked, partially received, missing, or damaged. */
 export function confirmUntouched(lines: ReceiveLine[], drafts: Record<string, ReceiveDraft>): Record<string, ReceiveDraft> {
   const next = { ...drafts };
@@ -53,7 +66,7 @@ export function confirmUntouched(lines: ReceiveLine[], drafts: Record<string, Re
   return next;
 }
 export function receiveSummary(lines: ReceiveLine[], drafts: Record<string, ReceiveDraft>) {
-  const summary = { ok: 0, parziale: 0, mancante: 0, danneggiato: 0, untouched: 0 };
+  const summary = { ok: 0, parziale: 0, mancante: 0, danneggiato: 0, eccedenza: 0, untouched: 0 };
   for (const line of lines) {
     const outcome = drafts[line.key]?.outcome;
     if (outcome) summary[outcome]++; else summary.untouched++;
@@ -71,7 +84,9 @@ export function receivePayload(line: ReceiveLine, draft: ReceiveDraft, supplierD
   if (!draft.outcome) throw new Error(`${line.name}: scegli un esito`);
   const missing = draft.outcome === 'mancante';
   const arrived = missing ? 0 : draft.outcome === 'ok' ? line.baseline : numeric(draft.quantity, line.name);
-  if (arrived > line.baseline) throw new Error(`${line.name}: la quantità supera quella da ricevere`);
+  const excess = draft.outcome === 'eccedenza';
+  if (excess && (!canReceiveExcess(line, supplierDeclared) || arrived <= line.baseline || arrived > (line.incassi?.qty ?? 0))) throw new Error(`${line.name}: eccedenza non valida rispetto al DDT`);
+  if (arrived > line.baseline && !excess) throw new Error(`${line.name}: la quantità supera quella da ricevere`);
   const accepted = missing ? 0 : draft.outcome === 'danneggiato' ? numeric(draft.goodQuantity, 'Quantità buona') : arrived;
   if (accepted > arrived) throw new Error(`${line.name}: la quantità buona supera quella arrivata`);
   if (draft.outcome === 'parziale' && (arrived <= 0 || arrived >= line.baseline)) throw new Error(`${line.name}: indica una quantità parziale oppure scegli OK o Mancante`);
@@ -80,9 +95,10 @@ export function receivePayload(line: ReceiveLine, draft: ReceiveDraft, supplierD
   const declaredStock = supplierDeclared ? line.declaredStock : missing ? (line.sameUnit ? 0 : null) : line.sameUnit ? arrived : numeric(draft.stockQuantity, `Quantità arrivata in ${line.stockUnitCode ?? 'magazzino'}`);
   if (accepted > 0 && stock <= 0) throw new Error(`${line.name}: indica la quantità effettiva per il magazzino`);
   if (!supplierDeclared && declaredStock != null && stock > declaredStock) throw new Error(`${line.name}: la quantità buona supera quella arrivata in magazzino`);
-  const cost = optionalNumeric(draft.unitCost, 'Prezzo');
+  const cost = excess ? line.incassi?.price ?? null : optionalNumeric(draft.unitCost, 'Prezzo');
   let priceQuantity = optionalNumeric(draft.priceQuantity, 'Quantità del prezzo');
-  const priceCode = draft.priceUnitCode.trim();
+  const priceCode = excess ? 'kg' : draft.priceUnitCode.trim();
+  if (excess) priceQuantity = accepted;
   if (priceQuantity == null && priceCode) {
     if (priceCode.toLowerCase() === line.unitCode?.toLowerCase()) priceQuantity = accepted || null;
     else if (priceCode.toLowerCase() === line.stockUnitCode?.toLowerCase()) priceQuantity = stock || null;
@@ -94,6 +110,7 @@ export function receivePayload(line: ReceiveLine, draft: ReceiveDraft, supplierD
     order_item_id: line.orderItemId, delivery_item_id: line.deliveryItemId, version: line.version,
     receipt_id: line.receiptId ?? null, receipt_item_id: line.receiptItemId ?? null,
     receipt_version: line.receiptVersion ?? null, receipt_item_version: line.receiptItemVersion ?? null,
+    excess_confirmed: excess, ddt_document_id: excess ? line.incassi?.documentId ?? null : null,
     outcome: draft.outcome, quantity: accepted, arrived_quantity: arrived,
     declared_stock_quantity: declaredStock, verified_quantity: stock,
     missing_reason: missing ? draft.missingReason.trim() : null,

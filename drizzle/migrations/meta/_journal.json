@@ -862,6 +862,13 @@
       "when": 1795769755938,
       "tag": "0122_relations_supplier_only_activation",
       "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1795845860376,
+      "tag": "0123_receive_purchase_order_incassi_kg_excess",
+      "breakpoints": true
     }
   ]
 }

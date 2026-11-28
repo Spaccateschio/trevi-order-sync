@@ -109,7 +109,8 @@ export const getReceivePurchaseOrder = createServerFn({ method: 'POST' })
 const receiveLineSchema = z.object({
   order_item_id: uuid.nullable(), delivery_item_id: uuid.nullable(), version: z.string(),
   receipt_id: uuid.nullable(), receipt_item_id: uuid.nullable(), receipt_version: z.string().nullable(), receipt_item_version: z.string().nullable(),
-  outcome: z.enum(['ok', 'parziale', 'mancante', 'danneggiato']), quantity: z.number().finite().nonnegative(),
+  outcome: z.enum(['ok', 'parziale', 'mancante', 'danneggiato', 'eccedenza']),
+  excess_confirmed: z.boolean().optional(), ddt_document_id: uuid.nullable().optional(), quantity: z.number().finite().nonnegative(),
   arrived_quantity: z.number().finite().nonnegative(), declared_stock_quantity: z.number().finite().nonnegative().nullable(),
   verified_quantity: z.number().finite().nonnegative(), missing_reason: z.string().max(300).nullable(),
   reason: z.enum(['quantita_inferiore', 'quantita_superiore', 'non_consegnato', 'non_ordinato', 'qualita', 'pezzatura', 'altro']),
@@ -117,7 +118,7 @@ const receiveLineSchema = z.object({
   expiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(), unit_cost: z.number().finite().nonnegative().nullable(),
   price_unit_code: z.string().max(20).nullable(), price_quantity: z.number().finite().positive().nullable(),
   substitute_product_id: uuid.nullable(), substitute_quantity: z.number().finite().positive().nullable(),
-});
+}).refine(line => line.outcome !== 'eccedenza' || (line.excess_confirmed === true && line.ddt_document_id != null), { message: 'Eccedenza: conferma e documento DDT obbligatori' });
 export const receivePurchaseOrder = createServerFn({ method: 'POST' })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ orderId: uuid, deliveryId: uuid.nullable(), orderVersion: z.string(), deliveryVersion: z.string().nullable(), key: uuid, lines: z.array(receiveLineSchema).min(1).max(500), notes: z.string().max(1000).nullable() }).parse(input))

@@ -19,3 +19,9 @@ describe('matchIncassiLines', () => {
   it('nessun DDT: nessun abbinamento', () => expect(matchIncassiLines([line('0225', 1, 'pz')], []).byKey).toEqual({}));
   it('più DDT: tutto da controllare', () => expect(matchIncassiLines([line('0225', 1, 'pz')], [doc([L('0225', 1, 'pz')]), doc([L('0225', 1, 'pz')], { id: 'd2' })]).byKey['k']?.status).toBe('da_controllare'));
 });
+
+describe('classificazione eccedenza', () => {
+  it('1,55 kg su 1 kg ordinato è eccedenza con documento', () => { const m = matchIncassiLines([line('0225', 1, 'kg')], [doc([L('0225', 1.55, 'kg')])]).byKey['k']; expect(m?.status).toBe('eccedenza'); expect(m?.documentId).toBe('d1'); });
+  it('0,8 kg su 1 rimane differenza', () => expect(matchIncassiLines([line('0225', 1, 'kg')], [doc([L('0225', 0.8, 'kg')])]).byKey['k']?.status).toBe('differenza'));
+  it('kg contro pz resta da controllare', () => expect(matchIncassiLines([line('0225', 1, 'pz')], [doc([L('0225', 1.55, 'kg')])]).byKey['k']?.status).toBe('da_controllare'));
+});

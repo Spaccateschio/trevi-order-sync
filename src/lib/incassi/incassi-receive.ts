@@ -4,9 +4,9 @@ import { normalizeIncassiUnit } from './incassi-link';
 export type IncassiDocLine = { code: string | null; description: string | null; qty: number | null; um: string | null; price: number | null; total?: number | null };
 export type IncassiReceiveDoc = { id: string; docNumber: string | null; docDate: string | null; consegnaStato: string | null; lines: IncassiDocLine[] };
 export type IncassiOrderLine = { key: string; supplierCode: string | null; ordered: number | null; orderedUnitCode: string | null };
-export type IncassiMatchStatus = 'abbinata' | 'differenza' | 'da_controllare';
+export type IncassiMatchStatus = 'abbinata' | 'differenza' | 'eccedenza' | 'da_controllare';
 export type IncassiLineMatch = {
-  status: IncassiMatchStatus; docNumber: string | null; qty: number | null; unit: string | null;
+  documentId?: string; status: IncassiMatchStatus; docNumber: string | null; qty: number | null; unit: string | null;
   price: number | null; reason: string | null;
 };
 export type IncassiMatchResult = { byKey: Record<string, IncassiLineMatch>; unmatched: IncassiDocLine[]; documents: IncassiReceiveDoc[] };
@@ -23,7 +23,8 @@ export function matchIncassiLines(orderLines: IncassiOrderLine[], documents: Inc
     for (const l of orderLines) byKey[l.key] = { status: 'da_controllare', docNumber: null, qty: null, unit: null, price: null, reason: 'Più documenti per questo ordine' };
     return { byKey, unmatched: [], documents: valid };
   }
-  const doc = valid[0]!;
+  const doc = valid[0];
+  if (!doc) return { byKey, unmatched: [], documents: valid };
   const used = new Set<number>();
   for (const l of orderLines) {
     const code = norm(l.supplierCode);
@@ -33,15 +34,18 @@ export function matchIncassiLines(orderLines: IncassiOrderLine[], documents: Inc
       if (hits.length > 1) byKey[l.key] = { status: 'da_controllare', docNumber: doc.docNumber, qty: null, unit: null, price: null, reason: 'Codice ripetuto nel documento' };
       continue;
     }
-    const [d, i] = hits[0]!;
+    const hit = hits[0];
+    if (!hit) continue;
+    const [d, i] = hit;
     used.add(i);
     const unit = unitOf(d.um);
-    const base = { docNumber: doc.docNumber, qty: d.qty, unit: d.um?.trim() || null, price: d.price };
+    const base = { documentId: doc.id, docNumber: doc.docNumber, qty: d.qty, unit: d.um?.trim() || null, price: d.price };
     const ordUnit = unitOf(l.orderedUnitCode);
     let status: IncassiMatchStatus = 'abbinata'; let reason: string | null = null;
     if (!unit || d.qty == null) { status = 'da_controllare'; reason = 'Unità o quantità da controllare'; }
     else if (unit === 'pz' && !Number.isInteger(d.qty)) { status = 'da_controllare'; reason = 'Pezzi con decimali'; }
     else if (!ordUnit || unit !== ordUnit) { status = 'da_controllare'; reason = 'Unità diversa dall\'ordine'; }
+    else if (unit === 'kg' && l.ordered != null && d.qty > l.ordered) { status = 'eccedenza'; reason = 'Quantità superiore all’ordinato'; }
     else if (l.ordered != null && d.qty !== l.ordered) { status = 'differenza'; reason = 'Quantità diversa dall\'ordinato'; }
     byKey[l.key] = { status, reason, ...base };
   }

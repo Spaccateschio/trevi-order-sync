@@ -1,5 +1,9 @@
 # Roadmap
 
+## 28/11 — Eccedenza DDT kg approvata
+- [x] Migrazione 0123 applicata, esito esplicito e validazione richiesta; nessun cambiamento a Danea, ponte Incassi o contestazioni.
+- [x] 93 test vitest superati; 12 casi SQL in rollback su ordini temporanei di 3 EMME: peso 1,55 kg, prezzo 3,50 €/kg, residuo zero, nessuna contestazione, idempotenza e rifiuti verificati. Checksum invariati, nessun dato temporaneo residuo. Schermata verificata a 1280/392 px con DDT simulato, nessuna conferma reale; build OK.
+
 ## 27/11 — Chiusura riga all'estremo destro
 - [x] Nella vista Righe degli Ordini fornitore i tre puntini passano prima e la freccia «Chiudi riga» resta l'ultimo pulsante a destra, così il tocco per richiudere non apre il menu azioni.
 - [x] 43 test vitest + 10 node:test superati, build OK; su telefono (392 px) freccia a x=323 contro x=287 dei tre puntini, menu azioni ancora apribile e riga richiusa con un tocco, nessuna scrittura.
