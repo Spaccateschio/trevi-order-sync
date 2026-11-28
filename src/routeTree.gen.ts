@@ -39,6 +39,7 @@ import { Route as PiattaformaTeamRouteImport } from './routes/piattaforma.team'
 import { Route as PiattaformaUtentiRouteImport } from './routes/piattaforma.utenti'
 import { Route as AuthenticatedAcquistiIndexRouteImport } from './routes/_authenticated/acquisti.index'
 import { Route as AuthenticatedAcquistiAcquistoDirettoAnteprimaRouteImport } from './routes/_authenticated/acquisti.acquisto-diretto-anteprima'
+import { Route as AuthenticatedAcquistiDocumentiSaldoRouteImport } from './routes/_authenticated/acquisti.documenti-saldo'
 import { Route as AuthenticatedAcquistiFornitoriRouteImport } from './routes/_authenticated/acquisti.fornitori'
 import { Route as AuthenticatedAcquistiInventarioRouteImport } from './routes/_authenticated/acquisti.inventario'
 import { Route as AuthenticatedAcquistiListaSpesaRouteImport } from './routes/_authenticated/acquisti.lista-spesa'
@@ -219,6 +220,12 @@ const AuthenticatedAcquistiAcquistoDirettoAnteprimaRoute =
     path: '/acquisti/acquisto-diretto-anteprima',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAcquistiDocumentiSaldoRoute =
+  AuthenticatedAcquistiDocumentiSaldoRouteImport.update({
+    id: '/acquisti/documenti-saldo',
+    path: '/acquisti/documenti-saldo',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAcquistiFornitoriRoute =
   AuthenticatedAcquistiFornitoriRouteImport.update({
     id: '/acquisti/fornitori',
@@ -391,6 +398,7 @@ export interface FileRoutesByFullPath {
   '/piattaforma/utenti': typeof PiattaformaUtentiRoute
   '/piattaforma/': typeof PiattaformaIndexRoute
   '/acquisti/acquisto-diretto-anteprima': typeof AuthenticatedAcquistiAcquistoDirettoAnteprimaRoute
+  '/acquisti/documenti-saldo': typeof AuthenticatedAcquistiDocumentiSaldoRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
@@ -445,6 +453,7 @@ export interface FileRoutesByTo {
   '/piattaforma/utenti': typeof PiattaformaUtentiRoute
   '/piattaforma': typeof PiattaformaIndexRoute
   '/acquisti/acquisto-diretto-anteprima': typeof AuthenticatedAcquistiAcquistoDirettoAnteprimaRoute
+  '/acquisti/documenti-saldo': typeof AuthenticatedAcquistiDocumentiSaldoRoute
   '/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
@@ -502,6 +511,7 @@ export interface FileRoutesById {
   '/piattaforma/utenti': typeof PiattaformaUtentiRoute
   '/piattaforma/': typeof PiattaformaIndexRoute
   '/_authenticated/acquisti/acquisto-diretto-anteprima': typeof AuthenticatedAcquistiAcquistoDirettoAnteprimaRoute
+  '/_authenticated/acquisti/documenti-saldo': typeof AuthenticatedAcquistiDocumentiSaldoRoute
   '/_authenticated/acquisti/fornitori': typeof AuthenticatedAcquistiFornitoriRoute
   '/_authenticated/acquisti/inventario': typeof AuthenticatedAcquistiInventarioRoute
   '/_authenticated/acquisti/lista-spesa': typeof AuthenticatedAcquistiListaSpesaRoute
@@ -559,6 +569,7 @@ export interface FileRouteTypes {
     | '/piattaforma/utenti'
     | '/piattaforma/'
     | '/acquisti/acquisto-diretto-anteprima'
+    | '/acquisti/documenti-saldo'
     | '/acquisti/fornitori'
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
@@ -613,6 +624,7 @@ export interface FileRouteTypes {
     | '/piattaforma/utenti'
     | '/piattaforma'
     | '/acquisti/acquisto-diretto-anteprima'
+    | '/acquisti/documenti-saldo'
     | '/acquisti/fornitori'
     | '/acquisti/inventario'
     | '/acquisti/lista-spesa'
@@ -669,6 +681,7 @@ export interface FileRouteTypes {
     | '/piattaforma/utenti'
     | '/piattaforma/'
     | '/_authenticated/acquisti/acquisto-diretto-anteprima'
+    | '/_authenticated/acquisti/documenti-saldo'
     | '/_authenticated/acquisti/fornitori'
     | '/_authenticated/acquisti/inventario'
     | '/_authenticated/acquisti/lista-spesa'
@@ -923,6 +936,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAcquistiAcquistoDirettoAnteprimaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/acquisti/documenti-saldo': {
+      id: '/_authenticated/acquisti/documenti-saldo'
+      path: '/acquisti/documenti-saldo'
+      fullPath: '/acquisti/documenti-saldo'
+      preLoaderRoute: typeof AuthenticatedAcquistiDocumentiSaldoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/acquisti/fornitori': {
       id: '/_authenticated/acquisti/fornitori'
       path: '/acquisti/fornitori'
@@ -1107,6 +1127,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOperativoRoute: typeof AuthenticatedOperativoRoute
   AuthenticatedVenditeRoute: typeof AuthenticatedVenditeRoute
   AuthenticatedAcquistiAcquistoDirettoAnteprimaRoute: typeof AuthenticatedAcquistiAcquistoDirettoAnteprimaRoute
+  AuthenticatedAcquistiDocumentiSaldoRoute: typeof AuthenticatedAcquistiDocumentiSaldoRoute
   AuthenticatedAcquistiFornitoriRoute: typeof AuthenticatedAcquistiFornitoriRoute
   AuthenticatedAcquistiInventarioRoute: typeof AuthenticatedAcquistiInventarioRoute
   AuthenticatedAcquistiListaSpesaRoute: typeof AuthenticatedAcquistiListaSpesaRoute
@@ -1143,6 +1164,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedVenditeRoute: AuthenticatedVenditeRoute,
   AuthenticatedAcquistiAcquistoDirettoAnteprimaRoute:
     AuthenticatedAcquistiAcquistoDirettoAnteprimaRoute,
+  AuthenticatedAcquistiDocumentiSaldoRoute:
+    AuthenticatedAcquistiDocumentiSaldoRoute,
   AuthenticatedAcquistiFornitoriRoute: AuthenticatedAcquistiFornitoriRoute,
   AuthenticatedAcquistiInventarioRoute: AuthenticatedAcquistiInventarioRoute,
   AuthenticatedAcquistiListaSpesaRoute: AuthenticatedAcquistiListaSpesaRoute,
