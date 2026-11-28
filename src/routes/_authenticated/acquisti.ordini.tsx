@@ -7,7 +7,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 import { AppShell } from "@/components/app-shell";
 import { PurchaseOrdersPanel } from "@/components/purchase/purchase-orders-panel";
-import { SentOrdersBanner } from "@/components/purchase/sent-orders-banner";
 import { activeCompany, companyBuys, useIdentity } from "@/hooks/use-identity";
 
 const description =
@@ -54,7 +53,6 @@ function OrdiniFornitore() {
       }
     >
       <div className="space-y-4">
-        {company && !detailOpen ? <SentOrdersBanner companyId={company.companyId} measuredScroll autoHideMs={6000} /> : null}
         {company ? <PurchaseOrdersPanel companyId={company.companyId} onDetailChange={setDetailOpen} /> : null}
       </div>
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
