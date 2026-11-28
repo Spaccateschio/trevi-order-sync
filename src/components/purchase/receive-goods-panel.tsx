@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useServerFn } from '@tanstack/react-start';
 import { Check, CheckCheck, ChevronDown, ChevronRight, PackageCheck } from 'lucide-react';
 import { useState } from 'react';
+import { useDragScroll } from '@/hooks/use-drag-scroll';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,7 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone, orderNum
   const receive = useServerFn(receivePurchaseOrder);
   const cache = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, ReceiveDraft>>({});
+  const listDrag = useDragScroll<HTMLUListElement>();
   const [openDetails, setOpenDetails] = useState<Record<string, boolean>>({});
   const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone, orderNum
     </header>
     {supplierDraft ? <p className="text-sm text-muted-foreground">Il fornitore sta ancora compilando la consegna. Attendi il suo dichiarato.</p> : null}
     <Button className="h-12 w-full font-semibold" disabled={confirm.isPending || supplierDraft || !lines.length} onClick={() => setDrafts(prev => confirmUntouched(lines, prev, hasDelivery))}><CheckCheck className="mr-2 size-4" />Segna OK tutte le righe</Button>
-    {mainLines.length ? <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">{mainLines.map(row)}</ul> : null}
+    {mainLines.length ? <ul {...listDrag} data-testid="receive-lines" className="max-h-[calc(100dvh-27rem)] min-h-40 cursor-grab touch-pan-y select-none divide-y divide-border overflow-y-auto overscroll-contain rounded-lg border border-border bg-card active:cursor-grabbing">{mainLines.map(row)}</ul> : null}
     {!lines.length ? <p className="text-sm text-muted-foreground">Nessun prodotto da ricevere.</p> : null}
     {unmatched.length || extraLines.length ? <Collapsible className="rounded-lg border border-border bg-card">
       <CollapsibleTrigger className="group flex min-h-12 w-full items-center justify-between gap-2 px-3 text-left text-sm font-medium">Altre righe del documento ({unmatched.length + extraLines.length})<ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" aria-hidden="true" /></CollapsibleTrigger>
