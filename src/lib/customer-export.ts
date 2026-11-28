@@ -1,3 +1,4 @@
+import { csvCell } from "@/lib/csv-safe";
 import type { CustomerRecord } from "@/components/companies/customer-records-panel";
 import type { CustomerColumn } from "@/lib/customer-columns";
 
@@ -41,7 +42,7 @@ function downloadBlob(blob: Blob, name: string) {
 }
 
 export function downloadCustomersCsv(context: ExportContext) {
-  const escape = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const escape = csvCell;
   const lines = [
     context.columns.map((column) => escape(column.label)).join(";"),
     ...context.records.map((record) =>

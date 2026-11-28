@@ -190,7 +190,7 @@ export const getProductImageUrls = createServerFn({ method: "POST" })
 
     return Promise.all(rows.map(async (image) => {
       const path = data.thumbnail ? image.thumbnail_path : image.image_path;
-      const { data: signed, error: signError } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 600);
+      const { data: signed, error: signError } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 60);
       if (signError) throw new Error("Impossibile visualizzare l’immagine");
       return { id: image.id, productId: image.product_id, url: signed.signedUrl };
     }));

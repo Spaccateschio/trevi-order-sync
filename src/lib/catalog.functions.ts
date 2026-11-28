@@ -58,7 +58,7 @@ export const getCatalogImageUrls = createServerFn({ method: "POST" })
         thumbnail_path: string;
       }) => {
         const path = data.thumbnail ? image.thumbnail_path : image.image_path;
-        const result = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 600);
+        const result = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 60);
         if (result.error || !result.data) return null;
         return { productId: image.product_id, url: result.data.signedUrl };
       }),

@@ -1,3 +1,4 @@
+import { csvCell } from "@/lib/csv-safe";
 import type { SupplierRecord } from "@/components/companies/supplier-records-panel";
 import type { SupplierColumn } from "@/lib/supplier-columns";
 
@@ -39,7 +40,7 @@ function downloadBlob(blob: Blob, name: string) {
 }
 
 export function downloadSuppliersCsv(context: ExportContext) {
-  const escape = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const escape = csvCell;
   const lines = [
     context.columns.map((column) => escape(column.label)).join(";"),
     ...context.records.map((record) =>

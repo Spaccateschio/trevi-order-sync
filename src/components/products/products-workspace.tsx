@@ -1,3 +1,4 @@
+import { csvCell } from '@/lib/csv-safe';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnOrderState, ColumnSizingState, SortingState, VisibilityState } from "@tanstack/react-table";
@@ -516,11 +517,11 @@ export function ProductsWorkspace({ gridKey: baseGridKey, view, prodottoParam, i
   }
 
   function exportCsv() {
-    const header = visibleColumns.map((column) => `"${(column ? columnLabel(column, listName) : "").replaceAll('"', '""')}"`).join(";");
+    const header = visibleColumns.map((column) => csvCell(column ? columnLabel(column, listName) : "")).join(";");
     const rows = outputProducts.map((product) => visibleColumns.map((column) => {
       if (!column) return '""';
       const value = formatGridValue(column, column.value(product, archiveNameById));
-      return `"${value.replaceAll('"', '""')}"`;
+      return csvCell(value);
     }).join(";"));
     const blob = new Blob(["\ufeff", [header, ...rows].join("\r\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);

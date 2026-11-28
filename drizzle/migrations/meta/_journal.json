@@ -876,6 +876,13 @@
       "when": 1795849147242,
       "tag": "0124_phone_orders_from_incassi_ddt",
       "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1795853400879,
+      "tag": "0125_security_hardening_invites_archive_extra_items",
+      "breakpoints": true
     }
   ]
 }
