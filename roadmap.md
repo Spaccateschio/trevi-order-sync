@@ -463,4 +463,4 @@
 
 ## 28/11 — Ordini telefonici da DDT Incassi senza ORD
 - [x] Mockup riquadro «DDT da abbinare» in «Ordini clienti» (dati di esempio, nessuna scrittura)
-- [ ] In attesa dell'approvazione di Andrea: migrazione (origin, source_document_id, incassi_pending_documents, create_phone_order_from_document con is_company_member), esclusione da Danea, test SQL in rollback su 3 EMME
+- [x] Migrazione, esclusione Danea, riquadro con dati reali, etichetta «Ordine telefonico», test vitest e SQL in rollback

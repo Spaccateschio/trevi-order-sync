@@ -869,6 +869,13 @@
       "when": 1795845860376,
       "tag": "0123_receive_purchase_order_incassi_kg_excess",
       "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1795849147242,
+      "tag": "0124_phone_orders_from_incassi_ddt",
+      "breakpoints": true
     }
   ]
 }

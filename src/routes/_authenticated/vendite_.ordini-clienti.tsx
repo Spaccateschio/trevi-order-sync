@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
 import { ReceivedOrdersPanel, SupplierOrderConsultation } from "@/components/sales/received-orders-panel";
-import { PendingDdtMockup } from "@/components/sales/pending-ddt-mockup";
+import { PendingDdtPanel } from "@/components/sales/pending-ddt-panel";
 import { sharedOrderId } from "@/lib/b2b-order-sharing";
 import { activeCompany, companySells, useIdentity } from "@/hooks/use-identity";
 
@@ -46,7 +46,7 @@ function OrdiniClientiOperativi() {
 
   return (
     <AppShell title="Ordini clienti" description={description}>
-      {company ? <PendingDdtMockup /> : null}
+      {company ? <PendingDdtPanel companyId={company.companyId} /> : null}
       {company ? <ReceivedOrdersPanel companyId={company.companyId} /> : null}
       {isLoading ? <p className="text-sm text-muted-foreground">Caricamento…</p> : null}
     </AppShell>

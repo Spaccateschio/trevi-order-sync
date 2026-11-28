@@ -60,6 +60,7 @@ type OrderRow = {
   modified_at: string | null;
   seen_at: string | null;
   danea_exported_at: string | null;
+  phone_order: boolean;
   cancel_reason: string | null;
   contested: boolean;
 };
@@ -108,7 +109,7 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
     queryFn: async (): Promise<OrderRow[]> => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("id,number,status,created_at,sent_at,delivery_date,delivery_time_from,delivery_time_to,delivery_address_text,notes,seen_by_supplier_at,customer_modified_at,danea_exported_at,cancel_reason,purchase_deliveries(status),companies!purchase_orders_company_id_fkey(legal_name),supplier_customer_relations!inner(seller_company_id)")
+        .select("id,number,status,origin,created_at,sent_at,delivery_date,delivery_time_from,delivery_time_to,delivery_address_text,notes,seen_by_supplier_at,customer_modified_at,danea_exported_at,cancel_reason,purchase_deliveries(status),companies!purchase_orders_company_id_fkey(legal_name),supplier_customer_relations!inner(seller_company_id)")
         .eq("supplier_customer_relations.seller_company_id", companyId)
         .neq("status", "bozza")
         .order("created_at", { ascending: false });
@@ -129,6 +130,7 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
         modified_at: o.customer_modified_at,
         seen_at: o.seen_by_supplier_at,
         danea_exported_at: o.danea_exported_at,
+        phone_order: o.origin === "telefonico_ddt",
         cancel_reason: o.cancel_reason,
         contested: ((o as { purchase_deliveries?: { status: string }[] | null }).purchase_deliveries ?? []).some((d) => d.status === "in_contestazione"),
         buyer: (o.companies as { legal_name: string | null } | null)?.legal_name ?? "Cliente",
@@ -332,6 +334,7 @@ export function ReceivedOrdersPanel({ companyId }: { companyId: string }) {
                   {o.modified_at && !o.seen_at && o.status === "inviato" ? (
                     <Badge variant="outline" className="border-warning text-warning-foreground bg-warning/20">Modificato</Badge>
                   ) : null}
+                  {o.phone_order ? <Badge variant="outline">Ordine telefonico</Badge> : null}
                   {o.danea_exported_at ? (
                     <Badge variant="outline">Scaricato da Danea</Badge>
                   ) : null}

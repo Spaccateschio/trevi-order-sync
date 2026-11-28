@@ -128,7 +128,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("id, relation_id, sent_at, seen_by_supplier_at, danea_exported_at, cancel_reason, shopping_lists(status), purchase_deliveries(status)")
+        .select("id, relation_id, origin, sent_at, seen_by_supplier_at, danea_exported_at, cancel_reason, shopping_lists(status), purchase_deliveries(status)")
         .eq("company_id", companyId);
       if (error) throw new Error(error.message);
       const rows = data ?? [];
@@ -339,7 +339,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="flex items-center gap-2 font-semibold"><span className="break-words">{order.supplier_name}</span></p>
-                <p className="text-sm font-medium">{order.number}</p>
+                <p className="flex flex-wrap items-center gap-2 text-sm font-medium">{order.number}{seenQuery.data?.find(r => r.id === order.order_id)?.origin === "telefonico_ddt" ? <Badge variant="outline">Ordine telefonico</Badge> : null}</p>
                 {(() => { const t = orderTimeline({ status: dead ? "annullato" : order.status, ...(timelineFacts.get(order.order_id) ?? { sent_at: null, seen_by_supplier_at: null, supplier_received_at: null, contested: false }) }); return <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-medium"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.currentColor}`} aria-hidden="true" /><span>{t.currentLabel}</span>{t.notDelivered && !dead ? <span className="inline-flex items-center gap-1 text-destructive"><span className="h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden="true" />Non consegnato</span> : null}{t.contested && !dead ? <span className="inline-flex items-center gap-1 text-destructive"><span className="h-2.5 w-2.5 rounded-full bg-destructive" aria-hidden="true" />Contestato</span> : null}</p>; })()}
               </div>
               <div className="flex shrink-0 items-center">

@@ -5618,6 +5618,7 @@ export type Database = {
           id: string
           notes: string | null
           number: string
+          origin: string
           relation_id: string | null
           seen_by_supplier_at: string | null
           seen_by_supplier_by: string | null
@@ -5625,6 +5626,7 @@ export type Database = {
           send_status: string
           sent_at: string | null
           shopping_list_id: string | null
+          source_document_id: string | null
           status: Database["public"]["Enums"]["purchase_order_status"]
           supplier_notes: string | null
           supplier_record_id: string
@@ -5655,6 +5657,7 @@ export type Database = {
           id?: string
           notes?: string | null
           number: string
+          origin?: string
           relation_id?: string | null
           seen_by_supplier_at?: string | null
           seen_by_supplier_by?: string | null
@@ -5662,6 +5665,7 @@ export type Database = {
           send_status?: string
           sent_at?: string | null
           shopping_list_id?: string | null
+          source_document_id?: string | null
           status?: Database["public"]["Enums"]["purchase_order_status"]
           supplier_notes?: string | null
           supplier_record_id: string
@@ -5692,6 +5696,7 @@ export type Database = {
           id?: string
           notes?: string | null
           number?: string
+          origin?: string
           relation_id?: string | null
           seen_by_supplier_at?: string | null
           seen_by_supplier_by?: string | null
@@ -5699,6 +5704,7 @@ export type Database = {
           send_status?: string
           sent_at?: string | null
           shopping_list_id?: string | null
+          source_document_id?: string | null
           status?: Database["public"]["Enums"]["purchase_order_status"]
           supplier_notes?: string | null
           supplier_record_id?: string
@@ -5752,6 +5758,13 @@ export type Database = {
             columns: ["shopping_list_id"]
             isOneToOne: false
             referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_delivery_documents"
             referencedColumns: ["id"]
           },
           {
@@ -7513,6 +7526,14 @@ export type Database = {
         Args: { _product_id: string }
         Returns: boolean
       }
+      _incassi_auto_link: {
+        Args: { _buyer: string; _code: string; _seller: string }
+        Returns: string
+      }
+      _incassi_doc_relation: {
+        Args: { _customer_code: string; _seller: string }
+        Returns: string
+      }
       _inventory_card_stock: {
         Args: { _link_id: string; _location_id: string; _product_id: string }
         Returns: {
@@ -7977,6 +7998,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_phone_order_from_document: {
+        Args: { _document_id: string; _line_matches?: Json }
+        Returns: string
+      }
       create_purchase_orders_from_list: {
         Args: {
           _actor_user_id?: string
@@ -8299,6 +8324,7 @@ export type Database = {
           order_id: string
         }[]
       }
+      incassi_pending_documents: { Args: never; Returns: Json }
       initial_stock_unit_options: {
         Args: { _link_id: string; _product_id: string }
         Returns: Json
