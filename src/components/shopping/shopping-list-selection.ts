@@ -48,9 +48,11 @@ export function restorePurchaseSelection(storedId: string | null): string {
 /** A pending old inventory must not hide an existing open purchase list. */
 export function selectShoppingList<T extends SelectableList>(
   lists: readonly T[], selectedId: string | null, linked: T | null, inventoryPreview: boolean,
+  // An explicit id (e.g. «Apri» from history) may point to a list hidden from current work.
+  explicitLists: readonly T[] = lists,
 ): T | null {
   if (selectedId === NEXT_PURCHASE) return null;
-  if (selectedId) return lists.find((row) => row.id === selectedId) ?? null;
+  if (selectedId) return explicitLists.find((row) => row.id === selectedId) ?? null;
   return linked
     ?? lists.find((row) => row.status === "aperta")
     ?? (inventoryPreview ? null : lists.find((row) => row.status === "confermata") ?? null);

@@ -98,3 +98,15 @@ describe("lista mostrata e quantità salvate", () => {
     assert.equal(selectShoppingList([confirmed], null, null, false), confirmed);
   });
 });
+describe("«Apri» da Tutte le liste", () => {
+  const downloaded = { id: "downloaded", status: "chiusa", quantity: 4 };
+  it("apre la lista scaricata da Danea scelta esplicitamente, nascosta dal lavoro corrente", () => {
+    assert.equal(selectShoppingList([open], "downloaded", null, false, [open, downloaded]), downloaded);
+  });
+  it("senza scelta esplicita non mostra mai una lista scaricata", () => {
+    assert.equal(selectShoppingList([], null, null, false, [downloaded]), null);
+  });
+  it("il prossimo acquisto vuoto resta vuoto", () => {
+    assert.equal(selectShoppingList([open], NEXT_PURCHASE, null, false, [open, downloaded]), null);
+  });
+});

@@ -403,13 +403,15 @@ export function ShoppingListPanel({ companyId, initialListId = null }: { company
   const previewMode = evaluating && !linkedList;
   const list = useMemo(
     // Un inventario precedente pendente non nasconde gli acquisti già in lavorazione.
-    () => selectionReady ? selectShoppingList(lists, listId, linkedList, previewMode) : null,
-    [lists, listId, linkedList, previewMode, selectionReady],
+    () => selectionReady ? selectShoppingList(lists, listId, linkedList, previewMode, listsQuery.data ?? lists) : null,
+    [lists, listId, linkedList, previewMode, selectionReady, listsQuery.data],
   );
+  // Una lista già scaricata da Danea si apre solo in lettura, anche se lo stato è ancora «aperta».
+  const listDownloaded = Boolean(list && listsQuery.data?.some((row) => row.id === list.id && shoppingListDownloaded(row)));
   // Bozza solo sul dispositivo: una chiave distinta per persona, azienda e Lista (o prossimo acquisto).
   const draftStorageKey = identity?.userId ? entryCartStorageKey({ userId: identity.userId, companyId, area: "lista", referenceId: list?.id ?? NEXT_PURCHASE }) : null;
-  const editable = list?.status === "aperta";
-  const acceptsDrafts = shoppingListAcceptsDrafts(list);
+  const editable = list?.status === "aperta" && !listDownloaded;
+  const acceptsDrafts = !listDownloaded && shoppingListAcceptsDrafts(list);
   const loadedDraftKey = useRef<string | null>(null);
   const skipDraftWriteRef = useRef(false);
   const clearShoppingDraft = useCallback(() => {
