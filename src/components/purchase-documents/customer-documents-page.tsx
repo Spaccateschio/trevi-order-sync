@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { activeCompany, useIdentity } from "@/hooks/use-identity";
-import { getMyDeliveryDocuments } from "@/lib/customer-documents.functions";
+import { getMyDeliveryDocuments, getMyIncassiBalance } from "@/lib/customer-documents.functions";
 
 const euro = (n: number) => n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 const day = (d: string | null) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("it-IT") : "—");
@@ -20,6 +20,13 @@ export function CustomerDocumentsPage() {
     queryFn: () => fetchDocs({ data: { companyId: company!.companyId } }),
     enabled: Boolean(company?.companyId),
   });
+  const fetchBalance = useServerFn(getMyIncassiBalance);
+  const balance = useQuery({
+    queryKey: ["customer-incassi-balance", company?.companyId],
+    queryFn: () => fetchBalance({ data: { companyId: company!.companyId } }),
+    enabled: Boolean(company?.companyId),
+  });
+  const bal = balance.data?.available ? balance.data : null;
   const [openId, setOpenId] = useState<string | null>(null);
   const rows = docs.data ?? [];
   const total = rows.reduce((s, d) => s + Math.round(d.total * 100), 0) / 100;
@@ -34,8 +41,8 @@ export function CustomerDocumentsPage() {
         </CardContent></Card>
         <Card><CardContent className="p-3">
           <p className="text-xs text-muted-foreground">Saldo da pagare</p>
-          <p className="text-lg font-semibold">Da confermare</p>
-          <p className="text-xs text-muted-foreground">Pagamenti non ancora ricevuti da Trevi Incassi</p>
+          <p className="text-lg font-semibold">{bal ? euro(bal.saldo) : balance.isLoading ? "…" : "Da confermare"}</p>
+          <p className="text-xs text-muted-foreground">{bal ? (bal.scaduto > 0 ? `di cui scaduto ${euro(bal.scaduto)}` : "Nessun importo scaduto") : "Saldo non ancora disponibile da Trevi Incassi"}</p>
         </CardContent></Card>
       </div>
       {docs.isLoading ? <p className="text-sm text-muted-foreground">Caricamento documenti…</p> : null}
