@@ -1,9 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/app-shell";
 import { DocumentsBalanceMockup } from "@/components/sales-mockup/documents-balance-mockup";
 
 export const Route = createFileRoute("/_authenticated/vendite_/documenti-saldo")({
+  beforeLoad: () => {
+    throw redirect({ to: "/acquisti/documenti-saldo", replace: true });
+  },
   head: () => ({
     meta: [
       { title: "Documenti e saldo clienti — Trevi Fruit" },

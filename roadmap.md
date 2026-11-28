@@ -1,8 +1,8 @@
 # Roadmap
 
 ## 28/11 — Anteprima Documenti e saldo clienti
-- [x] Mockup con dati finti: documenti del cliente (DDT e fatture con stato), saldo per cliente, registrazione incasso, avviso sui documenti scaduti.
-- [x] Voce nuova nel menu Vendite.
+- [x] Correzione destinatario: mockup per il cliente con i propri documenti, saldo da pagare per fornitore e scaduti, senza registrazione incassi.
+- [x] Voce spostata nel menu Acquisti, disponibile anche a chi non vende.
 - [ ] Collegamento ai dati reali solo dopo l'approvazione del mockup.
 
 ## 28/11 — Eccedenza DDT kg approvata

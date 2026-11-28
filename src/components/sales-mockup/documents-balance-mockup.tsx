@@ -49,7 +49,7 @@ const FILTERS: { value: BalanceFilter; label: string }[] = [
 ];
 
 /** Anteprima isolata: stato solo in memoria, nessuna scrittura. */
-export function DocumentsBalanceMockup() {
+export function DocumentsBalanceMockup({ customerView = false }: { customerView?: boolean }) {
   const [today] = useState(() => new Date());
   const [customers, setCustomers] = useState<CustomerBalance[]>(() => createDemoCustomers(today));
   const [openId, setOpenId] = useState<string | null>(null);
@@ -80,14 +80,14 @@ export function DocumentsBalanceMockup() {
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <SummaryTile label="Da incassare" value={euro.format(totals.daIncassare)} />
+        <SummaryTile label={customerView ? "Da pagare" : "Da incassare"} value={euro.format(totals.daIncassare)} />
         <SummaryTile
           label="Scaduto"
           value={euro.format(totals.scaduto)}
           {...(totals.scaduto > 0 ? { tone: "alert" as const } : {})}
         />
         <SummaryTile
-          label="Clienti scaduti"
+          label={customerView ? "Fornitori con scaduti" : "Clienti scaduti"}
           value={String(totals.scadutiClienti)}
           className="col-span-2 sm:col-span-1"
           {...(totals.scadutiClienti > 0 ? { tone: "alert" as const } : {})}
@@ -99,8 +99,8 @@ export function DocumentsBalanceMockup() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cerca cliente, città o numero"
-            aria-label="Cerca cliente, città o numero di documento"
+            placeholder={customerView ? "Cerca fornitore o documento" : "Cerca cliente, città o numero"}
+            aria-label={customerView ? "Cerca fornitore o documento" : "Cerca cliente, città o numero di documento"}
             className="pl-9"
           />
           <Wallet className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -109,7 +109,7 @@ export function DocumentsBalanceMockup() {
           <TabsList>
             {FILTERS.map((f) => (
               <TabsTrigger key={f.value} value={f.value}>
-                {f.label}
+                {customerView && f.value === "da_incassare" ? "Da pagare" : f.label}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -118,7 +118,7 @@ export function DocumentsBalanceMockup() {
 
       {shown.length === 0 ? (
         <p className="rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
-          Nessun cliente con questi filtri.
+          {customerView ? "Nessun fornitore con questi filtri." : "Nessun cliente con questi filtri."}
         </p>
       ) : null}
 
@@ -126,6 +126,7 @@ export function DocumentsBalanceMockup() {
         <CustomerCard
           key={customer.id}
           customer={customer}
+          customerView={customerView}
           today={today}
           open={openId === customer.id}
           onToggle={() => setOpenId((cur) => (cur === customer.id ? null : customer.id))}
@@ -133,7 +134,7 @@ export function DocumentsBalanceMockup() {
         />
       ))}
 
-      <PaymentDialog
+      {!customerView && <PaymentDialog
         customer={paying}
         today={today}
         onClose={() => setPayingId(null)}
@@ -145,7 +146,7 @@ export function DocumentsBalanceMockup() {
           toast.success(`Incasso registrato su ${paying.name} (anteprima)`);
           setPayingId(null);
         }}
-      />
+      />}
     </div>
   );
 }
@@ -169,12 +170,14 @@ function SummaryTile({ label, value, tone, className }: { label: string; value: 
 
 function CustomerCard({
   customer,
+  customerView,
   today,
   open,
   onToggle,
   onPay,
 }: {
   customer: CustomerBalance;
+  customerView: boolean;
   today: Date;
   open: boolean;
   onToggle: () => void;
@@ -186,11 +189,12 @@ function CustomerCard({
   return (
     <Card>
       <CardContent className="p-3">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={onToggle}
           aria-expanded={open}
-          className="flex w-full items-center gap-3 text-left"
+          className="flex h-auto w-full items-center gap-3 whitespace-normal p-0 text-left hover:bg-transparent"
         >
           <ChevronDown
             className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")}
@@ -202,9 +206,9 @@ function CustomerCard({
           </span>
           <span className="shrink-0 text-right">
             <span className="block font-semibold tabular-nums">{euro.format(saldo)}</span>
-            <span className="block text-xs text-muted-foreground">da incassare</span>
+            <span className="block text-xs text-muted-foreground">{customerView ? "da pagare" : "da incassare"}</span>
           </span>
-        </button>
+        </Button>
 
         {scaduto > 0 ? (
           <div className="mt-2 flex items-center gap-2 rounded-md bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
@@ -221,9 +225,9 @@ function CustomerCard({
             {customer.documents.map((doc) => (
               <DocumentRow key={doc.id} doc={doc} today={today} />
             ))}
-            <Button type="button" size="sm" className="mt-2 w-full" onClick={onPay} disabled={saldo <= 0}>
+            {!customerView && <Button type="button" size="sm" className="mt-2 w-full" onClick={onPay} disabled={saldo <= 0}>
               Registra incasso
-            </Button>
+            </Button>}
           </div>
         ) : null}
       </CardContent>

@@ -1,12 +1,20 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { isPathAllowedForProfile } from "./navigation";
+import { isPathAllowedForProfile, NAV_ITEMS } from "./navigation";
 
 const soloCompra = { buys: true, sells: false };
 const soloVende = { buys: false, sells: true };
 const entrambi = { buys: true, sells: true };
 
 describe("pagine per profilo aziendale", () => {
+  test("documenti e saldo del cliente è accessibile a chi compra senza vendere", () => {
+    assert.equal(isPathAllowedForProfile("/acquisti/documenti-saldo", soloCompra), true);
+    const item = NAV_ITEMS.find((entry) => entry.key === "acquisti.documenti-saldo");
+    assert.ok(item);
+    assert.equal(item.capability, "buys");
+    assert.equal(item.dashboard, "acquisti");
+    assert.equal(item.to, "/acquisti/documenti-saldo");
+  });
   test("chi non vende non apre Vendite, Preparazione, Consegne e Danea", () => {
     for (const p of ["/vendite", "/vendite/clienti", "/vendite/ordini-clienti", "/vendite/prodotti", "/operativo", "/consegne", "/danea"]) {
       assert.equal(isPathAllowedForProfile(p, soloCompra), false);
