@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Store } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +38,11 @@ export type ConnectionRow = {
   partnerSideEnabled: boolean;
   lastActivity: string | null;
 };
+
+/** Solo dal lato di chi compra e con il collegamento attivo: il catalogo resta autorizzato dal database. */
+function canBrowseCatalog(row: ConnectionRow) {
+  return row.side === "acquirente" && row.relation.status === "attivo";
+}
 
 const statusTone: Record<ConnectionRow["statusTone"], string> = {
   attivo: "bg-success/15 text-success",
@@ -283,7 +289,12 @@ export function ConnectionsTable({ rows, canManage, onOpen, onToggleSide }: Prop
                   {formatDay(row.lastActivity)}
                 </TableCell>
                 <TableCell className="py-2.5 text-muted-foreground">
-                  <ChevronRight className="size-4" />
+                  {canBrowseCatalog(row) ? (
+                    <Button asChild size="sm" variant="outline" className="mr-2" onClick={(event) => event.stopPropagation()}>
+                      <Link to="/acquisti/catalogo/$sellerId" params={{ sellerId: row.relation.sellerCompanyId }}>Vedi i prodotti</Link>
+                    </Button>
+                  ) : null}
+                  <ChevronRight className="inline size-4" />
                 </TableCell>
               </TableRow>
             ))}
@@ -294,11 +305,11 @@ export function ConnectionsTable({ rows, canManage, onOpen, onToggleSide }: Prop
       {/* Smartphone: una card cliccabile per collegamento. */}
       <div className="space-y-2 md:hidden">
         {pageRows.map((row) => (
+          <div key={row.key} className="rounded-2xl border border-border bg-card shadow-sm">
           <button
-            key={row.key}
             type="button"
             onClick={() => onOpen(row)}
-            className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left shadow-sm"
+            className="flex w-full items-center gap-3 p-3 text-left"
           >
             <CompanyAvatar />
             <span className="min-w-0 flex-1">
@@ -312,6 +323,14 @@ export function ConnectionsTable({ rows, canManage, onOpen, onToggleSide }: Prop
             </span>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
           </button>
+          {canBrowseCatalog(row) ? (
+            <div className="px-3 pb-3">
+              <Button asChild className="h-11 w-full">
+                <Link to="/acquisti/catalogo/$sellerId" params={{ sellerId: row.relation.sellerCompanyId }}>Vedi i prodotti</Link>
+              </Button>
+            </div>
+          ) : null}
+          </div>
         ))}
       </div>
 
