@@ -16,6 +16,7 @@ import {
   Truck,
   UserRound,
   UsersRound,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,6 +37,7 @@ export type ModuleKey =
   | "vendite"
   | "vendite.ordini-clienti"
   | "vendite.clienti"
+  | "vendite.documenti-saldo"
   | "vendite.prodotti"
   | "vendite.preparazione"
   | "vendite.consegne"
@@ -78,6 +80,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "vendite", group: "vendite", to: "/vendite", label: "Vendite", short: "Vendite", description: "Clienti, prodotti, preparazione e consegne.", icon: ReceiptText, capability: "sells", menu: true, dashboard: "main" },
   { key: "vendite.ordini-clienti", group: "vendite", to: "/vendite/ordini-clienti", label: "Ordini clienti", short: "Ordini", description: "Ordini ricevuti dai clienti B2B, con prodotti e consegna richiesta.", icon: ShoppingCart, capability: "sells", menu: true, dashboard: "vendite" },
   { key: "vendite.clienti", group: "vendite", to: "/vendite/clienti", label: "Clienti", short: "Clienti", description: "Gestisci clienti, destinazioni e collegamenti.", icon: UsersRound, capability: "sells", menu: true, dashboard: "vendite" },
+  { key: "vendite.documenti-saldo", group: "vendite", to: "/vendite/documenti-saldo", label: "Documenti e saldo", short: "Saldo", description: "Documenti, saldi e incassi dei clienti.", icon: Wallet, capability: "sells", menu: true, dashboard: "vendite" },
   { key: "vendite.prodotti", group: "vendite", to: "/vendite/prodotti", label: "Prodotti", short: "Prodotti", description: "Consulta catalogo, listini e unità di vendita.", icon: Package, capability: "sells", menu: true, dashboard: "vendite" },
   { key: "vendite.preparazione", group: "vendite", to: "/operativo", label: "Preparazione", short: "Preparazione", description: "Area operativa di preparazione ordini.", icon: ClipboardList, capability: "sells", roles: ["amministratore", "operatore"], menu: true, dashboard: "vendite" },
   { key: "vendite.consegne", group: "vendite", to: "/consegne", label: "Consegne", short: "Consegne", description: "Consegne assegnate e relativi stati.", icon: Truck, capability: "sells", roles: ["amministratore", "trasportatore"], menu: true, dashboard: "vendite" },

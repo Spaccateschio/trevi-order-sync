@@ -50,6 +50,7 @@ import { Route as AuthenticatedAcquistiRicezioneRouteImport } from './routes/_au
 import { Route as AuthenticatedAcquistiProdottiRouteImport } from './routes/_authenticated/acquisti_.prodotti'
 import { Route as AuthenticatedImpostazioniNavigazioneRouteImport } from './routes/_authenticated/impostazioni_.navigazione'
 import { Route as AuthenticatedVenditeClientiRouteImport } from './routes/_authenticated/vendite_.clienti'
+import { Route as AuthenticatedVenditeDocumentiSaldoRouteImport } from './routes/_authenticated/vendite_.documenti-saldo'
 import { Route as AuthenticatedVenditeOrdiniClientiRouteImport } from './routes/_authenticated/vendite_.ordini-clienti'
 import { Route as AuthenticatedVenditeProdottiRouteImport } from './routes/_authenticated/vendite_.prodotti'
 import { Route as PiattaformaAziendeAziendaIdRouteImport } from './routes/piattaforma.aziende.$aziendaId'
@@ -284,6 +285,12 @@ const AuthenticatedVenditeClientiRoute =
     path: '/vendite/clienti',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedVenditeDocumentiSaldoRoute =
+  AuthenticatedVenditeDocumentiSaldoRouteImport.update({
+    id: '/vendite_/documenti-saldo',
+    path: '/vendite/documenti-saldo',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedVenditeOrdiniClientiRoute =
   AuthenticatedVenditeOrdiniClientiRouteImport.update({
     id: '/vendite_/ordini-clienti',
@@ -395,6 +402,7 @@ export interface FileRoutesByFullPath {
   '/acquisti/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/impostazioni/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
+  '/vendite/documenti-saldo': typeof AuthenticatedVenditeDocumentiSaldoRoute
   '/vendite/ordini-clienti': typeof AuthenticatedVenditeOrdiniClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/piattaforma/aziende/$aziendaId': typeof PiattaformaAziendeAziendaIdRoute
@@ -448,6 +456,7 @@ export interface FileRoutesByTo {
   '/acquisti/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/impostazioni/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/vendite/clienti': typeof AuthenticatedVenditeClientiRoute
+  '/vendite/documenti-saldo': typeof AuthenticatedVenditeDocumentiSaldoRoute
   '/vendite/ordini-clienti': typeof AuthenticatedVenditeOrdiniClientiRoute
   '/vendite/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/piattaforma/aziende/$aziendaId': typeof PiattaformaAziendeAziendaIdRoute
@@ -504,6 +513,7 @@ export interface FileRoutesById {
   '/_authenticated/acquisti_/prodotti': typeof AuthenticatedAcquistiProdottiRoute
   '/_authenticated/impostazioni_/navigazione': typeof AuthenticatedImpostazioniNavigazioneRoute
   '/_authenticated/vendite_/clienti': typeof AuthenticatedVenditeClientiRoute
+  '/_authenticated/vendite_/documenti-saldo': typeof AuthenticatedVenditeDocumentiSaldoRoute
   '/_authenticated/vendite_/ordini-clienti': typeof AuthenticatedVenditeOrdiniClientiRoute
   '/_authenticated/vendite_/prodotti': typeof AuthenticatedVenditeProdottiRoute
   '/piattaforma/aziende/$aziendaId': typeof PiattaformaAziendeAziendaIdRoute
@@ -560,6 +570,7 @@ export interface FileRouteTypes {
     | '/acquisti/prodotti'
     | '/impostazioni/navigazione'
     | '/vendite/clienti'
+    | '/vendite/documenti-saldo'
     | '/vendite/ordini-clienti'
     | '/vendite/prodotti'
     | '/piattaforma/aziende/$aziendaId'
@@ -613,6 +624,7 @@ export interface FileRouteTypes {
     | '/acquisti/prodotti'
     | '/impostazioni/navigazione'
     | '/vendite/clienti'
+    | '/vendite/documenti-saldo'
     | '/vendite/ordini-clienti'
     | '/vendite/prodotti'
     | '/piattaforma/aziende/$aziendaId'
@@ -668,6 +680,7 @@ export interface FileRouteTypes {
     | '/_authenticated/acquisti_/prodotti'
     | '/_authenticated/impostazioni_/navigazione'
     | '/_authenticated/vendite_/clienti'
+    | '/_authenticated/vendite_/documenti-saldo'
     | '/_authenticated/vendite_/ordini-clienti'
     | '/_authenticated/vendite_/prodotti'
     | '/piattaforma/aziende/$aziendaId'
@@ -987,6 +1000,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVenditeClientiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/vendite_/documenti-saldo': {
+      id: '/_authenticated/vendite_/documenti-saldo'
+      path: '/vendite/documenti-saldo'
+      fullPath: '/vendite/documenti-saldo'
+      preLoaderRoute: typeof AuthenticatedVenditeDocumentiSaldoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/vendite_/ordini-clienti': {
       id: '/_authenticated/vendite_/ordini-clienti'
       path: '/vendite/ordini-clienti'
@@ -1098,6 +1118,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAcquistiProdottiRoute: typeof AuthenticatedAcquistiProdottiRoute
   AuthenticatedImpostazioniNavigazioneRoute: typeof AuthenticatedImpostazioniNavigazioneRoute
   AuthenticatedVenditeClientiRoute: typeof AuthenticatedVenditeClientiRoute
+  AuthenticatedVenditeDocumentiSaldoRoute: typeof AuthenticatedVenditeDocumentiSaldoRoute
   AuthenticatedVenditeOrdiniClientiRoute: typeof AuthenticatedVenditeOrdiniClientiRoute
   AuthenticatedVenditeProdottiRoute: typeof AuthenticatedVenditeProdottiRoute
   AuthenticatedAcquistiIndexRoute: typeof AuthenticatedAcquistiIndexRoute
@@ -1137,6 +1158,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedImpostazioniNavigazioneRoute:
     AuthenticatedImpostazioniNavigazioneRoute,
   AuthenticatedVenditeClientiRoute: AuthenticatedVenditeClientiRoute,
+  AuthenticatedVenditeDocumentiSaldoRoute:
+    AuthenticatedVenditeDocumentiSaldoRoute,
   AuthenticatedVenditeOrdiniClientiRoute:
     AuthenticatedVenditeOrdiniClientiRoute,
   AuthenticatedVenditeProdottiRoute: AuthenticatedVenditeProdottiRoute,

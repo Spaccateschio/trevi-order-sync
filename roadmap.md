@@ -1,5 +1,10 @@
 # Roadmap
 
+## 28/11 — Anteprima Documenti e saldo clienti
+- [x] Mockup con dati finti: documenti del cliente (DDT e fatture con stato), saldo per cliente, registrazione incasso, avviso sui documenti scaduti.
+- [x] Voce nuova nel menu Vendite.
+- [ ] Collegamento ai dati reali solo dopo l'approvazione del mockup.
+
 ## 28/11 — Eccedenza DDT kg approvata
 - [x] Migrazione 0123 applicata, esito esplicito e validazione richiesta; nessun cambiamento a Danea, ponte Incassi o contestazioni.
 - [x] 93 test vitest superati; 12 casi SQL in rollback su ordini temporanei di 3 EMME: peso 1,55 kg, prezzo 3,50 €/kg, residuo zero, nessuna contestazione, idempotenza e rifiuti verificati. Checksum invariati, nessun dato temporaneo residuo. Schermata verificata a 1280/392 px con DDT simulato, nessuna conferma reale; build OK.
