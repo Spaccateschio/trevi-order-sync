@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { test, expect } from "vitest";
 import { mergeBalances } from "./customer-balance";
 
 test("nessuna risposta: saldo non disponibile", () => {
