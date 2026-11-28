@@ -260,7 +260,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
   if (current) {
     return (
       <div className="space-y-4">
-        <PurchaseOrderDetail key={`${current.order_id}-${receiveOnOpen ? "r" : "d"}`} order={current} companyId={companyId} locations={locations} initialReceiving={receiveOnOpen} />
+        <PurchaseOrderDetail key={`${current.order_id}-${receiveOnOpen ? "r" : "d"}`} order={current} companyId={companyId} locations={locations} initialReceiving={receiveOnOpen} onReceived={closeStep} />
       </div>
     );
   }

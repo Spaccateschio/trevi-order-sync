@@ -69,11 +69,13 @@ export function PurchaseOrderDetail({
   companyId,
   locations,
   initialReceiving = false,
+  onReceived,
 }: {
   order: OrderOverviewRow;
   companyId: string;
   locations: LocationRow[];
   initialReceiving?: boolean;
+  onReceived?: () => void;
 }) {
   const queryClient = useQueryClient();
   const runOrder = useServerFn(managePurchaseOrder);
@@ -286,7 +288,7 @@ export function PurchaseOrderDetail({
 
   if (receiving) {
     return <div className="space-y-4">
-      <ReceiveGoodsPanel key={receiving.deliveryId ?? 'new'} orderId={order.order_id} deliveryId={receiving.deliveryId} orderNumber={order.number} supplierName={order.supplier_name} onDone={() => { setReceiving(null); void refresh(); }} />
+      <ReceiveGoodsPanel key={receiving.deliveryId ?? 'new'} orderId={order.order_id} deliveryId={receiving.deliveryId} orderNumber={order.number} supplierName={order.supplier_name} onConfirmed={onReceived} onDone={() => { setReceiving(null); void refresh(); }} />
     </div>;
   }
 

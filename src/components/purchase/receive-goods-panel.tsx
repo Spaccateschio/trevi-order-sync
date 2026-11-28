@@ -19,7 +19,7 @@ import { chooseReceiveOutcome, chooseOkDraft, canConfirmReceipt, confirmUntouche
 /** Local draft until one atomic final confirmation. Supplier declarations remain read-only. */
 const itDate = (iso: string | null) => iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString('it-IT') : null;
 
-export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone, orderNumber = null, supplierName = null }: { orderId: string; deliveryId?: string | null; onDone: () => void; orderNumber?: string | null; supplierName?: string | null }) {
+export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone, onConfirmed, orderNumber = null, supplierName = null }: { orderId: string; deliveryId?: string | null; onDone: () => void; onConfirmed?: () => void; orderNumber?: string | null; supplierName?: string | null }) {
   const read = useServerFn(getReceivePurchaseOrder);
   const receive = useServerFn(receivePurchaseOrder);
   const cache = useQueryClient();
@@ -61,6 +61,7 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone, orderNum
     setDone(result.receipt_id);
     await Promise.all(['purchase-orders', 'purchase-orders-seen', 'order-items', 'order-deliveries', 'order-receipts', 'goods-receipt', 'goods-receipt-items', 'product-stock', 'product-lots', 'supplier-order-card-lines', 'inventory-stock', 'purchase-delivery-comparison'].map(queryKey => cache.invalidateQueries({ queryKey: [queryKey] })));
     toast.success('Carico confermato: provenienze e giacenza aggiornate');
+    onConfirmed?.();
   }, onError: (error: Error) => toast.error(error.message) });
   if (bundle.isPending) return <p className="text-sm text-muted-foreground">Caricamento ricezione…</p>;
   if (bundle.isError) return <div role="alert" className="space-y-2"><p className="text-sm text-destructive">{bundle.error.message}</p><Button variant="outline" onClick={() => bundle.refetch()}>Riprova</Button></div>;
