@@ -39,7 +39,14 @@ export function canReceiveExcess(line: ReceiveLine, hasDelivery = false): boolea
 }
 /** DDT proposals remain local until final confirmation. */
 const ddtQty = (line: ReceiveLine) => line.incassi && line.incassi.status !== 'da_controllare' && line.incassi.qty != null && (line.incassi.qty <= line.baseline || canReceiveExcess(line)) ? line.incassi.qty : null;
-export function initialReceiveDraft(line: ReceiveLine): ReceiveDraft {
+export function initialReceiveDraft(line: ReceiveLine, hasDelivery = false): ReceiveDraft {
+  const base = baseReceiveDraft(line);
+  if (!canReceiveExcess(line, hasDelivery)) return base;
+  const ddt = str(line.incassi?.qty ?? null);
+  // Excess rows open preset with DDT quantity and price; confirmation still happens only with «Conferma carico».
+  return { ...base, outcome: 'eccedenza', quantity: ddt, goodQuantity: ddt, unitCost: str(line.incassi?.price ?? null), priceUnitCode: 'kg', priceQuantity: ddt };
+}
+function baseReceiveDraft(line: ReceiveLine): ReceiveDraft {
   return {
     outcome: null, quantity: str(ddtQty(line) ?? line.baseline), goodQuantity: str(ddtQty(line) ?? line.baseline),
     stockQuantity: str(line.sameUnit ? line.baseline : line.verifiedStock ?? line.declaredStock),
@@ -53,22 +60,22 @@ export function initialReceiveDraft(line: ReceiveLine): ReceiveDraft {
 /** Leaving excess restores the original price basis, never the excess weight as an OK price quantity. */
 export function chooseReceiveOutcome(line: ReceiveLine, draft: ReceiveDraft, outcome: ReceiveOutcome): ReceiveDraft {
   if (draft.outcome !== 'eccedenza' || outcome === 'eccedenza') return { ...draft, outcome };
-  const initial = initialReceiveDraft(line);
+  const initial = baseReceiveDraft(line);
   return { ...draft, outcome, quantity: str(line.baseline), unitCost: initial.unitCost, priceUnitCode: initial.priceUnitCode, priceQuantity: initial.priceQuantity };
 }
 /** Bulk OK never replaces a row already checked, partially received, missing, or damaged. */
-export function confirmUntouched(lines: ReceiveLine[], drafts: Record<string, ReceiveDraft>): Record<string, ReceiveDraft> {
+export function confirmUntouched(lines: ReceiveLine[], drafts: Record<string, ReceiveDraft>, hasDelivery = false): Record<string, ReceiveDraft> {
   const next = { ...drafts };
   for (const line of lines) {
-    const draft = next[line.key] ?? initialReceiveDraft(line);
-    if (!draft.outcome) next[line.key] = { ...draft, outcome: 'ok' };
+    const draft = next[line.key] ?? initialReceiveDraft(line, hasDelivery);
+    next[line.key] = draft.outcome ? draft : { ...draft, outcome: 'ok' };
   }
   return next;
 }
-export function receiveSummary(lines: ReceiveLine[], drafts: Record<string, ReceiveDraft>) {
+export function receiveSummary(lines: ReceiveLine[], drafts: Record<string, ReceiveDraft>, hasDelivery = false) {
   const summary = { ok: 0, parziale: 0, mancante: 0, danneggiato: 0, eccedenza: 0, untouched: 0 };
   for (const line of lines) {
-    const outcome = drafts[line.key]?.outcome;
+    const outcome = (drafts[line.key] ?? initialReceiveDraft(line, hasDelivery)).outcome;
     if (outcome) summary[outcome]++; else summary.untouched++;
   }
   return summary;

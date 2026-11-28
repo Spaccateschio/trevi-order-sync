@@ -40,12 +40,13 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orde
   const frozenDeclaration = Boolean(delivery && delivery.status !== 'bozza');
   const supplierDeclared = frozenDeclaration && delivery?.origin !== 'operatore_interno';
   const supplierDraft = delivery?.status === 'bozza' && delivery.origin !== 'operatore_interno';
-  const summary = receiveSummary(lines, drafts);
+  const hasDelivery = Boolean(delivery);
+  const summary = receiveSummary(lines, drafts, hasDelivery);
   const change = (id: string, initial: ReceiveDraft, patch: Partial<ReceiveDraft>) => setDrafts(prev => ({ ...prev, [id]: { ...(prev[id] ?? initial), ...patch } }));
   const confirm = useMutation({ mutationFn: async () => {
     const b = bundle.data;
     if (!b) throw new Error('Attendi il caricamento dell’ordine');
-    const payload = lines.map(line => receivePayload(line, drafts[line.key] ?? initialReceiveDraft(line), frozenDeclaration));
+    const payload = lines.map(line => receivePayload(line, drafts[line.key] ?? initialReceiveDraft(line, hasDelivery), frozenDeclaration));
     if (!payload.some(p => p.verified_quantity > 0 || (p.substitute_quantity ?? 0) > 0)) throw new Error('Nessuna merce da caricare: indica almeno una quantità arrivata. Non è stato registrato nulla.');
     const requestKey = key ?? crypto.randomUUID(); setKey(requestKey);
     return receive({ data: { orderId, deliveryId: b.delivery?.id ?? null, deliveryVersion: b.delivery?.version ?? null, orderVersion: b.orderVersion, key: requestKey, lines: payload, notes: null } });
@@ -60,12 +61,12 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orde
   return <section className="space-y-4" aria-label="Ricezione merce">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h3 className="text-lg font-semibold">Registra arrivo merce</h3>
-      <Button variant="outline" disabled={confirm.isPending || supplierDraft || !lines.length} onClick={() => setDrafts(prev => confirmUntouched(lines, prev))}><CheckCheck className="mr-2 size-4" />Conferma tutte come arrivate</Button>
+      <Button variant="outline" disabled={confirm.isPending || supplierDraft || !lines.length} onClick={() => setDrafts(prev => confirmUntouched(lines, prev, hasDelivery))}><CheckCheck className="mr-2 size-4" />Conferma tutte come arrivate</Button>
     </div>
     {supplierDraft ? <p className="text-sm text-muted-foreground">Il fornitore sta ancora compilando la consegna. Attendi il suo dichiarato.</p> : null}
     {bundle.data?.incassiDocuments?.length ? <p className="text-sm text-muted-foreground">Merce dichiarata dal fornitore nel documento {bundle.data.incassiDocuments.map(d => `DDT ${d.docNumber ?? ''}`).join(', ')}: controlla e conferma riga per riga. Niente va in magazzino finché non premi «Conferma carico».</p> : null}
     {lines.map(line => {
-      const initial = initialReceiveDraft(line);
+      const initial = initialReceiveDraft(line, hasDelivery);
       const draft = drafts[line.key] ?? initial;
       const checked = draft.outcome;
       const details = openDetails[line.key] ?? false;
@@ -80,7 +81,7 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orde
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {OUTCOMES.map(([value, label]) => <Button key={value} size="sm" variant={checked === value ? 'default' : 'outline'} aria-pressed={checked === value} disabled={confirm.isPending || supplierDraft} onClick={() => change(line.key, initial, chooseReceiveOutcome(line, draft, value))}>{checked === value ? <Check className="mr-1 size-3.5" /> : null}{label}</Button>)}
-          {canReceiveExcess(line, Boolean(delivery)) ? <Button size="sm" variant={checked === 'eccedenza' ? 'default' : 'outline'} aria-pressed={checked === 'eccedenza'} disabled={confirm.isPending} onClick={() => change(line.key, initial, { outcome: 'eccedenza', quantity: String(line.incassi?.qty ?? ''), unitCost: String(line.incassi?.price ?? ''), priceUnitCode: 'kg', priceQuantity: String(line.incassi?.qty ?? '') })}>{checked === 'eccedenza' ? <Check className="mr-1 size-3.5" /> : null}Registra eccedenza ({qty(line.incassi?.qty ?? 0)} kg)</Button> : null}
+          {canReceiveExcess(line, hasDelivery) ? <Button size="sm" variant={checked === 'eccedenza' ? 'default' : 'outline'} aria-pressed={checked === 'eccedenza'} disabled={confirm.isPending} onClick={() => change(line.key, initial, initialReceiveDraft(line, hasDelivery))}>{checked === 'eccedenza' ? <Check className="mr-1 size-3.5" /> : null}Eccedenza ({qty(line.incassi?.qty ?? 0)} kg)</Button> : null}
           {!frozenDeclaration ? <span className="text-sm font-medium">{qty(line.baseline)} {line.unitCode}</span> : null}
         </div>
         <div className="mt-2 grid gap-3 sm:grid-cols-2">
@@ -99,7 +100,7 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orde
     })}
     {bundle.data?.incassiUnmatched?.length ? <div className="rounded-md border border-border p-3 text-sm"><p className="font-medium">Righe del documento non abbinate · da controllare</p><ul className="mt-1 space-y-1 text-muted-foreground">{bundle.data.incassiUnmatched.map((l, i) => <li key={i} className="break-words">{l.code ?? '—'} {l.description ?? ''} · {l.qty ?? '—'} {l.um ?? ''}{l.price != null ? ` · ${l.price.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}` : ''}</li>)}</ul></div> : null}
     {!lines.length ? <p className="text-sm text-muted-foreground">Nessun prodotto da ricevere.</p> : null}
-    {summary.eccedenza ? <ul className="space-y-1 text-sm text-destructive">{lines.filter(line => drafts[line.key]?.outcome === 'eccedenza').map(line => <li key={line.key}>{line.name}: ordinati {qty(line.ordered ?? line.baseline)} kg · da caricare {drafts[line.key]?.quantity} kg · DDT {line.incassi?.docNumber ?? '—'}</li>)}</ul> : null}
+    {summary.eccedenza ? <ul className="space-y-1 text-sm text-destructive">{lines.map(line => ({ line, d: drafts[line.key] ?? initialReceiveDraft(line, hasDelivery) })).filter(({ d }) => d.outcome === 'eccedenza').map(({ line, d }) => <li key={line.key}>{line.name}: ordinati {qty(line.ordered ?? line.baseline)} kg · da caricare {d.quantity} kg · DDT {line.incassi?.docNumber ?? '—'}</li>)}</ul> : null}
     <div className="sticky bottom-20 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background py-3 lg:bottom-2">
       <p className="text-sm">{summary.ok} OK · {summary.parziale} parziali · {summary.mancante} mancanti · {summary.danneggiato} danneggiati{summary.eccedenza ? ` · ${summary.eccedenza} eccedenze` : ''}{summary.untouched ? <span className="block text-xs text-muted-foreground">{summary.untouched} da verificare</span> : null}</p>
       <Button className="font-bold" disabled={confirm.isPending || supplierDraft || !lines.length || summary.untouched > 0} onClick={() => confirm.mutate()}><PackageCheck className="mr-2 size-4" />{confirm.isPending ? 'Conferma in corso…' : 'Conferma carico'}</Button>

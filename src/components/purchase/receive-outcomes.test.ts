@@ -72,14 +72,18 @@ describe('receiveLineColumns', () => {
 
 const excessLine: ReceiveLine = { ...line, ordered: 1, baseline: 1, incassi: { status: 'eccedenza', documentId: 'd1', docNumber: '42', qty: 1.55, unit: 'kg', price: 3.5, reason: null } };
 describe('eccedenza DDT kg', () => {
-  it('propone 1,55 kg senza esito né scrittura', () => { const d = initialReceiveDraft(excessLine); expect(d.quantity).toBe('1.55'); expect(d.outcome).toBeNull(); });
   it('eccedenza esplicita carica 1,55 kg con prezzo DDT e documento', () => {
     const p = receivePayload(excessLine, { ...initialReceiveDraft(excessLine), outcome: 'eccedenza', unitCost: '99' }, false);
     expect(p.quantity).toBe(1.55); expect(p.verified_quantity).toBe(1.55); expect(p.declared_stock_quantity).toBe(1.55);
     expect(p.unit_cost).toBe(3.5); expect(p.price_quantity).toBe(1.55); expect(p.price_unit_code).toBe('kg'); expect(p.excess_confirmed).toBe(true); expect(p.ddt_document_id).toBe('d1');
   });
   it('OK resta 1 kg esatto', () => { const p = receivePayload(excessLine, { ...initialReceiveDraft(excessLine), outcome: 'ok' }, false); expect(p.quantity).toBe(1); expect(p.excess_confirmed).toBe(false); });
-  it('conferma collettiva non accetta automaticamente l’eccedenza', () => { const d = confirmUntouched([excessLine], {})['a']; if (!d) throw Error('Bozza assente'); expect(receivePayload(excessLine, d, false).quantity).toBe(1); });
+  it('bozza iniziale preimpostata come eccedenza con qty e prezzo DDT', () => { const d = initialReceiveDraft(excessLine); expect(d.outcome).toBe('eccedenza'); expect(d.quantity).toBe('1.55'); expect(d.unitCost).toBe('3.5'); expect(d.priceUnitCode).toBe('kg'); expect(d.priceQuantity).toBe('1.55'); });
+  it('con consegna dichiarata la bozza non è preimpostata', () => expect(initialReceiveDraft(excessLine, true).outcome).toBeNull());
+  it('pz, unità diverse e righe non abbinate restano da verificare', () => { for (const l of [{ ...excessLine, unitCode: 'pz', stockUnitCode: 'pz' }, { ...excessLine, stockUnitCode: 'cs', sameUnit: false }, { ...excessLine, incassi: { ...excessLine.incassi!, status: 'da_controllare' as const } }]) expect(initialReceiveDraft(l).outcome).toBeNull(); });
+  it('conferma collettiva conserva l’eccedenza e mette OK alle altre', () => { const other = { ...line, key: 'b', incassi: null }; const r = confirmUntouched([excessLine, other], {}); expect(r['a']?.outcome).toBe('eccedenza'); expect(r['b']?.outcome).toBe('ok'); const p = receivePayload(excessLine, r['a']!, false); expect(p.quantity).toBe(1.55); });
+  it('riepilogo conta l’eccedenza senza click', () => expect(receiveSummary([excessLine], {})).toMatchObject({ eccedenza: 1, untouched: 0 }));
+  it('payload senza click include conferma e documento DDT', () => { const p = receivePayload(excessLine, initialReceiveDraft(excessLine), false); expect(p.excess_confirmed).toBe(true); expect(p.ddt_document_id).toBe('d1'); });
   it('pz non possono usare eccedenza', () => { const l = { ...excessLine, unitCode: 'pz', stockUnitCode: 'pz' }; expect(canReceiveExcess(l)).toBe(false); expect(() => receivePayload(l, { ...initialReceiveDraft(l), outcome: 'eccedenza', quantity: '2' }, false)).toThrow('eccedenza'); });
   it('unità diverse non possono usare eccedenza', () => expect(canReceiveExcess({ ...excessLine, stockUnitCode: 'cs', sameUnit: false })).toBe(false));
   it('dichiarazione fornitore resta invariata', () => { expect(canReceiveExcess(excessLine, true)).toBe(false); expect(canReceiveExcess({ ...excessLine, deliveryItemId: 'd' })).toBe(false); expect(() => receivePayload(excessLine, { ...initialReceiveDraft(excessLine), outcome: 'eccedenza' }, true)).toThrow('eccedenza'); });
