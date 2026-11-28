@@ -1,0 +1,1 @@
+- Mobile receiving shows one compact list + bottom sheet via pure helpers in receive-outcomes.ts (indicator, Richiesto/Preparato, canConfirmReceipt); amber «!» only for DDT «da controllare» rows and needs an explicit choice in the sheet; excess stays an internal outcome never named to the buyer. Order list DDT text comes from read-only getOrdersDdtSummary.

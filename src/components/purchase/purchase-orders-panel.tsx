@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, ChevronDown, LayoutGrid, MoreHorizontal, Rows3, Copy, FilePlus2, MoreVertical, MessageSquare, Pencil, Phone, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, LayoutGrid, MoreHorizontal, Rows3, Copy, FilePlus2, MoreVertical, MessageSquare, Pencil, Phone, Send, Trash2, Truck } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { ChangeRequestDialog, OrderEditDialog, OrderCancelDialog } from "./order-customer-actions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DirectPurchaseCard, DirectPurchaseOpener, useDirectPurchases, type OpenDirectPurchase } from "./direct-purchases-section";
 import { deliveryTimelineFacts } from "@/lib/incassi/incassi-link";
-import { ORDER_FILTER_LABELS, compareOrderStage, initialOrderFilter, isLateOrder, orderStageRank, compareDirectPurchases, showsDirectPurchases, matchesOrderListFilter, orderMainAction, orderTimeline, type OrderListFilter } from "./order-list-presentation";
+import { ORDER_FILTER_LABELS, compareOrderStage, initialOrderFilter, isLateOrder, orderStageRank, compareDirectPurchases, showsDirectPurchases, matchesOrderListFilter, orderMainAction, orderTimeline, showsReceiveButton, ddtArrivedLabel, type OrderListFilter } from "./order-list-presentation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -27,7 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { deliveryDateLabel, localToday, timeRangeLabel, useDeliveryPreferences } from "@/lib/delivery-preferences";
 import { qty, type LocationRow } from "@/lib/inventory";
 import { type OrderOverviewRow } from "@/lib/purchase";
-import { createPurchaseOrdersFromList } from "@/lib/purchase.functions";
+import { createPurchaseOrdersFromList, getOrdersDdtSummary } from "@/lib/purchase.functions";
 import { canReshareOrder } from "@/lib/b2b-order-sharing";
 import { B2bOrderShareDialog } from "./b2b-order-share-dialog";
 import { supplierToneStyle, useSupplierColors } from "@/components/suppliers/supplier-color";
@@ -160,6 +160,15 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
       }));
     },
   });
+  const readDdt = useServerFn(getOrdersDdtSummary);
+  const awaitingIds = (ordersQuery.data ?? []).filter((o) => showsReceiveButton(o)).map((o) => o.order_id).sort();
+  const ddtQuery = useQuery({
+    queryKey: ["purchase-orders-ddt", companyId, awaitingIds.join(",")],
+    enabled: awaitingIds.length > 0,
+    queryFn: () => readDdt({ data: { orderIds: awaitingIds } }),
+  });
+  const ddtMap = new Map<string, { docNumber: string | null; lineCount: number }>();
+  for (const d of ddtQuery.data ?? []) if (!ddtMap.has(d.orderId)) ddtMap.set(d.orderId, d);
   const seenMap = new Map<string, string | null>();
   const seenRelation = new Set<string>();
   // Bozze nate da una Lista annullata: non più inviabili, si mostrano tra gli annullati (nessun dato cambiato).
@@ -326,7 +335,11 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
           const stage = orderTimeline({ status: dead ? "annullato" : order.status, ...factsOf(order) });
           const late = isLateOrder(order, today, dead, stage);
           const toggle = () => setExpanded((cur) => { const next = new Set(cur); if (next.has(order.order_id)) next.delete(order.order_id); else next.add(order.order_id); return next; });
-          if (viewMode === "row" && !expanded.has(order.order_id)) return <button key={order.order_id} type="button" onClick={toggle} aria-expanded={false} className={`flex w-full min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left ${supplierColors.toneByName(order.supplier_name) ? "supplier-tint border-l-[6px] border-l-[var(--supplier-tone)]" : ""}`} style={supplierToneStyle(supplierColors.toneByName(order.supplier_name))}>
+          const ddtLabel = ddtArrivedLabel(ddtMap.get(order.order_id));
+          const receiveNow = showsReceiveButton(order, dead);
+          const openReceive = () => { setReceiveOnOpen(true); setSelected(order.order_id); };
+          const receiveButton = receiveNow ? <Button className="mt-2 h-12 w-full font-semibold" onClick={openReceive}><Truck className="mr-2 size-4" />{orderMainAction(order, dead)}</Button> : null;
+          if (viewMode === "row" && !expanded.has(order.order_id)) return <div key={order.order_id} className="min-w-0"><button type="button" onClick={toggle} aria-expanded={false} className={`flex w-full min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left ${supplierColors.toneByName(order.supplier_name) ? "supplier-tint border-l-[6px] border-l-[var(--supplier-tone)]" : ""}`} style={supplierToneStyle(supplierColors.toneByName(order.supplier_name))}>
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${stage.currentColor}`} aria-hidden="true" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold">{order.supplier_name}</span>
@@ -334,7 +347,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
               {late ? <span className="block text-xs font-semibold text-destructive">In ritardo</span> : null}
             </span>
             <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          </button>;
+          </button>{ddtLabel ? <p className="mt-1 px-1 text-xs font-medium">{ddtLabel}</p> : null}{receiveButton}</div>;
           return <article key={order.order_id} className={supplierColors.toneByName(order.supplier_name) ? "supplier-tint min-w-0 rounded-lg border border-border border-l-[6px] border-l-[var(--supplier-tone)] bg-card p-3" : "min-w-0 rounded-lg border border-border bg-card p-3"} style={supplierToneStyle(supplierColors.toneByName(order.supplier_name))}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -373,7 +386,8 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
             {request?.status === "in_attesa" ? <p className="mb-2 text-xs text-muted-foreground">Richiesta di modifica in attesa</p> : null}
             {request?.status === "rifiutata" ? <p className="mb-2 text-xs text-destructive">Richiesta rifiutata{request.decision_note ? `: ${request.decision_note}` : ""}</p> : null}
             {dead && seenQuery.data?.find(r => r.id === order.order_id)?.cancel_reason ? <p className="mb-2 text-xs text-destructive">Motivo: {seenQuery.data?.find(r => r.id === order.order_id)?.cancel_reason}</p> : null}
-            <Button size="sm" className="font-semibold" onClick={() => { setReceiveOnOpen(!dead && (order.status === 'inviato' || order.status === 'parzialmente_consegnato')); setSelected(order.order_id); }}>{orderMainAction(order, dead)}</Button>
+            {ddtLabel ? <p className="mb-1 text-xs font-medium">{ddtLabel}</p> : null}
+            {receiveButton ?? <Button size="sm" className="font-semibold" onClick={() => { setReceiveOnOpen(!dead && (order.status === 'inviato' || order.status === 'parzialmente_consegnato')); setSelected(order.order_id); }}>{orderMainAction(order, dead)}</Button>}
           </article>;
         })}
         {directRows.map(row => <DirectPurchaseCard key={row.id} row={row} onOpen={() => setOpenDirect({ id: row.id, listId: row.shopping_list_id, status: row.status })} />)}

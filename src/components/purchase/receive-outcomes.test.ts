@@ -103,3 +103,44 @@ describe('cambio esito dopo eccedenza', () => {
     expect(p.verified_quantity).toBe(1.2); expect(p.price_quantity).toBe(1.2); expect(p.unit_cost).toBe(3.5);
   });
 });
+
+import { receiveRowIndicator, requestedPreparedLabel, canConfirmReceipt, receiveCountsLabel, chooseOkDraft } from './receive-outcomes';
+describe('ricezione compatta (telefono)', () => {
+  const kg = { ...line, ordered: 1, baseline: 1, incassi: { documentId: 'd', status: 'eccedenza' as const, docNumber: '12', qty: 1.55, unit: 'kg', price: 2, reason: null } };
+  const dubbio = { ...line, key: 'x', incassi: { status: 'da_controllare' as const, docNumber: '12', qty: null, unit: null, price: null, reason: 'Unità diversa' } };
+  it('peso diverso in kg non è mai «!»: la riga preimpostata è a posto', () => {
+    expect(receiveRowIndicator(kg, initialReceiveDraft(kg))).toBe('ok');
+  });
+  it('«!» solo per le righe da controllare, finché non riviste', () => {
+    const d = { ...initialReceiveDraft(dubbio), outcome: 'ok' as const };
+    expect(receiveRowIndicator(dubbio, d)).toBe('da_controllare');
+    expect(receiveRowIndicator(dubbio, d, true)).toBe('ok');
+  });
+  it('Richiesto e Preparato con l’unità di ciascun lato', () => {
+    const pz = { ...line, ordered: 2, orderedUnitCode: 'pz', unitCode: 'pz', incassi: { documentId: 'd', status: 'differenza' as const, docNumber: '1', qty: 1.3, unit: 'kg', price: 3, reason: null } };
+    expect(requestedPreparedLabel(pz)).toBe('Richiesto 2 pz · Preparato 1,3 kg');
+  });
+  it('Segna OK tutte include le preimpostate e abilita Conferma carico senza righe «!»', () => {
+    const lines = [kg, { ...line, key: 'b' }];
+    const all = confirmUntouched(lines, {});
+    expect(all['a']?.outcome).toBe('eccedenza');
+    expect(all['b']?.outcome).toBe('ok');
+    expect(canConfirmReceipt(lines, all, {})).toBe(true);
+  });
+  it('Conferma carico resta disattivato con una riga «!» anche dopo Segna OK tutte', () => {
+    const lines = [line, dubbio];
+    const all = confirmUntouched(lines, {});
+    expect(canConfirmReceipt(lines, all, {})).toBe(false);
+    expect(canConfirmReceipt(lines, all, { x: true })).toBe(true);
+    expect(receiveCountsLabel(lines, all, {})).toBe('1 controllate · 1 da controllare. Tocca una riga per prezzo e dettagli.');
+  });
+  it('Conferma carico disattivato con righe senza esito o senza righe', () => {
+    expect(canConfirmReceipt([line], {}, {})).toBe(false);
+    expect(canConfirmReceipt([], {}, {})).toBe(false);
+  });
+  it('OK sulla riga kg col DDT mantiene la quantità del DDT', () => {
+    const back = chooseReceiveOutcome(kg, initialReceiveDraft(kg), 'parziale');
+    expect(chooseOkDraft(kg, back).quantity).toBe('1.55');
+    expect(chooseOkDraft(line, initialReceiveDraft(line)).outcome).toBe('ok');
+  });
+});

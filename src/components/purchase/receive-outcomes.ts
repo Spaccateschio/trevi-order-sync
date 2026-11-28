@@ -145,3 +145,59 @@ export function receiveLineColumns(line: ReceiveLine) {
   const price = line.unitCost == null ? null : `${line.unitCost.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}${line.priceUnitCode ? ` / ${line.priceUnitCode}` : ''}`;
   return { ordered, arrived, arrivedStock, price, ddt: ddt ?? null };
 }
+
+/* ---------- Compact mobile receiving: presentation only, never changes payload rules ---------- */
+export type ReceiveRowIndicator = 'ok' | 'da_controllare' | 'da_fare';
+/** «!» only for rows already «da controllare» (unit, unmatched, uncertain match); weight differences never alarm. */
+export function receiveRowNeedsReview(line: ReceiveLine): boolean {
+  return line.incassi?.status === 'da_controllare';
+}
+export function receiveRowIndicator(line: ReceiveLine, draft: ReceiveDraft, reviewed = false): ReceiveRowIndicator {
+  if (receiveRowNeedsReview(line) && !reviewed) return 'da_controllare';
+  return draft.outcome ? 'ok' : 'da_fare';
+}
+/** Prepared side: supplier declaration first, then the DDT line; each side keeps its own unit. */
+export function requestedPreparedLabel(line: ReceiveLine): string {
+  const requested = withUnit(line.ordered ?? line.baseline, line.orderedUnitCode ?? line.unitCode);
+  const ddt = line.incassi;
+  const prepared = line.declaredPurchase != null ? withUnit(line.declaredPurchase, line.unitCode)
+    : line.declaredStock != null ? withUnit(line.declaredStock, line.stockUnitCode)
+    : ddt && ddt.qty != null ? withUnit(ddt.qty, ddt.unit ?? line.unitCode) : '—';
+  return `Richiesto ${requested} · Preparato ${prepared}`;
+}
+/** The single «OK» keeps the internal DDT-capped outcome for eligible kg rows, without naming it. */
+export function chooseOkDraft(line: ReceiveLine, draft: ReceiveDraft, hasDelivery = false): ReceiveDraft {
+  return canReceiveExcess(line, hasDelivery) ? initialReceiveDraft(line, hasDelivery) : chooseReceiveOutcome(line, draft, 'ok');
+}
+export function isOkOutcome(outcome: ReceiveOutcome | null): boolean {
+  return outcome === 'ok' || outcome === 'eccedenza';
+}
+const draftOf = (line: ReceiveLine, drafts: Record<string, ReceiveDraft>, hasDelivery: boolean) => drafts[line.key] ?? initialReceiveDraft(line, hasDelivery);
+export function receiveCounts(lines: ReceiveLine[], drafts: Record<string, ReceiveDraft>, reviewed: Record<string, boolean>, hasDelivery = false) {
+  let checked = 0;
+  for (const line of lines) if (receiveRowIndicator(line, draftOf(line, drafts, hasDelivery), reviewed[line.key] ?? false) === 'ok') checked++;
+  return { checked, toCheck: lines.length - checked };
+}
+export function receiveCountsLabel(lines: ReceiveLine[], drafts: Record<string, ReceiveDraft>, reviewed: Record<string, boolean>, hasDelivery = false): string {
+  const c = receiveCounts(lines, drafts, reviewed, hasDelivery);
+  return `${c.checked} controllate · ${c.toCheck} da controllare. Tocca una riga per prezzo e dettagli.`;
+}
+/** Enabled only when every row has an outcome and no «!» is left; stock still moves only on click. */
+export function canConfirmReceipt(lines: ReceiveLine[], drafts: Record<string, ReceiveDraft>, reviewed: Record<string, boolean>, hasDelivery = false): boolean {
+  return lines.length > 0 && receiveCounts(lines, drafts, reviewed, hasDelivery).toCheck === 0;
+}
+/** Sheet boxes: DDT price with its unit and the amount only when units agree; nothing invented. */
+export function receiveSheetMoney(line: ReceiveLine, draft: ReceiveDraft): { price: string | null; amount: string | null } {
+  const eur = (v: number) => v.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
+  const ddt = line.incassi && line.incassi.status !== 'da_controllare' ? line.incassi : null;
+  const priceValue = ddt?.price ?? (draft.unitCost.trim() ? parseQuantity(draft.unitCost) : line.unitCost);
+  const priceUnit = ddt?.price != null ? ddt.unit ?? line.unitCode : draft.priceUnitCode || line.priceUnitCode;
+  if (priceValue == null) return { price: null, amount: null };
+  const quantity = ddt?.qty != null ? ddt.qty : line.declaredPurchase;
+  const quantityUnit = ddt?.qty != null ? ddt.unit ?? line.unitCode : line.unitCode;
+  const amount = quantity != null && priceUnit && quantityUnit && priceUnit.toLowerCase() === quantityUnit.toLowerCase() ? eur(Math.round(priceValue * quantity * 100) / 100) : null;
+  return { price: `${eur(priceValue)}${priceUnit ? ` / ${priceUnit}` : ''}`, amount };
+}
+export function isWeightLine(line: ReceiveLine): boolean {
+  return (line.incassi?.unit ?? line.unitCode)?.trim().toLowerCase() === 'kg';
+}

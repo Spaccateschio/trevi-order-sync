@@ -114,3 +114,12 @@ export function initialOrderFilter(orders: { o: OrderListFacts; cancelled: boole
   return orders.some(({ o, cancelled }) => matchesOrderListFilter(o, 'da_inviare', cancelled)) ? 'da_inviare' : 'in_arrivo';
 }
 export const ORDER_FILTER_LABELS: Record<OrderListFilter, string> = { da_inviare: 'Da inviare', in_arrivo: 'In arrivo', ricevuti: 'Ricevuti', tutti: 'Tutti', acquisti_diretti: 'Acquisti diretti' };
+/** Always-visible receive button only for orders awaiting goods. */
+export function showsReceiveButton(o: OrderListFacts, cancelled = false): boolean {
+  return !cancelled && o.status !== 'annullato' && isAwaitingGoods(o);
+}
+/** Never mentions excess or differences: number and line count only. */
+export function ddtArrivedLabel(doc: { docNumber: string | null; lineCount: number } | null | undefined): string | null {
+  if (!doc) return null;
+  return `DDT n. ${doc.docNumber?.trim() || '—'} arrivato · ${doc.lineCount} ${doc.lineCount === 1 ? 'riga' : 'righe'}`;
+}

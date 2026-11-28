@@ -1,25 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useServerFn } from '@tanstack/react-start';
-import { Check, CheckCheck, ChevronRight, PackageCheck } from 'lucide-react';
+import { Check, CheckCheck, ChevronDown, ChevronRight, PackageCheck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { getReceivePurchaseOrder, receivePurchaseOrder } from '@/lib/purchase.functions';
 import { DISPUTE_REASON_LABEL, type DisputeReason } from '@/lib/purchase';
 import { qty } from '@/lib/inventory';
-import { OUTCOMES, chooseReceiveOutcome, canReceiveExcess, confirmUntouched, initialReceiveDraft, receivePayload, receiveSummary, receiveLineColumns, type ReceiveDraft } from './receive-outcomes';
+import { chooseReceiveOutcome, chooseOkDraft, canConfirmReceipt, confirmUntouched, initialReceiveDraft, isOkOutcome, isWeightLine, receiveCountsLabel, receivePayload, receiveRowIndicator, receiveSheetMoney, requestedPreparedLabel, type ReceiveDraft, type ReceiveLine, type ReceiveOutcome } from './receive-outcomes';
 
 /** Local draft until one atomic final confirmation. Supplier declarations remain read-only. */
-export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orderId: string; deliveryId?: string | null; onDone: () => void }) {
+const itDate = (iso: string | null) => iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString('it-IT') : null;
+
+export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone, orderNumber = null, supplierName = null }: { orderId: string; deliveryId?: string | null; onDone: () => void; orderNumber?: string | null; supplierName?: string | null }) {
   const read = useServerFn(getReceivePurchaseOrder);
   const receive = useServerFn(receivePurchaseOrder);
   const cache = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, ReceiveDraft>>({});
   const [openDetails, setOpenDetails] = useState<Record<string, boolean>>({});
+  const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const [key, setKey] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const bundle = useQuery({ queryKey: ['receive-purchase-order', orderId, deliveryId], queryFn: () => read({ data: { orderId, deliveryId } }), staleTime: 0, refetchOnWindowFocus: false });
@@ -41,7 +47,6 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orde
   const supplierDeclared = frozenDeclaration && delivery?.origin !== 'operatore_interno';
   const supplierDraft = delivery?.status === 'bozza' && delivery.origin !== 'operatore_interno';
   const hasDelivery = Boolean(delivery);
-  const summary = receiveSummary(lines, drafts, hasDelivery);
   const change = (id: string, initial: ReceiveDraft, patch: Partial<ReceiveDraft>) => setDrafts(prev => ({ ...prev, [id]: { ...(prev[id] ?? initial), ...patch } }));
   const confirm = useMutation({ mutationFn: async () => {
     const b = bundle.data;
@@ -58,52 +63,98 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone }: { orde
   if (bundle.isPending) return <p className="text-sm text-muted-foreground">Caricamento ricezione…</p>;
   if (bundle.isError) return <div role="alert" className="space-y-2"><p className="text-sm text-destructive">{bundle.error.message}</p><Button variant="outline" onClick={() => bundle.refetch()}>Riprova</Button></div>;
   if (done) return <section className="space-y-3"><p className="flex items-center gap-2 font-semibold"><PackageCheck className="size-5 text-success" />Carico confermato</p><Button onClick={onDone}>Visualizza ordine aggiornato</Button></section>;
-  return <section className="space-y-4" aria-label="Ricezione merce">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <h3 className="text-lg font-semibold">Registra arrivo merce</h3>
-      <Button variant="outline" disabled={confirm.isPending || supplierDraft || !lines.length} onClick={() => setDrafts(prev => confirmUntouched(lines, prev, hasDelivery))}><CheckCheck className="mr-2 size-4" />Conferma tutte come arrivate</Button>
-    </div>
+  const doc = bundle.data?.incassiDocuments?.find(d => d.consegnaStato !== 'non_consegnato') ?? bundle.data?.incassiDocuments?.[0] ?? null;
+  const docTitle = doc ? `DDT n. ${doc.docNumber?.trim() || '—'}${doc.docDate ? ` del ${itDate(doc.docDate)}` : ''}` : null;
+  const subtitle = [orderNumber, supplierName].filter(Boolean).join(' · ');
+  const unmatched = bundle.data?.incassiUnmatched ?? [];
+  const extraLines = lines.filter(l => l.lineType === 'aggiunta_fornitore');
+  const mainLines = lines.filter(l => l.lineType !== 'aggiunta_fornitore');
+  const draftFor = (line: ReceiveLine) => drafts[line.key] ?? initialReceiveDraft(line, hasDelivery);
+  const canConfirm = canConfirmReceipt(lines, drafts, reviewed, hasDelivery);
+  const open = lines.find(l => l.key === openKey) ?? null;
+  const pick = (line: ReceiveLine, outcome: ReceiveOutcome) => {
+    const initial = initialReceiveDraft(line, hasDelivery);
+    const current = draftFor(line);
+    const next = outcome === 'ok' ? chooseOkDraft(line, current, hasDelivery) : chooseReceiveOutcome(line, current, outcome);
+    setDrafts(prev => ({ ...prev, [line.key]: { ...(prev[line.key] ?? initial), ...next } }));
+    setReviewed(prev => ({ ...prev, [line.key]: true }));
+  };
+  const row = (line: ReceiveLine) => {
+    const indicator = receiveRowIndicator(line, draftFor(line), reviewed[line.key] ?? false);
+    return <li key={line.key}><button type="button" onClick={() => setOpenKey(line.key)} className="grid min-h-14 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-left" aria-label={`${line.name}: ${indicator === 'ok' ? 'a posto' : 'da controllare'}`}>
+      {indicator === 'ok' ? <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground" aria-hidden="true"><Check className="size-4" /></span>
+        : indicator === 'da_controllare' ? <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-warning font-bold text-warning-foreground" aria-hidden="true">!</span>
+        : <span className="size-7 shrink-0 rounded-full border-2 border-border" aria-hidden="true" />}
+      <span className="min-w-0"><span className="block break-words font-semibold">{line.name}</span><span className="block text-xs text-muted-foreground">{requestedPreparedLabel(line)}</span></span>
+      <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+    </button></li>;
+  };
+  return <section className="space-y-4 pb-4" aria-label="Ricezione merce">
+    <header className="rounded-lg border border-border bg-card p-3">
+      <p className="text-xs font-medium uppercase text-muted-foreground">Registra arrivo merce</p>
+      <h3 className="break-words text-lg font-bold">{docTitle ?? (orderNumber || 'Ordine')}</h3>
+      {docTitle && subtitle ? <p className="break-words text-xs text-muted-foreground">{subtitle}</p> : !docTitle && supplierName ? <p className="break-words text-xs text-muted-foreground">{supplierName}</p> : null}
+    </header>
     {supplierDraft ? <p className="text-sm text-muted-foreground">Il fornitore sta ancora compilando la consegna. Attendi il suo dichiarato.</p> : null}
-    {bundle.data?.incassiDocuments?.length ? <p className="text-sm text-muted-foreground">Merce dichiarata dal fornitore nel documento {bundle.data.incassiDocuments.map(d => `DDT ${d.docNumber ?? ''}`).join(', ')}: controlla e conferma riga per riga. Niente va in magazzino finché non premi «Conferma carico».</p> : null}
-    {lines.map(line => {
-      const initial = initialReceiveDraft(line, hasDelivery);
-      const draft = drafts[line.key] ?? initial;
-      const checked = draft.outcome;
-      const details = openDetails[line.key] ?? false;
-      const cols = receiveLineColumns(line);
-      const replacement = products.data?.find(p => p.id === draft.substituteProductId);
-      return <article key={line.key} className="min-w-0 border-b border-border pb-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0"><p className="text-xs text-muted-foreground">{line.code}</p><h4 className="break-words font-semibold">{line.name}</h4>{line.lineType === 'sostituzione' ? <Badge variant="outline">Sostituzione</Badge> : line.lineType === 'aggiunta_fornitore' ? <Badge variant="outline">Aggiunto dal fornitore</Badge> : null}</div>
-          <div className="grid w-full grid-cols-3 gap-3 text-sm sm:w-auto sm:gap-6"><div className="min-w-0"><span className="block text-xs text-muted-foreground">Ordinato</span><strong className="break-words">{cols.ordered}</strong>{!frozenDeclaration && line.ordered !== line.baseline ? <span className="block text-xs">Da ricevere: {qty(line.baseline)} {line.unitCode}</span> : null}</div>
-          <div className="min-w-0"><span className="block text-xs text-muted-foreground">{supplierDeclared ? 'Arrivato (fornitore)' : cols.ddt ? `Arrivato (DDT ${cols.ddt.docNumber ?? ''})` : 'Arrivato'}</span>{cols.arrived ? <strong className={`break-words ${(cols.ddt?.status === 'differenza' || cols.ddt?.status === 'eccedenza') ? 'text-destructive' : ''}`}>{cols.arrived}</strong> : <span className="text-xs text-muted-foreground">{cols.ddt ? 'Da controllare' : 'In attesa del documento'}</span>}{cols.ddt && cols.ddt.status !== 'abbinata' ? <span className={`block text-xs ${(cols.ddt.status === 'differenza' || cols.ddt.status === 'eccedenza') ? 'text-destructive' : 'text-muted-foreground'}`}>{(cols.ddt.status === 'differenza' || cols.ddt.status === 'eccedenza') ? `Ordinati ${cols.ordered} · sul documento ${cols.arrived}` : `Da controllare: ${cols.ddt.reason ?? ''}`}</span> : null}{cols.arrivedStock ? <span className="block text-xs text-muted-foreground">= {cols.arrivedStock}</span> : null}{line.lot ? <span className="block text-xs text-muted-foreground">Lotto {line.lot}</span> : null}</div>
-          {cols.price ? <div className="min-w-0"><span className="block text-xs text-muted-foreground">Prezzo</span><strong className="break-words">{cols.price}</strong></div> : <div />}</div>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {OUTCOMES.map(([value, label]) => <Button key={value} size="sm" variant={checked === value ? 'default' : 'outline'} aria-pressed={checked === value} disabled={confirm.isPending || supplierDraft} onClick={() => change(line.key, initial, chooseReceiveOutcome(line, draft, value))}>{checked === value ? <Check className="mr-1 size-3.5" /> : null}{label}</Button>)}
-          {canReceiveExcess(line, hasDelivery) ? <Button size="sm" variant={checked === 'eccedenza' ? 'default' : 'outline'} aria-pressed={checked === 'eccedenza'} disabled={confirm.isPending} onClick={() => change(line.key, initial, initialReceiveDraft(line, hasDelivery))}>{checked === 'eccedenza' ? <Check className="mr-1 size-3.5" /> : null}Eccedenza ({qty(line.incassi?.qty ?? 0)} kg)</Button> : null}
-          {!frozenDeclaration ? <span className="text-sm font-medium">{qty(line.baseline)} {line.unitCode}</span> : null}
-        </div>
-        <div className="mt-2 grid gap-3 sm:grid-cols-2">
-          {checked === 'parziale' || checked === 'danneggiato' || checked === 'eccedenza' ? <label className="text-xs text-muted-foreground">Quantità arrivata ({line.unitCode})<Input className="mt-1" inputMode="decimal" value={draft.quantity} disabled={confirm.isPending} onChange={e => change(line.key, initial, { quantity: e.target.value })} /></label> : null}
-          {checked === 'danneggiato' ? <><label className="text-xs text-muted-foreground">Quantità buona ({line.unitCode})<Input className="mt-1" inputMode="decimal" value={draft.goodQuantity} disabled={confirm.isPending} onChange={e => change(line.key, initial, { goodQuantity: e.target.value })} /></label><label className="text-xs text-muted-foreground">Motivo<Select value={draft.reason} onValueChange={value => change(line.key, initial, { reason: value as DisputeReason })} disabled={confirm.isPending}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(DISPUTE_REASON_LABEL).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></label></> : null}
-          {checked === 'mancante' ? <label className="text-xs text-muted-foreground">Motivo della mancanza<Input className="mt-1" value={draft.missingReason} disabled={confirm.isPending} onChange={e => change(line.key, initial, { missingReason: e.target.value })} /></label> : null}
-          {!line.sameUnit && checked && checked !== 'mancante' ? <><label className="text-xs text-muted-foreground">Quantità effettiva arrivata ({line.stockUnitCode ?? 'U.M. magazzino'})<Input className="mt-1" inputMode="decimal" value={draft.stockQuantity} disabled={confirm.isPending} onChange={e => change(line.key, initial, { stockQuantity: e.target.value })} /></label>{checked === 'danneggiato' ? <label className="text-xs text-muted-foreground">Quantità buona ({line.stockUnitCode ?? 'U.M. magazzino'})<Input className="mt-1" inputMode="decimal" value={draft.goodStockQuantity} disabled={confirm.isPending} onChange={e => change(line.key, initial, { goodStockQuantity: e.target.value })} /></label> : null}</> : null}
-        </div>
-        <Button variant="ghost" size="sm" className="mt-2" aria-expanded={details} onClick={() => setOpenDetails(prev => ({ ...prev, [line.key]: !details }))}><ChevronRight className={`mr-1 size-4 transition-transform ${details ? 'rotate-90' : ''}`} />Dettagli riga</Button>
-        {details ? <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {([['producer', 'Produttore'], ['lot', 'Lotto'], ['expiry', 'Scadenza'], ['unitCost', 'Prezzo'], ['priceUnitCode', 'U.M. del prezzo'], ['priceQuantity', 'Quantità del prezzo']] as const).map(([field, label]) => <label key={field} className="text-xs text-muted-foreground">{label}<Input className="mt-1" type={field === 'expiry' ? 'date' : 'text'} inputMode={field === 'unitCost' || field === 'priceQuantity' ? 'decimal' : 'text'} value={checked === 'eccedenza' && field === 'priceQuantity' ? draft.quantity : draft[field]} disabled={confirm.isPending || (checked === 'eccedenza' && (field === 'unitCost' || field === 'priceUnitCode' || field === 'priceQuantity'))} list={field === 'priceUnitCode' ? `receive-price-units-${line.key}` : undefined} onChange={e => change(line.key, initial, { [field]: e.target.value })} /></label>)}
-          <datalist id={`receive-price-units-${line.key}`}>{(units.data ?? []).map(unit => <option key={unit.id} value={unit.code} />)}</datalist>
-          {!frozenDeclaration && checked === 'mancante' ? <><label className="text-xs text-muted-foreground">Prodotto sostitutivo<Select value={draft.substituteProductId || 'none'} disabled={confirm.isPending} onValueChange={value => change(line.key, initial, { substituteProductId: value === 'none' ? '' : value })}><SelectTrigger className="mt-1"><SelectValue placeholder="Nessuno" /></SelectTrigger><SelectContent><SelectItem value="none">Nessuno</SelectItem>{(products.data ?? []).filter(p => p.stock_unit_id && p.id !== line.productId).map(p => <SelectItem key={p.id} value={p.id}>{p.code} · {p.description}</SelectItem>)}</SelectContent></Select></label>{draft.substituteProductId ? <label className="text-xs text-muted-foreground">Quantità sostitutiva ({replacement?.units_of_measure?.code ?? 'U.M. magazzino'})<Input className="mt-1" inputMode="decimal" value={draft.substituteQuantity} disabled={confirm.isPending} onChange={e => change(line.key, initial, { substituteQuantity: e.target.value })} /></label> : null}</> : null}
-        </div> : null}
-      </article>;
-    })}
-    {bundle.data?.incassiUnmatched?.length ? <div className="rounded-md border border-border p-3 text-sm"><p className="font-medium">Righe del documento non abbinate · da controllare</p><ul className="mt-1 space-y-1 text-muted-foreground">{bundle.data.incassiUnmatched.map((l, i) => <li key={i} className="break-words">{l.code ?? '—'} {l.description ?? ''} · {l.qty ?? '—'} {l.um ?? ''}{l.price != null ? ` · ${l.price.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}` : ''}</li>)}</ul></div> : null}
+    <Button className="h-12 w-full font-semibold" disabled={confirm.isPending || supplierDraft || !lines.length} onClick={() => setDrafts(prev => confirmUntouched(lines, prev, hasDelivery))}><CheckCheck className="mr-2 size-4" />Segna OK tutte le righe</Button>
+    {mainLines.length ? <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">{mainLines.map(row)}</ul> : null}
     {!lines.length ? <p className="text-sm text-muted-foreground">Nessun prodotto da ricevere.</p> : null}
-    {summary.eccedenza ? <ul className="space-y-1 text-sm text-destructive">{lines.map(line => ({ line, d: drafts[line.key] ?? initialReceiveDraft(line, hasDelivery) })).filter(({ d }) => d.outcome === 'eccedenza').map(({ line, d }) => <li key={line.key}>{line.name}: ordinati {qty(line.ordered ?? line.baseline)} kg · da caricare {d.quantity} kg · DDT {line.incassi?.docNumber ?? '—'}</li>)}</ul> : null}
-    <div className="sticky bottom-20 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background py-3 lg:bottom-2">
-      <p className="text-sm">{summary.ok} OK · {summary.parziale} parziali · {summary.mancante} mancanti · {summary.danneggiato} danneggiati{summary.eccedenza ? ` · ${summary.eccedenza} eccedenze` : ''}{summary.untouched ? <span className="block text-xs text-muted-foreground">{summary.untouched} da verificare</span> : null}</p>
-      <Button className="font-bold" disabled={confirm.isPending || supplierDraft || !lines.length || summary.untouched > 0} onClick={() => confirm.mutate()}><PackageCheck className="mr-2 size-4" />{confirm.isPending ? 'Conferma in corso…' : 'Conferma carico'}</Button>
+    {unmatched.length || extraLines.length ? <Collapsible className="rounded-lg border border-border bg-card">
+      <CollapsibleTrigger className="group flex min-h-12 w-full items-center justify-between gap-2 px-3 text-left text-sm font-medium">Altre righe del documento ({unmatched.length + extraLines.length})<ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" aria-hidden="true" /></CollapsibleTrigger>
+      <CollapsibleContent>
+        {extraLines.length ? <><p className="px-3 pt-1 text-xs font-medium text-muted-foreground">Merce in più</p><ul className="divide-y divide-border">{extraLines.map(row)}</ul></> : null}
+        {unmatched.length ? <><p className="px-3 pt-2 text-xs font-medium text-muted-foreground">Righe non abbinate all’ordine</p><ul className="space-y-1 px-3 pb-3 text-sm text-muted-foreground">{unmatched.map((l, i) => <li key={i} className="break-words">{l.code ?? '—'} {l.description ?? ''} · {l.qty ?? '—'} {l.um ?? ''}</li>)}</ul></> : null}
+      </CollapsibleContent>
+    </Collapsible> : null}
+    <div className="sticky bottom-20 z-10 space-y-2 border-t border-border bg-background py-3 lg:bottom-2">
+      <p className="text-sm">{receiveCountsLabel(lines, drafts, reviewed, hasDelivery)}</p>
+      <Button className="h-12 w-full font-bold" disabled={confirm.isPending || supplierDraft || !canConfirm} onClick={() => confirm.mutate()}><PackageCheck className="mr-2 size-4" />{confirm.isPending ? 'Conferma in corso…' : 'Conferma carico'}</Button>
     </div>
+    <Sheet open={Boolean(open)} onOpenChange={value => { if (!value) setOpenKey(null); }}>
+      <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-xl">
+        {open ? (() => {
+          const line = open;
+          const initial = initialReceiveDraft(line, hasDelivery);
+          const draft = draftFor(line);
+          const checked = draft.outcome;
+          const money = receiveSheetMoney(line, draft);
+          const details = openDetails[line.key] ?? false;
+          const replacement = products.data?.find(p => p.id === draft.substituteProductId);
+          const [requested, prepared] = requestedPreparedLabel(line).replace('Richiesto ', '').split(' · Preparato ');
+          const set = (patch: Partial<ReceiveDraft>) => change(line.key, initial, patch);
+          return <div className="space-y-4">
+            <SheetHeader className="text-left">
+              <SheetDescription>{line.code}{docTitle ? ` · ${docTitle}` : ''}</SheetDescription>
+              <SheetTitle className="break-words">{line.name}</SheetTitle>
+            </SheetHeader>
+            <dl className="grid grid-cols-2 gap-2 text-sm">
+              {([['Richiesto', requested], ['Preparato', prepared], ['Prezzo', money.price ?? '—'], ['Importo', money.amount ?? '—']] as const).map(([label, value]) => <div key={label} className="min-w-0 rounded-md border border-border bg-muted/40 p-2"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="break-words font-semibold">{value}</dd></div>)}
+            </dl>
+            {isWeightLine(line) ? <p className="text-xs text-muted-foreground">Prodotto a peso: la quantità è quella pesata alla preparazione</p> : null}
+            {line.incassi?.status === 'da_controllare' && line.incassi.reason ? <p className="text-xs text-muted-foreground">Da controllare: {line.incassi.reason}</p> : null}
+            <div className="grid grid-cols-3 gap-2">
+              {([['ok', 'OK'], ['parziale', 'Parziale'], ['mancante', 'Mancante']] as const).map(([value, label]) => {
+                const active = value === 'ok' ? isOkOutcome(checked) : checked === value;
+                return <Button key={value} className="h-12" variant={active ? 'default' : 'outline'} aria-pressed={active} disabled={confirm.isPending || supplierDraft} onClick={() => pick(line, value)}>{active ? <Check className="mr-1 size-4" /> : null}{label}</Button>;
+              })}
+            </div>
+            <Button variant="link" className="h-11 px-0" aria-pressed={checked === 'danneggiato'} disabled={confirm.isPending || supplierDraft} onClick={() => pick(line, 'danneggiato')}>Altro: contesta</Button>
+            <div className="grid gap-3">
+              {checked === 'parziale' || checked === 'danneggiato' ? <label className="text-xs text-muted-foreground">Quantità arrivata ({line.unitCode})<Input className="mt-1 h-11" inputMode="decimal" value={draft.quantity} disabled={confirm.isPending} onChange={e => set({ quantity: e.target.value })} /></label> : null}
+              {checked === 'danneggiato' ? <><label className="text-xs text-muted-foreground">Quantità buona ({line.unitCode})<Input className="mt-1 h-11" inputMode="decimal" value={draft.goodQuantity} disabled={confirm.isPending} onChange={e => set({ goodQuantity: e.target.value })} /></label><label className="text-xs text-muted-foreground">Motivo<Select value={draft.reason} onValueChange={value => set({ reason: value as DisputeReason })} disabled={confirm.isPending}><SelectTrigger className="mt-1 h-11"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(DISPUTE_REASON_LABEL).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></label></> : null}
+              {checked === 'mancante' ? <label className="text-xs text-muted-foreground">Motivo della mancanza<Input className="mt-1 h-11" value={draft.missingReason} disabled={confirm.isPending} onChange={e => set({ missingReason: e.target.value })} /></label> : null}
+              {!line.sameUnit && checked && checked !== 'mancante' ? <><label className="text-xs text-muted-foreground">Quantità effettiva arrivata ({line.stockUnitCode ?? 'U.M. magazzino'})<Input className="mt-1 h-11" inputMode="decimal" value={draft.stockQuantity} disabled={confirm.isPending} onChange={e => set({ stockQuantity: e.target.value })} /></label>{checked === 'danneggiato' ? <label className="text-xs text-muted-foreground">Quantità buona ({line.stockUnitCode ?? 'U.M. magazzino'})<Input className="mt-1 h-11" inputMode="decimal" value={draft.goodStockQuantity} disabled={confirm.isPending} onChange={e => set({ goodStockQuantity: e.target.value })} /></label> : null}</> : null}
+            </div>
+            <Button variant="ghost" className="h-11" aria-expanded={details} onClick={() => setOpenDetails(prev => ({ ...prev, [line.key]: !details }))}><ChevronRight className={`mr-1 size-4 transition-transform ${details ? 'rotate-90' : ''}`} />Dettagli riga</Button>
+            {details ? <div className="grid gap-3">
+              {([['producer', 'Produttore'], ['lot', 'Lotto'], ['expiry', 'Scadenza'], ['unitCost', 'Prezzo'], ['priceUnitCode', 'U.M. del prezzo'], ['priceQuantity', 'Quantità del prezzo']] as const).map(([field, label]) => <label key={field} className="text-xs text-muted-foreground">{label}<Input className="mt-1 h-11" type={field === 'expiry' ? 'date' : 'text'} inputMode={field === 'unitCost' || field === 'priceQuantity' ? 'decimal' : 'text'} value={checked === 'eccedenza' && field === 'priceQuantity' ? draft.quantity : draft[field]} disabled={confirm.isPending || (checked === 'eccedenza' && (field === 'unitCost' || field === 'priceUnitCode' || field === 'priceQuantity'))} list={field === 'priceUnitCode' ? `receive-price-units-${line.key}` : undefined} onChange={e => set({ [field]: e.target.value })} /></label>)}
+              <datalist id={`receive-price-units-${line.key}`}>{(units.data ?? []).map(unit => <option key={unit.id} value={unit.code} />)}</datalist>
+              {!frozenDeclaration && checked === 'mancante' ? <><label className="text-xs text-muted-foreground">Prodotto sostitutivo<Select value={draft.substituteProductId || 'none'} disabled={confirm.isPending} onValueChange={value => set({ substituteProductId: value === 'none' ? '' : value })}><SelectTrigger className="mt-1 h-11"><SelectValue placeholder="Nessuno" /></SelectTrigger><SelectContent><SelectItem value="none">Nessuno</SelectItem>{(products.data ?? []).filter(p => p.stock_unit_id && p.id !== line.productId).map(p => <SelectItem key={p.id} value={p.id}>{p.code} · {p.description}</SelectItem>)}</SelectContent></Select></label>{draft.substituteProductId ? <label className="text-xs text-muted-foreground">Quantità sostitutiva ({replacement?.units_of_measure?.code ?? 'U.M. magazzino'})<Input className="mt-1 h-11" inputMode="decimal" value={draft.substituteQuantity} disabled={confirm.isPending} onChange={e => set({ substituteQuantity: e.target.value })} /></label> : null}</> : null}
+            </div> : null}
+            <Button className="h-12 w-full" variant="secondary" onClick={() => setOpenKey(null)}>Fatto</Button>
+          </div>;
+        })() : null}
+      </SheetContent>
+    </Sheet>
   </section>;
 }

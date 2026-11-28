@@ -590,3 +590,23 @@ export const revokeOrderShareLink = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/** Read-only DDT summary for the buyer's order list: number, date and line count only. */
+export const getOrdersDdtSummary = createServerFn({ method: 'POST' })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ orderIds: z.array(uuid).max(300) }).parse(input))
+  .handler(async ({ data, context }): Promise<{ orderId: string; docNumber: string | null; docDate: string | null; lineCount: number }[]> => {
+    if (!data.orderIds.length) return [];
+    // Visibility decided by the caller's session (RLS); only those orders are looked up.
+    const { data: orders, error } = await context.supabase.from('purchase_orders').select('id, company_id').in('id', data.orderIds);
+    if (error) throw new Error(error.message);
+    if (!orders?.length) return [];
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    const { data: docs, error: docsError } = await supabaseAdmin.from('supplier_delivery_documents')
+      .select('purchase_order_id, buyer_company_id, doc_number, doc_date, consegna_stato, lines').in('purchase_order_id', orders.map(o => o.id));
+    if (docsError) throw new Error(docsError.message);
+    const company = new Map(orders.map(o => [o.id, o.company_id]));
+    return (docs ?? [])
+      .filter(d => d.purchase_order_id && company.get(d.purchase_order_id) === d.buyer_company_id && d.consegna_stato !== 'non_consegnato')
+      .map(d => ({ orderId: d.purchase_order_id!, docNumber: d.doc_number, docDate: d.doc_date, lineCount: Array.isArray(d.lines) ? d.lines.length : 0 }));
+  });

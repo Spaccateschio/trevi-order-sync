@@ -286,8 +286,7 @@ export function PurchaseOrderDetail({
 
   if (receiving) {
     return <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2"><span className="font-semibold">{order.number}</span><Badge variant="outline">{order.supplier_name}</Badge></div>
-      <ReceiveGoodsPanel key={receiving.deliveryId ?? 'new'} orderId={order.order_id} deliveryId={receiving.deliveryId} onDone={() => { setReceiving(null); void refresh(); }} />
+      <ReceiveGoodsPanel key={receiving.deliveryId ?? 'new'} orderId={order.order_id} deliveryId={receiving.deliveryId} orderNumber={order.number} supplierName={order.supplier_name} onDone={() => { setReceiving(null); void refresh(); }} />
     </div>;
   }
 

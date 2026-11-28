@@ -112,3 +112,20 @@ describe('schede e ritardo dallo stato unico', () => {
     expect(matchesOrderListFilter(o, 'tutti', false, t)).toBe(true);
   });
 });
+
+import { showsReceiveButton, ddtArrivedLabel } from './order-list-presentation';
+describe('pulsante ricezione e DDT in elenco', () => {
+  const base = { send_status: 'inviato', delivery_date: null, created_at: '2026-11-01' };
+  it('pulsante solo per ordini in attesa di merce', () => {
+    expect(showsReceiveButton({ ...base, status: 'inviato' })).toBe(true);
+    expect(showsReceiveButton({ ...base, status: 'parzialmente_consegnato' })).toBe(true);
+    expect(showsReceiveButton({ ...base, status: 'bozza', send_status: 'da_inviare' })).toBe(false);
+    expect(showsReceiveButton({ ...base, status: 'consegnato' })).toBe(false);
+    expect(showsReceiveButton({ ...base, status: 'inviato' }, true)).toBe(false);
+  });
+  it('testo DDT senza parole di eccedenza', () => {
+    expect(ddtArrivedLabel({ docNumber: '345', lineCount: 4 })).toBe('DDT n. 345 arrivato · 4 righe');
+    expect(ddtArrivedLabel({ docNumber: '7', lineCount: 1 })).toBe('DDT n. 7 arrivato · 1 riga');
+    expect(ddtArrivedLabel(null)).toBeNull();
+  });
+});
