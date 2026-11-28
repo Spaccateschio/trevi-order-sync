@@ -39,7 +39,17 @@ DDT senza ORD → codice cliente (customer_records.internal_reference) → colle
 - **Righe senza corrispondenza**: bloccano la creazione finché Trevi non le abbina. Nessun abbinamento a caso.
 - **DDT reinviato da Incassi con modifiche** (stesso `external_id`): il documento si aggiorna come oggi. Prima della creazione il riquadro mostra i dati nuovi. Dopo la creazione l'ordine non viene riscritto in automatico: nella ricezione «Arrivato/Prezzo» seguono già il DDT aggiornato.
 - **DDT annullato in Incassi**: prima della creazione esce dal riquadro. Dopo la creazione compare solo un avviso al fornitore e nessun cambio automatico. Annullare resta un'azione esplicita con `supplier_cancel_order`, che già oggi blocca gli ordini caricati.
-- **Sicurezza**: crea l'ordine solo un amministratore del fornitore autenticato, con una RPC che verifica `auth.uid()` e che il DDT appartenga al suo fornitore. Il browser non sceglie né l'azienda né il cliente.
+- **Chi può confermare**: ogni utente del fornitore che oggi gestisce gli ordini in «Ordini clienti», senza permessi nuovi. Vedi la sezione qui sotto.
+
+### Permesso usato (verificato in lettura)
+- In «Ordini clienti» le azioni sugli ordini ricevuti (`supplier_cancel_order`, `decide_order_change`, `mark_order_seen_by_supplier`, la lettura `is_order_supplier`) non controllano un ruolo. Usano tutte `public.is_company_member(<azienda fornitrice>)`.
+- Quella funzione legge **`company_members`**: deve esistere una riga con `user_id = auth.uid()`, `company_id` = azienda fornitrice e `status = 'attivo'`. Nessun controllo su `company_member_roles` né sull'amministratore.
+- La nuova RPC fa la stessa verifica, nello stesso ordine:
+  1. blocca il DDT (`FOR UPDATE`) e ne legge `seller_company_id`
+  2. `auth.uid()` non nullo e `is_company_member(seller_company_id)`, altrimenti `RAISE EXCEPTION 'Non autorizzato'`
+  3. il cliente arriva dal DDT, cioè dal codice cliente e dal collegamento attivo con `seller_company_id` del DDT; il browser invia solo `_document_id` e gli abbinamenti delle righe
+  4. ogni articolo scelto per le righe deve appartenere a quel fornitore ed essere collegato a quel cliente, altrimenti viene rifiutato
+- La lettura del riquadro (`incassi_pending_documents`) usa lo stesso controllo e mostra solo i DDT delle aziende di cui l'utente è membro attivo.
 
 ### Non si toccano
 Danea, contestazioni, ponte Incassi (endpoint, abbinamento automatico con ORD) e `receive_purchase_order`. `TREVI_INCASSI_ENABLED` resta spento finché non lo decidi tu.
@@ -50,12 +60,13 @@ Danea, contestazioni, ponte Incassi (endpoint, abbinamento automatico con ORD) e
    - `purchase_orders.origin` text default `'cliente'` (valori `cliente`, `telefonico_ddt`)
    - `purchase_orders.source_document_id` uuid unico → `supplier_delivery_documents`
    - nuova `incassi_pending_documents()`, in sola lettura: DDT del fornitore senza ordine, con il cliente risolto dal codice e un avviso se esiste un ordine aperto per la data
-   - nuova `create_phone_order_from_document(_document_id, _line_matches jsonb)`: SECURITY DEFINER, admin del fornitore, lock sul documento, crea l'ordine e le righe e collega il DDT (`link_status = collegato`, `purchase_order_id`, `buyer_company_id`), poi registra `purchase_order_changes`
+   - nuova `create_phone_order_from_document(_document_id, _line_matches jsonb)`: SECURITY DEFINER, `auth.uid()` + `is_company_member` del fornitore del DDT (come in «Ordini clienti»), EXECUTE solo authenticated, lock sul documento, crea l'ordine e le righe e collega il DDT (`link_status = collegato`, `purchase_order_id`, `buyer_company_id`), poi registra `purchase_order_changes`
    - esclusione di `origin = 'telefonico_ddt'` dalle funzioni di scarico ordini verso Danea, solo come filtro
 3. **Codice**: helper puri per la risoluzione del cliente, l'abbinamento delle righe, l'abilitazione del pulsante e l'avviso, con i loro test vitest. Etichetta «Ordine telefonico» nelle liste degli ordini.
 4. **Test SQL in rollback su 3 EMME**:
    - un DDT crea un solo ordine
    - righe non abbinate rifiutate
-   - nessun accesso al cliente o a un altro fornitore
+   - un membro non attivo, il cliente o un altro fornitore vengono rifiutati
+   - un operatore attivo del fornitore senza ruolo di amministratore può confermare
    - nessuno scarico verso Danea
    - ordine esistente per la stessa data: solo avviso
