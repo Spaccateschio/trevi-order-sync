@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { CatalogList, type CatalogProduct } from "@/components/catalog/catalog-list";
-import { PriceInfoNotice } from "@/components/pricing/price-info-notice";
+import { PriceInfoIconButton } from "@/components/pricing/price-info-notice";
 import { fetchPriceSeriesForCatalog } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -249,12 +249,14 @@ function SellerCatalogue() {
           : "Prezzi confermati dal fornitore in fase d'ordine."
       }
       actions={
-        <Button asChild variant="outline" size="sm">
-          <Link to="/acquisti/catalogo">Tutti i fornitori</Link>
-        </Button>
+        <>
+          <PriceInfoIconButton sellerCompanyId={sellerId} />
+          <Button asChild variant="outline" size="sm">
+            <Link to="/acquisti/catalogo">Tutti i fornitori</Link>
+          </Button>
+        </>
       }
     >
-      <PriceInfoNotice sellerCompanyId={sellerId} className="mb-3" />
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Input
           value={search}
