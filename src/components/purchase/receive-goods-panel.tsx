@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getReceivePurchaseOrder, receivePurchaseOrder } from '@/lib/purchase.functions';
 import { DISPUTE_REASON_LABEL, type DisputeReason } from '@/lib/purchase';
 import { qty } from '@/lib/inventory';
-import { chooseReceiveOutcome, chooseOkDraft, canConfirmReceipt, confirmUntouched, initialReceiveDraft, isOkOutcome, isWeightLine, receiveCountsLabel, receivePayload, receiveRowIndicator, receiveSheetMoney, requestedPreparedLabel, type ReceiveDraft, type ReceiveLine, type ReceiveOutcome } from './receive-outcomes';
+import { chooseReceiveOutcome, chooseOkDraft, canConfirmReceipt, confirmUntouched, initialReceiveDraft, isOkOutcome, isWeightLine, receiveBlockingLabel, receiveCountsLabel, receivePayload, receiveRowHint, receiveRowIndicator, receiveSheetMoney, requestedPreparedLabel, type ReceiveDraft, type ReceiveLine, type ReceiveOutcome } from './receive-outcomes';
 
 /** Local draft until one atomic final confirmation. Supplier declarations remain read-only. */
 const itDate = (iso: string | null) => iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString('it-IT') : null;
@@ -81,12 +81,12 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone, orderNum
   };
   const row = (line: ReceiveLine) => {
     const indicator = receiveRowIndicator(line, draftFor(line), reviewed[line.key] ?? false);
+    const hint = receiveRowHint(line);
     return <li key={line.key}><button type="button" onClick={() => setOpenKey(line.key)} className="grid min-h-14 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-left" aria-label={`${line.name}: ${indicator === 'ok' ? 'a posto' : 'da controllare'}`}>
       {indicator === 'ok' ? <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground" aria-hidden="true"><Check className="size-4" /></span>
-        : indicator === 'da_controllare' ? <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-warning font-bold text-warning-foreground" aria-hidden="true">!</span>
         : <span className="size-7 shrink-0 rounded-full border-2 border-border" aria-hidden="true" />}
-      <span className="min-w-0"><span className="block break-words font-semibold">{line.name}</span><span className="block text-xs text-muted-foreground">{requestedPreparedLabel(line)}</span></span>
-      <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <span className="min-w-0"><span className="block break-words font-semibold">{line.name}</span><span className="block text-xs text-muted-foreground">{requestedPreparedLabel(line)}</span>{indicator === 'da_controllare' && hint ? <span className="block text-xs font-medium text-foreground">{hint}</span> : null}</span>
+      <span className="flex shrink-0 items-center gap-1">{indicator === 'da_controllare' ? <Badge variant="outline" className="border-warning bg-warning/15 text-xs text-foreground">Da confermare</Badge> : null}<ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" /></span>
     </button></li>;
   };
   return <section className="space-y-4 pb-4" aria-label="Ricezione merce">
@@ -108,10 +108,11 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone, orderNum
     </Collapsible> : null}
     <div className="sticky bottom-20 z-10 space-y-2 border-t border-border bg-background py-3 lg:bottom-2">
       <p className="text-sm">{receiveCountsLabel(lines, drafts, reviewed, hasDelivery)}</p>
+      {receiveBlockingLabel(lines, drafts, reviewed, hasDelivery) ? <p className="text-xs font-medium">{receiveBlockingLabel(lines, drafts, reviewed, hasDelivery)}</p> : null}
       <Button className="h-12 w-full font-bold" disabled={confirm.isPending || supplierDraft || !canConfirm} onClick={() => confirm.mutate()}><PackageCheck className="mr-2 size-4" />{confirm.isPending ? 'Conferma in corso…' : 'Conferma carico'}</Button>
     </div>
     <Sheet open={Boolean(open)} onOpenChange={value => { if (!value) setOpenKey(null); }}>
-      <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-xl">
+      <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-xl p-4 pt-5">
         {open ? (() => {
           const line = open;
           const initial = initialReceiveDraft(line, hasDelivery);
@@ -122,23 +123,23 @@ export function ReceiveGoodsPanel({ orderId, deliveryId = null, onDone, orderNum
           const replacement = products.data?.find(p => p.id === draft.substituteProductId);
           const [requested, prepared] = requestedPreparedLabel(line).replace('Richiesto ', '').split(' · Preparato ');
           const set = (patch: Partial<ReceiveDraft>) => change(line.key, initial, patch);
-          return <div className="space-y-4">
-            <SheetHeader className="text-left">
+          return <div className="space-y-3">
+            <SheetHeader className="space-y-0.5 pr-8 text-left">
               <SheetDescription>{line.code}{docTitle ? ` · ${docTitle}` : ''}</SheetDescription>
-              <SheetTitle className="break-words">{line.name}</SheetTitle>
+              <SheetTitle className="break-words text-base">{line.name}</SheetTitle>
             </SheetHeader>
-            <dl className="grid grid-cols-2 gap-2 text-sm">
-              {([['Richiesto', requested], ['Preparato', prepared], ['Prezzo', money.price ?? '—'], ['Importo', money.amount ?? '—']] as const).map(([label, value]) => <div key={label} className="min-w-0 rounded-md border border-border bg-muted/40 p-2"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="break-words font-semibold">{value}</dd></div>)}
+            <dl className="grid grid-cols-4 gap-1.5">
+              {([['Richiesto', requested], ['Preparato', prepared], ['Prezzo', money.price ?? '—'], ['Importo', money.amount ?? '—']] as const).map(([label, value]) => <div key={label} className="min-w-0 rounded-md border border-border bg-muted/40 px-1.5 py-1"><dt className="text-[11px] text-muted-foreground">{label}</dt><dd className="break-words text-xs font-semibold leading-tight">{value}</dd></div>)}
             </dl>
             {isWeightLine(line) ? <p className="text-xs text-muted-foreground">Prodotto a peso: la quantità è quella pesata alla preparazione</p> : null}
-            {line.incassi?.status === 'da_controllare' && line.incassi.reason ? <p className="text-xs text-muted-foreground">Da controllare: {line.incassi.reason}</p> : null}
+            {receiveRowHint(line) ? <p className="text-xs font-medium">{receiveRowHint(line)?.replace(': tocca per confermare', ': scegli l’esito e controlla la quantità per il magazzino')}</p> : null}
             <div className="grid grid-cols-3 gap-2">
               {([['ok', 'OK'], ['parziale', 'Parziale'], ['mancante', 'Mancante']] as const).map(([value, label]) => {
                 const active = value === 'ok' ? isOkOutcome(checked) : checked === value;
                 return <Button key={value} className="h-12" variant={active ? 'default' : 'outline'} aria-pressed={active} disabled={confirm.isPending || supplierDraft} onClick={() => pick(line, value)}>{active ? <Check className="mr-1 size-4" /> : null}{label}</Button>;
               })}
             </div>
-            <Button variant="link" className="h-11 px-0" aria-pressed={checked === 'danneggiato'} disabled={confirm.isPending || supplierDraft} onClick={() => pick(line, 'danneggiato')}>Altro: contesta</Button>
+            <Button variant="link" className="h-11 px-0 text-sm" aria-pressed={checked === 'danneggiato'} disabled={confirm.isPending || supplierDraft} onClick={() => pick(line, 'danneggiato')}>Altro: contesta</Button>
             <div className="grid gap-3">
               {checked === 'parziale' || checked === 'danneggiato' ? <label className="text-xs text-muted-foreground">Quantità arrivata ({line.unitCode})<Input className="mt-1 h-11" inputMode="decimal" value={draft.quantity} disabled={confirm.isPending} onChange={e => set({ quantity: e.target.value })} /></label> : null}
               {checked === 'danneggiato' ? <><label className="text-xs text-muted-foreground">Quantità buona ({line.unitCode})<Input className="mt-1 h-11" inputMode="decimal" value={draft.goodQuantity} disabled={confirm.isPending} onChange={e => set({ goodQuantity: e.target.value })} /></label><label className="text-xs text-muted-foreground">Motivo<Select value={draft.reason} onValueChange={value => set({ reason: value as DisputeReason })} disabled={confirm.isPending}><SelectTrigger className="mt-1 h-11"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(DISPUTE_REASON_LABEL).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></label></> : null}

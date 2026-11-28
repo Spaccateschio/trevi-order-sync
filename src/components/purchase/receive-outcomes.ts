@@ -46,7 +46,24 @@ export function initialReceiveDraft(line: ReceiveLine, hasDelivery = false): Rec
   // Excess rows open preset with DDT quantity and price; confirmation still happens only with «Conferma carico».
   return { ...base, outcome: 'eccedenza', quantity: ddt, goodQuantity: ddt, unitCost: str(line.incassi?.price ?? null), priceUnitCode: 'kg', priceQuantity: ddt };
 }
+const lower = (u: string | null | undefined) => u?.trim().toLowerCase() || null;
+/** DDT unit = row stock unit (e.g. ordered pz, DDT and stock kg): the DDT gives the stock quantity and price basis. */
+export function ddtFillsStock(line: ReceiveLine): boolean {
+  const d = line.incassi;
+  if (line.sameUnit || !d || d.qty == null || d.qty <= 0 || !lower(d.unit) || !lower(line.stockUnitCode)) return false;
+  if (lower(d.unit) === 'pz' && !Number.isInteger(d.qty)) return false;
+  return lower(d.unit) === lower(line.stockUnitCode);
+}
 function baseReceiveDraft(line: ReceiveLine): ReceiveDraft {
+  if (ddtFillsStock(line)) {
+    const d = line.incassi!;
+    const plain = baseReceiveDraftRaw(line);
+    const q = str(d.qty);
+    return { ...plain, stockQuantity: q, goodStockQuantity: q, unitCost: d.price != null ? str(d.price) : plain.unitCost, priceUnitCode: d.price != null ? d.unit ?? '' : plain.priceUnitCode, priceQuantity: d.price != null ? q : plain.priceQuantity };
+  }
+  return baseReceiveDraftRaw(line);
+}
+function baseReceiveDraftRaw(line: ReceiveLine): ReceiveDraft {
   return {
     outcome: null, quantity: str(ddtQty(line) ?? line.baseline), goodQuantity: str(ddtQty(line) ?? line.baseline),
     stockQuantity: str(line.sameUnit ? line.baseline : line.verifiedStock ?? line.declaredStock),
@@ -150,7 +167,17 @@ export function receiveLineColumns(line: ReceiveLine) {
 export type ReceiveRowIndicator = 'ok' | 'da_controllare' | 'da_fare';
 /** «!» only for rows already «da controllare» (unit, unmatched, uncertain match); weight differences never alarm. */
 export function receiveRowNeedsReview(line: ReceiveLine): boolean {
-  return line.incassi?.status === 'da_controllare';
+  return line.incassi?.status === 'da_controllare' && !ddtFillsStock(line);
+}
+const UNIT_WORDS: Record<string, string> = { pz: 'pezzi', pezzo: 'pezzi', cassa: 'casse', confezione: 'confezioni', vaschetta: 'vaschette', mazzo: 'mazzi', kg: 'kg' };
+const unitWord = (u: string) => UNIT_WORDS[u.trim().toLowerCase()] ?? u.trim();
+/** Plain-language hint shown under the name of a «Da confermare» row. */
+export function receiveRowHint(line: ReceiveLine): string | null {
+  if (!receiveRowNeedsReview(line)) return null;
+  const ordered = line.orderedUnitCode ?? line.unitCode;
+  const ddt = line.incassi?.unit;
+  if (ordered && ddt && lower(ordered) !== lower(ddt)) return `Ordinato a ${unitWord(ordered)}, consegnato a ${unitWord(ddt)}: tocca per confermare`;
+  return 'Il documento non indica bene la quantità: tocca per confermare';
 }
 export function receiveRowIndicator(line: ReceiveLine, draft: ReceiveDraft, reviewed = false): ReceiveRowIndicator {
   if (receiveRowNeedsReview(line) && !reviewed) return 'da_controllare';
@@ -189,7 +216,7 @@ export function canConfirmReceipt(lines: ReceiveLine[], drafts: Record<string, R
 /** Sheet boxes: DDT price with its unit and the amount only when units agree; nothing invented. */
 export function receiveSheetMoney(line: ReceiveLine, draft: ReceiveDraft): { price: string | null; amount: string | null } {
   const eur = (v: number) => v.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
-  const ddt = line.incassi && line.incassi.status !== 'da_controllare' ? line.incassi : null;
+  const ddt = line.incassi && line.incassi.price != null ? line.incassi : null;
   const priceValue = ddt?.price ?? (draft.unitCost.trim() ? parseQuantity(draft.unitCost) : line.unitCost);
   const priceUnit = ddt?.price != null ? ddt.unit ?? line.unitCode : draft.priceUnitCode || line.priceUnitCode;
   if (priceValue == null) return { price: null, amount: null };
@@ -200,4 +227,9 @@ export function receiveSheetMoney(line: ReceiveLine, draft: ReceiveDraft): { pri
 }
 export function isWeightLine(line: ReceiveLine): boolean {
   return (line.incassi?.unit ?? line.unitCode)?.trim().toLowerCase() === 'kg';
+}
+/** Names of rows still blocking «Conferma carico», so the button is never off without a reason. */
+export function receiveBlockingLabel(lines: ReceiveLine[], drafts: Record<string, ReceiveDraft>, reviewed: Record<string, boolean>, hasDelivery = false): string | null {
+  const names = lines.filter(l => receiveRowIndicator(l, draftOf(l, drafts, hasDelivery), reviewed[l.key] ?? false) === 'da_controllare').map(l => l.name);
+  return names.length ? `Da confermare prima del carico: ${names.join(', ')}.` : null;
 }

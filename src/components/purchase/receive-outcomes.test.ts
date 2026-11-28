@@ -144,3 +144,36 @@ describe('ricezione compatta (telefono)', () => {
     expect(chooseOkDraft(line, initialReceiveDraft(line)).outcome).toBe('ok');
   });
 });
+
+import { receiveRowHint, receiveSheetMoney, receiveBlockingLabel, ddtFillsStock } from './receive-outcomes';
+describe('righe con unità diversa (ordinate a pz, DDT in kg)', () => {
+  const mel: ReceiveLine = { ...line, key: 'm', name: 'Melanzane', ordered: 2, baseline: 2, unitCode: 'pz', orderedUnitCode: 'pz', stockUnitCode: 'kg', sameUnit: false, priceUnitCode: 'kg',
+    incassi: { documentId: 'd', status: 'da_controllare', docNumber: '16784', qty: 1.3, unit: 'kg', price: 1.35, reason: 'Unità diversa dall\'ordine' } };
+  it('DDT nell’unità di magazzino: precompila 1,3 kg e prezzo, nessun «Da confermare»', () => {
+    const d = initialReceiveDraft(mel);
+    expect(ddtFillsStock(mel)).toBe(true);
+    expect([d.stockQuantity, d.unitCost, d.priceUnitCode, d.priceQuantity]).toEqual(['1.3', '1.35', 'kg', '1.3']);
+    expect(receiveRowIndicator(mel, d)).toBe('da_fare');
+  });
+  it('OK registra 2 pz arrivati, 1,3 kg in magazzino, 1,35 €/kg su 1,3', () => {
+    const p = receivePayload(mel, chooseOkDraft(mel, initialReceiveDraft(mel)), false);
+    expect([p.arrived_quantity, p.verified_quantity, p.unit_cost, p.price_unit_code, p.price_quantity]).toEqual([2, 1.3, 1.35, 'kg', 1.3]);
+  });
+  it('Segna OK tutte abilita Conferma carico', () => {
+    const lines = [line, mel];
+    expect(canConfirmReceipt(lines, confirmUntouched(lines, {}), {})).toBe(true);
+  });
+  it('DDT in un’unità né d’ordine né di magazzino: niente precompilato, resta da confermare', () => {
+    const odd = { ...mel, incassi: { ...mel.incassi!, unit: 'cassa', qty: 1 } };
+    expect(initialReceiveDraft(odd).stockQuantity).toBe('');
+    expect(receiveRowIndicator(odd, confirmUntouched([odd], {})['m']!)).toBe('da_controllare');
+    expect(receiveRowHint(odd)).toBe('Ordinato a pezzi, consegnato a casse: tocca per confermare');
+    expect(receiveBlockingLabel([odd], {}, {})).toBe('Da confermare prima del carico: Melanzane.');
+  });
+  it('Prezzo e Importo dal DDT anche con unità diversa; «—» solo senza prezzo', () => {
+    const m = receiveSheetMoney(mel, initialReceiveDraft(mel));
+    expect([m.price, m.amount].map(v => v?.replace(/\s/g, ' '))).toEqual(['1,35 € / kg', '1,76 €']);
+    const noPrice = { ...mel, incassi: { ...mel.incassi!, price: null } };
+    expect(receiveSheetMoney(noPrice, initialReceiveDraft(noPrice)).price).toBeNull();
+  });
+});

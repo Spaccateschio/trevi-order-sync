@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, ChevronDown, LayoutGrid, MoreHorizontal, Rows3, Copy, FilePlus2, MoreVertical, MessageSquare, Pencil, Phone, Send, Trash2, Truck } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { ChevronDown, LayoutGrid, MoreHorizontal, Rows3, Copy, FilePlus2, MoreVertical, MessageSquare, Pencil, Phone, Send, Trash2, Truck } from "lucide-react";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { ChangeRequestDialog, OrderEditDialog, OrderCancelDialog } from "./order-customer-actions";
 import { managePurchaseOrder } from "@/lib/purchase.functions";
 import { useEffect, useMemo, useState } from "react";
@@ -45,9 +45,17 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
   const isMobile = useIsMobile();
   const [calling, setCalling] = useState<string | null>(null);
   const runCreate = useServerFn(createPurchaseOrdersFromList);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [receiveOnOpen, setReceiveOnOpen] = useState(false);
-  const [openDirect, setOpenDirect] = useState<OpenDirectPurchase | null>(null);
+  // Open order / receiving / direct purchase are steps in the URL, so the header back arrow returns to the list.
+  const router = useRouter();
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  const searchStr = useRouterState({ select: (st) => st.location.searchStr });
+  const stepParams = new URLSearchParams(searchStr);
+  const selected = stepParams.get("ordine");
+  const receiveOnOpen = stepParams.get("ricevi") === "1";
+  const directParam = stepParams.get("acquisto");
+  const openStep = (patch: Record<string, string>) => router.history.push(`${pathname}?${new URLSearchParams(patch).toString()}`);
+  const closeStep = () => { if (router.history.canGoBack()) router.history.back(); else router.history.replace(pathname); };
+  const openOrder = (orderId: string, receive: boolean) => openStep(receive ? { ordine: orderId, ricevi: "1" } : { ordine: orderId });
   const directQuery = useDirectPurchases(companyId);
   const [resharing, setResharing] = useState<OrderOverviewRow | null>(null);
   const [listId, setListId] = useState("");
@@ -234,6 +242,8 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
     },
   });
 
+  const directMatch = directParam ? (directQuery.data ?? []).find((row) => row.id === directParam) : undefined;
+  const openDirect: OpenDirectPurchase | null = directMatch ? { id: directMatch.id, listId: directMatch.shopping_list_id, status: directMatch.status } : null;
   const detailOpen = Boolean(current || openDirect);
   useEffect(() => { onDetailChange?.(detailOpen); }, [detailOpen, onDetailChange]);
   const directRows = showsDirectPurchases(filter) ? [...(directQuery.data ?? [])].sort(compareDirectPurchases) : [];
@@ -242,10 +252,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
   if (openDirect) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => setOpenDirect(null)}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Torna agli ordini
-        </Button>
-        <DirectPurchaseOpener companyId={companyId} open={openDirect} onClose={() => setOpenDirect(null)} onChanged={() => directQuery.refetch()} />
+        <DirectPurchaseOpener companyId={companyId} open={openDirect} onClose={closeStep} onChanged={() => directQuery.refetch()} />
       </div>
     );
   }
@@ -253,10 +260,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
   if (current) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => { setSelected(null); setReceiveOnOpen(false); }}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Torna agli ordini
-        </Button>
-        <PurchaseOrderDetail order={current} companyId={companyId} locations={locations} initialReceiving={receiveOnOpen} />
+        <PurchaseOrderDetail key={`${current.order_id}-${receiveOnOpen ? "r" : "d"}`} order={current} companyId={companyId} locations={locations} initialReceiving={receiveOnOpen} />
       </div>
     );
   }
@@ -337,7 +341,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
           const toggle = () => setExpanded((cur) => { const next = new Set(cur); if (next.has(order.order_id)) next.delete(order.order_id); else next.add(order.order_id); return next; });
           const ddtLabel = ddtArrivedLabel(ddtMap.get(order.order_id));
           const receiveNow = showsReceiveButton(order, dead);
-          const openReceive = () => { setReceiveOnOpen(true); setSelected(order.order_id); };
+          const openReceive = () => openOrder(order.order_id, true);
           const receiveButton = receiveNow ? <Button className="mt-2 h-12 w-full font-semibold" onClick={openReceive}><Truck className="mr-2 size-4" />{orderMainAction(order, dead)}</Button> : null;
           if (viewMode === "row" && !expanded.has(order.order_id)) return <div key={order.order_id} className="min-w-0"><button type="button" onClick={toggle} aria-expanded={false} className={`flex w-full min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left ${supplierColors.toneByName(order.supplier_name) ? "supplier-tint border-l-[6px] border-l-[var(--supplier-tone)]" : ""}`} style={supplierToneStyle(supplierColors.toneByName(order.supplier_name))}>
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${stage.currentColor}`} aria-hidden="true" />
@@ -359,7 +363,7 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={`Azioni ${order.number}`} title="Azioni ordine"><MoreVertical className="size-4" /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => { setReceiveOnOpen(false); setSelected(order.order_id); }}>Visualizza ordine</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => openOrder(order.order_id, false)}>Visualizza ordine</DropdownMenuItem>
                   {!dead && canReshareOrder(order.status) ? <DropdownMenuItem disabled={!seenQuery.isSuccess} onSelect={() => setResharing(order)}><Send className="mr-2 size-4" />Rimanda ordine</DropdownMenuItem> : null}
                   {b2bSent ? <>
                     <DropdownMenuSeparator />
@@ -387,10 +391,10 @@ export function PurchaseOrdersPanel({ companyId, initialFilter, onDetailChange }
             {request?.status === "rifiutata" ? <p className="mb-2 text-xs text-destructive">Richiesta rifiutata{request.decision_note ? `: ${request.decision_note}` : ""}</p> : null}
             {dead && seenQuery.data?.find(r => r.id === order.order_id)?.cancel_reason ? <p className="mb-2 text-xs text-destructive">Motivo: {seenQuery.data?.find(r => r.id === order.order_id)?.cancel_reason}</p> : null}
             {ddtLabel ? <p className="mb-1 text-xs font-medium">{ddtLabel}</p> : null}
-            {receiveButton ?? <Button size="sm" className="font-semibold" onClick={() => { setReceiveOnOpen(!dead && (order.status === 'inviato' || order.status === 'parzialmente_consegnato')); setSelected(order.order_id); }}>{orderMainAction(order, dead)}</Button>}
+            {receiveButton ?? <Button size="sm" className="font-semibold" onClick={() => openOrder(order.order_id, !dead && (order.status === 'inviato' || order.status === 'parzialmente_consegnato'))}>{orderMainAction(order, dead)}</Button>}
           </article>;
         })}
-        {directRows.map(row => <DirectPurchaseCard key={row.id} row={row} onOpen={() => setOpenDirect({ id: row.id, listId: row.shopping_list_id, status: row.status })} />)}
+        {directRows.map(row => <DirectPurchaseCard key={row.id} row={row} onOpen={() => openStep({ acquisto: row.id })} />)}
       </div>
       {directQuery.isError ? <p className="text-sm text-destructive">{directQuery.error.message}</p> : null}
       {filter === "acquisti_diretti" && !directQuery.isLoading && directCount === 0 ? <p className="text-sm text-muted-foreground">Nessun acquisto diretto.</p> : null}
