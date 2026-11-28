@@ -460,3 +460,7 @@
 ## 26/11 — «Svuota quantità» vicino a Card e Righe
 - [x] Pulsante spostato dal riquadro di stato alla barra con la scelta Card/Righe (computer e cellulare); stessa finestra di conferma, stesse regole (solo righe non ordinate e non escluse, nessun salvataggio prima del Carrello).
 - [x] Verificato a schermo su ALDER con lista aperta: pulsante adiacente a Card/Righe su computer e telefono, finestra che si apre e si annulla senza scrivere nulla.
+
+## 28/11 — Ordini telefonici da DDT Incassi senza ORD
+- [x] Mockup riquadro «DDT da abbinare» in «Ordini clienti» (dati di esempio, nessuna scrittura)
+- [ ] In attesa dell'approvazione di Andrea: migrazione (origin, source_document_id, incassi_pending_documents, create_phone_order_from_document con is_company_member), esclusione da Danea, test SQL in rollback su 3 EMME
